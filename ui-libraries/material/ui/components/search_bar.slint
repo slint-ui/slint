@@ -5,7 +5,7 @@ import { ListItem } from "../items/list_item.slint";
 import { Avatar, ListTile } from "./list.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
 import { Icon } from "./icon.slint";
@@ -13,7 +13,7 @@ import { IconButton } from "./icon_button.slint";
 import { Icons } from "../icons/icons.slint";
 import { HorizontalDivider } from "./divider.slint";
 import { ListView } from "./list_view.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 
 component SearchTile inherits ListTile {
     in property <image> action_button_icon;
@@ -65,8 +65,8 @@ component SearchTextInput  {
             x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
             width: max(parent.width - self.text-cursor-width, self.preferred-width);
             height: 100%;
-            font_size: Typography.body_large.font_size;
-            font_weight: Typography.body_large.font_weight;
+            font_size: MaterialTypography.body_large.font_size;
+            font_weight: MaterialTypography.body_large.font_weight;
             vertical_alignment: center;
             single_line: true;
             color: MaterialPalette.on_surface;
@@ -111,7 +111,7 @@ component SearchTextInput  {
             text: root.placeholder_text;
             color: MaterialPalette.on_surface_variant;
             vertical_alignment: center;
-            style: Typography.body_large;
+            style: MaterialTypography.body_large;
         }
     }
 }
@@ -158,8 +158,8 @@ export component SearchBar {
 
                 MaterialText {
                     text: root.text;
-                    font_size: Typography.body_large.font_size;
-                    font_weight: Typography.body_large.font_weight;
+                    font_size: MaterialTypography.body_large.font_size;
+                    font_weight: MaterialTypography.body_large.font_weight;
                     vertical_alignment: center;
                     color: MaterialPalette.on_surface;
 
@@ -270,7 +270,7 @@ export component SearchBar {
                     text: root.empty_text;
                     color: root.color;
                     horizontal_alignment: center;
-                    style: Typography.label_small;
+                    style: MaterialTypography.label_small;
                 }
 
                 if root.items.length == 0 : Rectangle {}
@@ -300,8 +300,8 @@ export component SearchBar {
             }
 
             animate height {
-                duration: Animations.standard_accelerate_duration;
-                easing: Animations.standard_easing;
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
             }
         }
 

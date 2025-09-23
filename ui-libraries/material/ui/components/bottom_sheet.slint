@@ -5,7 +5,7 @@ import { Elevation } from "./elevation.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { Horizontal } from "./horizontal.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Modal } from "./modal.slint";
 
 component BottomSheet {
@@ -71,7 +71,7 @@ export component ModalBottomSheet inherits PopupWindow {
         height: 100%;
 
         sheet := BottomSheet {
-            property <duration> y_duration: Animations.standard_accelerate_duration;
+            property <duration> y_duration: MaterialAnimations.standard_accelerate_duration;
             property <length> y_drag_start;
             property <length> height_drag_start;
 
@@ -98,14 +98,14 @@ export component ModalBottomSheet inherits PopupWindow {
                     return;
                 }
 
-                self.y_duration = Animations.standard_accelerate_duration;
+                self.y_duration = MaterialAnimations.standard_accelerate_duration;
                 self.height = self.height_drag_start;
                 self.y = self.y_drag_start;
             }
 
             animate y, height {
                 duration: self.y_duration;
-                easing: Animations.standard_easing;
+                easing: MaterialAnimations.standard_easing;
             }
         }
 

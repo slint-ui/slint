@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { MaterialText } from "./material_text.slint";
 import { IconButton } from "./icon_button.slint";
 import { Icon } from "./icon.slint";
@@ -77,8 +77,8 @@ export component TextField {
                         input := TextInput {
                             x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
                             width: max(parent.width - self.text-cursor-width, self.preferred-width);
-                            font_size: Typography.body_large.font_size;
-                            font_weight: Typography.body_large.font_weight;
+                            font_size: MaterialTypography.body_large.font_size;
+                            font_weight: MaterialTypography.body_large.font_weight;
                             text_cursor_width: MaterialStyleMetrics.size_3;
                             vertical_alignment: bottom;
                             single_line: true;
@@ -119,18 +119,18 @@ export component TextField {
                             width: 100%;
                             text: root.label;
                             color: root.highlight;
-                            style: Typography.body_large;
+                            style: MaterialTypography.body_large;
 
                             states [
                                 on_top when root.text != "" || input.has_focus : {
                                     y: 0;
-                                    style: Typography.body_small;
+                                    style: MaterialTypography.body_small;
                                 }
                             ]
 
                             animate font_size, y {
-                                 duration: Animations.standard_fast_duration;
-                                 easing: Animations.standard_easing;
+                                 duration: MaterialAnimations.standard_fast_duration;
+                                 easing: MaterialAnimations.standard_easing;
                             }
                         }
                     }
@@ -153,8 +153,8 @@ export component TextField {
                 background: root.highlight;
 
                 animate height {
-                     duration: Animations.standard_fast_duration;
-                     easing: Animations.standard_easing;
+                     duration: MaterialAnimations.standard_fast_duration;
+                     easing: MaterialAnimations.standard_easing;
                 }
             }
         }
@@ -165,7 +165,7 @@ export component TextField {
 
             supporting_text := MaterialText {
                 text: root.supporting_text;
-                style: Typography.body_small;
+                style: MaterialTypography.body_small;
                 color: root.highlight;
                 opacity: root.enabled ? 1 : MaterialPalette.disable_opacity;
             }

@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { Elevation } from "elevation.slint";
 import { MaterialText } from "./material_text.slint";
 import { TextButton } from "./text_button.slint";
 import { IconButton } from "./icon_button.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { Icons } from "../icons/icons.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 
 export component SnackBar inherits PopupWindow {
     in property <string> text;
@@ -42,7 +42,7 @@ export component SnackBar inherits PopupWindow {
                     vertical_alignment: center;
                     horizontal_alignment: left;
                     wrap: word_wrap;
-                    style: Typography.body_medium;
+                    style: MaterialTypography.body_medium;
                     color: MaterialPalette.inverse_on_surface;
                 }
 
@@ -67,8 +67,8 @@ export component SnackBar inherits PopupWindow {
         }
 
         animate y, height {
-            duration: Animations.standard_accelerate_duration;
-            easing: Animations.standard_easing;
+            duration: MaterialAnimations.standard_accelerate_duration;
+            easing: MaterialAnimations.standard_easing;
         }
     }
 

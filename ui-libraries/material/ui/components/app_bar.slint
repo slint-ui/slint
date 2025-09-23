@@ -3,7 +3,7 @@
 
 import { IconButton } from "./icon_button.slint";
 import { MaterialText } from "./material_text.slint";
-import { Typography, TextStyle } from "../styling/typography.slint";
+import { MaterialTypography, TextStyle } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { IconButtonItem } from "./bottom_app_bar.slint";
@@ -131,7 +131,7 @@ export component AppBar {
             appbar_padding_top: MaterialStyleMetrics.padding_8;
             appbar_padding_bottom: self.padding_top;
             spacing: MaterialStyleMetrics.spacing_6;
-            text_style: Typography.title_large;
+            text_style: MaterialTypography.title_large;
 
             leading_button_clicked => {
                 root.leading_button_clicked();
@@ -166,7 +166,7 @@ export component SmallAppBar {
             appbar_padding_top: MaterialStyleMetrics.padding_8;
             appbar_padding_bottom: self.padding_top;
             spacing: MaterialStyleMetrics.spacing_4;
-            text_style: Typography.title_large;
+            text_style: MaterialTypography.title_large;
 
             leading_button_clicked => {
                 root.leading_button_clicked();
@@ -203,7 +203,7 @@ export component MediumAppBar {
             vertical_spacing: MaterialStyleMetrics.spacing_4;
             spacing: MaterialStyleMetrics.spacing_4;
             two_rows: true;
-            text_style: Typography.headline_small;
+            text_style: MaterialTypography.headline_small;
             text_padding: MaterialStyleMetrics.padding_16;
 
             leading_button_clicked => {
@@ -241,7 +241,7 @@ export component LargeAppBar {
             vertical_spacing: MaterialStyleMetrics.spacing_40;
             spacing: MaterialStyleMetrics.spacing_4;
             two_rows: true;
-            text_style: Typography.headline_medium;
+            text_style: MaterialTypography.headline_medium;
             text_padding: MaterialStyleMetrics.padding_16;
 
             leading_button_clicked => {

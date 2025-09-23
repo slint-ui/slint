@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 import { BaseButton } from "./base_button.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { Icons } from "../icons/icons.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { IconButton } from "icon_button.slint";
 
 export component ActionChip {
@@ -99,7 +99,7 @@ export component FilterChip {
             }
         ]
 
-        animate width { duration: Animations.standard_accelerate_duration; easing: Animations.standard_easing; }
+        animate width { duration: MaterialAnimations.standard_accelerate_duration; easing: MaterialAnimations.standard_easing; }
     }
 
     function toggle() {
@@ -184,7 +184,7 @@ export component InputChip {
             }
         ]
 
-        animate width { duration: Animations.standard_accelerate_duration; easing: Animations.standard_easing; }
+        animate width { duration: MaterialAnimations.standard_accelerate_duration; easing: MaterialAnimations.standard_easing; }
     }
 
     function toggle() {

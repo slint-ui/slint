@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { ToolTip } from "./tooltip.slint";
 import { MaterialWindowAdapter } from "./material_window.slint";
@@ -31,7 +31,7 @@ export component Ripple {
                 self.width =  root.width * 2 * 1.4142;
             }
 
-            animate width { duration: Animations.ripple_duration; easing: Animations.ripple_easing; }
+            animate width { duration: MaterialAnimations.ripple_duration; easing: MaterialAnimations.ripple_easing; }
         }
     }
 }
@@ -79,7 +79,7 @@ export component StateLayer {
         }
     ]
 
-    animate state_layer_opacity { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+    animate state_layer_opacity { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
 }
 
 export component FocusTouchArea inherits TouchArea {

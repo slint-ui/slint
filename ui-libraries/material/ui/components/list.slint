@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { MaterialPalette } from "../styling/material_palette.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
@@ -64,7 +64,7 @@ export component ListTile {
                     vertical_alignment: center;
                     horizontal_alignment: center;
                     color: root.avatar_foreground;
-                    style: Typography.title_medium;
+                    style: MaterialTypography.title_medium;
                 }
 
                 if root.avatar_icon.width > 0 && root.avatar_icon.height > 0 : Icon {
@@ -82,14 +82,14 @@ export component ListTile {
                     text: root.text;
                     color: root.color;
                     overflow: elide;
-                    style: Typography.body_large;
+                    style: MaterialTypography.body_large;
                 }
 
                 if root.supporting_text != "" : MaterialText {
                     text: root.supporting_text;
                     color: root.color;
                     overflow: elide;
-                    style: Typography.body_medium;
+                    style: MaterialTypography.body_medium;
                 }
             }
 

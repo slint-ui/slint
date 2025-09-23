@@ -3,7 +3,7 @@
 
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Icons } from "../icons/icons.slint";
 import { ListTile } from "./list.slint";
 import { StateLayerArea } from "./state_layer.slint";
@@ -60,8 +60,8 @@ export component CheckBox {
             }
 
              animate background, border_width {
-                duration: Animations.opacity_duration;
-                easing: Animations.opacity_easing;
+                duration: MaterialAnimations.opacity_duration;
+                easing: MaterialAnimations.opacity_easing;
              }
         }
 

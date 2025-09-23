@@ -3,11 +3,11 @@
 
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { TextButton } from "./text_button.slint";
 import { FilledButton } from "./filled_button.slint";
 import { MaterialText } from "./material_text.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Modal } from "./modal.slint";
 import { Icon } from "./icon.slint";
 import { IconButton } from "./icon_button.slint";
@@ -60,7 +60,7 @@ export component FullscreenDialog inherits PopupWindow {
 
                 MaterialText {
                     text: root.title;
-                    style: Typography.headline_small;
+                    style: MaterialTypography.headline_small;
                     color: MaterialPalette.on_surface;
                     vertical_alignment: center;
                 }
@@ -151,7 +151,7 @@ export component BaseDialog {
                     if root.title != "" : MaterialText {
                         horizontal_alignment: root.has_icon ? center : left;
                         text: root.title;
-                        style: Typography.headline_small;
+                        style: MaterialTypography.headline_small;
                         color: MaterialPalette.on_surface;
                     }
 
@@ -190,7 +190,7 @@ export component BaseDialog {
                 }
             }
 
-            animate opacity { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+            animate opacity { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
         }
 
         clicked => {

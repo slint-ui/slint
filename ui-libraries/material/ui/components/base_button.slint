@@ -4,7 +4,7 @@
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
 import { Icon } from "./icon.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { Avatar } from "./list.slint";
 
@@ -60,7 +60,7 @@ export component BaseButton inherits StateLayerArea {
 
         if root.text != "" : MaterialText {
             text: root.text;
-            style: Typography.label_large;
+            style: MaterialTypography.label_large;
             color: root.color;
             opacity: root.enabled ? 100% : 38%;
             overflow: clip;

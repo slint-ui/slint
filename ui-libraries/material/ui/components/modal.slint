@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { MaterialPalette } from "../styling/material_palette.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 
 export component Modal {
     callback clicked <=> touch_area.clicked;
@@ -14,7 +14,7 @@ export component Modal {
             @children
         }
 
-        animate background { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+        animate background { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
     }
 
     Timer {
