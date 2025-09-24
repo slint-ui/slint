@@ -13,7 +13,7 @@ export TestCase := Window {
     property<[int]> model: [1];
     VerticalLayout {
         under := TouchArea {
-            HorizontalLayout {
+            VerticalLayout {
                 for value in model: TouchArea {
                     horizontal-stretch: 5;
                     vertical-stretch: 5;
