@@ -3,6 +3,8 @@
 
 pub use parley;
 
+use std::cell::RefCell;
+
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
@@ -20,8 +22,9 @@ fn font_context() -> parley::FontContext {
     }
 }
 
-static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<Brush>> =
-    std::sync::LazyLock::new(|| Default::default());
+std::thread_local! {
+    static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
+}
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub struct Brush {
@@ -58,60 +61,63 @@ impl Default for LayoutOptions {
 }
 
 pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
-    let mut font_context = font_context();
-    let mut layout_context = LAYOUT_CONTEXT.clone();
-
-    let mut builder = layout_context.ranged_builder(&mut font_context, text, scale_factor, true);
-    if let Some(ref font_request) = options.font_request {
-        if let Some(family) = &font_request.family {
-            builder.push_default(parley::StyleProperty::FontStack(
-                parley::style::FontStack::Single(parley::style::FontFamily::Named(
-                    family.as_str().into(),
-                )),
-            ));
-        }
-        if let Some(weight) = font_request.weight {
-            builder.push_default(parley::StyleProperty::FontWeight(
-                parley::style::FontWeight::new(weight as f32),
-            ));
-        }
-        if let Some(letter_spacing) = font_request.letter_spacing {
-            builder.push_default(parley::StyleProperty::LetterSpacing(letter_spacing.get()));
-        }
-        builder.push_default(parley::StyleProperty::FontStyle(if font_request.italic {
-            parley::style::FontStyle::Italic
-        } else {
-            parley::style::FontStyle::Normal
-        }));
-    }
+    let max_physical_width = options.max_physical_width.map(|max_width| max_width.get());
     let pixel_size = options
         .font_request
+        .as_ref()
         .and_then(|font_request| font_request.pixel_size)
         .unwrap_or(DEFAULT_FONT_SIZE);
-    builder.push_default(parley::StyleProperty::FontSize(pixel_size.get()));
-    builder.push_default(parley::StyleProperty::WordBreak(match options.text_wrap {
-        TextWrap::NoWrap => parley::style::WordBreakStrength::KeepAll,
-        TextWrap::WordWrap => parley::style::WordBreakStrength::Normal,
-        TextWrap::CharWrap => parley::style::WordBreakStrength::BreakAll,
-    }));
-    if options.text_overflow == TextOverflow::Elide {
-        todo!();
-    }
 
-    builder.push_default(parley::StyleProperty::Brush(Brush {
-        stroke: options.stroke,
-        ..Default::default()
-    }));
-    if let Some(selection) = options.selection {
-        builder.push(
-            parley::StyleProperty::Brush(Brush { stroke: options.stroke, is_selected: true }),
-            selection,
-        );
-    }
+    let mut layout = LAYOUT_CONTEXT.with_borrow_mut(move |layout_context| {
+        let mut font_context = font_context();
+        let mut builder =
+            layout_context.ranged_builder(&mut font_context, text, scale_factor, true);
+        if let Some(ref font_request) = options.font_request {
+            if let Some(family) = &font_request.family {
+                builder.push_default(parley::StyleProperty::FontStack(
+                    parley::style::FontStack::Single(parley::style::FontFamily::Named(
+                        family.as_str().into(),
+                    )),
+                ));
+            }
+            if let Some(weight) = font_request.weight {
+                builder.push_default(parley::StyleProperty::FontWeight(
+                    parley::style::FontWeight::new(weight as f32),
+                ));
+            }
+            if let Some(letter_spacing) = font_request.letter_spacing {
+                builder.push_default(parley::StyleProperty::LetterSpacing(letter_spacing.get()));
+            }
+            builder.push_default(parley::StyleProperty::FontStyle(if font_request.italic {
+                parley::style::FontStyle::Italic
+            } else {
+                parley::style::FontStyle::Normal
+            }));
+        }
+        builder.push_default(parley::StyleProperty::FontSize(pixel_size.get()));
+        builder.push_default(parley::StyleProperty::WordBreak(match options.text_wrap {
+            TextWrap::NoWrap => parley::style::WordBreakStrength::KeepAll,
+            TextWrap::WordWrap => parley::style::WordBreakStrength::Normal,
+            TextWrap::CharWrap => parley::style::WordBreakStrength::BreakAll,
+        }));
+        if options.text_overflow == TextOverflow::Elide {
+            todo!();
+        }
 
-    let max_physical_width = options.max_physical_width.map(|max_width| max_width.get());
+        builder.push_default(parley::StyleProperty::Brush(Brush {
+            stroke: options.stroke,
+            ..Default::default()
+        }));
+        if let Some(selection) = options.selection {
+            builder.push(
+                parley::StyleProperty::Brush(Brush { stroke: options.stroke, is_selected: true }),
+                selection,
+            );
+        }
 
-    let mut layout: parley::Layout<Brush> = builder.build(text);
+        builder.build(text)
+    });
+
     layout.break_all_lines(max_physical_width);
     layout.align(
         max_physical_width,
