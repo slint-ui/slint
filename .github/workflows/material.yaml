@@ -101,11 +101,11 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           name: wasm_gallery
-          path: docs/dist/wasm
+          path: ui-libraries/material/docs/dist/wasm
       - uses: actions/download-artifact@v5
         with:
           name: apk_gallery
-          path: docs/dist/apk
+          path: ui-libraries/material/docs/dist/apk
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
