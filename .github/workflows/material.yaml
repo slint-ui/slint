@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-name: Build, test and deploy docs
+name: Material - Build, test and publish
 
 on:
   workflow_dispatch:
@@ -11,7 +11,6 @@ on:
         description: "Publish master to Cloudflare Pages"
         default: false
         required: false
-  pull_request:
   push:
     branches-ignore:
       - master
