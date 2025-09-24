@@ -28,7 +28,6 @@ std::thread_local! {
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub struct Brush {
-    pub is_selected: bool,
     pub stroke: Option<TextStrokeStyle>,
 }
 
@@ -38,7 +37,6 @@ pub struct LayoutOptions {
     pub horizontal_align: TextHorizontalAlignment,
     pub vertical_align: TextVerticalAlignment,
     pub stroke: Option<TextStrokeStyle>,
-    pub selection: Option<std::ops::Range<usize>>,
     pub font_request: Option<FontRequest>,
     pub text_wrap: TextWrap,
     pub text_overflow: TextOverflow,
@@ -52,7 +50,6 @@ impl Default for LayoutOptions {
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             stroke: None,
-            selection: None,
             font_request: None,
             text_wrap: TextWrap::WordWrap,
             text_overflow: TextOverflow::Clip,
@@ -104,16 +101,7 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
             todo!();
         }
 
-        builder.push_default(parley::StyleProperty::Brush(Brush {
-            stroke: options.stroke,
-            ..Default::default()
-        }));
-        if let Some(selection) = options.selection {
-            builder.push(
-                parley::StyleProperty::Brush(Brush { stroke: options.stroke, is_selected: true }),
-                selection,
-            );
-        }
+        builder.push_default(parley::StyleProperty::Brush(Brush { stroke: options.stroke }));
 
         builder.build(text)
     });

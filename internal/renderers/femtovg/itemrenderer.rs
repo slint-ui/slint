@@ -199,8 +199,6 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
     layout: &sharedparley::Layout,
     canvas: &mut Canvas<R>,
     paint: &femtovg::Paint,
-    selection_foreground_color: Color,
-    selection_background_color: Color,
 ) {
     for line in layout.lines() {
         for item in line.items() {
@@ -213,30 +211,6 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
 
                     let brush = glyph_run.style().brush;
 
-                    let mut paint = paint.clone();
-                    if brush.is_selected {
-                        if let Some(start) = glyph_run.positioned_glyphs().next() {
-                            let selection_rect = PhysicalRect::new(
-                                PhysicalPoint::new(
-                                    start.x,
-                                    start.y + layout.y_offset - run.font_size(),
-                                ),
-                                PhysicalSize::new(
-                                    glyph_run.advance(),
-                                    run.font_size() + run.metrics().descent,
-                                ),
-                            );
-                            canvas.fill_path(
-                                &rect_to_path(selection_rect),
-                                &femtovg::Paint::color(to_femtovg_color(
-                                    &selection_background_color,
-                                )),
-                            );
-                        }
-
-                        paint.set_color(to_femtovg_color(&selection_foreground_color));
-                    }
-
                     let glyphs = glyph_run.positioned_glyphs().map(|glyph: parley::Glyph| {
                         femtovg::PositionedGlyph {
                             x: glyph.x,
@@ -248,15 +222,15 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
 
                     match brush.stroke {
                         Some(i_slint_core::items::TextStrokeStyle::Outside) => {
-                            canvas.stroke_glyphs(glyphs.clone(), &paint).unwrap();
-                            canvas.fill_glyphs(glyphs, &paint).unwrap();
+                            canvas.stroke_glyphs(glyphs.clone(), paint).unwrap();
+                            canvas.fill_glyphs(glyphs, paint).unwrap();
                         }
                         Some(i_slint_core::items::TextStrokeStyle::Center) => {
-                            canvas.fill_glyphs(glyphs.clone(), &paint).unwrap();
-                            canvas.stroke_glyphs(glyphs, &paint).unwrap();
+                            canvas.fill_glyphs(glyphs.clone(), paint).unwrap();
+                            canvas.stroke_glyphs(glyphs, paint).unwrap();
                         }
                         None => {
-                            canvas.fill_glyphs(glyphs, &paint).unwrap();
+                            canvas.fill_glyphs(glyphs, paint).unwrap();
                         }
                     }
                 }
@@ -463,7 +437,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let mut canvas = self.canvas.borrow_mut();
 
-        draw_glyphs(&layout, &mut canvas, &paint, Color::default(), Color::default());
+        draw_glyphs(&layout, &mut canvas, &paint);
     }
 
     fn draw_text_input(
@@ -517,18 +491,39 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 max_physical_width: Some(width * self.scale_factor),
                 max_height: Some(height),
                 vertical_align: text_input.vertical_alignment(),
-                selection: Some(min_select..max_select),
                 font_request: Some(font_request),
                 ..Default::default()
             },
         );
-        draw_glyphs(
-            &layout,
-            &mut canvas,
-            &paint,
-            text_input.selection_foreground_color(),
-            text_input.selection_background_color(),
+
+        let selection = parley::layout::cursor::Selection::new(
+            parley::layout::cursor::Cursor::from_byte_index(
+                &layout,
+                min_select,
+                Default::default(),
+            ),
+            parley::layout::cursor::Cursor::from_byte_index(
+                &layout,
+                max_select,
+                Default::default(),
+            ),
         );
+
+        selection.geometry_with(&layout, |rect, _| {
+            let mut cursor_rect = femtovg::Path::new();
+            cursor_rect.rect(
+                rect.min_x() as _,
+                rect.min_y() as f32 + layout.y_offset,
+                rect.width() as _,
+                rect.height() as _,
+            );
+            canvas.fill_path(
+                &cursor_rect,
+                &femtovg::Paint::color(to_femtovg_color(&text_input.selection_background_color())),
+            );
+        });
+
+        draw_glyphs(&layout, &mut canvas, &paint);
 
         if cursor_visible {
             let cursor = parley::layout::cursor::Cursor::from_byte_index(
@@ -980,7 +975,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let layout = sharedparley::layout(string, self.scale_factor.get(), Default::default());
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
-        draw_glyphs(&layout, &mut canvas, &paint, color, color);
+        draw_glyphs(&layout, &mut canvas, &paint);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
