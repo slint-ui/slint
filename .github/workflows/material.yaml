@@ -102,9 +102,14 @@ jobs:
         with:
           name: apk_gallery
           path: ui-libraries/material/docs/dist/apk
+      - name: prepare zip archive
+        working-directory: ui-libraries/material
+        run: |
+            mkdir -p material-1.0
+            cp -a src material-1.0
       - name: zip up material library
         working-directory: ui-libraries/material
-        run: zip -r docs/dist/zip/material-1.0.zip src
+        run: zip -r docs/dist/zip/material-1.0.zip material-1.0
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
