@@ -586,7 +586,7 @@ pub enum MinMaxOp {
     Max,
 }
 
-/// The Expression is hold by properties, so it should not hold any strong references to node from the object_tree
+/// The Expression is held by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone, Default)]
 pub enum Expression {
     /// Something went wrong (and an error will be reported)
