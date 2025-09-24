@@ -681,7 +681,7 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
 
     #[cfg(feature = "std")]
     fn is_kde() -> bool {
-        // assume some unix check if XDG_CURRENT_DESKTOP stats with K
+        // assume some Unix, check if XDG_CURRENT_DESKTOP starts with K
         std::env::var("XDG_CURRENT_DESKTOP")
             .ok()
             .and_then(|v| v.as_bytes().first().copied())
