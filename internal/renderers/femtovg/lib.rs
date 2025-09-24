@@ -34,7 +34,7 @@ type PhysicalBorderRadius = BorderRadius<f32, PhysicalPx>;
 
 use self::itemrenderer::CanvasRc;
 
-mod fonts;
+mod font_cache;
 mod images;
 mod itemrenderer;
 #[cfg(feature = "opengl")]
@@ -345,11 +345,8 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
                 ..Default::default()
             },
         );
-        let cursor = parley::layout::cursor::Cursor::from_point(
-            &layout,
-            pos.x,
-            pos.y - layout.y_offset,
-        );
+        let cursor =
+            parley::layout::cursor::Cursor::from_point(&layout, pos.x, pos.y - layout.y_offset);
 
         let visual_representation = text_input.visual_representation(None);
         visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())

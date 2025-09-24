@@ -110,7 +110,7 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
     }
 
     let max_physical_width = options.max_physical_width.map(|max_width| max_width.get());
-    
+
     let mut layout: parley::Layout<Brush> = builder.build(text);
     layout.break_all_lines(max_physical_width);
     layout.align(

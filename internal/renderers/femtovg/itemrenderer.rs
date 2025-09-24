@@ -30,7 +30,7 @@ use crate::images::TextureImporter;
 
 use super::images::{Texture, TextureCacheKey};
 use super::PhysicalSize;
-use super::{fonts, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect};
+use super::{font_cache, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect};
 
 type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 
@@ -209,7 +209,7 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                     let run = glyph_run.run();
 
                     let font_id =
-                        fonts::FONT_CACHE.with(|cache| cache.borrow_mut().font(run.font()));
+                        font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(run.font()));
 
                     let brush = glyph_run.style().brush;
 

@@ -137,7 +137,7 @@ impl OpenGLBackend {
 
         let femtovg_canvas = femtovg::Canvas::new_with_text_context(
             gl_renderer,
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+            crate::font_cache::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
 
