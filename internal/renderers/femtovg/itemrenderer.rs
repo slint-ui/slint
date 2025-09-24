@@ -452,7 +452,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 horizontal_align,
                 vertical_align,
                 max_height: Some(max_height),
-                max_width: Some(max_width),
+                max_physical_width: Some(max_width * self.scale_factor),
                 stroke: stroke_paint.is_some().then_some(stroke_style),
                 font_request: Some(font_request),
                 text_wrap: text.wrap(),
@@ -514,7 +514,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             &text,
             self.scale_factor.get(),
             sharedparley::LayoutOptions {
-                max_width: Some(width),
+                max_physical_width: Some(width * self.scale_factor),
                 max_height: Some(height),
                 vertical_align: text_input.vertical_alignment(),
                 selection: Some(min_select..max_select),

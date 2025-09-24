@@ -6,7 +6,7 @@ pub use parley;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::LogicalLength,
+    lengths::{LogicalLength, PhysicalPx},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
 use i_slint_common::sharedfontique;
@@ -30,7 +30,7 @@ pub struct Brush {
 }
 
 pub struct LayoutOptions {
-    pub max_width: Option<LogicalLength>,
+    pub max_physical_width: Option<euclid::Length<crate::Coord, PhysicalPx>>,
     pub max_height: Option<LogicalLength>,
     pub horizontal_align: TextHorizontalAlignment,
     pub vertical_align: TextVerticalAlignment,
@@ -44,7 +44,7 @@ pub struct LayoutOptions {
 impl Default for LayoutOptions {
     fn default() -> Self {
         Self {
-            max_width: None,
+            max_physical_width: None,
             max_height: None,
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
@@ -109,10 +109,12 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
         );
     }
 
+    let max_physical_width = options.max_physical_width.map(|max_width| max_width.get());
+    
     let mut layout: parley::Layout<Brush> = builder.build(text);
-    layout.break_all_lines(options.max_width.map(|max_width| max_width.get() * scale_factor));
+    layout.break_all_lines(max_physical_width);
     layout.align(
-        options.max_width.map(|max_width| max_width.get() * scale_factor),
+        max_physical_width,
         match options.horizontal_align {
             TextHorizontalAlignment::Left => parley::Alignment::Left,
             TextHorizontalAlignment::Center => parley::Alignment::Middle,
