@@ -3,6 +3,7 @@
 
 pub use parley;
 
+use std::boxed::Box;
 use std::cell::RefCell;
 
 use crate::{
@@ -15,15 +16,25 @@ use i_slint_common::sharedfontique;
 
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 
-fn font_context() -> parley::FontContext {
-    parley::FontContext {
-        collection: sharedfontique::COLLECTION.inner.clone(),
-        source_cache: sharedfontique::COLLECTION.source_cache.clone(),
+struct Contexts {
+    layout: parley::LayoutContext<Brush>,
+    font: parley::FontContext,
+}
+
+impl Default for Contexts {
+    fn default() -> Self {
+        Self {
+            font: parley::FontContext {
+                collection: sharedfontique::COLLECTION.inner.clone(),
+                source_cache: sharedfontique::COLLECTION.source_cache.clone(),
+            },
+            layout: Default::default(),
+        }
     }
 }
 
 std::thread_local! {
-    static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
+    static CONTEXTS: RefCell<Box<Contexts>> = Default::default();
 }
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
@@ -65,10 +76,9 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
         .and_then(|font_request| font_request.pixel_size)
         .unwrap_or(DEFAULT_FONT_SIZE);
 
-    let mut layout = LAYOUT_CONTEXT.with_borrow_mut(move |layout_context| {
-        let mut font_context = font_context();
+    let mut layout = CONTEXTS.with_borrow_mut(move |contexts| {
         let mut builder =
-            layout_context.ranged_builder(&mut font_context, text, scale_factor.get(), true);
+            contexts.layout.ranged_builder(&mut contexts.font, text, scale_factor.get(), true);
         if let Some(ref font_request) = options.font_request {
             if let Some(family) = &font_request.family {
                 builder.push_default(parley::StyleProperty::FontStack(
