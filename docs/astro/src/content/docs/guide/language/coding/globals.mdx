@@ -108,6 +108,11 @@ app.Logic.the_value = 42
 </TabItem>
 </Tabs>
 
+:::note[Note]
+Globals are not shared between windows.
+This means you may need to initialize the global callback and properties for each window instance you create in your application.
+:::
+
 It's possible to re-expose a callback or properties from a global using the two way binding syntax.
 
 ```slint
