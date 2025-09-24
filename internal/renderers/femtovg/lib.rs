@@ -290,9 +290,9 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     ) -> LogicalSize {
         let layout = sharedparley::layout(
             text,
-            scale_factor.get(),
+            scale_factor,
             sharedparley::LayoutOptions {
-                max_physical_width: max_width.map(|max_width| max_width * scale_factor),
+                max_width,
                 text_wrap,
                 font_request: Some(font_request),
                 ..Default::default()
@@ -335,13 +335,12 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
         let layout = sharedparley::layout(
             &text,
-            scale_factor.get(),
+            scale_factor,
             sharedparley::LayoutOptions {
                 font_request: Some(font_request),
-                max_physical_width: Some(width * scale_factor),
+                max_width: Some(width),
                 max_height: Some(height),
                 vertical_align: text_input.vertical_alignment(),
-
                 ..Default::default()
             },
         );
@@ -374,9 +373,9 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
         let layout = sharedparley::layout(
             &text,
-            scale_factor.get(),
+            scale_factor,
             sharedparley::LayoutOptions {
-                max_physical_width: Some(width * scale_factor),
+                max_width: Some(width),
                 max_height: Some(height),
                 ..Default::default()
             },

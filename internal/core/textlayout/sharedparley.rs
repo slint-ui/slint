@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, PhysicalPx},
+    lengths::{LogicalLength, ScaleFactor},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
 use i_slint_common::sharedfontique;
@@ -32,7 +32,7 @@ pub struct Brush {
 }
 
 pub struct LayoutOptions {
-    pub max_physical_width: Option<euclid::Length<crate::Coord, PhysicalPx>>,
+    pub max_width: Option<LogicalLength>,
     pub max_height: Option<LogicalLength>,
     pub horizontal_align: TextHorizontalAlignment,
     pub vertical_align: TextVerticalAlignment,
@@ -45,7 +45,7 @@ pub struct LayoutOptions {
 impl Default for LayoutOptions {
     fn default() -> Self {
         Self {
-            max_physical_width: None,
+            max_width: None,
             max_height: None,
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
@@ -57,8 +57,8 @@ impl Default for LayoutOptions {
     }
 }
 
-pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
-    let max_physical_width = options.max_physical_width.map(|max_width| max_width.get());
+pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layout {
+    let max_physical_width = options.max_width.map(|max_width| (max_width * scale_factor).get());
     let pixel_size = options
         .font_request
         .as_ref()
@@ -68,7 +68,7 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
     let mut layout = LAYOUT_CONTEXT.with_borrow_mut(move |layout_context| {
         let mut font_context = font_context();
         let mut builder =
-            layout_context.ranged_builder(&mut font_context, text, scale_factor, true);
+            layout_context.ranged_builder(&mut font_context, text, scale_factor.get(), true);
         if let Some(ref font_request) = options.font_request {
             if let Some(family) = &font_request.family {
                 builder.push_default(parley::StyleProperty::FontStack(

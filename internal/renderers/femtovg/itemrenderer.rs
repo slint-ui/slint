@@ -420,12 +420,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = sharedparley::layout(
             text.text().as_str(),
-            self.scale_factor.get(),
+            self.scale_factor,
             sharedparley::LayoutOptions {
                 horizontal_align,
                 vertical_align,
                 max_height: Some(max_height),
-                max_physical_width: Some(max_width * self.scale_factor),
+                max_width: Some(max_width),
                 stroke: stroke_paint.is_some().then_some(stroke_style),
                 font_request: Some(font_request),
                 text_wrap: text.wrap(),
@@ -485,9 +485,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = sharedparley::layout(
             &text,
-            self.scale_factor.get(),
+            self.scale_factor,
             sharedparley::LayoutOptions {
-                max_physical_width: Some(width * self.scale_factor),
+                max_width: Some(width),
                 max_height: Some(height),
                 vertical_align: text_input.vertical_alignment(),
                 font_request: Some(font_request),
@@ -509,15 +509,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         );
 
         selection.geometry_with(&layout, |rect, _| {
-            let mut cursor_rect = femtovg::Path::new();
-            cursor_rect.rect(
+            let mut selection_path = femtovg::Path::new();
+            selection_path.rect(
                 rect.min_x() as _,
                 rect.min_y() as f32 + layout.y_offset,
                 rect.width() as _,
                 rect.height() as _,
             );
             canvas.fill_path(
-                &cursor_rect,
+                &selection_path,
                 &femtovg::Paint::color(to_femtovg_color(&text_input.selection_background_color())),
             );
         });
@@ -532,15 +532,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             );
             let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
 
-            let mut cursor_rect = femtovg::Path::new();
-            cursor_rect.rect(
+            let mut cursor_path = femtovg::Path::new();
+            cursor_path.rect(
                 rect.min_x() as _,
                 rect.min_y() as f32 + layout.y_offset,
                 rect.width() as _,
                 rect.height() as _,
             );
             canvas.fill_path(
-                &cursor_rect,
+                &cursor_path,
                 &femtovg::Paint::color(to_femtovg_color(&visual_representation.cursor_color)),
             );
         }
@@ -971,7 +971,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let layout = sharedparley::layout(string, self.scale_factor.get(), Default::default());
+        let layout = sharedparley::layout(string, self.scale_factor, Default::default());
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
         draw_glyphs(&layout, &mut canvas, &paint);
