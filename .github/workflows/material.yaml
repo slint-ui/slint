@@ -11,9 +11,6 @@ on:
         description: "Publish master to Cloudflare Pages"
         default: false
         required: false
-  push:
-    branches-ignore:
-      - master
   workflow_call:
     inputs:
       publish:
