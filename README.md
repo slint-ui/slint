@@ -34,7 +34,7 @@ The name *Slint* is derived from our design goals:
 Beyond the design goals, here’s what makes Slint stand out:
 
 - **Independent UI Design**: Use a declarative language similar to separate your UI from business logic. Designers can work in parallel with developers.
-- **Tooling**: Iterate quickly with our Live Preview & editor integrations. Integrate from Figma with the [Slint To Figma plugin](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint).
+- **Tooling**: Iterate quickly with our Live Preview & editor integrations. Integrate from Figma with the [Figma to Slint plugin](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint).
 - **Stable APIs**: Slint follows a stable 1.x API. We evolve carefully without breaking your code.
 
 See what others have built: [#MadeWithSlint](https://madewithslint.com)
