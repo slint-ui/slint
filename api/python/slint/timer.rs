@@ -37,6 +37,21 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
 /// The timer will automatically stop when garbage collected. You must keep the Timer object
 /// around for as long as you want the timer to keep firing.
 ///
+/// ```python
+/// class AppWindow(...)
+///     def __init__(self):
+///         super().__init__()
+///         self.my_timer = None
+///
+///     @slint.callback
+///     def button_clicked(self):
+///         self.my_timer = slint.Timer()
+///         self.my_timer.start(timedelta(seconds=1), self.do_something)
+///
+///     def do_something(self):
+///         pass
+/// ```
+///
 /// Timers can only be used in the thread that runs the Slint event loop. They don't
 /// fire if used in another thread.
 #[gen_stub_pyclass]
