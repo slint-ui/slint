@@ -94,7 +94,9 @@ pub trait Platform {
         #[cfg(feature = "std")]
         {
             let the_beginning = *INITIAL_INSTANT.get_or_init(time::Instant::now);
-            time::Instant::now() - the_beginning
+            let now = time::Instant::now();
+            assert!(now >= the_beginning, "The platform's clock is not monotonic!");
+            now - the_beginning
         }
         #[cfg(not(feature = "std"))]
         unimplemented!("The platform abstraction must implement `duration_since_start`")
