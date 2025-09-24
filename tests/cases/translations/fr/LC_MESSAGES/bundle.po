@@ -73,3 +73,6 @@ msgctxt "TestCase"
 msgid "Flop🎃"
 msgstr "Floup🍓"
 
+#: bundle.slint:24
+msgid "No-context"
+msgstr "Pas de contexte"
