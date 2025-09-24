@@ -88,7 +88,7 @@ jobs:
         with:
           version: 10.14.0
       - name: Take screenshots
-        run: cargo run -p slint-docsnapper -- docs
+        run: cargo run -p slint-docsnapper -- -I$PWD/src docs
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
