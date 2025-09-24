@@ -215,22 +215,21 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                         femtovg::PositionedGlyph {
                             x: glyph.x,
                             y: glyph.y + layout.y_offset,
-                            font_id,
                             glyph_id: glyph.id,
                         }
                     });
 
                     match brush.stroke {
                         Some(i_slint_core::items::TextStrokeStyle::Outside) => {
-                            canvas.stroke_glyphs(glyphs.clone(), paint).unwrap();
-                            canvas.fill_glyphs(glyphs, paint).unwrap();
+                            canvas.stroke_glyph_run(font_id, glyphs.clone(), paint).unwrap();
+                            canvas.fill_glyph_run(font_id, glyphs, paint).unwrap();
                         }
                         Some(i_slint_core::items::TextStrokeStyle::Center) => {
-                            canvas.fill_glyphs(glyphs.clone(), paint).unwrap();
-                            canvas.stroke_glyphs(glyphs, paint).unwrap();
+                            canvas.fill_glyph_run(font_id, glyphs.clone(), paint).unwrap();
+                            canvas.stroke_glyph_run(font_id, glyphs, paint).unwrap();
                         }
                         None => {
-                            canvas.fill_glyphs(glyphs, paint).unwrap();
+                            canvas.fill_glyph_run(font_id, glyphs, paint).unwrap();
                         }
                     }
                 }
