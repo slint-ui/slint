@@ -133,6 +133,14 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
 }
 
 pub struct Layout {
-    pub inner: parley::Layout<Brush>,
+    inner: parley::Layout<Brush>,
     pub y_offset: f32,
+}
+
+impl std::ops::Deref for Layout {
+    type Target = parley::Layout<Brush>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }

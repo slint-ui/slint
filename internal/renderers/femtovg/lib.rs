@@ -298,7 +298,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
                 ..Default::default()
             },
         );
-        LogicalSize::new(layout.inner.width(), layout.inner.height())
+        LogicalSize::new(layout.width(), layout.height())
     }
 
     fn font_metrics(
@@ -346,7 +346,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             },
         );
         let cursor = parley::layout::cursor::Cursor::from_point(
-            &layout.inner,
+            &layout,
             pos.x,
             pos.y - layout.y_offset,
         );
@@ -385,11 +385,11 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             },
         );
         let cursor = parley::layout::cursor::Cursor::from_byte_index(
-            &layout.inner,
+            &layout,
             byte_offset,
             Default::default(),
         );
-        let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
+        let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
         LogicalRect::new(
             LogicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
             LogicalSize::new(rect.width() as _, rect.height() as _),

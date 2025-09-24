@@ -202,7 +202,7 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
     selection_foreground_color: Color,
     selection_background_color: Color,
 ) {
-    for line in layout.inner.lines() {
+    for line in layout.lines() {
         for item in line.items() {
             match item {
                 parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -532,11 +532,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         if cursor_visible {
             let cursor = parley::layout::cursor::Cursor::from_byte_index(
-                &layout.inner,
+                &layout,
                 cursor_pos,
                 Default::default(),
             );
-            let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
+            let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
 
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
