@@ -21,10 +21,13 @@
     out property <string> result1: make_plural1(1, @tr("Plop")) + "\n" + make_plural1(2, @tr("Flop🎃")) + "\n" + make_plural1(10, t1);
     out property <string> result2: make_plural2(1) + "\n" + make_plural2(-999) + "\n" + make_plural2(0) + "\n" + make_plural2(42);
 
+    out property <string> empty_context: @tr("" => "No-context");
+
     out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍" && t5 == "Untranslated string"
         && c1 == "xxaaxx"
         && result1 == "there is one file in my Plop\nthere are 2 files in my Flop🎃\nthere are 10 files in my Hello World{}."
-        && result2 == "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
+        && result2 == "xx1xx\nyy-999yy\nyy0yy\nyy42yy"
+        && empty_context == "No-context";
 }
 /*
 ```cpp
@@ -51,24 +54,28 @@ std::transform(result2_upper.begin(), result2_upper.end(), result2_upper.begin()
 assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_empty_context(), "NO-CONTEXT");
 assert(!instance.get_test());
 
 assert(!slint::select_bundled_translation("def"));
 assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_empty_context(), "NO-CONTEXT");
 assert(!instance.get_test());
 
 assert(slint::select_bundled_translation(""));
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_empty_context(), "No-context");
 assert(instance.get_test());
 
 assert(slint::select_bundled_translation("fr"));
 assert_eq(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fichiers dans mon Floup🍓\nIl y a 10 fichiers dans mon Bonjour Monde{}.");
 assert_eq(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_empty_context(), "Pas de contexte");
 assert(!instance.get_test());
 ```
 
@@ -92,24 +99,28 @@ assert!(slint::select_bundled_translation("up").is_ok());
 assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_empty_context(), "NO-CONTEXT");
 assert!(!instance.get_test());
 
 assert!(slint::select_bundled_translation("def").is_err());
 assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_empty_context(), "NO-CONTEXT");
 assert!(!instance.get_test());
 
 assert!(slint::select_bundled_translation("").is_ok());
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_empty_context(), "No-context");
 assert!(instance.get_test());
 
 assert!(slint::select_bundled_translation("fr").is_ok());
 assert_eq!(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fichiers dans mon Floup🍓\nIl y a 10 fichiers dans mon Bonjour Monde{}.");
 assert_eq!(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_empty_context(), "Pas de contexte");
 assert!(!instance.get_test());
 
 ```
