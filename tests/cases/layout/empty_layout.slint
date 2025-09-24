@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    empty1 := Rectangle { HorizontalLayout { } }
+    empty2 := Rectangle { VerticalLayout { spacing: 80px; padding: 2px; } }
+    empty3 := Rectangle { HorizontalLayout { alignment: center; } }
+    empty4 := Rectangle { VerticalLayout { alignment: end; padding-left: 10phx; padding-top: 50phx; } }
+    empty5 := Rectangle {
+        VerticalLayout {
+            alignment: end; padding-left: 10phx; padding-top: 50phx;
+            for _ in 0 : Text { text: "Hello World!"; }
+        }
+    }
+    empty6 := Rectangle {
+        HorizontalLayout {
+            if false: Rectangle { background: red; min-height: 10px; min-width: 10px; }
+            padding-right: 80phx; padding-bottom: 70phx;
+        }
+    }
+
+    out property <bool> t1: empty1.min-height == 0 && empty1.min-width == 0 && empty1.preferred-height == 0 && empty1.preferred-width == 0 && empty1.max-height > 10000px && empty1.max-width == 0;
+    out property <bool> t2: empty2.min-height == 4px && empty2.min-width == 4px && empty2.preferred-height == 4px && empty2.preferred-width == 4px && empty2.max-height == 4px && empty2.max-width > 100000px;
+    out property <bool> t3: empty3.min-height == 0 && empty3.min-width == 0 && empty3.preferred-height == 0 && empty3.preferred-width == 0 && empty3.max-height > 10000px && empty3.max-width > 10000px;
+    out property <bool> t4: empty4.min-height == 50phx && empty4.min-width == 10phx && empty4.preferred-height == 50phx && empty4.preferred-width == 10phx && empty4.max-height > 10000px && empty4.max-width > 10000px;
+    out property <bool> t5: empty5.min-height == 50phx && empty5.min-width == 10phx && empty5.preferred-height == 50phx && empty5.preferred-width == 10phx && empty5.max-height > 10000px && empty5.max-width > 10000px;
+    out property <bool> t6: empty6.min-height == 70phx && empty6.min-width == 80phx && empty6.preferred-height == 70phx && empty6.preferred-width == 80phx && empty6.max-height > 10000px && empty6.max-width == 80phx;
+    out property <bool> test: t1 && t2 && t3 && t4 && t5 && t6;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/
