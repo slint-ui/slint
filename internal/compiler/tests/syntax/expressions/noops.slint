@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct MyStruct {
+    foo: int
+}
+
+enum MyEnum {
+    One,
+    Two,
+    Three
+}
+
+export component Test {
+    function useless_if(cond: bool) {
+        if (cond) {
+//      ^warning{Expression has no effect!}
+            if (!cond) {
+//          ^warning{Expression has no effect!}
+                43
+            }
+            42
+        }
+        else {
+            41
+        }
+        "hello world";
+//      ^warning{Expression has no effect!}
+        123;
+//      ^warning{Expression has no effect!}
+        true;
+//      ^warning{Expression has no effect!}
+        MyEnum.One;
+//      ^warning{Expression has no effect!}
+        { x: 32, };
+//      ^warning{Expression has no effect!}
+        { x: another_function(), };
+
+        let x = true;
+        x;
+//      ^warning{Expression has no effect!}
+        true && false;
+//      ^warning{Expression has no effect!}
+        [1, 2, 3][4];
+//      ^warning{Expression has no effect!}
+        +1;
+//      ^warning{Expression has no effect!}
+        @image-url("../../../../../logo/slint-logo-full-dark.png");
+//      ^warning{Expression has no effect!}
+
+        another_function();
+
+        [1, 2, 3][another_function()];
+        // FIXME: The above could return an "Expression has no effect" warning
+        // on the [1, 2, 3] part, as well as the indexing, as only the call
+        // to another_function could have an effect.
+
+        make_struct().foo;
+        // FIXME: The above could return an "Expression has no effect" warning
+        // on the .foo part, as only the call to make_struct() could have an effect,
+        // not the member access itself.
+
+        12
+    }
+
+    function another_function() -> int { 1 }
+
+    function make_struct() -> MyStruct {
+        {
+            foo: 5,
+        }
+    }
+
+}
