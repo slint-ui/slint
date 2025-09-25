@@ -298,7 +298,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
                 ..Default::default()
             },
         );
-        LogicalSize::new(layout.width(), layout.height())
+        PhysicalSize::new(layout.width(), layout.height()) / scale_factor
     }
 
     fn font_metrics(
