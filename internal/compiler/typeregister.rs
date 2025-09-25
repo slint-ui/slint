@@ -179,6 +179,7 @@ pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-angle", Type::Angle),
     ("scale-x", Type::Float32),
     ("scale-y", Type::Float32),
+    ("scale", Type::Float32),
     ("rotation-origin-x", Type::LogicalLength),
     ("rotation-origin-y", Type::LogicalLength),
 ];

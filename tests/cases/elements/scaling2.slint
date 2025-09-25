@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    width: 800px;
+    height: 600px;
+
+    in-out property <string> result;
+
+    r-a := Rectangle {
+        x: 10px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        rotation-origin-x: 0;
+        rotation-origin-y: 0;
+        scale: 2;
+        TouchArea {
+            clicked => { result += "A"}
+        }
+    }
+
+
+    r-b := Rectangle {
+        x: 100px;
+        y: 100px;
+        width: 20px;
+        height: 20px;
+        scale: 3;
+        scale-x: 0.5;
+        TouchArea {
+            clicked => { result += "B"}
+        }
+    }
+
+    out property <bool> test:
+        r-a.scale == 2 && r-a.scale-x == 2 && r-a.scale-y == 2 &&
+        r-b.scale-x == 0.5 && r-b.scale-y == 3;
+
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_test(), true);
+
+slint_testing::send_mouse_click(&instance, 10.0 + 39.0 , 10.0 + 39.0);
+assert_eq!(instance.get_result(), "A", "was just clicked inside");
+slint_testing::send_mouse_click(&instance, 10.0 + 19.0 , 10.0 + 41.0);
+assert_eq!(instance.get_result(), "A", "was just clicked outside");
+slint_testing::send_mouse_click(&instance, 10.0 + 41.0 , 10.0 + 19.0);
+assert_eq!(instance.get_result(), "A", "was just clicked outside again");
+
+
+slint_testing::send_mouse_click(&instance, 100.0 + 6. , 100.0 - 19.0);
+assert_eq!(instance.get_result(), "AB", "was just clicked inside");
+slint_testing::send_mouse_click(&instance, 100.0 + 4., 100.0);
+assert_eq!(instance.get_result(), "AB", "was just clicked outside");
+slint_testing::send_mouse_click(&instance, 100.0 + 10., 100. - 21.);
+assert_eq!(instance.get_result(), "AB", "was just clicked outside again");
+```
+*/
