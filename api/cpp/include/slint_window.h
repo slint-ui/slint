@@ -94,7 +94,8 @@ public:
         auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
                                                               &parent_item, false);
         // Defer user_init to prevent recursion when init callbacks call popup.show()
-        cbindgen_private::slint_post_event([popup](void *) { popup->user_init(); }, nullptr, nullptr);
+        cbindgen_private::slint_post_event([popup](void *) { popup->user_init(); }, nullptr,
+                                           nullptr);
         return id;
     }
 
@@ -125,7 +126,8 @@ public:
                 &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
                 &context_menu_rc, true);
         // Defer user_init to prevent recursion when init callbacks call popup.show()
-        cbindgen_private::slint_post_event([popup](void *) { popup->user_init(); }, nullptr, nullptr);
+        cbindgen_private::slint_post_event([popup](void *) { popup->user_init(); }, nullptr,
+                                           nullptr);
         return id;
     }
 
