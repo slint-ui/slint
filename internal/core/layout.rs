@@ -624,10 +624,16 @@ pub fn box_layout_info(
     alignment: LayoutAlignment,
 ) -> LayoutInfo {
     let count = cells.len();
-    if count < 1 {
-        return LayoutInfo { max: 0 as _, ..LayoutInfo::default() };
-    };
     let is_stretch = alignment == LayoutAlignment::Stretch;
+    if count < 1 {
+        let mut info = LayoutInfo::default();
+        info.min = padding.begin + padding.end;
+        info.preferred = info.min;
+        if is_stretch {
+            info.max = info.min;
+        }
+        return info;
+    };
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
     let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
     let max = if is_stretch {
@@ -641,12 +647,7 @@ pub fn box_layout_info(
 }
 
 pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding) -> LayoutInfo {
-    let count = cells.len();
-    if count < 1 {
-        return LayoutInfo { max: 0 as _, ..LayoutInfo::default() };
-    };
     let extra_w = padding.begin + padding.end;
-
     let mut fold =
         cells.iter().fold(LayoutInfo { stretch: f32::MAX, ..Default::default() }, |a, b| {
             a.merge(&b.constraint)

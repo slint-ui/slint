@@ -9,7 +9,7 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/switch.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { Switch } from "./material.slint";
+import { Switch } from "@material";
 export component Example inherits Window {
     width: 200px;
     height: 100px;
@@ -61,3 +61,8 @@ A tooltip text that appears when hovering over the switch.
 
 ### toggle()
 Toggles the switch state between checked and unchecked.
+
+## Callbacks
+
+### checked_state_changed(checked: bool)
+The switch state changed.

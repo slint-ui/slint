@@ -29,7 +29,7 @@ jobs:
             - uses: actions/checkout@v5
             - uses: jdx/mise-action@v3
               with:
-                version: 2025.7.12
+                version: 2025.9.18
                 log_level: debug
             - name: Run fixes
               run: mise run --force --jobs=1 'ci:autofix:fix'
@@ -43,7 +43,7 @@ jobs:
             - uses: actions/checkout@v5
             - uses: jdx/mise-action@v3
               with:
-                version: 2025.7.12
+                version: 2025.9.18
                 log_level: debug
             - name: Run lints
               run: mise run --force --jobs=1 'ci:autofix:lint'

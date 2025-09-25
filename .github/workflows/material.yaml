@@ -88,7 +88,7 @@ jobs:
         with:
           version: 10.14.0
       - name: Take screenshots
-        run: cargo run -p slint-docsnapper -- -I$PWD/src docs
+        run: cargo run -p slint-docsnapper -- -Lmaterial=$PWD/src/material.slint docs
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -102,6 +102,15 @@ jobs:
         with:
           name: apk_gallery
           path: ui-libraries/material/docs/dist/apk
+      - name: prepare zip archive
+        working-directory: ui-libraries/material
+        run: |
+            cp -a src material-1.0
+      - name: zip up material library
+        working-directory: ui-libraries/material
+        run: |
+            mkdir -p docs/dist/zip
+            zip -r docs/dist/zip/material-1.0.zip material-1.0
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:

@@ -8,6 +8,10 @@ export component TestCase {
         if (cond) {
             45
         }
+        // FIXME: Removing the following debug statement will cause a failure in C++ with this warning:
+        // error: unused parameter 'arg_0' [-Werror=unused-parameter]
+        // 115 | inline auto TestCase::fn_issue4942 (bool arg_0) const -> int{
+        debug(cond);
         12
     }
 
@@ -16,15 +20,6 @@ export component TestCase {
 
 
 /*
-
-FIXME: The C++ test currently fails with this warning
-(see also https://github.com/slint-ui/slint/issues/4954)
-//ignore: cpp
-
-(This is the warning, for reference)
-    statement has no effect [-Werror=unused-value]
-      |     return [&]{ [&]() -> void { if (arg_0) { 45; } else { ; }}();return 12; }();
-      |                                              ^~
 
 ```cpp
 auto handle = TestCase::create();
