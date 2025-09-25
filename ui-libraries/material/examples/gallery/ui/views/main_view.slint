@@ -86,10 +86,6 @@ export component MainView {
             background: MaterialPalette.background;
 
             if !MainWindowAdapter.break_layout : HorizontalLayout {
-                 NavigationRail {
-                     items: root.navigation_items;
-                 }
-
 
                 if root.current_view == Views.components : ComponentsView {
                     horizontal_stretch: 1;
@@ -99,10 +95,6 @@ export component MainView {
             if MainWindowAdapter.break_layout : VerticalLayout {
                 if root.current_view == Views.components : ComponentsView {
                     horizontal_stretch: 1;
-                }
-
-                NavigationBar {
-                    items: root.navigation_items;
                 }
             }
         }
