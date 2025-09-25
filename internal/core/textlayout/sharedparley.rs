@@ -70,6 +70,7 @@ impl Default for LayoutOptions {
 
 pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| (max_width * scale_factor).get());
+    let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
     let pixel_size = options
         .font_request
         .as_ref()
@@ -127,7 +128,7 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
         parley::AlignmentOptions::default(),
     );
 
-    let y_offset = match (options.max_height, options.vertical_align) {
+    let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => {
             (max_height.get() - layout.height()) / 2.0
         }
