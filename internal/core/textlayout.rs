@@ -41,6 +41,7 @@ mod fragments;
 mod glyphclusters;
 mod shaping;
 #[cfg(feature = "shared-parley")]
+/// cbindgen:ignore
 pub mod sharedparley;
 use shaping::ShapeBuffer;
 pub use shaping::{AbstractFont, FontMetrics, Glyph, TextShaper};
