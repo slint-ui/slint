@@ -105,7 +105,6 @@ jobs:
       - name: prepare zip archive
         working-directory: ui-libraries/material
         run: |
-            mkdir -p material-1.0
             cp -a src material-1.0
       - name: zip up material library
         working-directory: ui-libraries/material
