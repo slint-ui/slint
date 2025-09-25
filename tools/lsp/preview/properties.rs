@@ -97,7 +97,8 @@ pub struct QueryPropertyResponse {
 const HIGH_PRIORITY: u32 = 100;
 const DEFAULT_PRIORITY: u32 = 1000;
 
-// This gets defined accessibility properties...
+// This returns defined reserved properties such as x, y, width, height,
+// accessiblity properties or layout properties
 fn get_reserved_properties<'a>(
     group: &'a str,
     group_priority: u32,

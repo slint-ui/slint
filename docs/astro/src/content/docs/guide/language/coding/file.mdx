@@ -8,6 +8,7 @@ description:  The `.slint` File
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 
 You write user interfaces in the Slint language and saved in files with the `.slint` extension.
@@ -343,9 +344,65 @@ The path to each library, as file or directory, must be defined separately at co
 Use one of the following methods to help the Slint compiler resolve libraries to the correct
 path on disk:
 
-* When using Rust and `build.rs`, call <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration#method.with_library_paths">`with_library_paths`</LangRefLink>
-  to provide a mapping from library name to path.
-* When using C++, use `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake_reference#slint-target-sources">`slint_target_sources`</LangRefLink>.
+<Tabs syncKey="dev-language">
+<TabItem label="C++">
+* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake_reference#slint-target-sources">`slint_target_sources`</LangRefLink>. For example:
+
+```cmake
+slint_target_sources(my_application
+    ui/main.slint
+    LIBRARY_PATHS
+        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
+)
+```
+
+</TabItem>
+<TabItem label="Rust">
+* In `build.rs`, call <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration#method.with_library_paths">`with_library_paths`</LangRefLink>
+  to provide a mapping from library name to path. For example:
+
+```rust
+// build.rs
+fn main() {
+    let manifest_dir = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let library_paths = std::collections::HashMap::from([(
+        "example".to_string(),
+        manifest_dir.join("third_party/example/ui/lib.slint"),
+    )]);
+    let config = slint_build::CompilerConfiguration::new().with_library_paths(library_paths);
+    slint_build::compile_with_config("ui/main.slint", config).unwrap();
+}
+```
+
+</TabItem>
+<TabItem label="NodeJS">
+* Provide the `libraryPaths` map with <LangRefLink lang="nodejs" relpath="functions/loadFile">`loadFile`</LangRefLink> in `LoadFileOptions`. For example:
+
+```javascript
+let ui = slint.loadFile("/path/to/main.slint", {
+    libraryPaths: {
+        "material": "/path/to/material-1.0/material.slint"
+    }
+});
+```
+
+</TabItem>
+<TabItem label="Python">
+* Provide the `library_paths` dict with <LangRefLink lang="python" relpath="slint#load_file">`load_file`</LangRefLink>. For example:
+
+```python
+ui = slint.load_file(
+    "/path/to/main.slint",
+    library_paths={
+        "material": "/path/to/material-1.0/material.slint"
+    },
+)
+```
+
+</TabItem>
+</Tabs>
+
+
 * When invoking the `slint-viewer` from the command line, pass `-Lmylibrary=/path/to/my/library` for each component
   library.
 * When using the VS Code extension, configure the Slint extension's library path

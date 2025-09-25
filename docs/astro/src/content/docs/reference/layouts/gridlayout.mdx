@@ -95,12 +95,12 @@ To target specific sides with different values use the following properties:
 Cell elements inside a `GridLayout` obtain the following new properties. Any bindings to these properties must be compile-time constants:
 
 ### row
-<SlintProperty propName="row" typeName="int">
+<SlintProperty propName="row" typeName="int" defaultValue="auto">
 The index of the element's row within the grid. Setting this property resets the element's column to zero, unless explicitly set.
 </SlintProperty>
 
 ### col
-<SlintProperty propName="col" typeName="int">
+<SlintProperty propName="col" typeName="int" defaultValue="auto">
 The index of the element's column within the grid. Set this property to override the sequential column assignment (e.g., to skip a column).
 </SlintProperty>
 
@@ -149,4 +149,3 @@ export component Foo inherits Window {
     }
 }
 ```
-

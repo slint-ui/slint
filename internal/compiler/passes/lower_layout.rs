@@ -131,6 +131,7 @@ fn lower_element_layout(
     let prev_base = std::mem::replace(&mut elem.base_type, type_register.empty_type());
     elem.default_fill_parent = (true, true);
     // Create fake properties for the layout properties
+    // like alignment, spacing, spacing-horizontal, spacing-vertical
     for (p, ty) in prev_base.property_list() {
         if !elem.base_type.lookup_property(&p).is_valid()
             && !elem.property_declarations.contains_key(&p)
