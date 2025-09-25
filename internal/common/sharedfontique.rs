@@ -7,7 +7,7 @@ pub use ttf_parser;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
+pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
     let mut collection = fontique::Collection::new(fontique::CollectionOptions {
         shared: true,
         ..Default::default()
@@ -55,8 +55,8 @@ pub fn get_collection() -> Collection {
 
 #[derive(Clone)]
 pub struct Collection {
-    inner: fontique::Collection,
-    source_cache: fontique::SourceCache,
+    pub inner: fontique::Collection,
+    pub source_cache: fontique::SourceCache,
     pub default_fonts: Arc<HashMap<std::path::PathBuf, fontique::QueryFont>>,
 }
 

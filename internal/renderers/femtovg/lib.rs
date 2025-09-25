@@ -21,6 +21,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
+use i_slint_core::textlayout::sharedparley::{self, parley};
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 use images::TextureImporter;
@@ -33,7 +34,7 @@ type PhysicalBorderRadius = BorderRadius<f32, PhysicalPx>;
 
 use self::itemrenderer::CanvasRc;
 
-mod fonts;
+mod font_cache;
 mod images;
 mod itemrenderer;
 #[cfg(feature = "opengl")]
@@ -285,9 +286,19 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
-        _text_wrap: TextWrap, //TODO: Add support for char-wrap
+        text_wrap: TextWrap,
     ) -> LogicalSize {
-        crate::fonts::text_size(&font_request, scale_factor, text, max_width)
+        let layout = sharedparley::layout(
+            text,
+            scale_factor,
+            sharedparley::LayoutOptions {
+                max_width,
+                text_wrap,
+                font_request: Some(font_request),
+                ..Default::default()
+            },
+        );
+        PhysicalSize::new(layout.width(), layout.height()) / scale_factor
     }
 
     fn font_metrics(
@@ -295,7 +306,15 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        crate::fonts::font_metrics(font_request)
+        let font = font_request.query_fontique().unwrap();
+        let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
+
+        i_slint_core::items::FontMetrics {
+            ascent: face.ascender() as _,
+            descent: face.descender() as _,
+            x_height: face.x_height().unwrap_or_default() as _,
+            cap_height: face.capital_height().unwrap_or_default() as _,
+        }
     }
 
     fn text_input_byte_offset_for_position(
@@ -308,49 +327,28 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         let pos = pos * scale_factor;
         let text = text_input.text();
 
-        let mut result = text.len();
-
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
+        let width = text_input.width();
+        let height = text_input.height();
         if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
             return 0;
         }
 
-        let font = crate::fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
-
-        let visual_representation = text_input.visual_representation(None);
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let text_context =
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
-        let font_height = text_context.measure_font(&paint).unwrap().height();
-        crate::fonts::layout_text_lines(
-            &visual_representation.text,
-            &font,
-            PhysicalSize::from_lengths(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            None,
-            &paint,
-            |line_text, line_pos, start, metrics| {
-                if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
-                    let mut current_x = 0.;
-                    for glyph in &metrics.glyphs {
-                        if line_pos.x + current_x + glyph.advance_x / 2. >= pos.x {
-                            result = start + glyph.byte_index;
-                            return;
-                        }
-                        current_x += glyph.advance_x;
-                    }
-                    result = start + line_text.trim_end().len();
-                }
+        let layout = sharedparley::layout(
+            &text,
+            scale_factor,
+            sharedparley::LayoutOptions {
+                font_request: Some(font_request),
+                max_width: Some(width),
+                max_height: Some(height),
+                vertical_align: text_input.vertical_alignment(),
+                ..Default::default()
             },
         );
+        let cursor =
+            parley::layout::cursor::Cursor::from_point(&layout, pos.x, pos.y - layout.y_offset);
 
-        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(result)
+        let visual_representation = text_input.visual_representation(None);
+        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -362,10 +360,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     ) -> LogicalRect {
         let text = text_input.text();
 
-        let font_size = font_request.pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
+        let font_size = font_request.pixel_size.unwrap_or(sharedparley::DEFAULT_FONT_SIZE);
 
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
+        let width = text_input.width();
+        let height = text_input.height();
         if width.get() <= 0. || height.get() <= 0. {
             return LogicalRect::new(
                 LogicalPoint::default(),
@@ -373,26 +371,24 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             );
         }
 
-        let font = crate::fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let cursor_point = fonts::layout_text_lines(
-            text.as_str(),
-            &font,
-            PhysicalSize::from_lengths(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            Some(byte_offset),
-            &paint,
-            |_, _, _, _| {},
+        let layout = sharedparley::layout(
+            &text,
+            scale_factor,
+            sharedparley::LayoutOptions {
+                max_width: Some(width),
+                max_height: Some(height),
+                ..Default::default()
+            },
         );
-
+        let cursor = parley::layout::cursor::Cursor::from_byte_index(
+            &layout,
+            byte_offset,
+            Default::default(),
+        );
+        let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
         LogicalRect::new(
-            cursor_point.unwrap_or_default() / scale_factor,
-            LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
+            LogicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
+            LogicalSize::new(rect.width() as _, rect.height() as _),
         )
     }
 
@@ -415,7 +411,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     }
 
     fn default_font_size(&self) -> LogicalLength {
-        self::fonts::DEFAULT_FONT_SIZE
+        sharedparley::DEFAULT_FONT_SIZE
     }
 
     fn set_rendering_notifier(

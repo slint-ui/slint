@@ -159,7 +159,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
         let femtovg_canvas = femtovg::Canvas::new_with_text_context(
             wgpu_renderer,
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+            crate::font_cache::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
 

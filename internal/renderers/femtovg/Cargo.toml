@@ -23,7 +23,7 @@ wgpu-26 = ["dep:wgpu-26", "femtovg/wgpu", "i-slint-core/unstable-wgpu-26"]
 unstable-wgpu-26 = ["wgpu-26"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique"] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
 
@@ -34,7 +34,7 @@ derive_more = { workspace = true }
 lyon_path = "1.0"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
-femtovg = { version = "0.17.0" }
+femtovg = { version = "0.18.1" }
 ttf-parser = { workspace = true }
 unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1" }
