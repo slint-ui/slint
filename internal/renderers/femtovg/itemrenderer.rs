@@ -198,7 +198,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
     layout: &sharedparley::Layout,
     canvas: &mut Canvas<R>,
-    paint: &femtovg::Paint,
+    paint: &mut femtovg::Paint,
 ) {
     for line in layout.lines() {
         for item in line.items() {
@@ -218,6 +218,8 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                             glyph_id: glyph.id,
                         }
                     });
+
+                    paint.set_font_size(run.font_size());
 
                     match brush.stroke {
                         Some(i_slint_core::items::TextStrokeStyle::Outside) => {
@@ -390,7 +392,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let font_request = text.font_request(self_rc);
 
         let text_path = rect_to_path((size * self.scale_factor).into());
-        let paint = match self.brush_to_paint(color, &text_path) {
+        let mut paint = match self.brush_to_paint(color, &text_path) {
             Some(paint) => paint,
             None => return,
         };
@@ -436,7 +438,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let mut canvas = self.canvas.borrow_mut();
 
-        draw_glyphs(&layout, &mut canvas, &paint);
+        draw_glyphs(&layout, &mut canvas, &mut paint);
     }
 
     fn draw_text_input(
@@ -459,7 +461,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let visual_representation = text_input.visual_representation(None);
 
-        let paint = match self.brush_to_paint(
+        let mut paint = match self.brush_to_paint(
             visual_representation.text_color,
             &rect_to_path((size * self.scale_factor).into()),
         ) {
@@ -522,7 +524,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             );
         });
 
-        draw_glyphs(&layout, &mut canvas, &paint);
+        draw_glyphs(&layout, &mut canvas, &mut paint);
 
         if cursor_visible {
             let cursor = parley::layout::cursor::Cursor::from_byte_index(
@@ -972,9 +974,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
     fn draw_string(&mut self, string: &str, color: Color) {
         let layout = sharedparley::layout(string, self.scale_factor, Default::default());
-        let paint = femtovg::Paint::color(to_femtovg_color(&color));
+        let mut paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
-        draw_glyphs(&layout, &mut canvas, &paint);
+        draw_glyphs(&layout, &mut canvas, &mut paint);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
