@@ -31,6 +31,8 @@ jobs:
               with:
                 version: 2025.9.18
                 log_level: debug
+            - name: Install rust dependencies
+              run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
             - name: Run fixes
               run: mise run --force --jobs=1 'ci:autofix:fix'
             - name: Suggest format changes
@@ -45,5 +47,7 @@ jobs:
               with:
                 version: 2025.9.18
                 log_level: debug
+            - name: Install rust dependencies
+              run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
             - name: Run lints
               run: mise run --force --jobs=1 'ci:autofix:lint'
