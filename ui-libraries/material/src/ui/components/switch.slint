@@ -17,6 +17,8 @@ export component Switch {
     property <bool> has_icon: (root.checked && root.on_icon.width > 0 && root.on_icon.height > 0) || (root.off_icon.width > 0 && root.off_icon.height > 0);
     property <color> foreground: root.checked ? MaterialPalette.on_primary_container : MaterialPalette.surface_container_highest;
 
+    callback checked_state_changed(checked: bool);
+
     min_width: MaterialStyleMetrics.size_52;
     min_height: MaterialStyleMetrics.size_32;
 
@@ -123,6 +125,10 @@ export component Switch {
 
     function toggle() {
         root.checked = !root.checked;
+    }
+
+    changed checked => {
+        root.checked_state_changed(root.checked);
     }
 
     states [
