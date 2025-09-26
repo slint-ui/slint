@@ -151,6 +151,7 @@ export default defineConfig({
                                         slug: "guide/development/custom-controls",
                                     },
                                     "guide/development/best-practices",
+                                    "guide/development/third-party-libraries",
                                 ],
                             },
                             {
