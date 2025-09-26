@@ -677,8 +677,12 @@ export class EditorWidget extends Widget {
     }
 
     public async copy_permalink_to_clipboard() {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams(window.location.search);
+        params.delete("load_url");
+        params.delete("load_demo");
+        params.delete("snippet");
         params.set("gz", await compress(this.current_editor_content));
+
         const url = new URL(window.location.href);
         url.search = params.toString();
         navigator.clipboard.writeText(url.toString());
