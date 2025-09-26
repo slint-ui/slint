@@ -25,6 +25,8 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
+    #[cfg(feature = "tr")]
+    pub(crate) external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -44,6 +46,8 @@ impl SlintContext {
             window_shown_hook: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
+            #[cfg(feature = "tr")]
+            external_translator: Default::default(),
         }))
     }
 
@@ -86,6 +90,19 @@ impl SlintContext {
     #[cfg(not(all(unix, not(target_os = "macos"))))]
     pub fn xdg_app_id(&self) -> Option<crate::SharedString> {
         None
+    }
+
+    #[cfg(feature = "tr")]
+    pub fn set_external_translator(&self, translator: Option<Box<dyn tr::Translator>>) {
+        *self.0.external_translator.borrow_mut() = translator;
+    }
+
+    #[cfg(feature = "tr")]
+    pub fn external_translator(&self) -> Option<core::cell::Ref<'_, Box<dyn tr::Translator>>> {
+        core::cell::Ref::filter_map(self.0.external_translator.borrow(), |maybe_translator| {
+            maybe_translator.as_ref()
+        })
+        .ok()
     }
 }
 

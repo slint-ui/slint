@@ -78,6 +78,80 @@ fn invoke_from_event_loop(callable: Py<PyAny>) -> Result<(), errors::PyEventLoop
     .map_err(|e| e.into())
 }
 
+#[gen_stub_pyfunction]
+#[pyfunction]
+fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()> {
+    i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_external_translator(if translations.is_none() {
+            None
+        } else {
+            Some(Box::new(PyGettextTranslator(translations.unbind())))
+        });
+        i_slint_core::translations::mark_all_translations_dirty();
+    })
+    .map_err(|e| errors::PyPlatformError(e))?;
+    Ok(())
+}
+
+struct PyGettextTranslator(Py<PyAny>);
+
+impl tr::Translator for PyGettextTranslator {
+    fn translate<'a>(
+        &'a self,
+        string: &'a str,
+        context: Option<&'a str>,
+    ) -> std::borrow::Cow<'a, str> {
+        Python::attach(|py| {
+            match if let Some(context) = context {
+                self.0.call_method(py, pyo3::intern!(py, "pgettext"), (context, string), None)
+            } else {
+                self.0.call_method(py, pyo3::intern!(py, "gettext"), (string,), None)
+            } {
+                Ok(translation) => Some(translation),
+                Err(err) => {
+                    handle_unraisable(py, "calling pgettext/gettext".into(), err);
+                    None
+                }
+            }
+            .and_then(|maybe_str| maybe_str.extract::<String>(py).ok())
+            .map(std::borrow::Cow::Owned)
+        })
+        .unwrap_or(std::borrow::Cow::Borrowed(string))
+        .into()
+    }
+
+    fn ntranslate<'a>(
+        &'a self,
+        n: u64,
+        singular: &'a str,
+        plural: &'a str,
+        context: Option<&'a str>,
+    ) -> std::borrow::Cow<'a, str> {
+        Python::attach(|py| {
+            match if let Some(context) = context {
+                self.0.call_method(
+                    py,
+                    pyo3::intern!(py, "npgettext"),
+                    (context, singular, plural, n),
+                    None,
+                )
+            } else {
+                self.0.call_method(py, pyo3::intern!(py, "ngettext"), (singular, plural, n), None)
+            } {
+                Ok(translation) => Some(translation),
+                Err(err) => {
+                    handle_unraisable(py, "calling npgettext/ngettext".into(), err);
+                    None
+                }
+            }
+            .and_then(|maybe_str| maybe_str.extract::<String>(py).ok())
+            .map(std::borrow::Cow::Owned)
+        })
+        .unwrap_or(std::borrow::Cow::Borrowed(singular))
+        .into()
+    }
+}
+
 use pyo3::prelude::*;
 
 #[pymodule]
@@ -107,6 +181,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
+    m.add_function(wrap_pyfunction!(init_translations, m)?)?;
 
     Ok(())
 }
