@@ -65,6 +65,8 @@ experimental = []
 
 unstable-wgpu-26 = ["dep:wgpu-26"]
 
+tr = ["dep:tr"]
+
 default = ["std", "unicode"]
 
 [dependencies]
@@ -117,6 +119,8 @@ rustybuzz = { workspace = true, optional = true }
 fontdue = { workspace = true, optional = true }
 
 wgpu-26 = { workspace = true, optional = true }
+
+tr = { workspace = true, optional = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
