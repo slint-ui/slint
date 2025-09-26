@@ -211,13 +211,33 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
 
                     let brush = glyph_run.style().brush;
 
-                    let glyphs = glyph_run.positioned_glyphs().map(|glyph: parley::Glyph| {
-                        femtovg::PositionedGlyph {
+                    let filtered_glyphs: Vec<_> = glyph_run
+                        .positioned_glyphs()
+                        .filter(|&glyph| {
+                            if let Some(info) = layout.elision_info_for_run(&glyph_run) {
+                                if info.positioned_glyph_needs_removal(glyph) {
+                                    return false;
+                                }
+                            }
+
+                            true
+                        })
+                        .collect();
+
+                    let glyphs = filtered_glyphs
+                        .iter()
+                        .map(|glyph| femtovg::PositionedGlyph {
                             x: glyph.x,
                             y: glyph.y + layout.y_offset,
                             glyph_id: glyph.id,
-                        }
-                    });
+                        })
+                        .chain(layout.elision_info_for_run(&glyph_run).and_then(|info| {
+                            filtered_glyphs.last().map(|last| femtovg::PositionedGlyph {
+                                x: last.x + last.advance + info.elipsis_glyph.x,
+                                y: info.elipsis_glyph.y + layout.y_offset,
+                                glyph_id: info.elipsis_glyph.id,
+                            })
+                        }));
 
                     paint.set_font_size(run.font_size());
 

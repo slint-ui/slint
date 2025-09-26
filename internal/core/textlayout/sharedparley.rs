@@ -77,9 +77,7 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
         .and_then(|font_request| font_request.pixel_size)
         .unwrap_or(DEFAULT_FONT_SIZE);
 
-    let mut layout = CONTEXTS.with_borrow_mut(move |contexts| {
-        let mut builder =
-            contexts.layout.ranged_builder(&mut contexts.font, text, scale_factor.get(), true);
+    let push_to_builder = |builder: &mut parley::RangedBuilder<_>| {
         if let Some(ref font_request) = options.font_request {
             if let Some(family) = &font_request.family {
                 builder.push_default(parley::StyleProperty::FontStack(
@@ -108,16 +106,39 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
             TextWrap::WordWrap => parley::style::WordBreakStrength::Normal,
             TextWrap::CharWrap => parley::style::WordBreakStrength::BreakAll,
         }));
-        if options.text_overflow == TextOverflow::Elide {
-            todo!();
-        }
 
         builder.push_default(parley::StyleProperty::Brush(Brush { stroke: options.stroke }));
+    };
 
-        builder.build(text)
+    let (mut layout, elision_info) = CONTEXTS.with_borrow_mut(move |contexts| {
+        let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
+            (options.text_overflow, max_physical_width)
+        {
+            let mut builder =
+                contexts.layout.ranged_builder(&mut contexts.font, "…", scale_factor.get(), true);
+            push_to_builder(&mut builder);
+            let mut layout = builder.build("…");
+            layout.break_all_lines(None);
+            let line = layout.lines().next().unwrap();
+            let item = line.items().next().unwrap();
+            let run = match item {
+                parley::layout::PositionedLayoutItem::GlyphRun(run) => Some(run),
+                _ => None,
+            }
+            .unwrap();
+            let glyph = run.positioned_glyphs().next().unwrap();
+            Some(ElisionInfo { elipsis_glyph: glyph, max_physical_width })
+        } else {
+            None
+        };
+
+        let mut builder =
+            contexts.layout.ranged_builder(&mut contexts.font, text, scale_factor.get(), true);
+        push_to_builder(&mut builder);
+        (builder.build(text), elision_info)
     });
 
-    layout.break_all_lines(max_physical_width);
+    layout.break_all_lines(max_physical_width.filter(|_| options.text_wrap != TextWrap::NoWrap));
     layout.align(
         max_physical_width,
         match options.horizontal_align {
@@ -136,12 +157,43 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
         (None, _) | (Some(_), TextVerticalAlignment::Top) => 0.0,
     };
 
-    Layout { inner: layout, y_offset }
+    Layout { inner: layout, y_offset, elision_info }
+}
+
+pub struct ElisionInfo {
+    pub elipsis_glyph: parley::layout::Glyph,
+    pub max_physical_width: f32,
+}
+
+impl ElisionInfo {
+    /// Check if a run of glyphs needs elision due to going over the max width.
+    pub fn run_needs_elision(&self, glyph_run: &parley::layout::GlyphRun<Brush>) -> bool {
+        let run_end = glyph_run.offset() + glyph_run.advance();
+        run_end > self.max_physical_width
+    }
+
+    /// Returns true adding the elipsis glyph a glyph would go over the max size.
+    ///
+    /// Glyphs should only be removed if the run actually needs elision.
+    pub fn positioned_glyph_needs_removal(&self, glyph: parley::layout::Glyph) -> bool {
+        glyph.x + glyph.advance + self.elipsis_glyph.advance > self.max_physical_width
+    }
 }
 
 pub struct Layout {
     inner: parley::Layout<Brush>,
     pub y_offset: f32,
+    pub elision_info: Option<ElisionInfo>,
+}
+
+impl Layout {
+    /// Get the elision info, if a run actually needs eliding.
+    pub fn elision_info_for_run(
+        &self,
+        glyph_run: &parley::layout::GlyphRun<Brush>,
+    ) -> Option<&ElisionInfo> {
+        self.elision_info.as_ref().filter(|info| info.run_needs_elision(glyph_run))
+    }
 }
 
 impl std::ops::Deref for Layout {
