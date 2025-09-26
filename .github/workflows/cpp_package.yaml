@@ -249,11 +249,11 @@ jobs:
                     - os: windows-2022
                       package_suffix: Windows-AMD64
                       msvc_arch: x64
-                      cargo_target: x86_64-pc-windows-gnu
+                      cargo_target: x86_64-pc-windows-msvc
                     - os: windows-11-arm
                       package_suffix: Windows-ARM64
                       msvc_arch: arm64
-                      cargo_target: aarch64-pc-windows-gnu
+                      cargo_target: aarch64-pc-windows-msvc
 
         runs-on: ${{ matrix.os }}
         steps:
