@@ -55,7 +55,6 @@ mod visible;
 mod z_order;
 
 use crate::expression_tree::Expression;
-use crate::namedreference::NamedReference;
 use smol_str::SmolStr;
 
 pub fn ignore_debug_hooks(expr: &Expression) -> &Expression {
@@ -166,30 +165,8 @@ pub async fn run_passes(
         );
         visible::handle_visible(component, &global_type_registry.borrow(), diag);
         lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
-        lower_property_to_element::lower_property_to_element(
+        lower_property_to_element::lower_transform_properties(
             component,
-            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[..3]
-                .iter()
-                .map(|(prop_name, _)| *prop_name),
-            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[3..]
-                .iter()
-                .map(|(prop_name, _)| *prop_name),
-            Some(&|e, prop| {
-                let prop_div_2 = |prop: &str| Expression::BinaryExpression {
-                    lhs: Expression::PropertyReference(NamedReference::new(e, prop.into())).into(),
-                    op: '/',
-                    rhs: Expression::NumberLiteral(2., Default::default()).into(),
-                };
-
-                match prop {
-                    "rotation-origin-x" => prop_div_2("width"),
-                    "rotation-origin-y" => prop_div_2("height"),
-                    "scale-x" | "scale-y" => Expression::NumberLiteral(1., Default::default()),
-                    "rotation-angle" => Expression::NumberLiteral(0., Default::default()),
-                    _ => unreachable!(),
-                }
-            }),
-            &SmolStr::new_static("Transform"),
             &global_type_registry.borrow(),
             diag,
         );
