@@ -194,6 +194,8 @@ pub fn translate(
     #![allow(unused)]
     let mut output = SharedString::default();
 
+    // Register a dependency so that language changes trigger a re-evaluation of all relevant bindings
+    // and this function is called again.
     #[cfg(any(feature = "tr", all(target_family = "unix", feature = "gettext-rs")))]
     global_translation_property();
 
