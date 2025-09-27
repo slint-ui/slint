@@ -7,6 +7,7 @@ import { StatusLineApi } from "../components/status-line.slint";
 import { EditorSizeSettings, Icons, EditorSpaceSettings } from "../components/styling.slint";
 import { PropertyValueWidget } from "../components/property-widgets.slint";
 import { TableData } from "../windowglobal.slint";
+import { NameLabel } from "widgets/basics.slint";
 
 export struct CellData {
     property-group-id: string,
@@ -54,6 +55,11 @@ export component EditWindow inherits PopupWindow {
             padding: EditorSpaceSettings.default-padding;
             padding-left: EditorSpaceSettings.default-padding;
             width: is-brush(root.current-table.values[root.current-cell-data.row][root.current-cell-data.col]) ? 220px : self.preferred-width;
+
+            NameLabel {
+                property-name: pvw.property-name;
+                property-value: pvw.property-value;
+            }
 
             pvw := PropertyValueWidget {
                 property-value: root.current-table.values[root.current-cell-data.row][root.current-cell-data.col];
