@@ -2912,7 +2912,14 @@ fn compile_builtin_function_call(
                             false, // is_menu
                         ))
                     );
-                    #popup_window_id::user_init(popup_instance_vrc.clone());
+                    // Defer user_init to prevent recursion when init callbacks call popup.show()
+                    let popup_instance_vrc_for_init = popup_instance_vrc.clone();
+                    if let Err(_) = i_slint_core::api::invoke_from_event_loop(move || {
+                        #popup_window_id::user_init(popup_instance_vrc_for_init);
+                    }) {
+                        // Fallback: if event loop is not available (e.g., during testing), call synchronously
+                        #popup_window_id::user_init(popup_instance_vrc.clone());
+                    }
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -2991,7 +2998,14 @@ fn compile_builtin_function_call(
                     true, // is_menu
                 );
                 #set_id;
-                #popup_id::user_init(popup_instance_vrc);
+                // Defer user_init to prevent recursion when init callbacks call popup.show()
+                let popup_instance_vrc_for_init = popup_instance_vrc.clone();
+                if let Err(_) = i_slint_core::api::invoke_from_event_loop(move || {
+                    #popup_id::user_init(popup_instance_vrc_for_init);
+                }) {
+                    // Fallback: if event loop is not available (e.g., during testing), call synchronously
+                    #popup_id::user_init(popup_instance_vrc);
+                }
             };
 
             let common_init = quote! {
