@@ -17,6 +17,18 @@ pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::ne
 
     let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
 
+    #[cfg(any(target_family = "wasm", target_os = "nto"))]
+    {
+        let data = include_bytes!("sharedfontique/DejaVuSans.ttf");
+        let fonts = collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
+        for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
+            collection.append_fallbacks(
+                fontique::FallbackKey::new(script, None),
+                fonts.iter().map(|(family_id, _)| *family_id),
+            );
+        }
+    }
+
     let mut add_font_from_path = |path: std::path::PathBuf| {
         if let Ok(bytes) = std::fs::read(&path) {
             // just use the first font of the first family in the file.
