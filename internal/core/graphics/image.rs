@@ -709,6 +709,14 @@ impl Image {
         })
     }
 
+    #[cfg(feature = "image-decoders")]
+    /// Load an Image from a data url
+    pub fn load_from_data_url(data_url: &str) -> Result<Self, LoadImageError> {
+        self::cache::IMAGE_CACHE.with(|global_cache| {
+            global_cache.borrow_mut().load_image_from_data_url(&data_url).ok_or(LoadImageError(()))
+        })
+    }
+
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
     /// channels (red, green and blue) encoded as u8.
     pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
@@ -1322,6 +1330,18 @@ pub(crate) mod ffi {
         core::ptr::write(
             image,
             Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or(Image::default()),
+        )
+    }
+
+    #[cfg(feature = "image-decoders")]
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_load_from_data_url(
+        data_url: &SharedString,
+        image: *mut Image,
+    ) {
+        core::ptr::write(
+            image,
+            Image::load_from_data_url(data_url.as_str()).unwrap_or(Image::default()),
         )
     }
 
