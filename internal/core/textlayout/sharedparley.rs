@@ -165,21 +165,6 @@ pub struct ElisionInfo {
     pub max_physical_width: f32,
 }
 
-impl ElisionInfo {
-    /// Check if a run of glyphs needs elision due to going over the max width.
-    pub fn run_needs_elision(&self, glyph_run: &parley::layout::GlyphRun<Brush>) -> bool {
-        let run_end = glyph_run.offset() + glyph_run.advance();
-        run_end > self.max_physical_width
-    }
-
-    /// Returns true adding the elipsis glyph a glyph would go over the max size.
-    ///
-    /// Glyphs should only be removed if the run actually needs elision.
-    pub fn positioned_glyph_needs_removal(&self, glyph: parley::layout::Glyph) -> bool {
-        glyph.x + glyph.advance + self.elipsis_glyph.advance > self.max_physical_width
-    }
-}
-
 pub struct Layout {
     inner: parley::Layout<Brush>,
     pub y_offset: f32,
@@ -187,12 +172,46 @@ pub struct Layout {
 }
 
 impl Layout {
-    /// Get the elision info, if a run actually needs eliding.
-    pub fn elision_info_for_run(
-        &self,
-        glyph_run: &parley::layout::GlyphRun<Brush>,
-    ) -> Option<&ElisionInfo> {
-        self.elision_info.as_ref().filter(|info| info.run_needs_elision(glyph_run))
+    /// Returns an iterator over the run's glyphs but with an optional elision
+    /// glyph replacing the last line's last glyph that's exceeding the max width - if applicable.
+    pub fn glyphs_with_elision<'a>(
+        &'a self,
+        glyph_run: &'a parley::layout::GlyphRun<Brush>,
+        last_line: bool,
+    ) -> impl Iterator<Item = parley::layout::Glyph> + Clone + 'a {
+        let run_beyond_max_width = self.elision_info.as_ref().map_or(false, |info| {
+            let run_end = glyph_run.offset() + glyph_run.advance();
+
+            run_end > info.max_physical_width
+        });
+
+        let mut elipsis_emitted = false;
+        glyph_run.positioned_glyphs().filter_map(move |mut glyph| {
+            if !last_line {
+                return Some(glyph);
+            }
+            if !run_beyond_max_width {
+                return Some(glyph);
+            }
+            let Some(elision_info) = &self.elision_info else {
+                return Some(glyph);
+            };
+
+            if glyph.x + glyph.advance + elision_info.elipsis_glyph.advance
+                > elision_info.max_physical_width
+            {
+                if elipsis_emitted {
+                    None
+                } else {
+                    elipsis_emitted = true;
+                    glyph.advance = elision_info.elipsis_glyph.advance;
+                    glyph.id = elision_info.elipsis_glyph.id;
+                    Some(glyph)
+                }
+            } else {
+                Some(glyph)
+            }
+        })
     }
 }
 
