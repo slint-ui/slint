@@ -94,7 +94,10 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
     Ok(())
 }
 
-struct PyGettextTranslator(Py<PyAny>);
+struct PyGettextTranslator(
+    /// A reference to a `gettext.GNUTranslations` object.
+    Py<PyAny>,
+);
 
 impl tr::Translator for PyGettextTranslator {
     fn translate<'a>(
