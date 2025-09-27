@@ -7,6 +7,8 @@ from datetime import timedelta, datetime
 import os
 import copy
 import sys
+import gettext
+import typing
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -65,6 +67,23 @@ class MainWindow(slint.loader.ui.printerdemo.MainWindow):
                 return
             top_item = copy.copy(self.printer_queue[0])
         self.printer_queue[0] = top_item
+
+    @slint.callback(global_name="PrinterSettings")
+    def change_language(self, language: int) -> None:
+        def load_translation(language: str) -> typing.Optional[gettext.GNUTranslations]:
+            translations_dir = os.path.join(os.path.dirname(__file__), "..", "lang")
+            try:
+                return gettext.translation("printerdemo", translations_dir, [language])
+            except Exception:
+                return None
+
+        if language == 0:
+            translations = load_translation("en")
+        elif language == 1:
+            translations = load_translation("fr")
+        else:
+            return
+        slint.init_translations(translations)
 
 
 main_window = MainWindow()

@@ -35,7 +35,8 @@ All notable changes to this project are documented in this file.
 
 ### Python
 
- - Python: Added support for asyncio by making the Slint event loop act as asyncio event loop.
+ - Added support for asyncio by making the Slint event loop act as asyncio event loop.
+ - Added suport for translations via `slint.init_translations()` accepting a `gettext.GNUTranslation`.
 
 ### Tools:
 

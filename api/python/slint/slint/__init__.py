@@ -20,6 +20,7 @@ from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
 import asyncio
+import gettext
 
 Struct = native.PyStruct
 
@@ -493,6 +494,25 @@ def quit_event_loop() -> None:
     quit_event.set()
 
 
+def init_translations(translations: typing.Optional[gettext.GNUTranslations]) -> None:
+    """Installs the specified translations object to handle translations originating from the Slint code.
+
+    Example:
+    ```python
+    import gettext
+    import slint
+
+    translations_dir = os.path.join(os.path.dirname(__file__), "lang")
+    try:
+        translations = gettext.translation("my_app", translations_dir, ["de"])
+        slint.install_translations(translations)
+    except OSError:
+        pass
+    ```
+    """
+    native.init_translations(translations)
+
+
 __all__ = [
     "CompileError",
     "Component",
@@ -509,4 +529,5 @@ __all__ = [
     "callback",
     "run_event_loop",
     "quit_event_loop",
+    "init_translations",
 ]
