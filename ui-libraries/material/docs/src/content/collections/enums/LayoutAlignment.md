@@ -14,4 +14,5 @@ Enum representing the `alignment` property of a layout
 * **`start`**:  Use the preferred size for all elements, put remaining space after the last element.
 * **`end`**:  Use the preferred size for all elements, put remaining space before the first element.
 * **`space-between`**:  Use the preferred size for all elements, distribute remaining space evenly between elements.
-* **`space-around`**:  Use the preferred size for all elements, distribute remaining space evenly before the first element, after the last element and between elements.
+* **`space-around`**:  Use the preferred size for all elements, distribute remaining space evenly between the elements, and use half spaces at the start and end.
+* **`space-evenly`**:  Use the preferred size for all elements, distribute remaining space evenly before the first element, after the last element and between elements.
