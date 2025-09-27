@@ -17,6 +17,7 @@ mod errors;
 mod models;
 mod timer;
 mod value;
+use i_slint_core::translations::tr;
 
 fn handle_unraisable(py: Python<'_>, context: String, err: PyErr) {
     let exception = err.value(py);

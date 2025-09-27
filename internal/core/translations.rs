@@ -5,6 +5,9 @@ use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
 
+#[cfg(feature = "tr")]
+pub use tr;
+
 mod formatter {
     use core::fmt::{Display, Formatter, Result};
 
