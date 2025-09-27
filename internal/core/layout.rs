@@ -570,6 +570,10 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
             let spacing = (size_without_padding - pref_size) / (num_spacings + 1 as Coord);
             Some((data.padding.begin + spacing / 2 as Coord, spacing))
         }
+        LayoutAlignment::SpaceEvenly => {
+            let spacing = (size_without_padding - pref_size) / (num_spacings + 2 as Coord);
+            Some((data.padding.begin + spacing, spacing))
+        }
     };
     if let Some((mut pos, spacing)) = align {
         for it in &mut layout_data {
