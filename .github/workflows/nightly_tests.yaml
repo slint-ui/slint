@@ -149,7 +149,7 @@ jobs:
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
-                  device: iPhone 16
+                  device: iPhone 17
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v5
