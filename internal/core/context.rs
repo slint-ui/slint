@@ -26,7 +26,7 @@ pub(crate) struct SlintContextInner {
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
-    pub(crate) external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
+    pub external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
 }
 
 /// This context is meant to hold the state and the backend.
