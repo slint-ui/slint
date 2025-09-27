@@ -388,7 +388,7 @@ jobs:
                 rm -rf $output_path/demos
                 mkdir -p $output_path/demos
 
-                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,memory, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust component-sets,material,examples,gallery; do
+                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,memory, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust; do
                   IFS=',' read example_or_demo demo subdir <<< "${demo_subdir}"
 
                   mkdir -p $output_path/demos/$demo
