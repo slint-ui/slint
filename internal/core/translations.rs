@@ -194,8 +194,6 @@ pub fn translate(
     #![allow(unused)]
     let mut output = SharedString::default();
 
-    let translated: &str = if plural.is_empty() || n == 1 { original } else { plural };
-
     #[cfg(any(feature = "tr", all(target_family = "unix", feature = "gettext-rs")))]
     global_translation_property();
 
