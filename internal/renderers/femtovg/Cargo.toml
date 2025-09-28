@@ -33,26 +33,14 @@ cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = "1.0"
 pin-weak = "1"
-scoped-tls-hkt = "0.1"
 femtovg = { version = "0.18.1" }
 ttf-parser = { workspace = true }
-unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
 glow = { workspace = true }
-unicode-segmentation = { workspace = true }
 
 wgpu-26 = { workspace = true, optional = true, default-features = true }
-
-[target.'cfg(target_family = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["dwrite"] }
-dwrote = { version = "0.11.0" }
-
-[target.'cfg(target_vendor = "apple")'.dependencies]
-# For GL rendering
-core-foundation = { version = "0.10.1" }
-core-text = { version = "21.0.0" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
