@@ -60,7 +60,7 @@ impl<T> Clone for Slice<'_, T> {
 impl<'a, T> Slice<'a, T> {
     /// Return a slice
     pub fn as_slice(self) -> &'a [T] {
-        // Safety: it ptr is supposed to be a valid slice of given length
+        // Safety: ptr is supposed to be a valid slice of given length
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 
