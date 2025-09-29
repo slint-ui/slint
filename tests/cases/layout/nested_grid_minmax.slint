@@ -31,6 +31,7 @@ TestCase := Rectangle {
 
     property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 50phx && rect1.height == 20phx;
     property <bool> rect2_pos_ok: rect2.x == 50phx && rect2.y == 0phx && rect2.width == 250phx && rect2.height == 20phx;
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok;
 }
 
 /*
@@ -48,7 +49,5 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());
 ```
-
-// FIXME:: interpreter test
 
 */

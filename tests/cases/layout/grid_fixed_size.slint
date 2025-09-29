@@ -52,6 +52,8 @@ TestCase := Rectangle {
     property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == expected_y1 && rect3.width == expected_x1 && rect3.height == 20phx;
     property <bool> rect4_pos_ok: rect4.x == 0phx && rect4.y == expected_y2 && rect4.width == expected_x1 && rect4.height == 300phx - expected_y2;
     property <bool> rect5_pos_ok: rect5.x == expected_x1 && rect5.y == expected_y2 && rect5.width == 270phx && rect5.height == 300phx - expected_y2;
+
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && rect4_pos_ok && rect5_pos_ok;
 }
 
 /*

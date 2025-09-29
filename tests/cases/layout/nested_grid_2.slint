@@ -43,7 +43,7 @@ TestCase := Rectangle {
     property <bool> rect3_pos_ok: rect3.x == 60phx && rect3.y == 0phx && rect3.width == 95phx && rect3.height == 50phx;
     property <bool> rect4_pos_ok: rect4.x == 155phx && rect4.y == 250phx && rect4.width == 145phx && rect4.height == 50phx;
 
-    property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && rect4_pos_ok;
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && rect4_pos_ok;
 }
 
 /*

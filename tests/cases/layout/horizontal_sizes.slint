@@ -56,6 +56,7 @@ TestCase := Rectangle {
     property <bool> orange_rect_ok: orange-rect.x == 170phx && orange-rect.y == 0phx && orange-rect.width == 10phx && orange-rect.height == 100phx;
     property <bool> yellow_rect_ok: yellow-rect.x == 180phx && yellow-rect.y == 0phx && yellow-rect.width == 120phx/3 && yellow-rect.height == 100phx;
     property <bool> pink_rect_ok: pink-rect.x == 180phx + yellow-rect.width && pink-rect.y == 0phx && pink-rect.width == 120phx*2/3 && pink-rect.height == 100phx;
+    out property <bool> test: blue_rect_ok && red_rect_ok && green_rect_ok && orange_rect_ok && yellow_rect_ok && pink_rect_ok;
 }
 
 /*
