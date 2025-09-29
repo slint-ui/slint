@@ -195,49 +195,40 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 }
 
-fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
-    layout: &sharedparley::Layout,
+fn draw_glyph_run<R: femtovg::Renderer + TextureImporter>(
     canvas: &mut Canvas<R>,
+    layout: &sharedparley::Layout,
+    font: &parley::Font,
+    font_size: f32,
+    stroke_style: &Option<TextStrokeStyle>,
     paint: &mut femtovg::Paint,
+    glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
 ) {
-    for (line_index, line) in layout.lines().enumerate() {
-        let last_line = line_index == layout.len() - 1;
-        for item in line.items() {
-            match item {
-                parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                    let run = glyph_run.run();
+    let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
-                    let font_id =
-                        font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(run.font()));
+    let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
+        x: glyph.x,
+        y: glyph.y + layout.y_offset,
+        glyph_id: glyph.id,
+    });
 
-                    let brush = glyph_run.style().brush;
+    paint.set_font_size(font_size);
 
-                    let glyphs = layout.glyphs_with_elision(&glyph_run, last_line).map(|glyph| {
-                        femtovg::PositionedGlyph {
-                            x: glyph.x,
-                            y: glyph.y + layout.y_offset,
-                            glyph_id: glyph.id,
-                        }
-                    });
+    match stroke_style {
+        Some(i_slint_core::items::TextStrokeStyle::Outside) => {
+            let glyphs = glyphs_it.collect::<Vec<_>>();
 
-                    paint.set_font_size(run.font_size());
+            canvas.stroke_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
+            canvas.fill_glyph_run(font_id, glyphs, &paint).unwrap();
+        }
+        Some(i_slint_core::items::TextStrokeStyle::Center) => {
+            let glyphs = glyphs_it.collect::<Vec<_>>();
 
-                    match brush.stroke {
-                        Some(i_slint_core::items::TextStrokeStyle::Outside) => {
-                            canvas.stroke_glyph_run(font_id, glyphs.clone(), paint).unwrap();
-                            canvas.fill_glyph_run(font_id, glyphs, paint).unwrap();
-                        }
-                        Some(i_slint_core::items::TextStrokeStyle::Center) => {
-                            canvas.fill_glyph_run(font_id, glyphs.clone(), paint).unwrap();
-                            canvas.stroke_glyph_run(font_id, glyphs, paint).unwrap();
-                        }
-                        None => {
-                            canvas.fill_glyph_run(font_id, glyphs, paint).unwrap();
-                        }
-                    }
-                }
-                parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
-            };
+            canvas.fill_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
+            canvas.stroke_glyph_run(font_id, glyphs, &paint).unwrap();
+        }
+        None => {
+            canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
         }
     }
 }
@@ -439,7 +430,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let mut canvas = self.canvas.borrow_mut();
 
-        draw_glyphs(&layout, &mut canvas, &mut paint);
+        layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
+            draw_glyph_run(
+                &mut canvas,
+                &layout,
+                font,
+                font_size,
+                stroke_style,
+                &mut paint,
+                glyphs_it,
+            );
+        });
     }
 
     fn draw_text_input(
@@ -525,7 +526,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             );
         });
 
-        draw_glyphs(&layout, &mut canvas, &mut paint);
+        layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
+            draw_glyph_run(
+                &mut canvas,
+                &layout,
+                font,
+                font_size,
+                stroke_style,
+                &mut paint,
+                glyphs_it,
+            );
+        });
 
         if cursor_visible {
             let cursor = parley::layout::cursor::Cursor::from_byte_index(
@@ -977,7 +988,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let layout = sharedparley::layout(string, self.scale_factor, Default::default());
         let mut paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
-        draw_glyphs(&layout, &mut canvas, &mut paint);
+        layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
+            draw_glyph_run(
+                &mut canvas,
+                &layout,
+                font,
+                font_size,
+                stroke_style,
+                &mut paint,
+                glyphs_it,
+            );
+        });
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {

@@ -213,6 +213,36 @@ impl Layout {
             }
         })
     }
+
+    pub fn draw(
+        &self,
+        draw_glyphs: &mut dyn FnMut(
+            &parley::Font,
+            f32,
+            &Option<TextStrokeStyle>,
+            &mut dyn Iterator<Item = parley::layout::Glyph>,
+        ),
+    ) {
+        for (line_index, line) in self.lines().enumerate() {
+            let last_line = line_index == self.len() - 1;
+            for item in line.items() {
+                match item {
+                    parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let run = glyph_run.run();
+
+                        let font = run.font();
+
+                        let brush = glyph_run.style().brush;
+
+                        let mut glyphs = self.glyphs_with_elision(&glyph_run, last_line);
+
+                        draw_glyphs(font, run.font_size(), &brush.stroke, &mut glyphs);
+                    }
+                    parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
+                };
+            }
+        }
+    }
 }
 
 impl std::ops::Deref for Layout {
