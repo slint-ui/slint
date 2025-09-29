@@ -123,7 +123,8 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
     return result;
 }
 
-inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data, cbindgen_private::Orientation orientation)
+inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data,
+                                             cbindgen_private::Orientation orientation)
 {
     SharedVector<float> result;
     cbindgen_private::slint_solve_grid_layout(&data, orientation, &result);
