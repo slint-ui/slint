@@ -7,6 +7,8 @@ It is meant to allow you to compile the `.slint` files from your `build.rs` scri
 
 The main entry point of this crate is the [`compile()`] function
 
+The generated code should be included in your crate by using the `slint::include_modules!()` macro.
+
 ## Example
 
 In your Cargo.toml:
@@ -425,6 +427,8 @@ fn formatter_test() {
 /// about how to use the generated code.
 ///
 /// This function can only be called within a build script run by cargo.
+///
+/// See also [`compile_with_config()`] if you want to specify a configuration.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     compile_with_config(path, CompilerConfiguration::default())
 }
