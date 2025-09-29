@@ -174,10 +174,10 @@ pub struct Layout {
 impl Layout {
     /// Returns an iterator over the run's glyphs but with an optional elision
     /// glyph replacing the last line's last glyph that's exceeding the max width - if applicable.
-    pub fn glyphs_with_elision<'a>(
+    /// Call this function only for the last line of the layout.
+    fn glyphs_with_elision<'a>(
         &'a self,
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
-        last_line: bool,
     ) -> impl Iterator<Item = parley::layout::Glyph> + Clone + 'a {
         let run_beyond_max_width = self.elision_info.as_ref().map_or(false, |info| {
             let run_end = glyph_run.offset() + glyph_run.advance();
@@ -187,9 +187,6 @@ impl Layout {
 
         let mut elipsis_emitted = false;
         glyph_run.positioned_glyphs().filter_map(move |mut glyph| {
-            if !last_line {
-                return Some(glyph);
-            }
             if !run_beyond_max_width {
                 return Some(glyph);
             }
@@ -230,13 +227,21 @@ impl Layout {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let run = glyph_run.run();
 
-                        let font = run.font();
-
                         let brush = glyph_run.style().brush;
 
-                        let mut glyphs = self.glyphs_with_elision(&glyph_run, last_line);
+                        let mut elided_glyphs_it;
+                        let mut unelided_glyphs_it;
+                        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>;
 
-                        draw_glyphs(font, run.font_size(), &brush.stroke, &mut glyphs);
+                        if last_line {
+                            elided_glyphs_it = self.glyphs_with_elision(&glyph_run);
+                            glyphs_it = &mut elided_glyphs_it;
+                        } else {
+                            unelided_glyphs_it = glyph_run.positioned_glyphs();
+                            glyphs_it = &mut unelided_glyphs_it;
+                        };
+
+                        draw_glyphs(run.font(), run.font_size(), &brush.stroke, glyphs_it);
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
