@@ -7,10 +7,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "format": "biome format --write .",
-    "format:fix": "biome format --write .",
-    "lint": "biome lint .",
-    "lint:fix": "biome lint --fix .",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --fix",
+    "format": "biome format",
+    "format:fix": "biome format --write",
     "type-check": "echo 'No TypeScript type checking needed for this JS project'"
   },
   "dependencies": {

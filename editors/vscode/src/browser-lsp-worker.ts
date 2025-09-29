@@ -93,4 +93,7 @@ slint_init(slint_wasm_data).then((_) => {
 
     // Now that we listen, the client is ready to send the init message
     self.postMessage("OK");
+}).catch((error) => {
+    console.error("Failed to initialize Slint LSP:", error);
+    self.postMessage("ERROR");
 });
