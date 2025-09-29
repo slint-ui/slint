@@ -17,7 +17,7 @@ mod errors;
 mod models;
 mod timer;
 mod value;
-use i_slint_core::translations::tr;
+use i_slint_core::translations::Translator;
 
 fn handle_unraisable(py: Python<'_>, context: String, err: PyErr) {
     let exception = err.value(py);
@@ -99,7 +99,7 @@ struct PyGettextTranslator(
     Py<PyAny>,
 );
 
-impl tr::Translator for PyGettextTranslator {
+impl Translator for PyGettextTranslator {
     fn translate<'a>(
         &'a self,
         string: &'a str,
