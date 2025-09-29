@@ -91,4 +91,4 @@ To modify or extend the MCP server:
 1. Run in dev mode with `pnpm dev`
 2. Edit `src/index.js` for core functionality
 3. Update `package.json` for dependencies
-4. Test with `node test-mcp.js`
+4. Test with `node test-prompt.js`
