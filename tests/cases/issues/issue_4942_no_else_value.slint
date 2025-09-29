@@ -8,10 +8,6 @@ export component TestCase {
         if (cond) {
             45
         }
-        // FIXME: Removing the following debug statement will cause a failure in C++ with this warning:
-        // error: unused parameter 'arg_0' [-Werror=unused-parameter]
-        // 115 | inline auto TestCase::fn_issue4942 (bool arg_0) const -> int{
-        debug(cond);
         12
     }
 
@@ -20,6 +16,11 @@ export component TestCase {
 
 
 /*
+
+FIXME:
+error: unused parameter 'arg_0' [-Werror=unused-parameter]
+inline auto TestCase::fn_issue4942 (bool arg_0) const -> int{
+gcc-args: -Wno-unused-parameter
 
 ```cpp
 auto handle = TestCase::create();
