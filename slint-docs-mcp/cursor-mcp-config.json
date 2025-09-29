@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "slint-docs": {
+      "command": "node",
+      "args": ["slint-docs-mcp/src/index.js"],
+      "env": {
+        "SLINT_DOCS_PATH": "docs/astro/src/content/docs"
+      }
+    }
+  }
+}

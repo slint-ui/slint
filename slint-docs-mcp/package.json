@@ -1,0 +1,31 @@
+{
+  "name": "slint-docs-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Slint documentation search and retrieval",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "format": "biome format --write .",
+    "format:fix": "biome format --write .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --fix .",
+    "type-check": "echo 'No TypeScript type checking needed for this JS project'"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.18.2",
+    "gray-matter": "4.0.3",
+    "markdown-it": "14.1.0",
+    "fuse.js": "7.1.0",
+    "mime-types": "3.0.1"
+  },
+  "keywords": [
+    "mcp",
+    "slint",
+    "documentation",
+    "search"
+  ],
+  "author": "Slint Team",
+  "license": "MIT"
+}
