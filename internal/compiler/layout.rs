@@ -278,18 +278,19 @@ impl LayoutConstraints {
 /// An element in a GridLayout
 #[derive(Debug, Clone)]
 pub struct GridLayoutElement {
-    pub col: u16,
-    pub row: u16,
+    pub new_row: bool,
+    pub col_expr: Option<Expression>,
+    pub row_expr: Option<Expression>,
     pub colspan: u16,
     pub rowspan: u16,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
-    pub fn col_or_row_and_span(&self, orientation: Orientation) -> (u16, u16) {
+    pub fn span(&self, orientation: Orientation) -> u16 {
         match orientation {
-            Orientation::Horizontal => (self.col, self.colspan),
-            Orientation::Vertical => (self.row, self.rowspan),
+            Orientation::Horizontal => self.colspan,
+            Orientation::Vertical => self.rowspan,
         }
     }
 }
