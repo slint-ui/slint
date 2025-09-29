@@ -7,7 +7,7 @@ It is meant to allow you to compile the `.slint` files from your `build.rs` scri
 
 The main entry point of this crate is the [`compile()`] function
 
-The generated code should be included in your crate by using the `slint::include_modules!()` macro.
+The generated code must be included in your crate by using the `slint::include_modules!()` macro.
 
 ## Example
 
