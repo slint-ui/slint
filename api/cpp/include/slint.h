@@ -123,18 +123,19 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
     return result;
 }
 
-inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data)
+inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data,
+                                             cbindgen_private::Orientation orientation)
 {
     SharedVector<float> result;
-    cbindgen_private::slint_solve_grid_layout(&data, &result);
+    cbindgen_private::slint_solve_grid_layout(&data, orientation, &result);
     return result;
 }
 
 inline cbindgen_private::LayoutInfo
 grid_layout_info(cbindgen_private::Slice<cbindgen_private::GridLayoutCellData> cells, float spacing,
-                 const cbindgen_private::Padding &padding)
+                 const cbindgen_private::Padding &padding, cbindgen_private::Orientation o)
 {
-    return cbindgen_private::slint_grid_layout_info(cells, spacing, &padding);
+    return cbindgen_private::slint_grid_layout_info(cells, spacing, &padding, o);
 }
 
 inline cbindgen_private::LayoutInfo

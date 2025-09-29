@@ -6,6 +6,8 @@ export X := Rectangle {
 
     lay := GridLayout {
         property<string> foo: "hello";
+        property<int> last_row: 4;
+        property<int> negative: -5;
         Row {
             Text {
                 text: lay.foo + parent.width;
@@ -18,7 +20,7 @@ export X := Rectangle {
                 row: 3;
 //                   ^error{The 'row' property cannot be used for elements inside a Row}
                 col: -2;
-//                   ^error{'col' must be an integer literal}
+//                   ^error{'col' must be a positive integer}
                 rowspan: 2.2;
 //                       ^error{'rowspan' must be a positive integer}
                 y: 0;
@@ -32,6 +34,10 @@ export X := Rectangle {
 //                  ^error{The property must be known at compile time and cannot be changed at runtime}
                 }
             }
+        }
+        Text {
+            row: lay.last_row;
+            col: -lay.negative; // check that a unary minus isn't necessary an error
         }
         Row {
             Text {

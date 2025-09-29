@@ -54,9 +54,9 @@ pub fn lower_layouts(
                 elem,
                 &type_loader.global_type_registry.borrow(),
                 style_metrics,
+                parent_layout_type,
                 diag,
             );
-            check_no_layout_properties(elem, &layout_type, &parent_layout_type, diag);
             layout_type
         },
     );
@@ -93,14 +93,22 @@ fn lower_element_layout(
     elem: &ElementRc,
     type_register: &TypeRegister,
     style_metrics: &Rc<Component>,
+    parent_layout_type: &Option<SmolStr>,
     diag: &mut BuildDiagnostics,
 ) -> Option<SmolStr> {
-    let base_type = if let ElementType::Builtin(base_type) = &elem.borrow().base_type {
-        base_type.clone()
+    let layout_type = if let ElementType::Builtin(base_type) = &elem.borrow().base_type {
+        Some(base_type.name.clone())
     } else {
-        return None;
+        None
     };
-    match base_type.name.as_str() {
+
+    check_no_layout_properties(elem, &layout_type, &parent_layout_type, diag);
+
+    if layout_type.is_none() {
+        return None;
+    }
+
+    match layout_type.as_ref().unwrap().as_str() {
         "Row" => {
             // We shouldn't lower layout if we have a Row in there. Unless the Row is the root of a repeated item,
             // in which case another error has been reported
@@ -121,7 +129,7 @@ fn lower_element_layout(
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
             // return now, the Dialog stays in the tree as a Dialog
-            return Some(base_type.name.clone());
+            return layout_type;
         }
         _ => return None,
     };
@@ -140,7 +148,7 @@ fn lower_element_layout(
         }
     }
 
-    Some(base_type.name.clone())
+    layout_type
 }
 
 fn lower_grid_layout(
@@ -176,11 +184,9 @@ fn lower_grid_layout(
         layout_info_type().into(),
     );
 
-    let mut row = 0;
-    let mut col = 0;
-
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
     let mut collected_children = Vec::new();
+    let mut new_row = false; // true until the first child of a Row, or the first item after an empty Row
     for layout_child in layout_children {
         let is_row = if let ElementType::Builtin(be) = &layout_child.borrow().base_type {
             be.name == "Row"
@@ -188,10 +194,7 @@ fn lower_grid_layout(
             false
         };
         if is_row {
-            if col > 0 {
-                row += 1;
-                col = 0;
-            }
+            new_row = true;
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
                 x.borrow_mut().bindings.get("row").map(|binding| {
@@ -200,20 +203,11 @@ fn lower_grid_layout(
                         &*binding.borrow(),
                     );
                 });
-                grid.add_element(
-                    &x,
-                    (&mut row, &mut col),
-                    &layout_cache_prop_h,
-                    &layout_cache_prop_v,
-                    diag,
-                );
-                col += 1;
+                grid.add_element(&x, new_row, &layout_cache_prop_h, &layout_cache_prop_v, diag);
                 collected_children.push(x);
+                new_row = false;
             }
-            if col > 0 {
-                row += 1;
-                col = 0;
-            }
+            new_row = true; // the end of a Row means the next item is the first of a new row
             if layout_child.borrow().has_popup_child {
                 // We need to keep that element otherwise the popup will malfunction
                 layout_child.borrow_mut().base_type = type_register.empty_type();
@@ -224,13 +218,13 @@ fn lower_grid_layout(
         } else {
             grid.add_element(
                 &layout_child,
-                (&mut row, &mut col),
+                new_row,
                 &layout_cache_prop_h,
                 &layout_cache_prop_v,
                 diag,
             );
-            col += 1;
             collected_children.push(layout_child);
+            new_row = false;
         }
     }
     grid_layout_element.borrow_mut().children = collected_children;
@@ -281,7 +275,7 @@ impl GridLayout {
     fn add_element(
         &mut self,
         item_element: &ElementRc,
-        (row, col): (&mut u16, &mut u16),
+        new_row: bool,
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
@@ -295,27 +289,28 @@ impl GridLayout {
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
         let rowspan = get_const_value("rowspan").unwrap_or(1);
-        if let Some(r) = get_const_value("row") {
-            *row = r;
-            *col = 0;
-        }
-        if let Some(c) = get_const_value("col") {
-            *col = c;
-        }
 
-        let result = self.add_element_with_coord(
+        // TODO: use get_expr for colspan/rowspan too
+        let mut get_expr = |name: &str| {
+            item_element.borrow_mut().bindings.get(name).map(|e| {
+                let expr = &e.borrow().expression;
+                check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
+                expr.clone()
+            })
+        };
+
+        let row_expr = get_expr("row");
+        let col_expr = get_expr("col");
+
+        self.add_element_with_coord_as_expr(
             item_element,
-            (*row, *col),
+            new_row,
+            (&row_expr, &col_expr),
             (rowspan, colspan),
             layout_cache_prop_h,
             layout_cache_prop_v,
             diag,
         );
-        if let Some(layout_item) = result {
-            let e = &layout_item.elem;
-            insert_fake_property(e, "row", Expression::NumberLiteral(*row as f64, Unit::None));
-            insert_fake_property(e, "col", Expression::NumberLiteral(*col as f64, Unit::None));
-        }
     }
 
     fn add_element_with_coord(
@@ -326,7 +321,31 @@ impl GridLayout {
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
-    ) -> Option<CreateLayoutItemResult> {
+    ) {
+        self.add_element_with_coord_as_expr(
+            item_element,
+            false, // new_row
+            (
+                &Some(Expression::NumberLiteral(row as _, Unit::None)),
+                &Some(Expression::NumberLiteral(col as _, Unit::None)),
+            ),
+            (rowspan, colspan),
+            layout_cache_prop_h,
+            layout_cache_prop_v,
+            diag,
+        )
+    }
+
+    fn add_element_with_coord_as_expr(
+        &mut self,
+        item_element: &ElementRc,
+        new_row: bool,
+        (row_expr, col_expr): (&Option<Expression>, &Option<Expression>),
+        (rowspan, colspan): (u16, u16),
+        layout_cache_prop_h: &NamedReference,
+        layout_cache_prop_v: &NamedReference,
+        diag: &mut BuildDiagnostics,
+    ) {
         let index = self.elems.len();
         let result = create_layout_item(item_element, diag);
         if let Some(ref layout_item) = result {
@@ -336,28 +355,35 @@ impl GridLayout {
                         .to_string(),
                     &*item_element.borrow(),
                 );
-                return None;
+                return;
             }
 
             let e = &layout_item.elem;
-            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, &None, diag);
+            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 3, &None, diag);
             if !layout_item.item.constraints.fixed_width {
-                set_prop_from_cache(e, "width", layout_cache_prop_h, index * 2 + 1, &None, diag);
+                set_prop_from_cache(e, "width", layout_cache_prop_h, index * 3 + 1, &None, diag);
             }
-            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, &None, diag);
+            if col_expr.is_none() {
+                set_prop_from_cache(e, "col", layout_cache_prop_h, index * 3 + 2, &None, diag);
+            }
+
+            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 3, &None, diag);
             if !layout_item.item.constraints.fixed_height {
-                set_prop_from_cache(e, "height", layout_cache_prop_v, index * 2 + 1, &None, diag);
+                set_prop_from_cache(e, "height", layout_cache_prop_v, index * 3 + 1, &None, diag);
+            }
+            if row_expr.is_none() {
+                set_prop_from_cache(e, "row", layout_cache_prop_v, index * 3 + 2, &None, diag);
             }
 
             self.elems.push(GridLayoutElement {
-                col,
-                row,
+                new_row,
+                col_expr: col_expr.clone(),
+                row_expr: row_expr.clone(),
                 colspan,
                 rowspan,
                 item: layout_item.item.clone(),
             });
         }
-        result
     }
 }
 
@@ -791,15 +817,6 @@ fn create_layout_item(
     })
 }
 
-fn insert_fake_property(elem: &ElementRc, prop: &str, expr: Expression) {
-    let mut elem_mut = elem.borrow_mut();
-    let span = elem_mut.to_source_location();
-    if let std::collections::btree_map::Entry::Vacant(e) = elem_mut.bindings.entry(prop.into()) {
-        let binding = BindingExpression::new_with_span(expr, span);
-        e.insert(binding.into());
-    }
-}
-
 fn set_prop_from_cache(
     elem: &ElementRc,
     prop: &str,
@@ -851,7 +868,37 @@ fn eval_const_expr(
     }
 }
 
-/// Checks that there is grid-layout specific properties left
+// If it's a number literal, it must be a positive integer
+// But also allow any other kind of expression
+fn check_number_literal_is_positive_integer(
+    expression: &Expression,
+    name: &str,
+    span: &dyn crate::diagnostics::Spanned,
+    diag: &mut BuildDiagnostics,
+) {
+    match super::ignore_debug_hooks(expression) {
+        Expression::NumberLiteral(v, Unit::None) => {
+            if *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
+                diag.push_error(format!("'{name}' must be a positive integer"), span);
+            }
+        }
+        Expression::UnaryOp { op: '-', sub } => {
+            if let Expression::NumberLiteral(_, Unit::None) = super::ignore_debug_hooks(sub) {
+                diag.push_error(format!("'{name}' must be a positive integer"), span);
+            }
+        }
+        Expression::Cast { from, .. } => {
+            check_number_literal_is_positive_integer(from, name, span, diag)
+        }
+        _ => {}
+    }
+}
+
+fn recognized_layout_types() -> &'static [&'static str] {
+    &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "Dialog"]
+}
+
+/// Checks that there are no grid-layout specific properties used wrongly
 fn check_no_layout_properties(
     item: &ElementRc,
     layout_type: &Option<SmolStr>,
@@ -873,7 +920,8 @@ fn check_no_layout_properties(
                 &*expr.borrow(),
             );
         }
-        if layout_type.is_none()
+        if (layout_type.is_none()
+            || !recognized_layout_types().contains(&layout_type.as_ref().unwrap().as_str()))
             && matches!(
                 prop.as_ref(),
                 "padding" | "padding-left" | "padding-right" | "padding-top" | "padding-bottom"

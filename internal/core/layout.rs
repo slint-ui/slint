@@ -305,23 +305,28 @@ mod grid_internal {
         assert_eq!(my_items[2].size, 100.);
     }
 
-    /// Create a vector of LayoutData for an array of GridLayoutCellData
+    /// Create a vector of LayoutData (e.g. one per row if Vertical) for an array of GridLayoutCellData (one per cell)
+    /// Used by both solve_grid_layout() and grid_layout_info() (each with their own copy of the GridLayoutCellData slice)
     pub fn to_layout_data(
         data: &[GridLayoutCellData],
         spacing: Coord,
         size: Option<Coord>,
-    ) -> Vec<LayoutData> {
+        orientation: Orientation,
+    ) -> (Vec<LayoutData>, Vec<GridLayoutCellData>) {
+        let mut cells: Vec<GridLayoutCellData> = data.to_vec();
+        determine_row_col_numbers(&mut cells, orientation);
+
         let mut num = 0usize;
-        for cell in data {
+        for cell in cells.iter() {
             num = num.max(cell.col_or_row as usize + cell.span.max(1) as usize);
         }
         if num < 1 {
-            return Default::default();
+            return (Default::default(), cells);
         }
         let mut layout_data =
             alloc::vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num];
         let mut has_spans = false;
-        for cell in data {
+        for cell in cells.iter() {
             let constraint = &cell.constraint;
             let mut max = constraint.max;
             if let Some(size) = size {
@@ -347,7 +352,7 @@ mod grid_internal {
         }
         if has_spans {
             // Adjust minimum sizes
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let mut min = cell.constraint.min;
@@ -362,7 +367,7 @@ mod grid_internal {
                 }
             }
             // Adjust maximum sizes
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let mut max = cell.constraint.max;
@@ -377,7 +382,7 @@ mod grid_internal {
                 }
             }
             // Adjust preferred sizes
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 grid_internal::layout_items(span_data, 0 as _, cell.constraint.preferred, spacing);
@@ -386,7 +391,7 @@ mod grid_internal {
                 }
             }
             // Adjust stretches
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let total_stretch: f32 = span_data.iter().map(|c| c.stretch).sum();
@@ -397,7 +402,7 @@ mod grid_internal {
                 }
             }
         }
-        layout_data
+        (layout_data, cells)
     }
 }
 
@@ -429,20 +434,67 @@ pub struct GridLayoutData<'a> {
     pub cells: Slice<'a, GridLayoutCellData>,
 }
 
+/// The horizontal or vertical data for a cell of a GridLayout
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct GridLayoutCellData {
-    /// col, or row.
+    /// whether this cell is the first one in a Row element
+    pub new_row: bool,
+    /// col or row (u16::MAX means auto).
     pub col_or_row: u16,
+    /// row number, needed to detect row changes (and set col to 0).
+    /// This duplicates col_or_row in case of vertical data, but col_or_row allows more common code.
+    pub row: u16,
     /// colspan or rowspan
     pub span: u16,
     pub constraint: LayoutInfo,
 }
 
-/// return, an array which is of size `data.cells.len() * 2` which for each cell we give the pos, size
-pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
-    let mut layout_data =
-        grid_internal::to_layout_data(data.cells.as_slice(), data.spacing, Some(data.size));
+// Implement "auto" behavior for row/col numbers (unless specified in the slint file).
+// Shared code between to_layout_data() (when compiled) and eval_layout.rs (when interpreted)
+pub fn determine_row_col_numbers(data: &mut [GridLayoutCellData], orientation: Orientation) {
+    let mut row = 0;
+    let mut col = 0;
+    let mut first = true;
+    let auto = u16::MAX;
+    for cell in data.iter_mut() {
+        if cell.new_row && !first {
+            row += 1;
+            col = 0;
+        }
+        first = false;
+        if cell.row == auto {
+            cell.row = row;
+        } else if row != cell.row {
+            row = cell.row;
+            col = 0;
+        }
+        if orientation == Orientation::Horizontal {
+            if cell.col_or_row == auto {
+                cell.col_or_row = col;
+            } else {
+                col = cell.col_or_row;
+            }
+        } else {
+            if cell.col_or_row == auto {
+                cell.col_or_row = row;
+            } else {
+                row = cell.col_or_row;
+            }
+        }
+        col += 1;
+    }
+}
+
+/// return, an array which is of size `data.cells.len() * 3` which for each cell stores:
+/// pos (x or y), size (width or height), row or column number
+pub fn solve_grid_layout(data: &GridLayoutData, orientation: Orientation) -> SharedVector<Coord> {
+    let (mut layout_data, cells) = grid_internal::to_layout_data(
+        data.cells.as_slice(),
+        data.spacing,
+        Some(data.size),
+        orientation,
+    );
 
     if layout_data.is_empty() {
         return Default::default();
@@ -455,8 +507,8 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
         data.spacing,
     );
 
-    let mut result = SharedVector::with_capacity(4 * data.cells.len());
-    for cell in data.cells.iter() {
+    let mut result = SharedVector::with_capacity(4 * cells.len());
+    for cell in cells.iter() {
         let cdata = &layout_data[cell.col_or_row as usize];
         result.push(cdata.pos);
         result.push(if cell.span > 0 {
@@ -466,6 +518,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
         } else {
             0 as Coord
         });
+        result.push(cell.col_or_row as _);
     }
     result
 }
@@ -474,8 +527,10 @@ pub fn grid_layout_info(
     cells: Slice<GridLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
+    orientation: Orientation,
 ) -> LayoutInfo {
-    let layout_data = grid_internal::to_layout_data(cells.as_slice(), spacing, None);
+    let (layout_data, _) =
+        grid_internal::to_layout_data(cells.as_slice(), spacing, None, orientation);
     if layout_data.is_empty() {
         return Default::default();
     }
@@ -747,9 +802,10 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_grid_layout(
         data: &GridLayoutData,
+        orientation: Orientation,
         result: &mut SharedVector<Coord>,
     ) {
-        *result = super::solve_grid_layout(data)
+        *result = super::solve_grid_layout(data, orientation)
     }
 
     #[unsafe(no_mangle)]
@@ -757,8 +813,9 @@ pub(crate) mod ffi {
         cells: Slice<GridLayoutCellData>,
         spacing: Coord,
         padding: &Padding,
+        orientation: Orientation,
     ) -> LayoutInfo {
-        super::grid_layout_info(cells, spacing, padding)
+        super::grid_layout_info(cells, spacing, padding, orientation)
     }
 
     #[unsafe(no_mangle)]
