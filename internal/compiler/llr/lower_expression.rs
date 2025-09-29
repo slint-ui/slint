@@ -594,9 +594,13 @@ fn compute_layout_info(
         crate::layout::Layout::GridLayout(layout) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
             let cells = grid_layout_cell_data(layout, o, ctx);
+            let orientation_literal = llr_Expression::EnumerationValue(EnumerationValue {
+                value: o as _,
+                enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
+            });
             llr_Expression::ExtraBuiltinFunctionCall {
                 function: "grid_layout_info".into(),
-                arguments: vec![cells, spacing, padding],
+                arguments: vec![cells, spacing, padding, orientation_literal],
                 return_ty: crate::typeregister::layout_info_type().into(),
             }
         }
@@ -640,6 +644,10 @@ fn solve_layout(
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
             let cells = grid_layout_cell_data(layout, o, ctx);
             let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
+            let orientation_expr = llr_Expression::EnumerationValue(EnumerationValue {
+                value: o as _,
+                enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
+            });
             if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, o)
             {
                 let cells_ty = cells.ty(ctx);
@@ -666,37 +674,43 @@ fn solve_layout(
                     },
                     llr_Expression::ExtraBuiltinFunctionCall {
                         function: "solve_grid_layout".into(),
-                        arguments: vec![make_struct(
+                        arguments: vec![
+                            make_struct(
                             BuiltinPrivateStruct::GridLayoutData,
-                            [
-                                ("size", Type::Float32, size),
-                                ("spacing", Type::Float32, spacing),
-                                ("padding", padding.ty(ctx), padding),
-                                (
-                                    "cells",
-                                    cells_ty.clone(),
-                                    llr_Expression::ReadLocalVariable {
-                                        name: "cells".into(),
-                                        ty: cells_ty,
-                                    },
-                                ),
-                            ],
-                        )],
+                                [
+                                    ("size", Type::Float32, size),
+                                    ("spacing", Type::Float32, spacing),
+                                    ("padding", padding.ty(ctx), padding),
+                                    (
+                                        "cells",
+                                        cells_ty.clone(),
+                                        llr_Expression::ReadLocalVariable {
+                                            name: "cells".into(),
+                                            ty: cells_ty,
+                                        },
+                                    ),
+                                ],
+                            ),
+                            orientation_expr,
+                        ],
                         return_ty: Type::LayoutCache,
                     },
                 ])
             } else {
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_grid_layout".into(),
-                    arguments: vec![make_struct(
-                        BuiltinPrivateStruct::GridLayoutData,
-                        [
-                            ("size", Type::Float32, size),
-                            ("spacing", Type::Float32, spacing),
-                            ("padding", padding.ty(ctx), padding),
-                            ("cells", cells.ty(ctx), cells),
-                        ],
-                    )],
+                    arguments: vec![
+                        make_struct(
+                            BuiltinPrivateStruct::GridLayoutData,
+                            [
+                                ("size", Type::Float32, size),
+                                ("spacing", Type::Float32, spacing),
+                                ("padding", padding.ty(ctx), padding),
+                                ("cells", cells.ty(ctx), cells),
+                            ],
+                        ),
+                        orientation_expr,
+                    ],
                     return_ty: Type::LayoutCache,
                 }
             }
@@ -843,15 +857,33 @@ fn grid_layout_cell_data(
             .elems
             .iter()
             .map(|c| {
-                let (col_or_row, span) = c.col_or_row_and_span(orientation);
+                let span = c.span(orientation);
                 let layout_info =
                     get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation);
+
+                let mut lower_expr_or_auto = |expr: &Option<crate::expression_tree::Expression>| {
+                    expr.as_ref().map_or_else(
+                        || llr_Expression::NumberLiteral(u16::MAX.into()), // MAX means "auto", see to_layout_data()
+                        |e| lower_expression(e, ctx),
+                    )
+                };
+                let row_expr = lower_expr_or_auto(&c.row_expr);
+                let col_expr = lower_expr_or_auto(&c.col_expr);
 
                 make_struct(
                     BuiltinPrivateStruct::GridLayoutCellData,
                     [
                         ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
-                        ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
+                        ("new_row", Type::Bool, llr_Expression::BoolLiteral(c.new_row)),
+                        (
+                            "col_or_row",
+                            Type::Int32,
+                            match orientation {
+                                Orientation::Horizontal => col_expr,
+                                Orientation::Vertical => row_expr.clone(),
+                            },
+                        ),
+                        ("row", Type::Int32, row_expr),
                         ("span", Type::Int32, llr_Expression::NumberLiteral(span as _)),
                     ],
                 )
@@ -864,6 +896,7 @@ fn grid_layout_cell_data(
 pub(super) fn grid_layout_cell_data_ty() -> Type {
     Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
+            (SmolStr::new_static("new_row"), Type::Bool),
             (SmolStr::new_static("col_or_row"), Type::Int32),
             (SmolStr::new_static("span"), Type::Int32),
             (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type().into()),
