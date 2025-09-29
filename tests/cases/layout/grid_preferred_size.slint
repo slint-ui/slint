@@ -31,7 +31,7 @@ TestCase := Rectangle {
     property <bool> fake-image-width-ok: fake-image.width == 25phx;
     property <bool> fake-image-height-ok: fake-image.height == 50phx;
 
-    property <bool> test: fake-image-width-ok && fake-image-height-ok;
+    out property <bool> test: fake-image-width-ok && fake-image-height-ok;
 }
 
 /*
