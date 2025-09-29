@@ -6,7 +6,7 @@ use core::fmt::Display;
 pub use formatter::FormatArgs;
 
 #[cfg(feature = "tr")]
-pub use tr;
+pub use tr::Translator;
 
 mod formatter {
     use core::fmt::{Display, Formatter, Result};
