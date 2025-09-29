@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::dynamic_item_tree::InstanceRef;
-use crate::eval::{self, EvalLocalContext};
+use crate::eval::{self, eval_expression, EvalLocalContext};
 use crate::Value;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
@@ -42,10 +42,17 @@ pub(crate) fn compute_layout_info(
     };
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let cells = grid_layout_data(grid_layout, orientation, component, &expr_eval);
+            let cells =
+                grid_layout_data(grid_layout, orientation, component, &expr_eval, local_context);
             let (padding, spacing) =
                 padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
-            core_layout::grid_layout_info(Slice::from(cells.as_slice()), spacing, &padding).into()
+            core_layout::grid_layout_info(
+                Slice::from(cells.as_slice()),
+                spacing,
+                &padding,
+                to_runtime(orientation),
+            )
+            .into()
         }
         Layout::BoxLayout(box_layout) => {
             let (cells, alignment) =
@@ -79,7 +86,8 @@ pub(crate) fn solve_layout(
 
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let mut cells = grid_layout_data(grid_layout, orientation, component, &expr_eval);
+            let mut cells =
+                grid_layout_data(grid_layout, orientation, component, &expr_eval, local_context);
             if let (Some(buttons_roles), Orientation::Horizontal) =
                 (&grid_layout.dialog_button_roles, orientation)
             {
@@ -94,12 +102,15 @@ pub(crate) fn solve_layout(
                 padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
 
             let size_ref = grid_layout.geometry.rect.size_reference(orientation);
-            core_layout::solve_grid_layout(&core_layout::GridLayoutData {
-                size: size_ref.map(expr_eval).unwrap_or(0.),
-                spacing,
-                padding,
-                cells: Slice::from(cells.as_slice()),
-            })
+            core_layout::solve_grid_layout(
+                &core_layout::GridLayoutData {
+                    size: size_ref.map(expr_eval).unwrap_or(0.),
+                    spacing,
+                    padding,
+                    cells: Slice::from(cells.as_slice()),
+                },
+                to_runtime(orientation),
+            )
             .into()
         }
         Layout::BoxLayout(box_layout) => {
@@ -150,8 +161,9 @@ fn grid_layout_data(
     orientation: Orientation,
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
+    local_context: &mut EvalLocalContext,
 ) -> Vec<core_layout::GridLayoutCellData> {
-    let cells = grid_layout
+    let mut cells = grid_layout
         .elems
         .iter()
         .map(|cell| {
@@ -167,10 +179,35 @@ fn grid_layout_data(
                 orientation,
                 &expr_eval,
             );
-            let (col_or_row, span) = cell.col_or_row_and_span(orientation);
-            core_layout::GridLayoutCellData { col_or_row, span, constraint: layout_info }
+            let span = cell.span(orientation);
+            let mut eval_or_auto = |expr: &Option<Expression>| match expr {
+                None => u16::MAX, // auto
+                Some(e) => {
+                    let value = eval_expression(e, local_context);
+                    match value {
+                        Value::Number(n) if n >= 0.0 && n <= u16::MAX as f64 => n as u16,
+                        _ => panic!(
+                            "Expected a positive integer, but got {:?} while evaluating {:?}",
+                            value, e
+                        ),
+                    }
+                }
+            };
+            let row = eval_or_auto(&cell.row_expr);
+            let col = eval_or_auto(&cell.col_expr);
+            core_layout::GridLayoutCellData {
+                new_row: cell.new_row,
+                col_or_row: match orientation {
+                    Orientation::Horizontal => col,
+                    Orientation::Vertical => row,
+                },
+                row,
+                span,
+                constraint: layout_info,
+            }
         })
         .collect::<Vec<_>>();
+    core_layout::determine_row_col_numbers(&mut cells, to_runtime(orientation));
     cells
 }
 
