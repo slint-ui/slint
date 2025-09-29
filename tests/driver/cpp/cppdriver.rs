@@ -135,6 +135,15 @@ namespace slint_testing = slint::private_api::testing;
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lslint_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
+
+        if let Some(x) = source.find("gcc-args:") {
+            for arg in source[x..].split_once(':').unwrap().1.split_once('\n').unwrap().0.split(' ')
+            {
+                if !arg.is_empty() {
+                    compiler_command.arg(arg);
+                }
+            }
+        }
     } else if compiler.is_like_msvc() {
         compiler_command.arg("/std:c++20");
         compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
