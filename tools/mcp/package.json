@@ -1,5 +1,5 @@
 {
-  "name": "slint-docs-mcp",
+  "name": "slint-mcp",
   "version": "1.0.0",
   "description": "MCP server for Slint documentation search and retrieval",
   "type": "module",

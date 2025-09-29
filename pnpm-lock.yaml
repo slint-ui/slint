@@ -233,24 +233,6 @@ importers:
         specifier: workspace:*
         version: link:../../../api/node
 
-  slint-docs-mcp:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: 1.18.2
-        version: 1.18.2
-      fuse.js:
-        specifier: 7.1.0
-        version: 7.1.0
-      gray-matter:
-        specifier: 4.0.3
-        version: 4.0.3
-      markdown-it:
-        specifier: 14.1.0
-        version: 14.1.0
-      mime-types:
-        specifier: 3.0.1
-        version: 3.0.1
-
   tools/figma-inspector:
     dependencies:
       figma-kit:
@@ -314,6 +296,24 @@ importers:
       vitest:
         specifier: 3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(terser@5.39.0)(yaml@2.8.1)
+
+  tools/mcp:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: 1.18.2
+        version: 1.18.2
+      fuse.js:
+        specifier: 7.1.0
+        version: 7.1.0
+      gray-matter:
+        specifier: 4.0.3
+        version: 4.0.3
+      markdown-it:
+        specifier: 14.1.0
+        version: 14.1.0
+      mime-types:
+        specifier: 3.0.1
+        version: 3.0.1
 
   tools/slintpad:
     devDependencies:

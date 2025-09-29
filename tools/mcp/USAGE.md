@@ -1,10 +1,12 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Using the Slint Docs MCP Server
 
 ## Quick Start
 
 1. **Install dependencies:**
    ```bash
-   cd slint-docs-mcp
+   cd tools/mcp
    pnpm install
    ```
 
@@ -23,7 +25,7 @@
      "mcpServers": {
        "slint-docs": {
           "command": "node",
-          "args": ["<absolute path to slint repo>/slint-docs-mcp/src/index.js"],
+          "args": ["<absolute path to slint repo>/tools/mcp/src/index.js"],
           "env": {
             "SLINT_DOCS_PATH": "<absolute path to slint repo>/docs/astro/src/content/docs"
           }

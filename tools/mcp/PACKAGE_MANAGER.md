@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Package Manager
 
 This project uses **pnpm**, not npm.

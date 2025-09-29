@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Slint Documentation MCP Server
 
 This is a Model Context Protocol (MCP) server that provides search and retrieval capabilities for the Slint documentation. It allows AI assistants and other tools to search through Slint's comprehensive documentation to answer questions about the Slint language, API reference, tutorials, and guides.

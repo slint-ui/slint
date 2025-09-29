@@ -14,7 +14,7 @@ packages:
   - "docs/astro"
   - "docs/common"
   - "ui-libraries/material/docs"
-  - "slint-docs-mcp"
+  - "tools/mcp"
 
 catalog:
   "@biomejs/biome": 2.2.4
