@@ -5,6 +5,9 @@ use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
 
+#[cfg(feature = "tr")]
+pub use tr::Translator;
+
 mod formatter {
     use core::fmt::{Display, Formatter, Result};
 
@@ -190,9 +193,42 @@ pub fn translate(
 ) -> SharedString {
     #![allow(unused)]
     let mut output = SharedString::default();
-    let translated = if plural.is_empty() || n == 1 { original } else { plural };
+
+    // Register a dependency so that language changes trigger a re-evaluation of all relevant bindings
+    // and this function is called again.
+    #[cfg(any(feature = "tr", all(target_family = "unix", feature = "gettext-rs")))]
+    global_translation_property();
+
+    let mut translated: Option<alloc::borrow::Cow<'_, str>> = None;
+
+    #[cfg(feature = "tr")]
+    {
+        translated = crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let ctx = ctx.get()?;
+            let external_translator = ctx.external_translator()?;
+            let context = if !contextid.is_empty() { Some(contextid.as_ref()) } else { None };
+            Some(
+                if plural.is_empty() {
+                    external_translator.translate(original, context)
+                } else {
+                    external_translator.ntranslate(n.try_into().ok()?, original, plural, context)
+                }
+                .into_owned()
+                .into(),
+            )
+        });
+    }
+
     #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
-    let translated = translate_gettext(original, contextid, domain, n, plural);
+    if translated.is_none() {
+        translated = Some(alloc::borrow::Cow::Owned(translate_gettext(
+            original, contextid, domain, n, plural,
+        )));
+    }
+
+    let translated = translated
+        .unwrap_or_else(|| if plural.is_empty() || n == 1 { original } else { plural }.into());
+
     use core::fmt::Write;
     write!(output, "{}", formatter::format(&translated, &WithPlural(arguments, n))).unwrap();
     output
@@ -207,7 +243,6 @@ fn translate_gettext(
     plural: &str,
 ) -> std::string::String {
     use std::string::String;
-    global_translation_property();
     fn mangle_context(ctx: &str, s: &str) -> String {
         std::format!("{ctx}\u{4}{s}")
     }

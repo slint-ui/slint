@@ -331,9 +331,12 @@ macro_rules! for_each_enums {
                 /// Use the preferred size for all elements, distribute remaining space evenly between
                 /// elements.
                 SpaceBetween,
+                /// Use the preferred size for all elements, distribute remaining space evenly
+                /// between the elements, and use half spaces at the start and end.
+                SpaceAround,
                 /// Use the preferred size for all elements, distribute remaining space evenly before the
                 /// first element, after the last element and between elements.
-                SpaceAround,
+                SpaceEvenly,
             }
 
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is

@@ -24,10 +24,10 @@ catalog:
   "@astrojs/check": 0.9.4
   "@astrojs/starlight": 0.36.0
   "starlight-links-validator": 0.18.0
-  "astro": 5.13.10
+  "astro": 5.14.1
   "astro-embed": 0.9.1
   "sharp": 0.34.4
   "@expressive-code/plugin-line-numbers": 0.41.3
   "rehype-external-links": 3.0.0
   "playwright-ctrf-json-reporter": 0.0.23
-  "@playwright/test": 1.55.0
+  "@playwright/test": 1.55.1
