@@ -21,19 +21,30 @@ jobs:
         strategy:
             matrix:
                 include:
-# Disabled armhf, as armv7 seems to have vanished from https://hub.docker.com/r/torizon/wayland-base-vivante/tags
-#                    - target: armhf
-#                      image_arch: linux/arm/v7
-#                      rust_toolchain_arch: armv7-unknown-linux-gnueabihf
-#                      base_image_suffix: ""
+                    # Default software rendering (GPU-less)
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: ""
-#                    - target: armhf
-#                      image_arch: linux/arm/v7
-#                      rust_toolchain_arch: armv7-unknown-linux-gnueabihf
-#                      base_image_suffix: "-vivante"
+                    # GPU-specific variants
+                    # https://developer.toradex.com/torizon/application-development/provided-containers/debian-containers-for-torizon
+                    - target: arm64
+                      image_arch: linux/arm64
+                      rust_toolchain_arch: aarch64-unknown-linux-gnu
+                      base_image_suffix: "-imx8"
+                    - target: arm64
+                      image_arch: linux/arm64
+                      rust_toolchain_arch: aarch64-unknown-linux-gnu
+                      base_image_suffix: "-am62"
+                    - target: arm64
+                      image_arch: linux/arm64
+                      rust_toolchain_arch: aarch64-unknown-linux-gnu
+                      base_image_suffix: "-am62p"
+                    - target: arm64
+                      image_arch: linux/arm64
+                      rust_toolchain_arch: aarch64-unknown-linux-gnu
+                      base_image_suffix: "-imx95"
+                    # Legacy vivante support (for backward compatibility)
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
