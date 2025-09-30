@@ -412,7 +412,7 @@ pub fn draw_text_input(
             cursor_pos,
             Default::default(),
         );
-        let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
+        let rect = cursor.geometry(&layout, (text_input.text_cursor_width() * scale_factor).get());
 
         if let Some(cursor_brush) = item_renderer.platform_text_fill_brush(
             visual_representation.cursor_color.into(),
