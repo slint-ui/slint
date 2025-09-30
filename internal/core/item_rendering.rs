@@ -579,6 +579,9 @@ pub trait GlyphRenderer: ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
+    /// Returns a brush that's a solid fill of the specified color.
+    fn platform_brush_for_color(&mut self, color: &crate::Color) -> Self::PlatformBrush;
+
     /// Returns the brush to be used for stroking text.
     fn platform_text_stroke_brush(
         &mut self,
