@@ -525,3 +525,23 @@ pub fn draw_text_input(
         }
     }
 }
+
+pub fn text_size(
+    font_request: FontRequest,
+    text: &str,
+    max_width: Option<LogicalLength>,
+    scale_factor: ScaleFactor,
+    text_wrap: TextWrap,
+) -> LogicalSize {
+    let layout = layout(
+        text,
+        scale_factor,
+        LayoutOptions {
+            max_width,
+            text_wrap,
+            font_request: Some(font_request),
+            ..Default::default()
+        },
+    );
+    euclid::size2(layout.width(), layout.height()) / scale_factor
+}

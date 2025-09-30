@@ -288,17 +288,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        let layout = sharedparley::layout(
-            text,
-            scale_factor,
-            sharedparley::LayoutOptions {
-                max_width,
-                text_wrap,
-                font_request: Some(font_request),
-                ..Default::default()
-            },
-        );
-        PhysicalSize::new(layout.width(), layout.height()) / scale_factor
+        sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
     }
 
     fn font_metrics(
