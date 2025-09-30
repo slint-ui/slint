@@ -21,7 +21,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
-use i_slint_core::textlayout::sharedparley::{self, parley};
+use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 use images::TextureImporter;
@@ -321,37 +321,11 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         font_request: FontRequest,
         scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let text = text_input.text();
-
-        let font_size = font_request.pixel_size.unwrap_or(sharedparley::DEFAULT_FONT_SIZE);
-
-        let width = text_input.width();
-        let height = text_input.height();
-        if width.get() <= 0. || height.get() <= 0. {
-            return LogicalRect::new(
-                LogicalPoint::default(),
-                LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
-            );
-        }
-
-        let layout = sharedparley::layout(
-            &text,
-            scale_factor,
-            sharedparley::LayoutOptions {
-                max_width: Some(width),
-                max_height: Some(height),
-                ..Default::default()
-            },
-        );
-        let cursor = parley::layout::cursor::Cursor::from_byte_index(
-            &layout,
+        sharedparley::text_input_cursor_rect_for_byte_offset(
+            text_input,
             byte_offset,
-            Default::default(),
-        );
-        let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
-        LogicalRect::new(
-            LogicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
-            LogicalSize::new(rect.width() as _, rect.height() as _),
+            font_request,
+            scale_factor,
         )
     }
 
