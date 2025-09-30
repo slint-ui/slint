@@ -56,5 +56,5 @@ RUN apt-get update \
 COPY --from=build /slint/demos_compiled/* /usr/bin/
 
 ENV SLINT_FULLSCREEN=1
-ENV SLINT_BACKEND=linuxkms-skia-opengl
+ENV SLINT_BACKEND=linuxkms
 CMD /usr/bin/energy-monitor
