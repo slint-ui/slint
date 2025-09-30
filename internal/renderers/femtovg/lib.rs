@@ -306,31 +306,12 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         font_request: FontRequest,
         scale_factor: ScaleFactor,
     ) -> usize {
-        let pos = pos * scale_factor;
-        let text = text_input.text();
-
-        let width = text_input.width();
-        let height = text_input.height();
-        if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
-            return 0;
-        }
-
-        let layout = sharedparley::layout(
-            &text,
+        sharedparley::text_input_byte_offset_for_position(
+            text_input,
+            pos,
+            font_request,
             scale_factor,
-            sharedparley::LayoutOptions {
-                font_request: Some(font_request),
-                max_width: Some(width),
-                max_height: Some(height),
-                vertical_align: text_input.vertical_alignment(),
-                ..Default::default()
-            },
-        );
-        let cursor =
-            parley::layout::cursor::Cursor::from_point(&layout, pos.x, pos.y - layout.y_offset);
-
-        let visual_representation = text_input.visual_representation(None);
-        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
+        )
     }
 
     fn text_input_cursor_rect_for_byte_offset(

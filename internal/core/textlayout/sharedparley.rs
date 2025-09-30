@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths},
+    lengths::{LogicalLength, LogicalPoint, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     Coord, SharedString,
 };
@@ -560,4 +560,37 @@ pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
         x_height: metrics.x_height * logical_pixel_size / metrics.units_per_em,
         cap_height: metrics.cap_height * logical_pixel_size / metrics.units_per_em,
     }
+}
+
+pub fn text_input_byte_offset_for_position(
+    text_input: Pin<&crate::items::TextInput>,
+    pos: LogicalPoint,
+    font_request: FontRequest,
+    scale_factor: ScaleFactor,
+) -> usize {
+    let pos = pos * scale_factor;
+    let text = text_input.text();
+
+    let width = text_input.width();
+    let height = text_input.height();
+    if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
+        return 0;
+    }
+
+    let layout = layout(
+        &text,
+        scale_factor,
+        LayoutOptions {
+            font_request: Some(font_request),
+            max_width: Some(width),
+            max_height: Some(height),
+            vertical_align: text_input.vertical_alignment(),
+            ..Default::default()
+        },
+    );
+    let cursor =
+        parley::layout::cursor::Cursor::from_point(&layout, pos.x, pos.y - layout.y_offset);
+
+    let visual_representation = text_input.visual_representation(None);
+    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
 }
