@@ -38,9 +38,10 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 COPY . /slint
 WORKDIR /slint
 RUN mkdir demos_compiled \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+        -p printerdemo -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo -p energy-monitor -p home-automation -p weather-demo \
     && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor home-automation weather-demo; do \
-    cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat -p $demo || exit 1; \
-    cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
+        cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
     done
 
 # Create container for target
