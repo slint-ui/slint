@@ -598,6 +598,17 @@ pub trait GlyphRenderer: ItemRenderer {
         y_offset: f32,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
+
+    /// Fills the given rectangle with the specified brush. This is used for drawing selection
+    /// rectangles as well as the text cursor.
+    fn fill_rectangle(
+        &mut self,
+        physical_x: f32,
+        physical_y: f32,
+        physical_width: f32,
+        physical_height: f32,
+        brush: Self::PlatformBrush,
+    );
 }
 
 /// Helper trait to express the features of an item renderer.
