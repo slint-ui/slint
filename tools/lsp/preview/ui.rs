@@ -740,6 +740,24 @@ fn map_value_and_type(
                         ..Default::default()
                     });
                 }
+                slint::Brush::ConicGradient(cg) => {
+                    mapping.headers.push(mapping.name_prefix.clone());
+                    mapping.current_values.push(PropertyValue {
+                        display_string: SharedString::from("Conic Gradient"),
+                        kind: PropertyValueKind::Brush,
+                        value_kind: PropertyValueKind::Brush,
+                        brush_kind: BrushKind::Conic,
+                        value_brush: slint::Brush::ConicGradient(cg.clone()),
+                        gradient_stops: Rc::new(VecModel::from(
+                            cg.stops()
+                                .map(|gs| GradientStop { color: gs.color, position: gs.position })
+                                .collect::<Vec<_>>(),
+                        )).into(),
+                        accessor_path: mapping.name_prefix.clone(),
+                        code: get_code(value),
+                        ..Default::default()
+                    });
+                }
                 _ => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {

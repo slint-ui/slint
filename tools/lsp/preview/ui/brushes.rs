@@ -7,6 +7,7 @@ use slint::{ComponentHandle, Model, VecModel};
 
 use crate::preview::ui;
 
+use itertools::Itertools as _;
 use std::rc::Rc;
 
 pub fn setup(ui: &ui::PreviewUi) {
@@ -95,10 +96,20 @@ fn as_slint_brush(
     match kind {
         ui::BrushKind::Solid => color_to_string(color),
         ui::BrushKind::Linear => {
-            format!("@linear-gradient({angle}deg{})", stops_as_string(stops)).into()
+            slint::format!("@linear-gradient({angle}deg{})", stops_as_string(stops))
         }
         ui::BrushKind::Radial => {
-            format!("@radial-gradient(circle{})", stops_as_string(stops)).into()
+            slint::format!("@radial-gradient(circle{})", stops_as_string(stops))
+        }
+        ui::BrushKind::Conic => {
+            let stops = sorted_gradient_stops(stops);
+            slint::format!(
+                "@conic-gradient({})",
+                stops
+                    .iter()
+                    .map(|s| format!("{} {}deg", color_to_string(s.color), s.position * 360.0))
+                    .join(", ")
+            )
         }
     }
 }
@@ -130,6 +141,9 @@ pub fn create_brush(
         ),
         ui::BrushKind::Radial => slint::Brush::RadialGradient(
             i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)),
+        ),
+        ui::BrushKind::Conic => slint::Brush::ConicGradient(
+            i_slint_core::graphics::ConicGradientBrush::new(stops.drain(..)),
         ),
     }
 }
