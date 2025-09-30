@@ -21,7 +21,7 @@ use i_slint_core::items::{
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths, ScaleFactor, SizeLengths,
+    RectLengths, ScaleFactor,
 };
 use i_slint_core::textlayout::sharedparley::{self, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -195,42 +195,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 }
 
-fn draw_text_layout<R: femtovg::Renderer + TextureImporter>(
-    canvas: &mut Canvas<R>,
-    layout: &sharedparley::Layout,
-    paint: &mut femtovg::Paint,
-) {
-    layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
-        let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
-
-        let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
-            x: glyph.x,
-            y: glyph.y + layout.y_offset,
-            glyph_id: glyph.id,
-        });
-
-        paint.set_font_size(font_size);
-
-        match stroke_style {
-            Some(i_slint_core::items::TextStrokeStyle::Outside) => {
-                let glyphs = glyphs_it.collect::<Vec<_>>();
-
-                canvas.stroke_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
-                canvas.fill_glyph_run(font_id, glyphs, &paint).unwrap();
-            }
-            Some(i_slint_core::items::TextStrokeStyle::Center) => {
-                let glyphs = glyphs_it.collect::<Vec<_>>();
-
-                canvas.fill_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
-                canvas.stroke_glyph_run(font_id, glyphs, &paint).unwrap();
-            }
-            None => {
-                canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
-            }
-        }
-    })
-}
-
 impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
     fn draw_rectangle(
         &mut self,
@@ -379,105 +343,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        let width = size.width_length();
-        let height = size.height_length();
-        if width.get() <= 0. || height.get() <= 0. {
-            return;
-        }
-
         if self.global_alpha_transparent() {
             return;
         }
 
-        let font_request = text_input.font_request(self_rc);
-
-        let visual_representation = text_input.visual_representation(None);
-
-        let mut paint = match self.brush_to_paint(
-            visual_representation.text_color,
-            &rect_to_path((size * self.scale_factor).into()),
-        ) {
-            Some(paint) => paint,
-            None => return,
-        };
-
-        let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
-            (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
-        } else {
-            (visual_representation.selection_range.start, visual_representation.selection_range.end)
-        };
-
-        let (cursor_visible, cursor_pos) =
-            if let Some(cursor_pos) = visual_representation.cursor_position {
-                (true, cursor_pos)
-            } else {
-                (false, 0)
-            };
-
-        let mut canvas = self.canvas.borrow_mut();
-        let text: SharedString = visual_representation.text.into();
-
-        let layout = sharedparley::layout(
-            &text,
-            self.scale_factor,
-            sharedparley::LayoutOptions {
-                max_width: Some(width),
-                max_height: Some(height),
-                vertical_align: text_input.vertical_alignment(),
-                font_request: Some(font_request),
-                ..Default::default()
-            },
+        sharedparley::draw_text_input(
+            self,
+            text_input,
+            Some(text_input.font_request(self_rc)),
+            size,
         );
-
-        let selection = parley::layout::cursor::Selection::new(
-            parley::layout::cursor::Cursor::from_byte_index(
-                &layout,
-                min_select,
-                Default::default(),
-            ),
-            parley::layout::cursor::Cursor::from_byte_index(
-                &layout,
-                max_select,
-                Default::default(),
-            ),
-        );
-
-        selection.geometry_with(&layout, |rect, _| {
-            let mut selection_path = femtovg::Path::new();
-            selection_path.rect(
-                rect.min_x() as _,
-                rect.min_y() as f32 + layout.y_offset,
-                rect.width() as _,
-                rect.height() as _,
-            );
-            canvas.fill_path(
-                &selection_path,
-                &femtovg::Paint::color(to_femtovg_color(&text_input.selection_background_color())),
-            );
-        });
-
-        draw_text_layout(&mut canvas, &layout, &mut paint);
-
-        if cursor_visible {
-            let cursor = parley::layout::cursor::Cursor::from_byte_index(
-                &layout,
-                cursor_pos,
-                Default::default(),
-            );
-            let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
-
-            let mut cursor_path = femtovg::Path::new();
-            cursor_path.rect(
-                rect.min_x() as _,
-                rect.min_y() as f32 + layout.y_offset,
-                rect.width() as _,
-                rect.height() as _,
-            );
-            canvas.fill_path(
-                &cursor_path,
-                &femtovg::Paint::color(to_femtovg_color(&visual_representation.cursor_color)),
-            );
-        }
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, _size: LogicalSize) {
@@ -1105,6 +980,20 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
                 canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
             }
         }
+    }
+
+    fn fill_rectangle(
+        &mut self,
+        physical_x: f32,
+        physical_y: f32,
+        physical_width: f32,
+        physical_height: f32,
+        paint: Self::PlatformBrush,
+    ) {
+        let mut path = femtovg::Path::new();
+        path.rect(physical_x, physical_y, physical_width, physical_height);
+
+        self.canvas.borrow_mut().fill_path(&path, &paint);
     }
 }
 

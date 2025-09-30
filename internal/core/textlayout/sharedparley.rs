@@ -11,8 +11,9 @@ use crate::{
     graphics::FontRequest,
     item_rendering::GlyphRenderer,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, LogicalSize, ScaleFactor, SizeLengths},
+    lengths::{LogicalLength, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
+    Coord, SharedString,
 };
 use i_slint_common::sharedfontique;
 
@@ -162,15 +163,15 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
     Layout { inner: layout, y_offset, elision_info }
 }
 
-pub struct ElisionInfo {
-    pub elipsis_glyph: parley::layout::Glyph,
-    pub max_physical_width: f32,
+struct ElisionInfo {
+    elipsis_glyph: parley::layout::Glyph,
+    max_physical_width: f32,
 }
 
 pub struct Layout {
     inner: parley::Layout<Brush>,
     pub y_offset: f32,
-    pub elision_info: Option<ElisionInfo>,
+    elision_info: Option<ElisionInfo>,
 }
 
 impl Layout {
@@ -213,7 +214,7 @@ impl Layout {
         })
     }
 
-    pub fn draw(
+    fn draw(
         &self,
         draw_glyphs: &mut dyn FnMut(
             &parley::Font,
@@ -322,4 +323,109 @@ pub fn draw_text(
             glyphs_it,
         );
     });
+}
+
+pub fn draw_text_input(
+    item_renderer: &mut impl GlyphRenderer,
+    text_input: Pin<&crate::items::TextInput>,
+    font_request: Option<FontRequest>,
+    size: LogicalSize,
+) {
+    let width = size.width_length();
+    let height = size.height_length();
+    if width.get() <= 0. || height.get() <= 0. {
+        return;
+    }
+
+    let visual_representation = text_input.visual_representation(None);
+
+    let Some(platform_fill_brush) =
+        item_renderer.platform_text_fill_brush(visual_representation.text_color, size)
+    else {
+        return;
+    };
+
+    let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
+        (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
+    } else {
+        (visual_representation.selection_range.start, visual_representation.selection_range.end)
+    };
+
+    let (cursor_visible, cursor_pos) =
+        if let Some(cursor_pos) = visual_representation.cursor_position {
+            (true, cursor_pos)
+        } else {
+            (false, 0)
+        };
+
+    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+
+    let text: SharedString = visual_representation.text.into();
+
+    let layout = layout(
+        &text,
+        scale_factor,
+        LayoutOptions {
+            max_width: Some(width),
+            max_height: Some(height),
+            vertical_align: text_input.vertical_alignment(),
+            font_request,
+            ..Default::default()
+        },
+    );
+
+    let selection = parley::layout::cursor::Selection::new(
+        parley::layout::cursor::Cursor::from_byte_index(&layout, min_select, Default::default()),
+        parley::layout::cursor::Cursor::from_byte_index(&layout, max_select, Default::default()),
+    );
+
+    selection.geometry_with(&layout, |rect, _| {
+        if let Some(selection_brush) = item_renderer.platform_text_fill_brush(
+            text_input.selection_background_color().into(),
+            euclid::size2::<Coord, PhysicalPx>(rect.width() as _, rect.height() as _)
+                / scale_factor,
+        ) {
+            item_renderer.fill_rectangle(
+                rect.min_x() as _,
+                rect.min_y() as f32 + layout.y_offset,
+                rect.width() as _,
+                rect.height() as _,
+                selection_brush,
+            );
+        }
+    });
+
+    layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
+        item_renderer.draw_glyph_run(
+            font,
+            font_size,
+            &platform_fill_brush,
+            stroke_style,
+            layout.y_offset,
+            glyphs_it,
+        );
+    });
+
+    if cursor_visible {
+        let cursor = parley::layout::cursor::Cursor::from_byte_index(
+            &layout,
+            cursor_pos,
+            Default::default(),
+        );
+        let rect = cursor.geometry(&layout, (text_input.text_cursor_width()).get());
+
+        if let Some(cursor_brush) = item_renderer.platform_text_fill_brush(
+            visual_representation.cursor_color.into(),
+            euclid::size2::<Coord, PhysicalPx>(rect.width() as _, rect.height() as _)
+                / scale_factor,
+        ) {
+            item_renderer.fill_rectangle(
+                rect.min_x() as _,
+                rect.min_y() as f32 + layout.y_offset,
+                rect.width() as _,
+                rect.height() as _,
+                cursor_brush,
+            );
+        }
+    }
 }
