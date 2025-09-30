@@ -921,6 +921,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         self.brush_to_paint(brush, &text_path)
     }
 
+    fn platform_brush_for_color(&mut self, color: &i_slint_core::Color) -> Self::PlatformBrush {
+        femtovg::Paint::color(to_femtovg_color(&color))
+    }
+
     fn platform_text_stroke_brush(
         &mut self,
         stroke_brush: Brush,

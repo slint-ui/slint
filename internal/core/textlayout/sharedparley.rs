@@ -42,6 +42,8 @@ std::thread_local! {
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub struct Brush {
+    /// Color to use for filling text. `None` means use of the default color/brush.
+    pub color: Option<crate::Color>,
     pub stroke: Option<TextStrokeStyle>,
 }
 
@@ -54,6 +56,8 @@ pub struct LayoutOptions {
     pub font_request: Option<FontRequest>,
     pub text_wrap: TextWrap,
     pub text_overflow: TextOverflow,
+    pub selection: Option<core::ops::Range<usize>>,
+    pub selection_foreground_color: Option<crate::Color>,
 }
 
 impl Default for LayoutOptions {
@@ -67,6 +71,8 @@ impl Default for LayoutOptions {
             font_request: None,
             text_wrap: TextWrap::WordWrap,
             text_overflow: TextOverflow::Clip,
+            selection: None,
+            selection_foreground_color: None,
         }
     }
 }
@@ -110,7 +116,10 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
             TextWrap::CharWrap => parley::style::WordBreakStrength::BreakAll,
         }));
 
-        builder.push_default(parley::StyleProperty::Brush(Brush { stroke: options.stroke }));
+        builder.push_default(parley::StyleProperty::Brush(Brush {
+            color: None,
+            stroke: options.stroke,
+        }));
     };
 
     let (mut layout, elision_info) = CONTEXTS.with_borrow_mut(move |contexts| {
@@ -138,6 +147,19 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
         let mut builder =
             contexts.layout.ranged_builder(&mut contexts.font, text, scale_factor.get(), true);
         push_to_builder(&mut builder);
+
+        if let Some((selection, selection_color)) =
+            options.selection.zip(options.selection_foreground_color)
+        {
+            builder.push(
+                parley::StyleProperty::Brush(Brush {
+                    color: Some(selection_color),
+                    stroke: options.stroke,
+                }),
+                selection,
+            );
+        }
+
         (builder.build(text), elision_info)
     });
 
@@ -214,11 +236,15 @@ impl Layout {
         })
     }
 
-    fn draw(
+    fn draw<R: GlyphRenderer>(
         &self,
+        item_renderer: &mut R,
+        default_brush: <R as GlyphRenderer>::PlatformBrush,
         draw_glyphs: &mut dyn FnMut(
+            &mut R,
             &parley::Font,
             f32,
+            &<R as GlyphRenderer>::PlatformBrush,
             &Option<TextStrokeStyle>,
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
@@ -230,7 +256,7 @@ impl Layout {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let run = glyph_run.run();
 
-                        let brush = glyph_run.style().brush;
+                        let brush = &glyph_run.style().brush;
 
                         let mut elided_glyphs_it;
                         let mut unelided_glyphs_it;
@@ -244,7 +270,21 @@ impl Layout {
                             glyphs_it = &mut unelided_glyphs_it;
                         };
 
-                        draw_glyphs(run.font(), run.font_size(), &brush.stroke, glyphs_it);
+                        let stroke = &brush.stroke;
+
+                        let brush = match brush.color {
+                            Some(color) => &item_renderer.platform_brush_for_color(&color),
+                            None => &default_brush,
+                        };
+
+                        draw_glyphs(
+                            item_renderer,
+                            run.font(),
+                            run.font_size(),
+                            &brush,
+                            &stroke,
+                            glyphs_it,
+                        );
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
@@ -313,16 +353,20 @@ pub fn draw_text(
         },
     );
 
-    layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
-        item_renderer.draw_glyph_run(
-            font,
-            font_size,
-            &platform_fill_brush,
-            stroke_style,
-            layout.y_offset,
-            glyphs_it,
-        );
-    });
+    layout.draw(
+        item_renderer,
+        platform_fill_brush,
+        &mut |item_renderer, font, font_size, brush, stroke_style, glyphs_it| {
+            item_renderer.draw_glyph_run(
+                font,
+                font_size,
+                brush,
+                stroke_style,
+                layout.y_offset,
+                glyphs_it,
+            );
+        },
+    );
 }
 
 pub fn draw_text_input(
@@ -370,6 +414,8 @@ pub fn draw_text_input(
             max_height: Some(height),
             vertical_align: text_input.vertical_alignment(),
             font_request,
+            selection: Some(min_select..max_select),
+            selection_foreground_color: Some(text_input.selection_foreground_color()),
             ..Default::default()
         },
     );
@@ -378,7 +424,6 @@ pub fn draw_text_input(
         parley::layout::cursor::Cursor::from_byte_index(&layout, min_select, Default::default()),
         parley::layout::cursor::Cursor::from_byte_index(&layout, max_select, Default::default()),
     );
-
     selection.geometry_with(&layout, |rect, _| {
         if let Some(selection_brush) = item_renderer.platform_text_fill_brush(
             text_input.selection_background_color().into(),
@@ -395,16 +440,20 @@ pub fn draw_text_input(
         }
     });
 
-    layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
-        item_renderer.draw_glyph_run(
-            font,
-            font_size,
-            &platform_fill_brush,
-            stroke_style,
-            layout.y_offset,
-            glyphs_it,
-        );
-    });
+    layout.draw(
+        item_renderer,
+        platform_fill_brush,
+        &mut |item_renderer, font, font_size, brush, stroke_style, glyphs_it| {
+            item_renderer.draw_glyph_run(
+                font,
+                font_size,
+                brush,
+                stroke_style,
+                layout.y_offset,
+                glyphs_it,
+            );
+        },
+    );
 
     if cursor_visible {
         let cursor = parley::layout::cursor::Cursor::from_byte_index(
