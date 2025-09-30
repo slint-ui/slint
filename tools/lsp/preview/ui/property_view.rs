@@ -970,6 +970,7 @@ export component Test { in property <Foobar> test1; }"#,
 
     #[test]
     fn test_property_brush() {
+        use crate::preview::ui::GradientStop;
         let result =
             property_conversion_test(r#"export component Test { in property <brush> test1; }"#, 0);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
@@ -1060,6 +1061,32 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @conic-gradient(white 36deg, #239 126deg, red 306deg); }"#,
+            1,
+        );
+        assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
+        assert_eq!(result.kind, ui::PropertyValueKind::Brush);
+        assert_eq!(result.brush_kind, ui::BrushKind::Conic);
+        assert_eq!(
+            result.gradient_stops.iter().collect::<Vec<_>>(),
+            [
+                GradientStop {
+                    color: slint::Color::from_rgb_u8(0xff, 0xff, 0xff,),
+                    position: 36.0 / 360.0
+                },
+                GradientStop {
+                    color: slint::Color::from_rgb_u8(0x22, 0x33, 0x99),
+                    position: 126.0 / 360.0
+                },
+                GradientStop {
+                    color: slint::Color::from_rgb_u8(0xff, 0x00, 0x00),
+                    position: 306.0 / 360.0
+                },
+            ]
+        );
+        assert_eq!(result.code, "@conic-gradient(white 36deg, #239 126deg, red 306deg)");
     }
 
     #[test]
