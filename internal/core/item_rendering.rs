@@ -350,6 +350,46 @@ pub trait RenderText {
     }
 }
 
+impl RenderText for (SharedString, Brush) {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::default()
+    }
+
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.0.clone()
+    }
+
+    fn font_request(self: Pin<&Self>, _self_rc: &ItemRc) -> crate::graphics::FontRequest {
+        Default::default()
+    }
+
+    fn color(self: Pin<&Self>) -> Brush {
+        self.1.clone()
+    }
+
+    fn alignment(
+        self: Pin<&Self>,
+    ) -> (crate::items::TextHorizontalAlignment, crate::items::TextVerticalAlignment) {
+        Default::default()
+    }
+
+    fn wrap(self: Pin<&Self>) -> crate::items::TextWrap {
+        Default::default()
+    }
+
+    fn overflow(self: Pin<&Self>) -> crate::items::TextOverflow {
+        Default::default()
+    }
+
+    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
+        LogicalLength::default()
+    }
+
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        Default::default()
+    }
+}
+
 /// Trait used to render each items.
 ///
 /// The item needs to be rendered relative to its (x,y) position. For example,
@@ -524,6 +564,40 @@ pub trait ItemRenderer {
     fn metrics(&self) -> crate::graphics::rendering_metrics_collector::RenderingMetrics {
         Default::default()
     }
+}
+
+/// Trait used for drawing text and text input elements with parley, where parley does the
+/// shaping and positioning, and the renderer is responsible for drawing just the glyphs.
+pub trait GlyphRenderer: ItemRenderer {
+    /// A renderer-specific type for a brush used for fill and stroke of glyphs.
+    type PlatformBrush;
+
+    /// Returns the brush to be used for filling text.
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: Brush,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush>;
+
+    /// Returns the brush to be used for stroking text.
+    fn platform_text_stroke_brush(
+        &mut self,
+        brush: Brush,
+        physical_stroke_width: f32,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush>;
+
+    /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
+    /// given y offset.
+    fn draw_glyph_run(
+        &mut self,
+        font: &parley::Font,
+        font_size: f32,
+        brush: &Self::PlatformBrush,
+        stroke_style: &Option<TextStrokeStyle>,
+        y_offset: f32,
+        glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
+    );
 }
 
 /// Helper trait to express the features of an item renderer.

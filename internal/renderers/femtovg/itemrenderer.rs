@@ -12,8 +12,8 @@ use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
-    RenderRectangle, RenderText,
+    CachedRenderingData, GlyphRenderer, ItemCache, ItemRenderer, RenderBorderRectangle,
+    RenderImage, RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
@@ -366,69 +366,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let max_width = size.width_length();
-        let max_height = size.height_length();
-
-        if max_width.get() <= 0. || max_height.get() <= 0. {
-            return;
-        }
-
         if self.global_alpha_transparent() {
             return;
         }
 
-        let (horizontal_align, vertical_align) = text.alignment();
-        let color = text.color();
-        let font_request = text.font_request(self_rc);
-
-        let text_path = rect_to_path((size * self.scale_factor).into());
-        let mut paint = match self.brush_to_paint(color, &text_path) {
-            Some(paint) => paint,
-            None => return,
-        };
-
-        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
-        let stroke_width = if stroke_width.get() != 0.0 {
-            (stroke_width * self.scale_factor).get()
-        } else {
-            // Hairline stroke
-            1.0
-        };
-        let stroke_width = match stroke_style {
-            TextStrokeStyle::Outside => stroke_width * 2.0,
-            TextStrokeStyle::Center => stroke_width,
-        };
-        let stroke_paint = match self.brush_to_paint(stroke_brush.clone(), &text_path) {
-            Some(mut paint) => {
-                if stroke_brush.is_transparent() {
-                    None
-                } else {
-                    paint.set_line_width(stroke_width);
-                    Some(paint)
-                }
-            }
-            None => None,
-        };
-
-        let layout = sharedparley::layout(
-            text.text().as_str(),
-            self.scale_factor,
-            sharedparley::LayoutOptions {
-                horizontal_align,
-                vertical_align,
-                max_height: Some(max_height),
-                max_width: Some(max_width),
-                stroke: stroke_paint.is_some().then_some(stroke_style),
-                font_request: Some(font_request),
-                text_wrap: text.wrap(),
-                text_overflow: text.overflow(),
-                ..Default::default()
-            },
-        );
-
-        let mut canvas = self.canvas.borrow_mut();
-
-        draw_text_layout(&mut canvas, &layout, &mut paint);
+        sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
     }
 
     fn draw_text_input(
@@ -963,10 +905,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let layout = sharedparley::layout(string, self.scale_factor, Default::default());
-        let mut paint = femtovg::Paint::color(to_femtovg_color(&color));
-        let mut canvas = self.canvas.borrow_mut();
-        draw_text_layout(&mut canvas, &layout, &mut paint);
+        sharedparley::draw_text(
+            self,
+            std::pin::pin!((SharedString::from(string), Brush::from(color))),
+            None,
+            LogicalSize::new(1., 1.), // Non-zero size to avoid an early return
+        );
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
@@ -1087,6 +1031,80 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
     fn metrics(&self) -> RenderingMetrics {
         self.metrics.clone()
+    }
+}
+
+impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRenderer<'a, R> {
+    type PlatformBrush = femtovg::Paint;
+
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: Brush,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        let text_path = rect_to_path((size * self.scale_factor).into());
+        self.brush_to_paint(brush, &text_path)
+    }
+
+    fn platform_text_stroke_brush(
+        &mut self,
+        stroke_brush: Brush,
+        physical_stroke_width: f32,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        let text_path = rect_to_path((size * self.scale_factor).into());
+        match self.brush_to_paint(stroke_brush.clone(), &text_path) {
+            Some(mut paint) => {
+                if stroke_brush.is_transparent() {
+                    None
+                } else {
+                    paint.set_line_width(physical_stroke_width);
+                    Some(paint)
+                }
+            }
+            None => None,
+        }
+    }
+
+    fn draw_glyph_run(
+        &mut self,
+        font: &parley::Font,
+        font_size: f32,
+        brush: &Self::PlatformBrush,
+        stroke_style: &Option<TextStrokeStyle>,
+        y_offset: f32,
+        glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
+    ) {
+        let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
+
+        let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
+            x: glyph.x,
+            y: glyph.y + y_offset,
+            glyph_id: glyph.id,
+        });
+
+        let mut paint = brush.clone();
+        paint.set_font_size(font_size);
+
+        let mut canvas = self.canvas.borrow_mut();
+
+        match stroke_style {
+            Some(i_slint_core::items::TextStrokeStyle::Outside) => {
+                let glyphs = glyphs_it.collect::<Vec<_>>();
+
+                canvas.stroke_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
+                canvas.fill_glyph_run(font_id, glyphs, &paint).unwrap();
+            }
+            Some(i_slint_core::items::TextStrokeStyle::Center) => {
+                let glyphs = glyphs_it.collect::<Vec<_>>();
+
+                canvas.fill_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
+                canvas.stroke_glyph_run(font_id, glyphs, &paint).unwrap();
+            }
+            None => {
+                canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
+            }
+        }
     }
 }
 

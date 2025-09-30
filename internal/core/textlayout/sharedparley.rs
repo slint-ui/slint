@@ -3,13 +3,15 @@
 
 pub use parley;
 
+use core::pin::Pin;
 use std::boxed::Box;
 use std::cell::RefCell;
 
 use crate::{
     graphics::FontRequest,
+    item_rendering::GlyphRenderer,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, ScaleFactor},
+    lengths::{LogicalLength, LogicalSize, ScaleFactor, SizeLengths},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
 use i_slint_common::sharedfontique;
@@ -256,4 +258,68 @@ impl std::ops::Deref for Layout {
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
+}
+
+pub fn draw_text(
+    item_renderer: &mut impl GlyphRenderer,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    font_request: Option<FontRequest>,
+    size: LogicalSize,
+) {
+    let max_width = size.width_length();
+    let max_height = size.height_length();
+
+    if max_width.get() <= 0. || max_height.get() <= 0. {
+        return;
+    }
+
+    let Some(platform_fill_brush) = item_renderer.platform_text_fill_brush(text.color(), size)
+    else {
+        return;
+    };
+
+    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+
+    let (stroke_brush, stroke_width, stroke_style) = text.stroke();
+    let stroke_width = if stroke_width.get() != 0.0 {
+        (stroke_width * scale_factor).get()
+    } else {
+        // Hairline stroke
+        1.0
+    };
+    let stroke_width = match stroke_style {
+        TextStrokeStyle::Outside => stroke_width * 2.0,
+        TextStrokeStyle::Center => stroke_width,
+    };
+    let platform_stroke_brush =
+        item_renderer.platform_text_stroke_brush(stroke_brush, stroke_width, size);
+
+    let (horizontal_align, vertical_align) = text.alignment();
+
+    let layout = layout(
+        text.text().as_str(),
+        scale_factor,
+        LayoutOptions {
+            horizontal_align,
+            vertical_align,
+            max_height: Some(max_height),
+            max_width: Some(max_width),
+            stroke: platform_stroke_brush.is_some().then_some(stroke_style),
+            font_request,
+            text_wrap: text.wrap(),
+            text_overflow: text.overflow(),
+            ..Default::default()
+        },
+    );
+
+    layout.draw(&mut |font, font_size, stroke_style, glyphs_it| {
+        item_renderer.draw_glyph_run(
+            font,
+            font_size,
+            &platform_fill_brush,
+            stroke_style,
+            layout.y_offset,
+            glyphs_it,
+        );
+    });
 }
