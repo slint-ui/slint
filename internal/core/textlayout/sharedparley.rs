@@ -545,3 +545,19 @@ pub fn text_size(
     );
     euclid::size2(layout.width(), layout.height()) / scale_factor
 }
+
+pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
+    let logical_pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).get();
+
+    let font = font_request.query_fontique().unwrap();
+    let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
+
+    let metrics = sharedfontique::DesignFontMetrics::new_from_face(&face);
+
+    crate::items::FontMetrics {
+        ascent: metrics.ascent * logical_pixel_size / metrics.units_per_em,
+        descent: metrics.descent * logical_pixel_size / metrics.units_per_em,
+        x_height: metrics.x_height * logical_pixel_size / metrics.units_per_em,
+        cap_height: metrics.cap_height * logical_pixel_size / metrics.units_per_em,
+    }
+}
