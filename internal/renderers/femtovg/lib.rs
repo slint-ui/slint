@@ -296,20 +296,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        let logical_pixel_size =
-            font_request.pixel_size.unwrap_or(sharedparley::DEFAULT_FONT_SIZE).get();
-
-        let font = font_request.query_fontique().unwrap();
-        let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
-
-        let metrics = sharedfontique::DesignFontMetrics::new_from_face(&face);
-
-        i_slint_core::items::FontMetrics {
-            ascent: metrics.ascent * logical_pixel_size / metrics.units_per_em,
-            descent: metrics.descent * logical_pixel_size / metrics.units_per_em,
-            x_height: metrics.x_height * logical_pixel_size / metrics.units_per_em,
-            cap_height: metrics.cap_height * logical_pixel_size / metrics.units_per_em,
-        }
+        sharedparley::font_metrics(font_request)
     }
 
     fn text_input_byte_offset_for_position(
