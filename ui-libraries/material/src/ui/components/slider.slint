@@ -44,7 +44,7 @@ export component Slider {
                     background: thumb.background;
                 }
 
-                if root.stop_count > 0: Rectangle {
+                if root.stop_count > 1: Rectangle {
                     width: 100%;
                     height: 100%;
 
@@ -83,7 +83,7 @@ export component Slider {
                         }
 
                         moved => {
-                            root.set_value(root.length_to_value(state_layer.x + ( self.mouse_x - self.pressed_x), track.width));
+                            root.set_value(root.length_to_value(state_layer.x + (self.mouse_x - self.pressed_x), track.width));
                         }
 
                         pointer_event(event) => {
@@ -131,10 +131,10 @@ export component Slider {
     }
 
     function set_value(value: float) {
-        if root.steps > 0 {
+        if root.steps > 1 {
             root.value = clamp(round(value / root.steps) * root.steps, root.minimum, root.maximum)
         } else {
-            root.value = clamp(value * root.steps, root.minimum, root.maximum)
+            root.value = clamp(value, root.minimum, root.maximum)
         }
     }
 }
