@@ -9,13 +9,60 @@ use std::cell::RefCell;
 
 use crate::{
     graphics::FontRequest,
-    item_rendering::GlyphRenderer,
     items::TextStrokeStyle,
     lengths::{LogicalLength, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     Coord, SharedString,
 };
 use i_slint_common::sharedfontique;
+
+/// Trait used for drawing text and text input elements with parley, where parley does the
+/// shaping and positioning, and the renderer is responsible for drawing just the glyphs.
+pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
+    /// A renderer-specific type for a brush used for fill and stroke of glyphs.
+    type PlatformBrush;
+
+    /// Returns the brush to be used for filling text.
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: crate::Brush,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush>;
+
+    /// Returns a brush that's a solid fill of the specified color.
+    fn platform_brush_for_color(&mut self, color: &crate::Color) -> Self::PlatformBrush;
+
+    /// Returns the brush to be used for stroking text.
+    fn platform_text_stroke_brush(
+        &mut self,
+        brush: crate::Brush,
+        physical_stroke_width: f32,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush>;
+
+    /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
+    /// given y offset.
+    fn draw_glyph_run(
+        &mut self,
+        font: &parley::Font,
+        font_size: f32,
+        brush: &Self::PlatformBrush,
+        stroke_style: &Option<TextStrokeStyle>,
+        y_offset: f32,
+        glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
+    );
+
+    /// Fills the given rectangle with the specified brush. This is used for drawing selection
+    /// rectangles as well as the text cursor.
+    fn fill_rectangle(
+        &mut self,
+        physical_x: f32,
+        physical_y: f32,
+        physical_width: f32,
+        physical_height: f32,
+        brush: Self::PlatformBrush,
+    );
+}
 
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 
