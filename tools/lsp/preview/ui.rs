@@ -752,7 +752,8 @@ fn map_value_and_type(
                             cg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
                                 .collect::<Vec<_>>(),
-                        )).into(),
+                        ))
+                        .into(),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
                         ..Default::default()
