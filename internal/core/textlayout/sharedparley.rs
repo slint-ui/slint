@@ -10,7 +10,9 @@ use std::cell::RefCell;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, LogicalPoint, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths},
+    lengths::{
+        LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths,
+    },
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     Coord, SharedString,
 };
@@ -88,23 +90,23 @@ std::thread_local! {
 }
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
-pub struct Brush {
+struct Brush {
     /// Color to use for filling text. `None` means use of the default color/brush.
-    pub color: Option<crate::Color>,
-    pub stroke: Option<TextStrokeStyle>,
+    color: Option<crate::Color>,
+    stroke: Option<TextStrokeStyle>,
 }
 
-pub struct LayoutOptions {
-    pub max_width: Option<LogicalLength>,
-    pub max_height: Option<LogicalLength>,
-    pub horizontal_align: TextHorizontalAlignment,
-    pub vertical_align: TextVerticalAlignment,
-    pub stroke: Option<TextStrokeStyle>,
-    pub font_request: Option<FontRequest>,
-    pub text_wrap: TextWrap,
-    pub text_overflow: TextOverflow,
-    pub selection: Option<core::ops::Range<usize>>,
-    pub selection_foreground_color: Option<crate::Color>,
+struct LayoutOptions {
+    max_width: Option<LogicalLength>,
+    max_height: Option<LogicalLength>,
+    horizontal_align: TextHorizontalAlignment,
+    vertical_align: TextVerticalAlignment,
+    stroke: Option<TextStrokeStyle>,
+    font_request: Option<FontRequest>,
+    text_wrap: TextWrap,
+    text_overflow: TextOverflow,
+    selection: Option<core::ops::Range<usize>>,
+    selection_foreground_color: Option<crate::Color>,
 }
 
 impl Default for LayoutOptions {
@@ -124,7 +126,7 @@ impl Default for LayoutOptions {
     }
 }
 
-pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layout {
+fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| (max_width * scale_factor).get());
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
     let pixel_size = options
@@ -237,9 +239,9 @@ struct ElisionInfo {
     max_physical_width: f32,
 }
 
-pub struct Layout {
+struct Layout {
     inner: parley::Layout<Brush>,
-    pub y_offset: f32,
+    y_offset: f32,
     elision_info: Option<ElisionInfo>,
 }
 
@@ -296,8 +298,8 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        for (line_index, line) in self.lines().enumerate() {
-            let last_line = line_index == self.len() - 1;
+        for (line_index, line) in self.inner.lines().enumerate() {
+            let last_line = line_index == self.inner.len() - 1;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -337,14 +339,6 @@ impl Layout {
                 };
             }
         }
-    }
-}
-
-impl std::ops::Deref for Layout {
-    type Target = parley::Layout<Brush>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
     }
 }
 
@@ -468,10 +462,18 @@ pub fn draw_text_input(
     );
 
     let selection = parley::layout::cursor::Selection::new(
-        parley::layout::cursor::Cursor::from_byte_index(&layout, min_select, Default::default()),
-        parley::layout::cursor::Cursor::from_byte_index(&layout, max_select, Default::default()),
+        parley::layout::cursor::Cursor::from_byte_index(
+            &layout.inner,
+            min_select,
+            Default::default(),
+        ),
+        parley::layout::cursor::Cursor::from_byte_index(
+            &layout.inner,
+            max_select,
+            Default::default(),
+        ),
     );
-    selection.geometry_with(&layout, |rect, _| {
+    selection.geometry_with(&layout.inner, |rect, _| {
         if let Some(selection_brush) = item_renderer.platform_text_fill_brush(
             text_input.selection_background_color().into(),
             euclid::size2::<Coord, PhysicalPx>(rect.width() as _, rect.height() as _)
@@ -504,11 +506,12 @@ pub fn draw_text_input(
 
     if cursor_visible {
         let cursor = parley::layout::cursor::Cursor::from_byte_index(
-            &layout,
+            &layout.inner,
             cursor_pos,
             Default::default(),
         );
-        let rect = cursor.geometry(&layout, (text_input.text_cursor_width() * scale_factor).get());
+        let rect =
+            cursor.geometry(&layout.inner, (text_input.text_cursor_width() * scale_factor).get());
 
         if let Some(cursor_brush) = item_renderer.platform_text_fill_brush(
             visual_representation.cursor_color.into(),
@@ -543,7 +546,7 @@ pub fn text_size(
             ..Default::default()
         },
     );
-    euclid::size2(layout.width(), layout.height()) / scale_factor
+    euclid::size2(layout.inner.width(), layout.inner.height()) / scale_factor
 }
 
 pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
@@ -589,8 +592,44 @@ pub fn text_input_byte_offset_for_position(
         },
     );
     let cursor =
-        parley::layout::cursor::Cursor::from_point(&layout, pos.x, pos.y - layout.y_offset);
+        parley::layout::cursor::Cursor::from_point(&layout.inner, pos.x, pos.y - layout.y_offset);
 
     let visual_representation = text_input.visual_representation(None);
     visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
+}
+
+pub fn text_input_cursor_rect_for_byte_offset(
+    text_input: Pin<&crate::items::TextInput>,
+    byte_offset: usize,
+    font_request: FontRequest,
+    scale_factor: ScaleFactor,
+) -> LogicalRect {
+    let text = text_input.text();
+
+    let font_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
+
+    let width = text_input.width();
+    let height = text_input.height();
+    if width.get() <= 0. || height.get() <= 0. {
+        return LogicalRect::new(
+            LogicalPoint::default(),
+            LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
+        );
+    }
+
+    let layout = layout(
+        &text,
+        scale_factor,
+        LayoutOptions { max_width: Some(width), max_height: Some(height), ..Default::default() },
+    );
+    let cursor = parley::layout::cursor::Cursor::from_byte_index(
+        &layout.inner,
+        byte_offset,
+        Default::default(),
+    );
+    let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
+    LogicalRect::new(
+        LogicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
+        LogicalSize::new(rect.width() as _, rect.height() as _),
+    )
 }
