@@ -35,7 +35,7 @@ unstable-wgpu-26 = [
 default = []
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "box-shadow-cache"] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
@@ -49,7 +49,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
-skia-safe = { version = "0.88", features = ["textlayout", "gl"] }
+skia-safe = { version = "0.88", features = ["gl"] }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
@@ -89,9 +89,16 @@ metal = { version = "0.31", optional = true }
 foreign-types = { version = "0.5.0", optional = true }
 wgpu-26 = { workspace = true, optional = true, features = ["metal"] }
 
+read-fonts = { version = "0.35" }
+write-fonts = { version = "0.43" }
+
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.88", features = ["gl", "vulkan"] }
 wgpu-26 = { workspace = true, optional = true, features = ["vulkan"] }
+
+[target.'cfg(any(target_os = "ios", target_os="windows", target_os="android"))'.dependencies]
+# Text layout is enabled here just so that we can make use of the pre-built Skia libraries.
+skia-safe = { version = "0.88", features = ["textlayout"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

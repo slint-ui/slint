@@ -10,6 +10,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
+use i_slint_common::sharedfontique;
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
     SetRenderingNotifierError, Window,
@@ -23,6 +24,7 @@ use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::PlatformError;
+use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 
@@ -33,8 +35,8 @@ type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<f32, PhysicalPx>;
 
 mod cached_image;
+mod font_cache;
 mod itemrenderer;
-mod textlayout;
 
 #[cfg(skia_backend_software)]
 pub mod software_surface;
@@ -786,32 +788,17 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
-        _text_wrap: TextWrap, //TODO: Add support for char-wrap
+        text_wrap: TextWrap,
     ) -> LogicalSize {
-        let (layout, _) = textlayout::create_layout(
-            font_request,
-            scale_factor,
-            text,
-            None,
-            max_width.map(|w| w * scale_factor),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            TextWrap::WordWrap,
-            Default::default(),
-            None,
-        );
-
-        PhysicalSize::new(layout.max_intrinsic_width().ceil(), layout.height().ceil())
-            / scale_factor
+        sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
     }
 
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
-        scale_factor: ScaleFactor,
+        _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        textlayout::font_metrics(font_request, scale_factor)
+        sharedparley::font_metrics(font_request)
     }
 
     fn text_input_byte_offset_for_position(
@@ -821,45 +808,12 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         font_request: FontRequest,
         scale_factor: ScaleFactor,
     ) -> usize {
-        let max_width = text_input.width() * scale_factor;
-        let max_height = text_input.height() * scale_factor;
-        let pos = pos * scale_factor;
-
-        if max_width.get() <= 0. || max_height.get() <= 0. {
-            return 0;
-        }
-
-        let visual_representation = text_input.visual_representation(None);
-
-        let (layout, layout_top_left) = textlayout::create_layout(
+        sharedparley::text_input_byte_offset_for_position(
+            text_input,
+            pos,
             font_request,
             scale_factor,
-            &visual_representation.text,
-            None,
-            Some(max_width),
-            max_height,
-            text_input.horizontal_alignment(),
-            text_input.vertical_alignment(),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            None,
-        );
-
-        let utf16_index =
-            layout.get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_left.y)).position;
-        let mut utf16_count = 0;
-        let byte_offset = visual_representation
-            .text
-            .char_indices()
-            .find(|(_, x)| {
-                let r = utf16_count >= utf16_index;
-                utf16_count += x.len_utf16() as i32;
-                r
-            })
-            .unwrap_or((visual_representation.text.len(), '\0'))
-            .0;
-
-        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
+        )
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -869,53 +823,30 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         font_request: FontRequest,
         scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let max_width = text_input.width() * scale_factor;
-        let max_height = text_input.height() * scale_factor;
-
-        if max_width.get() <= 0. || max_height.get() <= 0. {
-            return Default::default();
-        }
-
-        let string = text_input.text();
-        let string = string.as_str();
-
-        let (layout, layout_top_left) = textlayout::create_layout(
+        sharedparley::text_input_cursor_rect_for_byte_offset(
+            text_input,
+            byte_offset,
             font_request,
             scale_factor,
-            string,
-            None,
-            Some(max_width),
-            max_height,
-            text_input.horizontal_alignment(),
-            text_input.vertical_alignment(),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            None,
-        );
-
-        let physical_cursor_rect = textlayout::cursor_rect(
-            string,
-            byte_offset,
-            layout,
-            text_input.text_cursor_width() * scale_factor,
-            text_input.horizontal_alignment(),
-        );
-
-        physical_cursor_rect.translate(layout_top_left.to_vector()) / scale_factor
+        )
     }
 
     fn register_font_from_memory(
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        textlayout::register_font_from_memory(data)
+        sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
+        Ok(())
     }
 
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        textlayout::register_font_from_path(path)
+        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
+        let contents = std::fs::read(requested_path)?;
+        sharedfontique::get_collection().register_fonts(contents.into(), None);
+        Ok(())
     }
 
     fn set_rendering_notifier(
@@ -931,7 +862,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     }
 
     fn default_font_size(&self) -> LogicalLength {
-        self::textlayout::DEFAULT_FONT_SIZE
+        sharedparley::DEFAULT_FONT_SIZE
     }
 
     fn free_graphics_resources(
