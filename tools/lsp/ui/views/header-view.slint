@@ -85,7 +85,8 @@ export component HeaderView {
                         horizontal-stretch: 0;
                         checkable: true;
                         icon: Icons.library;
-                        colorize-icon: true;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
                         clicked => {
                             root.library-toggled(self.checked);
                             library-widget = self.checked;
@@ -96,7 +97,8 @@ export component HeaderView {
                         horizontal-stretch: 0;
                         checkable: true;
                         icon: Icons.properties;
-                        colorize-icon: true;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
                         clicked => {
                             root.properties-toggled(self.checked);
                             properties-widget = self.checked;
@@ -107,7 +109,8 @@ export component HeaderView {
                         horizontal-stretch: 0;
                         checkable: true;
                         icon: Icons.outline;
-                        colorize-icon: true;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
                         clicked => {
                             root.outline-toggled(self.checked);
                             outline-widget = self.checked;
@@ -118,7 +121,8 @@ export component HeaderView {
                         horizontal-stretch: 0;
                         checkable: true;
                         icon: Icons.simulator;
-                        colorize-icon: true;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
                         clicked => {
                             root.simulator-toggled(self.checked);
                             data-widget = self.checked;
