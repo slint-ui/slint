@@ -921,8 +921,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         self.brush_to_paint(brush, &text_path)
     }
 
-    fn platform_brush_for_color(&mut self, color: &i_slint_core::Color) -> Self::PlatformBrush {
-        femtovg::Paint::color(to_femtovg_color(&color))
+    fn platform_brush_for_color(
+        &mut self,
+        color: &i_slint_core::Color,
+    ) -> Option<Self::PlatformBrush> {
+        if color.alpha() == 0 {
+            None
+        } else {
+            Some(femtovg::Paint::color(to_femtovg_color(&color)))
+        }
     }
 
     fn platform_text_stroke_brush(
@@ -949,7 +956,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         font: &parley::Font,
         font_size: f32,
-        brush: &Self::PlatformBrush,
+        mut fill_brush: Self::PlatformBrush,
+        mut stroke_brush: Option<Self::PlatformBrush>,
         stroke_style: &Option<TextStrokeStyle>,
         y_offset: f32,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -962,8 +970,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
             glyph_id: glyph.id,
         });
 
-        let mut paint = brush.clone();
-        paint.set_font_size(font_size);
+        fill_brush.set_font_size(font_size);
+        if let Some(stroke_brush) = stroke_brush.as_mut() {
+            stroke_brush.set_font_size(font_size);
+        }
 
         let mut canvas = self.canvas.borrow_mut();
 
@@ -971,17 +981,21 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
             Some(i_slint_core::items::TextStrokeStyle::Outside) => {
                 let glyphs = glyphs_it.collect::<Vec<_>>();
 
-                canvas.stroke_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
-                canvas.fill_glyph_run(font_id, glyphs, &paint).unwrap();
+                if let Some(stroke_brush) = stroke_brush.as_ref() {
+                    canvas.stroke_glyph_run(font_id, glyphs.clone(), &stroke_brush).unwrap();
+                }
+                canvas.fill_glyph_run(font_id, glyphs, &fill_brush).unwrap();
             }
             Some(i_slint_core::items::TextStrokeStyle::Center) => {
                 let glyphs = glyphs_it.collect::<Vec<_>>();
 
-                canvas.fill_glyph_run(font_id, glyphs.clone(), &paint).unwrap();
-                canvas.stroke_glyph_run(font_id, glyphs, &paint).unwrap();
+                canvas.fill_glyph_run(font_id, glyphs.clone(), &fill_brush).unwrap();
+                if let Some(stroke_brush) = stroke_brush.as_ref() {
+                    canvas.stroke_glyph_run(font_id, glyphs.clone(), &stroke_brush).unwrap();
+                }
             }
             None => {
-                canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
+                canvas.fill_glyph_run(font_id, glyphs_it, &fill_brush).unwrap();
             }
         }
     }
