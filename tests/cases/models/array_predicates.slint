@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Person {
+    name: string,
+    age: int,
+}
+
+export component TestCase {
+    property <[int]> ints: [1, 2, 3, 4, 5];
+    property <[string]> strings: ["hello", "world", "foo", "bar"];
+    property <[Person]> people: [
+        { name: "Alice", age: 30 },
+        { name: "Bob", age: 25 },
+        { name: "Charlie", age: 35 },
+        { name: "Diana", age: 28 }
+    ];
+    property <[[Person]]> groups: [
+        [{ name: "Alice", age: 30 }, { name: "Bob", age: 25 }],
+        [{ name: "Charlie", age: 35 }, { name: "Diana", age: 28 }],
+        [{ name: "Evan", age: 22 }, { name: "Fiona", age: 27 }]
+    ];
+
+    out property <bool> test: {
+        // test that predicate args shadow outer variables regardless of type
+        let x = "hello world";
+        let s = 42;
+        let p = 42px;
+
+        let ints = self.ints.all(x
+
+        => x > 0
+        ) && !self.ints.all(x => x > 1
+        ) && !self.ints.any(x => x == 0
+        ) && self.ints.any(x => x == 5
+        ) && self.ints.any(x => x < 5
+        );
+
+        let strings = self.strings.all(s => s.character-count > 0
+        ) && !self.strings.all(s => s.is-empty
+        ) && self.strings.any(s => s == "hello"
+        ) && !self.strings.any(s => s == "test"
+        ) && !self.strings.any(s => s.is-empty
+        );
+
+        let people = self.people.all(p => p.age > 20
+        ) && !self.people.all(p => p.age < 30
+        ) && self.people.any(p => p.name == "Alice"
+        ) && !self.people.any(p => p.name == "Evan"
+        ) && self.people.any(p => p.age < 30
+        );
+
+        let groups = self.groups.all(p => p.all(p
+        => p.age > 20)) && !self.groups.all(p => p.all(p
+        => p.age < 30)) && self.groups.all(p => p.any(p
+        => p.age >= 25)) && !self.groups.any(p => p.all(p
+        => p.name == "Alice")) && self.groups.any(p => p.all(p
+        => p.name.character-count > 4)) && self.groups.any(p => p.any(p
+        => p.name.character-count == 7));
+
+        let shadowing = x == "hello world" && s == 42 && p == 42px;
+
+        ints && strings && people && groups && shadowing
+    }
+
+    // with the groups here we are also testing arg shadowing when nested predicate args have the same name
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert(instance.test);
+```
+*/

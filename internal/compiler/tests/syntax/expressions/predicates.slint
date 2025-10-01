@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    property <[int]> ints: [1, 2, 3, 4, 5];
+
+    if x => x > 0 : Rectangle {}
+//     ^error{Predicate expressions are not permitted outside of array builtin function arguments}
+
+    init => {
+        ints.any(1);
+//               ^error{Cannot convert float to predicate}
+        ints.all(1);
+//               ^error{Cannot convert float to predicate}
+
+        ints.any(x => 1);
+//                    ^error{Predicate expression must be of type bool, but is float}
+        ints.all(x => 1);
+//                    ^error{Predicate expression must be of type bool, but is float}
+
+        ints.any(x => x);
+//                    ^error{Predicate expression must be of type bool, but is int}
+        ints.all(x => x);
+//                    ^error{Predicate expression must be of type bool, but is int}
+
+        debug(x => x > 0);
+//            ^error{Predicate expressions are not permitted outside of array builtin function arguments}
+
+        y => y > 0;
+//      ^error{Predicate expressions are not permitted outside of array builtin function arguments}
+    }
+
+    TouchArea {
+        clicked => x => x > 0;
+//                 ^error{Predicate expressions are not permitted outside of array builtin function arguments}
+    }
+}

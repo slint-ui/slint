@@ -24,6 +24,7 @@ use i_slint_core as corelib;
 use i_slint_core::input::FocusReason;
 use i_slint_core::items::{ItemRc, WindowItem};
 use smol_str::SmolStr;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -417,6 +418,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
+        Expression::Predicate { arg_name, expression } => {
+            let arg_name = arg_name.clone();
+            let expression = expression.clone();
+            let predicate =    Rc::new(RefCell::new(move |local_context: &mut EvalLocalContext<'_, '_>, value: &Value| {
+                    local_context.local_variables.insert(arg_name.clone(), value.clone());
+                    eval_expression(&expression, local_context)
+                }));
+
+            Value::Predicate(predicate)
+        },
     }
 }
 
@@ -1372,6 +1383,37 @@ fn call_builtin_function(
                 panic!("internal error: argument to RestartTimer must be an element")
             }
         }
+        BuiltinFunction::ArrayAny => {
+            let model: ModelRc<Value> =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let predicate: Rc<RefCell<dyn FnMut(&mut EvalLocalContext, &Value) -> Value>> =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let mut predicate = predicate.borrow_mut();
+
+            for x in model.iter() {
+                if predicate(local_context, &x).try_into().unwrap() {
+                    return Value::Bool(true);
+                }
+            }
+
+            Value::Bool(false)
+        }
+        BuiltinFunction::ArrayAll => {
+            let model: ModelRc<Value> =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let predicate: Rc<RefCell<dyn FnMut(&mut EvalLocalContext, &Value) -> Value>> =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let mut predicate = predicate.borrow_mut();
+
+            for x in model.iter() {
+                let result: bool = predicate(local_context, &x).try_into().unwrap();
+                if !result {
+                    return Value::Bool(false);
+                }
+            }
+
+            Value::Bool(true)
+        }
     }
 }
 
@@ -1662,7 +1704,8 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         | Type::InferredCallback
         | Type::Callback { .. }
         | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
+        | Type::ElementReference
+        | Type::Predicate => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -1990,7 +2033,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Function { .. } => {
+        | Type::Function { .. }
+        | Type::Predicate => {
             panic!("There can't be such property")
         }
     }

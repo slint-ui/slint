@@ -51,6 +51,17 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
+
+    /// A stack of predicate argument types
+    /// This is a hack to infer the type of the predicate argument
+    pub predicate_argument_types: Vec<Type>,
+
+    /// A stack of predicate arguments
+    /// Theoretically a predicate could include another predicate, so this is a stack
+    pub predicate_arguments: Vec<SmolStr>,
+
+    /// A flag that indicates if predicates are currently allowed (currently only inside a function argument)
+    pub predicates_allowed: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -66,6 +77,9 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
+            predicate_arguments: Default::default(),
+            predicate_argument_types: Default::default(),
+            predicates_allowed: false,
         }
     }
 
@@ -263,6 +277,28 @@ impl LookupObject for ArgumentsLookup {
         for (index, (name, ty)) in ctx.arguments.iter().zip(args.iter()).enumerate() {
             if let Some(r) =
                 f(name, Expression::FunctionParameterReference { index, ty: ty.clone() }.into())
+            {
+                return Some(r);
+            }
+        }
+        None
+    }
+}
+
+struct PredicateArgumentsLookup;
+impl LookupObject for PredicateArgumentsLookup {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        // we reverse the types here so that the most recently added predicate argument is the first one for shadowing purposes
+        // this is done in case someone does `arr.any(x => x.any(x => x > 0))`... why anyone would do this is beyond me though
+        for (name, ty) in
+            ctx.predicate_arguments.iter().zip(ctx.predicate_argument_types.iter().rev())
+        {
+            if let Some(r) =
+                f(name, Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into())
             {
                 return Some(r);
             }
@@ -863,20 +899,23 @@ impl LookupObject for BuiltinNamespaceLookup {
 
 pub fn global_lookup() -> impl LookupObject {
     (
-        LocalVariableLookup,
+        PredicateArgumentsLookup,
         (
-            ArgumentsLookup,
+            LocalVariableLookup,
             (
-                SpecialIdLookup,
+                ArgumentsLookup,
                 (
-                    IdLookup,
+                    SpecialIdLookup,
                     (
-                        InScopeLookup,
+                        IdLookup,
                         (
-                            LookupType,
+                            InScopeLookup,
                             (
-                                BuiltinNamespaceLookup,
-                                (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
+                                LookupType,
+                                (
+                                    BuiltinNamespaceLookup,
+                                    (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
+                                ),
                             ),
                         ),
                     ),
@@ -1062,15 +1101,25 @@ impl LookupObject for ArrayExpression<'_> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
+            })
+        };
+        let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 arguments: vec![self.0.clone()],
             })
         };
+
         None.or_else(|| {
-            f(&SmolStr::new_static("length"), member_function(BuiltinFunction::ArrayLength))
+            f(&SmolStr::new_static("length"), function_call(BuiltinFunction::ArrayLength))
         })
+        .or_else(|| f(&SmolStr::new_static("any"), member_function(BuiltinFunction::ArrayAny)))
+        .or_else(|| f(&SmolStr::new_static("all"), member_function(BuiltinFunction::ArrayAll)))
     }
 }
 

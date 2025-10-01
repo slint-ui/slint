@@ -373,6 +373,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     ),
                 }
             }
+            Expression::Predicate { .. } => todo!(),
         }
     }
 }
