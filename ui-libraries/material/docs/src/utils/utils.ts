@@ -120,7 +120,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "enum":
             return {
-                href: "", // No need to link here!
+                href: linkMap.EnumType.href,
                 defaultValue: "the first enum value",
             };
         case "float":
