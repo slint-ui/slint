@@ -22,7 +22,7 @@ use i_slint_common::sharedfontique;
 /// shaping and positioning, and the renderer is responsible for drawing just the glyphs.
 pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     /// A renderer-specific type for a brush used for fill and stroke of glyphs.
-    type PlatformBrush;
+    type PlatformBrush: Clone;
 
     /// Returns the brush to be used for filling text.
     fn platform_text_fill_brush(
@@ -32,7 +32,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     ) -> Option<Self::PlatformBrush>;
 
     /// Returns a brush that's a solid fill of the specified color.
-    fn platform_brush_for_color(&mut self, color: &crate::Color) -> Self::PlatformBrush;
+    fn platform_brush_for_color(&mut self, color: &crate::Color) -> Option<Self::PlatformBrush>;
 
     /// Returns the brush to be used for stroking text.
     fn platform_text_stroke_brush(
@@ -48,7 +48,8 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         &mut self,
         font: &parley::Font,
         font_size: f32,
-        brush: &Self::PlatformBrush,
+        fill_brush: Self::PlatformBrush,
+        stroke_brush: Option<Self::PlatformBrush>,
         stroke_style: &Option<TextStrokeStyle>,
         y_offset: f32,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -91,8 +92,8 @@ std::thread_local! {
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 struct Brush {
-    /// Color to use for filling text. `None` means use of the default color/brush.
-    color: Option<crate::Color>,
+    /// When set, this overrides the fill/stroke to use this color for just a fill, for selection.
+    selection_fill_color: Option<crate::Color>,
     stroke: Option<TextStrokeStyle>,
 }
 
@@ -166,7 +167,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layo
         }));
 
         builder.push_default(parley::StyleProperty::Brush(Brush {
-            color: None,
+            selection_fill_color: None,
             stroke: options.stroke,
         }));
     };
@@ -202,7 +203,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layo
         {
             builder.push(
                 parley::StyleProperty::Brush(Brush {
-                    color: Some(selection_color),
+                    selection_fill_color: Some(selection_color),
                     stroke: options.stroke,
                 }),
                 selection,
@@ -288,12 +289,14 @@ impl Layout {
     fn draw<R: GlyphRenderer>(
         &self,
         item_renderer: &mut R,
-        default_brush: <R as GlyphRenderer>::PlatformBrush,
+        default_fill_brush: <R as GlyphRenderer>::PlatformBrush,
+        default_stroke_brush: Option<<R as GlyphRenderer>::PlatformBrush>,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::Font,
             f32,
-            &<R as GlyphRenderer>::PlatformBrush,
+            <R as GlyphRenderer>::PlatformBrush,
+            Option<<R as GlyphRenderer>::PlatformBrush>,
             &Option<TextStrokeStyle>,
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
@@ -319,19 +322,26 @@ impl Layout {
                             glyphs_it = &mut unelided_glyphs_it;
                         };
 
-                        let stroke = &brush.stroke;
-
-                        let brush = match brush.color {
-                            Some(color) => &item_renderer.platform_brush_for_color(&color),
-                            None => &default_brush,
+                        let (fill_brush, stroke_style) = match brush.selection_fill_color {
+                            Some(color) => {
+                                let Some(selection_brush) =
+                                    item_renderer.platform_brush_for_color(&color)
+                                else {
+                                    // Weird, a transparent selection color, but ok...
+                                    continue;
+                                };
+                                (selection_brush.clone(), &None)
+                            }
+                            None => (default_fill_brush.clone(), &brush.stroke),
                         };
 
                         draw_glyphs(
                             item_renderer,
                             run.font(),
                             run.font_size(),
-                            &brush,
-                            &stroke,
+                            fill_brush,
+                            default_stroke_brush.clone(),
+                            stroke_style,
                             glyphs_it,
                         );
                     }
@@ -357,6 +367,7 @@ pub fn draw_text(
 
     let Some(platform_fill_brush) = item_renderer.platform_text_fill_brush(text.color(), size)
     else {
+        // Nothing to draw
         return;
     };
 
@@ -397,11 +408,13 @@ pub fn draw_text(
     layout.draw(
         item_renderer,
         platform_fill_brush,
-        &mut |item_renderer, font, font_size, brush, stroke_style, glyphs_it| {
+        platform_stroke_brush,
+        &mut |item_renderer, font, font_size, fill_brush, stroke_brush, stroke_style, glyphs_it| {
             item_renderer.draw_glyph_run(
                 font,
                 font_size,
-                brush,
+                fill_brush,
+                stroke_brush,
                 stroke_style,
                 layout.y_offset,
                 glyphs_it,
@@ -492,11 +505,13 @@ pub fn draw_text_input(
     layout.draw(
         item_renderer,
         platform_fill_brush,
-        &mut |item_renderer, font, font_size, brush, stroke_style, glyphs_it| {
+        None,
+        &mut |item_renderer, font, font_size, fill_brush, stroke_brush, stroke_style, glyphs_it| {
             item_renderer.draw_glyph_run(
                 font,
                 font_size,
-                brush,
+                fill_brush,
+                stroke_brush,
                 stroke_style,
                 layout.y_offset,
                 glyphs_it,
