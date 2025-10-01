@@ -17,7 +17,7 @@ export async function getEnumContent(enumName: string | undefined) {
     if (enumName) {
         try {
             const module = await import(
-                `../../../astro/src/content/collections/enums/${enumName}.md`
+                `../content/collections/enums/${enumName}.md`
             );
             return module.compiledContent();
         } catch (error) {
@@ -39,7 +39,7 @@ export async function getStructContent(
     if (baseStruct === "Time" || baseStruct === "Date") {
         try {
             const module = await import(
-                `../../../astro/src/content/collections/std-widgets/${baseStruct}.md`
+                `../content/collections/std-widgets/${baseStruct}.md`
             );
             return module.compiledContent();
         } catch (error) {
@@ -51,7 +51,7 @@ export async function getStructContent(
     if (baseStruct) {
         try {
             const module = await import(
-                `../../../astro/src/content/collections/structs/${baseStruct}.md`
+                `../content/collections/structs/${baseStruct}.md`
             );
             return module.compiledContent();
         } catch (error) {
