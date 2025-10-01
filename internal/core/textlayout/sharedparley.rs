@@ -10,11 +10,9 @@ use std::cell::RefCell;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::{
-        LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths,
-    },
+    lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor, SizeLengths},
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
-    Coord, SharedString,
+    SharedString,
 };
 use i_slint_common::sharedfontique;
 
@@ -48,14 +46,12 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         &mut self,
         font: &parley::Font,
         font_size: f32,
-        fill_brush: Self::PlatformBrush,
-        stroke_brush: Option<Self::PlatformBrush>,
-        stroke_style: &Option<TextStrokeStyle>,
+        brush: Self::PlatformBrush,
         y_offset: f32,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
-    /// Fills the given rectangle with the specified brush. This is used for drawing selection
+    /// Fills the given rectangle with the specified color. This is used for drawing selection
     /// rectangles as well as the text cursor.
     fn fill_rectangle(
         &mut self,
@@ -63,7 +59,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         physical_y: f32,
         physical_width: f32,
         physical_height: f32,
-        brush: Self::PlatformBrush,
+        color: crate::Color,
     );
 }
 
@@ -296,8 +292,6 @@ impl Layout {
             &parley::Font,
             f32,
             <R as GlyphRenderer>::PlatformBrush,
-            Option<<R as GlyphRenderer>::PlatformBrush>,
-            &Option<TextStrokeStyle>,
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
@@ -335,15 +329,59 @@ impl Layout {
                             None => (default_fill_brush.clone(), &brush.stroke),
                         };
 
-                        draw_glyphs(
-                            item_renderer,
-                            run.font(),
-                            run.font_size(),
-                            fill_brush,
-                            default_stroke_brush.clone(),
-                            stroke_style,
-                            glyphs_it,
-                        );
+                        match stroke_style {
+                            Some(TextStrokeStyle::Outside) => {
+                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
+
+                                if let Some(stroke_brush) = default_stroke_brush.clone() {
+                                    draw_glyphs(
+                                        item_renderer,
+                                        run.font(),
+                                        run.font_size(),
+                                        stroke_brush,
+                                        &mut glyphs.iter().cloned(),
+                                    );
+                                }
+
+                                draw_glyphs(
+                                    item_renderer,
+                                    run.font(),
+                                    run.font_size(),
+                                    fill_brush,
+                                    &mut glyphs.into_iter(),
+                                );
+                            }
+                            Some(TextStrokeStyle::Center) => {
+                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
+
+                                draw_glyphs(
+                                    item_renderer,
+                                    run.font(),
+                                    run.font_size(),
+                                    fill_brush,
+                                    &mut glyphs.iter().cloned(),
+                                );
+
+                                if let Some(stroke_brush) = default_stroke_brush.clone() {
+                                    draw_glyphs(
+                                        item_renderer,
+                                        run.font(),
+                                        run.font_size(),
+                                        stroke_brush,
+                                        &mut glyphs.into_iter(),
+                                    );
+                                }
+                            }
+                            None => {
+                                draw_glyphs(
+                                    item_renderer,
+                                    run.font(),
+                                    run.font_size(),
+                                    fill_brush,
+                                    glyphs_it,
+                                );
+                            }
+                        }
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
@@ -409,16 +447,8 @@ pub fn draw_text(
         item_renderer,
         platform_fill_brush,
         platform_stroke_brush,
-        &mut |item_renderer, font, font_size, fill_brush, stroke_brush, stroke_style, glyphs_it| {
-            item_renderer.draw_glyph_run(
-                font,
-                font_size,
-                fill_brush,
-                stroke_brush,
-                stroke_style,
-                layout.y_offset,
-                glyphs_it,
-            );
+        &mut |item_renderer, font, font_size, brush, glyphs_it| {
+            item_renderer.draw_glyph_run(font, font_size, brush, layout.y_offset, glyphs_it);
         },
     );
 }
@@ -487,35 +517,21 @@ pub fn draw_text_input(
         ),
     );
     selection.geometry_with(&layout.inner, |rect, _| {
-        if let Some(selection_brush) = item_renderer.platform_text_fill_brush(
-            text_input.selection_background_color().into(),
-            euclid::size2::<Coord, PhysicalPx>(rect.width() as _, rect.height() as _)
-                / scale_factor,
-        ) {
-            item_renderer.fill_rectangle(
-                rect.min_x() as _,
-                rect.min_y() as f32 + layout.y_offset,
-                rect.width() as _,
-                rect.height() as _,
-                selection_brush,
-            );
-        }
+        item_renderer.fill_rectangle(
+            rect.min_x() as _,
+            rect.min_y() as f32 + layout.y_offset,
+            rect.width() as _,
+            rect.height() as _,
+            text_input.selection_background_color(),
+        );
     });
 
     layout.draw(
         item_renderer,
         platform_fill_brush,
         None,
-        &mut |item_renderer, font, font_size, fill_brush, stroke_brush, stroke_style, glyphs_it| {
-            item_renderer.draw_glyph_run(
-                font,
-                font_size,
-                fill_brush,
-                stroke_brush,
-                stroke_style,
-                layout.y_offset,
-                glyphs_it,
-            );
+        &mut |item_renderer, font, font_size, brush, glyphs_it| {
+            item_renderer.draw_glyph_run(font, font_size, brush, layout.y_offset, glyphs_it);
         },
     );
 
@@ -528,19 +544,13 @@ pub fn draw_text_input(
         let rect =
             cursor.geometry(&layout.inner, (text_input.text_cursor_width() * scale_factor).get());
 
-        if let Some(cursor_brush) = item_renderer.platform_text_fill_brush(
-            visual_representation.cursor_color.into(),
-            euclid::size2::<Coord, PhysicalPx>(rect.width() as _, rect.height() as _)
-                / scale_factor,
-        ) {
-            item_renderer.fill_rectangle(
-                rect.min_x() as _,
-                rect.min_y() as f32 + layout.y_offset,
-                rect.width() as _,
-                rect.height() as _,
-                cursor_brush,
-            );
-        }
+        item_renderer.fill_rectangle(
+            rect.min_x() as _,
+            rect.min_y() as f32 + layout.y_offset,
+            rect.width() as _,
+            rect.height() as _,
+            visual_representation.cursor_color,
+        );
     }
 }
 

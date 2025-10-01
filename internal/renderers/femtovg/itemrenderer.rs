@@ -17,7 +17,6 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -909,8 +908,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 }
 
+#[derive(Clone)]
+pub enum GlyphBrush {
+    Fill(femtovg::Paint),
+    Stroke(femtovg::Paint),
+}
+
 impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRenderer<'a, R> {
-    type PlatformBrush = femtovg::Paint;
+    type PlatformBrush = GlyphBrush;
 
     fn platform_text_fill_brush(
         &mut self,
@@ -918,7 +923,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
         let text_path = rect_to_path((size * self.scale_factor).into());
-        self.brush_to_paint(brush, &text_path)
+        self.brush_to_paint(brush, &text_path).map(GlyphBrush::Fill)
     }
 
     fn platform_brush_for_color(
@@ -928,7 +933,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         if color.alpha() == 0 {
             None
         } else {
-            Some(femtovg::Paint::color(to_femtovg_color(&color)))
+            Some(GlyphBrush::Fill(femtovg::Paint::color(to_femtovg_color(&color))))
         }
     }
 
@@ -945,7 +950,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
                     None
                 } else {
                     paint.set_line_width(physical_stroke_width);
-                    Some(paint)
+                    Some(GlyphBrush::Stroke(paint))
                 }
             }
             None => None,
@@ -956,9 +961,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         font: &parley::Font,
         font_size: f32,
-        mut fill_brush: Self::PlatformBrush,
-        mut stroke_brush: Option<Self::PlatformBrush>,
-        stroke_style: &Option<TextStrokeStyle>,
+        mut brush: Self::PlatformBrush,
         y_offset: f32,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
@@ -970,32 +973,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
             glyph_id: glyph.id,
         });
 
-        fill_brush.set_font_size(font_size);
-        if let Some(stroke_brush) = stroke_brush.as_mut() {
-            stroke_brush.set_font_size(font_size);
-        }
-
         let mut canvas = self.canvas.borrow_mut();
 
-        match stroke_style {
-            Some(i_slint_core::items::TextStrokeStyle::Outside) => {
-                let glyphs = glyphs_it.collect::<Vec<_>>();
-
-                if let Some(stroke_brush) = stroke_brush.as_ref() {
-                    canvas.stroke_glyph_run(font_id, glyphs.clone(), &stroke_brush).unwrap();
-                }
-                canvas.fill_glyph_run(font_id, glyphs, &fill_brush).unwrap();
+        match &mut brush {
+            GlyphBrush::Fill(paint) => {
+                paint.set_font_size(font_size);
+                canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
             }
-            Some(i_slint_core::items::TextStrokeStyle::Center) => {
-                let glyphs = glyphs_it.collect::<Vec<_>>();
-
-                canvas.fill_glyph_run(font_id, glyphs.clone(), &fill_brush).unwrap();
-                if let Some(stroke_brush) = stroke_brush.as_ref() {
-                    canvas.stroke_glyph_run(font_id, glyphs.clone(), &stroke_brush).unwrap();
-                }
-            }
-            None => {
-                canvas.fill_glyph_run(font_id, glyphs_it, &fill_brush).unwrap();
+            GlyphBrush::Stroke(paint) => {
+                paint.set_font_size(font_size);
+                canvas.stroke_glyph_run(font_id, glyphs_it, &paint).unwrap();
             }
         }
     }
@@ -1006,8 +993,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         physical_y: f32,
         physical_width: f32,
         physical_height: f32,
-        paint: Self::PlatformBrush,
+        color: Color,
     ) {
+        if color.alpha() == 0 {
+            return;
+        }
+
+        let paint = femtovg::Paint::color(to_femtovg_color(&color));
+
         let mut path = femtovg::Path::new();
         path.rect(physical_x, physical_y, physical_width, physical_height);
 
