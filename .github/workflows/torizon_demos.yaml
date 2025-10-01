@@ -26,29 +26,35 @@ jobs:
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: ""
+                      build_home_automation_sw_renderer: true
                     # GPU-specific variants
                     # https://developer.toradex.com/torizon/application-development/provided-containers/debian-containers-for-torizon
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: "-imx8"
+                      build_home_automation_sw_renderer: false
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: "-am62"
+                      build_home_automation_sw_renderer: false
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: "-am62p"
+                      build_home_automation_sw_renderer: false
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: "-imx95"
+                      build_home_automation_sw_renderer: false
                     # Legacy vivante support (for backward compatibility)
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: "-vivante"
+                      build_home_automation_sw_renderer: false
 
         steps:
             - uses: actions/checkout@v5
@@ -76,3 +82,4 @@ jobs:
                       RUST_TOOLCHAIN_ARCH=${{matrix.rust_toolchain_arch}}
                       BASE_NAME=wayland-base${{matrix.base_image_suffix}}
                       WEATHER_API_KEY=${{secrets.WEATHER_API_KEY}}
+                      BUILD_HOME_AUTOMATION_SW_RENDERER=${{matrix.build_home_automation_sw_renderer}}
