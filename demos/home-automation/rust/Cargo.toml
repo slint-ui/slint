@@ -22,6 +22,9 @@ name = "home_automation_lib"
 slint = { path = "../../../api/rs/slint" }
 chrono = "0.4"
 
+[features]
+sw-renderer = []
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["console"] }

@@ -7,6 +7,12 @@ use slint::{Timer, TimerMode};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "sw-renderer")]
+slint::slint! {
+    export { Api, AppWindow } from "../ui/demo-sw-renderer.slint";
+}
+
+#[cfg(not(feature = "sw-renderer"))]
 slint::slint! {
     export { Api, AppWindow } from "../ui/demo.slint";
 }

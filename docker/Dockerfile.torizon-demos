@@ -7,9 +7,12 @@ ARG TOOLCHAIN_ARCH=arm64
 ARG IMAGE_ARCH=linux/arm64
 ARG BASE_VERSION=4
 ARG BASE_NAME=wayland-base
+ARG BUILD_HOME_AUTOMATION_SW_RENDERER=false
+
 FROM torizon/cross-toolchain-$TOOLCHAIN_ARCH:${BASE_VERSION} AS build
 ARG TOOLCHAIN_ARCH
 ARG RUST_TOOLCHAIN_ARCH=aarch64-unknown-linux-gnu
+ARG BUILD_HOME_AUTOMATION_SW_RENDERER
 
 ARG WEATHER_API_KEY
 ENV WEATHER_API=$WEATHER_API_KEY
@@ -39,10 +42,19 @@ COPY . /slint
 WORKDIR /slint
 RUN mkdir demos_compiled \
     && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
-        -p printerdemo -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo -p energy-monitor -p home-automation -p weather-demo \
-    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor home-automation weather-demo; do \
+        -p printerdemo -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo -p energy-monitor -p weather-demo \
+    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo; do \
         cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
-    done
+    done \
+    && if [ "$BUILD_HOME_AUTOMATION_SW_RENDERER" = "true" ]; then \
+        cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat,home-automation/sw-renderer \
+            -p home-automation \
+        && cp target/$RUST_TOOLCHAIN_ARCH/release/home-automation ./demos_compiled/home-automation; \
+    else \
+        cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+            -p home-automation \
+        && cp target/$RUST_TOOLCHAIN_ARCH/release/home-automation ./demos_compiled/home-automation; \
+    fi
 
 # Create container for target
 FROM --platform=${IMAGE_ARCH} torizon/${BASE_NAME}:${BASE_VERSION} AS deploy
