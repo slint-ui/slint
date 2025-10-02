@@ -7,7 +7,7 @@ use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedG
 
 use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
-use wgpu_26 as wgpu;
+use wgpu_27 as wgpu;
 
 pub struct WGPUBackend {
     instance: RefCell<Option<wgpu::Instance>>,
@@ -73,7 +73,7 @@ impl GraphicsBackend for WGPUBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-26")]
+    #[cfg(feature = "unstable-wgpu-27")]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -82,7 +82,7 @@ impl GraphicsBackend for WGPUBackend {
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
-            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_26(
+            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_27(
                 instance, device, queue,
             ))))
         } else {
@@ -90,7 +90,7 @@ impl GraphicsBackend for WGPUBackend {
         }
     }
 
-    #[cfg(not(feature = "unstable-wgpu-26"))]
+    #[cfg(not(feature = "unstable-wgpu-27"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -130,7 +130,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_26::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_27::init_instance_adapter_device_queue_surface(
                 window_handle,
                 requested_graphics_api,
                 /* rendering artifacts :( */

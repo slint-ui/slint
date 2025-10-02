@@ -41,7 +41,7 @@ x11 = [
   "softbuffer?/x11-dlopen",
 ]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
-renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-26"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-27"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
@@ -56,15 +56,15 @@ accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-26 = [
   "i-slint-core/unstable-wgpu-26",
-  "renderer-femtovg-wgpu",
-  "i-slint-renderer-femtovg/unstable-wgpu-26",
-  "i-slint-renderer-skia?/unstable-wgpu-26",
+  "i-slint-renderer-femtovg?/unstable-wgpu-26",
+  "renderer-skia",
+  "i-slint-renderer-skia/unstable-wgpu-26",
 ]
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
-  "renderer-skia",
-  "i-slint-renderer-femtovg?/unstable-wgpu-27",
-  "i-slint-renderer-skia/unstable-wgpu-27",
+  "renderer-femtovg-wgpu",
+  "i-slint-renderer-femtovg/unstable-wgpu-27",
+  "i-slint-renderer-skia?/unstable-wgpu-27",
 ]
 default = []
 
