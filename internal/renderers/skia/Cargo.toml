@@ -96,7 +96,7 @@ write-fonts = { version = "0.43" }
 skia-safe = { version = "0.88", features = ["gl", "vulkan"] }
 wgpu-26 = { workspace = true, optional = true, features = ["vulkan"] }
 
-[target.'cfg(any(target_os = "ios", target_os="windows", target_os="android"))'.dependencies]
+[target.'cfg(any(target_os = "ios", target_os="windows", target_os="android", target_os="linux"))'.dependencies]
 # Text layout is enabled here just so that we can make use of the pre-built Skia libraries.
 skia-safe = { version = "0.88", features = ["textlayout"] }
 
