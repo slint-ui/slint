@@ -1793,8 +1793,8 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
-                display_string: "#aabbccff".into(),
-                code: "\"#aabbccff\"".into(),
+                display_string: "#aabbcc".into(),
+                code: "\"#aabbcc\"".into(),
                 kind: super::PropertyValueKind::Color,
                 value_brush: slint::Brush::SolidColor(slint::Color::from_argb_u8(
                     0xff, 0xaa, 0xbb, 0xcc,
