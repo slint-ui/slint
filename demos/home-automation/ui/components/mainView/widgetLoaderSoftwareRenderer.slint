@@ -26,45 +26,13 @@ export component WidgetLoaderSoftwareRenderer {
 
 
     changed data => {
-        show-timer.running = false;
-        hide-timer.running = false;
-        hide-timer.interval = root.internal-data.position * 40ms;
-        show-timer.interval = 400ms + (root.data.position * 40ms);
-        hide-timer.running = true;
+        internal-data = data;
+        is-visible = data.visible;
     }
 
     init => {
-        if data.visible != is-visible {
-            setInternalData();
-            is-visible = data.visible;
-        }
-    }
-
-    function setInternalData() {
         internal-data = data;
-    }
-
-    show-timer := Timer {
-        running: false;
-        interval: 100ms;
-        triggered => {
-            setInternalData();
-            root.is-visible = true;
-            self.running = false;
-        }
-    }
-
-    hide-timer := Timer {
-        running: false;
-        interval: 100ms;
-        triggered => {
-            root.is-visible = false;
-            self.running = false;
-            setInternalData();
-            if root.data.visible {
-                show-timer.running = true;
-            }
-        }
+        is-visible = data.visible;
     }
 
     x: root.internal-data.x * AppState.x-scale * 1px;
