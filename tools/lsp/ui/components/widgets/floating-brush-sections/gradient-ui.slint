@@ -336,10 +336,10 @@ export component GradientPicker inherits SimpleColumn {
         cb := ComboBox {
             x: EditorSizeSettings.standard-margin;
             width: 160px;
-            model: ["Linear", "Radial"];
-            current-index: PickerData.current-brush-kind == BrushKind.linear ? 0 : 1;
+            model: ["Conic", "Linear", "Radial"];
+            current-index: PickerData.current-brush-kind == BrushKind.conic ? 0 : PickerData.current-brush-kind == BrushKind.linear ? 1 : 2;
             selected(value) => {
-                PickerData.set-gradient-type(value == "Linear" ? GradientType.linear : GradientType.radial);
+                PickerData.set-gradient-type(value == "Linear" ? GradientType.linear : value == "Radial" ? GradientType.radial : GradientType.conic );
             }
         }
 

@@ -163,7 +163,7 @@ component InlineGradient {
 
             Text {
                 x: 10px;
-                text: root.current-brush-kind == BrushKind.linear ? "Linear Gradient" : "Radial Gradient";
+                text: root.current-brush-kind == BrushKind.linear ? "Linear Gradient" : root.current-brush-kind == BrushKind.radial ? "Radial Gradient" : "Conic Gradient";
                 font-family: "Inter";
                 font-size: 12px;
                 color: EditorPalette.text-color;
@@ -371,7 +371,7 @@ export component InlineBrushWidget inherits VerticalLayout {
         }
     }
 
-    if (property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial) && property-value.code != "" && root.color-code-type == ColorCodeType.other: InlineGradient {
+    if (property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial || property-value.brush-kind == BrushKind.conic) && property-value.code != "" && root.color-code-type == ColorCodeType.other: InlineGradient {
         current-brush <=> root.current-brush;
         current-brush-kind <=> root.current-brush-kind;
 
