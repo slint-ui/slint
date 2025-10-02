@@ -212,7 +212,11 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
         let g = color.green();
         let b = color.blue();
 
-        format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+        if a == 255 {
+            format!("#{r:02x}{g:02x}{b:02x}")
+        } else {
+            format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+        }
     }
 
     fn gradient_to_string_helper<'a>(
@@ -492,7 +496,7 @@ fn test_to_json() {
         0xff, 0x0a, 0xb0, 0xcd,
     ))))
     .unwrap();
-    assert_eq!(v, "\"#0ab0cdff\"".to_string());
+    assert_eq!(v, "\"#0ab0cd\"".to_string());
 
     let v = value_to_json_string(&Value::Brush(Brush::LinearGradient(
         i_slint_core::graphics::LinearGradientBrush::new(
@@ -515,7 +519,7 @@ fn test_to_json() {
         ),
     )))
     .unwrap();
-    assert_eq!(&v, "\"@linear-gradient(42deg, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\"");
+    assert_eq!(&v, "\"@linear-gradient(42deg, #ff0000 0%, #00ff00 50%, #0000ff 100%)\"");
 
     let v = value_to_json_string(&Value::Brush(Brush::RadialGradient(
         i_slint_core::graphics::RadialGradientBrush::new_circle(
@@ -537,5 +541,5 @@ fn test_to_json() {
         ),
     )))
     .unwrap();
-    assert_eq!(&v, "\"@radial-gradient(circle, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\"");
+    assert_eq!(&v, "\"@radial-gradient(circle, #ff0000 0%, #00ff00 50%, #0000ff 100%)\"");
 }

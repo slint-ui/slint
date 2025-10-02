@@ -60,10 +60,10 @@ assert_eq!(t.get_color_brush().color(), green);
 
 ```js
 var t = new slint.Test({});
-assert.equal(t.color_brush.toString(), "#0000ffff");
+assert.equal(t.color_brush.toString(), "#0000ff");
 assert(t.test);
 
-let green = "#00ff00ff";
+let green = "#00ff00";
 t.color_brush = "#00ff00"; // css-color-parser2 can't parse #rrggbbaa yet
 assert.equal(t.color_brush.toString(), green);
 

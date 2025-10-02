@@ -53,7 +53,11 @@ pub fn color_to_string(color: slint::Color) -> slint::SharedString {
     let g = color.green();
     let b = color.blue();
 
-    slint::format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+    if a == 255 {
+        slint::format!("#{r:02x}{g:02x}{b:02x}")
+    } else {
+        slint::format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+    }
 }
 
 fn color_to_short_string(color: slint::Color) -> String {

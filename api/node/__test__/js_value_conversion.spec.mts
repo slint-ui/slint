@@ -300,7 +300,7 @@ test("get/set brush properties", (t) => {
 
     const black = instance!.getProperty("black");
 
-    t.is((black as private_api.SlintBrush).toString(), "#000000ff");
+    t.is((black as private_api.SlintBrush).toString(), "#000000");
 
     if (t.true(black instanceof private_api.SlintBrush)) {
         const blackSlintRgbaColor = (black as private_api.SlintBrush).color;

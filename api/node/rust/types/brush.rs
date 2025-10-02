@@ -159,7 +159,18 @@ impl SlintRgbaColor {
     /// Returns the color as string in hex representation e.g. `#000000` for black.
     #[napi]
     pub fn to_string(&self) -> String {
-        format!("#{:02x}{:02x}{:02x}{:02x}", self.red(), self.green(), self.blue(), self.alpha())
+        let alpha = self.alpha() as u8;
+        if alpha == 255 {
+            format!("#{:02x}{:02x}{:02x}", self.red() as u8, self.green() as u8, self.blue() as u8)
+        } else {
+            format!(
+                "#{:02x}{:02x}{:02x}{:02x}",
+                self.red() as u8,
+                self.green() as u8,
+                self.blue() as u8,
+                alpha
+            )
+        }
     }
 }
 
