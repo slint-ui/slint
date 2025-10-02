@@ -20,14 +20,14 @@ use crate::api::PlatformError;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
-    CachedRenderingData, DirtyRegion, PartialRenderingState, RenderBorderRectangle, RenderImage,
-    RenderRectangle,
+    CachedRenderingData, RenderBorderRectangle, RenderImage, RenderRectangle,
 };
 use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
+use crate::partial_renderer::{DirtyRegion, PartialRenderingState};
 use crate::renderer::RendererSealed;
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
@@ -50,7 +50,7 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
-pub use crate::item_rendering::RepaintBufferType;
+pub use crate::partial_renderer::RepaintBufferType;
 
 /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
 ///
@@ -859,7 +859,7 @@ impl RendererSealed for SoftwareRenderer {
         Ok(())
     }
 
-    fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
+    fn mark_dirty_region(&self, region: DirtyRegion) {
         self.partial_rendering_state.mark_dirty_region(region);
     }
 
