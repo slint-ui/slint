@@ -163,7 +163,13 @@ impl SlintRgbaColor {
         if alpha == 255 {
             format!("#{:02x}{:02x}{:02x}", self.red() as u8, self.green() as u8, self.blue() as u8)
         } else {
-            format!("#{:02x}{:02x}{:02x}{:02x}", self.red() as u8, self.green() as u8, self.blue() as u8, alpha)
+            format!(
+                "#{:02x}{:02x}{:02x}{:02x}",
+                self.red() as u8,
+                self.green() as u8,
+                self.blue() as u8,
+                alpha
+            )
         }
     }
 }
