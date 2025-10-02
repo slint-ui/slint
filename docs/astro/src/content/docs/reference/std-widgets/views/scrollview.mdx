@@ -32,9 +32,14 @@ scrolled. It has scrollbar to interact with. The viewport-width and
 viewport-height are calculated automatically to create a scrollable view
 except for when using a for loop to populate the elements. In that case
 the viewport-width and viewport-height aren't calculated automatically
-and must be set manually for scrolling to work. The ability to
+and must be set manually for scrolling to work.
+
+
+:::note{Note}
+The ability to
 automatically calculate the viewport-width and viewport-height when
-using for loops may be added in the future and is tracked in issue #407.
+using for loops may be added in the future and is tracked in [#407](https://github.com/slint-ui/slint/issues/407).
+:::
 
 ## Properties
 
@@ -84,13 +89,13 @@ The height of the visible area of the ScrollView (not including the scrollbar)
 </SlintProperty>
 
 ### vertical-scrollbar-policy
-<SlintProperty propName="vertical-scrollbar-policy" typeName="enum" enumName="ScrollBarPolicy">
-The vertical scroll bar visibility policy. The default value is `ScrollBarPolicy.as-needed`.
+<SlintProperty propName="vertical-scrollbar-policy" typeName="enum" enumName="ScrollBarPolicy" defaultValue="as-needed">
+The vertical scroll bar visibility policy.
 </SlintProperty>
 
 ### horizontal-scrollbar-policy
-<SlintProperty propName="horizontal-scrollbar-policy" typeName="enum" enumName="ScrollBarPolicy">
-The horizontal scroll bar visibility policy. The default value is `ScrollBarPolicy.as-needed`.
+<SlintProperty propName="horizontal-scrollbar-policy" typeName="enum" enumName="ScrollBarPolicy" defaultValue="as-needed">
+The horizontal scroll bar visibility policy.
 </SlintProperty>
 
 ## Callbacks
