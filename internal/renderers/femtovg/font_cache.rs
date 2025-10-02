@@ -3,7 +3,6 @@
 
 // cspell:ignore Noto fontconfig
 
-use core::num::NonZeroUsize;
 use femtovg::TextContext;
 use i_slint_core::textlayout::sharedparley::parley;
 use std::cell::RefCell;
@@ -17,9 +16,6 @@ pub struct FontCache {
 impl Default for FontCache {
     fn default() -> Self {
         let text_context = TextContext::default();
-        text_context.resize_shaped_words_cache(NonZeroUsize::new(10_000_000).unwrap());
-        text_context.resize_shaping_run_cache(NonZeroUsize::new(1_000_000).unwrap());
-
         Self { text_context, fonts: Default::default() }
     }
 }

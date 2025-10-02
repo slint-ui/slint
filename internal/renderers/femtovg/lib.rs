@@ -39,7 +39,7 @@ mod images;
 mod itemrenderer;
 #[cfg(feature = "opengl")]
 pub mod opengl;
-#[cfg(feature = "wgpu-26")]
+#[cfg(feature = "wgpu-27")]
 pub mod wgpu;
 
 pub trait WindowSurface<R: femtovg::Renderer> {

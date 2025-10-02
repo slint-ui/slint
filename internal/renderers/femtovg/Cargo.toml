@@ -18,10 +18,10 @@ path = "lib.rs"
 [features]
 default = []
 opengl = []
-wgpu = ["wgpu-26"]
-wgpu-26 = ["dep:wgpu-26", "femtovg/wgpu", "i-slint-core/unstable-wgpu-26"]
-unstable-wgpu-26 = ["wgpu-26"]
-unstable-wgpu-27 = []
+wgpu = ["wgpu-27"]
+wgpu-27 = ["dep:wgpu-27", "femtovg/wgpu", "i-slint-core/unstable-wgpu-27"]
+unstable-wgpu-26 = []
+unstable-wgpu-27 = ["wgpu-27"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
@@ -34,14 +34,14 @@ cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = "1.0"
 pin-weak = "1"
-femtovg = { version = "0.18.1" }
+femtovg = { version = "0.19.0", default-features = false, features = ["image-loading"] }
 ttf-parser = { workspace = true }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
 glow = { workspace = true }
 
-wgpu-26 = { workspace = true, optional = true, default-features = true }
+wgpu-27 = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }

@@ -385,14 +385,14 @@ impl BackendBuilder {
             #[cfg(feature = "renderer-femtovg-wgpu")]
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
                 if !maybe_graphics_api.is_some_and(|_api| {
-                    #[cfg(feature = "unstable-wgpu-26")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU26(..)) {
+                    #[cfg(feature = "unstable-wgpu-27")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU27(..)) {
                         return true;
                     }
                     false
                 }) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU26 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU27 graphics API selection"
                             .into(),
                     );
                 }
@@ -480,17 +480,17 @@ impl BackendBuilder {
             }
             #[cfg(feature = "unstable-wgpu-26")]
             (None, Some(RequestedGraphicsAPI::WGPU26(..))) => {
+                renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
+            }
+            #[cfg(feature = "unstable-wgpu-27")]
+            (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {
-                        renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
+                        renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
                     } else {
                         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
                     }
                 }
-            }
-            #[cfg(feature = "unstable-wgpu-27")]
-            (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
-                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
             }
             (None, Some(_requested_graphics_api)) => {
                 cfg_if::cfg_if! {

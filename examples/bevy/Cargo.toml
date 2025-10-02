@@ -19,7 +19,7 @@ name = "bevy_example"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-26", "renderer-skia"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-26"] }
 spin_on = { version = "0.1" }
 bevy = { version = "0.17.0", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded", "reflect_auto_register", "debug"] }
 bevy_image = { version = "0.17.0", features = ["zstd_rust"] }
