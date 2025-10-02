@@ -180,13 +180,13 @@ assert(t.b1.toString() == t.b4.toString());
 assert(t.b1.toString() == t.b5.toString());
 assert(t.b1.toString() != t.r5.toString());
 
-let red = "#ff0000ff";
-let blue = "#0000ffff";
-let g = "#999999ff";
+let red = "#ff0000";
+let blue = "#0000ff";
+let g = "#999999";
 assert.equal(t.r1.toString(), red);
 assert.equal(t.b1.toString(), blue);
 assert.equal(t.g1.toString(), g);
-assert.equal(t.y1.toString(), "#ffff00ff");
+assert.equal(t.y1.toString(), "#ffff00");
 
 t.g1 = "blue";
 assert.equal(t.g1.toString(), t.b1.toString());
@@ -196,7 +196,7 @@ assert.equal(t.g1.toString(), t.r1.toString());
 assert.equal(t.c1.toString(), "#ff335588");
 assert.equal(t.c2.toString(), "#64172aff");
 assert.equal(t.c3.toString(), "#637f28ce");
-assert.equal(t.i1.toString(), "#00ff00ff");
+assert.equal(t.i1.toString(), "#00ff00");
 
 assert(t.test_rgb);
 assert(t.test);
