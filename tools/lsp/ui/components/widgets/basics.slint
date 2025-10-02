@@ -71,6 +71,9 @@ export component ResettingLineEdit {
                     // self.text = root.default-text;
                     root.can-compile = true;
                 }
+                if self.has_focus {
+                    self.select-all();
+                }
             }
         }
     }
