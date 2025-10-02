@@ -32,6 +32,7 @@ export enum BrushPropertyType {
 
 export enum BrushMode {
     color,
+    conic,
     linear,
     radial,
     css-color,
@@ -39,6 +40,7 @@ export enum BrushMode {
 }
 
 export enum GradientType {
+    conic,
     linear,
     radial,
 }
@@ -180,6 +182,9 @@ export global PickerData {
             if last-used-gradient-type == GradientType.radial {
                 current-brush-kind = BrushKind.radial;
                 brush-mode = BrushMode.radial;
+            } else if last-used-gradient-type == GradientType.conic {
+                current-brush-kind = BrushKind.conic;
+                brush-mode = BrushMode.conic;
             } else {
                 current-brush-kind = BrushKind.linear;
                 brush-mode = BrushMode.linear;
@@ -192,6 +197,9 @@ export global PickerData {
         if gradient-type == GradientType.linear {
             current-brush-kind = BrushKind.linear;
             brush-mode = BrushMode.linear;
+        } else if gradient-type == GradientType.conic {
+            current-brush-kind = BrushKind.conic;
+            brush-mode = BrushMode.conic;
         } else {
             current-brush-kind = BrushKind.radial;
             brush-mode = BrushMode.radial;
@@ -262,6 +270,9 @@ export global PickerData {
             }
             if property-value.brush-kind == BrushKind.linear {
                 set-gradient-type(GradientType.linear)
+            }
+            if property-value.brush-kind == BrushKind.conic {
+                set-gradient-type(GradientType.conic)
             }
         }
 
