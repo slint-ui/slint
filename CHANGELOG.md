@@ -49,6 +49,7 @@ All notable changes to this project are documented in this file.
  - Re-evaluate property bindings when a callback handler is changed from native code (#9551)
  - TextInput: allow setting the accessibility value
  - Add landmark accessible roles to `AccessibleRole` (#11831)
+ - `animate`: Added `enabled` boolean to toggle animations on/off (defaults to `true`). (#9604)
 
 ### Widgets
 
