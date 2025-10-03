@@ -55,6 +55,7 @@ assert_eq(instance.get_listview_viewport_width(), 1500.);
 // scroll all the way down with the mouse wheel and click on the last item
 for (int i = 0; i < 10; ++i) {
     instance.window().dispatch_pointer_scroll_event(slint::LogicalPosition({25.0, 105.0}), 0, -50);
+    slint_testing::mock_elapsed_time(250);
 }
 slint_testing::send_mouse_click(&instance, 5., 441.);
 assert_eq(instance.get_value(), "Cyan");
@@ -72,6 +73,7 @@ assert_eq!(instance.get_listview_viewport_width(), 1500.);
 use slint::{LogicalPosition, platform::WindowEvent };
 for _ in 0..10 {
     instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 105.0), delta_x: 0.0, delta_y: -50.0 });
+    slint_testing::mock_elapsed_time(250);
 }
 slint_testing::send_mouse_click(&instance, 5., 441.);
 assert_eq!(instance.get_value(), "Cyan");

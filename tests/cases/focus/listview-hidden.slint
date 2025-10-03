@@ -58,6 +58,7 @@ let delta_y = -600.0;
 
 assert_eq!(instance.get_viewport_y(), 0.0);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(150.0, 150.0), delta_x: -0.0, delta_y });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_viewport_y(), delta_y);
 assert_eq!(instance.get_current_item(), 1);
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Backtab));
