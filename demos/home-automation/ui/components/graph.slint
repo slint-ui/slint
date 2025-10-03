@@ -66,21 +66,18 @@ export component Graph {
         }
 
         property <[int]> days: [ 58, 60, 22, 90, 40, 30, 50, 40, 20];
+        property <length> grid-spacing: tile.width * 0.1;
+        property <length> bar-width: grid-spacing * 0.4;
 
-        HorizontalLayout {
-            x: 25px;
-            y: parent.height - self.height - 25px;
-            alignment: start;
-            spacing: 10px;
-            for i in days: Rectangle {
-                y: parent.height - self.height;
-                border-top-left-radius: 5px;
-                border-top-right-radius: 5px;
-                width: 10px;
-                height: i * 1px;
-                background: Palette.graph-alternate-foreground;
-                opacity: 90%;
-            }
+        for index in 8: Rectangle {
+            x: tile.width * 0.1 + (grid-spacing * index) + (grid-spacing - bar-width) / 2;
+            y: tile.height * 0.9 - self.height;
+            border-top-left-radius: self.width / 3;
+            border-top-right-radius: self.border-top-left-radius;
+            width: bar-width;
+            height: (tile.height * 0.6) * days[index] / 100.0;
+            background: Palette.graph-alternate-foreground;
+            opacity: 90%;
         }
     }
 }
