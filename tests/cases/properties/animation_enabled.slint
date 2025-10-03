@@ -1,0 +1,209 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    // Test static enabled values
+    property <int> value-with-default: 100;
+    animate value-with-default {
+        duration: 1000ms;
+        // enabled defaults to true
+    }
+
+    property <int> value-disabled: 100;
+    animate value-disabled {
+        duration: 1000ms;
+        enabled: false;
+    }
+
+    property <int> value-enabled: 100;
+    animate value-enabled {
+        duration: 1000ms;
+        enabled: true;
+    }
+
+    // Test dynamic enabled value
+    in-out property <bool> animation-enabled: true;
+    in-out property <int> value-dynamic: 100;
+    animate value-dynamic {
+        duration: 1000ms;
+        enabled: animation-enabled;
+    }
+
+    init => {
+        // Change enabled to false in init
+        animation-enabled = false;
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// Test static enabled values
+assert_eq!(instance.get_value_with_default(), 100);
+assert_eq!(instance.get_value_disabled(), 100);
+assert_eq!(instance.get_value_enabled(), 100);
+
+instance.set_value_with_default(200);
+instance.set_value_disabled(200);
+instance.set_value_enabled(200);
+
+// No time has elapsed yet
+assert_eq!(instance.get_value_with_default(), 100);
+assert_eq!(instance.get_value_disabled(), 200); // disabled: no animation
+assert_eq!(instance.get_value_enabled(), 100);
+
+// Half the animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_with_default(), 150); // default enabled: animated
+assert_eq!(instance.get_value_disabled(), 200); // disabled: no animation
+assert_eq!(instance.get_value_enabled(), 150); // enabled: animated
+
+// Full animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_with_default(), 200);
+assert_eq!(instance.get_value_disabled(), 200);
+assert_eq!(instance.get_value_enabled(), 200);
+
+// Test dynamic enabled value
+assert_eq!(instance.get_value_dynamic(), 100);
+assert_eq!(instance.get_animation_enabled(), false); // Changed in init
+
+// Set new value - should NOT animate because enabled was set to false in init
+instance.set_value_dynamic(200);
+assert_eq!(instance.get_value_dynamic(), 200); // Immediately changes, no animation
+
+// Enable animation
+instance.set_animation_enabled(true);
+instance.set_value_dynamic(300);
+assert_eq!(instance.get_value_dynamic(), 200); // Animation enabled, should animate
+
+// Half the animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_dynamic(), 250); // Animated to halfway
+
+// Full animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_dynamic(), 300);
+
+// Disable animation again
+instance.set_animation_enabled(false);
+instance.set_value_dynamic(100);
+assert_eq!(instance.get_value_dynamic(), 100); // Immediately changes, no animation
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Test static enabled values
+assert_eq(instance.get_value_with_default(), 100);
+assert_eq(instance.get_value_disabled(), 100);
+assert_eq(instance.get_value_enabled(), 100);
+
+instance.set_value_with_default(200);
+instance.set_value_disabled(200);
+instance.set_value_enabled(200);
+
+// No time has elapsed yet
+assert_eq(instance.get_value_with_default(), 100);
+assert_eq(instance.get_value_disabled(), 200); // disabled: no animation
+assert_eq(instance.get_value_enabled(), 100);
+
+// Half the animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_with_default(), 150); // default enabled: animated
+assert_eq(instance.get_value_disabled(), 200); // disabled: no animation
+assert_eq(instance.get_value_enabled(), 150); // enabled: animated
+
+// Full animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_with_default(), 200);
+assert_eq(instance.get_value_disabled(), 200);
+assert_eq(instance.get_value_enabled(), 200);
+
+// Test dynamic enabled value
+assert_eq(instance.get_value_dynamic(), 100);
+assert_eq(instance.get_animation_enabled(), false); // Changed in init
+
+// Set new value - should NOT animate because enabled was set to false in init
+instance.set_value_dynamic(200);
+assert_eq(instance.get_value_dynamic(), 200); // Immediately changes, no animation
+
+// Enable animation
+instance.set_animation_enabled(true);
+instance.set_value_dynamic(300);
+assert_eq(instance.get_value_dynamic(), 200); // Animation enabled, should animate
+
+// Half the animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_dynamic(), 250); // Animated to halfway
+
+// Full animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_dynamic(), 300);
+
+// Disable animation again
+instance.set_animation_enabled(false);
+instance.set_value_dynamic(100);
+assert_eq(instance.get_value_dynamic(), 100); // Immediately changes, no animation
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// Test static enabled values
+assert.equal(instance.value_with_default, 100);
+assert.equal(instance.value_disabled, 100);
+assert.equal(instance.value_enabled, 100);
+
+instance.value_with_default = 200;
+instance.value_disabled = 200;
+instance.value_enabled = 200;
+
+// No time has elapsed yet
+assert.equal(instance.value_with_default, 100);
+assert.equal(instance.value_disabled, 200); // disabled: no animation
+assert.equal(instance.value_enabled, 100);
+
+// Half the animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_with_default, 150); // default enabled: animated
+assert.equal(instance.value_disabled, 200); // disabled: no animation
+assert.equal(instance.value_enabled, 150); // enabled: animated
+
+// Full animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_with_default, 200);
+assert.equal(instance.value_disabled, 200);
+assert.equal(instance.value_enabled, 200);
+
+// Test dynamic enabled value
+assert.equal(instance.value_dynamic, 100);
+assert.equal(instance.animation_enabled, false); // Changed in init
+
+// Set new value - should NOT animate because enabled was set to false in init
+instance.value_dynamic = 200;
+assert.equal(instance.value_dynamic, 200); // Immediately changes, no animation
+
+// Enable animation
+instance.animation_enabled = true;
+instance.value_dynamic = 300;
+assert.equal(instance.value_dynamic, 200); // Animation enabled, should animate
+
+// Half the animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_dynamic, 250); // Animated to halfway
+
+// Full animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_dynamic, 300);
+
+// Disable animation again
+instance.animation_enabled = false;
+instance.value_dynamic = 100;
+assert.equal(instance.value_dynamic, 100); // Immediately changes, no animation
+```
+*/
