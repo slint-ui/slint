@@ -45,11 +45,29 @@ export component Camera inherits Control {
             height: 60%;
             horizontal-alignment: center;
             vertical-alignment: center;
-            opacity: camera-view == CameraView.back ? 1 : 0;
-            animate opacity {
-                duration: 300ms;
-                easing: ease-in-out-sine;
-            }
+
+            states [
+                // Separate states for with and without animation
+                // https://github.com/slint-ui/slint/issues/7999
+                back-with-animation when camera-view == CameraView.back && AppState.graphics-accelerator-available: {
+                    opacity: 1;
+                    in-out {
+                        animate opacity { duration: 300ms; }
+                    }
+                }
+                front-with-animation when camera-view == CameraView.front && AppState.graphics-accelerator-available: {
+                    opacity: 0;
+                    in-out {
+                        animate opacity { duration: 300ms; }
+                    }
+                }
+                back-without-animation when camera-view == CameraView.back && !AppState.graphics-accelerator-available: {
+                    opacity: 1;
+                }
+                front-without-animation when camera-view == CameraView.front && !AppState.graphics-accelerator-available: {
+                    opacity: 0;
+                }
+            ]
         }
 
 
