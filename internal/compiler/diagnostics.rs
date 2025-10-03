@@ -10,12 +10,13 @@ use std::collections::BTreeSet;
 
 /// Span represent an error location within a file.
 ///
-/// Currently, it is just an offset in byte within the file.
+/// Currently, it is just an offset in byte within the file + the corresponding length.
 ///
 /// When the `proc_macro_span` feature is enabled, it may also hold a proc_macro span.
 #[derive(Debug, Clone)]
 pub struct Span {
     pub offset: usize,
+    pub length: usize,
     #[cfg(feature = "proc_macro_span")]
     pub span: Option<proc_macro::Span>,
 }
@@ -26,8 +27,8 @@ impl Span {
     }
 
     #[allow(clippy::needless_update)] // needed when `proc_macro_span` is enabled
-    pub fn new(offset: usize) -> Self {
-        Self { offset, ..Default::default() }
+    pub fn new(offset: usize, length: usize) -> Self {
+        Self { offset, length, ..Default::default() }
     }
 }
 
@@ -35,6 +36,7 @@ impl Default for Span {
     fn default() -> Self {
         Span {
             offset: usize::MAX,
+            length: 0,
             #[cfg(feature = "proc_macro_span")]
             span: Default::default(),
         }
@@ -43,7 +45,7 @@ impl Default for Span {
 
 impl PartialEq for Span {
     fn eq(&self, other: &Span) -> bool {
-        self.offset == other.offset
+        self.offset == other.offset && self.length == other.length
     }
 }
 
@@ -333,6 +335,14 @@ pub fn diagnostic_line_column_with_format(
     sf.line_column(diagnostic.span.span.offset, format)
 }
 
+pub fn diagnostic_end_line_column_with_format(
+    diagnostic: &Diagnostic,
+    format: ByteFormat,
+) -> (usize, usize) {
+    let Some(sf) = &diagnostic.span.source_file else { return (0, 0) };
+    sf.line_column(diagnostic.span.span.offset + diagnostic.span.span.length, format)
+}
+
 #[derive(Default)]
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
@@ -432,11 +442,15 @@ impl BuildDiagnostics {
                     annotate_snippets::Group::with_title(message)
                 } else if let Some(sf) = &d.span.source_file {
                     if let Some(source) = &sf.source {
-                        let o = d.span.span.offset;
+                        let start_offset = d.span.span.offset;
+                        let end_offset = d.span.span.offset + d.length();
                         message.element(
                             annotate_snippets::Snippet::source(source)
                                 .path(sf.path.to_string_lossy())
-                                .annotation(annotate_snippets::AnnotationKind::Primary.span(o..o)),
+                                .annotation(
+                                    annotate_snippets::AnnotationKind::Primary
+                                        .span(start_offset..end_offset),
+                                ),
                         )
                     } else {
                         if let Some(ref mut handle_no_source) = handle_no_source {
