@@ -25,6 +25,7 @@ pub struct NativeScrollView {
     pub has_focus: Property<bool>,
     pub vertical_scrollbar_policy: Property<ScrollBarPolicy>,
     pub horizontal_scrollbar_policy: Property<ScrollBarPolicy>,
+    pub scrolled: Callback<VoidArg>,
     data: Property<NativeSliderData>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
@@ -198,7 +199,12 @@ impl Item for NativeScrollView {
                                 return -value;
                         }
                     });
-                    value_prop.set(LogicalLength::new(-(new_val.min(max).max(0) as f32)));
+                    let old_val = value_prop.get();
+                    let new_val = LogicalLength::new(-(new_val.min(max).max(0) as f32));
+                    value_prop.set(new_val);
+                    if new_val != old_val {
+                        Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                    }
                     InputEventResult::EventIgnored
                 }
                 MouseEvent::Moved { .. } => {
@@ -207,21 +213,30 @@ impl Item for NativeScrollView {
                         let new_val = data.pressed_val
                             + ((pos as f32) - data.pressed_x) * (max + (page_size as f32))
                                 / size as f32;
-                        value_prop.set(LogicalLength::new(-new_val.min(max).max(0.)));
+                        let old_val = value_prop.get();
+                        let new_val = LogicalLength::new(-new_val.min(max).max(0.));
+                        value_prop.set(new_val);
+                        if new_val != old_val {
+                            Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                        }
                         InputEventResult::GrabMouse
                     } else {
                         InputEventResult::EventAccepted
                     }
                 }
                 MouseEvent::Wheel { delta_x, delta_y, .. } => {
+                    let max = max as f32;
+                    let new_val;
                     if horizontal {
-                        let max = max as f32;
-                        let new_val = value as f32 + delta_x;
-                        value_prop.set(LogicalLength::new(new_val.min(0.).max(-max)));
+                        new_val = value as f32 + delta_x;
                     } else {
-                        let max = max as f32;
-                        let new_val = value as f32 + delta_y;
-                        value_prop.set(LogicalLength::new(new_val.min(0.).max(-max)));
+                        new_val = value as f32 + delta_y;
+                    }
+                    let old_val = value_prop.get();
+                    let new_val = LogicalLength::new(new_val.min(0.).max(-max));
+                    value_prop.set(new_val);
+                    if new_val != old_val {
+                        Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
                     }
                     InputEventResult::EventAccepted
                 }
