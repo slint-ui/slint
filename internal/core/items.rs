@@ -1158,6 +1158,8 @@ pub struct PropertyAnimation {
     pub direction: AnimationDirection,
     #[rtti_field]
     pub easing: crate::animations::EasingCurve,
+    #[rtti_field]
+    pub enabled: bool,
 }
 
 impl Default for PropertyAnimation {
@@ -1170,6 +1172,7 @@ impl Default for PropertyAnimation {
             iteration_count: 1.,
             direction: Default::default(),
             easing: Default::default(),
+            enabled: true,
         }
     }
 }

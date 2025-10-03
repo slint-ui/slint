@@ -31,6 +31,11 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     }
 
     pub fn compute_interpolated_value(&mut self) -> (T, bool) {
+        // If animation is disabled, immediately return the target value
+        if !self.details.enabled {
+            return (self.to_value.clone(), true);
+        }
+
         let new_tick = crate::animations::current_tick();
         let mut time_progress = new_tick.duration_since(self.start_time).as_millis() as u64;
         let reversed = |iteration: u64| -> bool {

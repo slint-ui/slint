@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
  - Added support for rotation and scaling of all elements and their children
  - GridLayout: allow access to row/col/rowspan/colspan properties from other bindings
  - Added `Math.sign()` (#9444)
+ - `animate`: Added `enabled` boolean to toggle animations on/off (defaults to `true`).
 
 ### Widgets
 
