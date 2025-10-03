@@ -21,6 +21,7 @@
 
 use i_slint_compiler::ComponentSelection;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Diagnostic, DiagnosticLevel};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 #[test]
@@ -96,6 +97,60 @@ fn process_file(path: &std::path::Path, update: bool) -> std::io::Result<bool> {
     )
 }
 
+struct ExpectedDiagnostic {
+    start: usize,
+    end: Option<usize>,
+    level: DiagnosticLevel,
+    message: String,
+    comment_range: Range<usize>,
+}
+
+fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
+    let mut expected = Vec::new();
+    // Find expected errors in the file. The first caret (^) points to the expected column. The number of
+    // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
+    // errors or warnings.
+    let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}").unwrap();
+    for m in re.captures_iter(source) {
+        let line_begin_offset = m.get(0).unwrap().start();
+        let column = m.get(1).unwrap().start() - line_begin_offset;
+        let lines_to_source = m.get(1).unwrap().as_str().len();
+        let warning_or_error = m.get(2).unwrap().as_str();
+        let expected_message =
+            m.get(3).unwrap().as_str().replace('↵', "\n").replace('📂', env!("CARGO_MANIFEST_DIR"));
+        let comment_range = m.get(0).unwrap().range();
+
+        let mut line_counter = 0;
+        let mut line_offset = source[..line_begin_offset].rfind('\n').unwrap_or(0);
+        let offset = loop {
+            line_counter += 1;
+            if line_counter >= lines_to_source {
+                break line_offset + column;
+            }
+            if let Some(o) = source[..line_offset].rfind('\n') {
+                line_offset = o;
+            } else {
+                break 1;
+            };
+        };
+
+        let expected_diag_level = match warning_or_error {
+            "warning" => DiagnosticLevel::Warning,
+            "error" => DiagnosticLevel::Error,
+            _ => panic!("Unsupported diagnostic level {warning_or_error}"),
+        };
+
+        expected.push(ExpectedDiagnostic {
+            start: offset,
+            end: None,
+            level: expected_diag_level,
+            message: expected_message,
+            comment_range,
+        });
+    }
+    expected
+}
+
 fn process_diagnostics(
     compile_diagnostics: &BuildDiagnostics,
     path: &Path,
@@ -124,43 +179,15 @@ fn process_diagnostics(
         .collect::<Vec<usize>>();
 
     let diag_copy = diags.clone();
-    let mut captures = Vec::new();
+
+    let expected = extract_expected_diags(source);
+    let captures: Vec<_> =
+        expected.iter().map(|expected| &expected.comment_range).cloned().collect();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
-    let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}").unwrap();
-    for m in re.captures_iter(source) {
-        let line_begin_offset = m.get(0).unwrap().start();
-        let column = m.get(1).unwrap().start() - line_begin_offset;
-        let lines_to_source = m.get(1).unwrap().as_str().len();
-        let warning_or_error = m.get(2).unwrap().as_str();
-        let expected_message =
-            m.get(3).unwrap().as_str().replace('↵', "\n").replace('📂', env!("CARGO_MANIFEST_DIR"));
-        if update {
-            captures.push(m.get(0).unwrap().range());
-        }
-
-        let mut line_counter = 0;
-        let mut line_offset = source[..line_begin_offset].rfind('\n').unwrap_or(0);
-        let offset = loop {
-            line_counter += 1;
-            if line_counter >= lines_to_source {
-                break line_offset + column;
-            }
-            if let Some(o) = source[..line_offset].rfind('\n') {
-                line_offset = o;
-            } else {
-                break 1;
-            };
-        };
-
-        let expected_diag_level = match warning_or_error {
-            "warning" => DiagnosticLevel::Warning,
-            "error" => DiagnosticLevel::Error,
-            _ => panic!("Unsupported diagnostic level {warning_or_error}"),
-        };
-
+    for expected in expected {
         fn compare_message(message: &str, expected_message: &str) -> bool {
             if message == expected_message {
                 return true;
@@ -175,10 +202,10 @@ fn process_diagnostics(
 
         match diags.iter().position(|e| {
             let (l, c) = e.line_column();
-            let o = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
-            o == offset
-                && compare_message(e.message(), &expected_message)
-                && e.level() == expected_diag_level
+            let diag_start = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
+            diag_start == expected.start
+                && compare_message(e.message(), &expected.message)
+                && e.level() == expected.level
         }) {
             Some(idx) => {
                 diags.remove(idx);
@@ -186,7 +213,10 @@ fn process_diagnostics(
             None => {
                 success = false;
                 println!(
-                    "{path:?}: {warning_or_error} not found at offset {offset}: {expected_message:?}"
+                    "{path:?}: {level:?} not found at offset {offset}: {message:?}",
+                    level = expected.level,
+                    offset = expected.start,
+                    message = expected.message
                 );
             }
         }
