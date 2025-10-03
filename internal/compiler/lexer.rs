@@ -200,6 +200,7 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
             kind: SyntaxKind::Whitespace,
             text: source[..3].into(),
             offset: 0,
+            length: 3,
             ..Default::default()
         });
         source = &source[3..];
@@ -211,6 +212,7 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
                 kind,
                 text: source[..len].into(),
                 offset,
+                length: len,
                 ..Default::default()
             });
             offset += len;
