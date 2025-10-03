@@ -17,10 +17,10 @@ export component MenuBarItem {
         top-padding: 4px;
         bottom-padding: 6px;
         default-foreground: NativePalette.foreground;
-        hover-foreground: NativePalette.accent-foreground;
-        pressed-foreground: NativePalette.accent-foreground;
-        hover-background: NativePalette.accent-background;
-        pressed-background: NativePalette.accent-background;
+        hover-foreground: NativePalette.selection-foreground;
+        pressed-foreground: NativePalette.selection-foreground;
+        hover-background: NativePalette.selection-background;
+        pressed-background: NativePalette.selection-background;
         font-weight: 300;
         border-radius: 3px;
     }
@@ -56,8 +56,8 @@ export component MenuItem {
 
         base := MenuItemBase {
             default-foreground: NativePalette.foreground;
-            current-foreground: NativePalette.accent-foreground;
-            current-background: NativePalette.accent-background;
+            current-foreground: NativePalette.selection-foreground;
+            current-background: NativePalette.selection-background;
             separator-color: NativePalette.border;
             font-weight: 300;
             border-radius: 4px;
