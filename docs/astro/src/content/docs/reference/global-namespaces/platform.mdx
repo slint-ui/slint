@@ -12,7 +12,7 @@ The **Platform** namespace contains properties that help deal with platform spec
 ## Properties
 
 ### os
-<SlintProperty propName="os" typeName="enum" enumName="OperatingSystemType">
+<SlintProperty propName="os" typeName="enum" enumName="OperatingSystemType" defaultValue="known at runtime">
 
 This property holds the type of the operating system detected at run-time.
 
@@ -21,14 +21,14 @@ When running in a web browser, the value of this property is computed at run-tim
 :::
 
 :::note{Note}
-When Slint is ported to new operating systems in the future, this table will be extended.
+When Slint is ported to new operating systems in the future, new enum values will be added.
 :::
 
 </SlintProperty>
 
 
 ### style-name
-<SlintProperty propName="style-name" typeName="string">
+<SlintProperty propName="style-name" typeName="string" defaultValue="known at runtime">
 The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget
 styles have dark and light variant suffixes, such as `fluent-light`. This property contains the
 style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
