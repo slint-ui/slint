@@ -176,11 +176,9 @@ fn lower_grid_layout(
         layout_info_type().into(),
     );
 
-    let mut row = 0;
-    let mut col = 0;
-
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
     let mut collected_children = Vec::new();
+    let mut new_row = false; // true until the first child of a Row, or the first item after an empty Row
     for layout_child in layout_children {
         let is_row = if let ElementType::Builtin(be) = &layout_child.borrow().base_type {
             be.name == "Row"
@@ -188,26 +186,14 @@ fn lower_grid_layout(
             false
         };
         if is_row {
-            if col > 0 {
-                row += 1;
-                col = 0;
-            }
+            new_row = true;
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
-                grid.add_element(
-                    &x,
-                    (&mut row, &mut col),
-                    &layout_cache_prop_h,
-                    &layout_cache_prop_v,
-                    diag,
-                );
-                col += 1;
+                grid.add_element(&x, new_row, &layout_cache_prop_h, &layout_cache_prop_v, diag);
                 collected_children.push(x);
+                new_row = false;
             }
-            if col > 0 {
-                row += 1;
-                col = 0;
-            }
+            new_row = true; // the end of a Row means the next item is the first of a new row
             if layout_child.borrow().has_popup_child {
                 // We need to keep that element otherwise the popup will malfunction
                 layout_child.borrow_mut().base_type = type_register.empty_type();
@@ -218,13 +204,13 @@ fn lower_grid_layout(
         } else {
             grid.add_element(
                 &layout_child,
-                (&mut row, &mut col),
+                new_row,
                 &layout_cache_prop_h,
                 &layout_cache_prop_v,
                 diag,
             );
-            col += 1;
             collected_children.push(layout_child);
+            new_row = false;
         }
     }
     grid_layout_element.borrow_mut().children = collected_children;
@@ -275,7 +261,7 @@ impl GridLayout {
     fn add_element(
         &mut self,
         item_element: &ElementRc,
-        (row, col): (&mut u16, &mut u16),
+        new_row: bool,
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
@@ -289,33 +275,64 @@ impl GridLayout {
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
         let rowspan = get_const_value("rowspan").unwrap_or(1);
-        if let Some(r) = get_const_value("row") {
-            *row = r;
-            *col = 0;
-        }
-        if let Some(c) = get_const_value("col") {
-            *col = c;
-        }
 
-        let result = self.add_element_with_coord(
+        // TODO: use get_expr for colspan/rowspan too
+        let mut get_expr = |name: &str| {
+            item_element.borrow_mut().bindings.get(name).map(|e| {
+                let expr = &e.borrow().expression;
+                check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
+                expr.clone()
+            })
+        };
+
+        let row_expr = get_expr("row");
+        let col_expr = get_expr("col");
+
+        /*let result =*/
+        self.add_element_with_coord_as_expr(
             item_element,
-            (*row, *col),
+            new_row,
+            (&row_expr, &col_expr),
             (rowspan, colspan),
             layout_cache_prop_h,
             layout_cache_prop_v,
             diag,
         );
-        if let Some(layout_item) = result {
+        /*if let Some(layout_item) = result {
             let e = &layout_item.elem;
-            insert_fake_property(e, "row", Expression::NumberLiteral(*row as f64, Unit::None));
-            insert_fake_property(e, "col", Expression::NumberLiteral(*col as f64, Unit::None));
-        }
+            insert_fake_property(e, "row", row_expr);
+            insert_fake_property(e, "col", col_expr);
+        }*/
     }
 
     fn add_element_with_coord(
         &mut self,
         item_element: &ElementRc,
         (row, col): (u16, u16),
+        (rowspan, colspan): (u16, u16),
+        layout_cache_prop_h: &NamedReference,
+        layout_cache_prop_v: &NamedReference,
+        diag: &mut BuildDiagnostics,
+    ) -> Option<CreateLayoutItemResult> {
+        self.add_element_with_coord_as_expr(
+            item_element,
+            false, // new_row
+            (
+                &Some(Expression::NumberLiteral(row as _, Unit::None)),
+                &Some(Expression::NumberLiteral(col as _, Unit::None)),
+            ),
+            (rowspan, colspan),
+            layout_cache_prop_h,
+            layout_cache_prop_v,
+            diag,
+        )
+    }
+
+    fn add_element_with_coord_as_expr(
+        &mut self,
+        item_element: &ElementRc,
+        new_row: bool,
+        (row_expr, col_expr): (&Option<Expression>, &Option<Expression>),
         (rowspan, colspan): (u16, u16),
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
@@ -344,8 +361,9 @@ impl GridLayout {
             }
 
             self.elems.push(GridLayoutElement {
-                col,
-                row,
+                new_row,
+                col_expr: col_expr.clone(),
+                row_expr: row_expr.clone(),
                 colspan,
                 rowspan,
                 item: layout_item.item.clone(),
@@ -842,6 +860,32 @@ fn eval_const_expr(
             diag.push_error(format!("'{name}' must be an integer literal"), span);
             None
         }
+    }
+}
+
+// If it's a number literal, it must be a positive integer
+// But also allow any other kind of expression
+fn check_number_literal_is_positive_integer(
+    expression: &Expression,
+    name: &str,
+    span: &dyn crate::diagnostics::Spanned,
+    diag: &mut BuildDiagnostics,
+) {
+    match super::ignore_debug_hooks(expression) {
+        Expression::NumberLiteral(v, Unit::None) => {
+            if *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
+                diag.push_error(format!("'{name}' must be a positive integer"), span);
+            }
+        }
+        Expression::UnaryOp { op: '-', sub } => {
+            if let Expression::NumberLiteral(_, Unit::None) = super::ignore_debug_hooks(sub) {
+                diag.push_error(format!("'{name}' must be a positive integer"), span);
+            }
+        }
+        Expression::Cast { from, .. } => {
+            check_number_literal_is_positive_integer(from, name, span, diag)
+        }
+        _ => {}
     }
 }
 
