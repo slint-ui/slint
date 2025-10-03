@@ -91,7 +91,7 @@ export component LineEdit {
             }
         }
 
-        if root.input-type == InputType.password && !root.text.is-empty && root.has-focus: LineEditPasswordIcon {
+        if root.input-type == InputType.password && !root.text.is-empty && root.has-focus && root.enabled: LineEditPasswordIcon {
             width: self.source.width * 1px;
             show-password-image: @image-url("_visibility.svg");
             hide-password-image: @image-url("_visibility_off.svg");
