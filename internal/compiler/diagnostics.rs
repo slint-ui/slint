@@ -10,12 +10,13 @@ use std::collections::BTreeSet;
 
 /// Span represent an error location within a file.
 ///
-/// Currently, it is just an offset in byte within the file.
+/// Currently, it is just an offset in byte within the file + the corresponding length.
 ///
 /// When the `proc_macro_span` feature is enabled, it may also hold a proc_macro span.
 #[derive(Debug, Clone)]
 pub struct Span {
     pub offset: usize,
+    pub length: usize,
     #[cfg(feature = "proc_macro_span")]
     pub span: Option<proc_macro::Span>,
 }
@@ -26,8 +27,8 @@ impl Span {
     }
 
     #[allow(clippy::needless_update)] // needed when `proc_macro_span` is enabled
-    pub fn new(offset: usize) -> Self {
-        Self { offset, ..Default::default() }
+    pub fn new(offset: usize, length: usize) -> Self {
+        Self { offset, length, ..Default::default() }
     }
 }
 
@@ -35,6 +36,7 @@ impl Default for Span {
     fn default() -> Self {
         Span {
             offset: usize::MAX,
+            length: 0,
             #[cfg(feature = "proc_macro_span")]
             span: Default::default(),
         }
@@ -43,7 +45,7 @@ impl Default for Span {
 
 impl PartialEq for Span {
     fn eq(&self, other: &Span) -> bool {
-        self.offset == other.offset
+        self.offset == other.offset && self.length == other.length
     }
 }
 
@@ -272,6 +274,18 @@ impl Diagnostic {
         }
     }
 
+    pub fn end_line_column(&self) -> (usize, usize) {
+        if !self.span.span.is_valid() {
+            return (0, 0);
+        }
+        let offset = self.span.span.offset + self.span.span.length;
+
+        match &self.span.source_file {
+            None => (0, 0),
+            Some(sl) => sl.line_column(offset),
+        }
+    }
+
     /// return the path of the source file where this error is attached
     pub fn source_file(&self) -> Option<&Path> {
         self.span.source_file().map(|sf| sf.path())
@@ -405,7 +419,7 @@ impl BuildDiagnostics {
                     let file_span = file.span;
                     let s = codemap_diagnostic::SpanLabel {
                         span: file_span
-                            .subspan(d.span.span.offset as u64, d.span.span.offset as u64),
+                            .subspan(d.span.span.offset as u64, (d.span.span.offset + d.span.span.length) as u64),
                         style: codemap_diagnostic::SpanStyle::Primary,
                         label: None,
                     };
