@@ -53,7 +53,8 @@ export component MenuItem {
     callback clear-current <=> base.clear-current;
     callback activate <=> base.activate;
 
-    min-height: max(40px, base.min-height);
+    min-height: entry.is-separator ? 1px : max(40px, base.min-height);
+    max-height: entry.is-separator ? 1px : base.max-height;
 
     HorizontalLayout {
         padding: 5px;
