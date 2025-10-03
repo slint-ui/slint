@@ -39,6 +39,8 @@ export component InternalScrollView {
 
         horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
         horizontal-page-size: fli.width;
+
+        scrolled => root.scrolled();
     }
 
     fli := Flickable {
