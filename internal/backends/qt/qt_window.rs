@@ -2366,24 +2366,6 @@ pub(crate) mod ffi {
     }
 }
 
-#[test]
-fn test_utf8_byte_offset_to_utf16_units() {
-    assert_eq!(utf8_byte_offset_to_utf16_units("Hello", 2), 2);
-
-    {
-        let test_str = "a🚀🍌";
-        assert_eq!(test_str.encode_utf16().count(), 5);
-
-        let banana_offset = test_str.char_indices().nth(2).unwrap().0;
-
-        assert_eq!(
-            utf8_byte_offset_to_utf16_units(test_str, banana_offset),
-            // 'a' encodes as one utf-16 unit, the rocket ship requires two units
-            3
-        );
-    }
-}
-
 fn qt_password_character() -> char {
     char::from_u32(cpp! { unsafe [] -> i32 as "int" {
         return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
