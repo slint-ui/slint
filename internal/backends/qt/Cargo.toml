@@ -24,7 +24,7 @@ path = "lib.rs"
 [dependencies]
 i-slint-common = { workspace = true }
 i-slint-core-macros = { workspace = true }
-i-slint-core = { workspace = true, features = ["std"] }
+i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { workspace = true }

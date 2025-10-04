@@ -540,6 +540,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             text_input,
             Some(text_input.font_request(self_rc)),
             size,
+            None,
         );
     }
 
