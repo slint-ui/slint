@@ -4,6 +4,7 @@
 // cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz
 
 use cpp::*;
+use i_slint_common::sharedfontique;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -20,7 +21,7 @@ use i_slint_core::item_tree::ParentItemTraversalMode;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, MouseCursor,
-    Opacity, PointerEventButton, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
+    Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -28,11 +29,12 @@ use i_slint_core::lengths::{
     PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
+use i_slint_core::textlayout::sharedparley::{self, parley, GlyphRenderer};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use i_slint_core::{ImageInner, Property, SharedString};
-use items::{TextHorizontalAlignment, TextVerticalAlignment};
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
@@ -366,48 +368,6 @@ cpp! {{
         }
     };
 
-    // Helper function used for the TextInput layouting
-    //
-    // if line_for_y_pos > 0, then the function will return the line at this y position
-    static int do_text_layout(QTextLayout &layout, int flags, const QRectF &rect, int line_for_y_pos = -1) {
-        QTextOption options;
-        options.setWrapMode((flags & Qt::TextWordWrap) ? QTextOption::WordWrap : ((flags & Qt::TextWrapAnywhere) ? QTextOption::WrapAnywhere : QTextOption::NoWrap));
-        if (flags & Qt::AlignHCenter)
-            options.setAlignment(Qt::AlignCenter);
-        else if (flags & Qt::AlignLeft)
-            options.setAlignment(Qt::AlignLeft);
-        else if (flags & Qt::AlignRight)
-            options.setAlignment(Qt::AlignRight);
-        options.setFlags(QTextOption::IncludeTrailingSpaces);
-        layout.setTextOption(options);
-        layout.setCacheEnabled(true);
-        QFontMetrics fm(layout.font());
-        int leading = fm.leading();
-        qreal height = 0;
-        layout.beginLayout();
-        int count = 0;
-        while(1) {
-            auto line = layout.createLine();
-            if (!line.isValid())
-                break;
-            line.setLineWidth(rect.width());
-            height += leading;
-            line.setPosition(QPointF(0, height));
-            height += line.height();
-            if (line_for_y_pos >= 0 && height > line_for_y_pos) {
-                return count;
-            }
-            count++;
-        }
-        layout.endLayout();
-        if (flags & Qt::AlignVCenter) {
-            layout.setPosition(QPointF(0, (rect.height() - height) / 2.));
-        } else if (flags & Qt::AlignBottom) {
-            layout.setPosition(QPointF(0, rect.height() - height));
-        }
-        return -1;
-    }
-
     QPainterPath to_painter_path(const QRectF &rect, qreal top_left_radius, qreal top_right_radius, qreal bottom_right_radius, qreal bottom_left_radius) {
         QPainterPath path;
         if (qFuzzyCompare(top_left_radius, top_right_radius) && qFuzzyCompare(top_left_radius, bottom_right_radius) && qFuzzyCompare(top_left_radius, bottom_left_radius)) {
@@ -724,174 +684,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        let rect: qttypes::QRectF = check_geometry!(size);
-        let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
-        let mut string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request(self_rc));
-        let (horizontal_alignment, vertical_alignment) = text.alignment();
-        let alignment = match horizontal_alignment {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
-        } | match vertical_alignment {
-            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
-        };
-        let wrap = text.wrap() != TextWrap::NoWrap;
-        let word_wrap = text.wrap() == TextWrap::WordWrap;
-        let elide = text.overflow() == TextOverflow::Elide;
-        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
-        let stroke_visible = !stroke_brush.is_transparent();
-        let stroke_brush: qttypes::QBrush = into_qbrush(stroke_brush, rect.width, rect.height);
-        let stroke_outside = stroke_style == TextStrokeStyle::Outside;
-        let stroke_width = match stroke_style {
-            TextStrokeStyle::Outside => stroke_width.get() * 2.0,
-            TextStrokeStyle::Center => stroke_width.get(),
-        };
-        let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", word_wrap as "bool", stroke_visible as "bool", stroke_outside as "bool", stroke_width as "float"] {
-            QString elided;
-            if (!elide) {
-                elided = string;
-            } else if (!wrap) {
-                QFontMetrics fm(font);
-                while (!string.isEmpty()) {
-                    int pos = string.indexOf('\n');
-                    if (pos < 0) {
-                        elided += fm.elidedText(string, Qt::ElideRight, rect.width());
-                        break;
-                    }
-                    QString line = string.left(pos);
-                    elided += fm.elidedText(line, Qt::ElideRight, rect.width());
-                    elided += '\n';
-                    string = string.mid(pos + 1);
-                }
-            } else {
-                // elide and word wrap: we need to add the ellipsis manually on the last line
-                string.replace(QChar('\n'), QChar::LineSeparator);
-                elided = string;
-                QFontMetrics fm(font);
-                QTextLayout layout(string, font);
-                QTextOption options;
-                if (word_wrap) {
-                    options.setWrapMode(QTextOption::WordWrap);
-                } else {
-                    options.setWrapMode(QTextOption::WrapAnywhere);
-                }
-                layout.setTextOption(options);
-                layout.setCacheEnabled(true);
-                layout.beginLayout();
-                int leading = fm.leading();
-                qreal height = 0;
-                int last_line_begin = 0, last_line_size = 0;
-                while (true) {
-                    auto line = layout.createLine();
-                    if (!line.isValid()) {
-                        last_line_begin = string.size();
-                        break;
-                    }
-                    line.setLineWidth(rect.width());
-                    height += leading + line.height();
-                    if (height > rect.height()) {
-                        break;
-                    }
-                    last_line_begin = line.textStart();
-                    last_line_size = line.textLength();
-                }
-                if (last_line_begin < string.size()) {
-                    elided = string.left(last_line_begin);
-                    QString to_elide = QStringView(string).mid(last_line_begin, last_line_size).trimmed() % QStringView(QT_UNICODE_LITERAL("…"));
-                    elided += fm.elidedText(to_elide, Qt::ElideRight, rect.width());
-                }
-            }
-
-            if (!stroke_visible) {
-                int flags = alignment;
-                if (wrap) {
-                    if (word_wrap) {
-                        flags |= Qt::TextWordWrap;
-                    } else {
-                        flags |= Qt::TextWrapAnywhere;
-                    }
-                }
-
-                (*painter)->setFont(font);
-                (*painter)->setBrush(Qt::NoBrush);
-                (*painter)->setPen(QPen(fill_brush, 0));
-                (*painter)->drawText(rect, flags, elided);
-            } else {
-                QTextDocument document(elided);
-                document.setDocumentMargin(0);
-                document.setPageSize(rect.size());
-                document.setDefaultFont(font);
-
-                QTextOption options = document.defaultTextOption();
-                options.setAlignment(alignment);
-                if (wrap) {
-                    if (word_wrap) {
-                        options.setWrapMode(QTextOption::WordWrap);
-                    } else {
-                        options.setWrapMode(QTextOption::WrapAnywhere);
-                    }
-                }
-                document.setDefaultTextOption(options);
-
-                // Workaround for https://bugreports.qt.io/browse/QTBUG-13467
-                float dy = 0;
-                if (!(alignment & Qt::AlignTop)) {
-                    QRectF bounding_rect;
-                    for (QTextBlock it = document.begin(); it != document.end(); it = it.next()) {
-                        bounding_rect = bounding_rect.united(document.documentLayout()->blockBoundingRect(it));
-                    }
-                    if (alignment & Qt::AlignVCenter) {
-                        dy = (rect.height() - bounding_rect.height()) / 2.0;
-                    } else if (alignment & Qt::AlignBottom) {
-                        dy = (rect.height() - bounding_rect.height());
-                    }
-                }
-
-                QTextCharFormat format;
-                format.setFont(font);
-
-                QPen stroke_pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin);
-                stroke_pen.setMiterLimit(10.0);
-                if (stroke_width == 0.0) {
-                    // Hairline stroke
-                    if (stroke_outside)
-                        stroke_pen.setWidthF(2.0);
-                    else
-                        stroke_pen.setWidthF(1.0);
-                    stroke_pen.setCosmetic(true);
-                }
-
-                QTextCursor cursor(&document);
-                cursor.select(QTextCursor::Document);
-
-                (*painter)->save();
-                (*painter)->translate(0, dy);
-
-                if (stroke_outside) {
-                    format.setForeground(Qt::NoBrush);
-                    format.setTextOutline(stroke_pen);
-                    cursor.mergeCharFormat(format);
-                    document.drawContents((*painter).get(), rect);
-                }
-
-                format.setForeground(fill_brush);
-                if (!stroke_outside) {
-                    format.setTextOutline(stroke_pen);
-                } else {
-                    // Use a transparent pen instead of Qt::NoPen so the
-                    // fill is aligned properly to the outside stroke
-                    format.setTextOutline(QPen(QColor(Qt::transparent), stroke_width));
-                }
-                cursor.mergeCharFormat(format);
-                document.drawContents((*painter).get(), rect);
-
-                (*painter)->restore();
-            }
-        }}
+        sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
     }
 
     fn draw_text_input(
@@ -900,124 +693,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        let rect: qttypes::QRectF = check_geometry!(size);
-        let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
-
-        let font: QFont = get_font(text_input.font_request(self_rc));
-        let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
-        } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
-        } | match text_input.wrap() {
-            TextWrap::NoWrap => 0,
-            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
-            TextWrap::CharWrap => key_generated::Qt_TextFlag_TextWrapAnywhere,
-        };
-
-        let visual_representation = text_input.visual_representation(Some(qt_password_character));
-
-        let text = &visual_representation.text;
-        let mut string: qttypes::QString = text.as_str().into();
-
-        // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
-        // what QTextLayout expects.
-
-        let (
-            selection_start_as_offset,
-            selection_end_as_offset,
-            selection_foreground_color,
-            selection_background_color,
-            underline_selection,
-        ): (usize, usize, u32, u32, bool) = if !visual_representation.preedit_range.is_empty() {
-            (
-                visual_representation.preedit_range.start,
-                visual_representation.preedit_range.end,
-                Color::default().as_argb_encoded(),
-                Color::default().as_argb_encoded(),
-                true,
-            )
-        } else {
-            (
-                visual_representation.selection_range.start,
-                visual_representation.selection_range.end,
-                text_input.selection_foreground_color().as_argb_encoded(),
-                text_input.selection_background_color().as_argb_encoded(),
-                false,
-            )
-        };
-
-        let selection_start_position: i32 = if selection_start_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), selection_start_as_offset) as i32
-        } else {
-            0
-        };
-        let selection_end_position: i32 = if selection_end_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), selection_end_as_offset) as i32
-        } else {
-            0
-        };
-
-        let (text_cursor_width, cursor_position): (f32, i32) =
-            if let Some(cursor_offset) = visual_representation.cursor_position {
-                (
-                    text_input.text_cursor_width().get(),
-                    utf8_byte_offset_to_utf16_units(text.as_str(), cursor_offset) as i32,
-                )
-            } else {
-                (0., 0)
-            };
-
-        let single_line: bool = text_input.single_line();
-
-        let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [
-                painter as "QPainterPtr*",
-                rect as "QRectF",
-                fill_brush as "QBrush",
-                selection_foreground_color as "QRgb",
-                selection_background_color as "QRgb",
-                underline_selection as "bool",
-                mut string as "QString",
-                flags as "int",
-                single_line as "bool",
-                font as "QFont",
-                selection_start_position as "int",
-                selection_end_position as "int",
-                cursor_position as "int",
-                text_cursor_width as "float"] {
-            if (!single_line) {
-                string.replace(QChar('\n'), QChar::LineSeparator);
-            }
-            QTextLayout layout(string, font);
-            do_text_layout(layout, flags, rect);
-            (*painter)->setPen(QPen(fill_brush, 0));
-            QVector<QTextLayout::FormatRange> selections;
-            if (selection_end_position != selection_start_position) {
-                QTextCharFormat fmt;
-                if (qAlpha(selection_background_color) != 0) {
-                    fmt.setBackground(QColor::fromRgba(selection_background_color));
-                }
-                if (qAlpha(selection_background_color) != 0) {
-                    fmt.setForeground(QColor::fromRgba(selection_foreground_color));
-                }
-                if (underline_selection) {
-                    fmt.setFontUnderline(true);
-                }
-                selections << QTextLayout::FormatRange{
-                    std::min(selection_end_position, selection_start_position),
-                    std::abs(selection_end_position - selection_start_position),
-                    fmt
-                };
-            }
-            layout.draw(painter->get(), rect.topLeft(), selections);
-            if (text_cursor_width > 0) {
-                layout.drawCursor(painter->get(), rect.topLeft(), cursor_position, text_cursor_width);
-            }
-        }}
+        sharedparley::draw_text_input(
+            self,
+            text_input,
+            Some(text_input.font_request(self_rc)),
+            size,
+            Some(qt_password_character),
+        );
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
@@ -1283,16 +965,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let fill_brush: qttypes::QBrush = into_qbrush(color.into(), 1., 1.);
-        let mut string: qttypes::QString = string.into();
-        let font: QFont = get_font(Default::default());
-        let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", fill_brush as "QBrush", mut string as "QString", font as "QFont"] {
-            (*painter)->setFont(font);
-            (*painter)->setPen(QPen(fill_brush, 0));
-            (*painter)->setBrush(Qt::NoBrush);
-            (*painter)->drawText(0, QFontMetrics((*painter)->font()).ascent(), string);
-        }}
+        sharedparley::draw_text(
+            self,
+            std::pin::pin!((SharedString::from(string), Brush::from(color))),
+            None,
+            LogicalSize::new(1., 1.), // Non-zero size to avoid an early return
+        );
     }
 
     fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
@@ -1340,6 +1018,173 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn metrics(&self) -> RenderingMetrics {
         self.metrics.clone()
     }
+}
+
+#[derive(Clone)]
+pub enum GlyphBrush {
+    Fill(qttypes::QBrush),
+    Stroke(qttypes::QPen),
+}
+
+impl GlyphRenderer for QtItemRenderer<'_> {
+    type PlatformBrush = GlyphBrush;
+
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: i_slint_core::Brush,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        Some(GlyphBrush::Fill(into_qbrush(brush, size.width as _, size.height as _)))
+    }
+
+    fn platform_brush_for_color(
+        &mut self,
+        color: &i_slint_core::Color,
+    ) -> Option<Self::PlatformBrush> {
+        let color: u32 = color.as_argb_encoded();
+        Some(GlyphBrush::Fill(cpp!(unsafe [color as "QRgb"] -> qttypes::QBrush as "QBrush" {
+            return QBrush(QColor::fromRgba(color));
+        })))
+    }
+
+    fn platform_text_stroke_brush(
+        &mut self,
+        brush: i_slint_core::Brush,
+        physical_stroke_width: f32,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        let brush = into_qbrush(brush, size.width as _, size.height as _);
+        Some(GlyphBrush::Stroke(
+            cpp!(unsafe [brush as "QBrush", physical_stroke_width as "float"] -> qttypes::QPen as "QPen" {
+                QPen pen(brush, physical_stroke_width);
+                pen.setJoinStyle(Qt::MiterJoin);
+                return pen;
+            }),
+        ))
+    }
+
+    fn draw_glyph_run(
+        &mut self,
+        font: &sharedparley::parley::Font,
+        font_size: f32,
+        brush: Self::PlatformBrush,
+        y_offset: f32,
+        glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
+    ) {
+        let Some(mut raw_font) = FONT_CACHE.with(|cache| cache.borrow_mut().font(font)) else {
+            return;
+        };
+
+        raw_font.set_pixel_size(font_size);
+
+        let (glyph_indices, positions): (Vec<u32>, Vec<qttypes::QPointF>) = glyphs_it
+            .into_iter()
+            .map(|g| {
+                (g.id as u32, qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset as f64 })
+            })
+            .unzip();
+
+        let glyph_indices_ptr = glyph_indices.as_ptr();
+        let glyph_positions_ptr = positions.as_ptr();
+        let size: u32 = glyph_indices.len() as u32;
+
+        let mut qt_pen = qttypes::QPen::default();
+        let mut qt_brush = qttypes::QBrush::default();
+
+        let painter: &mut QPainterPtr = &mut self.painter;
+
+        match brush {
+            GlyphBrush::Fill(qbrush) => qt_brush = qbrush,
+            GlyphBrush::Stroke(qpen) => qt_pen = qpen,
+        }
+
+        cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", qt_pen as "QPen", qt_brush as "QBrush", raw_font as "QRawFont"] {
+            if (size == 0)
+                return;
+            (*painter)->setPen(qt_pen);
+            (*painter)->setBrush(qt_brush);
+            QGlyphRun glyphRun;
+            glyphRun.setRawFont(raw_font);
+            glyphRun.setRawData(glyph_indices_ptr, glyph_positions_ptr, size);
+            (*painter)->drawGlyphRun(QPointF(0, 0), glyphRun);
+        }}
+    }
+
+    fn fill_rectangle(
+        &mut self,
+        physical_x: f32,
+        physical_y: f32,
+        physical_width: f32,
+        physical_height: f32,
+        color: i_slint_core::Color,
+    ) {
+        let rect = qttypes::QRectF {
+            x: physical_x as _,
+            y: physical_y as _,
+            width: physical_width as _,
+            height: physical_height as _,
+        };
+        let color: u32 = color.as_argb_encoded();
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", color as "QRgb", rect as "QRectF"] {
+            (*painter)->fillRect(rect, QBrush(QColor::fromRgba(color)));
+        }}
+    }
+}
+
+cpp_class! {pub unsafe struct QRawFont as "QRawFont"}
+
+impl QRawFont {
+    pub fn load_from_data(&mut self, data: &[u8], pixel_size: f32) {
+        let font_data = qttypes::QByteArray::from(data);
+        cpp! { unsafe [ self as "QRawFont*", font_data as "QByteArray", pixel_size as "float"] {
+            self->loadFromData(font_data, pixel_size, QFont::PreferDefaultHinting);
+        }}
+    }
+
+    pub fn set_pixel_size(&mut self, pixel_size: f32) {
+        cpp! { unsafe [ self as "QRawFont*", pixel_size as "float"] {
+            self->setPixelSize(pixel_size);
+        }}
+    }
+
+    pub fn is_valid(&self) -> bool {
+        cpp! { unsafe [ self as "const QRawFont*"] -> bool as "bool" {
+            return self->isValid();
+        }}
+    }
+}
+
+pub struct FontCache {
+    /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
+    fonts: HashMap<(u64, u32), Option<QRawFont>>,
+}
+
+impl Default for FontCache {
+    fn default() -> Self {
+        Self { fonts: Default::default() }
+    }
+}
+
+impl FontCache {
+    pub fn font(&mut self, font: &parley::Font) -> Option<QRawFont> {
+        self.fonts
+            .entry((font.data.id(), font.index))
+            .or_insert_with(move || {
+                let mut raw_font = QRawFont::default();
+                raw_font.load_from_data(font.data.as_ref(), 12.0);
+                if raw_font.is_valid() {
+                    Some(raw_font)
+                } else {
+                    None
+                }
+            })
+            .clone()
+    }
+}
+
+thread_local! {
+    pub static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
 }
 
 fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::QPixmap> {
@@ -2240,14 +2085,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         font_request: FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
-        _scale_factor: ScaleFactor,
+        scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        get_font(font_request).font_metrics().text_size(
-            text,
-            max_width.map(|logical_width| logical_width.get()),
-            text_wrap,
-        )
+        sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
     }
 
     fn font_metrics(
@@ -2255,13 +2096,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        let qt_font_metrics = get_font(font_request).font_metrics();
-        i_slint_core::items::FontMetrics {
-            ascent: qt_font_metrics.ascent(),
-            descent: -qt_font_metrics.descent(),
-            x_height: qt_font_metrics.x_height(),
-            cap_height: qt_font_metrics.cap_height(),
-        }
+        sharedparley::font_metrics(font_request)
     }
 
     fn text_input_byte_offset_for_position(
@@ -2269,63 +2104,14 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
         font_request: FontRequest,
-        _scale_factor: ScaleFactor,
+        scale_factor: ScaleFactor,
     ) -> usize {
-        if pos.y < 0. {
-            return 0;
-        }
-        let size = LogicalSize::new(text_input.width().get(), text_input.height().get());
-        let rect: qttypes::QRectF = check_geometry!(size);
-        let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
-        let font: QFont = get_font(font_request);
-
-        let visual_representation = text_input.visual_representation(Some(qt_password_character));
-
-        let string = qttypes::QString::from(visual_representation.text.as_str());
-
-        let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
-        } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
-        } | match text_input.wrap() {
-            TextWrap::NoWrap => 0,
-            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
-            TextWrap::CharWrap => key_generated::Qt_TextFlag_TextWrapAnywhere,
-        };
-        let single_line: bool = text_input.single_line();
-        let byte_offset = cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
-                rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
-            // we need to do the \n replacement in a copy because the original need to be kept to know the utf8 offset
-            auto copy = string;
-            if (!single_line) {
-                copy.replace(QChar('\n'), QChar::LineSeparator);
-            }
-            QTextLayout layout(copy, font);
-            auto line = do_text_layout(layout, flags, rect, pos.y());
-            if (line < 0 || layout.lineCount() <= line)
-                return string.toUtf8().size();
-            QTextLine textLine = layout.lineAt(line);
-            int cur;
-            if (pos.x() >= textLine.naturalTextWidth()) {
-                cur = textLine.textStart() + textLine.textLength();
-                // cur is one past the last character of the line (eg, the \n or space).
-                // Go one back to get back on this line.
-                // Unless we were at the end of the text, in which case there was no \n
-                if (cur > textLine.textStart() && (cur < string.size() || string[cur-1] == '\n'))
-                    cur--;
-            } else {
-                cur = textLine.xToCursor(pos.x());
-            }
-            if (cur < string.size() && string[cur].isLowSurrogate())
-                cur++;
-            // convert to an utf8 pos;
-            return QStringView(string).left(cur).toUtf8().size();
-        }};
-        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
+        sharedparley::text_input_byte_offset_for_position(
+            text_input,
+            pos,
+            font_request,
+            scale_factor,
+        )
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -2333,45 +2119,13 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
         font_request: FontRequest,
-        _scale_factor: ScaleFactor,
+        scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let size = LogicalSize::new(text_input.width().get(), text_input.height().get());
-        let rect: qttypes::QRectF = check_geometry!(size);
-        let font: QFont = get_font(font_request);
-        let text = text_input.text();
-        let mut string = qttypes::QString::from(text.as_str());
-        let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;
-        let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
-        } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
-        } | match text_input.wrap() {
-            TextWrap::NoWrap => 0,
-            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
-            TextWrap::CharWrap => key_generated::Qt_TextFlag_TextWrapAnywhere,
-        };
-        let single_line: bool = text_input.single_line();
-        let r = cpp! { unsafe [font as "QFont", mut string as "QString", offset as "int", flags as "int", rect as "QRectF", single_line as "bool"]
-                -> qttypes::QRectF as "QRectF" {
-            if (!single_line) {
-                string.replace(QChar('\n'), QChar::LineSeparator);
-            }
-            QTextLayout layout(string, font);
-            do_text_layout(layout, flags, rect);
-
-            QTextLine textLine = layout.lineForTextPosition(offset);
-            if (!textLine.isValid())
-                return QRectF();
-            return QRectF(textLine.x() + textLine.cursorToX(offset), layout.position().y() + textLine.y(), 1.0, textLine.height());
-        }};
-
-        LogicalRect::new(
-            LogicalPoint::new(r.x as _, r.y as _),
-            LogicalSize::new(r.width as _, r.height as _),
+        sharedparley::text_input_cursor_rect_for_byte_offset(
+            text_input,
+            byte_offset,
+            font_request,
+            scale_factor,
         )
     }
 
@@ -2379,11 +2133,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let data = qttypes::QByteArray::from(data);
-        cpp! {unsafe [data as "QByteArray"] {
-            ensure_initialized(true);
-            QFontDatabase::addApplicationFontFromData(data);
-        } }
+        sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
         Ok(())
     }
 
@@ -2391,19 +2141,9 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         &self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let encoded_path: qttypes::QByteArray = path.to_string_lossy().as_bytes().into();
-        cpp! {unsafe [encoded_path as "QByteArray"] {
-            ensure_initialized(true);
-
-            QString requested_path = QFileInfo(QFile::decodeName(encoded_path)).canonicalFilePath();
-            static QSet<QString> loaded_app_fonts;
-            // QFontDatabase::addApplicationFont unconditionally reads the provided file from disk,
-            // while we want to do this only once to avoid things like the live-review going crazy.
-            if (!loaded_app_fonts.contains(requested_path)) {
-                loaded_app_fonts.insert(requested_path);
-                QFontDatabase::addApplicationFont(requested_path);
-            }
-        } }
+        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
+        let contents = std::fs::read(requested_path)?;
+        sharedfontique::get_collection().register_fonts(contents.into(), None);
         Ok(())
     }
 
@@ -2468,98 +2208,6 @@ fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
         }
     }
     None
-}
-
-fn get_font(request: FontRequest) -> QFont {
-    let family: qttypes::QString = request.family.unwrap_or_default().as_str().into();
-    let pixel_size: f32 = request.pixel_size.map_or(0., |logical_size| logical_size.get());
-    let weight: i32 = request.weight.unwrap_or(0);
-    let letter_spacing: f32 =
-        request.letter_spacing.map_or(0., |logical_spacing| logical_spacing.get());
-    let italic: bool = request.italic;
-    cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int", letter_spacing as "float", italic as "bool"] -> QFont as "QFont" {
-        QFont f;
-        if (!family.isEmpty())
-            f.setFamily(family);
-        if (pixel_size > 0)
-            f.setPixelSize(pixel_size);
-        if (weight > 0) {
-    #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-            f.setWeight(qMin((weight-100)/8, 99));
-    #else
-            f.setWeight(QFont::Weight(weight));
-    #endif
-        }
-        f.setLetterSpacing(QFont::AbsoluteSpacing, letter_spacing);
-        f.setItalic(italic);
-        // Mark all font properties as resolved, to avoid inheriting font properties
-        // from the widget hierarchy. Later we call QPainter::setFont, which would
-        // merge in unset properties (such as bold, etc.) that it retrieved from
-        // the widget the painter is associated with.
-    #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        f.resolve(QFont::AllPropertiesResolved);
-    #else
-        f.setResolveMask(QFont::AllPropertiesResolved);
-    #endif
-        return f;
-    })
-}
-
-cpp_class! {pub unsafe struct QFontMetricsF as "QFontMetricsF"}
-
-impl QFontMetricsF {
-    fn text_size(&self, text: &str, max_width: Option<f32>, text_wrap: TextWrap) -> LogicalSize {
-        let string = qttypes::QString::from(text);
-        let char_wrap = text_wrap == TextWrap::CharWrap;
-        let mut r = qttypes::QRectF::default();
-        if let Some(max) = max_width {
-            r.height = f32::MAX as _;
-            r.width = max as _;
-        }
-        let size = cpp! { unsafe [self as "const QFontMetricsF*", string as "QString", r as "QRectF", char_wrap as "bool"]
-                -> qttypes::QSizeF as "QSizeF" {
-            return self->boundingRect(r, r.isEmpty() ? 0 : ((char_wrap) ? Qt::TextWrapAnywhere : Qt::TextWordWrap) , string).size();
-        }};
-        LogicalSize::new(size.width as _, size.height as _)
-    }
-
-    fn ascent(&self) -> f32 {
-        cpp! { unsafe [self as "const QFontMetricsF*"]
-                -> f32 as "float" {
-            return self->ascent();
-        }}
-    }
-
-    fn descent(&self) -> f32 {
-        cpp! { unsafe [self as "const QFontMetricsF*"]
-                -> f32 as "float" {
-            return self->descent();
-        }}
-    }
-
-    fn cap_height(&self) -> f32 {
-        cpp! { unsafe [self as "const QFontMetricsF*"]
-                -> f32 as "float" {
-            return self->capHeight();
-        }}
-    }
-
-    fn x_height(&self) -> f32 {
-        cpp! { unsafe [self as "const QFontMetricsF*"]
-                -> f32 as "float" {
-            return self->xHeight();
-        }}
-    }
-}
-
-cpp_class! {pub unsafe struct QFont as "QFont"}
-
-impl QFont {
-    fn font_metrics(&self) -> QFontMetricsF {
-        cpp! { unsafe [self as "const QFont *"] -> QFontMetricsF as "QFontMetricsF" {
-            return QFontMetricsF(*self);
-        }}
-    }
 }
 
 thread_local! {
@@ -2716,37 +2364,6 @@ pub(crate) mod ffi {
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })
-    }
-}
-
-fn utf8_byte_offset_to_utf16_units(str: &str, byte_offset: usize) -> usize {
-    let mut current_offset = 0;
-    let mut utf16_units = 0;
-    for ch in str.chars() {
-        if current_offset >= byte_offset {
-            break;
-        }
-        current_offset += ch.len_utf8();
-        utf16_units += ch.len_utf16();
-    }
-    utf16_units
-}
-
-#[test]
-fn test_utf8_byte_offset_to_utf16_units() {
-    assert_eq!(utf8_byte_offset_to_utf16_units("Hello", 2), 2);
-
-    {
-        let test_str = "a🚀🍌";
-        assert_eq!(test_str.encode_utf16().count(), 5);
-
-        let banana_offset = test_str.char_indices().nth(2).unwrap().0;
-
-        assert_eq!(
-            utf8_byte_offset_to_utf16_units(test_str, banana_offset),
-            // 'a' encodes as one utf-16 unit, the rocket ship requires two units
-            3
-        );
     }
 }
 
