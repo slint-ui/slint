@@ -64,6 +64,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 experimental = []
 
 unstable-wgpu-26 = ["dep:wgpu-26"]
+unstable-wgpu-27 = ["dep:wgpu-27"]
 
 tr = ["dep:tr"]
 
@@ -121,6 +122,7 @@ rustybuzz = { workspace = true, optional = true }
 fontdue = { workspace = true, optional = true }
 
 wgpu-26 = { workspace = true, optional = true }
+wgpu-27 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 

@@ -21,6 +21,7 @@ opengl = []
 wgpu = ["wgpu-26"]
 wgpu-26 = ["dep:wgpu-26", "femtovg/wgpu", "i-slint-core/unstable-wgpu-26"]
 unstable-wgpu-26 = ["wgpu-26"]
+unstable-wgpu-27 = []
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }

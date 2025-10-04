@@ -9,7 +9,7 @@ use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
 use std::sync::Arc;
 
-use wgpu_26 as wgpu;
+use wgpu_27 as wgpu;
 
 use crate::SkiaSharedContext;
 
@@ -42,7 +42,7 @@ impl super::Surface for WGPUSurface {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_26::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_27::init_instance_adapter_device_queue_surface(
                 Box::new(WindowAndDisplayHandle(window_handle, display_handle)),
                 requested_graphics_api,
                 wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
@@ -162,16 +162,16 @@ impl super::Surface for WGPUSurface {
 
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
         Ok(match self.surface_config.borrow().format {
-            wgpu_26::TextureFormat::Rgba8Unorm
-            | wgpu_26::TextureFormat::Rgba8UnormSrgb
-            | wgpu_26::TextureFormat::Bgra8Unorm
-            | wgpu_26::TextureFormat::Bgra8UnormSrgb => 32,
+            wgpu_27::TextureFormat::Rgba8Unorm
+            | wgpu_27::TextureFormat::Rgba8UnormSrgb
+            | wgpu_27::TextureFormat::Bgra8Unorm
+            | wgpu_27::TextureFormat::Bgra8UnormSrgb => 32,
             fmt @ _ => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
         })
     }
 
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
-        let api = i_slint_core::graphics::create_graphics_api_wgpu_26(
+        let api = i_slint_core::graphics::create_graphics_api_wgpu_27(
             self.instance.clone(),
             self.device.clone(),
             self.queue.clone(),
@@ -185,9 +185,10 @@ impl super::Surface for WGPUSurface {
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
-            i_slint_core::graphics::WGPUTexture::WGPU26Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-26")]
+            i_slint_core::graphics::WGPUTexture::WGPU26Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-27")]
-            i_slint_core::graphics::WGPUTexture::WGPU27Texture(..) => return None,
+            i_slint_core::graphics::WGPUTexture::WGPU27Texture(texture) => texture.clone(),
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before
@@ -233,15 +234,15 @@ impl TryFrom<wgpu::Backend> for Backend {
 
     fn try_from(wgpu_backend: wgpu::Backend) -> Result<Self, Self::Error> {
         match wgpu_backend {
-            wgpu_26::Backend::Noop => {
+            wgpu_27::Backend::Noop => {
                 Err(PlatformError::from("Cannot use WGPU Noop backend with Skia"))
             }
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            wgpu_26::Backend::Vulkan => Ok(Self::Vulkan),
+            wgpu_27::Backend::Vulkan => Ok(Self::Vulkan),
             #[cfg(target_vendor = "apple")]
-            wgpu_26::Backend::Metal => Ok(Self::Metal),
+            wgpu_27::Backend::Metal => Ok(Self::Metal),
             #[cfg(target_family = "windows")]
-            wgpu_26::Backend::Dx12 => Ok(Self::Dx12),
+            wgpu_27::Backend::Dx12 => Ok(Self::Dx12),
             other @ _ => Err(PlatformError::from(format!(
                 "Unsupported WGPU backend for use with Skia: {}",
                 other.to_string()
