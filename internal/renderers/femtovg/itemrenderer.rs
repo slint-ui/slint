@@ -351,6 +351,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             text_input,
             Some(text_input.font_request(self_rc)),
             size,
+            None,
         );
     }
 
