@@ -540,6 +540,103 @@ pub mod wgpu_26 {
     pub use i_slint_core::graphics::wgpu_26::api::*;
 }
 
+#[cfg(feature = "unstable-wgpu-27")]
+pub mod wgpu_27 {
+    //! WGPU 27.x specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major WGPU releases become available.
+    //!
+    //! Use the types in this module in combination with other APIs to integrate external, WGPU-based rendering engines
+    //! into a UI with Slint.
+    //!
+    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_26()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_26()).
+    //! This function accepts a pre-configured WGPU setup or configuration hints such as required features or memory limits.
+    //!
+    //! For rendering, it's crucial that you're using the same [`wgpu::Device`] and [`wgpu::Queue`] for allocating textures or submitting commands as Slint. Obtain the same queue
+    //! by either using [`WGPUConfiguration::Manual`] to make Slint use an existing WGPU configuration, or use [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier())
+    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU26`](i_slint_core::api::GraphicsAPI::WGPU26).
+    //!
+    //! To integrate rendering content into a scene shared with a Slint UI, use either [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier()) to render an underlay
+    //! or overlay, or integrate externally produced [`wgpu::Texture`]s using [`slint::Image::try_from<wgpu::Texture>()`](i_slint_core::graphics::Image::try_from).
+    //!
+    //! The following example allocates a [`wgpu::Texture`] and, for the sake of simplicity in this documentation, fills with green as color, and then proceeds to set it as a `slint::Image` in the scene.
+    //!
+    //! `Cargo.toml`:
+    //! ```toml
+    //! slint = { version = "~1.14", features = ["unstable-wgpu-27"] }
+    //! ```
+    //!
+    //! `main.rs`:
+    //!```rust,no_run
+    //!
+    //! use slint::wgpu_27::wgpu;
+    //! use wgpu::util::DeviceExt;
+    //!
+    //!slint::slint!{
+    //!    export component HelloWorld inherits Window {
+    //!        preferred-width: 320px;
+    //!        preferred-height: 300px;
+    //!        in-out property <image> app-texture;
+    //!        VerticalLayout {
+    //!            Text {
+    //!                text: "hello world";
+    //!                color: green;
+    //!            }
+    //!            Image { source: root.app-texture; }
+    //!        }
+    //!    }
+    //!}
+    //!fn main() -> Result<(), Box<dyn std::error::Error>> {
+    //!    slint::BackendSelector::new()
+    //!        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::default())
+    //!        .select()?;
+    //!    let app = HelloWorld::new()?;
+    //!
+    //!    let app_weak = app.as_weak();
+    //!
+    //!    app.window().set_rendering_notifier(move |state, graphics_api| {
+    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU27{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
+    //!            return;
+    //!        };
+    //!
+    //!        let mut pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(320, 200);
+    //!        pixels.make_mut_slice().fill(slint::Rgba8Pixel {
+    //!            r: 0,
+    //!            g: 255,
+    //!            b :0,
+    //!            a: 255,
+    //!        });
+    //!
+    //!        let texture = device.create_texture_with_data(queue,
+    //!            &wgpu::TextureDescriptor {
+    //!                label: None,
+    //!                size: wgpu::Extent3d { width: 320, height: 200, depth_or_array_layers: 1 },
+    //!                mip_level_count: 1,
+    //!                sample_count: 1,
+    //!                dimension: wgpu::TextureDimension::D2,
+    //!                format: wgpu::TextureFormat::Rgba8Unorm,
+    //!                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+    //!                view_formats: &[],
+    //!            },
+    //!            wgpu::util::TextureDataOrder::default(),
+    //!            pixels.as_bytes(),
+    //!        );
+    //!
+    //!        let imported_image = slint::Image::try_from(texture).unwrap();
+    //!
+    //!        app.set_app_texture(imported_image);
+    //!    })?;
+    //!
+    //!    app.run()?;
+    //!
+    //!    Ok(())
+    //!}
+    //!```
+    //!
+    pub use i_slint_core::graphics::wgpu_27::api::*;
+}
+
 #[cfg(feature = "unstable-winit-030")]
 pub mod winit_030 {
     //! Winit 0.30.x specific types and re-exports.

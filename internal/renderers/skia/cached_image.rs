@@ -100,7 +100,7 @@ pub(crate) fn as_skia_image(
             canvas,
             surface,
         ),
-        #[cfg(feature = "unstable-wgpu-26")]
+        #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
         ImageInner::WGPUTexture(any_wgpu_texture) => {
             surface.and_then(|surface| surface.import_wgpu_texture(canvas, any_wgpu_texture))
         }

@@ -55,6 +55,8 @@ pub mod opengl_surface;
 
 #[cfg(feature = "unstable-wgpu-26")]
 mod wgpu_26_surface;
+#[cfg(feature = "unstable-wgpu-27")]
+mod wgpu_27_surface;
 
 use i_slint_core::items::TextWrap;
 use itemrenderer::to_skia_rect;
@@ -376,6 +378,39 @@ impl SkiaRenderer {
                               size,
                               requested_graphics_api| {
                 wgpu_26_surface::WGPUSurface::new(
+                    context,
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
+            dirty_region_history: Default::default(),
+            shared_context: context.clone(),
+        }
+    }
+
+    #[cfg(feature = "unstable-wgpu-27")]
+    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
+    pub fn default_wgpu_27(context: &SkiaSharedContext) -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |context,
+                              window_handle,
+                              display_handle,
+                              size,
+                              requested_graphics_api| {
+                wgpu_27_surface::WGPUSurface::new(
                     context,
                     window_handle,
                     display_handle,
@@ -1003,7 +1038,7 @@ pub trait Surface {
         None
     }
 
-    #[cfg(feature = "unstable-wgpu-26")]
+    #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
     fn import_wgpu_texture(
         &self,
         _canvas: &skia_safe::Canvas,
