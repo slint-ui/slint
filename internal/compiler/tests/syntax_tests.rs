@@ -28,7 +28,9 @@
 //! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not maching that pattern
 
 use i_slint_compiler::ComponentSelection;
-use i_slint_compiler::diagnostics::{BuildDiagnostics, Diagnostic, DiagnosticLevel};
+use i_slint_compiler::diagnostics::{
+    self, BuildDiagnostics, ByteFormat, Diagnostic, DiagnosticLevel,
+};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -212,8 +214,6 @@ fn process_diagnostics(
         .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
         .collect::<Vec<usize>>();
 
-    let diag_copy = diags.clone();
-
     let mut expected = extract_expected_diags(source);
     let captures: Vec<_> =
         expected.iter().map(|expected| &expected.comment_range).cloned().collect();
@@ -236,7 +236,9 @@ fn process_diagnostics(
 
         let (l, c) = diag.line_column();
         let diag_start = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
-        let (l, c) = diag.end_line_column();
+        // end_line_column is not (yet) available via the public API, so use the private API
+        // instead.
+        let (l, c) = diagnostics::diagnostic_end_line_column_with_format(diag, ByteFormat::Utf8);
         let diag_end = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c - 1;
 
         let expected_start = expected.iter().position(|expected| {
@@ -305,7 +307,7 @@ fn process_diagnostics(
 
     if !success && update {
         let mut source = source.to_string();
-        self::update(diag_copy, &mut source, lines, &captures);
+        self::update(&diags, &mut source, lines, &captures);
         std::fs::write(path, source).unwrap();
     }
 
@@ -314,7 +316,7 @@ fn process_diagnostics(
 
 /// Rewrite the source to remove the old comments and add accurate error comments
 fn update(
-    mut diags: Vec<&Diagnostic>,
+    diags: &[&Diagnostic],
     source: &mut String,
     mut lines: Vec<usize>,
     to_remove: &[std::ops::Range<usize>],
@@ -328,42 +330,60 @@ fn update(
         }
     }
 
-    diags.sort_by_key(|d| {
-        let (l, c) = d.line_column();
-        (usize::MAX - l, c)
-    });
-
-    let mut last_line = 0;
-    let mut last_line_adjust = 0;
+    let mut last_line_adjust = Vec::from_iter(std::iter::repeat_n(0, lines.len()));
 
     for d in diags {
-        let (l, c) = d.line_column();
-        if c < 3 {
-            panic!("Error message cannot be on the column < 3: {d:?}")
-        }
+        let mut insert_range_at = |range: &str, l, c: usize| {
+            let column_adjust = if c < 3 { "<".repeat(3 - c) } else { "".to_string() };
+            let byte_offset = lines[l - 1] + 1;
+            let to_insert = format!(
+                "//{indent}{range}{adjust}{column_adjust}{error_or_warning}{{{message}}}\n",
+                indent = " ".repeat(c.max(3) - 3),
+                adjust = "^".repeat(last_line_adjust[l - 1]),
+                error_or_warning =
+                    if d.level() == DiagnosticLevel::Error { "error" } else { "warning" },
+                message = d.message().replace('\n', "↵").replace(env!("CARGO_MANIFEST_DIR"), "📂")
+            );
+            if byte_offset > source.len() {
+                source.push('\n');
+            }
+            source.insert_str(byte_offset, &to_insert);
+            for line in (l - 1)..lines.len() {
+                lines[line] += to_insert.len();
+            }
+            last_line_adjust[l - 1] += 1;
+        };
 
-        if last_line == l {
-            last_line_adjust += 1;
+        let (line_start, column_start) = d.line_column();
+        // end_line_column is not (yet) available via the public API, so use the private API
+        // instead.
+        let (line_end, column_end) =
+            diagnostics::diagnostic_end_line_column_with_format(d, ByteFormat::Utf8);
+
+        // The end column is exclusive, therefore use - 1 here
+        let range = if d.length() <= 1 {
+            // Single-character diagnostic, use "^" for the marker
+            "^".to_owned()
         } else {
-            last_line = l;
-            last_line_adjust = 0;
-        }
+            let end = if line_start == line_end {
+                // Same line, we can insert the closing "<"
+                " ".repeat(column_end - column_start - 2) + "<"
+            } else {
+                // End is on a different line, we'll emit it later
+                "".to_owned()
+            };
+            format!(">{end}")
+        };
 
-        let byte_offset = lines[l - 1] + 1;
+        insert_range_at(&range, line_start, column_start);
 
-        let to_insert = format!(
-            "//{indent}^{adjust}{error_or_warning}{{{message}}}\n",
-            indent = " ".repeat(c - 3),
-            adjust = "^".repeat(last_line_adjust),
-            error_or_warning =
-                if d.level() == DiagnosticLevel::Error { "error" } else { "warning" },
-            message = d.message().replace('\n', "↵").replace(env!("CARGO_MANIFEST_DIR"), "📂")
-        );
-        if byte_offset > source.len() {
-            source.push('\n');
+        // Insert the closing `<` at another line if necessary
+        // Edge-case: If a single-character diagnostic is on a newline character (\n), its
+        // end_line_column is technically on a new line, but the single ^ marker is enough, so no
+        // closing character is needed.
+        if line_start != line_end && d.length() > 1 {
+            insert_range_at("<", line_end, column_end - 1);
         }
-        source.insert_str(byte_offset, &to_insert);
-        lines[l - 1] += to_insert.len();
     }
 }
 

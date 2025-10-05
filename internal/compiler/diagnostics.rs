@@ -299,6 +299,16 @@ impl Diagnostic {
         }
     }
 
+    /// Return the length of this diagnostic in characters.
+    pub fn length(&self) -> usize {
+        // The length should always be at least 1, even if the span indicates a
+        // length of 0, as otherwise there is no character to display the diagnostic on.
+        self.span.span.length.max(1)
+    }
+
+    // NOTE: The return-type differs from the Spanned trait.
+    // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
+    // this.
     /// return the path of the source file where this error is attached
     pub fn source_file(&self) -> Option<&Path> {
         self.span.source_file().map(|sf| sf.path())
@@ -320,7 +330,9 @@ impl std::fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(sf) = &self.source_file {
             let (line, col) = sf.line_column(self.span.offset, ByteFormat::Utf8);
-            write!(f, "{}:{line}:{col}", sf.path.display())
+            let end_offset = self.span.offset + self.span.length.max(1);
+            let (end_line, end_col) = sf.line_column(end_offset, ByteFormat::Utf8);
+            write!(f, "{}:{line}:{col}-{end_line}:{end_col}", sf.path.display())
         } else {
             write!(f, "<unknown>")
         }
@@ -340,7 +352,12 @@ pub fn diagnostic_end_line_column_with_format(
     format: ByteFormat,
 ) -> (usize, usize) {
     let Some(sf) = &diagnostic.span.source_file else { return (0, 0) };
-    sf.line_column(diagnostic.span.span.offset + diagnostic.span.span.length, format)
+    // The end_line_column is exclusive.
+    // Even if the span indicates a length of 0, the diagnostic should always
+    // return an end_line_column that is at least one offset further.
+    // Diagnostic::length ensures this.
+    let offset = diagnostic.span.span.offset + diagnostic.length();
+    sf.line_column(offset, format)
 }
 
 #[derive(Default)]
