@@ -274,11 +274,19 @@ impl Diagnostic {
         }
     }
 
+    /// The exclusive end of this diagnostic.
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
+    ///
+    /// Can also return (0, 0) if the span is invalid
     pub fn end_line_column(&self) -> (usize, usize) {
         if !self.span.span.is_valid() {
             return (0, 0);
         }
-        let offset = self.span.span.offset + self.span.span.length;
+        // The end_line_column is exclusive.
+        // Even if the span indicates a length of 0, the diagnostic should always
+        // return an end_line_column that is at least one offset further, so that at least one
+        // character is covered by the diagnostic.
+        let offset = self.span.span.offset + self.span.span.length.max(1);
 
         match &self.span.source_file {
             None => (0, 0),
@@ -286,6 +294,16 @@ impl Diagnostic {
         }
     }
 
+    /// Return the length of this diagnostic in characters.
+    pub fn length(&self) -> usize {
+        // Like in end_line_column, the length should always be 1, even if the span indicates a
+        // length of 0, as otherwise there is no character to display the diagnostic on.
+        self.span.span.length.max(1)
+    }
+
+    // NOTE: The return-type differs from the Spanned trait.
+    // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
+    // this.
     /// return the path of the source file where this error is attached
     pub fn source_file(&self) -> Option<&Path> {
         self.span.source_file().map(|sf| sf.path())
@@ -418,8 +436,10 @@ impl BuildDiagnostics {
                     });
                     let file_span = file.span;
                     let s = codemap_diagnostic::SpanLabel {
-                        span: file_span
-                            .subspan(d.span.span.offset as u64, (d.span.span.offset + d.span.span.length) as u64),
+                        span: file_span.subspan(
+                            d.span.span.offset as u64,
+                            (d.span.span.offset + d.span.span.length) as u64,
+                        ),
                         style: codemap_diagnostic::SpanStyle::Primary,
                         label: None,
                     };
