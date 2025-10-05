@@ -2,17 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This test is trying to compile all the *.slint files in the sub directories and check that compilation
-//! errors are properly reported
+//! errors are properly reported.
 //!
 //! The .slint files can have comments like this:
 //! ```ignore
-//!  hi ho
-//!  // ^error{expected_message}
+//!  hi foo
+//!  // > <error{expected_message}
 //! ```
 //!
-//! Meaning that there must an error with that error message in the position on the line above at the column pointed by the caret.
-//! If there are two carets: ` ^^error{expected_message}`  then it means two line above, and so on with more carets.
-//! `^warning{expected_message}` is also supported.
+//! Meaning that there must an error with that error message spanning the characters on the line above between the `>` and `<` characters.
+//! The `>` and `<` indicators may also appear individually, if the diagnostic spans multiple lines.
+//! A `^` character means that the diagnostic must only span that single character.
+//!
+//! If there are additional `^` characters: `> <^error{expected_message}`  then it means the comment refers to a diagnostic two lines above, instead of one, and so on with more carets.
+//!
+//! If there are additional `<` characters: `> <<error{expected_message}` then it means the range
+//! should be an additional character to the left, which is useful if the diagnostic starts or ends
+//! in the first or second column, where otherwise the `//` is located.
+//!
+//! `> <warning{expected_message}` is also supported.
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
@@ -98,7 +106,7 @@ fn process_file(path: &std::path::Path, update: bool) -> std::io::Result<bool> {
 }
 
 struct ExpectedDiagnostic {
-    start: usize,
+    start: Option<usize>,
     end: Option<usize>,
     level: DiagnosticLevel,
     message: String,
@@ -110,22 +118,30 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
-    let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}").unwrap();
+    let re = regex::Regex::new(
+        r"\n *//[^\n\^<>]*((\^)|((>)?( *<)?))(\^*)(<*)(error|warning)\{([^\n]*)\}",
+    )
+    .unwrap();
+    //      regex::Regex::new(r"\n *//[^\n\^<>]*(\^|>|<)(\^*)(error|warning)\{([^\n]*)\}").unwrap();
     for m in re.captures_iter(source) {
         let line_begin_offset = m.get(0).unwrap().start();
-        let column = m.get(1).unwrap().start() - line_begin_offset;
-        let lines_to_source = m.get(1).unwrap().as_str().len();
-        let warning_or_error = m.get(2).unwrap().as_str();
+        let start_column = m.get(1).unwrap().start()
+            - line_begin_offset
+            // Allow shifting columns with <
+            - m.get(7).map(|group| group.as_str().len()).unwrap_or_default();
+
+        let lines_to_source = m.get(6).map(|group| group.as_str().len()).unwrap_or_default() + 1;
+        let warning_or_error = m.get(8).unwrap().as_str();
         let expected_message =
-            m.get(3).unwrap().as_str().replace('↵', "\n").replace('📂', env!("CARGO_MANIFEST_DIR"));
+            m.get(9).unwrap().as_str().replace('↵', "\n").replace('📂', env!("CARGO_MANIFEST_DIR"));
         let comment_range = m.get(0).unwrap().range();
 
         let mut line_counter = 0;
         let mut line_offset = source[..line_begin_offset].rfind('\n').unwrap_or(0);
-        let offset = loop {
+        let mut offset = loop {
             line_counter += 1;
             if line_counter >= lines_to_source {
-                break line_offset + column;
+                break line_offset + start_column;
             }
             if let Some(o) = source[..line_offset].rfind('\n') {
                 line_offset = o;
@@ -134,6 +150,24 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
             };
         };
 
+        let mut start = None;
+        let mut end = None;
+        if m.get(2).is_some() {
+            // ^warning{...}
+            start = Some(offset);
+            end = Some(offset);
+        } else {
+            // >
+            if m.get(4).is_some() {
+                start = Some(offset);
+                offset += 1;
+            }
+            // < (including spaces before)
+            if let Some(range_length) = m.get(5).map(|group| group.as_str().len()) {
+                end = Some(offset + range_length - 1);
+            }
+        }
+
         let expected_diag_level = match warning_or_error {
             "warning" => DiagnosticLevel::Warning,
             "error" => DiagnosticLevel::Error,
@@ -141,8 +175,8 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
         };
 
         expected.push(ExpectedDiagnostic {
-            start: offset,
-            end: None,
+            start,
+            end,
             level: expected_diag_level,
             message: expected_message,
             comment_range,
@@ -162,7 +196,7 @@ fn process_diagnostics(
 
     let path = canonical(path);
 
-    let mut diags = compile_diagnostics
+    let diags = compile_diagnostics
         .iter()
         .filter(|d| {
             canonical(
@@ -180,14 +214,14 @@ fn process_diagnostics(
 
     let diag_copy = diags.clone();
 
-    let expected = extract_expected_diags(source);
+    let mut expected = extract_expected_diags(source);
     let captures: Vec<_> =
         expected.iter().map(|expected| &expected.comment_range).cloned().collect();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
-    for expected in expected {
+    for diag in &diags {
         fn compare_message(message: &str, expected_message: &str) -> bool {
             if message == expected_message {
                 return true;
@@ -200,41 +234,73 @@ fn process_diagnostics(
             false
         }
 
-        match diags.iter().position(|e| {
-            let (l, c) = e.line_column();
-            let diag_start = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
-            diag_start == expected.start
-                && compare_message(e.message(), &expected.message)
-                && e.level() == expected.level
-        }) {
-            Some(idx) => {
-                diags.remove(idx);
+        let (l, c) = diag.line_column();
+        let diag_start = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
+        let (l, c) = diag.end_line_column();
+        let diag_end = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c - 1;
+
+        let expected_start = expected.iter().position(|expected| {
+            Some(diag_start) == expected.start
+                && compare_message(diag.message(), &expected.message)
+                && diag.level() == expected.level
+                && (expected.end.is_none() || Some(diag_end) == expected.end)
+        });
+        let expected_end = expected.iter().position(|expected| {
+            Some(diag_end) == expected.end
+                && compare_message(diag.message(), &expected.message)
+                && diag.level() == expected.level
+                && (expected.start.is_none() || Some(diag_start) == expected.start)
+        });
+
+        let found_match = match (expected_start, expected_end) {
+            (Some(start), Some(end)) => {
+                // Found both start and end, success!
+                // Make sure to remove the larger index first, so the
+                // smaller index remains valid.
+                expected.remove(start.max(end));
+                if start != end {
+                    expected.remove(start.min(end));
+                }
+                true
             }
-            None => {
-                success = false;
-                println!(
-                    "{path:?}: {level:?} not found at offset {offset}: {message:?}",
-                    level = expected.level,
-                    offset = expected.start,
-                    message = expected.message
-                );
+            (Some(start), None) => {
+                println!("{path:?}: Could not find end of error/warning: {diag:#?}");
+                expected.remove(start);
+                false
+            }
+            (None, Some(end)) => {
+                println!("{path:?}: Could not find start of error/warning: {diag:#?}");
+                expected.remove(end);
+                false
+            }
+            // TODO: Remove start/end if only one was found
+            (None, None) => {
+                println!("{path:?}: Unexpected error/warning: {diag:#?}, {diag_start}, {diag_end}",);
+                false
+            }
+        };
+
+        if !found_match {
+            success = false;
+
+            #[cfg(feature = "display-diagnostics")]
+            if !_silent {
+                let mut to_report = BuildDiagnostics::default();
+                to_report.push_compiler_error((*diag).clone());
+                to_report.print();
             }
         }
     }
 
-    if !diags.is_empty() {
-        println!("{path:?}: Unexpected errors/warnings: {diags:#?}");
-
-        #[cfg(feature = "display-diagnostics")]
-        if !_silent {
-            let mut to_report = BuildDiagnostics::default();
-            for d in diags {
-                to_report.push_compiler_error(d.clone());
-            }
-            to_report.print();
-        }
-
+    for expected in expected {
         success = false;
+        println!(
+            "{path:?}: {level:?} not found at offset {start:?}-{end:?}: {message:?}",
+            level = expected.level,
+            start = expected.start,
+            end = expected.end,
+            message = expected.message
+        );
     }
 
     if !success && update {
@@ -403,7 +469,33 @@ export component Foo inherits Window foo { width: 10px; }
     assert!(process(
         r#"
 export component Foo inherits Window foo { width: 10px; }
-//                                   ^error{Syntax error: expected '{'}
+//                                   > <error{Syntax error: expected '{'}
+    "#
+    )?);
+
+    // also when it's shifted up by an additional ^
+    assert!(process(
+        r#"
+export component Foo inherits Window foo { width: 10px; }
+
+//                                   > <^error{Syntax error: expected '{'}
+    "#
+    )?);
+
+    // also when it's shifted left by additional <
+    assert!(process(
+        r#"
+export component Foo inherits Window foo { width: 10px; }
+//                                      > <<<<error{Syntax error: expected '{'}
+    "#
+    )?);
+
+    // or split into multiple lines
+    assert!(process(
+        r#"
+export component Foo inherits Window foo { width: 10px; }
+//                                   >error{Syntax error: expected '{'}
+//                                     <^error{Syntax error: expected '{'}
     "#
     )?);
 
@@ -411,7 +503,7 @@ export component Foo inherits Window foo { width: 10px; }
     assert!(!process(
         r#"
 export component Foo inherits Window foo { width: 10px; }
-//                                    ^error{Syntax error: expected '{'}
+//                                    > <error{Syntax error: expected '{'}
     "#
     )?);
 
@@ -420,7 +512,7 @@ export component Foo inherits Window foo { width: 10px; }
         r#"
 export component Foo inherits Window foo { width: 10px; }
 
-//                                   ^error{Syntax error: expected '{'}
+//                                   > <error{Syntax error: expected '{'}
     "#
     )?);
 
@@ -428,7 +520,7 @@ export component Foo inherits Window foo { width: 10px; }
     assert!(!process(
         r#"
 export component Foo inherits Window foo { width: 10px; }
-//                                   ^error{foo_bar}
+//                                   > <error{foo_bar}
     "#
     )?);
 
@@ -437,13 +529,16 @@ export component Foo inherits Window foo { width: 10px; }
         r#"
 
 export component Foo inherits Window foo { width: 10px; }
-//                                   ^^error{Syntax error: expected '{'}
+//                                   > <^^error{Syntax error: expected '{'}
     "#
     )?);
 
     // Even on windows, it should work
     assert!(process(
-        "\r\nexport component Foo inherits Window foo { width: 10px; }\r\n//                                   ^error{Syntax error: expected '{'}\r\n"
+        "\r\n\
+export component Foo inherits Window foo { width: 10px; }\r\n\
+//                                   > <error{Syntax error: expected '{'}\r\n\
+"
     )?);
 
     Ok(())

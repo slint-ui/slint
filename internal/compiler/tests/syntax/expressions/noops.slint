@@ -14,16 +14,18 @@ enum MyEnum {
 export component Test {
     function useless_if(cond: bool) {
         if (cond) {
-//      ^warning{Expression has no effect!}
+//      >warning{Expression has no effect!}
             if (!cond) {
-//          ^warning{Expression has no effect!}
+//          >warning{Expression has no effect!}
                 43
             }
+//          <warning{Expression has no effect!}
             42
         }
         else {
             41
         }
+//      <warning{Expression has no effect!}
         "hello world";
 //      ^warning{Expression has no effect!}
         123;

@@ -10,14 +10,14 @@ The syntax tests are testing that the compiler show the right error messages in 
 The syntax tests are located in [internal/compiler/tests/syntax/](../internal/compiler/tests/syntax/) and it's driven by the
 [`syntax_tests.rs`](../internal/compiler/tests/syntax_tests.rs) file. More info in the comments of that file.
 
-In summary, each .slint files have comments with `^error` like so:
+In summary, each .slint files have comments with `> <error` like so:
 
 ```ignore
 foo bar
-//  ^error{parse error}
+//  > <error{parse error}
 ```
 
-Meaning that there must be an error on the line above at the location pointed by the caret.
+Meaning that there must be an error on the line above spanning `bar`, as indicated by the `>` and `<` arrows.
 
 Ideally, each error message must be tested like so.
 
