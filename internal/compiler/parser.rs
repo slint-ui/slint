@@ -694,9 +694,7 @@ impl Parser for DefaultParser<'_> {
     fn error(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(
-            current_token.offset,
-            current_token.length);
+        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
         #[cfg(feature = "proc_macro_span")]
         {
             span.span = current_token.span;
@@ -715,9 +713,7 @@ impl Parser for DefaultParser<'_> {
     fn warning(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(
-            current_token.offset,
-            current_token.length);
+        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
         #[cfg(feature = "proc_macro_span")]
         {
             span.span = current_token.span;
@@ -953,9 +949,7 @@ impl NodeOrToken {
 impl Spanned for SyntaxNode {
     fn span(&self) -> crate::diagnostics::Span {
         let range = self.node.text_range();
-        crate::diagnostics::Span::new(
-            range.start().into(),
-            range.len().into())
+        crate::diagnostics::Span::new(range.start().into(), range.len().into())
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
@@ -976,9 +970,7 @@ impl Spanned for Option<SyntaxNode> {
 impl Spanned for SyntaxToken {
     fn span(&self) -> crate::diagnostics::Span {
         let range = self.token.text_range();
-        crate::diagnostics::Span::new(
-            range.start().into(),
-            range.len().into())
+        crate::diagnostics::Span::new(range.start().into(), range.len().into())
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
