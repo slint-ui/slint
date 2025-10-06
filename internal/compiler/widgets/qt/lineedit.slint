@@ -86,6 +86,7 @@ export component LineEdit {
                 colorize: inner.text-color;
                 clear => {
                     inner.text = "";
+                    root.edited("");
                     inner.focus();
                 }
             }
