@@ -37,6 +37,7 @@ All notable changes to this project are documented in this file.
 
 ### Rust
 
+ - Minimum Supported Rust Version (MSRV) is 1.88
  - Slint macro: Use new Rust 1.88 API proc_macro API to be able to access file relative to the .rs file
  - Fixed error in generated Rust code when convering some expressions to void
 

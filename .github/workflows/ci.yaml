@@ -49,7 +49,7 @@ jobs:
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-14, windows-2022]
-                rust_version: [stable, "1.85"]
+                rust_version: [stable, "1.88"]
                 include:
                     - os: windows-2022
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
@@ -60,13 +60,11 @@ jobs:
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: ubuntu-22.04
                       rust_version: "nightly"
-                    # Bevy requires 1.86, won't compile with 1.85
-                    - rust_version: "1.85"
-                      maybe_exclude_bevy: "--exclude bevy-example"
                 exclude:
+                    # There is only a limited amount of mac worker machine allocated and this is currently the bottleneck, so disable it
                     - os: macos-14
-                      rust_version: "1.85"
-                    # We already test 1.85 and nightly. Stable is in the middle and already covered by other jobs
+                      rust_version: "1.88"
+                    # We already test 1.88 and nightly. Stable is in the middle and already covered by other jobs
                     - os: ubuntu-22.04
                       rust_version: "stable"
 
@@ -274,7 +272,7 @@ jobs:
             matrix:
                 include:
                     - os: macos-14
-                      rust_version: "1.85"
+                      rust_version: "1.88"
                     - os: windows-2022
                       rust_version: "nightly"
                     - os: ubuntu-22.04
