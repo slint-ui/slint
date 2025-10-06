@@ -134,13 +134,17 @@ fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layo
 
     let push_to_builder = |builder: &mut parley::RangedBuilder<_>| {
         if let Some(ref font_request) = options.font_request {
-            if let Some(family) = &font_request.family {
-                builder.push_default(parley::StyleProperty::FontStack(
-                    parley::style::FontStack::Single(parley::style::FontFamily::Named(
-                        family.as_str().into(),
-                    )),
-                ));
-            }
+            let font_stack = if let Some(family) = &font_request.family {
+                parley::style::FontStack::List(std::borrow::Cow::Borrowed(&[
+                    parley::style::FontFamily::Named(family.as_str().into()),
+                    parley::style::FontFamily::Generic(parley::fontique::GenericFamily::SystemUi),
+                ]))
+            } else {
+                parley::style::FontStack::Single(parley::style::FontFamily::Generic(
+                    parley::fontique::GenericFamily::SystemUi,
+                ))
+            };
+            builder.push_default(font_stack);
             if let Some(weight) = font_request.weight {
                 builder.push_default(parley::StyleProperty::FontWeight(
                     parley::style::FontWeight::new(weight as f32),
