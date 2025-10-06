@@ -34,8 +34,8 @@ catalogs:
       specifier: 9.2.1
       version: 9.2.1
     playwright-ctrf-json-reporter:
-      specifier: 0.0.23
-      version: 0.0.23
+      specifier: 0.0.24
+      version: 0.0.24
     rehype-external-links:
       specifier: 3.0.0
       version: 3.0.0
@@ -130,7 +130,7 @@ importers:
         version: 0.9.1(astro@5.14.1(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(rollup@4.50.1)(terser@5.39.0)(typescript@5.9.3)(yaml@2.8.1))
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
-        version: 0.0.23
+        version: 0.0.24
       rehype-external-links:
         specifier: 'catalog:'
         version: 3.0.0
@@ -355,7 +355,7 @@ importers:
         version: 1.0.1
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
-        version: 0.0.23
+        version: 0.0.24
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
@@ -5143,8 +5143,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright-ctrf-json-reporter@0.0.23:
-    resolution: {integrity: sha512-49e1gSdq7Rytz9ji8kwgrrWZ0w39RNVDH5FlPiBeosdn12VTfWmhYRBcKpC2D29pa1ZdTxGhHdbB4UML2MNITg==}
+  playwright-ctrf-json-reporter@0.0.24:
+    resolution: {integrity: sha512-NLwmLA4aTd3GEhgJXYjIfwDFuhhEuz24hYpnuovE/EF/AY3xLqt3JYd4ylE5tbgW9bYwMVqpEsv9pL1oUcFIjQ==}
 
   playwright@1.55.1:
     resolution: {integrity: sha512-cJW4Xd/G3v5ovXtJJ52MAOclqeac9S/aGGgRzLabuF8TnIb6xHvMzKIa6JmrRzUkeXJgfL1MhukP0NK6l39h3A==}
@@ -12132,7 +12132,7 @@ snapshots:
 
   playwright-core@1.55.1: {}
 
-  playwright-ctrf-json-reporter@0.0.23: {}
+  playwright-ctrf-json-reporter@0.0.24: {}
 
   playwright@1.55.1:
     dependencies:
