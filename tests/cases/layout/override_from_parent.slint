@@ -38,3 +38,19 @@ TestCase := Rectangle {
     sc4 := SubComp4 {}
     property<bool> test: sc1.min-width == 200px && sc2.min-width == 200px && sc3.max-width == 200px && sc4.min-width == 200px;
 }
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
+

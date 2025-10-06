@@ -38,3 +38,18 @@ export TestCase := Window {
     property <length> layout4_width : layout4.preferred-width;
     property<bool> test: layout1_height == 55px && layout2_width == 88px && layout3_width == 30px && layout4_width == 30px;
 }
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
