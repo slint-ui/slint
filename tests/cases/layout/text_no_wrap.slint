@@ -21,3 +21,19 @@ TestCase := Rectangle {
 
     property <bool> test: square.width == square.height;
 }
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/
