@@ -90,6 +90,7 @@ export component LineEdit {
                 colorize: base.text-color;
                 clear => {
                     base.text = "";
+                    root.edited("");
                     base.focus();
                 }
             }
