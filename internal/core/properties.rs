@@ -525,6 +525,17 @@ impl PropertyHandle {
     /// Access the value.
     /// Panics if the function try to recursively access the value
     fn access<R>(&self, f: impl FnOnce(Option<Pin<&mut BindingHolder>>) -> R) -> R {
+        #[cfg(slint_debug_property)]
+        if self.lock_flag() {
+            unsafe {
+                let handle = self.handle.get();
+                if handle & 0b10 == 0b10 {
+                    let binding = &mut *((handle & !0b11) as *mut BindingHolder);
+                    let debug_name = &binding.debug_name;
+                    panic!("Recursion detected with property {debug_name}");
+                }
+            }
+        }
         assert!(!self.lock_flag(), "Recursion detected");
         unsafe {
             self.set_lock_flag(true);
