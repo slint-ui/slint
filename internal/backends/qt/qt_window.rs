@@ -1087,27 +1087,40 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         let glyph_indices_ptr = glyph_indices.as_ptr();
         let glyph_positions_ptr = positions.as_ptr();
         let size: u32 = glyph_indices.len() as u32;
-
-        let mut qt_pen = qttypes::QPen::default();
-        let mut qt_brush = qttypes::QBrush::default();
+        if size == 0 {
+            return;
+        }
 
         let painter: &mut QPainterPtr = &mut self.painter;
 
         match brush {
-            GlyphBrush::Fill(qbrush) => qt_brush = qbrush,
-            GlyphBrush::Stroke(qpen) => qt_pen = qpen,
-        }
+            GlyphBrush::Fill(qt_brush) => {
+                cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", raw_font as "QRawFont", qt_brush as "QBrush"] {
+                    // drawGlyphRun uses QPen to fill glyphs
+                    (*painter)->setPen(QPen(qt_brush, 1));
+                    (*painter)->setBrush(Qt::NoBrush);
 
-        cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", qt_pen as "QPen", qt_brush as "QBrush", raw_font as "QRawFont"] {
-            if (size == 0)
-                return;
-            (*painter)->setPen(qt_pen);
-            (*painter)->setBrush(qt_brush);
-            QGlyphRun glyphRun;
-            glyphRun.setRawFont(raw_font);
-            glyphRun.setRawData(glyph_indices_ptr, glyph_positions_ptr, size);
-            (*painter)->drawGlyphRun(QPointF(0, 0), glyphRun);
-        }}
+                    QGlyphRun glyphRun;
+                    glyphRun.setRawFont(raw_font);
+                    glyphRun.setRawData(glyph_indices_ptr, glyph_positions_ptr, size);
+                    (*painter)->drawGlyphRun(QPointF(0, 0), glyphRun);
+                }}
+            }
+            GlyphBrush::Stroke(qt_pen) => {
+                cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", raw_font as "QRawFont", qt_pen as "QPen"] {
+                    (*painter)->setPen(qt_pen);
+                    (*painter)->setBrush(Qt::NoBrush);
+
+                    QPainterPath path;
+                    for (int i = 0; i < size; i++) {
+                        QPainterPath glyphPath = raw_font.pathForGlyph(glyph_indices_ptr[i]);
+                        glyphPath.translate(glyph_positions_ptr[i]);
+                        path.addPath(glyphPath);
+                    }
+                    (*painter)->drawPath(path);
+                }}
+            }
+        }
     }
 
     fn fill_rectangle(
