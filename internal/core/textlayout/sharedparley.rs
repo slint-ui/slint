@@ -10,10 +10,17 @@ use std::cell::RefCell;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor, SizeLengths},
+    lengths::{
+        LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths,
+    },
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     SharedString,
 };
+
+type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
+type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
+type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
+
 use i_slint_common::sharedfontique;
 
 /// Trait used for drawing text and text input elements with parley, where parley does the
@@ -576,7 +583,7 @@ pub fn text_size(
             ..Default::default()
         },
     );
-    euclid::size2(layout.inner.width(), layout.inner.height()) / scale_factor
+    PhysicalSize::new(layout.inner.width(), layout.inner.height()) / scale_factor
 }
 
 pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
@@ -601,7 +608,7 @@ pub fn text_input_byte_offset_for_position(
     font_request: FontRequest,
     scale_factor: ScaleFactor,
 ) -> usize {
-    let pos = pos * scale_factor;
+    let pos: PhysicalPoint = pos * scale_factor;
     let text = text_input.text();
 
     let width = text_input.width();
@@ -658,8 +665,8 @@ pub fn text_input_cursor_rect_for_byte_offset(
         Default::default(),
     );
     let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
-    LogicalRect::new(
-        LogicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
-        LogicalSize::new(rect.width() as _, rect.height() as _),
-    )
+    PhysicalRect::new(
+        PhysicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
+        PhysicalSize::new(rect.width() as _, rect.height() as _),
+    ) / scale_factor
 }
