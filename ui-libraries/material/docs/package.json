@@ -32,7 +32,7 @@
         "@astrolib/seo": "1.0.0-beta.8",
         "@fontsource-variable/inter": "5.2.8",
         "astro-icon": "1.1.5",
-        "limax": "4.2.0",
+        "limax": "4.2.1",
         "lodash.merge": "4.6.2",
         "unpic": "4.1.3"
     },
