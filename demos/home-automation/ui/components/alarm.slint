@@ -55,7 +55,7 @@ export component Alarm inherits Control {
         }
 
         tile := Rectangle {
-
+            x: 0;
             VerticalLayout {
                 visible: !root.full-screen;
                 alignment: center;
@@ -201,25 +201,6 @@ export component Alarm inherits Control {
             font-weight: 300;
             x: parent.width / 2 - self.width / 2;
             y: 50px;
-        }
-
-        x: 0;
-        VerticalLayout {
-            alignment: end;
-            spacing: 2px;
-            padding: 2px;
-
-            controls := Rectangle {
-                border-radius: 10px;
-                width: 95%;
-                height: self.preferred-height;
-                background: Palette.music-gradient.transparentize(0.2);
-                HorizontalLayout {
-                    alignment: space-around;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                }
-            }
         }
     }
 

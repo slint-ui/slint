@@ -23,10 +23,10 @@ export component FullScreenWidgetLoaderSW {
 
 
     opacity: 1;
-    x: data.x * AppState.x-scale * 1px;
-    y: data.y * AppState.y-scale * 1px;
-    width: data.width * AppState.x-scale * 1px;
-    height: data.height * AppState.y-scale * 1px;
+    x: data.x * AppState.special-x-pos-scale * 1px;
+    y: data.y * AppState.special-y-pos-scale * 1px;
+    width: data.width * AppState.special-x-pos-scale * 1px;
+    height: data.height * AppState.special-y-pos-scale * 1px;
     visible: AppState.full-screen-index != -1;
 
     // Use the correct component based on type

@@ -7,17 +7,16 @@ import { Api, WeatherData, WeatherCondition } from "../api.slint";
 import { AppState } from "../appState.slint";
 
 export component Day inherits Rectangle {
-    property <length> default-width: 50px * scale;
+    property <length> default-width: 50px;
     in property <length> special-height;
     width: default-width;
     in property <WeatherData> weather-data;
     in property <bool> highlight: false;
-    in property <float> scale: 1.0;
     in property <brush> tint: #2e1248;
 
     Rectangle {
         width: default-width;
-        height: special-height * scale;
+        height: special-height;
         border-color: #ffffff4a;
         border-width: 2px;
         border-radius: self.width / 2;
@@ -27,7 +26,7 @@ export component Day inherits Rectangle {
     VerticalLayout {
         alignment: center;
         width: default-width;
-        spacing: 10px * scale;
+        spacing: 10px;
         HaText {
             text: weather-data.day;
             horizontal-alignment: center;
@@ -60,7 +59,7 @@ export component Day inherits Rectangle {
         Rectangle {
             height: 38px;
             Image {
-                width: AppState.graphics-accelerator-available ? self.source.width * scale * 1px : self.source.width * 1px;
+                width: AppState.graphics-accelerator-available ? self.source.width * 1px : self.source.width * 1px;
                 source: weather-icon-source();
             }
         }
@@ -91,8 +90,6 @@ export component WeatherInfo {
     in property <string> name;
     in property <string> id;
     in property <bool> full-screen: false;
-
-    property <float> scaler: Math.min(1.0, root.width / 270px);
     property <length> special-height: Math.min(180px, root.height);
 
     Rectangle {
@@ -102,41 +99,36 @@ export component WeatherInfo {
 
         HorizontalLayout {
             alignment: space-between;
-            spacing: 6px * scaler;
-            width: 280px * scaler;
+            spacing: 6px;
+            width: 280px;
             Day {
                 weather-data: Api.weather-forecast[0];
                 highlight: true;
                 tint: #391659;
-                scale: root.scaler;
                 special-height: root.special-height;
             }
 
             Day {
                 weather-data: Api.weather-forecast[1];
                 tint: #31134C;
-                scale: root.scaler;
                 special-height: root.special-height;
             }
 
             Day {
                 weather-data: Api.weather-forecast[2];
                 tint: #29103F;
-                scale: root.scaler;
                 special-height: root.special-height;
             }
 
             Day {
                 weather-data: Api.weather-forecast[3];
                 tint: #210D34;
-                scale: root.scaler;
                 special-height: root.special-height;
             }
 
             Day {
                 weather-data: Api.weather-forecast[4];
                 tint: #180925;
-                scale: root.scaler;
                 special-height: root.special-height;
             }
         }

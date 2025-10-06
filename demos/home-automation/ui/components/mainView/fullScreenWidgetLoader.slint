@@ -39,10 +39,10 @@ export component FullScreenWidgetLoader {
     }
 
     opacity: 1;
-    x: animTargetX * AppState.x-scale;
-    y: animTargetY * AppState.y-scale;
-    width: animTargetWidth * AppState.x-scale;
-    height: animTargetHeight * AppState.y-scale;
+    x: animTargetX * AppState.special-x-pos-scale;
+    y: animTargetY * AppState.special-y-pos-scale;
+    width: animTargetWidth * AppState.special-x-pos-scale;
+    height: animTargetHeight * AppState.special-y-pos-scale;
 
     // Use the correct component based on type
     if root.type == WidgetType.lamp: Lamp {

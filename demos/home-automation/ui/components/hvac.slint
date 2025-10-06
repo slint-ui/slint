@@ -95,6 +95,7 @@ export component HVAC inherits Control {
     clip: AppState.graphics-accelerator-available;
 
     tile := Rectangle {
+        x: 0;
 
         TouchArea {
             enabled: !AppState.showing-full-screen && AppState.orientation != Orientation.portrait;
@@ -187,29 +188,6 @@ export component HVAC inherits Control {
             ZoneButton {
                 zone-name: "Master Bedroom";
                 zone-set-point: 17;
-            }
-        }
-
-        x: 0;
-        VerticalLayout {
-            alignment: end;
-            spacing: 2px;
-            padding: 2px;
-
-            controls := Rectangle {
-                border-radius: 10px;
-                width: 95%;
-                height: self.preferred-height;
-                background: Palette.music-gradient.transparentize(0.2);
-                animate height {
-                    duration: 1000ms;
-                    easing: ease-in-out-sine;
-                }
-                HorizontalLayout {
-                    alignment: space-around;
-                    padding-top: 15px;
-                    padding-bottom: 15px;
-                }
             }
         }
 
