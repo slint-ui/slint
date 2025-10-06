@@ -16,7 +16,7 @@ packages:
   - "ui-libraries/material/docs"
 
 catalog:
-  "@biomejs/biome": 2.2.4
+  "@biomejs/biome": 2.2.5
   "cspell": 9.2.1
   "typescript": 5.9.3
   "vite": 7.1.7
