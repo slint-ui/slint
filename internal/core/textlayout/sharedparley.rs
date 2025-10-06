@@ -138,15 +138,27 @@ fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layo
                 builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
                     &[
                         parley::style::FontFamily::Named(family.as_str().into()),
+                        // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SansSerif,
+                        ),
                         parley::style::FontFamily::Generic(
                             parley::fontique::GenericFamily::SystemUi,
                         ),
                     ],
                 )));
             } else {
-                builder.push_default(parley::style::FontStack::Single(
-                    parley::style::FontFamily::Generic(parley::fontique::GenericFamily::SystemUi),
-                ));
+                builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
+                    &[
+                        // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SansSerif,
+                        ),
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SystemUi,
+                        ),
+                    ],
+                )));
             }
             if let Some(weight) = font_request.weight {
                 builder.push_default(parley::StyleProperty::FontWeight(
