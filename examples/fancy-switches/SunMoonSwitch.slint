@@ -7,13 +7,12 @@ global Utils {
     }
 }
 component SunMoonThumb {
-    in property <float> scale: 1;
-    in property <length> thumb-position: 50px * scale;
+    in property <length> thumb-position: 50px;
 
 
     Rectangle {
-        width: 200px * scale;
-        height: 100px * scale;
+        width: 200px;
+        height: 100px;
         border-radius: self.height / 2;
         clip: true;
         Rectangle {
@@ -21,21 +20,21 @@ component SunMoonThumb {
             height: 0px;
             x: root.thumb-position;
             Rectangle {
-                width: 260px * scale;
+                width: 260px;
                 height: self.width;
                 background: white;
                 border-radius: self.width / 2;
                 opacity: 0.05;
             }
             Rectangle {
-                width: 200px * scale;
+                width: 200px;
                 height: self.width;
                 background: white;
                 border-radius: self.width / 2;
                 opacity: 0.05;
             }
             Rectangle {
-                width: 140px * scale;
+                width: 140px;
                 height: self.width;
                 background: white;
                 border-radius: self.width / 2;
@@ -43,21 +42,21 @@ component SunMoonThumb {
             }
 
             clipper :=Rectangle {
-                width: 85px * scale;
+                width: 85px;
                 height: self.width;
                 border-radius: self.width / 2;
                 clip: true;
 
                 sun := Rectangle {
-                    width: 85px * scale;
+                    width: 85px;
                     height: self.width;
                     background: @radial-gradient(circle,#ffce08 0%, #fdd224 80%, #fce37f 100%);
                     border-radius: self.width / 2;
                 }
 
                 moon := Rectangle {
-                    x: Utils.MapRange(root.thumb-position, 50px * scale, 100px * scale, 85px * scale, 0px);
-                    width: 85px * scale;
+                    x: Utils.MapRange(root.thumb-position, 50px, 100px, 85px, 0px);
+                    width: 85px;
                     height: self.width;
                     background: @radial-gradient(circle,#bcbcbc 0%, #e7e7e7 80%, #ffffff 100%);
                     border-radius: self.width / 2;
@@ -72,9 +71,8 @@ component SunMoonThumb {
 enum Theme { day, night }
 export component SunMoonSwitch {
     property <Theme> theme: Theme.night;
-    in property <float> scale: 1;
-    width: 200px * scale;
-    height: 100px * scale;
+    width: 200px;
+    height: 100px;
 
     frameBacker := Rectangle {
         width: parent.width;
@@ -91,22 +89,22 @@ export component SunMoonSwitch {
         border-radius: self.height / 2;
 
         clouds-background :=Image {
-            x: 14px * scale;
-            y: -6px * scale;
-            width: 202px * scale;
+            x: 14px;
+            y: -6px;
+            width: 202px;
             source: @image-url("images/clouds-background.png");
         }
         clouds-foreground := Image {
-            x: 30px * scale;
-            y: 5px * scale;
-            width: 202px * scale;
+            x: 30px;
+            y: 5px;
+            width: 202px;
             source: @image-url("images/clouds-front.png");
         }
 
         stars := Image {
-            x: 15px * scale;
-            y: 15px * scale;
-            width: 80px * scale;
+            x: 15px;
+            y: 15px;
+            width: 80px;
             source: @image-url("images/stars.png");
         }
     }
@@ -114,13 +112,12 @@ export component SunMoonSwitch {
 
 
     Image {
-        x: -1px * scale;
-        width: 202px * scale;
+        x: -1px;
+        width: 202px;
         source: @image-url("images/shadow-frame.png");
     }
 
     thumb := SunMoonThumb {
-        scale: root.scale;
      }
 
     TouchArea {
@@ -135,7 +132,7 @@ export component SunMoonSwitch {
 
     states [
         nightMode when root.theme == Theme.night: {
-            thumb.thumb-position: root.width - thumb.width - 50px * scale;
+            thumb.thumb-position: root.width - thumb.width - 50px;
             frameBacker.background: #1e2232;
             clouds-background.y: 120px;
             clouds-foreground.y: 120px;
@@ -155,9 +152,9 @@ export component SunMoonSwitch {
             }
         }
         dayMode when root.theme == Theme.day: {
-            thumb.thumb-position:  50px * scale;
+            thumb.thumb-position:  50px;
             frameBacker.background: #3d85ba;
-            stars.y: - 60px * scale;
+            stars.y: - 60px;
             stars.opacity: 0.4;
             in {
                 animate frameBacker.background, stars.y, stars.opacity {

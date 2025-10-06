@@ -3,7 +3,6 @@
 
 component RayThick {
     in-out property colorize <=> i.colorize;
-    in-out property rotation <=> i.rotation-angle;
     width: 0px;
     height: 0px;
 
@@ -18,7 +17,6 @@ component RayThick {
 
 component RayThin {
     in-out property colorize <=> i.colorize;
-    in-out property rotation <=> i.rotation-angle;
     width: 0px;
     height: 0px;
 
@@ -37,14 +35,13 @@ component SunIcon {
     property <length> sun-size: 28px;
     property <length> gap: 8px;
     in property <brush> color: black;
-    in property <float> scale: 1;
     width: 80px;
     height: self.width;
     Rectangle {
         width: 0px;
         height: 0px;
         Rectangle {
-            width: sun-size * scale;
+            width: sun-size;
             height: self.width;
             border-radius: self.width / 2;
             background: transparent;
@@ -52,19 +49,16 @@ component SunIcon {
             border-width: 5px;
         }
         for i in rays: RayThick {
-            property <angle> angle: i * 360deg / rays;
+            x: (sun-size / 2 + gap) * self.rotation-angle.cos();
+            y: (sun-size / 2 + gap) * self.rotation-angle.sin();
             colorize: root.color;
-            x: (sun-size / 2 + gap) * scale * angle.cos();
-            y: (sun-size / 2 + gap) * scale * angle.sin();
-
-            rotation: angle;
+            rotation-angle: i * 360deg / rays;
         }
         for i in rays: RayThin {
-            property <angle> angle: i * (360deg / rays) + 45deg;
+            x: (sun-size / 2 + gap) * self.rotation-angle.cos();
+            y: (sun-size / 2 + gap) * self.rotation-angle.sin();
             colorize: root.color;
-            x: (sun-size / 2 + gap) * angle.cos();
-            y: (sun-size / 2 + gap) * angle.sin();
-            rotation: angle;
+            rotation-angle: i * (360deg / rays) + 45deg;
         }
     }
 }
@@ -129,13 +123,14 @@ export component DarkModeSwitch {
             frameBacker.background: #2A2A2A;
             moon.rotation-angle: -20deg;
             sun.color: #fc7a10;
-            sun.scale: 0.8;
+            sun.scale-x: 0.8;
+            sun.scale-y: 0.8;
             in {
                 animate thumb.x, thumb.background, frameBacker.background, sun.color {
                     duration: 200ms;
                     easing: ease-out-sine;
                 }
-                animate moon.rotation-angle, sun.scale {
+                animate moon.rotation-angle, sun.scale-x, sun.scale-y {
                     duration: 1200ms;
                     easing: ease-out-elastic;
                 }
@@ -148,13 +143,14 @@ export component DarkModeSwitch {
             frameBacker.background: transparent;
             moon.rotation-angle: 20deg;
             sun.color: #2A2A2A;
-            sun.scale: 1;
+            sun.scale-x: 1;
+            sun.scale-y: 1;
             in {
                 animate thumb.x, thumb.background, frameBacker.background, moon.rotation-angle {
                     duration: 200ms;
                     easing: ease-out-sine;
                 }
-                animate sun.scale {
+                animate sun.scale-x, sun.scale-y {
                     duration: 1200ms;
                     easing: ease-out-elastic;
                 }
