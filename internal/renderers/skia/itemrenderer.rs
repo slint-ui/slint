@@ -962,7 +962,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         font: &sharedparley::parley::Font,
         font_size: f32,
         brush: Self::PlatformBrush,
-        y_offset: f32,
+        y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let Some(type_face) =
@@ -974,7 +974,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
 
         let (glyph_ids, glyph_positions): (Vec<_>, Vec<_>) = glyphs_it
             .into_iter()
-            .map(|g| (g.id as skia_safe::GlyphId, skia_safe::Point::new(g.x, g.y + y_offset)))
+            .map(|g| (g.id as skia_safe::GlyphId, skia_safe::Point::new(g.x, g.y + y_offset.get())))
             .unzip();
 
         self.canvas.draw_glyphs_at(
@@ -986,14 +986,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         );
     }
 
-    fn fill_rectangle(
-        &mut self,
-        physical_x: f32,
-        physical_y: f32,
-        physical_width: f32,
-        physical_height: f32,
-        color: Color,
-    ) {
+    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
         if color.alpha() == 0 {
             return;
         }
@@ -1002,7 +995,12 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         paint.set_shader(skia_safe::shaders::color(to_skia_color(&color)));
 
         self.canvas.draw_rect(
-            skia_safe::Rect::from_xywh(physical_x, physical_y, physical_width, physical_height),
+            skia_safe::Rect::from_xywh(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+            ),
             &paint,
         );
     }
