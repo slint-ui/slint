@@ -959,7 +959,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
 
     fn draw_glyph_run(
         &mut self,
-        font: &sharedparley::parley::Font,
+        font: &sharedparley::parley::FontData,
         font_size: f32,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,

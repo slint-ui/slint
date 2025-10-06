@@ -52,7 +52,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     /// given y offset.
     fn draw_glyph_run(
         &mut self,
-        font: &parley::Font,
+        font: &parley::FontData,
         font_size: f32,
         brush: Self::PlatformBrush,
         y_offset: PhysicalLength,
@@ -238,7 +238,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layo
         max_physical_width.map(|width| width.get()),
         match options.horizontal_align {
             TextHorizontalAlignment::Left => parley::Alignment::Left,
-            TextHorizontalAlignment::Center => parley::Alignment::Middle,
+            TextHorizontalAlignment::Center => parley::Alignment::Center,
             TextHorizontalAlignment::Right => parley::Alignment::Right,
         },
         parley::AlignmentOptions::default(),
@@ -315,7 +315,7 @@ impl Layout {
         default_stroke_brush: Option<<R as GlyphRenderer>::PlatformBrush>,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
-            &parley::Font,
+            &parley::FontData,
             f32,
             <R as GlyphRenderer>::PlatformBrush,
             &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -547,8 +547,8 @@ pub fn draw_text_input(
         item_renderer.fill_rectangle(
             PhysicalRect::new(
                 PhysicalPoint::from_lengths(
-                    PhysicalLength::new(rect.min_x() as _),
-                    PhysicalLength::new(rect.min_y() as _) + layout.y_offset,
+                    PhysicalLength::new(rect.x0 as _),
+                    PhysicalLength::new(rect.y0 as _) + layout.y_offset,
                 ),
                 PhysicalSize::new(rect.width() as _, rect.height() as _),
             ),
@@ -577,8 +577,8 @@ pub fn draw_text_input(
         item_renderer.fill_rectangle(
             PhysicalRect::new(
                 PhysicalPoint::from_lengths(
-                    PhysicalLength::new(rect.min_x() as _),
-                    PhysicalLength::new(rect.min_y() as _) + layout.y_offset,
+                    PhysicalLength::new(rect.x0 as _),
+                    PhysicalLength::new(rect.y0 as _) + layout.y_offset,
                 ),
                 PhysicalSize::new(rect.width() as _, rect.height() as _),
             ),
@@ -691,8 +691,8 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
     PhysicalRect::new(
         PhysicalPoint::from_lengths(
-            PhysicalLength::new(rect.min_x() as _),
-            PhysicalLength::new(rect.min_y() as _) + layout.y_offset,
+            PhysicalLength::new(rect.x0 as _),
+            PhysicalLength::new(rect.y0 as _) + layout.y_offset,
         ),
         PhysicalSize::new(rect.width() as _, rect.height() as _),
     ) / scale_factor
