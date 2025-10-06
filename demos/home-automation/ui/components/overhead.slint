@@ -10,7 +10,6 @@ export component Overhead inherits Control {
     full-screen: false;
     tile-shadow-blur: 0px;
     control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
-    property <float> scaler: Math.min(1.0, root.height / 120px);
 
     in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 18px : 9px;
     tile := Rectangle {
@@ -30,7 +29,7 @@ export component Overhead inherits Control {
             height: 100%;
             HaText {
                 text: root.name;
-                font-size: 15pt * scaler;
+                font-size: 15pt;
                 font-weight: 400;
                 color: Palette.overhead-foreground;
             }
