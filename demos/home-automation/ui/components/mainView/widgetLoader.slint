@@ -186,11 +186,14 @@ export component WidgetLoader {
         height: root.height;
     }
     if root.type == WidgetType.weatherInfo: WeatherInfo {
+        property <float> scaler: Math.min(1.0, root.width / 270px);
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
+        scale-x: scaler;
+        scale-y: scaler;
     }
 
     if root.type == WidgetType.powerInfo: PowerInfo {
