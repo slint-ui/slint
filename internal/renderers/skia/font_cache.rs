@@ -17,7 +17,7 @@ impl Default for FontCache {
 }
 
 impl FontCache {
-    pub fn font(&mut self, font: &parley::Font) -> Option<skia_safe::Typeface> {
+    pub fn font(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
         self.fonts
             .entry((font.data.id(), font.index))
             .or_insert_with(|| {

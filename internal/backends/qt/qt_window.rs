@@ -1065,7 +1065,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
 
     fn draw_glyph_run(
         &mut self,
-        font: &sharedparley::parley::Font,
+        font: &sharedparley::parley::FontData,
         font_size: f32,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
@@ -1080,10 +1080,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         let (glyph_indices, positions): (Vec<u32>, Vec<qttypes::QPointF>) = glyphs_it
             .into_iter()
             .map(|g| {
-                (
-                    g.id as u32,
-                    qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset.get() as f64 },
-                )
+                (g.id, qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset.get() as f64 })
             })
             .unzip();
 
@@ -1180,7 +1177,7 @@ impl Default for FontCache {
 }
 
 impl FontCache {
-    pub fn font(&mut self, font: &parley::Font) -> Option<QRawFont> {
+    pub fn font(&mut self, font: &parley::FontData) -> Option<QRawFont> {
         self.fonts
             .entry((font.data.id(), font.index))
             .or_insert_with(move || {

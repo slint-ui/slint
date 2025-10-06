@@ -25,7 +25,7 @@ impl Default for FontCache {
 }
 
 impl FontCache {
-    pub fn font(&mut self, font: &parley::Font) -> femtovg::FontId {
+    pub fn font(&mut self, font: &parley::FontData) -> femtovg::FontId {
         let text_context = self.text_context.clone();
 
         *self.fonts.entry((font.data.id(), font.index)).or_insert_with(move || {
