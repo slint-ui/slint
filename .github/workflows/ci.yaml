@@ -64,7 +64,7 @@ jobs:
                     # There is only a limited amount of mac worker machine allocated and this is currently the bottleneck, so disable it
                     - os: macos-14
                       rust_version: "1.88"
-                    # We already test 1.85 and nightly. Stable is in the middle and already covered by other jobs
+                    # We already test 1.88 and nightly. Stable is in the middle and already covered by other jobs
                     - os: ubuntu-22.04
                       rust_version: "stable"
 
