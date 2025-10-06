@@ -52,8 +52,8 @@ export global AppState {
     out property <Orientation> orientation: window-width > window-height ? landscape : portrait;
     in property <bool> graphics-accelerator-available: true;
 
-    out property <float> x-scale: orientation == Orientation.landscape ? window-width / 1920px : window-width / 1080px;
-    out property <float> y-scale: orientation == Orientation.landscape ? window-height / 1080px : window-height / 1920px;
+    out property <float> special-x-pos-scale: orientation == Orientation.landscape ? window-width / 1920px : window-width / 1080px;
+    out property <float> special-y-pos-scale: orientation == Orientation.landscape ? window-height / 1080px : window-height / 1920px;
 
     in-out property <bool> showing-full-screen: false;
     out property <int> full-screen-index: -1;

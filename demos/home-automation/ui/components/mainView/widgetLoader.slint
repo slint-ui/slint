@@ -78,10 +78,10 @@ export component WidgetLoader {
     }
 
     opacity: 0;
-    x: AppState.first-run ? targetX * AppState.x-scale : (root.opacity < 1 ? targetX : animTargetX) * AppState.x-scale;
-    y: AppState.first-run ? targetY * AppState.y-scale : (root.opacity < 1 ? targetY : animTargetY) * AppState.y-scale;
-    width: AppState.first-run ? targetWidth * AppState.x-scale : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.x-scale;
-    height: AppState.first-run ? targetHeight * AppState.y-scale : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.y-scale;
+    x: AppState.first-run ? targetX * AppState.special-x-pos-scale : (root.opacity < 1 ? targetX : animTargetX) * AppState.special-x-pos-scale;
+    y: AppState.first-run ? targetY * AppState.special-y-pos-scale : (root.opacity < 1 ? targetY : animTargetY) * AppState.special-y-pos-scale;
+    width: AppState.first-run ? targetWidth * AppState.special-x-pos-scale : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.special-x-pos-scale;
+    height: AppState.first-run ? targetHeight * AppState.special-y-pos-scale : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.special-y-pos-scale;
     visible: AppState.last-selected-index != self.index && root.opacity > 0;
 
     states [

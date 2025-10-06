@@ -67,10 +67,10 @@ export component WidgetLoaderSoftwareRenderer {
         }
     }
 
-    x: root.internal-data.x * AppState.x-scale * 1px;
-    y: root.internal-data.y * AppState.y-scale * 1px;
-    width: root.internal-data.width * AppState.x-scale * 1px;
-    height: root.internal-data.height * AppState.y-scale * 1px;
+    x: root.internal-data.x * AppState.special-x-pos-scale * 1px;
+    y: root.internal-data.y * AppState.special-y-pos-scale * 1px;
+    width: root.internal-data.width * AppState.special-x-pos-scale * 1px;
+    height: root.internal-data.height * AppState.special-y-pos-scale * 1px;
     visible: AppState.last-selected-index != self.index && root.opacity > 0;
 
 
