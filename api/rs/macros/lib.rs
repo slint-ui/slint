@@ -19,7 +19,6 @@ use std::path::PathBuf;
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
 ///
 /// Returns None if we couldn't detect whether they are touching  (eg, our heuristics don't work with rust-analyzer)
-#[rustversion::since(1.88)]
 fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> Option<bool> {
     let t1 = token1.end();
     let t2 = token2.start();
@@ -30,63 +29,6 @@ fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> Opt
         return None;
     }
     Some(t1.line() == t2.line() && t1_column == t2.column())
-}
-#[rustversion::before(1.88)]
-fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> Option<bool> {
-    // There is no way with stable API to find out if the token are touching, so do it by
-    // extracting the range from the debug representation of the span
-    are_token_touching_impl(&format!("{token1:?}"), &format!("{token2:?}"))
-}
-
-#[rustversion::before(1.88)]
-fn are_token_touching_impl(token1_debug: &str, token2_debug: &str) -> Option<bool> {
-    // The debug representation of a span look like this: "#0 bytes(6662789..6662794)"
-    // we just have to find out if the first number of the range of second span
-    // is the same as the second number of the first span
-    let is_byte_char = |c: char| c.is_numeric() || c == ':';
-    let not_is_byte_char = |c: char| !is_byte_char(c);
-    let end_of_token1 = token1_debug
-        .trim_end_matches(not_is_byte_char)
-        .rsplit(not_is_byte_char)
-        .next()?
-        .trim_matches(':');
-    let begin_of_token2 = token2_debug
-        .trim_end_matches(not_is_byte_char)
-        .strip_suffix(is_byte_char)?
-        .trim_end_matches(is_byte_char)
-        .trim_end_matches(not_is_byte_char)
-        .rsplit(not_is_byte_char)
-        .next()?
-        .trim_matches(':');
-    (!begin_of_token2.is_empty()).then_some(end_of_token1 == begin_of_token2)
-}
-
-#[rustversion::before(1.88)]
-#[test]
-fn are_token_touching_impl_test() {
-    assert!(are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(6662789..6662794)")
-        .unwrap());
-    assert!(!are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(6662790..6662794)")
-        .unwrap());
-    assert!(!are_token_touching_impl("#0 bytes(6662789..6662794)", "#0 bytes(6662788..6662789)")
-        .unwrap());
-    assert!(
-        !are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(662789..662794)").unwrap()
-    );
-    assert!(are_token_touching_impl("#0 bytes(123..456)", "#0 bytes(456..789)").unwrap());
-
-    // Alternative representation on nightly with a special flag
-    assert!(are_token_touching_impl("/foo/bar.rs:12:7: 12:18", "/foo/bar.rs:12:18: 12:19").unwrap());
-    assert!(are_token_touching_impl("/foo/bar.rs:2:7: 13:18", "/foo/bar.rs:13:18: 14:29").unwrap());
-    assert!(!are_token_touching_impl("/foo/bar.rs:2:7: 13:18", "/foo/bar.rs:14:18: 14:29").unwrap());
-    assert!(!are_token_touching_impl("/foo/bar.rs:2:7: 2:8", "/foo/bar.rs:2:18: 2:29").unwrap());
-
-    // What happens if the representation change
-    assert!(are_token_touching_impl("hello", "hello").is_none());
-    assert!(are_token_touching_impl("hello42", "hello42").is_none());
-
-    // rust-analyzer just has indices that means nothing
-    assert!(are_token_touching_impl("55", "56").is_none());
 }
 
 fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser::Token>) {
@@ -410,13 +352,8 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
 
-    #[rustversion::since(1.88)]
     fn local_file(tokens: &[parser::Token]) -> Option<PathBuf> {
         tokens.first()?.span?.local_file()
-    }
-    #[rustversion::before(1.88)]
-    fn local_file(_: &[parser::Token]) -> Option<PathBuf> {
-        None
     }
 
     let source_file = if let Some(path) = local_file(&tokens) {
