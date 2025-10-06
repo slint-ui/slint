@@ -112,7 +112,7 @@ futures = { version = "0.3.31" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For GL rendering
-objc2-app-kit = { version = "0.3.0" }
+objc2-app-kit = { version = "0.3.2" }
 
 [target.'cfg(all(target_vendor = "apple", not(target_os = "macos")))'.dependencies]
 # Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs

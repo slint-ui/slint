@@ -413,11 +413,7 @@ impl OpenGLSurface {
         }) = _window_handle.as_raw()
         {
             let ns_view: &objc2_app_kit::NSView = unsafe { ns_view.cast().as_ref() };
-            unsafe {
-                ns_view.setLayerContentsPlacement(
-                    objc2_app_kit::NSViewLayerContentsPlacement::TopLeft,
-                );
-            }
+            ns_view.setLayerContentsPlacement(objc2_app_kit::NSViewLayerContentsPlacement::TopLeft);
         }
 
         // Sanity check, as all this might succeed on Windows without working GL drivers, but this will fail:

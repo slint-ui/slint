@@ -77,11 +77,11 @@ wgpu-26 = { workspace = true, optional = true, features = ["dx12"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = { version = "0.6.0" }
-objc2-metal = { version = "0.3.0", default-features = false, features = ["std", "MTLCommandQueue", "MTLCommandBuffer", "MTLResource", "MTLTexture", "MTLTypes"] }
-objc2-foundation = { version = "0.3.0", default-features = false, features = ["std", "NSGeometry"] }
-objc2-quartz-core = { version = "0.3.0", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
-objc2-app-kit = { version = "0.3.0", default-features = false, features = ["std", "NSResponder", "NSView"] }
-objc2-core-foundation = { version = "0.3.0", default-features = false, features = ["CFCGTypes"] }
+objc2-metal = { version = "0.3.2", default-features = false, features = ["std", "MTLCommandQueue", "MTLCommandBuffer", "MTLResource", "MTLTexture", "MTLTypes"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSView"] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["CFCGTypes"] }
 skia-safe = { version = "0.88", features = ["metal"] }
 raw-window-metal = "1.0"
 

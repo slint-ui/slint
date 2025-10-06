@@ -90,14 +90,12 @@ impl super::Surface for MetalSurface {
 
         let device = &shared_context.device;
 
-        unsafe {
-            ca_layer.setDevice(Some(&device));
-            ca_layer.setPixelFormat(MTLPixelFormat::BGRA8Unorm);
-            ca_layer.setOpaque(false);
-            ca_layer.setPresentsWithTransaction(false);
+        ca_layer.setDevice(Some(&device));
+        ca_layer.setPixelFormat(MTLPixelFormat::BGRA8Unorm);
+        ca_layer.setOpaque(false);
+        ca_layer.setPresentsWithTransaction(false);
 
-            ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
-        }
+        ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
 
         let flipped = ca_layer.contentsAreFlipped();
         let gravity = if !flipped {
@@ -132,9 +130,7 @@ impl super::Surface for MetalSurface {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         // SAFETY: The pointer is a valid `CAMetalLayer`.
         let ca_layer: &CAMetalLayer = unsafe { self.layer.as_ptr().cast().as_ref() };
-        unsafe {
-            ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
-        }
+        ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
         self.drawable_ages.borrow_mut().clear();
         Ok(())
     }
@@ -153,7 +149,7 @@ impl super::Surface for MetalSurface {
         autoreleasepool(|_| {
             // SAFETY: The pointer is a valid `CAMetalLayer`.
             let ca_layer: &CAMetalLayer = unsafe { self.layer.as_ptr().cast().as_ref() };
-            let drawable = match unsafe { ca_layer.nextDrawable() } {
+            let drawable = match ca_layer.nextDrawable() {
                 Some(drawable) => drawable,
                 None => {
                     return Err(format!(
@@ -165,7 +161,7 @@ impl super::Surface for MetalSurface {
 
             let gr_context = &mut self.gr_context.borrow_mut();
 
-            let size = unsafe { ca_layer.drawableSize() };
+            let size = ca_layer.drawableSize();
 
             let mut surface = unsafe {
                 let texture = drawable.texture();
@@ -187,8 +183,8 @@ impl super::Surface for MetalSurface {
                 .unwrap()
             };
 
-            let texture: Retained<ProtocolObject<dyn MTLTexture>> = unsafe { drawable.texture() };
-            let texture_id = unsafe { texture.gpuResourceID() };
+            let texture: Retained<ProtocolObject<dyn MTLTexture>> = drawable.texture();
+            let texture_id = texture.gpuResourceID();
             let age = {
                 let mut drawables = self.drawable_ages.borrow_mut();
                 if let Some(existing_age) =
@@ -241,7 +237,7 @@ impl super::Surface for MetalSurface {
         // The storage size of each pixel format is determined by the sum of its components.
         // For example, the storage size of BGRA8Unorm is 32 bits (four 8-bit components) and
         // the storage size of BGR5A1Unorm is 16 bits (three 5-bit components and one 1-bit component).
-        Ok(match unsafe { ca_layer.pixelFormat() } {
+        Ok(match ca_layer.pixelFormat() {
             MTLPixelFormat::B5G6R5Unorm
             | MTLPixelFormat::A1BGR5Unorm
             | MTLPixelFormat::ABGR4Unorm
