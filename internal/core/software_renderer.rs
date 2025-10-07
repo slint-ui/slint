@@ -2627,10 +2627,10 @@ use crate::textlayout::sharedparley;
 
 #[cfg(all(feature = "shared-parley", feature = "software-renderer-systemfonts"))]
 impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
-    type PlatformBrush = Brush;
+    type PlatformBrush = Color;
 
     fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush> {
-        Some(Brush::SolidColor(*color))
+        Some(*color)
     }
 
     fn platform_text_fill_brush(
@@ -2638,7 +2638,10 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         brush: Brush,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        Some(brush)
+        match brush {
+            Brush::SolidColor(color) => Some(color),
+            _ => None,
+        }
     }
 
     fn platform_text_stroke_brush(
@@ -2647,7 +2650,10 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         _physical_stroke_width: f32,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        Some(brush)
+        match brush {
+            Brush::SolidColor(color) => Some(color),
+            _ => None,
+        }
     }
 
     fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
@@ -2666,7 +2672,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         &mut self,
         font: &sharedparley::parley::Font,
         font_size: f32,
-        brush: Self::PlatformBrush,
+        color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
