@@ -64,7 +64,16 @@ impl VectorFont {
         fontdue_font: Rc<fontdue::Font>,
         pixel_size: PhysicalLength,
     ) -> Self {
-        let face = rustybuzz::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
+        Self::new_from_blob_and_index(font.blob, font.index, fontdue_font, pixel_size)
+    }
+
+    pub fn new_from_blob_and_index(
+        font_blob: fontique::Blob<u8>,
+        font_index: u32,
+        fontdue_font: Rc<fontdue::Font>,
+        pixel_size: PhysicalLength,
+    ) -> Self {
+        let face = rustybuzz::ttf_parser::Face::parse(font_blob.data(), font_index).unwrap();
 
         let ascender = FontLength::new(face.ascender() as _);
         let descender = FontLength::new(face.descender() as _);
@@ -74,8 +83,8 @@ impl VectorFont {
         let units_per_em = face.units_per_em();
         let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
         Self {
-            font_index: font.index,
-            font_blob: font.blob,
+            font_index,
+            font_blob,
             fontdue_font,
             ascender: (ascender.cast() * scale).cast(),
             descender: (descender.cast() * scale).cast(),
