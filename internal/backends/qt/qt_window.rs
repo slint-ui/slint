@@ -1068,7 +1068,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         font: &sharedparley::parley::Font,
         font_size: f32,
         brush: Self::PlatformBrush,
-        y_offset: f32,
+        y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let Some(mut raw_font) = FONT_CACHE.with(|cache| cache.borrow_mut().font(font)) else {
@@ -1080,7 +1080,10 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         let (glyph_indices, positions): (Vec<u32>, Vec<qttypes::QPointF>) = glyphs_it
             .into_iter()
             .map(|g| {
-                (g.id as u32, qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset as f64 })
+                (
+                    g.id as u32,
+                    qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset.get() as f64 },
+                )
             })
             .unzip();
 
@@ -1125,17 +1128,14 @@ impl GlyphRenderer for QtItemRenderer<'_> {
 
     fn fill_rectangle(
         &mut self,
-        physical_x: f32,
-        physical_y: f32,
-        physical_width: f32,
-        physical_height: f32,
+        physical_rect: sharedparley::PhysicalRect,
         color: i_slint_core::Color,
     ) {
         let rect = qttypes::QRectF {
-            x: physical_x as _,
-            y: physical_y as _,
-            width: physical_width as _,
-            height: physical_height as _,
+            x: physical_rect.min_x() as _,
+            y: physical_rect.min_y() as _,
+            width: physical_rect.width() as _,
+            height: physical_rect.height() as _,
         };
         let color: u32 = color.as_argb_encoded();
         let painter: &mut QPainterPtr = &mut self.painter;
