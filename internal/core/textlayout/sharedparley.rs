@@ -124,7 +124,12 @@ impl Default for LayoutOptions {
     }
 }
 
-fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> Layout {
+fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> Layout {
+    // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
+    // If the text starts with a multi-byte character then this selection will be within
+    // that character and parley will panic. We just filter out empty selection ranges.
+    options.selection = options.selection.filter(|selection| !selection.is_empty());
+
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
     let pixel_size = options
