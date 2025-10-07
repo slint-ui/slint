@@ -2715,10 +2715,9 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             )
             .cast();
 
-            let gl_x = PhysicalLength::new((-glyph.x).truncate() as i16);
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
             let target_rect = PhysicalRect::new(
-                PhysicalPoint::from_lengths(gl_x, -gl_y - glyph.height)
+                PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
                     + global_offset
                     + glyph_offset,
                 glyph.size(),
@@ -2749,7 +2748,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                                 x
                             }
                         };
-                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
+                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(0));
                         let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
                         let texture = SceneTexture {
                             data,
