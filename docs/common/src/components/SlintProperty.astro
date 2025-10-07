@@ -57,6 +57,14 @@ const typeInfo = getTypeInfo(typeName);
 if (typeInfo.href !== "") {
     const base = import.meta.env.BASE_URL;
     typeInfo.href = `${base}${typeInfo.href}`;
+
+    // For enums and structs, we can assume they have a permalink to their header on the target page.
+    // (These permalinks are also always lower-case.)
+    if (typeName === "enum") {
+        typeInfo.href += "#" + enumName.toLowerCase();
+    } else if (typeName === "struct") {
+        typeInfo.href += "#" + structName.toLowerCase();
+    }
 }
 const enumContent = await getEnumContent(enumName);
 const structContent = await getStructContent(structName);
