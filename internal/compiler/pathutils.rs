@@ -473,6 +473,9 @@ pub fn join(base: &Path, path: &Path) -> Option<PathBuf> {
     let Some(path_str) = path.to_str() else {
         return Some(path.to_owned());
     };
+    if base_str.is_empty() {
+        return Some(path.to_owned());
+    }
 
     let path_separator = find_path_separator(path_str);
 
@@ -523,4 +526,8 @@ fn test_join() {
     th("builtin:/foo", "bar.slint", Some("builtin:/foo/bar.slint"));
     th("builtin:/foo/", "bar.slint", Some("builtin:/foo/bar.slint"));
     th("builtin:/", "..\\bar.slint", Some("builtin:/bar.slint"));
+
+    th("some/relative", "hello.txt", Some("some/relative/hello.txt"));
+    th("", "foo/hello.txt", Some("foo/hello.txt"));
+    th("some/relative", "/foo/hello.txt", Some("/foo/hello.txt"));
 }
