@@ -830,11 +830,11 @@ impl Item for TextInput {
                         StandardShortcut::Paste | StandardShortcut::Cut => {
                             return KeyEventResult::EventIgnored;
                         }
-                        StandardShortcut::Undo => {
+                        StandardShortcut::Undo if !self.read_only() => {
                             self.undo(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Redo => {
+                        StandardShortcut::Redo if !self.read_only() => {
                             self.redo(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
