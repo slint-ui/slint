@@ -2679,15 +2679,122 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         let fontdue_font = fonts::systemfonts::get_or_create_fontdue_font_from_blob_and_index(
             &font.data, font.index,
         );
+        let font_size = PhysicalLength::new(font_size as _);
         let font = fonts::vectorfont::VectorFont::new_from_blob_and_index(
             font.data.clone(),
             font.index,
             fontdue_font,
-            PhysicalLength::new(font_size as _),
+            font_size,
         );
 
-        for glyph in glyphs_it {
-            // todo
+        let global_offset =
+            (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
+
+        for positioned_glyph in glyphs_it {
+            let Some(glyph) =
+                std::num::NonZero::new(positioned_glyph.id).and_then(|id| font.render_glyph(id))
+            else {
+                continue;
+            };
+
+            let glyph_offset: euclid::Vector2D<i16, PhysicalPx> = euclid::Vector2D::from_lengths(
+                euclid::Length::new(positioned_glyph.x),
+                euclid::Length::new(positioned_glyph.y) + y_offset,
+            )
+            .cast();
+
+            let gl_x = PhysicalLength::new((-glyph.x).truncate() as i16);
+            let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
+            let target_rect = PhysicalRect::new(
+                PhysicalPoint::from_lengths(gl_x, -gl_y - glyph.height)
+                    + global_offset
+                    + glyph_offset,
+                glyph.size(),
+            );
+
+            let scale_delta = font.scale_delta();
+
+            let data = match &glyph.alpha_map {
+                fonts::GlyphAlphaMap::Static(data) => {
+                    if glyph.sdf {
+                        let pixel_stride = glyph.pixel_stride;
+                        let mut geometry = target_rect;
+                        if geometry.size.width > glyph.width.get() {
+                            geometry.size.width = glyph.width.get()
+                        }
+                        if geometry.size.height > glyph.height.get() {
+                            geometry.size.height = glyph.height.get()
+                        }
+                        let source_size = geometry.size;
+                        if source_size.is_empty() {
+                            continue;
+                        }
+
+                        let normalize = |x: Fixed<i32, 8>| {
+                            if x < Fixed::from_integer(0) {
+                                x + Fixed::from_integer(1)
+                            } else {
+                                x
+                            }
+                        };
+                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
+                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                        let texture = SceneTexture {
+                            data,
+                            pixel_stride,
+                            format: TexturePixelFormat::SignedDistanceField,
+                            extra: SceneTextureExtra {
+                                colorize: color,
+                                // color already is mixed with global alpha
+                                alpha: color.alpha(),
+                                rotation: self.rotation.orientation,
+                                dx: scale_delta,
+                                dy: scale_delta,
+                                off_x: Fixed::try_from_fixed(fract_x).unwrap(),
+                                off_y: Fixed::try_from_fixed(fract_y).unwrap(),
+                            },
+                        };
+                        self.processor
+                            .process_scene_texture(geometry.transformed(self.rotation), texture);
+                        continue;
+                    };
+
+                    target_pixel_buffer::TextureDataContainer::Static(
+                        target_pixel_buffer::TextureData::new(
+                            data,
+                            TexturePixelFormat::AlphaMap,
+                            glyph.pixel_stride as usize,
+                            euclid::size2(glyph.width.get(), glyph.height.get()).cast(),
+                        ),
+                    )
+                }
+                fonts::GlyphAlphaMap::Shared(data) => {
+                    let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
+                    target_pixel_buffer::TextureDataContainer::Shared {
+                        buffer: SharedBufferData::AlphaMap {
+                            data: data.clone(),
+                            width: glyph.pixel_stride,
+                        },
+                        source_rect,
+                    }
+                }
+            };
+
+            let target_rect = target_rect.transformed(self.rotation);
+            let t = target_pixel_buffer::DrawTextureArgs {
+                data,
+                colorize: Some(color),
+                // color already is mixed with global alpha
+                alpha: color.alpha(),
+                dst_x: target_rect.origin.x as _,
+                dst_y: target_rect.origin.y as _,
+                dst_width: target_rect.size.width as _,
+                dst_height: target_rect.size.height as _,
+                rotation: self.rotation.orientation,
+                tiling: None,
+            };
+
+            self.processor.process_target_texture(&t, target_rect.cast());
         }
     }
 }
