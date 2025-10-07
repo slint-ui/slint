@@ -14,7 +14,7 @@ export component TestCase  {
         height: 20px;
         rotation-origin-x: 0;
         rotation-origin-y: 0;
-        scale: 2;
+        transform-scale: 2;
         TouchArea {
             clicked => { result += "A"}
         }
@@ -26,16 +26,16 @@ export component TestCase  {
         y: 100px;
         width: 20px;
         height: 20px;
-        scale: 3;
-        scale-x: 0.5;
+        transform-scale: 3;
+        transform-scale-x: 0.5;
         TouchArea {
             clicked => { result += "B"}
         }
     }
 
     out property <bool> test:
-        r-a.scale == 2 && r-a.scale-x == 2 && r-a.scale-y == 2 &&
-        r-b.scale-x == 0.5 && r-b.scale-y == 3;
+        r-a.transform-scale == 2 && r-a.transform-scale-x == 2 && r-a.transform-scale-y == 2 &&
+        r-b.transform-scale-x == 0.5 && r-b.transform-scale-y == 3;
 
 
 }

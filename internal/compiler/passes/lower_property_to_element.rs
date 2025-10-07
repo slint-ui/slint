@@ -150,17 +150,17 @@ pub fn lower_transform_properties(
             match prop {
                 "rotation-origin-x" => prop_div_2("width"),
                 "rotation-origin-y" => prop_div_2("height"),
-                "scale-x" | "scale-y" => {
-                    if e.borrow().is_binding_set("scale", true) {
+                "transform-scale-x" | "transform-scale-y" => {
+                    if e.borrow().is_binding_set("transform-scale", true) {
                         Some(Expression::PropertyReference(NamedReference::new(
                             e,
-                            SmolStr::new_static("scale"),
+                            SmolStr::new_static("transform-scale"),
                         )))
                     } else {
                         Some(Expression::NumberLiteral(1., Default::default()))
                     }
                 }
-                "scale" => None,
+                "transform-scale" => None,
                 "rotation-angle" => Some(Expression::NumberLiteral(0., Default::default())),
                 _ => unreachable!(),
             }

@@ -128,8 +128,7 @@ export component WidgetLoaderSoftwareRenderer {
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
-        scale-x: scaler;
-        scale-y: scaler;
+        transform-scale: scaler;
     }
 
     if root.type == WidgetType.powerInfo && root.is-visible: PowerInfo {
