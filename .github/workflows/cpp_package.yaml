@@ -158,7 +158,7 @@ jobs:
             - name: install espup
               run: |
                   cargo binstall espup
-                  espup install -v "1.88.0" # Pinned because of https://github.com/esp-rs/rust/issues/266
+                  espup install
                   rustup default esp
             - name: add esp toolchains to PATH
               if: runner.os != 'Windows'

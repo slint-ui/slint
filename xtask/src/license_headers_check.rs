@@ -487,6 +487,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)biome\\.json$", LicenseLocation::NoLicense),
             ("(^|/)package-lock\\.json$", LicenseLocation::NoLicense),
             ("(^|/)py.typed$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("(^|/)api/cpp/esp-idf/slint/esp-println\\.x$", LicenseLocation::NoLicense), // license included
             // Path prefix matches:
             ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
             ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
