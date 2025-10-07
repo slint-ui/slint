@@ -9,7 +9,7 @@ use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
 use i_slint_common::sharedfontique::fontique;
 
-use super::RenderableGlyph;
+use super::RenderableVectorGlyph;
 
 // A length in font design space.
 struct FontUnit;
@@ -20,18 +20,15 @@ type GlyphCacheKey = (u64, PhysicalLength, core::num::NonZeroU16);
 
 struct RenderableGlyphWeightScale;
 
-impl clru::WeightScale<GlyphCacheKey, RenderableGlyph> for RenderableGlyphWeightScale {
-    fn weight(&self, _: &GlyphCacheKey, value: &RenderableGlyph) -> usize {
-        match &value.alpha_map {
-            super::GlyphAlphaMap::Static(_) => 0,
-            super::GlyphAlphaMap::Shared(data) => data.len(),
-        }
+impl clru::WeightScale<GlyphCacheKey, RenderableVectorGlyph> for RenderableGlyphWeightScale {
+    fn weight(&self, _: &GlyphCacheKey, value: &RenderableVectorGlyph) -> usize {
+        value.alpha_map.len()
     }
 }
 
 type GlyphCache = clru::CLruCache<
     GlyphCacheKey,
-    RenderableGlyph,
+    RenderableVectorGlyph,
     std::collections::hash_map::RandomState,
     RenderableGlyphWeightScale,
 >;
@@ -94,6 +91,38 @@ impl VectorFont {
             x_height: (x_height.cast() * scale).cast(),
             cap_height: (cap_height.cast() * scale).cast(),
         }
+    }
+
+    pub fn render_vector_glyph(
+        &self,
+        glyph_id: core::num::NonZeroU16,
+    ) -> Option<RenderableVectorGlyph> {
+        GLYPH_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+
+            let cache_key = (self.font_blob.id(), self.pixel_size, glyph_id);
+
+            if let Some(entry) = cache.get(&cache_key) {
+                Some(entry.clone())
+            } else {
+                let (metrics, alpha_map) =
+                    self.fontdue_font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
+
+                let alpha_map: Rc<[u8]> = alpha_map.into();
+
+                let glyph = super::RenderableVectorGlyph {
+                    x: Fixed::from_integer(metrics.xmin.try_into().unwrap()),
+                    y: Fixed::from_integer(metrics.ymin.try_into().unwrap()),
+                    width: PhysicalLength::new(metrics.width.try_into().unwrap()),
+                    height: PhysicalLength::new(metrics.height.try_into().unwrap()),
+                    alpha_map,
+                    pixel_stride: metrics.width.try_into().unwrap(),
+                };
+
+                cache.put_with_weight(cache_key, glyph.clone()).ok();
+                Some(glyph)
+            }
+        })
     }
 }
 
@@ -185,32 +214,14 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for VectorFont {
 
 impl super::GlyphRenderer for VectorFont {
     fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<super::RenderableGlyph> {
-        GLYPH_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
-
-            let cache_key = (self.font_blob.id(), self.pixel_size, glyph_id);
-
-            if let Some(entry) = cache.get(&cache_key) {
-                Some(entry.clone())
-            } else {
-                let (metrics, alpha_map) =
-                    self.fontdue_font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
-
-                let alpha_map: Rc<[u8]> = alpha_map.into();
-
-                let glyph = super::RenderableGlyph {
-                    x: Fixed::from_integer(metrics.xmin.try_into().unwrap()),
-                    y: Fixed::from_integer(metrics.ymin.try_into().unwrap()),
-                    width: PhysicalLength::new(metrics.width.try_into().unwrap()),
-                    height: PhysicalLength::new(metrics.height.try_into().unwrap()),
-                    alpha_map: alpha_map.into(),
-                    sdf: false,
-                    pixel_stride: metrics.width.try_into().unwrap(),
-                };
-
-                cache.put_with_weight(cache_key, glyph.clone()).ok();
-                Some(glyph)
-            }
+        self.render_vector_glyph(glyph_id).map(|glyph| super::RenderableGlyph {
+            x: glyph.x,
+            y: glyph.y,
+            width: glyph.width,
+            height: glyph.height,
+            alpha_map: glyph.alpha_map.into(),
+            pixel_stride: glyph.pixel_stride,
+            sdf: false,
         })
     }
 
