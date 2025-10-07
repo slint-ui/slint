@@ -2708,8 +2708,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
 
         for positioned_glyph in glyphs_it {
-            let Some(glyph) =
-                std::num::NonZero::new(positioned_glyph.id as u16).and_then(|id| font.render_glyph(id))
+            let Some(glyph) = std::num::NonZero::new(positioned_glyph.id as u16)
+                .and_then(|id| font.render_glyph(id))
             else {
                 continue;
             };
