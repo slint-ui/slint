@@ -717,7 +717,23 @@ impl RendererSealed for SoftwareRenderer {
         scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        fonts::text_size(font_request, text, max_width, scale_factor, text_wrap)
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        match font {
+            #[cfg(feature = "software-renderer-systemfonts")]
+            fonts::Font::VectorFont(_) => {
+               sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
+            },
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+                let (longest_line_width, height) = layout.text_size(
+                    text,
+                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
+                    text_wrap,
+                );
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+            }
+        }
     }
 
     fn font_metrics(
@@ -725,7 +741,27 @@ impl RendererSealed for SoftwareRenderer {
         font_request: crate::graphics::FontRequest,
         scale_factor: ScaleFactor,
     ) -> crate::items::FontMetrics {
-        fonts::font_metrics(font_request, scale_factor)
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        match font {
+            #[cfg(feature = "software-renderer-systemfonts")]
+            fonts::Font::VectorFont(_) => {
+               sharedparley::font_metrics(font_request)
+            },
+            fonts::Font::PixelFont(font) => {
+                let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
+                let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
+                let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
+                let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
+
+                crate::items::FontMetrics {
+                    ascent: ascent.get() as _,
+                    descent: descent.get() as _,
+                    x_height: x_height.get() as _,
+                    cap_height: cap_height.get() as _,
+                }
+            }
+        }
     }
 
     fn text_input_byte_offset_for_position(
