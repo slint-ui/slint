@@ -622,13 +622,15 @@ impl SoftwareRenderer {
                     );
                 }
 
-                for (component, origin) in components {
-                    crate::item_rendering::render_component_items(
-                        component,
-                        &mut renderer,
-                        *origin,
-                        &window_adapter,
-                    );
+                for (component, origin, sentinel) in components {
+                    if sentinel.as_ref().is_none_or(|s| s.upgrade().is_some()) {
+                        crate::item_rendering::render_component_items(
+                            component,
+                            &mut renderer,
+                            *origin,
+                            &window_adapter,
+                        );
+                    }
                 }
 
                 if let Some(metrics) = &self.rendering_metrics_collector {
@@ -1123,13 +1125,15 @@ fn prepare_scene(
         };
         drop(i);
 
-        for (component, origin) in components {
-            crate::item_rendering::render_component_items(
-                component,
-                &mut renderer,
-                *origin,
-                &window_adapter,
-            );
+        for (component, origin, sentinel) in components {
+            if sentinel.as_ref().is_none_or(|s| s.upgrade().is_some()) {
+                crate::item_rendering::render_component_items(
+                    component,
+                    &mut renderer,
+                    *origin,
+                    &window_adapter,
+                );
+            }
         }
     });
 

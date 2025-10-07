@@ -223,13 +223,15 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     }
                 }
 
-                for (component, origin) in components {
-                    i_slint_core::item_rendering::render_component_items(
-                        component,
-                        &mut item_renderer,
-                        *origin,
-                        &self.window_adapter()?,
-                    );
+                for (component, origin, sentinel) in components {
+                    if sentinel.as_ref().is_none_or(|s| s.upgrade().is_some()) {
+                        i_slint_core::item_rendering::render_component_items(
+                            component,
+                            &mut item_renderer,
+                            *origin,
+                            &self.window_adapter()?,
+                        );
+                    }
                 }
 
                 if let Some(cb) = post_render_cb.as_ref() {
