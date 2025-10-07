@@ -197,6 +197,17 @@ pub fn unregister_item_tree<Base>(
     if let Some(w) = window_adapter.internal(crate::InternalToken) {
         w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
     }
+
+    // Close popups that were part of a component that just got deleted
+    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+    let to_close_popups = window_inner
+        .active_popups()
+        .iter()
+        .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
+        .collect::<Vec<_>>();
+    for popup_id in to_close_popups {
+        window_inner.close_popup(popup_id);
+    }
 }
 
 fn find_sibling_outside_repeater(
