@@ -74,8 +74,6 @@ pub struct ItemTreeVTable {
     ),
 
     /// Return the item tree that is defined by this `ItemTree`.
-    /// The return value is an item weak because it can be null if there is no parent.
-    /// And the return value is passed by &mut because ItemWeak has a destructor
     pub get_item_tree: extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>) -> Slice<ItemTreeNode>,
 
     /// Return the node this ItemTree is a part of in the parent ItemTree.
@@ -84,6 +82,9 @@ pub struct ItemTreeVTable {
     /// And the return value is passed by &mut because ItemWeak has a destructor
     /// Note that the returned value will typically point to a repeater node, which is
     /// strictly speaking not an Item at all!
+    ///
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
     pub parent_node: extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, result: &mut ItemWeak),
 
     /// This embeds this ItemTree into the item tree of another ItemTree

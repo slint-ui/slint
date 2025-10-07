@@ -33,7 +33,7 @@ use std::str::FromStr;
 
 #[derive(Clone)]
 struct RustGeneratorContext {
-    /// Path to the SharedGlobals structure that contains the global and the WindowAdaptor
+    /// Path to the SharedGlobals structure that contains the global and the WindowAdapter
     global_access: TokenStream,
 }
 
@@ -229,7 +229,7 @@ pub fn generate(
         .iter_enumerated()
         .filter(|(_, glob)| glob.from_library)
         .map(|(_idx, glob)| generate_global_getters(glob, &llr));
-    let shared_globals = generate_shared_globals(&doc, &llr, compiler_config);
+    let shared_globals = generate_shared_globals(doc, &llr, compiler_config);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
@@ -454,10 +454,10 @@ fn generate_shared_globals(
         .filter(|g| g.from_library)
         .map(|g| {
             let library_info = doc.library_exports.get(g.name.as_str()).unwrap();
-            let shared_gloabls_var_name =
+            let shared_globals_var_name =
                 format_ident!("library_{}_shared_globals", library_info.name);
             let global_name = format_ident!("global_{}", ident(&g.name));
-            quote!( #shared_gloabls_var_name.#global_name )
+            quote!( #shared_globals_var_name.#global_name )
         })
         .collect::<Vec<_>>();
     let pub_token = if compiler_config.library_name.is_some() { quote!(pub) } else { quote!() };
@@ -468,18 +468,18 @@ fn generate_shared_globals(
         .filter_map(|import| import.library_info.clone())
         .map(|library_info| {
             let struct_name = format_ident!("{}SharedGlobals", library_info.name);
-            let shared_gloabls_var_name =
+            let shared_globals_var_name =
                 format_ident!("library_{}_shared_globals", library_info.name);
             let shared_globals_type_name = if let Some(module) = library_info.module {
                 let package = ident(&library_info.package);
                 let module = ident(&module);
-                //(quote!(#shared_gloabls_var_name),quote!(let #shared_gloabls_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
+                //(quote!(#shared_gloabls_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
                 quote!(#package::#module::#struct_name)
             } else {
                 let package = ident(&library_info.package);
                 quote!(#package::#struct_name)
             };
-            (quote!(#shared_gloabls_var_name), shared_globals_type_name)
+            (quote!(#shared_globals_var_name), shared_globals_type_name)
         })
         .unzip();
 
@@ -1663,8 +1663,7 @@ fn generate_item_tree(
         quote!(false)
     };
 
-    let parent_item_expression = parent_ctx.and_then(|parent| {
-        Some(parent.repeater_index.map_or_else(|| {
+    let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
             // No repeater index, this could be a PopupWindow
             quote!(if let Some(parent_rc) = self.parent.clone().upgrade() {
                        let parent_origin = sp::VRcMapped::origin(&parent_rc);
@@ -1684,8 +1683,7 @@ fn generate_item_tree(
                 *_result = sp::ItemRc::new(parent_component, parent_index + #sub_component_offset - 1)
                     .downgrade();
             })
-        }))
-    });
+        }));
     let mut item_tree_array = vec![];
     let mut item_array = vec![];
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
@@ -3414,7 +3412,7 @@ fn compile_builtin_function_call(
                 let ident = format_ident!("timer{}", *timer_index as usize);
                 quote!(_self.#ident.restart())
             } else {
-                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+                panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
     }
@@ -3665,7 +3663,7 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
 fn compile_expression_no_parenthesis(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     fn extract_single_group(stream: &TokenStream) -> Option<TokenStream> {
         let mut iter = stream.clone().into_iter();
-        let Some(elem) = iter.next() else { return None };
+        let elem = iter.next()?;
         let TokenTree::Group(elem) = elem else { return None };
         if elem.delimiter() != proc_macro2::Delimiter::Parenthesis {
             return None;

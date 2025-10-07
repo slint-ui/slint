@@ -133,7 +133,7 @@ fn create_partial_renderer_state(
             || std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref().is_ok(),
             |surface| surface.use_partial_rendering(),
         )
-        .then(|| PartialRenderingState::default())
+        .then(PartialRenderingState::default)
 }
 
 #[derive(Default)]
@@ -445,7 +445,7 @@ impl SkiaRenderer {
         context: &SkiaSharedContext,
         surface: Box<dyn Surface + 'static>,
     ) -> Self {
-        let partial_rendering_state = create_partial_renderer_state(Some(surface.as_ref())).into();
+        let partial_rendering_state = create_partial_renderer_state(Some(surface.as_ref()));
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -691,7 +691,7 @@ impl SkiaRenderer {
 
                 for dirty_rect in partial_renderer.dirty_region.iter() {
                     let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
-                    clip_path.add_rect(&to_skia_rect(&physical_rect), None);
+                    clip_path.add_rect(to_skia_rect(&physical_rect), None);
                 }
 
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
@@ -764,7 +764,7 @@ impl SkiaRenderer {
 
             if let Some(path) = dirty_region_to_visualize {
                 let mut paint = skia_safe::Paint::new(
-                    &skia_safe::Color4f { a: 0.5, r: 1.0, g: 0., b: 0. },
+                    skia_safe::Color4f { a: 0.5, r: 1.0, g: 0., b: 0. },
                     None,
                 );
                 paint.set_style(skia_safe::PaintStyle::Stroke);
