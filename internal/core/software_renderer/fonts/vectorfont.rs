@@ -16,7 +16,7 @@ struct FontUnit;
 type FontLength = euclid::Length<i32, FontUnit>;
 type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 
-type GlyphCacheKey = (u64, PhysicalLength, core::num::NonZeroU16);
+type GlyphCacheKey = (u64, u32, PhysicalLength, core::num::NonZeroU16);
 
 struct RenderableGlyphWeightScale;
 
@@ -100,7 +100,7 @@ impl VectorFont {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
-            let cache_key = (self.font_blob.id(), self.pixel_size, glyph_id);
+            let cache_key = (self.font_blob.id(), self.font_index, self.pixel_size, glyph_id);
 
             if let Some(entry) = cache.get(&cache_key) {
                 Some(entry.clone())
