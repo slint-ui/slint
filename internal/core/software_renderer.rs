@@ -2087,6 +2087,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     }
 
     /// Returns the color, mixed with the current_state's alpha
+    #[cfg(not(all(feature = "shared-parley", feature = "software-renderer-systemfonts")))]
     fn alpha_color(&self, color: Color) -> Color {
         if self.current_state.alpha < 1.0 {
             Color::from_argb_u8(
@@ -2272,70 +2273,75 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let string = text.text();
-        if string.trim().is_empty() {
-            return;
-        }
-        let geom = LogicalRect::from(size);
-        if !self.should_draw(&geom) {
-            return;
-        }
-
-        let font_request = text.font_request(self_rc);
-
-        let color = self.alpha_color(text.color().color());
-        let max_size = (geom.size.cast() * self.scale_factor).cast();
-
-        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
-        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
-        // FIXME: we should allow drawing outside of the Text element's boundaries.
-        let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
+        #[cfg(all(feature = "shared-parley", feature = "software-renderer-systemfonts"))]
+        sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
+        #[cfg(not(all(feature = "shared-parley", feature = "software-renderer-systemfonts")))]
         {
-            logical_clip.cast() * self.scale_factor
-        } else {
-            return; // This should have been caught earlier already
-        };
-        let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
-
-        let font = fonts::match_font(&font_request, self.scale_factor);
-
-        match font {
-            fonts::Font::PixelFont(pf) => {
-                let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
-                let (horizontal_alignment, vertical_alignment) = text.alignment();
-
-                let paragraph = TextParagraphLayout {
-                    string: &string,
-                    layout,
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
-                    horizontal_alignment,
-                    vertical_alignment,
-                    wrap: text.wrap(),
-                    overflow: text.overflow(),
-                    single_line: false,
-                };
-
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            let string = text.text();
+            if string.trim().is_empty() {
+                return;
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
-            fonts::Font::VectorFont(vf) => {
-                let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
-                let (horizontal_alignment, vertical_alignment) = text.alignment();
+            let geom = LogicalRect::from(size);
+            if !self.should_draw(&geom) {
+                return;
+            }
 
-                let paragraph = TextParagraphLayout {
-                    string: &string,
-                    layout,
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
-                    horizontal_alignment,
-                    vertical_alignment,
-                    wrap: text.wrap(),
-                    overflow: text.overflow(),
-                    single_line: false,
+            let font_request = text.font_request(self_rc);
+
+            let color = self.alpha_color(text.color().color());
+            let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+            // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+            // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+            // FIXME: we should allow drawing outside of the Text element's boundaries.
+            let physical_clip =
+                if let Some(logical_clip) = self.current_state.clip.intersection(&geom) {
+                    logical_clip.cast() * self.scale_factor
+                } else {
+                    return; // This should have been caught earlier already
                 };
+            let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            let font = fonts::match_font(&font_request, self.scale_factor);
+
+            match font {
+                fonts::Font::PixelFont(pf) => {
+                    let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
+                    let (horizontal_alignment, vertical_alignment) = text.alignment();
+
+                    let paragraph = TextParagraphLayout {
+                        string: &string,
+                        layout,
+                        max_width: max_size.width_length(),
+                        max_height: max_size.height_length(),
+                        horizontal_alignment,
+                        vertical_alignment,
+                        wrap: text.wrap(),
+                        overflow: text.overflow(),
+                        single_line: false,
+                    };
+
+                    self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+                }
+                #[cfg(feature = "software-renderer-systemfonts")]
+                fonts::Font::VectorFont(vf) => {
+                    let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
+                    let (horizontal_alignment, vertical_alignment) = text.alignment();
+
+                    let paragraph = TextParagraphLayout {
+                        string: &string,
+                        layout,
+                        max_width: max_size.width_length(),
+                        max_height: max_size.height_length(),
+                        horizontal_alignment,
+                        vertical_alignment,
+                        wrap: text.wrap(),
+                        overflow: text.overflow(),
+                        single_line: false,
+                    };
+
+                    self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+                }
             }
         }
     }
@@ -2346,109 +2352,120 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        let geom = LogicalRect::from(size);
-        if !self.should_draw(&geom) {
-            return;
-        }
-
-        let font_request = text_input.font_request(self_rc);
-        let max_size = (geom.size.cast() * self.scale_factor).cast();
-
-        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
-        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
-        // FIXME: we should allow drawing outside of the Text element's boundaries.
-        let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
+        #[cfg(all(feature = "shared-parley", feature = "software-renderer-systemfonts"))]
+        sharedparley::draw_text_input(
+            self,
+            text_input,
+            Some(text_input.font_request(self_rc)),
+            size,
+            None,
+        );
+        #[cfg(not(all(feature = "shared-parley", feature = "software-renderer-systemfonts")))]
         {
-            logical_clip.cast() * self.scale_factor
-        } else {
-            return; // This should have been caught earlier already
-        };
-        let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
-
-        let font = fonts::match_font(&font_request, self.scale_factor);
-
-        let text_visual_representation = text_input.visual_representation(None);
-        let color = self.alpha_color(text_visual_representation.text_color.color());
-
-        let selection =
-            (!text_visual_representation.selection_range.is_empty()).then_some(SelectionInfo {
-                selection_background: self.alpha_color(text_input.selection_background_color()),
-                selection_color: self.alpha_color(text_input.selection_foreground_color()),
-                selection: text_visual_representation.selection_range.clone(),
-            });
-
-        let cursor_pos_and_height = match font {
-            fonts::Font::PixelFont(pf) => {
-                let paragraph = TextParagraphLayout {
-                    string: &text_visual_representation.text,
-                    layout: fonts::text_layout_for_font(&pf, &font_request, self.scale_factor),
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
-                    horizontal_alignment: text_input.horizontal_alignment(),
-                    vertical_alignment: text_input.vertical_alignment(),
-                    wrap: text_input.wrap(),
-                    overflow: TextOverflow::Clip,
-                    single_line: text_input.single_line(),
-                };
-
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
-
-                text_visual_representation.cursor_position.map(|cursor_offset| {
-                    (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
-                })
+            let geom = LogicalRect::from(size);
+            if !self.should_draw(&geom) {
+                return;
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
-            fonts::Font::VectorFont(vf) => {
-                let paragraph = TextParagraphLayout {
-                    string: &text_visual_representation.text,
-                    layout: fonts::text_layout_for_font(&vf, &font_request, self.scale_factor),
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
-                    horizontal_alignment: text_input.horizontal_alignment(),
-                    vertical_alignment: text_input.vertical_alignment(),
-                    wrap: text_input.wrap(),
-                    overflow: TextOverflow::Clip,
-                    single_line: text_input.single_line(),
+
+            let font_request = text_input.font_request(self_rc);
+            let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+            // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+            // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+            // FIXME: we should allow drawing outside of the Text element's boundaries.
+            let physical_clip =
+                if let Some(logical_clip) = self.current_state.clip.intersection(&geom) {
+                    logical_clip.cast() * self.scale_factor
+                } else {
+                    return; // This should have been caught earlier already
                 };
+            let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
+            let font = fonts::match_font(&font_request, self.scale_factor);
 
-                text_visual_representation.cursor_position.map(|cursor_offset| {
-                    (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
-                })
-            }
-        };
+            let text_visual_representation = text_input.visual_representation(None);
+            let color = self.alpha_color(text_visual_representation.text_color.color());
 
-        if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
-            let cursor_rect = PhysicalRect::new(
-                PhysicalPoint::from_lengths(cursor_x, cursor_y),
-                PhysicalSize::from_lengths(
-                    (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
-                    cursor_height,
-                ),
-            );
+            let selection =
+                (!text_visual_representation.selection_range.is_empty()).then_some(SelectionInfo {
+                    selection_background: self.alpha_color(text_input.selection_background_color()),
+                    selection_color: self.alpha_color(text_input.selection_foreground_color()),
+                    selection: text_visual_representation.selection_range.clone(),
+                });
 
-            if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
-                let geometry = clipped_src.translate(offset.cast()).transformed(self.rotation);
-                #[allow(unused_mut)]
-                let mut cursor_color = text_visual_representation.cursor_color;
-                #[cfg(all(feature = "std", target_os = "macos"))]
-                {
-                    // On macOs, the cursor color is different than other platform. Use a hack to pass the screenshot test.
-                    static IS_SCREENSHOT_TEST: std::sync::OnceLock<bool> =
-                        std::sync::OnceLock::new();
-                    if *IS_SCREENSHOT_TEST.get_or_init(|| {
-                        std::env::var_os("CARGO_PKG_NAME").unwrap_or_default()
-                            == "test-driver-screenshots"
-                    }) {
-                        cursor_color = color;
-                    }
+            let cursor_pos_and_height = match font {
+                fonts::Font::PixelFont(pf) => {
+                    let paragraph = TextParagraphLayout {
+                        string: &text_visual_representation.text,
+                        layout: fonts::text_layout_for_font(&pf, &font_request, self.scale_factor),
+                        max_width: max_size.width_length(),
+                        max_height: max_size.height_length(),
+                        horizontal_alignment: text_input.horizontal_alignment(),
+                        vertical_alignment: text_input.vertical_alignment(),
+                        wrap: text_input.wrap(),
+                        overflow: TextOverflow::Clip,
+                        single_line: text_input.single_line(),
+                    };
+
+                    self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
+
+                    text_visual_representation.cursor_position.map(|cursor_offset| {
+                        (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
+                    })
                 }
-                let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-                    geometry.cast(),
-                    self.alpha_color(cursor_color).into(),
+                #[cfg(feature = "software-renderer-systemfonts")]
+                fonts::Font::VectorFont(vf) => {
+                    let paragraph = TextParagraphLayout {
+                        string: &text_visual_representation.text,
+                        layout: fonts::text_layout_for_font(&vf, &font_request, self.scale_factor),
+                        max_width: max_size.width_length(),
+                        max_height: max_size.height_length(),
+                        horizontal_alignment: text_input.horizontal_alignment(),
+                        vertical_alignment: text_input.vertical_alignment(),
+                        wrap: text_input.wrap(),
+                        overflow: TextOverflow::Clip,
+                        single_line: text_input.single_line(),
+                    };
+
+                    self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
+
+                    text_visual_representation.cursor_position.map(|cursor_offset| {
+                        (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
+                    })
+                }
+            };
+
+            if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
+                let cursor_rect = PhysicalRect::new(
+                    PhysicalPoint::from_lengths(cursor_x, cursor_y),
+                    PhysicalSize::from_lengths(
+                        (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
+                        cursor_height,
+                    ),
                 );
-                self.processor.process_rectangle(&args, geometry);
+
+                if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
+                    let geometry = clipped_src.translate(offset.cast()).transformed(self.rotation);
+                    #[allow(unused_mut)]
+                    let mut cursor_color = text_visual_representation.cursor_color;
+                    #[cfg(all(feature = "std", target_os = "macos"))]
+                    {
+                        // On macOs, the cursor color is different than other platform. Use a hack to pass the screenshot test.
+                        static IS_SCREENSHOT_TEST: std::sync::OnceLock<bool> =
+                            std::sync::OnceLock::new();
+                        if *IS_SCREENSHOT_TEST.get_or_init(|| {
+                            std::env::var_os("CARGO_PKG_NAME").unwrap_or_default()
+                                == "test-driver-screenshots"
+                        }) {
+                            cursor_color = color;
+                        }
+                    }
+                    let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+                        geometry.cast(),
+                        self.alpha_color(cursor_color).into(),
+                    );
+                    self.processor.process_rectangle(&args, geometry);
+                }
             }
         }
     }
