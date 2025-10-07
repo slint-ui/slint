@@ -58,4 +58,19 @@ export component Foo {
 
     property <float> sq2: 1.0.sqrt;
 //                            ^error{Member function must be called. Did you forgot the '()'?}
+
+    property <float> sign1: m1.sign;
+//                          ^error{Member function must be called. Did you forgot the '()'?}
+    property <float> sign2: Math.sign();
+//                               ^error{Expected one argument}
+    property <float> sign3: sign(1,2,3);
+//                          ^error{Expected only one argument}
+    property <float> sign4: sign(85px);
+//                               ^error{Cannot convert length to float. Divide by 1px to convert to a plain number}
+    property <float> sign5: sign("4");
+//                               ^error{Cannot convert string to float}
+    property <float> sign6: sign;
+//                          ^error{Builtin function must be called. Did you forgot the '()'?}
+    property <float> sign7: sign(4,6);
+//                          ^error{Expected only one argument}
 }
