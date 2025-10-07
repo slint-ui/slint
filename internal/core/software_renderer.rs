@@ -2621,3 +2621,67 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 impl<T: ProcessScene> crate::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
     const SUPPORTS_TRANSFORMATIONS: bool = false;
 }
+
+#[cfg(all(feature = "shared-parley", feature = "software-renderer-systemfonts"))]
+use crate::textlayout::sharedparley;
+
+#[cfg(all(feature = "shared-parley", feature = "software-renderer-systemfonts"))]
+impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
+    type PlatformBrush = Brush;
+
+    fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush> {
+        Some(Brush::SolidColor(*color))
+    }
+
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: Brush,
+        _size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        Some(brush)
+    }
+
+    fn platform_text_stroke_brush(
+        &mut self,
+        brush: Brush,
+        _physical_stroke_width: f32,
+        _size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        Some(brush)
+    }
+
+    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
+        if color.alpha() == 0 {
+            return;
+        }
+
+        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+            physical_rect,
+            Brush::SolidColor(color),
+        );
+        self.processor.process_rectangle(&args, physical_rect.cast());
+    }
+
+    fn draw_glyph_run(
+        &mut self,
+        font: &sharedparley::parley::Font,
+        font_size: f32,
+        brush: Self::PlatformBrush,
+        y_offset: sharedparley::PhysicalLength,
+        glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
+    ) {
+        let fontdue_font = fonts::systemfonts::get_or_create_fontdue_font_from_blob_and_index(
+            &font.data, font.index,
+        );
+        let font = fonts::vectorfont::VectorFont::new_from_blob_and_index(
+            font.data.clone(),
+            font.index,
+            fontdue_font,
+            PhysicalLength::new(font_size as _),
+        );
+
+        for glyph in glyphs_it {
+            // todo
+        }
+    }
+}
