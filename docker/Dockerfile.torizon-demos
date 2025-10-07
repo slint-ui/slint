@@ -58,12 +58,19 @@ RUN mkdir demos_compiled \
 
 # Create container for target
 FROM --platform=${IMAGE_ARCH} torizon/${BASE_NAME}:${BASE_VERSION} AS deploy
+ARG BUILD_HOME_AUTOMATION_SW_RENDERER
 
 LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
 LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo"
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 libinput10 fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji fonts-noto-ui-core fonts-noto-ui-extra \
+    && if [ "$BUILD_HOME_AUTOMATION_SW_RENDERER" = "true" ]; then \
+        echo "Removing Mesa OpenGL packages for software renderer build..." \
+        && DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y mesa-utils libegl1 libglx-mesa0 libgl1-mesa-dri libglapi-mesa libegl-mesa0 \
+        && apt-get autoremove -y \
+        && DEBIAN_FRONTEND=noninteractive apt-get install -y libgbm1; \
+    fi \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /slint/demos_compiled/* /usr/bin/

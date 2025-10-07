@@ -21,11 +21,11 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "1.117.0",
+    "@figma/plugin-typings": "1.117.1",
     "@types/jszip": "3.4.1",
     "@types/node": "catalog:",
-    "@types/react": "19.1.15",
-    "@types/react-dom": "19.1.9",
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
     "@vitejs/plugin-react": "5.0.4",
     "cross-env": "10.1.0",
     "jszip": "3.10.1",
@@ -39,8 +39,8 @@
   "dependencies": {
     "figma-kit": "1.0.0-beta.19",
     "html-react-parser": "5.2.6",
-    "react": "19.1.1",
-    "react-dom": "19.1.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "react-rnd": "10.5.2",
     "zustand": "5.0.8"
   }

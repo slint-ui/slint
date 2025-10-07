@@ -184,10 +184,10 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-26"))]
-            ImageInner::WGPUTexture(any_wgpu_texture) => {
-                let texture = match any_wgpu_texture {
-                    i_slint_core::graphics::WGPUTexture::WGPU26Texture(texture) => texture.clone(),
-                };
+            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU26Texture(
+                texture,
+            )) => {
+                let texture = texture.clone();
                 let size = texture.size();
 
                 canvas
@@ -202,6 +202,10 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                         ),
                     )
                     .unwrap()
+            }
+            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-27"))]
+            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU27Texture(..)) => {
+                return None;
             }
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;

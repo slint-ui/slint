@@ -50,7 +50,7 @@ export component Bug6315  {
 }
 
 
-export component W inherits Window {
+export component TestCase inherits Window {
 
     Rectangle {
         VerticalLayout {
@@ -70,3 +70,19 @@ export component W inherits Window {
         && c2.min-height == 300px && c2.min-width == 200px
         && bug-6315.ok;
 }
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

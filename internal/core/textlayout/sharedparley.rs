@@ -10,10 +10,18 @@ use std::cell::RefCell;
 use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
-    lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor, SizeLengths},
+    lengths::{
+        LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths,
+    },
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     SharedString,
 };
+
+pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
+pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
+type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
+type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
+
 use i_slint_common::sharedfontique;
 
 /// Trait used for drawing text and text input elements with parley, where parley does the
@@ -47,20 +55,13 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         font: &parley::Font,
         font_size: f32,
         brush: Self::PlatformBrush,
-        y_offset: f32,
+        y_offset: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
     /// Fills the given rectangle with the specified color. This is used for drawing selection
     /// rectangles as well as the text cursor.
-    fn fill_rectangle(
-        &mut self,
-        physical_x: f32,
-        physical_y: f32,
-        physical_width: f32,
-        physical_height: f32,
-        color: crate::Color,
-    );
+    fn fill_rectangle(&mut self, physical_rect: PhysicalRect, color: crate::Color);
 }
 
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
@@ -129,7 +130,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
     // that character and parley will panic. We just filter out empty selection ranges.
     options.selection = options.selection.filter(|selection| !selection.is_empty());
 
-    let max_physical_width = options.max_width.map(|max_width| (max_width * scale_factor).get());
+    let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
     let pixel_size = options
         .font_request
@@ -140,11 +141,30 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
     let push_to_builder = |builder: &mut parley::RangedBuilder<_>| {
         if let Some(ref font_request) = options.font_request {
             if let Some(family) = &font_request.family {
-                builder.push_default(parley::StyleProperty::FontStack(
-                    parley::style::FontStack::Single(parley::style::FontFamily::Named(
-                        family.as_str().into(),
-                    )),
-                ));
+                builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
+                    &[
+                        parley::style::FontFamily::Named(family.as_str().into()),
+                        // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SansSerif,
+                        ),
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SystemUi,
+                        ),
+                    ],
+                )));
+            } else {
+                builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
+                    &[
+                        // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SansSerif,
+                        ),
+                        parley::style::FontFamily::Generic(
+                            parley::fontique::GenericFamily::SystemUi,
+                        ),
+                    ],
+                )));
             }
             if let Some(weight) = font_request.weight {
                 builder.push_default(parley::StyleProperty::FontWeight(
@@ -214,9 +234,13 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         (builder.build(text), elision_info)
     });
 
-    layout.break_all_lines(max_physical_width.filter(|_| options.text_wrap != TextWrap::NoWrap));
+    layout.break_all_lines(
+        max_physical_width
+            .filter(|_| options.text_wrap != TextWrap::NoWrap)
+            .map(|width| width.get()),
+    );
     layout.align(
-        max_physical_width,
+        max_physical_width.map(|width| width.get()),
         match options.horizontal_align {
             TextHorizontalAlignment::Left => parley::Alignment::Left,
             TextHorizontalAlignment::Center => parley::Alignment::Middle,
@@ -227,10 +251,12 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => {
-            (max_height.get() - layout.height()) / 2.0
+            (max_height - PhysicalLength::new(layout.height())) / 2.0
         }
-        (Some(max_height), TextVerticalAlignment::Bottom) => max_height.get() - layout.height(),
-        (None, _) | (Some(_), TextVerticalAlignment::Top) => 0.0,
+        (Some(max_height), TextVerticalAlignment::Bottom) => {
+            max_height - PhysicalLength::new(layout.height())
+        }
+        (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
     Layout { inner: layout, y_offset, elision_info }
@@ -238,12 +264,12 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
 struct ElisionInfo {
     elipsis_glyph: parley::layout::Glyph,
-    max_physical_width: f32,
+    max_physical_width: PhysicalLength,
 }
 
 struct Layout {
     inner: parley::Layout<Brush>,
-    y_offset: f32,
+    y_offset: PhysicalLength,
     elision_info: Option<ElisionInfo>,
 }
 
@@ -256,7 +282,7 @@ impl Layout {
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
     ) -> impl Iterator<Item = parley::layout::Glyph> + Clone + 'a {
         let run_beyond_max_width = self.elision_info.as_ref().map_or(false, |info| {
-            let run_end = glyph_run.offset() + glyph_run.advance();
+            let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
 
             run_end > info.max_physical_width
         });
@@ -270,7 +296,7 @@ impl Layout {
                 return Some(glyph);
             };
 
-            if glyph.x + glyph.advance + elision_info.elipsis_glyph.advance
+            if PhysicalLength::new(glyph.x + glyph.advance + elision_info.elipsis_glyph.advance)
                 > elision_info.max_physical_width
             {
                 if elipsis_emitted {
@@ -524,10 +550,13 @@ pub fn draw_text_input(
     );
     selection.geometry_with(&layout.inner, |rect, _| {
         item_renderer.fill_rectangle(
-            rect.min_x() as _,
-            rect.min_y() as f32 + layout.y_offset,
-            rect.width() as _,
-            rect.height() as _,
+            PhysicalRect::new(
+                PhysicalPoint::from_lengths(
+                    PhysicalLength::new(rect.min_x() as _),
+                    PhysicalLength::new(rect.min_y() as _) + layout.y_offset,
+                ),
+                PhysicalSize::new(rect.width() as _, rect.height() as _),
+            ),
             text_input.selection_background_color(),
         );
     });
@@ -551,10 +580,13 @@ pub fn draw_text_input(
             cursor.geometry(&layout.inner, (text_input.text_cursor_width() * scale_factor).get());
 
         item_renderer.fill_rectangle(
-            rect.min_x() as _,
-            rect.min_y() as f32 + layout.y_offset,
-            rect.width() as _,
-            rect.height() as _,
+            PhysicalRect::new(
+                PhysicalPoint::from_lengths(
+                    PhysicalLength::new(rect.min_x() as _),
+                    PhysicalLength::new(rect.min_y() as _) + layout.y_offset,
+                ),
+                PhysicalSize::new(rect.width() as _, rect.height() as _),
+            ),
             visual_representation.cursor_color,
         );
     }
@@ -577,7 +609,7 @@ pub fn text_size(
             ..Default::default()
         },
     );
-    euclid::size2(layout.inner.width(), layout.inner.height()) / scale_factor
+    PhysicalSize::new(layout.inner.width(), layout.inner.height()) / scale_factor
 }
 
 pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
@@ -602,7 +634,7 @@ pub fn text_input_byte_offset_for_position(
     font_request: FontRequest,
     scale_factor: ScaleFactor,
 ) -> usize {
-    let pos = pos * scale_factor;
+    let pos: PhysicalPoint = pos * scale_factor;
     let text = text_input.text();
 
     let width = text_input.width();
@@ -622,8 +654,11 @@ pub fn text_input_byte_offset_for_position(
             ..Default::default()
         },
     );
-    let cursor =
-        parley::layout::cursor::Cursor::from_point(&layout.inner, pos.x, pos.y - layout.y_offset);
+    let cursor = parley::layout::cursor::Cursor::from_point(
+        &layout.inner,
+        pos.x,
+        pos.y - layout.y_offset.get(),
+    );
 
     let visual_representation = text_input.visual_representation(None);
     visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
@@ -659,8 +694,11 @@ pub fn text_input_cursor_rect_for_byte_offset(
         Default::default(),
     );
     let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
-    LogicalRect::new(
-        LogicalPoint::new(rect.min_x() as _, rect.min_y() as f32 + layout.y_offset),
-        LogicalSize::new(rect.width() as _, rect.height() as _),
-    )
+    PhysicalRect::new(
+        PhysicalPoint::from_lengths(
+            PhysicalLength::new(rect.min_x() as _),
+            PhysicalLength::new(rect.min_y() as _) + layout.y_offset,
+        ),
+        PhysicalSize::new(rect.width() as _, rect.height() as _),
+    ) / scale_factor
 }

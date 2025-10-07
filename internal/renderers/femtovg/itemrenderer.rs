@@ -963,14 +963,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         font: &parley::Font,
         font_size: f32,
         mut brush: Self::PlatformBrush,
-        y_offset: f32,
+        y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
         let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
             x: glyph.x,
-            y: glyph.y + y_offset,
+            y: glyph.y + y_offset.get(),
             glyph_id: glyph.id,
         });
 
@@ -988,14 +988,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         }
     }
 
-    fn fill_rectangle(
-        &mut self,
-        physical_x: f32,
-        physical_y: f32,
-        physical_width: f32,
-        physical_height: f32,
-        color: Color,
-    ) {
+    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
         if color.alpha() == 0 {
             return;
         }
@@ -1003,7 +996,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
 
         let mut path = femtovg::Path::new();
-        path.rect(physical_x, physical_y, physical_width, physical_height);
+        path.rect(
+            physical_rect.min_x(),
+            physical_rect.min_y(),
+            physical_rect.width(),
+            physical_rect.height(),
+        );
 
         self.canvas.borrow_mut().fill_path(&path, &paint);
     }

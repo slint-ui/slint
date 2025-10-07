@@ -1068,7 +1068,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         font: &sharedparley::parley::Font,
         font_size: f32,
         brush: Self::PlatformBrush,
-        y_offset: f32,
+        y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let Some(mut raw_font) = FONT_CACHE.with(|cache| cache.borrow_mut().font(font)) else {
@@ -1080,49 +1080,62 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         let (glyph_indices, positions): (Vec<u32>, Vec<qttypes::QPointF>) = glyphs_it
             .into_iter()
             .map(|g| {
-                (g.id as u32, qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset as f64 })
+                (
+                    g.id as u32,
+                    qttypes::QPointF { x: g.x as f64, y: g.y as f64 + y_offset.get() as f64 },
+                )
             })
             .unzip();
 
         let glyph_indices_ptr = glyph_indices.as_ptr();
         let glyph_positions_ptr = positions.as_ptr();
         let size: u32 = glyph_indices.len() as u32;
-
-        let mut qt_pen = qttypes::QPen::default();
-        let mut qt_brush = qttypes::QBrush::default();
+        if size == 0 {
+            return;
+        }
 
         let painter: &mut QPainterPtr = &mut self.painter;
 
         match brush {
-            GlyphBrush::Fill(qbrush) => qt_brush = qbrush,
-            GlyphBrush::Stroke(qpen) => qt_pen = qpen,
-        }
+            GlyphBrush::Fill(qt_brush) => {
+                cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", raw_font as "QRawFont", qt_brush as "QBrush"] {
+                    // drawGlyphRun uses QPen to fill glyphs
+                    (*painter)->setPen(QPen(qt_brush, 1));
+                    (*painter)->setBrush(Qt::NoBrush);
 
-        cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", qt_pen as "QPen", qt_brush as "QBrush", raw_font as "QRawFont"] {
-            if (size == 0)
-                return;
-            (*painter)->setPen(qt_pen);
-            (*painter)->setBrush(qt_brush);
-            QGlyphRun glyphRun;
-            glyphRun.setRawFont(raw_font);
-            glyphRun.setRawData(glyph_indices_ptr, glyph_positions_ptr, size);
-            (*painter)->drawGlyphRun(QPointF(0, 0), glyphRun);
-        }}
+                    QGlyphRun glyphRun;
+                    glyphRun.setRawFont(raw_font);
+                    glyphRun.setRawData(glyph_indices_ptr, glyph_positions_ptr, size);
+                    (*painter)->drawGlyphRun(QPointF(0, 0), glyphRun);
+                }}
+            }
+            GlyphBrush::Stroke(qt_pen) => {
+                cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", raw_font as "QRawFont", qt_pen as "QPen"] {
+                    (*painter)->setPen(qt_pen);
+                    (*painter)->setBrush(Qt::NoBrush);
+
+                    QPainterPath path;
+                    for (int i = 0; i < size; i++) {
+                        QPainterPath glyphPath = raw_font.pathForGlyph(glyph_indices_ptr[i]);
+                        glyphPath.translate(glyph_positions_ptr[i]);
+                        path.addPath(glyphPath);
+                    }
+                    (*painter)->drawPath(path);
+                }}
+            }
+        }
     }
 
     fn fill_rectangle(
         &mut self,
-        physical_x: f32,
-        physical_y: f32,
-        physical_width: f32,
-        physical_height: f32,
+        physical_rect: sharedparley::PhysicalRect,
         color: i_slint_core::Color,
     ) {
         let rect = qttypes::QRectF {
-            x: physical_x as _,
-            y: physical_y as _,
-            width: physical_width as _,
-            height: physical_height as _,
+            x: physical_rect.min_x() as _,
+            y: physical_rect.min_y() as _,
+            width: physical_rect.width() as _,
+            height: physical_rect.height() as _,
         };
         let color: u32 = color.as_argb_encoded();
         let painter: &mut QPainterPtr = &mut self.painter;
