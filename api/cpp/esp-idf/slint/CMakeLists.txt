@@ -56,3 +56,4 @@ else()
 endif()
 
 target_link_libraries(${COMPONENT_LIB} PUBLIC Slint::Slint)
+target_linker_script(${COMPONENT_LIB} INTERFACE "esp-println.x")
