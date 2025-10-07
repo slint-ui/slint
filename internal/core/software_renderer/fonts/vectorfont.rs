@@ -16,7 +16,7 @@ struct FontUnit;
 type FontLength = euclid::Length<i32, FontUnit>;
 type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 
-type GlyphCacheKey = (fontique::FamilyId, PhysicalLength, core::num::NonZeroU16);
+type GlyphCacheKey = (u64, PhysicalLength, core::num::NonZeroU16);
 
 struct RenderableGlyphWeightScale;
 
@@ -46,7 +46,8 @@ crate::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
 );
 
 pub struct VectorFont {
-    font: fontique::QueryFont,
+    font_index: u32,
+    font_blob: fontique::Blob<u8>,
     fontdue_font: Rc<fontdue::Font>,
     ascender: PhysicalLength,
     descender: PhysicalLength,
@@ -73,7 +74,8 @@ impl VectorFont {
         let units_per_em = face.units_per_em();
         let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
         Self {
-            font,
+            font_index: font.index,
+            font_blob: font.blob,
             fontdue_font,
             ascender: (ascender.cast() * scale).cast(),
             descender: (descender.cast() * scale).cast(),
@@ -98,7 +100,7 @@ impl TextShaper for VectorFont {
         buffer.push_str(text);
 
         let face =
-            rustybuzz::ttf_parser::Face::parse(self.font.blob.data(), self.font.index).unwrap();
+            rustybuzz::ttf_parser::Face::parse(self.font_blob.data(), self.font_index).unwrap();
         let rb_face = rustybuzz::Face::from_face(face);
 
         let glyph_buffer = rustybuzz::shape(&rb_face, &[], buffer);
@@ -129,7 +131,7 @@ impl TextShaper for VectorFont {
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
         let face =
-            rustybuzz::ttf_parser::Face::parse(self.font.blob.data(), self.font.index).unwrap();
+            rustybuzz::ttf_parser::Face::parse(self.font_blob.data(), self.font_index).unwrap();
         face.glyph_index(ch).map(|glyph_index| {
             let mut out_glyph = Glyph::default();
 
@@ -177,7 +179,7 @@ impl super::GlyphRenderer for VectorFont {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
-            let cache_key = (self.font.family.0, self.pixel_size, glyph_id);
+            let cache_key = (self.font_blob.id(), self.pixel_size, glyph_id);
 
             if let Some(entry) = cache.get(&cache_key) {
                 Some(entry.clone())
