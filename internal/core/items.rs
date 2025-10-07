@@ -1027,8 +1027,8 @@ declare_item_vtable! {
 /// The implementation of the `Rotate` element
 pub struct Transform {
     pub rotation_angle: Property<f32>,
-    pub scale_x: Property<f32>,
-    pub scale_y: Property<f32>,
+    pub transform_scale_x: Property<f32>,
+    pub transform_scale_y: Property<f32>,
     pub rotation_origin_x: Property<LogicalLength>,
     pub rotation_origin_y: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
@@ -1100,7 +1100,7 @@ impl Item for Transform {
         let origin =
             LogicalVector::from_lengths(self.rotation_origin_x(), self.rotation_origin_y());
         (*backend).translate(origin);
-        (*backend).scale(self.scale_x(), self.scale_y());
+        (*backend).scale(self.transform_scale_x(), self.transform_scale_y());
         (*backend).rotate(self.rotation_angle());
         (*backend).translate(-origin);
         RenderingResult::ContinueRenderingChildren
