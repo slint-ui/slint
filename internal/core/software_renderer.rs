@@ -2687,7 +2687,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
     fn draw_glyph_run(
         &mut self,
-        font: &sharedparley::parley::Font,
+        font: &sharedparley::parley::FontData,
         font_size: f32,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
@@ -2709,7 +2709,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
         for positioned_glyph in glyphs_it {
             let Some(glyph) =
-                std::num::NonZero::new(positioned_glyph.id).and_then(|id| font.render_glyph(id))
+                std::num::NonZero::new(positioned_glyph.id as u16).and_then(|id| font.render_glyph(id))
             else {
                 continue;
             };
