@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    box := ScrollView {
+        viewport-width: 500px;
+        viewport-height: 500px;
+    }
+
+    callback scrolled <=> box.scrolled;
+    in-out property <length> viewport-x <=> box.viewport-x;
+    in-out property <length> viewport-y <=> box.viewport-y;
+}
+
+/*
+
+
+```rust
+use slint::{LogicalPosition, platform::WindowEvent};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+
+let scrolled_emitted = Rc::new(RefCell::new(false));
+
+instance.on_scrolled({
+    let scrolled_emitted = scrolled_emitted.clone();
+    move || {
+    *scrolled_emitted.borrow_mut() = true;
+}});
+
+assert_eq!(*scrolled_emitted.borrow(), false);
+
+let position = LogicalPosition::new(15.0, 95.0);
+
+// Scroll horizontally by pressing on the handle
+let button = slint::platform::PointerEventButton::Left;
+instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+
+// then drag it
+let position = LogicalPosition::new(50.0, 95.0);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+
+assert_eq!(*scrolled_emitted.borrow(), true);
+assert!(instance.get_viewport_x() != 0.0);
+assert_eq!(instance.get_viewport_y(), 0.0);
+
+*scrolled_emitted.borrow_mut() = false;
+
+// Scroll vertically by pressing on the handle
+let position = LogicalPosition::new(95.0, 15.0);
+
+let button = slint::platform::PointerEventButton::Left;
+instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+
+// ...then drag it
+let position = LogicalPosition::new(95.0, 50.0);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+assert_eq!(*scrolled_emitted.borrow(), true);
+assert!(instance.get_viewport_x() != 0.0);
+assert!(instance.get_viewport_y() != 0.0);
+
+*scrolled_emitted.borrow_mut() = false;
+```
+
+
+*/
