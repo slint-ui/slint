@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use euclid::num::Zero;
 pub use parley;
 
 use core::pin::Pin;
@@ -11,7 +12,8 @@ use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
     lengths::{
-        LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor, SizeLengths,
+        LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
+        ScaleFactor, SizeLengths,
     },
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     SharedString,
@@ -458,6 +460,8 @@ pub fn draw_text(
 
     let (horizontal_align, vertical_align) = text.alignment();
 
+    let text_overflow = text.overflow();
+
     let layout = layout(
         text.text().as_str(),
         scale_factor,
@@ -469,19 +473,37 @@ pub fn draw_text(
             stroke: platform_stroke_brush.is_some().then_some(stroke_style),
             font_request,
             text_wrap: text.wrap(),
-            text_overflow: text.overflow(),
+            text_overflow,
             ..Default::default()
         },
     );
 
-    layout.draw(
-        item_renderer,
-        platform_fill_brush,
-        platform_stroke_brush,
-        &mut |item_renderer, font, font_size, brush, glyphs_it| {
-            item_renderer.draw_glyph_run(font, font_size, brush, layout.y_offset, glyphs_it);
-        },
-    );
+    let render = if text_overflow == TextOverflow::Clip {
+        item_renderer.save_state();
+
+        item_renderer.combine_clip(
+            LogicalRect::new(LogicalPoint::default(), size),
+            LogicalBorderRadius::zero(),
+            LogicalLength::zero(),
+        )
+    } else {
+        true
+    };
+
+    if render {
+        layout.draw(
+            item_renderer,
+            platform_fill_brush,
+            platform_stroke_brush,
+            &mut |item_renderer, font, font_size, brush, glyphs_it| {
+                item_renderer.draw_glyph_run(font, font_size, brush, layout.y_offset, glyphs_it);
+            },
+        );
+    }
+
+    if text_overflow == TextOverflow::Clip {
+        item_renderer.restore_state();
+    }
 }
 
 pub fn draw_text_input(
