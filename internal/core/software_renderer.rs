@@ -2709,7 +2709,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
         for positioned_glyph in glyphs_it {
             let Some(glyph) = std::num::NonZero::new(positioned_glyph.id as u16)
-                .and_then(|id| font.render_glyph(id))
+                .and_then(|id| font.render_vector_glyph(id))
             else {
                 continue;
             };
@@ -2728,71 +2728,14 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 glyph.size(),
             );
 
-            let scale_delta = font.scale_delta();
-
-            let data = match &glyph.alpha_map {
-                fonts::GlyphAlphaMap::Static(data) => {
-                    if glyph.sdf {
-                        let pixel_stride = glyph.pixel_stride;
-                        let mut geometry = target_rect;
-                        if geometry.size.width > glyph.width.get() {
-                            geometry.size.width = glyph.width.get()
-                        }
-                        if geometry.size.height > glyph.height.get() {
-                            geometry.size.height = glyph.height.get()
-                        }
-                        let source_size = geometry.size;
-                        if source_size.is_empty() {
-                            continue;
-                        }
-
-                        let normalize = |x: Fixed<i32, 8>| {
-                            if x < Fixed::from_integer(0) {
-                                x + Fixed::from_integer(1)
-                            } else {
-                                x
-                            }
-                        };
-                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(0));
-                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
-                        let texture = SceneTexture {
-                            data,
-                            pixel_stride,
-                            format: TexturePixelFormat::SignedDistanceField,
-                            extra: SceneTextureExtra {
-                                colorize: color,
-                                // color already is mixed with global alpha
-                                alpha: color.alpha(),
-                                rotation: self.rotation.orientation,
-                                dx: scale_delta,
-                                dy: scale_delta,
-                                off_x: Fixed::try_from_fixed(fract_x).unwrap(),
-                                off_y: Fixed::try_from_fixed(fract_y).unwrap(),
-                            },
-                        };
-                        self.processor
-                            .process_scene_texture(geometry.transformed(self.rotation), texture);
-                        continue;
-                    };
-
-                    target_pixel_buffer::TextureDataContainer::Static(
-                        target_pixel_buffer::TextureData::new(
-                            data,
-                            TexturePixelFormat::AlphaMap,
-                            glyph.pixel_stride as usize,
-                            euclid::size2(glyph.width.get(), glyph.height.get()).cast(),
-                        ),
-                    )
-                }
-                fonts::GlyphAlphaMap::Shared(data) => {
-                    let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
-                    target_pixel_buffer::TextureDataContainer::Shared {
-                        buffer: SharedBufferData::AlphaMap {
-                            data: data.clone(),
-                            width: glyph.pixel_stride,
-                        },
-                        source_rect,
-                    }
+            let data = {
+                let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
+                target_pixel_buffer::TextureDataContainer::Shared {
+                    buffer: SharedBufferData::AlphaMap {
+                        data: glyph.alpha_map,
+                        width: glyph.pixel_stride,
+                    },
+                    source_rect,
                 }
             };
 

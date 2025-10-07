@@ -39,6 +39,23 @@ impl RenderableGlyph {
     }
 }
 
+// Subset of `RenderableGlyph`, specfically for VectorFonts.
+#[derive(Clone)]
+pub struct RenderableVectorGlyph {
+    pub x: Fixed<i32, 8>,
+    pub y: Fixed<i32, 8>,
+    pub width: PhysicalLength,
+    pub height: PhysicalLength,
+    pub alpha_map: Rc<[u8]>,
+    pub pixel_stride: u16,
+}
+
+impl RenderableVectorGlyph {
+    pub fn size(&self) -> PhysicalSize {
+        PhysicalSize::from_lengths(self.width, self.height)
+    }
+}
+
 pub trait GlyphRenderer {
     fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph>;
     /// The amount of pixel in the original image that correspond to one pixel in the rendered image
