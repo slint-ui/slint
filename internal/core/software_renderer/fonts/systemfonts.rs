@@ -14,19 +14,22 @@ use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
 crate::thread_local! {
-    static FONTDUE_FONTS: RefCell<HashMap<fontique::FamilyId, Rc<fontdue::Font>>> = Default::default();
+    static FONTDUE_FONTS: RefCell<HashMap<(u64, u32), Rc<fontdue::Font>>> = Default::default();
 }
 
-fn get_or_create_fontdue_font(font: &fontique::QueryFont) -> Rc<fontdue::Font> {
+pub fn get_or_create_fontdue_font_from_blob_and_index(
+    blob: &fontique::Blob<u8>,
+    index: u32,
+) -> Rc<fontdue::Font> {
     FONTDUE_FONTS.with(|font_cache| {
         font_cache
             .borrow_mut()
-            .entry(font.family.0)
+            .entry((blob.id(), index))
             .or_insert_with(move || {
                 fontdue::Font::from_bytes(
-                    font.blob.data(),
+                    blob.data(),
                     fontdue::FontSettings {
-                        collection_index: font.index,
+                        collection_index: index,
                         scale: 40.,
                         ..Default::default()
                     },
@@ -36,6 +39,10 @@ fn get_or_create_fontdue_font(font: &fontique::QueryFont) -> Rc<fontdue::Font> {
             })
             .clone()
     })
+}
+
+fn get_or_create_fontdue_font(font: &fontique::QueryFont) -> Rc<fontdue::Font> {
+    get_or_create_fontdue_font_from_blob_and_index(&font.blob, font.index)
 }
 
 pub fn match_font(
