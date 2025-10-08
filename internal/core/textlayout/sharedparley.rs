@@ -550,6 +550,7 @@ pub fn draw_text_input(
         LayoutOptions {
             max_width: Some(width),
             max_height: Some(height),
+            horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             font_request,
             selection: Some(min_select..max_select),
