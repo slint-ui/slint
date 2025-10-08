@@ -248,6 +248,28 @@ impl CompilerConfiguration {
         config.use_sdf_fonts = enable;
         Self { config }
     }
+
+    /// Converts any relative include_paths or library_paths to absolute paths relative to the manifest_dir.
+    #[must_use]
+    fn with_absolute_paths(self, manifest_dir: &std::path::Path) -> Self {
+        let mut config = self.config;
+
+        let to_absolute_path = |path: &mut std::path::PathBuf| {
+            if path.is_relative() {
+                *path = manifest_dir.join(&path);
+            }
+        };
+
+        for path in config.library_paths.values_mut() {
+            to_absolute_path(path);
+        }
+
+        for path in config.include_paths.iter_mut() {
+            to_absolute_path(path);
+        }
+
+        Self { config }
+    }
 }
 
 /// Error returned by the `compile` function
@@ -446,8 +468,12 @@ pub fn compile_with_config(
     relative_slint_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<(), CompileError> {
-    let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
-        .join(relative_slint_file_path.as_ref());
+    let manifest_path = std::path::PathBuf::from(
+        env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?,
+    );
+    let config = config.with_absolute_paths(&manifest_path);
+
+    let path = manifest_path.join(relative_slint_file_path.as_ref());
 
     let absolute_rust_output_file_path =
         Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
@@ -599,4 +625,51 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+fn root_path_prefix() -> std::path::PathBuf {
+    #[cfg(windows)]
+    return std::path::PathBuf::from("C:/");
+    #[cfg(not(windows))]
+    return std::path::PathBuf::from("/");
+}
+
+#[test]
+fn with_absolute_library_paths_test() {
+    use std::path::PathBuf;
+
+    let library_paths = std::collections::HashMap::from([
+        ("relative".to_string(), PathBuf::from("some/relative/path")),
+        ("absolute".to_string(), root_path_prefix().join("some/absolute/path")),
+    ]);
+    let config = CompilerConfiguration::new().with_library_paths(library_paths);
+
+    let manifest_path = root_path_prefix().join("path/to/manifest");
+    let absolute_config = config.clone().with_absolute_paths(&manifest_path);
+    let relative = &absolute_config.config.library_paths["relative"];
+    assert!(relative.is_absolute());
+    assert!(relative.starts_with(&manifest_path));
+
+    assert!(!absolute_config.config.library_paths["absolute"].starts_with(&manifest_path));
+}
+
+#[test]
+fn with_absolute_include_paths_test() {
+    use std::path::PathBuf;
+
+    let config = CompilerConfiguration::new().with_include_paths(Vec::from([
+        root_path_prefix().join("some/absolute/path"),
+        PathBuf::from("some/relative/path"),
+    ]));
+
+    let manifest_path = root_path_prefix().join("path/to/manifest");
+    let absolute_config = config.clone().with_absolute_paths(&manifest_path);
+    assert_eq!(
+        absolute_config.config.include_paths,
+        Vec::from([
+            root_path_prefix().join("some/absolute/path"),
+            manifest_path.join("some/relative/path"),
+        ])
+    )
 }
