@@ -614,6 +614,11 @@ jobs:
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v5
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.6
