@@ -83,7 +83,6 @@ pub struct ItemTreeVTable {
     /// Note that the returned value will typically point to a repeater node, which is
     /// strictly speaking not an Item at all!
     ///
-    /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor
     pub parent_node: extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, result: &mut ItemWeak),
 
