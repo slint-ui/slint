@@ -26,6 +26,19 @@ struct LicenseTagStyle {
 impl LicenseTagStyle {
     fn c_style_comment_style() -> Self {
         Self {
+            tag_start: "/* Copyright © ",
+            line_prefix: "",
+            line_indentation: " ",
+            line_break: "\n",
+            tag_end: SPDX_LICENSE_LINE,
+            overall_start: "",
+            overall_end: "*/ \n",
+            is_real_end: false,
+        }
+    }
+
+    fn cpp_style_comment_style() -> Self {
+        Self {
             tag_start: "// Copyright © ",
             line_prefix: "//",
             line_indentation: " ",
@@ -228,7 +241,7 @@ impl<'a> SourceFileWithTags<'a> {
 
 #[test]
 fn test_license_tag_c_style() {
-    let style = LicenseTagStyle::c_style_comment_style();
+    let style = LicenseTagStyle::cpp_style_comment_style();
     {
         let source = format!(
             r#"// Copyright © something <bar@something.com>
@@ -487,7 +500,10 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)biome\\.json$", LicenseLocation::NoLicense),
             ("(^|/)package-lock\\.json$", LicenseLocation::NoLicense),
             ("(^|/)py.typed$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-            ("(^|/)api/cpp/esp-idf/slint/esp-println\\.x$", LicenseLocation::NoLicense), // license included
+            (
+                "(^|/)api/cpp/esp-idf/slint/esp-println\\.x$",
+                LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style()),
+            ),
             // Path prefix matches:
             ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
             ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
@@ -497,13 +513,13 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             // directory based matches
             ("(^|/)LICENSES/", LicenseLocation::NoLicense),
             // Extension matches:
-            ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-            ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-            ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-            ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.css$", LicenseLocation::NoLicense),
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
@@ -515,34 +531,34 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.prettierignore$", LicenseLocation::NoLicense),
             ("\\.bazelignore$", LicenseLocation::NoLicense),
             ("\\.npmignore$", LicenseLocation::NoLicense),
-            ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.html$", LicenseLocation::NoLicense),
-            ("\\.java$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.java$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.jpg$", LicenseLocation::NoLicense),
-            ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.json$", LicenseLocation::NoLicense),
             ("\\.jsonc$", LicenseLocation::NoLicense),
             ("\\.license$", LicenseLocation::NoLicense),
             ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
             ("\\.mdx$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
-            ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-            ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.hbs$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
-            ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.pdf$", LicenseLocation::NoLicense),
             ("\\.png$", LicenseLocation::NoLicense),
             ("\\.mo$", LicenseLocation::NoLicense),
             ("\\.po$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.pot$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-            ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
             ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.bash$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.scm$", LicenseLocation::Tag(LicenseTagStyle::scheme_comment_style())),
-            ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             (
                 "\\.slint\\.disabled$",
-                LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style()),
+                LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style()),
             ),
             ("\\.sublime-commands$", LicenseLocation::NoLicense),
             ("\\.sublime-settings$", LicenseLocation::NoLicense),
@@ -550,20 +566,20 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.svg$", LicenseLocation::NoLicense),
             ("\\.tmPreferences$", LicenseLocation::NoLicense),
             ("\\.toml$", LicenseLocation::NoLicense),
-            ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-            ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.ttf$", LicenseLocation::NoLicense),
             ("\\.txt$", LicenseLocation::NoLicense),
             ("\\.ui$", LicenseLocation::NoLicense),
             ("\\.webp$", LicenseLocation::NoLicense),
-            ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.woff$", LicenseLocation::NoLicense),
             ("\\.xml$", LicenseLocation::NoLicense),
             ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.pyi$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-            ("\\.proto$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.proto$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.bazelrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("MODULE.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("BUILD.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
