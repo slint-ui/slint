@@ -2602,10 +2602,15 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         }
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
+    fn fill_rectangle(&mut self, mut physical_rect: sharedparley::PhysicalRect, color: Color) {
         if color.alpha() == 0 {
             return;
         }
+
+        let global_offset =
+            (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
+
+        physical_rect.origin += global_offset;
 
         let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
             physical_rect,
