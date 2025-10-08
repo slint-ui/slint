@@ -801,7 +801,7 @@ impl WindowInner {
 
         // Check capture_key_event (going from window to focused item):
         for i in item_list.iter().rev() {
-            if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), &i)
+            if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), i)
                 == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
@@ -930,7 +930,7 @@ impl WindowInner {
 
     /// Take the focus_item out of this Window
     ///
-    /// This sends the event whiwh must be either FocusOut or WindowLostFocus for popups
+    /// This sends the event which must be either FocusOut or WindowLostFocus for popups
     fn take_focus_item(&self, event: &FocusEvent) -> Option<ItemRc> {
         let focus_item = self.focus_item.take();
         assert!(matches!(event, FocusEvent::FocusOut(_)));
@@ -990,7 +990,7 @@ impl WindowInner {
             visited.push(current_item.clone());
             current_item = forward(current_item);
 
-            if visited.iter().any(|i| *i == current_item) {
+            if visited.contains(&current_item) {
                 return None; // Nothing to do: We took the focus_item already
             }
         }
@@ -1902,9 +1902,9 @@ pub mod ffi {
         menu_instance: &vtable::VRc<MenuVTable>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter
-            .internal(crate::InternalToken)
-            .map(|x| x.setup_menubar(menu_instance.clone()));
+        if let Some(x) = window_adapter.internal(crate::InternalToken) {
+            x.setup_menubar(menu_instance.clone())
+        }
     }
 
     /// Show a native context menu
