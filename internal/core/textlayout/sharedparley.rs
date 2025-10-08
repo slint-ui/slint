@@ -261,7 +261,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout { inner: layout, y_offset, elision_info }
+    Layout { inner: layout, y_offset, elision_info, max_physical_height }
 }
 
 struct ElisionInfo {
@@ -272,6 +272,7 @@ struct ElisionInfo {
 struct Layout {
     inner: parley::Layout<Brush>,
     y_offset: PhysicalLength,
+    max_physical_height: Option<PhysicalLength>,
     elision_info: Option<ElisionInfo>,
 }
 
@@ -328,7 +329,14 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        for (line_index, line) in self.inner.lines().enumerate() {
+        for (line_index, line) in self.inner.lines().enumerate().take_while(|(line_index, line)| {
+            let metrics = line.metrics();
+            std::dbg!(self.max_physical_height, metrics);
+            match self.max_physical_height {
+                Some(max_physical_height) => max_physical_height.get() > metrics.min_coord,
+                _ => true
+            }
+        }) {
             let last_line = line_index == self.inner.len() - 1;
             for item in line.items() {
                 match item {
