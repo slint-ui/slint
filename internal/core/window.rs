@@ -196,7 +196,7 @@ pub trait WindowAdapterInternal {
     fn input_method_request(&self, _: InputMethodRequest) {}
 
     /// Return self as any so the backend can upcast
-    // TODO: consider using the as_any crate, or deriving the traint from Any to provide a better default
+    // TODO: consider using the as_any crate, or deriving the trait from Any to provide a better default
     fn as_any(&self) -> &dyn core::any::Any {
         &()
     }

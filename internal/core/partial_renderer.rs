@@ -478,10 +478,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                     state.transform_to_screen,
                                     &state.clipped,
                                 );
-                            } else {
-                                if let Some(tr) = &tracker {
-                                    tr.as_ref().register_as_dependency_to_current_binding();
-                                }
+                            } else if let Some(tr) = &tracker {
+                                tr.as_ref().register_as_dependency_to_current_binding();
                             }
 
                             if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } =
@@ -533,7 +531,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
 
                         self.mark_dirty_rect(
-                            &geom.bounding_rect(),
+                            geom.bounding_rect(),
                             state.transform_to_screen,
                             &state.clipped,
                         );
@@ -818,7 +816,7 @@ impl PartialRenderingState {
         self.force_screen_refresh.set(true)
     }
 
-    /// Clears the partial rendering cache. Use this for example when the entire undering window surface changes.
+    /// Clears the partial rendering cache. Use this for example when the entire underlying window surface changes.
     pub fn clear_cache(&self) {
         self.partial_cache.borrow_mut().clear();
     }
