@@ -28,6 +28,25 @@ pub fn lower_macro(
         BuiltinMacroFunction::Clamp => clamp_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Abs => abs_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Sign => {
+            let Some((x, arg_node)) = sub_expr.next() else {
+                diag.push_error("Expected one argument".into(), n);
+                return Expression::Invalid;
+            };
+            if sub_expr.next().is_some() {
+                diag.push_error("Expected only one argument".into(), n);
+            }
+            Expression::Condition {
+                condition: Expression::BinaryExpression {
+                    lhs: x.maybe_convert_to(Type::Float32, &arg_node, diag).into(),
+                    rhs: Expression::NumberLiteral(0., Unit::None).into(),
+                    op: '<',
+                }
+                .into(),
+                true_expr: Expression::NumberLiteral(-1., Unit::None).into(),
+                false_expr: Expression::NumberLiteral(1., Unit::None).into(),
+            }
+        }
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;

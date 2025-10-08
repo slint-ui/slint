@@ -755,7 +755,7 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("ln", b(BuiltinFunction::Ln)))
             .or_else(|| f("pow", b(BuiltinFunction::Pow)))
             .or_else(|| f("exp", b(BuiltinFunction::Exp)))
-            .or_else(|| f("sign", b(BuiltinFunction::Sign)))
+            .or_else(|| f("sign", BuiltinMacroFunction::Sign.into()))
     }
 }
 
@@ -1082,13 +1082,15 @@ impl LookupObject for NumberExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = |f: BuiltinFunction| {
+        let member = |f: LookupResultCallable| {
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base: self.0.clone(),
                 base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
+                member: f.into(),
             })
         };
+        let member_function = |f| member(LookupResultCallable::Callable(Callable::Builtin(f)));
+        let member_macro = |f| member(LookupResultCallable::Macro(f));
 
         let mut f2 = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f2("round", member_function(BuiltinFunction::Round)))
@@ -1102,7 +1104,7 @@ impl LookupObject for NumberExpression<'_> {
             .or_else(|| f2("ln", member_function(BuiltinFunction::Ln)))
             .or_else(|| f2("pow", member_function(BuiltinFunction::Pow)))
             .or_else(|| f2("exp", member_function(BuiltinFunction::Exp)))
-            .or_else(|| f2("sign", member_function(BuiltinFunction::Sign)))
+            .or_else(|| f2("sign", member_macro(BuiltinMacroFunction::Sign)))
             .or_else(|| f2("to-fixed", member_function(BuiltinFunction::ToFixed)))
             .or_else(|| f2("to-precision", member_function(BuiltinFunction::ToPrecision)))
             .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))

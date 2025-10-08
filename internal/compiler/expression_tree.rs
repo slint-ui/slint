@@ -42,7 +42,6 @@ pub enum BuiltinFunction {
     Ln,
     Pow,
     Exp,
-    Sign,
     ToFixed,
     ToPrecision,
     SetFocusItem,
@@ -131,6 +130,8 @@ pub enum BuiltinMacroFunction {
     Mod,
     /// Add the right conversion operations so that the return type is the same as the argument type
     Abs,
+    /// Equivalent to `x < 0 ? -1 : 1`
+    Sign,
     CubicBezier,
     /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
     /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
@@ -188,7 +189,6 @@ declare_builtin_function_types!(
     Ln: (Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
     Exp: (Type::Float32) -> Type::Float32,
-    Sign: (Type::Float32) -> Type::Float32,
     ToFixed: (Type::Float32, Type::Int32) -> Type::String,
     ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
     SetFocusItem: (Type::ElementReference) -> Type::Void,
@@ -320,7 +320,6 @@ impl BuiltinFunction {
             | BuiltinFunction::Exp
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
-            | BuiltinFunction::Sign
             | BuiltinFunction::ToFixed
             | BuiltinFunction::ToPrecision => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
@@ -406,7 +405,6 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
             | BuiltinFunction::ToFixed
-            | BuiltinFunction::Sign
             | BuiltinFunction::ToPrecision => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
