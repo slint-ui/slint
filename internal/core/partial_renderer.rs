@@ -502,6 +502,9 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                             ),
                                     )
                                     .unwrap_or_default();
+                                if new_state.clipped.is_empty() {
+                                    return ItemVisitorResult::SkipChildren;
+                                }
                             }
                             ItemVisitorResult::Continue(new_state)
                         }
@@ -534,7 +537,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             state.transform_to_screen,
                             &state.clipped,
                         );
-                        ItemVisitorResult::Continue(new_state)
+                        if new_state.clipped.is_empty() {
+                            ItemVisitorResult::SkipChildren
+                        } else {
+                            ItemVisitorResult::Continue(new_state)
+                        }
                     }
                 }
             },
