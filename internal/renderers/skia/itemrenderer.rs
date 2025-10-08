@@ -960,7 +960,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,
-        font_size: f32,
+        font_size: PhysicalLength,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
@@ -970,7 +970,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         else {
             return;
         };
-        let font = skia_safe::Font::from_typeface(type_face, font_size);
+        let font = skia_safe::Font::from_typeface(type_face, font_size.get());
 
         let (glyph_ids, glyph_positions): (Vec<_>, Vec<_>) = glyphs_it
             .into_iter()

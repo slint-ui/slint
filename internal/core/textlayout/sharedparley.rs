@@ -55,7 +55,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     fn draw_glyph_run(
         &mut self,
         font: &parley::FontData,
-        font_size: f32,
+        font_size: PhysicalLength,
         brush: Self::PlatformBrush,
         y_offset: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -323,7 +323,7 @@ impl Layout {
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
-            f32,
+            PhysicalLength,
             <R as GlyphRenderer>::PlatformBrush,
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
@@ -370,7 +370,7 @@ impl Layout {
                                     draw_glyphs(
                                         item_renderer,
                                         run.font(),
-                                        run.font_size(),
+                                        PhysicalLength::new(run.font_size()),
                                         stroke_brush,
                                         &mut glyphs.iter().cloned(),
                                     );
@@ -379,7 +379,7 @@ impl Layout {
                                 draw_glyphs(
                                     item_renderer,
                                     run.font(),
-                                    run.font_size(),
+                                    PhysicalLength::new(run.font_size()),
                                     fill_brush,
                                     &mut glyphs.into_iter(),
                                 );
@@ -390,7 +390,7 @@ impl Layout {
                                 draw_glyphs(
                                     item_renderer,
                                     run.font(),
-                                    run.font_size(),
+                                    PhysicalLength::new(run.font_size()),
                                     fill_brush,
                                     &mut glyphs.iter().cloned(),
                                 );
@@ -399,7 +399,7 @@ impl Layout {
                                     draw_glyphs(
                                         item_renderer,
                                         run.font(),
-                                        run.font_size(),
+                                        PhysicalLength::new(run.font_size()),
                                         stroke_brush,
                                         &mut glyphs.into_iter(),
                                     );
@@ -409,7 +409,7 @@ impl Layout {
                                 draw_glyphs(
                                     item_renderer,
                                     run.font(),
-                                    run.font_size(),
+                                    PhysicalLength::new(run.font_size()),
                                     fill_brush,
                                     glyphs_it,
                                 );
