@@ -109,19 +109,28 @@ struct LayoutOptions {
     selection_foreground_color: Option<crate::Color>,
 }
 
-impl Default for LayoutOptions {
-    fn default() -> Self {
+impl LayoutOptions {
+    fn new_from_textinput(
+        text_input: Pin<&crate::items::TextInput>,
+        font_request: Option<FontRequest>,
+        max_width: Option<LogicalLength>,
+        max_height: Option<LogicalLength>,
+        selection: Option<core::ops::Range<usize>>,
+    ) -> Self {
+        let selection_foreground_color =
+            selection.is_some().then(|| text_input.selection_foreground_color());
+
         Self {
-            max_width: None,
-            max_height: None,
-            horizontal_align: TextHorizontalAlignment::Left,
-            vertical_align: TextVerticalAlignment::Top,
+            max_width,
+            max_height,
+            horizontal_align: text_input.horizontal_alignment(),
+            vertical_align: text_input.vertical_alignment(),
+            font_request,
+            selection,
+            selection_foreground_color,
             stroke: None,
-            font_request: None,
-            text_wrap: TextWrap::WordWrap,
+            text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
-            selection: None,
-            selection_foreground_color: None,
         }
     }
 }
@@ -474,7 +483,8 @@ pub fn draw_text(
             font_request,
             text_wrap: text.wrap(),
             text_overflow,
-            ..Default::default()
+            selection: None,
+            selection_foreground_color: None,
         },
     );
 
@@ -547,16 +557,13 @@ pub fn draw_text_input(
     let layout = layout(
         &text,
         scale_factor,
-        LayoutOptions {
-            max_width: Some(width),
-            max_height: Some(height),
-            horizontal_align: text_input.horizontal_alignment(),
-            vertical_align: text_input.vertical_alignment(),
+        LayoutOptions::new_from_textinput(
+            text_input,
             font_request,
-            selection: Some(min_select..max_select),
-            selection_foreground_color: Some(text_input.selection_foreground_color()),
-            ..Default::default()
-        },
+            Some(width),
+            Some(height),
+            Some(min_select..max_select),
+        ),
     );
 
     let selection = parley::layout::cursor::Selection::new(
@@ -629,7 +636,13 @@ pub fn text_size(
             max_width,
             text_wrap,
             font_request: Some(font_request),
-            ..Default::default()
+            max_height: None,
+            horizontal_align: TextHorizontalAlignment::Left,
+            vertical_align: TextVerticalAlignment::Top,
+            stroke: None,
+            text_overflow: TextOverflow::Clip,
+            selection: None,
+            selection_foreground_color: None,
         },
     );
     PhysicalSize::new(layout.inner.width(), layout.inner.height()) / scale_factor
@@ -669,13 +682,13 @@ pub fn text_input_byte_offset_for_position(
     let layout = layout(
         &text,
         scale_factor,
-        LayoutOptions {
-            font_request: Some(font_request),
-            max_width: Some(width),
-            max_height: Some(height),
-            vertical_align: text_input.vertical_alignment(),
-            ..Default::default()
-        },
+        LayoutOptions::new_from_textinput(
+            text_input,
+            Some(font_request),
+            Some(width),
+            Some(height),
+            None,
+        ),
     );
     let cursor = parley::layout::cursor::Cursor::from_point(
         &layout.inner,
@@ -709,7 +722,13 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let layout = layout(
         &text,
         scale_factor,
-        LayoutOptions { max_width: Some(width), max_height: Some(height), ..Default::default() },
+        LayoutOptions::new_from_textinput(
+            text_input,
+            Some(font_request),
+            Some(width),
+            Some(height),
+            None,
+        ),
     );
     let cursor = parley::layout::cursor::Cursor::from_byte_index(
         &layout.inner,
