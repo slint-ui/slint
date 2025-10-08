@@ -564,6 +564,12 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         transform: ItemTransform,
         clip_rect: &LogicalRect,
     ) {
+        #[cfg(not(slint_int_coord))]
+        if !rect.origin.is_finite() {
+            // Account for NaN
+            return;
+        }
+
         if !rect.is_empty() {
             if let Some(rect) =
                 transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
