@@ -403,14 +403,12 @@ pub trait ItemRenderer {
     fn visit_clip(
         &mut self,
         clip_item: Pin<&Clip>,
-        item_rc: &ItemRc,
-        _size: LogicalSize,
+        _item_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
         if clip_item.clip() {
-            let geometry = item_rc.geometry();
-
             let clip_region_valid = self.combine_clip(
-                LogicalRect::new(LogicalPoint::default(), geometry.size),
+                LogicalRect::new(LogicalPoint::default(), size),
                 clip_item.logical_border_radius(),
                 clip_item.border_width(),
             );
