@@ -269,10 +269,20 @@ pub enum ParentItemTraversalMode {
 
 /// A ItemRc is holding a reference to a ItemTree containing the item, and the index of this item
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ItemRc {
     item_tree: vtable::VRc<ItemTreeVTable>,
     index: u32,
+}
+
+impl core::fmt::Debug for ItemRc {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut debug = SharedString::new();
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut debug);
+
+        write!(f, "ItemRc{{ {:p}, {:?} {debug}}}", comp_ref_pin.as_ptr(), self.index)
+    }
 }
 
 impl ItemRc {
