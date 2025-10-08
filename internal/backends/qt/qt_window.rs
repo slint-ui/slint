@@ -1066,7 +1066,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,
-        font_size: f32,
+        font_size: sharedparley::PhysicalLength,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
@@ -1075,7 +1075,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
             return;
         };
 
-        raw_font.set_pixel_size(font_size);
+        raw_font.set_pixel_size(font_size.get());
 
         let (glyph_indices, positions): (Vec<u32>, Vec<qttypes::QPointF>) = glyphs_it
             .into_iter()

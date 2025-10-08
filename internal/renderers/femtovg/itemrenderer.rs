@@ -961,7 +961,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
     fn draw_glyph_run(
         &mut self,
         font: &parley::FontData,
-        font_size: f32,
+        font_size: PhysicalLength,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -978,11 +978,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
 
         match &mut brush {
             GlyphBrush::Fill(paint) => {
-                paint.set_font_size(font_size);
+                paint.set_font_size(font_size.get());
                 canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
             }
             GlyphBrush::Stroke(paint) => {
-                paint.set_font_size(font_size);
+                paint.set_font_size(font_size.get());
                 canvas.stroke_glyph_run(font_id, glyphs_it, &paint).unwrap();
             }
         }
