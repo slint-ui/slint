@@ -6,7 +6,7 @@
 //! This is the way the partial renderer work:
 //!
 //! 1. [`PartialRenderer::compute_dirty_regions`] will go over the items and try to compute the region that needs to be repainted.
-//!    If either the bounding box has changed, or the PropertyTracker that tracks the rendering properties is dierty, then the
+//!    If either the bounding box has changed, or the PropertyTracker that tracks the rendering properties is dirty, then the
 //!    region is marked dirty.
 //!    That pass also register dependencies on every geometry, and on the non-dirty property trackers.
 //! 2. The Renderer calls [`PartialRenderer::filter_item`] For most items.
