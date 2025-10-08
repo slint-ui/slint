@@ -2655,7 +2655,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                     + global_offset
                     + glyph_offset,
                 glyph.size(),
-            );
+            )
+            .transformed(self.rotation);
 
             let data = {
                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
@@ -2668,7 +2669,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 }
             };
 
-            let target_rect = target_rect.transformed(self.rotation);
+            let color = self.alpha_color(color);
+            let physical_clip =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .transformed(self.rotation);
+
             let t = target_pixel_buffer::DrawTextureArgs {
                 data,
                 colorize: Some(color),
@@ -2682,7 +2689,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 tiling: None,
             };
 
-            self.processor.process_target_texture(&t, target_rect.cast());
+            self.processor.process_target_texture(&t, physical_clip.cast());
         }
     }
 }
