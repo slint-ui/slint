@@ -77,7 +77,7 @@ softbuffer = { workspace = true, default-features = false }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-windows = { version = "0.62", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
+windows = { workspace = true, features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 windows_58 = { package = "windows", version = "0.58.0", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 windows-core = { package = "windows-core", version = "0.61.0" }
 windows-core_58 = { package = "windows-core", version = "0.58.0" }
