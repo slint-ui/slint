@@ -2254,6 +2254,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font = fonts::match_font(&font_request, self.scale_factor);
 
         match font {
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(_) => {
                 sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
             }
@@ -2622,7 +2623,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,
-        font_size: f32,
+        font_size: sharedparley::PhysicalLength,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
@@ -2630,12 +2631,11 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         let fontdue_font = fonts::systemfonts::get_or_create_fontdue_font_from_blob_and_index(
             &font.data, font.index,
         );
-        let font_size = PhysicalLength::new(font_size as _);
         let font = fonts::vectorfont::VectorFont::new_from_blob_and_index(
             font.data.clone(),
             font.index,
             fontdue_font,
-            font_size,
+            font_size.cast(),
         );
 
         let global_offset =
