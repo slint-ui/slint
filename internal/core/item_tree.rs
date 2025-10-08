@@ -1102,6 +1102,7 @@ impl<T: FnMut(&ItemTreeRc, u32, Pin<ItemRef>) -> VisitChildrenResult> ItemVisito
 }
 pub enum ItemVisitorResult<State> {
     Continue(State),
+    SkipChildren,
     Abort,
 }
 
@@ -1132,7 +1133,7 @@ fn visit_internal<State>(
                 ItemVisitorResult::Continue(state) => {
                     visit_internal(item_tree, order, visitor, index as isize, &state)
                 }
-
+                ItemVisitorResult::SkipChildren => VisitChildrenResult::CONTINUE,
                 ItemVisitorResult::Abort => VisitChildrenResult::abort(index, 0),
             }
         };
