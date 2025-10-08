@@ -10,10 +10,9 @@ use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    SizeLengths,
 };
 pub use crate::partial_renderer::CachedRenderingData;
-use crate::window::{WindowAdapter, WindowInner};
+use crate::window::WindowAdapter;
 use crate::{Brush, SharedString};
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
@@ -282,32 +281,6 @@ pub trait RenderText {
     fn overflow(self: Pin<&Self>) -> TextOverflow;
     fn letter_spacing(self: Pin<&Self>) -> LogicalLength;
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
-
-    fn text_bounding_rect(
-        self: Pin<&Self>,
-        self_rc: &ItemRc,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        mut geometry: euclid::Rect<f32, crate::lengths::LogicalPx>,
-    ) -> euclid::Rect<f32, crate::lengths::LogicalPx> {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let text_string = self.text();
-        let font_request = self.font_request(self_rc);
-        let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
-        let max_width = geometry.size.width_length();
-        geometry.size = geometry.size.max(
-            window_adapter
-                .renderer()
-                .text_size(
-                    font_request.clone(),
-                    text_string.as_str(),
-                    Some(max_width.cast()),
-                    scale_factor,
-                    self.wrap(),
-                )
-                .cast(),
-        );
-        geometry
-    }
 }
 
 impl RenderText for (SharedString, Brush) {
