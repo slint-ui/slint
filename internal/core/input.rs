@@ -717,7 +717,7 @@ pub(crate) fn send_exit_events(
                 clipped = true;
             }
             item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
-        } else if new_input_state.item_stack.get(idx).map_or(true, |(x, _)| *x != it.0) {
+        } else if new_input_state.item_stack.get(idx).is_none_or(|(x, _)| *x != it.0) {
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
@@ -737,8 +737,8 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    let mut result = MouseInputState::default();
-    result.drag_data = mouse_input_state.drag_data.clone();
+    let mut result =
+        MouseInputState { drag_data: mouse_input_state.drag_data.clone(), ..Default::default() };
     let r = send_mouse_event_to_item(
         mouse_event,
         root.clone(),
@@ -750,7 +750,7 @@ pub fn process_mouse_input(
     if mouse_input_state.delayed.is_some()
         && (!r.has_aborted()
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
-                .map_or(true, |(a, b)| a.0 != b.0))
+                .is_none_or(|(a, b)| a.0 != b.0))
     {
         // Keep the delayed event
         return mouse_input_state;
@@ -895,7 +895,7 @@ fn send_mouse_event_to_item(
     } else {
         let mut event = mouse_event.clone();
         event.translate(-geom.origin.to_vector());
-        if last_top_item.map_or(true, |x| *x != item_rc) {
+        if last_top_item.is_none_or(|x| *x != item_rc) {
             event.set_click_count(0);
         }
         item.as_ref().input_event(&event, window_adapter, &item_rc)
