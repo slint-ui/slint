@@ -193,12 +193,12 @@ export component OutlineView inherits VerticalLayout {
                             visible: item.has-children;
                             height: 10px;
                             source: @image-url("../assets/chevron-down.svg");
-                            rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
+                            transform-rotation: item.is-expanded ? 0.0deg : -90.0deg;
                             colorize: selected ? Palette.selection-foreground : Palette.foreground;
                             vertical-alignment: center;
                             opacity: ta-open.has-hover || ta.has-hover ? 1 : 0;
 
-                            animate rotation-angle, opacity {
+                            animate transform-rotation, opacity {
                                 duration: 300ms;
                                 easing: ease-out-quad;
                             }

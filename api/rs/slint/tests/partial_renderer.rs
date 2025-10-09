@@ -419,7 +419,7 @@ fn scale_factor() {
 fn rotated_image() {
     slint::slint! {
         export component Ui inherits Window {
-            in property <angle> rotation <=> i.rotation-angle;
+            in property <angle> rotation <=> i.transform-rotation;
             in property <length> x-pos <=> i.x;
             background: black;
             i := Image {

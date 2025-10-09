@@ -176,7 +176,7 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
-    ("rotation-angle", Type::Angle),
+    ("transform-rotation", Type::Angle),
     ("transform-scale-x", Type::Float32),
     ("transform-scale-y", Type::Float32),
     ("transform-scale", Type::Float32),
@@ -265,23 +265,23 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 }
 
 /// lookup reserved property injected in every item
-pub fn reserved_property(name: &str) -> PropertyLookupResult<'_> {
+pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
     thread_local! {
         static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>
             = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name)))).collect();
     }
-    if let Some(result) = RESERVED_PROPERTIES.with(|reserved| {
-        reserved.get(name).map(|(ty, visibility, builtin_function)| PropertyLookupResult {
-            property_type: ty.clone(),
-            resolved_name: name.into(),
+    if let Some((ty, visibility, builtin_function)) =
+        RESERVED_PROPERTIES.with(|reserved| reserved.get(name.as_ref()).cloned())
+    {
+        return PropertyLookupResult {
+            property_type: ty,
+            resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
-            property_visibility: *visibility,
+            property_visibility: visibility,
             declared_pure: None,
-            builtin_function: builtin_function.clone(),
-        })
-    }) {
-        return result;
+            builtin_function,
+        };
     }
 
     // Report deprecated known reserved properties (maximum_width, minimum_height, ...)
@@ -304,7 +304,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult<'_> {
             }
         }
     }
-    PropertyLookupResult::invalid(name.into())
+    PropertyLookupResult::invalid(name)
 }
 
 /// These member functions are injected in every time

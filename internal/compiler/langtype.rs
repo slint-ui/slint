@@ -428,7 +428,7 @@ impl ElementType {
                         if b.is_non_item_type {
                             PropertyLookupResult::invalid(resolved_name)
                         } else {
-                            crate::typeregister::reserved_property(name)
+                            crate::typeregister::reserved_property(resolved_name)
                         }
                     }
                     Some(p) => PropertyLookupResult {

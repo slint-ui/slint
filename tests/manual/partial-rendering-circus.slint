@@ -11,7 +11,7 @@ export component AppWindow inherits Window {
         x: (root.width - self.width) / 2 + (cos(mod(animation-tick(), 5s) / 5s * 360deg) * (root.width - self.width) / 2);
         y: (root.height - self.height) / 2 + (sin(mod(animation-tick(), 5s) / 5s * 360deg) * (root.height - self.height) / 2);
         source: @image-url("../../demos/home-automation/ui/images/slint-logo.svg");
-        rotation-angle: mod(animation-tick(), 2s) / 2s * 360deg;
+        transform-rotation: mod(animation-tick(), 2s) / 2s * 360deg;
         colorize: green;
     }
 

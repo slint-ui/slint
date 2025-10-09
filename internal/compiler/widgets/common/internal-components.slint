@@ -160,11 +160,11 @@ export component SelectionButton {
             y: (parent.height - self.height) / 2;
             width: root.style.icon-size;
             colorize: root.style.foreground;
-            rotation-angle: root.checked ? 180deg : 0;
+            transform-rotation: root.checked ? 180deg : 0;
             rotation-origin-x: self.width / 2;
             rotation-origin-y: self.height / 2;
 
-            animate rotation-angle { duration: 250ms; }
+            animate transform-rotation { duration: 250ms; }
         }
     }
 

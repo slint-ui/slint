@@ -44,11 +44,11 @@ export component ExpandableGroup {
                         rotation-origin-y: self.height / 2;
                         states [
                             closed when !root.open: {
-                                rotation-angle: -0.25turn;
+                                transform-rotation: -0.25turn;
                             }
                         ]
 
-                        animate rotation-angle { duration: EditorAnimationSettings.rotation-duration; }
+                        animate transform-rotation { duration: EditorAnimationSettings.rotation-duration; }
                     }
 
                     t := BodyStrongText {

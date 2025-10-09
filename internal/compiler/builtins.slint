@@ -52,6 +52,8 @@ component ImageItem inherits Empty {
     in property <ImageFit> image-fit;
     in property <ImageRendering> image-rendering;
     in property <brush> colorize;
+
+    in property <angle> rotation-angle <=> transform-rotation;
 }
 
 export component ClippedImage inherits ImageItem {
@@ -82,7 +84,7 @@ export component ComponentContainer inherits Empty {
 }
 
 export component Transform inherits Empty {
-    in property <angle> rotation-angle;
+    in property <angle> transform-rotation;
     in property <percent> transform-scale-x;
     in property <percent> transform-scale-y;
     in property <length> rotation-origin-x;
@@ -101,6 +103,8 @@ component SimpleText inherits Empty {
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
     //-default_size_binding:implicit_size
+
+    in property <angle> rotation-angle <=> transform-rotation;
 }
 
 component ComplexText inherits SimpleText {
