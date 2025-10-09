@@ -297,7 +297,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 }
             } else {
                 let transform =
-                    skia_safe::Matrix::rect_to_rect(skia_safe::Rect::from(src), dst, None)
+                    skia_safe::Matrix::rect_2_rect(skia_safe::Rect::from(src), dst, None)
                         .unwrap_or_default();
                 self.canvas.concat(&transform);
                 self.canvas.draw_image_with_sampling_options(

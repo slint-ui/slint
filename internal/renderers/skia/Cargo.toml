@@ -31,6 +31,9 @@ unstable-wgpu-26 = [
   "dep:metal",
   "dep:foreign-types",
   "dep:ash",
+  "dep:windows_58",
+  "dep:windows-core",
+  "dep:windows-core_58",
 ]
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
@@ -39,6 +42,9 @@ unstable-wgpu-27 = [
   "dep:metal",
   "dep:foreign-types",
   "dep:ash",
+  "dep:windows_58",
+  "dep:windows-core",
+  "dep:windows-core_58",
 ]
 default = []
 
@@ -57,7 +63,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
-skia-safe = { version = "0.88", features = ["gl"] }
+skia-safe = { version = "0.89", features = ["gl"] }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
@@ -77,11 +83,13 @@ softbuffer = { workspace = true, default-features = false }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-windows = { version = "0.61.1", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
-windows_58 = { package = "windows", version = "0.58.0", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
-windows-core = { package = "windows-core", version = "0.61.0" }
-windows-core_58 = { package = "windows-core", version = "0.58.0" }
-skia-safe = { version = "0.88", features = ["d3d"] }
+windows = { workspace = true, features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
+# Separate builds of the windows crate are needed until https://github.com/gfx-rs/wgpu/pull/6876 is
+# merged and released.
+windows_58 = { package = "windows", version = "0.58.0", optional = true, features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
+windows-core = { workspace = true, optional = true }
+windows-core_58 = { package = "windows-core", version = "0.58.0", optional = true }
+skia-safe = { version = "0.89", features = ["d3d"] }
 wgpu-26 = { workspace = true, optional = true, features = ["dx12"] }
 wgpu-27 = { workspace = true, optional = true, features = ["dx12"] }
 
@@ -92,7 +100,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = ["s
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSView"] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["CFCGTypes"] }
-skia-safe = { version = "0.88", features = ["metal"] }
+skia-safe = { version = "0.89", features = ["metal"] }
 raw-window-metal = "1.0"
 
 metal = { version = "0.31", optional = true }
@@ -104,13 +112,13 @@ read-fonts = { version = "0.35" }
 write-fonts = { version = "0.43" }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
-skia-safe = { version = "0.88", features = ["gl", "vulkan"] }
+skia-safe = { version = "0.89", features = ["gl", "vulkan"] }
 wgpu-26 = { workspace = true, optional = true, features = ["vulkan"] }
 wgpu-27 = { workspace = true, optional = true, features = ["vulkan"] }
 
 [target.'cfg(any(target_os = "ios", target_os="windows", target_os="android", target_os="linux"))'.dependencies]
 # Text layout is enabled here just so that we can make use of the pre-built Skia libraries.
-skia-safe = { version = "0.88", features = ["textlayout"] }
+skia-safe = { version = "0.89", features = ["textlayout"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
