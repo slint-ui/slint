@@ -2869,11 +2869,18 @@ fn compile_builtin_function_call(
                 arguments
             {
                 let mut parent_ctx = ctx;
-                let mut component_access_tokens = quote!(_self);
+                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 if let llr::PropertyReference::InParent { level, .. } = parent_ref {
                     for _ in 0..level.get() {
-                        component_access_tokens =
-                            quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+                        component_access_tokens = match component_access_tokens {
+                            MemberAccess::Option(token_stream) => MemberAccess::Option(
+                                quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
+                            ),
+                            MemberAccess::Direct(token_stream) => {
+                                MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
+                            }
+                            _ => unreachable!(),
+                        };
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 }
@@ -2894,23 +2901,58 @@ fn compile_builtin_function_call(
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
-                quote!({
-                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
-                    let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
-                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                let popup_instance_tokens = match &component_access_tokens {
+                    MemberAccess::Option(token_stream) => {
+                        quote!(#token_stream)
                     }
-                    #component_access_tokens.#popup_id_name.set(Some(
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                            &sp::VRc::into_dyn(popup_instance.into()),
-                            position,
-                            #close_policy,
-                            #parent_component,
-                            false, // is_menu
-                        ))
-                    );
-                    #popup_window_id::user_init(popup_instance_vrc.clone());
+                    MemberAccess::Direct(token_stream) => {
+                        quote!(Some(#token_stream))
+                    }
+                    _ => unreachable!(),
+                };
+                let current_id_tokens = match &component_access_tokens {
+                    MemberAccess::Option(token_stream) => quote!(
+                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take())
+                    ),
+                    MemberAccess::Direct(token_stream) => {
+                        quote!(#token_stream.as_ref().#popup_id_name.take())
+                    }
+                    _ => unreachable!(),
+                };
+                let set_contents = quote!(Some(
+                sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                    &sp::VRc::into_dyn(popup_instance.into()),
+                    position,
+                    #close_policy,
+                    #parent_component,
+                    false, // is_menu
+                )));
+
+                let popup_id_setter_tokens = match &component_access_tokens {
+                    MemberAccess::Option(token_stream) => {
+                        quote!(
+                            if let Some(setter) = #token_stream {
+                                setter.as_pin_ref().#popup_id_name.set(#set_contents);
+                            }
+                        )
+                    }
+                    MemberAccess::Direct(token_stream) => {
+                        quote!(#token_stream.as_ref().#popup_id_name.set(#set_contents);)
+                    }
+                    _ => unreachable!(),
+                };
+                quote!({
+                    if let Some(popup_instance) = #popup_instance_tokens {
+                        let popup_instance = popup_instance.self_weak.get().unwrap().clone();
+                        let popup_instance = #popup_window_id::new(popup_instance).unwrap();
+                        let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+                        let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
+                        if let Some(current_id) = #current_id_tokens {
+                            sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                        }
+                        #popup_id_setter_tokens
+                        #popup_window_id::user_init(popup_instance_vrc.clone());
+                    }
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -2921,18 +2963,34 @@ fn compile_builtin_function_call(
                 arguments
             {
                 let mut parent_ctx = ctx;
-                let mut component_access_tokens = quote!(_self);
+                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 if let llr::PropertyReference::InParent { level, .. } = parent_ref {
                     for _ in 0..level.get() {
-                        component_access_tokens =
-                            quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+                        component_access_tokens = match component_access_tokens {
+                            MemberAccess::Option(token_stream) => MemberAccess::Option(
+                                quote!(#token_stream.and_then(|a| a.parent.upgrade())),
+                            ),
+                            MemberAccess::Direct(token_stream) => {
+                                MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
+                            }
+                            _ => unreachable!(),
+                        };
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 }
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
+                let current_id_tokens = match component_access_tokens {
+                    MemberAccess::Option(token_stream) => quote!(
+                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take())
+                    ),
+                    MemberAccess::Direct(token_stream) => {
+                        quote!(#token_stream.as_ref().#popup_id_name.take())
+                    }
+                    _ => unreachable!(),
+                };
                 quote!(
-                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                    if let Some(current_id) = #current_id_tokens {
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
                     }
                 )
