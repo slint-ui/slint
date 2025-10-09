@@ -57,21 +57,39 @@ export component ScrollBar inherits Rectangle {
 
     touch-area := TouchArea {
         property <length> pressed-value;
+        property <length> saved-maximum;
+        property <length> saved-x;
+        property <length> saved-y;
 
         width: parent.width;
         height: parent.height;
 
+        function update-saved-values() {
+            self.pressed-value = -root.value;
+            self.saved-maximum = root.maximum;
+            self.saved-y = self.mouse-y;
+            self.saved-x = self.mouse-x;
+        }
+
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                self.pressed-value = -root.value;
+                self.update-saved-values();
             }
         }
 
         moved => {
             if (self.enabled && self.pressed) {
+                // Update reference points when the size of the viewport changes to
+                // avoid 'jumping' during scrolling.
+                // This happens when height estimate of a ListView changes, after
+                // new items are loaded.
+                if (self.saved-maximum != root.maximum) {
+                    self.update-saved-values();
+                }
+
                 root.value = -max(0px, min(root.maximum, self.pressed-value + (
-                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width))
-                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height))
+                    root.horizontal ? (touch-area.mouse-x - touch-area.saved-x) * (root.maximum / (root.track-size - thumb.width))
+                               : (touch-area.mouse-y - touch-area.saved-y) * (root.maximum / (root.track-size - thumb.height))
                 )));
                 root.scrolled();
             }
