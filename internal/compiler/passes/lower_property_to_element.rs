@@ -132,24 +132,25 @@ pub fn lower_transform_properties(
 ) {
     lower_property_to_element(
         component,
-        crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[..4]
-            .iter()
-            .map(|(prop_name, _)| *prop_name),
-        crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[4..]
-            .iter()
-            .map(|(prop_name, _)| *prop_name),
+        crate::typeregister::RESERVED_TRANSFORM_PROPERTIES.iter().map(|(prop_name, _)| *prop_name),
+        std::iter::once(crate::typeregister::transform_origin_property().0),
         Some(&|e, prop| {
-            let prop_div_2 = |prop: &str| {
-                Some(Expression::BinaryExpression {
-                    lhs: Expression::PropertyReference(NamedReference::new(e, prop.into())).into(),
-                    op: '/',
-                    rhs: Expression::NumberLiteral(2., Default::default()).into(),
-                })
+            let prop_div_2 = |prop: &str| Expression::BinaryExpression {
+                lhs: Expression::PropertyReference(NamedReference::new(e, prop.into())).into(),
+                op: '/',
+                rhs: Expression::NumberLiteral(2., Default::default()).into(),
             };
 
             match prop {
-                "rotation-origin-x" => prop_div_2("width"),
-                "rotation-origin-y" => prop_div_2("height"),
+                "transform-origin" => Some(Expression::Struct {
+                    ty: crate::typeregister::logical_point_type(),
+                    values: [
+                        (SmolStr::new_static("x"), prop_div_2("width")),
+                        (SmolStr::new_static("y"), prop_div_2("height")),
+                    ]
+                    .into_iter()
+                    .collect(),
+                }),
                 "transform-scale-x" | "transform-scale-y" => {
                     if e.borrow().is_binding_set("transform-scale", true) {
                         Some(Expression::PropertyReference(NamedReference::new(

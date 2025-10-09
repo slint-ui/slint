@@ -235,7 +235,7 @@ fn process_context_menu(
     let source_location = Some(context_menu_elem.borrow().to_source_location());
     let position = Expression::FunctionParameterReference {
         index: 0,
-        ty: crate::typeregister::logical_point_type(),
+        ty: crate::typeregister::logical_point_type().into(),
     };
     let expr = if !is_internal {
         let menu_element_type = context_menu_elem

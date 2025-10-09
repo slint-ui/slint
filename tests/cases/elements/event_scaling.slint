@@ -22,8 +22,7 @@ export component TestCase  {
         height: 50px;
         transform-scale-x: 200%;
         transform-scale-y: 400%;
-        rotation-origin-x: 0px;
-        rotation-origin-y: 0px;
+        transform-origin: { x: 0px, y: 0px };
         area1 := TouchArea {
             clicked => {
                 pointer-event-test += "click:";

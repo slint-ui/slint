@@ -195,8 +195,8 @@ declare_builtin_function_types!(
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
-    ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type()) -> Type::Void,
-    ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type()) -> Type::Void,
+    ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type().into()) -> Type::Void,
+    ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type().into()) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
     ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
@@ -205,7 +205,7 @@ declare_builtin_function_types!(
     StringCharacterCount: (Type::String) -> Type::Int32,
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> Type::Struct(typeregister::layout_info_type()),
+    ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
@@ -262,7 +262,7 @@ declare_builtin_function_types!(
     ValidDate: (Type::String, Type::String) -> Type::Bool,
     ParseDate: (Type::String, Type::String) -> Type::Array(Rc::new(Type::Int32)),
     SetTextInputFocused: (Type::Bool) -> Type::Void,
-    ItemAbsolutePosition: (Type::ElementReference) -> typeregister::logical_point_type(),
+    ItemAbsolutePosition: (Type::ElementReference) -> typeregister::logical_point_type().into(),
     RegisterCustomFontByPath: (Type::String) -> Type::Void,
     RegisterCustomFontByMemory: (Type::Int32) -> Type::Void,
     RegisterBitmapFont: (Type::Int32) -> Type::Void,

@@ -1030,8 +1030,7 @@ pub struct Transform {
     pub transform_rotation: Property<f32>,
     pub transform_scale_x: Property<f32>,
     pub transform_scale_y: Property<f32>,
-    pub rotation_origin_x: Property<LogicalLength>,
-    pub rotation_origin_y: Property<LogicalLength>,
+    pub transform_origin: Property<LogicalPosition>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1098,8 +1097,7 @@ impl Item for Transform {
         _self_rc: &ItemRc,
         _size: LogicalSize,
     ) -> RenderingResult {
-        let origin =
-            LogicalVector::from_lengths(self.rotation_origin_x(), self.rotation_origin_y());
+        let origin = self.transform_origin().to_euclid().to_vector();
         (*backend).translate(origin);
         (*backend).scale(self.transform_scale_x(), self.transform_scale_y());
         (*backend).rotate(self.transform_rotation());
