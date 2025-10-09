@@ -51,6 +51,25 @@ def test_load_file_fail() -> None:
         load_file("non-existent.slint")
 
 
+def test_compile_error() -> None:
+    with pytest.raises(CompileError) as excinfo:
+        load_file(base_dir() / "test-file-error.slint")
+    err = excinfo.value
+    diagnostics = err.diagnostics
+    assert len(diagnostics) == 2
+    assert diagnostics[0].message == "Unknown type 'garbage'"
+    assert diagnostics[0].line_number == 6
+    assert diagnostics[0].column_number == 15
+    assert diagnostics[1].message == "Unknown element 'NewType'"
+    assert diagnostics[1].line_number == 7
+    assert diagnostics[1].column_number == 5
+    path = base_dir() / "test-file-error.slint"
+    assert str(err) == f"Could not compile {path}"
+    assert len(err.__notes__) == 2
+    assert err.__notes__[0] == f"{path}:6: Unknown type 'garbage'"
+    assert err.__notes__[1] == f"{path}:7: Unknown element 'NewType'"
+
+
 def test_load_file_wrapper() -> None:
     module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 
