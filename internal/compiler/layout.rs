@@ -453,7 +453,7 @@ fn init_fake_property(
 /// Internal representation of a grid layout
 #[derive(Debug, Clone)]
 pub struct GridLayout {
-    /// All the elements will be layout within that element.
+    /// All the elements which will be laid out within that element.
     pub elems: Vec<GridLayoutElement>,
 
     pub geometry: LayoutGeometry,
@@ -475,7 +475,7 @@ impl GridLayout {
 /// Internal representation of a BoxLayout
 #[derive(Debug, Clone)]
 pub struct BoxLayout {
-    /// Whether, this is a HorizontalLayout, otherwise a VerticalLayout
+    /// Whether this is a HorizontalLayout or a VerticalLayout
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
