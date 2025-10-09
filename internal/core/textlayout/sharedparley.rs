@@ -329,15 +329,20 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        for (line_index, line) in self.inner.lines().enumerate().take_while(|(line_index, line)| {
-            let metrics = line.metrics();
-            std::dbg!(self.max_physical_height, metrics);
-            match self.max_physical_height {
-                Some(max_physical_height) => max_physical_height.get() > metrics.min_coord,
-                _ => true
-            }
-        }) {
-            let last_line = line_index == self.inner.len() - 1;
+        let mut lines = self
+            .inner
+            .lines()
+            .take_while(|line| {
+                let metrics = line.metrics();
+                match self.max_physical_height {
+                    Some(max_physical_height) => max_physical_height.get() > metrics.max_coord,
+                    _ => true,
+                }
+            })
+            .peekable();
+
+        while let Some(line) = lines.next() {
+            let last_line = lines.peek().is_none();
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
