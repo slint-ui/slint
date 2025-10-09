@@ -42,7 +42,7 @@ export component BusyLayer inherits Rectangle {
         source: AppImages.refresh;
         colorize: white.darker(15%);
 
-        rotation-angle: Math.mod(animation-tick() / 3.25ms, 360) * 1deg;
+        transform-rotation: Math.mod(animation-tick() / 3.25ms, 360) * 1deg;
     }
 
     // touch blocker

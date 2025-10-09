@@ -33,7 +33,7 @@ export component Dial {
             Image {
                 source: @image-url("../../images/lines.png");
                 colorize: Palette.dark-color-scheme ? #fff : #000;
-                rotation-angle: root.dialAngle;
+                transform-rotation: root.dialAngle;
                 width: self.source.width * 0.55 * 1px;
                 height: self.source.height * 0.55 * 1px;
                 opacity: 0.03;

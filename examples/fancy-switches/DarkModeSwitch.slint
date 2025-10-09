@@ -49,16 +49,16 @@ component SunIcon {
             border-width: 5px;
         }
         for i in rays: RayThick {
-            x: (sun-size / 2 + gap) * self.rotation-angle.cos();
-            y: (sun-size / 2 + gap) * self.rotation-angle.sin();
+            x: (sun-size / 2 + gap) * self.transform-rotation.cos();
+            y: (sun-size / 2 + gap) * self.transform-rotation.sin();
             colorize: root.color;
-            rotation-angle: i * 360deg / rays;
+            transform-rotation: i * 360deg / rays;
         }
         for i in rays: RayThin {
-            x: (sun-size / 2 + gap) * self.rotation-angle.cos();
-            y: (sun-size / 2 + gap) * self.rotation-angle.sin();
+            x: (sun-size / 2 + gap) * self.transform-rotation.cos();
+            y: (sun-size / 2 + gap) * self.transform-rotation.sin();
             colorize: root.color;
-            rotation-angle: i * (360deg / rays) + 45deg;
+            transform-rotation: i * (360deg / rays) + 45deg;
         }
     }
 }
@@ -121,7 +121,7 @@ export component DarkModeSwitch {
             thumb.x: thumb.y;
             thumb.background: @radial-gradient(circle,#b0b0b0 0%, #cccccc 70%, #e9e9e9 100%);
             frameBacker.background: #2A2A2A;
-            moon.rotation-angle: -20deg;
+            moon.transform-rotation: -20deg;
             sun.color: #fc7a10;
             sun.transform-scale: 0.8;
             in {
@@ -129,7 +129,7 @@ export component DarkModeSwitch {
                     duration: 200ms;
                     easing: ease-out-sine;
                 }
-                animate moon.rotation-angle, sun.transform-scale {
+                animate moon.transform-rotation, sun.transform-scale {
                     duration: 1200ms;
                     easing: ease-out-elastic;
                 }
@@ -140,11 +140,11 @@ export component DarkModeSwitch {
             thumb.x: frame.width - thumb.width - thumb.y;
             thumb.background:  @radial-gradient(circle,#515151 0%, #242424 80%, #191919 100%);
             frameBacker.background: transparent;
-            moon.rotation-angle: 20deg;
+            moon.transform-rotation: 20deg;
             sun.color: #2A2A2A;
             sun.transform-scale: 1;
             in {
-                animate thumb.x, thumb.background, frameBacker.background, moon.rotation-angle {
+                animate thumb.x, thumb.background, frameBacker.background, moon.transform-rotation {
                     duration: 200ms;
                     easing: ease-out-sine;
                 }

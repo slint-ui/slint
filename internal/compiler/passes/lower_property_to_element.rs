@@ -161,7 +161,7 @@ pub fn lower_transform_properties(
                     }
                 }
                 "transform-scale" => None,
-                "rotation-angle" => Some(Expression::NumberLiteral(0., Default::default())),
+                "transform-rotation" => Some(Expression::NumberLiteral(0., Default::default())),
                 _ => unreachable!(),
             }
         }),

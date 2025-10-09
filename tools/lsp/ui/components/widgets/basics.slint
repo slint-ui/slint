@@ -261,7 +261,7 @@ export component ChildIndicator inherits Rectangle {
         colorize: Palette.foreground;
         visible: expand.has-hover || root.control-hover;
         source: Icons.chevron-down;
-        rotation-angle: root.open ? 0deg : -90deg;
+        transform-rotation: root.open ? 0deg : -90deg;
     }
 
     expand := TouchArea {
