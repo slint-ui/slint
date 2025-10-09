@@ -347,8 +347,9 @@ impl Layout {
             .lines()
             .take_while(|line| {
                 let metrics = line.metrics();
+                let is_eliding = self.elision_info.is_some();
                 match self.max_physical_height {
-                    Some(max_physical_height) => max_physical_height.get() > metrics.max_coord,
+                    Some(max_physical_height) if is_eliding => max_physical_height.get() > metrics.max_coord,
                     _ => true,
                 }
             })
