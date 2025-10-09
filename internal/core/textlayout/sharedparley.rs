@@ -274,7 +274,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout { inner: layout, y_offset, elision_info, max_physical_height }
+    Layout { inner: layout, y_offset, elision_info, max_physical_height, is_wrapping: options.text_wrap != TextWrap::NoWrap }
 }
 
 struct ElisionInfo {
@@ -287,6 +287,7 @@ struct Layout {
     y_offset: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
     elision_info: Option<ElisionInfo>,
+    is_wrapping: bool
 }
 
 impl Layout {
@@ -347,9 +348,8 @@ impl Layout {
             .lines()
             .take_while(|line| {
                 let metrics = line.metrics();
-                let is_eliding = self.elision_info.is_some();
                 match self.max_physical_height {
-                    Some(max_physical_height) if is_eliding => max_physical_height.get() > metrics.max_coord,
+                    Some(max_physical_height) if self.is_wrapping => max_physical_height.get() > metrics.max_coord,
                     _ => true,
                 }
             })
