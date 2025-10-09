@@ -113,12 +113,12 @@ impl PyDiagnostic {
 
     #[getter]
     fn column_number(&self) -> usize {
-        self.0.line_column().0
+        self.0.line_column().1
     }
 
     #[getter]
     fn line_number(&self) -> usize {
-        self.0.line_column().1
+        self.0.line_column().0
     }
 
     #[getter]

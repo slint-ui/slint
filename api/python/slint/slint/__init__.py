@@ -34,8 +34,11 @@ class CompileError(Exception):
 
     def __init__(self, message: str, diagnostics: list[native.PyDiagnostic]):
         """@private"""
+        super().__init__(message)
         self.message = message
         self.diagnostics = diagnostics
+        for diag in self.diagnostics:
+            self.add_note(str(diag))
 
 
 class Component:
