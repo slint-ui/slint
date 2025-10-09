@@ -197,6 +197,10 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
             TextWrap::WordWrap => parley::style::WordBreakStrength::Normal,
             TextWrap::CharWrap => parley::style::WordBreakStrength::BreakAll,
         }));
+        builder.push_default(parley::StyleProperty::OverflowWrap(match options.text_wrap {
+            TextWrap::NoWrap => parley::style::OverflowWrap::Normal,
+            TextWrap::WordWrap | TextWrap::CharWrap => parley::style::OverflowWrap::Anywhere,
+        }));
 
         builder.push_default(parley::StyleProperty::Brush(Brush {
             selection_fill_color: None,
