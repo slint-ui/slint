@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "stockticker"
+version = "1.14.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "stockticker"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+async-compat = { version = "0.2.4" }
+reqwest = { version = "0.12", features = ["json"] }
+serde = "1.0"
+serde_json = "1.0"
