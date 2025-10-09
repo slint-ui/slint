@@ -82,7 +82,7 @@ pub struct BuiltinTypes {
     pub enums: BuiltinEnums,
     pub noarg_callback_type: Type,
     pub strarg_callback_type: Type,
-    pub logical_point_type: Type,
+    pub logical_point_type: Rc<Struct>,
     pub font_metrics_type: Type,
     pub layout_info_type: Rc<Struct>,
     pub path_element_type: Type,
@@ -107,7 +107,7 @@ impl BuiltinTypes {
         });
         Self {
             enums: BuiltinEnums::new(),
-            logical_point_type: Type::Struct(Rc::new(Struct {
+            logical_point_type: Rc::new(Struct {
                 fields: IntoIterator::into_iter([
                     (SmolStr::new_static("x"), Type::LogicalLength),
                     (SmolStr::new_static("y"), Type::LogicalLength),
@@ -116,7 +116,7 @@ impl BuiltinTypes {
                 name: Some("slint::LogicalPosition".into()),
                 node: None,
                 rust_attributes: None,
-            })),
+            }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
                     (SmolStr::new_static("ascent"), Type::LogicalLength),
@@ -180,9 +180,11 @@ pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("transform-scale-x", Type::Float32),
     ("transform-scale-y", Type::Float32),
     ("transform-scale", Type::Float32),
-    ("rotation-origin-x", Type::LogicalLength),
-    ("rotation-origin-y", Type::LogicalLength),
 ];
+
+pub fn transform_origin_property() -> (&'static str, Type) {
+    ("transform-origin", logical_point_type().into())
+}
 
 pub fn noarg_callback_type() -> Type {
     BUILTIN.with(|types| types.noarg_callback_type.clone())
@@ -231,6 +233,10 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
+        .chain(
+            std::iter::once(transform_origin_property())
+                .map(|(k, v)| (k, v, PropertyVisibility::Input)),
+        )
         .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::Input)))
         .chain(
             RESERVED_GRIDLAYOUT_PROPERTIES
@@ -238,7 +244,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Constexpr)),
         )
         .chain(IntoIterator::into_iter([
-            ("absolute-position", logical_point_type(), PropertyVisibility::Output),
+            ("absolute-position", logical_point_type().into(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
             (
                 "focus",
@@ -391,7 +397,7 @@ impl TypeRegister {
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);
-        register.types.insert("Point".into(), logical_point_type());
+        register.types.insert("Point".into(), logical_point_type().into());
 
         BUILTIN.with(|e| e.enums.fill_register(&mut register));
 
@@ -411,7 +417,7 @@ impl TypeRegister {
             ($pub_type:ident, SharedString) => { Type::String };
             ($pub_type:ident, Image) => { Type::Image };
             ($pub_type:ident, Coord) => { Type::LogicalLength };
-            ($pub_type:ident, LogicalPosition) => { logical_point_type() };
+            ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
                 BUILTIN.with(|e| Type::Enumeration(e.enums.$pub_type.clone()))
@@ -706,7 +712,7 @@ impl TypeRegister {
     }
 }
 
-pub fn logical_point_type() -> Type {
+pub fn logical_point_type() -> Rc<Struct> {
     BUILTIN.with(|types| types.logical_point_type.clone())
 }
 

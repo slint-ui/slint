@@ -468,10 +468,14 @@ pub(super) fn get_properties(
                     group_priority: depth,
                 });
 
+                let transform_origin = i_slint_compiler::typeregister::transform_origin_property();
                 result.extend(get_reserved_properties(
                     &b.name,
                     depth,
-                    i_slint_compiler::typeregister::RESERVED_TRANSFORM_PROPERTIES.iter().cloned(),
+                    i_slint_compiler::typeregister::RESERVED_TRANSFORM_PROPERTIES
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once((transform_origin.0, transform_origin.1.into()))),
                 ));
 
                 if matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout") {
