@@ -13,6 +13,11 @@ export component Lamp inherits Control {
     show-label: false;
     tile-shadow-blur: 0px;
 
+    property <bool> is-dragging: false;
+    property <length> drag-threshold: 5px;
+    property <float> saved-value: 22;
+    property <float> drag-min-value: 5;
+
     tile := Rectangle {
         width: 100%;
         height: 100%;
@@ -46,6 +51,7 @@ export component Lamp inherits Control {
             }
 
             slider := FancySlider {
+                minValue: 0;
                 maxValue: 24;
                 value: 22;
                 width: root.width * 0.8;
@@ -57,9 +63,14 @@ export component Lamp inherits Control {
     TouchArea {
         clicked => {
             AppState.end-kiosk-mode();
-            if self.mouse-x == slider.initial-position {
+            if !root.is-dragging {
                 slider.anim-duration = 300ms;
-                slider.animated-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;
+                if slider.value > 0 {
+                    root.saved-value = slider.value;
+                    slider.animated-value = 0;
+                } else {
+                    slider.animated-value = root.saved-value;
+                }
             }
         }
         moved => {
@@ -70,15 +81,23 @@ export component Lamp inherits Control {
                 slider.previous-value = slider.value;
                 slider.anim-duration = 0ms;
             } else {
-                slider.change-value = ((self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue) - slider.initial-value;
-                slider.value = Math.clamp(slider.previous-value + slider.change-value, slider.minValue, slider.maxValue);
-                slider.animated-value = slider.value;
+                if Math.abs(self.mouse-x - slider.initial-position) > root.drag-threshold {
+                    root.is-dragging = true;
+                }
+
+                if root.is-dragging {
+                    slider.change-value = ((self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue) - slider.initial-value;
+                    slider.value = Math.clamp(slider.previous-value + slider.change-value, root.drag-min-value, slider.maxValue);
+                    slider.animated-value = slider.value;
+                    root.saved-value = slider.value;
+                }
             }
         }
 
         changed pressed => {
             if !self.pressed {
                 slider.first-touch = false;
+                root.is-dragging = false;
             }
         }
     }
