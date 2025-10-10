@@ -21,14 +21,12 @@ jobs:
                 git_url:
                     # from madewithslint
                     - "https://github.com/slint-ui/cargo-ui"
-                    - "https://github.com/jturcotte/chiptrack"
                     - "https://github.com/GaspardCulis/slint-tetris"
                     #- "https://github.com/dngulin/gpcl" # depends on the winit backend
                     - "https://codeberg.org/flovansl/co_sl"
                     - "https://seed.radicle.garden/z3oxAZSLcyXgpa7fcvgtueF49jHpH.git" #vivi
                     #- "https://github.com/ElevenJune/mastermind_Rust" # Not upgraded to Slint 1.0
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
-                    - "https://github.com/Vinegret43/dispute"
                     - "https://github.com/bjorn/raccoin"
                     # - "https://gitlab.com/floers/ordinary" # compile error in hlua-0.4.2
                     - "https://github.com/parchlinux/parch-welcome/"
@@ -57,7 +55,6 @@ jobs:
                     - "https://github.com/smalltext/trace-slint/"
                     # - "https://github.com/danrauch/thermocam" #  error: failed to run custom build command for `v4l2-sys-mit v0.2.0`
                     - "https://github.com/saturn77/magnet"
-                    - "https://github.com/Heng30/chatbox"
 
                     # - "https://github.com/zzq0097/mmm_rs" # could not compile `netease-cloud-music-api` (lib)
                     - "https://github.com/CMahaff/lasim" # many stars
@@ -87,7 +84,6 @@ jobs:
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     - "https://github.com/Heng30/solana-wallet-sollet"
                     - "https://github.com/nzhenev/vtbox"
-                    - "https://github.com/Risuleia/Tranquilo"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
                     #- "https://github.com/Kllngii/Wetterstation"  # can't check submodules
@@ -110,7 +106,6 @@ jobs:
                     - "https://github.com/Surrealism-All/slimk"
                     - "https://github.com/BounceU/car_thang"
                     - "https://github.com/sloganking/codevis-gui"
-                    - "https://github.com/R3alCl0ud/Rust4Diva"
                     - "https://github.com/CzNorbi/tic_tac_toe_ui"
                     - "https://github.com/remy2019/smtbr_gui"
                     - "https://github.com/mrandal/PDFer"
@@ -125,19 +120,15 @@ jobs:
                     - "https://github.com/RealAdarsh/slint-guess-game"
                     - "https://github.com/DASPRiD/vrc-osc-manager"
                     - "https://github.com/beac0n/ruroco"
-                    - "https://github.com/Enn3Developer/n_music"
 
                     - "https://github.com/SergioRibera/Simplemoji"
                     - "https://github.com/Ashintosh/NoPass"
                     # - "https://github.com/Gremious/stickerbox" depends on unstable-wgpu-24
-                    - "https://github.com/BiliRumble/Cloubit"
                     - "https://github.com/aenriii/rimgv"
                     - "https://github.com/Brayan-724/amosd"
-                    - "https://github.com/TsaoLun/always-blue"
                     - "https://github.com/kevinquillen/sysinfo"
                     - "https://github.com/home-cooked-firmware/hcui"
                     - "https://github.com/EinsPhoenix/MineSweeper-Rust"
-                    - "https://github.com/jturcotte/beskope"
                     - "https://github.com/themkoi/Cosmic-Wanderer"
                     - "https://github.com/Danila-Bain/wav-wav"
                     - "https://github.com/xcrong/slint_data_processer"
@@ -198,6 +189,9 @@ jobs:
                 os: ["ubuntu-24.04"]
 
                 include:
+                    - git_url: "https://github.com/jturcotte/chiptrack"
+                      sub_path: "."
+                      extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
                     - git_url: "https://github.com/Futsch1/image-sieve"
                       sub_path: "."
                       extra_packages: libgtk-3-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev llvm libheif-dev
@@ -280,6 +274,29 @@ jobs:
                       sub_path: "client-gui"
                     - git_url: "https://github.com/chrishengler/terraingen"
                       sub_path: "gui-slint"
+                    - git_url: "https://github.com/Vinegret43/dispute"
+                      sub_path: "."
+                      extra_packages: libdbus-1-dev
+                    - git_url: "https://github.com/Heng30/chatbox"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev
+                    - git_url: "https://github.com/Risuleia/Tranquilo"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev
+                    - git_url: "https://github.com/R3alCl0ud/Rust4Diva"
+                      sub_path: "."
+                      extra_packages: libarchive-dev
+                    - git_url: "https://github.com/Enn3Developer/n_music"
+                      extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
+                    - git_url: "https://github.com/BiliRumble/Cloubit"
+                      sub_path: "."
+                      extra_packages:  build-essential perl nasm libasound2-dev pkg-config
+                    - git_url: "https://github.com/TsaoLun/always-blue"
+                      sub_path: "."
+                      extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
+                    - git_url: "https://github.com/jturcotte/beskope"
+                      sub_path: "."
+                      extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
 
 
         runs-on: "ubuntu-latest"
@@ -288,7 +305,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
+                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
