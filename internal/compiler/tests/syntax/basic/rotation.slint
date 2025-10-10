@@ -67,6 +67,7 @@ export Ex3 := Rectangle {
             i1.rotation-angle = 60deg;
 //             ^warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
             i2.rotation-origin-x = 10px;
+//             ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
         }
     }
 }
@@ -77,4 +78,16 @@ export component Ex4  {
 //                             ^^error{Element 'Rectangle' does not have a property 'rotation-angle'}
 
     rect := Rectangle {}
+}
+
+
+export component Ex5 {
+    property <int>  transform-origin;
+//                  ^error{Cannot override property 'transform-origin'}
+
+    // Even if the property is deprecated and was never allowed in a non-Image/Text, it is still not allowed to override it
+    property <string> rotation-origin-x;
+//                    ^error{Cannot override property 'rotation-origin-x'}
+    Image { property <string> rotation-origin-y; }
+//                            ^error{Cannot override property 'rotation-origin-y'}
 }

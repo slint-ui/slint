@@ -448,7 +448,7 @@ impl LookupObject for ElementRc {
             let r = expression_from_reference(
                 NamedReference::new(self, name.clone()),
                 &prop.property_type,
-                check_deprecated_stylemetrics(self, ctx, name),
+                check_extra_deprecated(self, ctx, name),
             );
             if let Some(r) = f(name, r) {
                 return Some(r);
@@ -482,7 +482,7 @@ impl LookupObject for ElementRc {
         {
             let deprecated = (lookup_result.resolved_name != name.as_str())
                 .then(|| lookup_result.resolved_name.to_string())
-                .or_else(|| check_deprecated_stylemetrics(self, ctx, name));
+                .or_else(|| check_extra_deprecated(self, ctx, name));
             Some(expression_from_reference(
                 NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
                 &lookup_result.property_type,
@@ -494,11 +494,14 @@ impl LookupObject for ElementRc {
     }
 }
 
-pub fn check_deprecated_stylemetrics(
+pub fn check_extra_deprecated(
     elem: &ElementRc,
     ctx: &LookupCtx<'_>,
     name: &SmolStr,
 ) -> Option<String> {
+    if crate::typeregister::DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter().any(|(p, _)| p == name) {
+        return Some(format!("transform-origin.{}", &name[name.len() - 1..]));
+    }
     let borrow = elem.borrow();
     (!ctx.type_register.expose_internal_types
         && matches!(

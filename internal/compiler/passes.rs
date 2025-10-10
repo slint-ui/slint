@@ -17,6 +17,7 @@ mod compile_paths;
 mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
+mod deprecated_rotation_origin;
 #[cfg(feature = "software-renderer")]
 mod embed_glyphs;
 mod embed_images;
@@ -140,6 +141,7 @@ pub async fn run_passes(
 
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
+        deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
         default_geometry::default_geometry(component, diag);
