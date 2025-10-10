@@ -42,6 +42,7 @@ All notable changes to this project are documented in this file.
  - Fixed error in generated Rust code when convering some expressions to void
  - Upgraded WGPU dependency to version 27: The `unstable-wgpu-27` Cargo feature exists next to the old `unstable-wgpu-26` feature,
    alongside the `slint::wgpu_27` module.
+ - Added support for `unstable-wgpu-*` and `BackendSelector`'s `require_wgpu_*` on Android.
 
 ### Python
 
