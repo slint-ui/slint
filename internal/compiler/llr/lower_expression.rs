@@ -857,18 +857,20 @@ fn grid_layout_cell_data(
             .elems
             .iter()
             .map(|c| {
-                let span = c.span(orientation);
                 let layout_info =
                     get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation);
 
-                let mut lower_expr_or_auto = |expr: &Option<crate::expression_tree::Expression>| {
-                    expr.as_ref().map_or_else(
-                        || llr_Expression::NumberLiteral(u16::MAX.into()), // MAX means "auto", see to_layout_data()
-                        |e| lower_expression(e, ctx),
-                    )
-                };
-                let row_expr = lower_expr_or_auto(&c.row_expr);
-                let col_expr = lower_expr_or_auto(&c.col_expr);
+                let mut lower_expr_or_default =
+                    |expr: &Option<crate::expression_tree::Expression>, default: u16| {
+                        expr.as_ref().map_or_else(
+                            || llr_Expression::NumberLiteral(default.into()),
+                            |e| lower_expression(e, ctx),
+                        )
+                    };
+                // MAX means "auto", see to_layout_data()
+                let row_expr = lower_expr_or_default(&c.row_expr, u16::MAX);
+                let col_expr = lower_expr_or_default(&c.col_expr, u16::MAX);
+                let span_expr = lower_expr_or_default(&c.span(orientation), 1);
 
                 make_struct(
                     BuiltinPrivateStruct::GridLayoutCellData,
@@ -884,7 +886,7 @@ fn grid_layout_cell_data(
                             },
                         ),
                         ("row", Type::Int32, row_expr),
-                        ("span", Type::Int32, llr_Expression::NumberLiteral(span as _)),
+                        ("span", Type::Int32, span_expr),
                     ],
                 )
             })
