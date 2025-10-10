@@ -1612,13 +1612,15 @@ impl QtWindow {
                 metrics: RenderingMetrics { layers_created: Some(0) },
             };
 
-            for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    &mut renderer,
-                    *origin,
-                    &window_adapter,
-                );
+            for (component, origin, sentinel) in components {
+                if sentinel.as_ref().is_none_or(|s| s.upgrade().is_some()) {
+                    i_slint_core::item_rendering::render_component_items(
+                        component,
+                        &mut renderer,
+                        *origin,
+                        &window_adapter,
+                    );
+                }
             }
 
             if let Some(collector) = &*self.rendering_metrics_collector.borrow() {

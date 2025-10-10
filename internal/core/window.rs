@@ -1088,34 +1088,46 @@ impl WindowInner {
             });
     }
 
-    /// Calls the render_components to render the main component and any sub-window components, tracked by a
-    /// property dependency tracker.
-    /// Returns None if no component is set yet.
+    /// Calls `render_components` to render the main component and any sub-window components, tracked
+    /// by a property dependency tracker.
+    ///
+    /// `render_components` takes a list of tuples consisting of the `ItemTreeRc` to render, the
+    /// position to render the `ItemTreeRc` at, and an `sentinal` containing an optional `ItemWeak`.
+    /// `render_component` will process the `ItemTreeRc` if the `sentinel` is `None` or contains an
+    /// `ItemWeak` that it can upgrade.
+    ///
+    /// Returns `None` if no component is set yet.
     pub fn draw_contents<T>(
         &self,
-        render_components: impl FnOnce(&[(&ItemTreeRc, LogicalPoint)]) -> T,
+        render_components: impl FnOnce(&[(&ItemTreeRc, LogicalPoint, Option<ItemWeak>)]) -> T,
     ) -> Option<T> {
         let component_rc = self.try_component()?;
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
-                if !self
+                let result = if !self
                     .active_popups
                     .borrow()
                     .iter()
                     .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
                 {
-                    render_components(&[(&component_rc, LogicalPoint::default())])
+                    render_components(&[(&component_rc, LogicalPoint::default(), None)])
                 } else {
-                    let borrow = self.active_popups.borrow();
-                    let mut cmps = Vec::with_capacity(borrow.len() + 1);
-                    cmps.push((&component_rc, LogicalPoint::default()));
-                    for popup in borrow.iter() {
+                    let popups = self.active_popups.borrow().clone();
+                    let mut components = Vec::with_capacity(popups.len() + 1);
+                    components.push((&component_rc, LogicalPoint::default(), None));
+                    for popup in popups.iter() {
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
-                            cmps.push((&popup.component, *location));
+                            components.push((
+                                &popup.component,
+                                *location,
+                                Some(popup.parent_item.clone()),
+                            ));
                         }
                     }
-                    render_components(&cmps)
-                }
+                    render_components(&components)
+                };
+
+                result
             },
         ))
     }
