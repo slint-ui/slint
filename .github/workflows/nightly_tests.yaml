@@ -216,7 +216,7 @@ jobs:
                   target: aarch64-linux-android
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
-            - name: Build todo demo
+            - name: Build wgpu_texture demo
               run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
 
     uvx_slint_compiler:
