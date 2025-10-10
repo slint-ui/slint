@@ -51,6 +51,7 @@ export component FancySlider inherits Rectangle {
         width: 100%;
         height: 300%;
         y: parent.height / 2 - self.height / 2;
+        enabled: root.opacity > 0;
 
         clicked => {
             if self.mouse-x == initial-position {
