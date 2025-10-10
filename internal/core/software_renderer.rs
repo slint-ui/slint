@@ -722,8 +722,8 @@ impl RendererSealed for SoftwareRenderer {
         match font {
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(_) => {
-               sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
-            },
+                sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
+            }
             fonts::Font::PixelFont(pf) => {
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
                 let (longest_line_width, height) = layout.text_size(
@@ -731,7 +731,8 @@ impl RendererSealed for SoftwareRenderer {
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
                 );
-                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
             }
         }
     }
@@ -745,9 +746,7 @@ impl RendererSealed for SoftwareRenderer {
 
         match font {
             #[cfg(feature = "software-renderer-systemfonts")]
-            fonts::Font::VectorFont(_) => {
-               sharedparley::font_metrics(font_request)
-            },
+            fonts::Font::VectorFont(_) => sharedparley::font_metrics(font_request),
             fonts::Font::PixelFont(font) => {
                 let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
                 let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
