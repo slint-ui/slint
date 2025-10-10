@@ -719,7 +719,7 @@ impl RendererSealed for SoftwareRenderer {
     ) -> LogicalSize {
         let font = fonts::match_font(&font_request, scale_factor);
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
@@ -755,7 +755,7 @@ impl RendererSealed for SoftwareRenderer {
     ) -> crate::items::FontMetrics {
         let font = fonts::match_font(&font_request, scale_factor);
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => sharedparley::font_metrics(font_request),
             #[cfg(feature = "software-renderer-systemfonts")]
@@ -797,7 +797,7 @@ impl RendererSealed for SoftwareRenderer {
     ) -> usize {
         let font = fonts::match_font(&font_request, scale_factor);
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_byte_offset_for_position(
@@ -876,7 +876,7 @@ impl RendererSealed for SoftwareRenderer {
     ) -> LogicalRect {
         let font = fonts::match_font(&font_request, scale_factor);
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_cursor_rect_for_byte_offset(
@@ -1040,6 +1040,10 @@ impl RendererSealed for SoftwareRenderer {
     fn supports_transformations(&self) -> bool {
         false
     }
+}
+
+fn parley_disabled() -> bool {
+    std::env::var("SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED").is_ok()
 }
 
 fn render_window_frame_by_line(
@@ -2381,7 +2385,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
@@ -2481,7 +2485,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font_request = text_input.font_request(self_rc);
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::draw_text_input(
@@ -2777,7 +2781,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font = fonts::match_font(&font_request, self.scale_factor);
         let clip = self.current_state.clip.cast() * self.scale_factor;
 
-        match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
+        match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::draw_text(

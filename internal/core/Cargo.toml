@@ -50,7 +50,6 @@ unicode = ["unicode-script", "unicode-linebreak"]
 
 software-renderer-systemfonts = ["shared-fontique", "rustybuzz", "fontdue", "software-renderer", "shared-parley"]
 software-renderer = ["bytemuck"]
-software-renderer-systemfonts-no-parley = ["software-renderer-systemfonts"]
 
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
