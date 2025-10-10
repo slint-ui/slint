@@ -40,6 +40,7 @@ impl RenderableGlyph {
 }
 
 // Subset of `RenderableGlyph`, specfically for VectorFonts.
+#[cfg(feature = "software-renderer-systemfonts")]
 #[derive(Clone)]
 pub struct RenderableVectorGlyph {
     pub x: Fixed<i32, 8>,
@@ -50,6 +51,7 @@ pub struct RenderableVectorGlyph {
     pub pixel_stride: u16,
 }
 
+#[cfg(feature = "software-renderer-systemfonts")]
 impl RenderableVectorGlyph {
     pub fn size(&self) -> PhysicalSize {
         PhysicalSize::from_lengths(self.width, self.height)
