@@ -758,6 +758,7 @@ impl RendererSealed for SoftwareRenderer {
         match (font, cfg!(feature = "software-renderer-systemfonts-no-parley")) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => sharedparley::font_metrics(font_request),
+            #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(font), true) => {
                 let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
                 let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
@@ -2491,6 +2492,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     None,
                 );
             }
+            #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let geom = LogicalRect::from(size);
                 if !self.should_draw(&geom) {
@@ -2785,6 +2787,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     LogicalSize::new(1., 1.), // Non-zero size to avoid an early return
                 );
             }
+            #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
 
