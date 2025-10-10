@@ -146,10 +146,7 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
     let font = match bitmap_font {
         Some(bitmap_font) => bitmap_font,
         None => {
-            #[cfg(feature = "software-renderer-systemfonts")]
-            if let Some(vectorfont) = systemfonts::match_font(request, scale_factor) {
-                return vectorfont.into();
-            }
+            #[cfg(not(feature = "software-renderer-systemfonts"))]
             if let Some(fallback_bitmap_font) = BITMAP_FONTS.with(|fonts| {
                 let fonts = fonts.borrow();
                 fonts
@@ -161,10 +158,15 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
             }) {
                 fallback_bitmap_font
             } else {
-                #[cfg(feature = "software-renderer-systemfonts")]
-                return systemfonts::fallbackfont(request, scale_factor).into();
-                #[cfg(not(feature = "software-renderer-systemfonts"))]
                 panic!("No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
+            }
+            #[cfg(feature = "software-renderer-systemfonts")]
+            {
+                if let Some(vectorfont) = systemfonts::match_font(request, scale_factor) {
+                    return vectorfont.into();
+                }
+
+                return systemfonts::fallbackfont(request, scale_factor).into();
             }
         }
     };
