@@ -181,6 +181,7 @@ backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "
 backend-android-activity-06 = [
   "i-slint-backend-android-activity/native-activity",
   "i-slint-backend-android-activity/aa-06",
+  "i-slint-backend-selector/backend-android-activity",
 ]
 
 ## **Deprecated** Use previous version of android-activity. This is mutually exclusive with `backend-android-activity-06`.

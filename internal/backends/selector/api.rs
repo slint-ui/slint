@@ -260,6 +260,7 @@ impl BackendSelector {
         self.select_internal()
     }
 
+    #[cfg(not(target_os = "android"))]
     fn select_internal(&mut self) -> Result<(), PlatformError> {
         self.selected = true;
 
@@ -370,6 +371,30 @@ impl BackendSelector {
         };
 
         i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError)
+    }
+
+    #[cfg(target_os = "android")]
+    fn select_internal(&mut self) -> Result<(), PlatformError> {
+        self.selected = true;
+        if self.backend.as_ref().is_some_and(|b| !b.starts_with("android-activity-")) {
+            return Err(
+                format!("Only the android-activity-* backend is supported on Android").into()
+            );
+        }
+        if self.renderer.as_ref().is_some_and(|r| r != "skia") {
+            return Err(format!("Only the Skia renderer is supported on Android").into());
+        }
+
+        if cfg!(feature = "backend-android-activity") {
+            i_slint_backend_android_activity::set_requested_graphics_api(
+                self.requested_graphics_api.clone(),
+            )
+        } else {
+            Err(format!(
+                "The BackendSelector is only supported with the backend-android-activity backend"
+            )
+            .into())
+        }
     }
 }
 

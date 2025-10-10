@@ -29,6 +29,7 @@ pub struct AndroidWindowAdapter {
     app: AndroidApp,
     pub(crate) window: Window,
     pub(crate) renderer: i_slint_renderer_skia::SkiaRenderer,
+    requested_graphics_api: RefCell<Option<i_slint_core::graphics::RequestedGraphicsAPI>>,
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
@@ -181,7 +182,13 @@ impl AndroidWindowAdapter {
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
+            #[cfg(not(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
+            #[cfg(feature = "unstable-wgpu-27")]
+            renderer: SkiaRenderer::default_wgpu_27(&SkiaSharedContext::default()),
+            #[cfg(all(feature = "unstable-wgpu-26", not(feature = "unstable-wgpu-27")))]
+            renderer: SkiaRenderer::default_wgpu_26(&SkiaSharedContext::default()),
+            requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
             color_scheme,
@@ -220,7 +227,7 @@ impl AndroidWindowAdapter {
                         Arc::new(w),
                         Arc::new(DummyDisplayHandle),
                         size,
-                        None,
+                        self.requested_graphics_api.borrow().clone(),
                     )?;
                     self.resize()?;
 
@@ -457,6 +464,13 @@ impl AndroidWindowAdapter {
             )?;
         }
         Ok(())
+    }
+
+    pub fn set_requested_graphics_api(
+        &self,
+        requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
+    ) {
+        *self.requested_graphics_api.borrow_mut() = requested_graphics_api;
     }
 }
 

@@ -66,6 +66,8 @@ unstable-winit-030 = ["i-slint-backend-winit"]
 
 unstable-libinput-09 = ["dep:input"]
 
+backend-android-activity = ["dep:i-slint-backend-android-activity"]
+
 # note that default enable the i-slint-backend-qt, but not its enable feature
 default = ["i-slint-backend-qt", "backend-winit"]
 
@@ -78,6 +80,9 @@ i-slint-core-macros = { workspace = true }
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "wasm"))'.dependencies]
 i-slint-backend-qt = { workspace = true, optional = true }

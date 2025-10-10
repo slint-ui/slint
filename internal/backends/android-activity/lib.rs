@@ -187,3 +187,13 @@ impl i_slint_core::platform::EventLoopProxy for AndroidEventLoopProxy {
         Ok(())
     }
 }
+
+pub fn set_requested_graphics_api(
+    requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
+) -> Result<(), PlatformError> {
+    let Some(adapter) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) else {
+        return Err(format!("On Android a graphics API for Slint can only be requested after calling slint::android::init()").into());
+    };
+    adapter.set_requested_graphics_api(requested_graphics_api);
+    Ok(())
+}
