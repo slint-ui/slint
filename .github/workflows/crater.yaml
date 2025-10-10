@@ -23,7 +23,6 @@ jobs:
                     - "https://github.com/slint-ui/cargo-ui"
                     - "https://github.com/jturcotte/chiptrack"
                     - "https://github.com/GaspardCulis/slint-tetris"
-                    - "https://github.com/Futsch1/image-sieve"
                     #- "https://github.com/dngulin/gpcl" # depends on the winit backend
                     - "https://codeberg.org/flovansl/co_sl"
                     - "https://seed.radicle.garden/z3oxAZSLcyXgpa7fcvgtueF49jHpH.git" #vivi
@@ -87,8 +86,7 @@ jobs:
                     - "https://github.com/Heng30/uibox"
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     - "https://github.com/Heng30/solana-wallet-sollet"
-                    - "https://github.com/Heng30/vtbox"
-                    - "https://github.com/heng30/flymoon"
+                    - "https://github.com/nzhenev/vtbox"
                     - "https://github.com/Risuleia/Tranquilo"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
@@ -106,7 +104,7 @@ jobs:
                     - "https://github.com/JarrodDoyle/slint-fmeditor"
                     - "https://github.com/planet0104/slint-noframe-window"
                     - "https://github.com/Dusk-Labs/kira"
-                    - "https://github.com/TuEmb/can-viewer"
+                    # - "https://github.com/TuEmb/can-viewer"   # depends on a deleted repo
                     - "https://github.com/sloganking/quick-assistant"
                     # - "https://github.com/qhua948/anubis" # uses nightly rust
                     - "https://github.com/Surrealism-All/slimk"
@@ -131,11 +129,10 @@ jobs:
 
                     - "https://github.com/SergioRibera/Simplemoji"
                     - "https://github.com/Ashintosh/NoPass"
-                    - "https://github.com/Gremious/stickerbox"
+                    # - "https://github.com/Gremious/stickerbox" depends on unstable-wgpu-24
                     - "https://github.com/BiliRumble/Cloubit"
                     - "https://github.com/aenriii/rimgv"
                     - "https://github.com/Brayan-724/amosd"
-                    - "https://github.com/gopher64/gopher64"
                     - "https://github.com/TsaoLun/always-blue"
                     - "https://github.com/kevinquillen/sysinfo"
                     - "https://github.com/home-cooked-firmware/hcui"
@@ -155,6 +152,10 @@ jobs:
                     - "https://github.com/balicz3k/FileGuard"
                     - "https://github.com/ravioni-encoder/ravioni"
                     - "https://github.com/konmenel/tzimpouki"
+                    - "https://github.com/TAlgorhythmic/dystellar-launcher-rs"
+                    - "https://github.com/trappitsch/calculon"
+                    - "https://github.com/Jaysmito101/mattermost-slint"
+                    - "https://github.com/mq1/TinyWiiBackupManager"
 
                     # Missing images
                     # - "https://github.com/rurishigeo/Probe-Downloader"
@@ -197,6 +198,9 @@ jobs:
                 os: ["ubuntu-24.04"]
 
                 include:
+                    - git_url: "https://github.com/Futsch1/image-sieve"
+                      sub_path: "."
+                      extra_packages: libgtk-3-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev llvm libheif-dev
                     - git_url: "https://github.com/griccardos/rusl"
                       sub_path: "slint"
                     #- git_url: "https://github.com/DanielMadmon/tasker"  # needs "themis dep"
@@ -252,21 +256,30 @@ jobs:
                     #- git_url: "https://github.com/somantics/retrodungeon"  # compile error
                     #  sub_path: "."
                     #  extra_args: "--features=femtovg"
-                    - git_url: "https://github.com/jonfast565/runinator"
-                      sub_path: "command-center"
-                    - git_url: "https://github.com/stars-labs/mpc-wallet"
-                      sub_path: "apps/native-node"
+                    #- git_url: "https://github.com/jonfast565/runinator" # compile error (Used `MainWindow instead of `App` in rust)
+                    #  sub_path: "command-center"
+                    # - git_url: "https://github.com/stars-labs/mpc-wallet" # uses properties that don't exist  (AI hallucinations?)
+                    #   sub_path: "apps/native-node"
                     - git_url: "https://github.com/larus-breeze/sw_frontend_rs"
                       sub_path: "device/sim"
-                    - git_url: "https://github.com/gramistella/cornerstone"
-                      sub_path: "frontend_slint"
+                    # - git_url: "https://github.com/gramistella/cornerstone"  # depends indirectly on old versions of crates (deno_ast/swc) that do not compile
+                    #  sub_path: "frontend_slint"
                     - git_url: "https://github.com/dilo145/password_generator"
                       sub_path: "password_generator_gui"
                     - git_url: "https://github.com/DiD92/map-generator"
                       sub_path: "generator-ui"
                     - git_url: "https://github.com/Szybet/snake-slint"
                       sub_path: "snake_bin_std"
-
+                    - git_url: "https://github.com/Heng30/flymoon"
+                      sub_path: "flymoon"
+                      extra_args: "--features=desktop"
+                    - git_url: "https://github.com/gopher64/gopher64"
+                      sub_path: "."
+                      extra_packages: libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libjack-dev libsndio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev
+                    - git_url: "https://github.com/PonasKovas/salix"
+                      sub_path: "client-gui"
+                    - git_url: "https://github.com/chrishengler/terraingen"
+                      sub_path: "gui-slint"
 
 
         runs-on: "ubuntu-latest"
@@ -275,7 +288,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libarchive-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libpipewire-0.3-dev
+                  extra-packages: libpango1.0-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
