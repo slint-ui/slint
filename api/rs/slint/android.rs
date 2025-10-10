@@ -135,7 +135,7 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
 /// # #[cfg(target_os = "android")]
 /// #[unsafe(no_mangle)]
 /// fn android_main(app: slint::android_activity::AndroidApp) {
-///     slint::android_init_with_event_listener(
+///     slint::android::init_with_event_listener(
 ///        app,
 ///        |event| { eprintln!("got event {event:?}") }
 ///     ).unwrap();

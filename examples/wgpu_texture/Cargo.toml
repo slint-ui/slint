@@ -14,8 +14,13 @@ publish = false
 path = "main.rs"
 name = "wgpu_texture"
 
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+name = "wgpu_texture_lib"
+
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-27"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-27", "backend-android-activity-06"] }
 bytemuck = { workspace = true }
 wgpu-27 = { workspace = true, features = ["wgsl"] }
 
