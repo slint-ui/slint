@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
  - muda: On Windows, force the menu bar to be redrawn after menus are rebuilt (#9435)
  - use `fontique` and `parley` crate for text layout
  - Fixed maximum size of empty layout with alignment
+ - partial renderer: Don't mark region dirty if the geometry is dirty but hasn't changed
 
 ### Slint Language
 
@@ -28,12 +29,14 @@ All notable changes to this project are documented in this file.
 
 ### Widgets
 
+ - TextInput: don't allow undo/redo when read-only (#9609)
  - Added Button::icon-size (#9279)
  - Fixed TimePickerPopup placement logic (#9262)
  - LineEdit: implemented show-password icon for the Qt style
  - Slider: Fixed track geometry to account for handle size (#9449)
  - Menu: fixed menu separator appearence (#8339)
  - LineEdit: call `edited` callback when the "x" button is pressed
+ - ScrollView: Fixed scrolled callback with Qt style (#9574)
 
 ### Rust
 
