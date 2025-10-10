@@ -202,6 +202,23 @@ jobs:
               run: cargo build
               working-directory: examples/bevy
 
+    android_wgpu:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - uses: dtolnay/rust-toolchain@stable
+            - name: Install cargo-apk
+              run: cargo install cargo-apk
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - name: Build todo demo
+              run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
+
     uvx_slint_compiler:
         strategy:
             matrix:
