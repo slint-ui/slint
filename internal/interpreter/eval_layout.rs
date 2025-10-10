@@ -180,8 +180,8 @@ fn grid_layout_data(
                 &expr_eval,
             );
             let span = cell.span(orientation);
-            let mut eval_or_auto = |expr: &Option<Expression>| match expr {
-                None => u16::MAX, // auto
+            let mut eval_or_default = |expr: &Option<Expression>, default: u16| match expr {
+                None => default,
                 Some(e) => {
                     let value = eval_expression(e, local_context);
                     match value {
@@ -193,8 +193,9 @@ fn grid_layout_data(
                     }
                 }
             };
-            let row = eval_or_auto(&cell.row_expr);
-            let col = eval_or_auto(&cell.col_expr);
+            let row = eval_or_default(&cell.row_expr, u16::MAX);
+            let col = eval_or_default(&cell.col_expr, u16::MAX);
+            let span = eval_or_default(&span, 1);
             core_layout::GridLayoutCellData {
                 new_row: cell.new_row,
                 col_or_row: match orientation {

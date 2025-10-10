@@ -281,16 +281,16 @@ pub struct GridLayoutElement {
     pub new_row: bool,
     pub col_expr: Option<Expression>,
     pub row_expr: Option<Expression>,
-    pub colspan: u16,
-    pub rowspan: u16,
+    pub colspan_expr: Option<Expression>,
+    pub rowspan_expr: Option<Expression>,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
-    pub fn span(&self, orientation: Orientation) -> u16 {
+    pub fn span(&self, orientation: Orientation) -> &Option<Expression> {
         match orientation {
-            Orientation::Horizontal => self.colspan,
-            Orientation::Vertical => self.rowspan,
+            Orientation::Horizontal => &self.colspan_expr,
+            Orientation::Vertical => &self.rowspan_expr,
         }
     }
 }
