@@ -280,17 +280,6 @@ impl GridLayout {
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
     ) {
-        let mut get_const_value = |name: &str| {
-            item_element
-                .borrow_mut()
-                .bindings
-                .get(name)
-                .and_then(|e| eval_const_expr(&e.borrow().expression, name, &*e.borrow(), diag))
-        };
-        let colspan = get_const_value("colspan").unwrap_or(1);
-        let rowspan = get_const_value("rowspan").unwrap_or(1);
-
-        // TODO: use get_expr for colspan/rowspan too
         let mut get_expr = |name: &str| {
             item_element.borrow_mut().bindings.get(name).map(|e| {
                 let expr = &e.borrow().expression;
@@ -301,12 +290,14 @@ impl GridLayout {
 
         let row_expr = get_expr("row");
         let col_expr = get_expr("col");
+        let rowspan_expr = get_expr("rowspan");
+        let colspan_expr = get_expr("colspan");
 
         self.add_element_with_coord_as_expr(
             item_element,
             new_row,
             (&row_expr, &col_expr),
-            (rowspan, colspan),
+            (&rowspan_expr, &colspan_expr),
             layout_cache_prop_h,
             layout_cache_prop_v,
             diag,
@@ -329,7 +320,10 @@ impl GridLayout {
                 &Some(Expression::NumberLiteral(row as _, Unit::None)),
                 &Some(Expression::NumberLiteral(col as _, Unit::None)),
             ),
-            (rowspan, colspan),
+            (
+                &Some(Expression::NumberLiteral(rowspan as _, Unit::None)),
+                &Some(Expression::NumberLiteral(colspan as _, Unit::None)),
+            ),
             layout_cache_prop_h,
             layout_cache_prop_v,
             diag,
@@ -341,7 +335,7 @@ impl GridLayout {
         item_element: &ElementRc,
         new_row: bool,
         (row_expr, col_expr): (&Option<Expression>, &Option<Expression>),
-        (rowspan, colspan): (u16, u16),
+        (rowspan_expr, colspan_expr): (&Option<Expression>, &Option<Expression>),
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
@@ -379,8 +373,8 @@ impl GridLayout {
                 new_row,
                 col_expr: col_expr.clone(),
                 row_expr: row_expr.clone(),
-                colspan,
-                rowspan,
+                colspan_expr: colspan_expr.clone(),
+                rowspan_expr: rowspan_expr.clone(),
                 item: layout_item.item.clone(),
             });
         }
@@ -842,29 +836,6 @@ fn set_prop_from_cache(
             format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,
         );
-    }
-}
-
-fn eval_const_expr(
-    expression: &Expression,
-    name: &str,
-    span: &dyn crate::diagnostics::Spanned,
-    diag: &mut BuildDiagnostics,
-) -> Option<u16> {
-    match super::ignore_debug_hooks(expression) {
-        Expression::NumberLiteral(v, Unit::None) => {
-            if *v < 0. || *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
-                diag.push_error(format!("'{name}' must be a positive integer"), span);
-                None
-            } else {
-                Some(*v as u16)
-            }
-        }
-        Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
-        _ => {
-            diag.push_error(format!("'{name}' must be an integer literal"), span);
-            None
-        }
     }
 }
 

@@ -3,6 +3,7 @@
 
 export component TestCase inherits Window {
     property <int> blue_row: 1;
+    property <int> blue_colspan: 2;
     property <int> green_col: 1;
     property <int> red_row: 0;
     property <int> red_col: 0;
@@ -17,8 +18,7 @@ export component TestCase inherits Window {
             background: blue;
             row: blue_row;
             col: 0;
-            colspan: 1;
-            width: 40phx;
+            colspan: blue_colspan;
             height: 40phx;
         }
         rg := Rectangle {
@@ -39,23 +39,24 @@ export component TestCase inherits Window {
         }
     }
     out property <bool> initial_grid_ok: {
-        // red is at (0, 0), green is at (row=0, col=1), blue is at (row=1, col=0)
+        // red is at (0, 0), green is at (row=0, col=1), blue is at (row=1, col=0) with colspan 2
         rr.x == 50phx  && rr.y == 50phx  && rr.colspan == 1 &&
         rg.x == 100phx && rg.y == 50phx  && rg.colspan == 1 &&
-        rb.x == 50phx  && rb.y == 100phx && rb.colspan == 1
+        rb.x == 50phx  && rb.y == 100phx && rb.width == 90phx && rb.colspan == 2
     }
 
     public function change_grid() {
         green_col = 0;
         red_row = 1;
         blue_row = 2;
+        blue_colspan = 1;
     }
 
     out property <bool> final_grid_ok: {
         // now they are all at col 0, and in the order green, red, blue
-        rr.x == 50phx && rr.y == 100phx && rr.colspan == 1 &&
-        rg.x == 50phx && rg.y == 50phx  && rg.colspan == 1 &&
-        rb.x == 50phx && rb.y == 150phx && rb.colspan == 1
+        rr.x == 50phx && rr.y == 100phx && rr.width == 40phx && rr.colspan == 1 &&
+        rg.x == 50phx && rg.y == 50phx  && rg.width == 40phx && rg.colspan == 1 &&
+        rb.x == 50phx && rb.y == 150phx && rb.width == 40phx && rb.colspan == 1
     }
 
     init => {
