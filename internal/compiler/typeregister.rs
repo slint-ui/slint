@@ -182,9 +182,12 @@ pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("transform-scale", Type::Float32),
 ];
 
-pub fn transform_origin_property() -> (&'static str, Type) {
-    ("transform-origin", logical_point_type().into())
+pub fn transform_origin_property() -> (&'static str, Rc<Struct>) {
+    ("transform-origin", logical_point_type())
 }
+
+pub const DEPRECATED_ROTATION_ORIGIN_PROPERTIES: [(&str, Type); 2] =
+    [("rotation-origin-x", Type::LogicalLength), ("rotation-origin-y", Type::LogicalLength)];
 
 pub fn noarg_callback_type() -> Type {
     BUILTIN.with(|types| types.noarg_callback_type.clone())
@@ -232,10 +235,11 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
+        .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
         .chain(
             std::iter::once(transform_origin_property())
-                .map(|(k, v)| (k, v, PropertyVisibility::Input)),
+                .map(|(k, v)| (k, v.into(), PropertyVisibility::Input)),
         )
         .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::Input)))
         .chain(

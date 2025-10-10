@@ -1608,7 +1608,7 @@ fn continue_lookup_within_element(
                 &second,
             );
         } else if let Some(deprecated) =
-            crate::lookup::check_deprecated_stylemetrics(elem, ctx, &prop_name)
+            crate::lookup::check_extra_deprecated(elem, ctx, &prop_name)
         {
             ctx.diag.push_property_deprecation_warning(&prop_name, &deprecated, &second);
         }

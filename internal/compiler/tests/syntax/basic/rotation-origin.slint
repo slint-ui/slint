@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for the deprecated rotation-origin
+
+export component Test {
+
+    Image {
+        rotation-origin-x: self.width / 2;
+//                         ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin' instead}
+    }
+
+    Text {
+        rotation-origin-x: self.width / 2;
+//                         ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin' instead}
+        transform-origin: { y: self.width / 2 };
+//                        ^error{Can't specify transform-origin if rotation-origin-x or rotation-origin-y is used on this element}
+    }
+
+    Rectangle {
+        rotation-origin-x: self.width / 2;
+//                         ^error{'rotation-origin-x' cannot be set on this element}
+    }
+
+    // Unfortunately, the location of the error is to the element instead of the expression that uses the property
+    TouchArea {
+//  ^error{'rotation-origin-x' cannot be set on this element}
+        clicked => {
+            self.rotation-origin-x = 10px;
+//               ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+        }
+    }
+    TouchArea {
+        img := Image {}
+//             ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin' instead}
+        clicked => {
+            img.rotation-origin-x = 10px;
+//              ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+        }
+    }
+
+    TouchArea {
+        img2 := Image {
+//              ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin' instead}
+            transform-origin: { y: self.width / 2 };
+        }
+        clicked => {
+            img2.rotation-origin-x = 10px;
+//               ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+            img2.rotation-origin-y = 10px;
+//               ^warning{The property 'rotation-origin-y' has been deprecated. Please use 'transform-origin.y' instead}
+        }
+    }
+
+    TouchArea {
+        img3 := Image { }
+        clicked => {
+            debug(img3.rotation-origin-x, img3.rotation-origin-y, self.rotation-origin-x,self.rotation-origin-y);
+//                     ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+//                                             ^^warning{The property 'rotation-origin-y' has been deprecated. Please use 'transform-origin.y' instead}
+//                                                                     ^^^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+//                                                                                            ^^^^warning{The property 'rotation-origin-y' has been deprecated. Please use 'transform-origin.y' instead}
+        }
+    }
+
+
+
+
+}

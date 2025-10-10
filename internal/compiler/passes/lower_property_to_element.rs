@@ -130,10 +130,12 @@ pub fn lower_transform_properties(
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
+    let transform_origin = crate::typeregister::transform_origin_property();
+
     lower_property_to_element(
         component,
         crate::typeregister::RESERVED_TRANSFORM_PROPERTIES.iter().map(|(prop_name, _)| *prop_name),
-        std::iter::once(crate::typeregister::transform_origin_property().0),
+        std::iter::once(transform_origin.0),
         Some(&|e, prop| {
             let prop_div_2 = |prop: &str| Expression::BinaryExpression {
                 lhs: Expression::PropertyReference(NamedReference::new(e, prop.into())).into(),
@@ -143,7 +145,7 @@ pub fn lower_transform_properties(
 
             match prop {
                 "transform-origin" => Some(Expression::Struct {
-                    ty: crate::typeregister::logical_point_type(),
+                    ty: transform_origin.1.clone(),
                     values: [
                         (SmolStr::new_static("x"), prop_div_2("width")),
                         (SmolStr::new_static("y"), prop_div_2("height")),
