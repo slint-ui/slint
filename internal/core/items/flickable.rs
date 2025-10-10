@@ -248,6 +248,7 @@ struct FlickableDataInner {
     pressed_pos: LogicalPoint,
     pressed_time: Option<Instant>,
     pressed_viewport_pos: LogicalPoint,
+    pressed_viewport_size: LogicalSize,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: bool,
 }
@@ -274,6 +275,10 @@ impl FlickableData {
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
                     (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
                     (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+                );
+                inner.pressed_viewport_size = LogicalSize::from_lengths(
+                    (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
                 );
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
@@ -353,7 +358,28 @@ impl FlickableData {
             }
             MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
+                    let current_viewport_size = LogicalSize::from_lengths(
+                        (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
+                        (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
+                    );
+
+                    // Update reference points when the size of the viewport changes to
+                    // avoid 'jumping' during scrolling.
+                    // This happens when height estimate of a ListView changes after
+                    // new items are loaded.
+                    if current_viewport_size != inner.pressed_viewport_size {
+                        inner.pressed_viewport_size = current_viewport_size;
+
+                        inner.pressed_viewport_pos = LogicalPoint::from_lengths(
+                            (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
+                            (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+                        );
+
+                        inner.pressed_pos = *position;
+                    };
+
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
+
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                     let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                     let should_capture = || {
