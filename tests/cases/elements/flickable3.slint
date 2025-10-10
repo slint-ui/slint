@@ -69,12 +69,14 @@ assert_eq!(instance.get_t1_has_hover(), true);
 assert_eq!(instance.get_t1sec_has_hover(), false);
 assert_eq!(instance.get_t2_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_t1_has_hover(), false);
 assert_eq!(instance.get_t1sec_has_hover(), true);
 assert_eq!(instance.get_t2_has_hover(), false);
 assert_eq!(instance.get_f1_pos(), -30.0);
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_t1_has_hover(), false);
 assert_eq!(instance.get_t1sec_has_hover(), false);
 assert_eq!(instance.get_t2_has_hover(), false);
@@ -88,6 +90,7 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 assert_eq!(instance.get_t2_has_hover(), true);
 assert_eq!(instance.get_t1_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(275.0, 25.0), delta_x: -30.0, delta_y: 0.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_t2_has_hover(), false);
 assert_eq!(instance.get_t1_has_hover(), false);
 
