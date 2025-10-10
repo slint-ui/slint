@@ -278,7 +278,8 @@ impl FlickableData {
                 );
                 inner.pressed_viewport_size = LogicalSize::from_lengths(
                     (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get());
+                    (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
+                );
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
@@ -359,7 +360,8 @@ impl FlickableData {
                 if inner.pressed_time.is_some() {
                     let current_viewport_size = LogicalSize::from_lengths(
                         (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
-                        (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get());
+                        (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
+                    );
 
                     // Update reference points when the size of the viewport changes to
                     // avoid 'jumping' during scrolling.
