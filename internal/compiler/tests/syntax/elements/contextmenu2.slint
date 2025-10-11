@@ -4,64 +4,64 @@
 export component A  {
     cb := ContextMenuArea {
         entries: [];
-//      ^error{Unknown property entries in ContextMenuArea}
+//      >     <error{Unknown property entries in ContextMenuArea}
         sub-menu => {
-//      ^error{'sub-menu' is not a callback in ContextMenuArea}
+//      >      <error{'sub-menu' is not a callback in ContextMenuArea}
             debug("hello");
         }
 
         Menu {
             preferred-height: 45px;
-//          ^error{Unknown property preferred-height in Menu}
+//          >              <error{Unknown property preferred-height in Menu}
             entries: [];
-//          ^error{Unknown property entries in Menu}
+//          >     <error{Unknown property entries in Menu}
             MenuItem {
                 entries: [];
-//              ^error{Unknown property entries in MenuItem}
+//              >     <error{Unknown property entries in MenuItem}
 
                 title: "ok";
                 sub-menu => {}
-//              ^error{'sub-menu' is not a callback in MenuItem}
+//              >      <error{'sub-menu' is not a callback in MenuItem}
                 x: 45px;
 //              ^error{Unknown property x in MenuItem}
                 col: 45;
-//              ^error{Unknown property col in MenuItem}
+//              > <error{Unknown property col in MenuItem}
             }
 
             MenuSeparator {
                 entries: [];
-//              ^error{Unknown property entries in MenuSeparator}
+//              >     <error{Unknown property entries in MenuSeparator}
                 title: "ok";
-//              ^error{Unknown property title in MenuSeparator}
+//              >   <error{Unknown property title in MenuSeparator}
                 width: 45px;
-//              ^error{Unknown property width in MenuSeparator}
+//              >   <error{Unknown property width in MenuSeparator}
                 MenuItem {}
-//              ^error{MenuSeparator cannot have children elements}
+//              >       <error{MenuSeparator cannot have children elements}
                 Rectangle {}
-//              ^error{MenuSeparator cannot have children elements}
+//              >        <error{MenuSeparator cannot have children elements}
             }
         }
         MenuItem {}
-//      ^error{Unknown element 'MenuItem'}
+//      >       <error{Unknown element 'MenuItem'}
 
         MenuSeparator {}
-//      ^error{Unknown element 'MenuSeparator'}
+//      >            <error{Unknown element 'MenuSeparator'}
     }
 
     TouchArea {
         clicked => {
             cb.activated({});
-//             ^error{Element 'ContextMenuArea' does not have a property 'activated'}
+//             >       <error{Element 'ContextMenuArea' does not have a property 'activated'}
             debug(cb.entries);
-//                   ^error{Element 'ContextMenuArea' does not have a property 'entries'}
+//                   >     <error{Element 'ContextMenuArea' does not have a property 'entries'}
         }
     }
 
 
     ContextMenuInternal {
-//  ^error{Unknown element 'ContextMenuInternal'. (The type exists as an internal type, but cannot be accessed in this scope)}
+//  >                  <error{Unknown element 'ContextMenuInternal'. (The type exists as an internal type, but cannot be accessed in this scope)}
     }
     ContextMenu {}
-//  ^error{Unknown element 'ContextMenu'}
+//  >          <error{Unknown element 'ContextMenu'}
 }
 

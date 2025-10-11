@@ -4,36 +4,36 @@
 import { StyleMetrics } from "std-widgets.slint";
 
 export Xxx := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     color: white;
-//  ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+//  >   <warning{The property 'color' has been deprecated. Please use 'background' instead}
 
     r := Rectangle {
         background: root.color;
-//                       ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+//                       >   <warning{The property 'color' has been deprecated. Please use 'background' instead}
         animate color {
-//              ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+//              >    <warning{The property 'color' has been deprecated. Please use 'background' instead}
             duration: 250ms;
         }
     }
 
     minimum-height: root.maximum-width;
-//  ^warning{The property 'minimum-height' has been deprecated. Please use 'min-height' instead}
-//                       ^^warning{The property 'maximum-width' has been deprecated. Please use 'max-width' instead}
+//  >            <warning{The property 'minimum-height' has been deprecated. Please use 'min-height' instead}
+//                       >           <^warning{The property 'maximum-width' has been deprecated. Please use 'max-width' instead}
 
     callback not_called;
     not_called() => {
         color = #000000;
-//      ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+//      >   <warning{The property 'color' has been deprecated. Please use 'background' instead}
 
         debug(StyleMetrics.dark-color-scheme);
-//                         ^warning{The property 'dark-color-scheme' has been deprecated. Please use 'Palette.dark-color-scheme' instead}
+//                         >               <warning{The property 'dark-color-scheme' has been deprecated. Please use 'Palette.dark-color-scheme' instead}
 
         // not deprecated
         debug(StyleMetrics.layout-padding, StyleMetrics.layout-padding);
 
         background = StyleMetrics.window-background;
-//                                ^warning{The property 'window-background' has been deprecated. Please use 'Palette.window-background' instead}
+//                                >               <warning{The property 'window-background' has been deprecated. Please use 'Palette.window-background' instead}
     }
 
 }

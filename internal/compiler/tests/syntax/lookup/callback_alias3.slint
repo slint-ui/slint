@@ -2,36 +2,36 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Sub := Rectangle {
-//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//  ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback compute(int) -> int;
     callback compute_alias <=> compute;
 }
 
 export Xxx := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     foo := Rectangle {
         callback hello(int) -> int;
     }
 
     callback colr <=> foo.background;
-//  ^error{Binding to callback 'colr' must bind to another callback}
+//  >                               <error{Binding to callback 'colr' must bind to another callback}
     property propr <=> foo.hello;
-//  ^error{Could not infer type of property 'propr'}
+//  >                           <error{Could not infer type of property 'propr'}
 
     callback loop1 <=> loop2;
     callback loop3 <=> loop1;
-//  ^error{Binding to callback 'loop3' must bind to another callback}
-//                     ^^error{Unknown unqualified identifier 'loop1'}
+//                     >   <error{Unknown unqualified identifier 'loop1'}
+//  >                       <^error{Binding to callback 'loop3' must bind to another callback}
     callback loop2 <=> loop3;
 
     Sub {
         compute_alias(a, b, c) => {
-//      ^error{'compute-alias' only has 1 arguments, but 3 were provided}
+//      >           <error{'compute-alias' only has 1 arguments, but 3 were provided}
             debug(b);
 //                ^error{Unknown unqualified identifier 'b'}
             return "hello";
-//          ^error{Cannot convert string to int}
+//          >             <error{Cannot convert string to int}
         }
 
         callback x <=> compute_alias;

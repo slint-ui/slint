@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export SuperSimple := Window {
-//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     opacity: 0.5;
-//           ^warning{The opacity property cannot be used on the root element, it will not be applied}
+//           >  <warning{The opacity property cannot be used on the root element, it will not be applied}
 
     Rectangle {
         opacity: false;
-//               ^error{Cannot convert bool to float}
+//               >    <error{Cannot convert bool to float}
     }
 
     visible: false;
-//           ^warning{The visible property cannot be used on the root element, it will not be applied}
+//           >    <warning{The visible property cannot be used on the root element, it will not be applied}
 
 }

@@ -4,34 +4,34 @@
 import { ListView  } from "std-widgets.slint";
 
 Foo := Rectangle {
-//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//  ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     ListView {
         @children
-//      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
+//      >       <error{A ListView can just have a single 'for' as children. Anything else is not supported}
     }
 }
 
 export Bar := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Foo { Text {} }
     ListView {
         Text {}
-//      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
+//      >     <error{A ListView can just have a single 'for' as children. Anything else is not supported}
     }
     ListView {
         Text { }
-//      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
+//      >      <error{A ListView can just have a single 'for' as children. Anything else is not supported}
         for x in 2: Rectangle {}
         Text { }
-//      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
+//      >      <error{A ListView can just have a single 'for' as children. Anything else is not supported}
         for x in 2: Rectangle {}
-//      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
+//      >                      <error{A ListView can just have a single 'for' as children. Anything else is not supported}
     }
 
     ListView { for x in 2: Rectangle {} }
     ListView {
         for x in 2: Rectangle {}
         for x in 2: Rectangle {}
-//      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
+//      >                      <error{A ListView can just have a single 'for' as children. Anything else is not supported}
     }
 }
