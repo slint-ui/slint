@@ -677,7 +677,9 @@ pub fn text_size(
 pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
     let logical_pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).get();
 
-    let font = font_request.query_fontique().unwrap();
+    let Some(font) = font_request.query_fontique() else {
+        return crate::items::FontMetrics::default();
+    };
     let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
 
     let metrics = sharedfontique::DesignFontMetrics::new_from_face(&face);
