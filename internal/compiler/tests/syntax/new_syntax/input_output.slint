@@ -14,12 +14,12 @@ component Compo inherits Rectangle {
             priv2 = 78;
             output1 = input1;
             input1 = 75;
-//          ^error{Assignment on a input property}
+//          >         <error{Assignment on a input property}
             inout1 = 75;
         }
 
         pressed: true;
-//      ^error{Cannot assign to output property 'pressed'}
+//      >     <error{Cannot assign to output property 'pressed'}
 
     }
 
@@ -29,17 +29,17 @@ component Compo inherits Rectangle {
             priv2: 55;
             output1: 55;
             input1: 12;
-//          ^error{'input1' cannot be set in a state because it is input}
+//          >    <error{'input1' cannot be set in a state because it is input}
             inout1: 78;
         }
     ]
 
     animate input1 {}
-//          ^error{Cannot animate input property 'input1'}
+//          >     <error{Cannot animate input property 'input1'}
 }
 
 OldCompo := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> inout2: 42;
     private property <int> priv2: inout2;
     out property <int> output1: priv2;
@@ -49,11 +49,11 @@ OldCompo := Rectangle {
     TouchArea {
         clicked => {
             pub1 = 32;
-//          ^error{Unknown unqualified identifier 'pub1'}
+//          >   <error{Unknown unqualified identifier 'pub1'}
             priv2 = 78;
             output1 = input1;
             input1 = 75;
-//          ^error{Assignment on a input property}
+//          >         <error{Assignment on a input property}
             inout1 = 75;
         }
     }
@@ -64,27 +64,27 @@ export component Foo inherits Rectangle {
     c1 := OldCompo {
         inout2: 42;
         priv2: 55;
-//      ^error{Cannot assign to private property 'priv2'}
+//      >   <error{Cannot assign to private property 'priv2'}
         output1: 855;
-//      ^error{Cannot assign to output property 'output1'}
+//      >     <error{Cannot assign to output property 'output1'}
         input1: 12;
         inout1: 78;
 
         animate output1 {}
-//              ^error{Cannot animate output property 'output1'}
+//              >      <error{Cannot animate output property 'output1'}
 
         animate priv2 {}
-//              ^error{Cannot animate private property 'priv2'}
+//              >    <error{Cannot animate private property 'priv2'}
 
     }
 
     c2 := Compo {
         priv1: 42;
-//      ^error{Cannot assign to private property 'priv1'}
+//      >   <error{Cannot assign to private property 'priv1'}
         priv2: 55;
-//      ^error{Cannot assign to private property 'priv2'}
+//      >   <error{Cannot assign to private property 'priv2'}
         output1: 585;
-//      ^error{Cannot assign to output property 'output1'}
+//      >     <error{Cannot assign to output property 'output1'}
         input1: 12;
         inout1: 78;
     }
@@ -92,13 +92,13 @@ export component Foo inherits Rectangle {
     states [
         foo when true: {
             c2.priv1: 45;
-//          ^error{'c2.priv1' cannot be set in a state because it is private}
+//          >      <error{'c2.priv1' cannot be set in a state because it is private}
 
             c1.priv2: 89;
-//          ^error{'c1.priv2' cannot be set in a state because it is private}
+//          >      <error{'c1.priv2' cannot be set in a state because it is private}
 
             c2.output1: 55;
-//          ^error{'c2.output1' cannot be set in a state because it is output}
+//          >        <error{'c2.output1' cannot be set in a state because it is output}
         }
     ]
 

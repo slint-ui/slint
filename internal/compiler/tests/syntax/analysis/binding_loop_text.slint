@@ -12,26 +12,26 @@ component OkButton inherits Text {
 
 component KoButton inherits Text {
     font-size: G.size;  // use rem without access to Window
-//             ^error{The binding for the property 'font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
+//             >     <error{The binding for the property 'font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
 }
 
 export component Test inherits Window {
     Text { font-size: self.font-metrics.ascent; }
-//  ^error{The binding for the property 'font-metrics' is part of a binding loop (font-metrics -> font-size)}
-//                    ^^error{The binding for the property 'font-size' is part of a binding loop (font-metrics -> font-size)}
+//  >   <error{The binding for the property 'font-metrics' is part of a binding loop (font-metrics -> font-size)}
+//                    >                       <^error{The binding for the property 'font-size' is part of a binding loop (font-metrics -> font-size)}
 
     t1 := Text { font-italic: t2.font-metrics.cap-height > 10px; }
-//        ^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
-//                            ^^error{The binding for the property 'font-italic' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//                            >                                <error{The binding for the property 'font-italic' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//        >   <^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
     t2 := Text { font-weight: t1.font-metrics.descent / 0.5px; }
-//        ^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
-//                            ^^error{The binding for the property 'font-weight' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//        >   <error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//                            >                              <^error{The binding for the property 'font-weight' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
 
     OkButton {}
 
     b := KoButton {}
     default-font-size: b.font-size;
-//                     ^error{The binding for the property 'default-font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
+//                     >          <error{The binding for the property 'default-font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
 
     dialog1 := Window {
         default-font-size: 2rem;

@@ -2,31 +2,31 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     lay := GridLayout {
         property<string> foo: "hello";
         Row {
             Text {
                 text: lay.foo + parent.width;
-//                                     ^error{Element 'Row' does not have a property 'width'}
+//                                     >   <error{Element 'Row' does not have a property 'width'}
                 colspan: 1 + 1;
                 rowspan: 2;
             }
             Text {
                 row: 3;
-//                   ^error{The 'row' property cannot be used for elements inside a Row}
+//                   ><error{The 'row' property cannot be used for elements inside a Row}
                 col: -2;
-//                   ^error{'col' must be a positive integer}
+//                   > <error{'col' must be a positive integer}
                 rowspan: 2.2;
-//                       ^error{'rowspan' must be a positive integer}
+//                       >  <error{'rowspan' must be a positive integer}
                 colspan: -1;
-//                       ^error{'colspan' must be a positive integer}
+//                       > <error{'colspan' must be a positive integer}
                 y: 0;
-//                 ^error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+//                 ><error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
 
                 animate x { duration: 100ms; }
-//                      ^error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
+//                      ><error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
 
                 init => {
                     self.colspan = 45;
@@ -37,13 +37,13 @@ export X := Rectangle {
         Row {
             Text {
                 x: 12px;
-//                 ^error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
+//                 >   <error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
             }}
         Text{
             row: 200000; // that's actually bigger than 65535
-//               ^error{'row' must be a positive integer}
+//               >     <error{'row' must be a positive integer}
             Rectangle { row: 3; }
-//                           ^error{row used outside of a GridLayout's cell}
+//                           ><error{row used outside of a GridLayout's cell}
         }
     }
 
@@ -55,7 +55,7 @@ export X := Rectangle {
             col: -lay2.negative; // check that a unary minus isn't necessary an error
         }
         Text {
-//      ^error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
+//      >   <error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
             row: 0; // mixing runtime expr and literal is ok
         }
     }
@@ -66,18 +66,18 @@ export X := Rectangle {
             col: lay2.last_row;
         }
         Text {
-//      ^error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
+//      >   <error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
             col: 1;
         }
     }
 
     Text { colspan: 3; }
-//                  ^error{colspan used outside of a GridLayout's cell}
+//                  ><error{colspan used outside of a GridLayout's cell}
     col: 3;
-//       ^error{col used outside of a GridLayout's cell}
+//       ><error{col used outside of a GridLayout's cell}
 
     HorizontalLayout {
         col: 3;
-//           ^error{col used outside of a GridLayout's cell}
+//           ><error{col used outside of a GridLayout's cell}
     }
 }

@@ -3,11 +3,11 @@
 
 
 export SuperSimple := Rectangle {
-//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     background: green;
 
     for xx Text {}
-//         ^error{Invalid 'for' syntax: there should be a 'in' token}
+//         >  <error{Invalid 'for' syntax: there should be a 'in' token}
 
 
     for xx in zz: Hello {
@@ -22,7 +22,7 @@ export SuperSimple := Rectangle {
     }
 
     for x in 0..32: Rectangle { }
-//              ^error{Parse error. Range expressions are not supported in Slint. You can use an integer as a model to repeat something multiple time. Eg: `for i in 32 : ...`}
+//              ><error{Parse error. Range expressions are not supported in Slint. You can use an integer as a model to repeat something multiple time. Eg: `for i in 32 : ...`}
 
 
 }

@@ -2,18 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component TestCase inherits Window {
-//                                 ^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                                 >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+
 
     lay1 := GridLayout {
-//          ^warning{The binding for the property 'width' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//          ^^warning{The binding for the property 'layout-cache-h' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//          ^^^warning{The binding for the property 'x' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//          ^^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
-//          ^^^^^warning{The binding for the property 'layout-organized-data' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//          >         <warning{The binding for the property 'width' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//          >         <^warning{The binding for the property 'layout-cache-h' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//          >         <^^warning{The binding for the property 'x' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//          >         <^^^warning{The binding for the property 'layout-organized-data' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//          >         <^^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+
         Text {
             row: 1;
             col: self.x > 10px ? 3 : 4;
-//               ^warning{The binding for the property 'col' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//               >                    <warning{The binding for the property 'col' is part of a binding loop (lay1.width -> lay1.layout-cache-h -> x -> col -> lay1.layout-organized-data -> lay1.layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         }
     }
 }

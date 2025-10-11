@@ -3,7 +3,7 @@
 
 
 export Demo := Window {
-//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     width:  300px;
     height: 300px;
     property <bool> toggle;
@@ -18,9 +18,11 @@ export Demo := Window {
     states [
         Hello when toggle: {
             t.y: 100px;
-//          ^error{Cannot change the property 'y' in a state because it is initialized with a two-way binding}
+//          >error{Cannot change the property 'y' in a state because it is initialized with a two-way binding}
             some_prop: "plop";
-//          ^error{Cannot change the property 'some-prop' in a state because it is initialized with a two-way binding}
+//         <error{Cannot change the property 'y' in a state because it is initialized with a two-way binding}
+//          >^error{Cannot change the property 'some-prop' in a state because it is initialized with a two-way binding}
         }
+//     <error{Cannot change the property 'some-prop' in a state because it is initialized with a two-way binding}
     ]
 }

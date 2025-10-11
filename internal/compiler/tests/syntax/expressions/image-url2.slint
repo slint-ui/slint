@@ -3,13 +3,13 @@
 
 export component SuperSimple {
     property <image> i17: @image-url("foo", nine-slice(1px));
-    //                                                 ^error{Border widths of a nine-slice can't have units}
+//                                                     > <error{Border widths of a nine-slice can't have units}
     property <image> i18: @image-url("foo", nine-slice(1%));
-    //                                                 ^error{Border widths of a nine-slice can't have units}
+//                                                     ><error{Border widths of a nine-slice can't have units}
     property <image> i22: @image-url("foo", nine-slice(123456789));
-    //                                                 ^error{Number too big}
+//                                                     >       <error{Number too big}
     property <image> j01: @image-url("foo", nine-slice(1 52deg 456456456 12abc));
-    //                                                   ^error{Border widths of a nine-slice can't have units}
-    //                                                                   ^^error{Border widths of a nine-slice can't have units}
-    //                                                         ^^^error{Number too big}
+//                                                       >   <error{Border widths of a nine-slice can't have units}
+//                                                             >       <^error{Number too big}
+//                                                                       >   <^^error{Border widths of a nine-slice can't have units}
 }

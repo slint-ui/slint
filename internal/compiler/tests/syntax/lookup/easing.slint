@@ -12,12 +12,12 @@ export component Test inherits Rectangle {
 
     property <Animation> animation2: {
         easing: Easing.some-curve,
-//                     ^error{'some-curve' is not a member of the namespace Easing}
+//                     >        <error{'some-curve' is not a member of the namespace Easing}
     };
 
     property <Animation> animation3: {
         easing: Easing,
-//              ^error{Cannot take reference to a namespace}
+//              >    <error{Cannot take reference to a namespace}
     };
 
     property <Animation> animation4: {
@@ -26,6 +26,6 @@ export component Test inherits Rectangle {
 
     property <Animation> animation5: {
         easing: Easing.cubic-bezier(0.05, 07)
-//                     ^error{Not enough arguments}
+//                     >          <error{Not enough arguments}
     };
 }

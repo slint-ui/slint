@@ -8,9 +8,9 @@ component Button {
 //^error{Syntax error: expected ';'}
 component C1{
   in property <bool in
-//                  ^error{Syntax error: expected '>'}
+//                  ><error{Syntax error: expected '>'}
   Button{ enabled <=>in;
-//^error{Syntax error: expected ';'}
+//>    <error{Syntax error: expected ';'}
 }
 }
 

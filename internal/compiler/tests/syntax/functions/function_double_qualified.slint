@@ -4,13 +4,13 @@
 
 component Err {
     public public function double1() {}
-    //     ^error{Unexpected identifier}
+//         >    <error{Unexpected identifier}
     protected public function double2() {}
-    //        ^error{Unexpected identifier}
+//            >    <error{Unexpected identifier}
     public protected function double3() {}
-    //     ^error{Unexpected identifier}
+//         >       <error{Unexpected identifier}
     protected protected function double4() {}
-    //        ^error{Unexpected identifier}
+//            >       <error{Unexpected identifier}
     pure pure function double5() {}
-    //   ^error{Unexpected identifier}
+//       >  <error{Unexpected identifier}
 }

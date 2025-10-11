@@ -2,23 +2,23 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Test := Rectangle {
-//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <bool> condition;
 
     GridLayout {
         Row {
             if (condition): Text {
-//                          ^error{'if' or 'for' expressions are not currently supported in grid layouts}
+//                          >   <error{'if' or 'for' expressions are not currently supported in grid layouts}
             }
         }
 
         if (condition): Text {
-//                      ^error{'if' or 'for' expressions are not currently supported in grid layouts}
+//                      >   <error{'if' or 'for' expressions are not currently supported in grid layouts}
 
         }
 
         for x in 5: Text {
-//                  ^error{'if' or 'for' expressions are not currently supported in grid layouts}
+//                  >   <error{'if' or 'for' expressions are not currently supported in grid layouts}
 
          }
     }

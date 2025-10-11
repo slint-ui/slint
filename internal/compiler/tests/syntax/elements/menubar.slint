@@ -5,13 +5,13 @@
 export component A inherits Window {
     mb := MenuBar {
         property <int> sub-menu: 45;
-//      ^error{Cannot re-define internal property 'sub-menu'}
+//      >                          <error{Cannot re-define internal property 'sub-menu'}
 
         property <int> entries: 0;
-//      ^error{Cannot re-define internal property 'entries'}
+//      >                        <error{Cannot re-define internal property 'entries'}
     }
     MenuBar {
-//  ^error{Only one MenuBar is allowed in a Window}
+//  >      <error{Only one MenuBar is allowed in a Window}
     }
 
     Rectangle {
@@ -19,12 +19,12 @@ export component A inherits Window {
     }
     Rectangle {
         x: mb.absolute-position.x;
-//            ^error{Element 'MenuBar' does not have a property 'absolute-position'}
+//            >               <error{Element 'MenuBar' does not have a property 'absolute-position'}
         y: mb.height;
-//            ^error{Element 'MenuBar' does not have a property 'height'}
+//            >    <error{Element 'MenuBar' does not have a property 'height'}
         init => {
             mb.focus();
-//             ^error{Element 'MenuBar' does not have a property 'focus'}
+//             >   <error{Element 'MenuBar' does not have a property 'focus'}
         }
     }
 }
