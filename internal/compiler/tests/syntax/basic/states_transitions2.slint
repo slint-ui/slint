@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export TestCase := Rectangle {
-//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<bool> checked;
     property <int> border;
     animate background { }
@@ -15,12 +15,12 @@ export TestCase := Rectangle {
 
     transitions [
         in does_not_exist: {
-//         ^error{State 'does-not-exist' does not exist}
+//         >            <error{State 'does-not-exist' does not exist}
             animate * { }
         }
         in checked: {
             animate background { }
-//                  ^error{The property 'background' cannot have transition because it already has an animation}
+//                  >         <error{The property 'background' cannot have transition because it already has an animation}
         }
     ]
 

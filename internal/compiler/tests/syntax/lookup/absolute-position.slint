@@ -4,14 +4,14 @@
 export component Hello {
     Rectangle {
         absolute-position: {x: 45px, y: 78px};
-//      ^error{Cannot assign to output property 'absolute-position'}
+//      >               <error{Cannot assign to output property 'absolute-position'}
 
     }
 
     Rectangle {
         init => {
             self.absolute-position.x += 45px;
-//          ^error{Self assignment on a output property}
+//          >                              <error{Self assignment on a output property}
         }
     }
 }

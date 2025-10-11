@@ -3,7 +3,7 @@
 
 component DeprecatedDerives inherits PopupWindow {
     close-on-click: false;
-//                  ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                  >    <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
 }
 
 
@@ -13,20 +13,20 @@ component Derives inherits PopupWindow {
 
 component D1 inherits PopupWindow {
     close-on-click: false;
-//                  ^error{close-policy and close-on-click cannot be set at the same time}
+//                  >    <error{close-policy and close-on-click cannot be set at the same time}
     close-policy: close-on-click-outside;
 }
 
 component D2 inherits PopupWindow {
     close-on-click: (!false);
-//                  ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
-//                  ^^error{The close-on-click property only supports constants at the moment}
+//                  >       <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                  >       <^error{The close-on-click property only supports constants at the moment}
 }
 
 component D3 inherits PopupWindow {
     in property <PopupClosePolicy> pp;
     close-policy: pp;
-//                ^error{The close-policy property only supports constants at the moment}
+//                > <error{The close-policy property only supports constants at the moment}
 }
 
 
@@ -35,19 +35,19 @@ export component Bar {
     in property <bool> external;
     xx := PopupWindow {
         close-on-click: true;
-//                      ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                      >   <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
         init => {
             xx.close-on-click = true;
-//          ^error{The property must be known at compile time and cannot be changed at runtime}
+//          >                      <error{The property must be known at compile time and cannot be changed at runtime}
 
             xx.close-policy = PopupClosePolicy.close-on-click;
-//          ^error{The property must be known at compile time and cannot be changed at runtime}
+//          >                                               <error{The property must be known at compile time and cannot be changed at runtime}
         }
     }
     PopupWindow {
         close-on-click: root.external;
-//                      ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
-//                      ^^error{The close-on-click property only supports constants at the moment}
+//                      >            <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                      >            <^error{The close-on-click property only supports constants at the moment}
     }
 
 
@@ -55,7 +55,7 @@ export component Bar {
         PopupWindow {
             close-policy: close-on-click-outside;
             close-on-click: true;
-//                          ^error{close-policy and close-on-click cannot be set at the same time}
+//                          >   <error{close-policy and close-on-click cannot be set at the same time}
         }
 
         DeprecatedDerives {
@@ -63,17 +63,17 @@ export component Bar {
         }
         Derives {
             close-on-click: false;
-//                          ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                          >    <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
         }
         DeprecatedDerives {
             close-on-click: true;
-//                          ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                          >   <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
         }
 
         DeprecatedDerives {
             close-on-click: !true;
-//                          ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
-//                          ^^error{The close-on-click property only supports constants at the moment}
+//                          >    <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                          >    <^error{The close-on-click property only supports constants at the moment}
         }
 
         D1{}
@@ -82,7 +82,7 @@ export component Bar {
         D1{}
         D2{}
         D3{ close-on-click: true;  }
-//                          ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                          >   <warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
     }
 
 

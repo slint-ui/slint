@@ -3,67 +3,67 @@
 
 
 export component MyMenu inherits MenuBar {
-//                               ^error{MenuBar can only be within a Window element}
+//                               >      <error{MenuBar can only be within a Window element}
 }
 
 export component A inherits Window {
     mb := MenuBar {
         Rectangle {}
-//      ^error{Rectangle is not allowed within MenuBar. Only Menu are valid children}
+//      >        <error{Rectangle is not allowed within MenuBar. Only Menu are valid children}
         x: 45px;
 //      ^error{Unknown property x in MenuBar}
         width: 45px;
-//      ^error{Unknown property width in MenuBar}
+//      >   <error{Unknown property width in MenuBar}
         entries: [];
-//      ^error{Unknown property entries in MenuBar}
+//      >     <error{Unknown property entries in MenuBar}
         init => {}
-//      ^error{'init' is not a callback in MenuBar}
+//      >  <error{'init' is not a callback in MenuBar}
 
         Menu {
             title: "hello";
             x: 0px;
 //          ^error{Unknown property x in Menu}
             max-height: 13px;
-//          ^error{Unknown property max-height in Menu}
+//          >        <error{Unknown property max-height in Menu}
             opacity: 0.4;
-//          ^error{Unknown property opacity in Menu}
+//          >     <error{Unknown property opacity in Menu}
             Rectangle {
-//          ^error{Rectangle is not allowed within Menu. Only Menu MenuItem MenuSeparator are valid children}
+//          >        <error{Rectangle is not allowed within Menu. Only Menu MenuItem MenuSeparator are valid children}
             }
 
             MenuItem {
                 activated => {
                         mb.activated({});
-//                         ^error{Element 'MenuBar' does not have a property 'activated'}
+//                         >       <error{Element 'MenuBar' does not have a property 'activated'}
                 }
 
                 TouchArea {}
-//              ^error{MenuItem cannot have children elements}
+//              >        <error{MenuItem cannot have children elements}
             }
 
         }
 
         MenuItem {}
-//      ^error{MenuItem is not allowed within MenuBar. Only Menu are valid children}
+//      >       <error{MenuItem is not allowed within MenuBar. Only Menu are valid children}
 
         MenuSeparator {}
-//      ^error{MenuSeparator is not allowed within MenuBar. Only Menu are valid children}
+//      >            <error{MenuSeparator is not allowed within MenuBar. Only Menu are valid children}
     }
 
     Rectangle {
         x: 45px;
         MenuBar {
-//      ^error{MenuBar can only be within a Window element}
+//      >      <error{MenuBar can only be within a Window element}
         }
 
         MenuItem {
-//      ^error{Unknown element 'MenuItem'}
+//      >       <error{Unknown element 'MenuItem'}
             Menu {}
-//          ^error{Menu can only be within a ContextMenuArea element}
+//          >   <error{Menu can only be within a ContextMenuArea element}
         }
 
         Menu {}
-//      ^error{Menu can only be within a ContextMenuArea element}
+//      >   <error{Menu can only be within a ContextMenuArea element}
     }
 }
 

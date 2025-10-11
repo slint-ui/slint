@@ -2,32 +2,32 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Comp := Rectangle {
-//   ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//   ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback pressed;
 }
 
 export Test := Comp {
-//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<int> foo;
     foo: 100;
     property<NonExistent> bar;
-//           ^error{Unknown type 'NonExistent'}
+//           >         <error{Unknown type 'NonExistent'}
     property<{ a: int, b: NonExistent}> obj;
-//                        ^error{Unknown type 'NonExistent'}
+//                        >         <error{Unknown type 'NonExistent'}
     property<[NonExistent]> array;
-//            ^error{Unknown type 'NonExistent'}
+//            >         <error{Unknown type 'NonExistent'}
     property<float> foo;
-//                  ^error{Cannot override property 'foo'}
+//                  > <error{Cannot override property 'foo'}
     property<string> text: "property with binding initializer";
     property<int> x;
 //                ^error{Cannot override property 'x'}
 
     property<string> colspan;
-//                   ^error{Cannot override property 'colspan'}
+//                   >     <error{Cannot override property 'colspan'}
 
     property<bool> pressed;
-//                 ^error{Cannot declare property 'pressed' when a callback with the same name exists}
+//                 >     <error{Cannot declare property 'pressed' when a callback with the same name exists}
 
     property<color> color;
-//                  ^error{Cannot override property 'color'}
+//                  >   <error{Cannot override property 'color'}
 }

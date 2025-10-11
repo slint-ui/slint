@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 global G := {
-//       ^warning{':=' to declare a global is deprecated. Remove the ':='}
+//       ><warning{':=' to declare a global is deprecated. Remove the ':='}
     property <int> alala <=> alala;
-//                       ^error{Property cannot alias to itself}
+//                       >        <error{Property cannot alias to itself}
     property <string> yoyo <=> alala;
-//                         ^error{The property does not have the same type as the bound property}
+//                         >        <error{The property does not have the same type as the bound property}
 }
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     property <brush> my_color <=> self.background;
     x <=> y;
@@ -18,28 +18,28 @@ export X := Rectangle {
 
 
     border_color <=> blue;
-//  ^error{The expression in a two way binding must be a property reference}
+//  >                    <error{The expression in a two way binding must be a property reference}
     border_width <=> 4px + 4px;
-//                   ^error{The expression in a two way binding must be a property reference}
+//                   >       <error{The expression in a two way binding must be a property reference}
 
     xx := Rectangle {
         x: 42phx;
         width <=> parent.width;
         height <=> x;
         background <=> root.x;
-//      ^error{The property does not have the same type as the bound property}
+//      >                    <error{The property does not have the same type as the bound property}
         y <=> y;
-//      ^error{Property cannot alias to itself}
+//      >      <error{Property cannot alias to itself}
     }
 
     property <int> dd <=> dd;
-//                    ^error{Property cannot alias to itself}
+//                    >     <error{Property cannot alias to itself}
 
     Rectangle {
         x <=> self.loop_on_x;
-//      ^error{The binding for the property 'x' is part of a binding loop (x -> loop-on-x)}
+//      >                   <error{The binding for the property 'x' is part of a binding loop (x -> loop-on-x)}
         property <length> loop_on_x <=> x;
-//                                  ^error{The binding for the property 'loop-on-x' is part of a binding loop (x -> loop-on-x)}
+//                                  >    <error{The binding for the property 'loop-on-x' is part of a binding loop (x -> loop-on-x)}
     }
 
     property gyoyo <=> G.yoyo;

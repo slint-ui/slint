@@ -4,27 +4,27 @@
 enum Xyz {
     hello-hello,
     HelloHello,
-//  ^error{Duplicated enum value 'HelloHello'}
+//  >        <error{Duplicated enum value 'HelloHello'}
     Abc,
     Cde,
     Abc,
-//  ^error{Duplicated enum value 'Abc'}
+//  > <error{Duplicated enum value 'Abc'}
     cde,
-//  ^error{Duplicated enum value 'cde'}
+//  > <error{Duplicated enum value 'cde'}
     CDE, // this one is not duplicated
     Xyz,
-//  ^error{Enum 'Xyz' can't have a value with the same name}
+//  > <error{Enum 'Xyz' can't have a value with the same name}
     c-dE
-//  ^error{Duplicated enum value 'c-dE'}
+//  >  <error{Duplicated enum value 'c-dE'}
 }
 
 
    enum Empty {}
-// ^error{Enums must have at least one value}
+// >           <error{Enums must have at least one value}
 
 export component Test {
     property<Empty> empty;
     property<Xyz> xyz;
     property<{ a: Empty, b: Xyz }> xxx: { b: Xyz.c-dE};
-//                                               ^error{'c-dE' is not a member of the enum Xyz}
+//                                               >  <error{'c-dE' is not a member of the enum Xyz}
 }

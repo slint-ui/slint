@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export SuperSimple := Rectangle {
-//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     animate x {
         duration: 1000ms;
@@ -10,27 +10,27 @@ export SuperSimple := Rectangle {
     }
 
     animate x {
-//          ^error{Duplicated animation}
+//          ><error{Duplicated animation}
         duration: 1000ms;
     }
 
     animate y {
         nonexistent: 42;
-//      ^error{Unknown property nonexistent in PropertyAnimation}
+//      >         <error{Unknown property nonexistent in PropertyAnimation}
     }
 
     animate text {
-//          ^error{'text' is not a property that can be animated}
+//          >   <error{'text' is not a property that can be animated}
     }
 
     animate * { duration: 100ms; }
 //          ^error{catch-all property is only allowed within transitions}
 
     animate background, foo { duration: 100ms; }
-//                      ^error{'foo' is not a property that can be animated}
+//                      >  <error{'foo' is not a property that can be animated}
 
     text := Text{ animate x { duration: 1000ms; } }
     animate text.x { duration: 100ms; }
-//          ^error{Can only refer to property in the current element}
+//          >     <error{Can only refer to property in the current element}
 
 }
