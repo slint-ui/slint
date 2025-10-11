@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// FIXME: Skip test on C++ and NodeJS since this was only fixed in rust so far
+//ignore: cpp,js
+
+export component TestCase inherits Window {
+    property <bool> condition: true;
+    in property <bool> condition-2: true;
+
+    TouchArea {
+        clicked => {
+            popup.show();
+        }
+        popup := PopupWindow {
+            width: root.width;
+            height: root.height;
+            h := HorizontalLayout {
+                if condition: Rectangle {
+                    background: yellow;
+                    if condition-2 : TouchArea {
+                        clicked => {
+                            condition = false;
+                            debug(h.preferred-width);
+                            popup.close();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 10., 16.);
+slint_testing::send_mouse_click(&instance, 10., 16.);
+slint_testing::send_mouse_click(&instance, 10., 16.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 10., 16.);
+slint_testing::send_mouse_click(&instance, 10., 16.);
+slint_testing::send_mouse_click(&instance, 10., 16.);
+```
+
+```js
+let instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+```
+*/
