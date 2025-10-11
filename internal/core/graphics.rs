@@ -108,11 +108,19 @@ impl FontRequest {
         let mut collection = sharedfontique::get_collection();
 
         let mut query = collection.query();
-        query.set_families(std::iter::once(if let Some(family) = self.family.as_ref() {
-            fontique::QueryFamily::from(family.as_str())
-        } else {
-            fontique::QueryFamily::Generic(fontique::GenericFamily::SansSerif)
-        }));
+        query.set_families(
+            self.family
+                .as_ref()
+                .map(|family| fontique::QueryFamily::from(family.as_str()))
+                .into_iter()
+                .chain(
+                    [
+                        fontique::QueryFamily::Generic(fontique::GenericFamily::SansSerif),
+                        fontique::QueryFamily::Generic(fontique::GenericFamily::SystemUi),
+                    ]
+                    .into_iter(),
+                ),
+        );
 
         query.set_attributes(fontique::Attributes {
             weight: self
