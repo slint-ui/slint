@@ -27,6 +27,16 @@ pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::ne
                 fonts.iter().map(|(family_id, _)| *family_id),
             );
         }
+        for generic_family in [
+            fontique::GenericFamily::SansSerif,
+            fontique::GenericFamily::SystemUi,
+            fontique::GenericFamily::UiSansSerif,
+        ] {
+            collection.append_generic_families(
+                generic_family,
+                fonts.iter().map(|(family_id, _)| *family_id),
+            );
+        }
     }
 
     let mut add_font_from_path = |path: std::path::PathBuf| {
