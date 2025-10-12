@@ -9,8 +9,7 @@ struct DemoRenderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
-    displayed_texture: wgpu::Texture,
-    next_texture: wgpu::Texture,
+    texture: wgpu::Texture,
     start_time: std::time::Instant,
 }
 
@@ -60,15 +59,13 @@ impl DemoRenderer {
             cache: None,
         });
 
-        let displayed_texture = Self::create_texture(&device, 320, 200);
-        let next_texture = Self::create_texture(&device, 320, 200);
+        let texture = Self::create_texture(&device, 320, 200);
 
         Self {
             device: device.clone(),
             queue: queue.clone(),
             pipeline,
-            displayed_texture,
-            next_texture,
+            texture,
             start_time: std::time::Instant::now(),
         }
     }
@@ -94,9 +91,8 @@ impl DemoRenderer {
         width: u32,
         height: u32,
     ) -> wgpu::Texture {
-        if self.next_texture.size().width != width || self.next_texture.size().height != height {
-            let mut new_texture = Self::create_texture(&self.device, width, height);
-            std::mem::swap(&mut self.next_texture, &mut new_texture);
+        if self.texture.size().width != width || self.texture.size().height != height {
+            self.texture = Self::create_texture(&self.device, width, height);
         }
 
         let elapsed: f32 = self.start_time.elapsed().as_millis() as f32 / 500.;
@@ -109,7 +105,7 @@ impl DemoRenderer {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.next_texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                    view: &self.texture.create_view(&wgpu::TextureViewDescriptor::default()),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
@@ -132,11 +128,7 @@ impl DemoRenderer {
 
         self.queue.submit(Some(encoder.finish()));
 
-        let result_texture = self.next_texture.clone();
-
-        std::mem::swap(&mut self.next_texture, &mut self.displayed_texture);
-
-        result_texture
+        self.texture.clone()
     }
 }
 
@@ -152,7 +144,7 @@ pub fn main() {
 
     let app = App::new().unwrap();
 
-    let mut underlay = None;
+    let mut renderer = None;
 
     let app_weak = app.as_weak();
 
@@ -164,14 +156,14 @@ pub fn main() {
                 slint::RenderingState::RenderingSetup => {
                     match graphics_api {
                         slint::GraphicsAPI::WGPU27 { device, queue, .. } => {
-                            underlay = Some(DemoRenderer::new(device, queue));
+                            renderer = Some(DemoRenderer::new(device, queue));
                         }
                         _ => return,
                     };
                 }
                 slint::RenderingState::BeforeRendering => {
-                    if let (Some(underlay), Some(app)) = (underlay.as_mut(), app_weak.upgrade()) {
-                        let texture = underlay.render(
+                    if let (Some(renderer), Some(app)) = (renderer.as_mut(), app_weak.upgrade()) {
+                        let texture = renderer.render(
                             app.get_selected_red(),
                             app.get_selected_green(),
                             app.get_selected_blue(),
@@ -184,7 +176,7 @@ pub fn main() {
                 }
                 slint::RenderingState::AfterRendering => {}
                 slint::RenderingState::RenderingTeardown => {
-                    drop(underlay.take());
+                    drop(renderer.take());
                 }
                 _ => {}
             }
