@@ -444,12 +444,51 @@ impl ComponentInstance {
         for global_callbacks in self.global_callbacks.values() {
             global_callbacks.__traverse__(&visit)?;
         }
+
+        for value in self.properties_for_gc() {
+            crate::value::traverse_value(&value, &visit)?;
+        }
+
         Ok(())
     }
 
     fn __clear__(&mut self) {
         self.callbacks.__clear__();
         self.global_callbacks.clear();
+
+        for value in self.properties_for_gc() {
+            crate::value::clear_strongrefs_in_value(&value)
+        }
+    }
+}
+
+impl ComponentInstance {
+    fn properties_for_gc(&self) -> Vec<slint_interpreter::Value> {
+        let mut props = Vec::new();
+
+        props.extend(
+            self.instance
+                .definition()
+                .properties_and_callbacks()
+                .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| name))
+                .filter_map(|prop_name| self.instance.get_property(&prop_name).ok()),
+        );
+
+        for global_name in self.instance.definition().globals() {
+            if let Some(prop_iter) =
+                self.instance.definition().global_properties_and_callbacks(&global_name)
+            {
+                props.extend(
+                    prop_iter
+                        .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| name))
+                        .filter_map(|prop_name| {
+                            self.instance.get_global_property(&global_name, &prop_name).ok()
+                        }),
+                );
+            }
+        }
+
+        props
     }
 }
 

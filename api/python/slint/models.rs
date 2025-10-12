@@ -29,6 +29,17 @@ impl PyModelShared {
             *type_collection_ref = Some(type_collection.clone());
         }
     }
+
+    pub fn __traverse__(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        if let Some(this) = self.self_ref.borrow().as_ref() {
+            visit.call(this)?;
+        }
+        Ok(())
+    }
+
+    pub fn __clear__(&self) {
+        *self.self_ref.borrow_mut() = None;
+    }
 }
 
 #[derive(Clone)]
@@ -73,14 +84,11 @@ impl PyModelBase {
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        if let Some(this) = self.inner.self_ref.borrow().as_ref() {
-            visit.call(this)?;
-        }
-        Ok(())
+        self.inner.__traverse__(&visit)
     }
 
     fn __clear__(&mut self) {
-        *self.inner.self_ref.borrow_mut() = None;
+        self.inner.__clear__();
     }
 }
 

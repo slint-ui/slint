@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3::IntoPyObjectExt;
+use pyo3::{prelude::*, PyVisit};
+use pyo3::{IntoPyObjectExt, PyTraverseError};
 use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::cell::OnceCell;
@@ -58,6 +58,53 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
     }
 }
 
+pub fn traverse_value(
+    value: &slint_interpreter::Value,
+    visit: &PyVisit<'_>,
+) -> Result<(), PyTraverseError> {
+    match value {
+        slint_interpreter::Value::Model(model) => {
+            if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>()
+            {
+                rust_model.__traverse__(&visit)?
+            }
+        }
+        slint_interpreter::Value::Struct(structval) => traverse_struct(&structval, visit)?,
+        _ => {}
+    }
+
+    Ok(())
+}
+
+fn traverse_struct(
+    structval: &slint_interpreter::Struct,
+    visit: &PyVisit<'_>,
+) -> Result<(), PyTraverseError> {
+    for (_, value) in structval.iter() {
+        traverse_value(value, visit)?;
+    }
+    Ok(())
+}
+
+pub fn clear_strongrefs_in_value(value: &slint_interpreter::Value) {
+    match value {
+        slint_interpreter::Value::Model(model) => {
+            if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>()
+            {
+                rust_model.__clear__();
+            }
+        }
+        slint_interpreter::Value::Struct(structval) => clear_strongrefs_in_struct(&structval),
+        _ => {}
+    }
+}
+
+fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
+    for (_, value) in structval.iter() {
+        clear_strongrefs_in_value(value);
+    }
+}
+
 #[gen_stub_pyclass]
 #[pyclass(subclass, unsendable)]
 #[derive(Clone)]
@@ -66,7 +113,6 @@ pub struct PyStruct {
     pub type_collection: TypeCollection,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyStruct {
     fn __getattr__(&self, key: &str) -> PyResult<SlintToPyValue> {
@@ -100,6 +146,16 @@ impl PyStruct {
 
     fn __copy__(&self) -> Self {
         self.clone()
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        traverse_struct(&self.data, &visit)
+    }
+
+    fn __clear__(&mut self) {
+        for (_, value) in self.data.iter() {
+            clear_strongrefs_in_value(&value);
+        }
     }
 }
 
