@@ -77,11 +77,12 @@ def test_struct_gc() -> None:
     gc.collect()
     assert test_value.data.row_count() == 3
 
+
 def test_properties_gc() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source(
-        """        
+        """
         export component Test {
             in-out property <[int]> test-value;
         }
