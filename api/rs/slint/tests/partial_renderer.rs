@@ -720,3 +720,80 @@ fn nowrap_text_change_doesnt_change_height() {
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
+
+#[test]
+fn create_item_tree_during_rendering() {
+    // This test has a `init` callback which will cause item tree to be changed during rendeiring,
+    // between the compute dirty region and the actual rendering.
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> cond1: false;
+            property <bool> cond2: false;
+            property <bool> cond3: false;
+
+            in property <length> foo: 5px;
+
+            if cond3: Rectangle {
+                x: 12px;
+                y: foo;
+                width: 10px;
+                height: 10px;
+                background: yellow;
+            }
+            if cond2: Rectangle {
+                x: 10px;
+                y: 10px;
+                width: 10px;
+                height: 10px;
+                background: red;
+                init => { cond3=true; }
+            }
+            if cond1: Rectangle {
+                x: 10px;
+                y: 15px;
+                width: 10px;
+                height: 10px;
+                background: blue;
+                init => { cond2=true; }
+            }
+            if cond2: Rectangle {
+                x: 12px;
+                y: 10px + foo;
+                width: 10px;
+                height: 10px;
+                background: green;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_cond1(true);
+
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 15, 22, 25);
+    }));
+    // FIXME: in this case, there is nothing done to trigger any redraw. Ideally this call shouldn't be necessary.
+    assert!(!window.draw_if_needed(|_| ()));
+    // So therefore force a redraw
+
+    ui.set_foo(4.0);
+
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 4, 22, 25);
+    }));
+
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    ui.set_foo(3.0);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 12, 3, 22, 24);
+    }));
+}
