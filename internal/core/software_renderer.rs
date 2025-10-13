@@ -2946,8 +2946,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                     + euclid::vec2(glyph.bounds.xmin, 0.0),
                 glyph.size().cast(),
             )
-            .transformed(self.rotation)
-            .round();
+            .transformed(self.rotation);
 
             let data = {
                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
