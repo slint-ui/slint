@@ -581,7 +581,6 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         cache: &RefCell<PartialRendererCache>,
         rendering_data: &CachedRenderingData,
         item_rc: &ItemRc,
-        window_adapter: &Rc<dyn WindowAdapter>,
         render_fn: impl FnOnce(),
     ) {
         let mut cache = cache.borrow_mut();
@@ -592,18 +591,10 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                 .as_ref()
                 .evaluate(render_fn);
         } else {
-            let mut cache_entry = PartialRenderingCachedData::new(
-                CachedItemBoundingBoxAndTransform::new::<T>(item_rc, window_adapter),
-            );
-            cache_entry
-                .tracker
-                .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
-                .as_ref()
-                .evaluate(render_fn);
-            rendering_data.cache_index.set(cache.insert(cache_entry));
-            rendering_data.cache_generation.set(cache.generation());
-
-            unreachable!("compute_dirty_regions should have already computed the geometry")
+            // This item was created between the computation of the dirty region and the actual rendering.
+            // Register a dependency to the geometry since this wasn't done before
+            item_rc.geometry();
+            render_fn();
         }
     }
 
@@ -617,7 +608,7 @@ macro_rules! forward_rendering_call {
     (fn $fn:ident($Ty:ty) $(-> $Ret:ty)?) => {
         fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc, size: LogicalSize) $(-> $Ret)? {
             let mut ret = None;
-            Self::do_rendering(&self.cache, &obj.cached_rendering_data, item_rc, &self.window_adapter, || {
+            Self::do_rendering(&self.cache, &obj.cached_rendering_data, item_rc, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size));
             });
             ret.unwrap_or_default()
@@ -629,7 +620,7 @@ macro_rules! forward_rendering_call2 {
     (fn $fn:ident($Ty:ty) $(-> $Ret:ty)?) => {
         fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc, size: LogicalSize, cache: &CachedRenderingData) $(-> $Ret)? {
             let mut ret = None;
-            Self::do_rendering(&self.cache, &cache, item_rc, &self.window_adapter, || {
+            Self::do_rendering(&self.cache, &cache, item_rc, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size, &cache));
             });
             ret.unwrap_or_default()
@@ -641,7 +632,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     fn filter_item(
         &mut self,
         item_rc: &ItemRc,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &Rc<dyn WindowAdapter>,
     ) -> (bool, LogicalRect) {
         let item = item_rc.borrow();
 
@@ -652,7 +643,10 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         let mut cache = self.cache.borrow_mut();
         let item_bounding_rect = match rendering_data.get_entry(&mut cache) {
             Some(PartialRenderingCachedData { data, tracker: _ }) => *data.bounding_rect(),
-            None => unreachable!("compute_dirty_regions should have already computed the geometry"),
+            None => {
+                // This item was created between the computation of the dirty region and the actual rendering.
+                item_rc.bounding_rect(&item_geometry, window_adapter)
+            }
         };
 
         let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
