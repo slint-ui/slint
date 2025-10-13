@@ -1043,7 +1043,12 @@ impl RendererSealed for SoftwareRenderer {
 }
 
 fn parley_disabled() -> bool {
-    std::env::var("SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED").is_ok()
+    #[cfg(feature = "software-renderer-systemfonts")]
+    {
+        std::env::var("SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED").is_ok()
+    }
+    #[cfg(not(feature = "software-renderer-systemfonts"))]
+    false
 }
 
 fn render_window_frame_by_line(
