@@ -353,7 +353,7 @@ impl ExpressionResult {
                         ]
                         .into_iter(),
                     );
-                    if e.is_constant() {
+                    if e.is_constant(None) {
                         object
                     } else {
                         Expression::CodeBlock(vec![e, object])
