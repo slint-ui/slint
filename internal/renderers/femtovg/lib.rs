@@ -15,6 +15,7 @@ use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetri
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::TextWrap;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
@@ -224,12 +225,14 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 }
 
                 for (component, origin) in components {
-                    i_slint_core::item_rendering::render_component_items(
-                        component,
-                        &mut item_renderer,
-                        *origin,
-                        &self.window_adapter()?,
-                    );
+                    if let Some(component) = ItemTreeWeak::upgrade(component) {
+                        i_slint_core::item_rendering::render_component_items(
+                            &component,
+                            &mut item_renderer,
+                            *origin,
+                            &self.window_adapter()?,
+                        );
+                    }
                 }
 
                 if let Some(cb) = post_render_cb.as_ref() {

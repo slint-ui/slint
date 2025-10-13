@@ -19,7 +19,7 @@ use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
 };
-use crate::item_tree::{ItemTreeRc, ItemVisitorResult};
+use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
 #[cfg(feature = "std")]
 use crate::items::Path;
 use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Opacity, RenderingResult, TextInput};
@@ -774,12 +774,14 @@ impl PartialRenderingState {
     pub fn apply_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
         &self,
         partial_renderer: &mut PartialRenderer<'_, T>,
-        components: &[(&ItemTreeRc, LogicalPoint)],
+        components: &[(ItemTreeWeak, LogicalPoint)],
         logical_window_size: LogicalSize,
         dirty_region_of_existing_buffer: Option<DirtyRegion>,
     ) -> DirtyRegion {
         for (component, origin) in components {
-            partial_renderer.compute_dirty_regions(component, *origin, logical_window_size);
+            if let Some(component) = crate::item_tree::ItemTreeWeak::upgrade(component) {
+                partial_renderer.compute_dirty_regions(&component, *origin, logical_window_size);
+            }
         }
 
         let screen_region = LogicalRect::from_size(logical_window_size);

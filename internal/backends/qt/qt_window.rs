@@ -18,7 +18,7 @@ use i_slint_core::item_rendering::{
     RenderRectangle, RenderText,
 };
 use i_slint_core::item_tree::ParentItemTraversalMode;
-use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
+use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, MouseCursor,
     Opacity, PointerEventButton, RenderingResult, TextWrap,
@@ -1613,12 +1613,14 @@ impl QtWindow {
             };
 
             for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    &mut renderer,
-                    *origin,
-                    &window_adapter,
-                );
+                if let Some(component) = ItemTreeWeak::upgrade(&component) {
+                    i_slint_core::item_rendering::render_component_items(
+                        &component,
+                        &mut renderer,
+                        *origin,
+                        &window_adapter,
+                    );
+                }
             }
 
             if let Some(collector) = &*self.rendering_metrics_collector.borrow() {
