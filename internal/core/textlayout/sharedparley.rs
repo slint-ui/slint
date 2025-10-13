@@ -311,7 +311,13 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
     let max_width = paragraphs
         .iter()
-        .map(|p| PhysicalLength::new(p.layout.width()))
+        .map(|p| {
+            // The max width is used for the elipsis computation when eliding text. We *want* to exclude whitespace
+            // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
+            // and as such we must also accept the full width here including trailing whitespace, otherwise text with
+            // trailing whitespace will assigned a smaller width for rendering and thus the elipsis will be placed.
+            PhysicalLength::new(p.layout.full_width())
+        })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
     let height = paragraphs
         .last()
