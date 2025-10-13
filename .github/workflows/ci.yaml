@@ -143,7 +143,7 @@ jobs:
                 node-version: 20
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.1.0
+            - uses: pnpm/action-setup@v4.2.0
               with:
                 version: 10.14.0
             - uses: ./.github/actions/setup-rust
@@ -202,7 +202,7 @@ jobs:
               with:
                   python-version: "3.12"
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
               working-directory: api/python/slint
@@ -361,7 +361,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v5
-            - uses: pnpm/action-setup@v4.1.0
+            - uses: pnpm/action-setup@v4.2.0
               with:
                 version: 10.14.0
             - uses: Swatinem/rust-cache@v2
@@ -696,7 +696,7 @@ jobs:
                 node-version: 20
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.1.0
+            - uses: pnpm/action-setup@v4.2.0
               with:
                 version: 10.14.0
             - name: Run pnpm install
