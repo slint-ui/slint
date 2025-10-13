@@ -30,4 +30,4 @@ catalog:
   "@expressive-code/plugin-line-numbers": 0.41.3
   "rehype-external-links": 3.0.0
   "playwright-ctrf-json-reporter": 0.0.24
-  "@playwright/test": 1.55.1
+  "@playwright/test": 1.56.0
