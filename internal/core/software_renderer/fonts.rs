@@ -48,6 +48,7 @@ pub struct RenderableVectorGlyph {
     pub height: PhysicalLength,
     pub alpha_map: Rc<[u8]>,
     pub pixel_stride: u16,
+    pub bounds: fontdue::OutlineBounds,
 }
 
 #[cfg(feature = "software-renderer-systemfonts")]

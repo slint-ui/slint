@@ -117,6 +117,7 @@ impl VectorFont {
                     height: PhysicalLength::new(metrics.height.try_into().unwrap()),
                     alpha_map,
                     pixel_stride: metrics.width.try_into().unwrap(),
+                    bounds: metrics.bounds,
                 };
 
                 cache.put_with_weight(cache_key, glyph.clone()).ok();

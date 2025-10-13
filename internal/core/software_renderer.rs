@@ -2938,11 +2938,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             .cast();
 
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
-            let target_rect = PhysicalRect::new(
-                PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
+            let target_rect: euclid::Rect<f32, PhysicalPx> = euclid::Rect::<f32, PhysicalPx>::new(
+                (PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
                     + global_offset
-                    + glyph_offset,
-                glyph.size(),
+                    + glyph_offset)
+                    .cast()
+                    + euclid::vec2(glyph.bounds.xmin, 0.0),
+                glyph.size().cast(),
             )
             .transformed(self.rotation);
 
