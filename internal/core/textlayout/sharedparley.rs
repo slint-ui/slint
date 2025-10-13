@@ -4,6 +4,8 @@
 use euclid::num::Zero;
 pub use parley;
 
+use alloc::vec::Vec;
+use core::ops::Range;
 use core::pin::Pin;
 use std::boxed::Box;
 use std::cell::RefCell;
@@ -13,7 +15,7 @@ use crate::{
     items::TextStrokeStyle,
     lengths::{
         LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
-        ScaleFactor, SizeLengths,
+        PointLengths, ScaleFactor, SizeLengths,
     },
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     SharedString,
@@ -208,7 +210,28 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         }));
     };
 
-    let (mut layout, elision_info) = CONTEXTS.with_borrow_mut(move |contexts| {
+    let paragraph_ranges = core::iter::from_fn({
+        let mut start = 0;
+        let mut char_it = text.char_indices().peekable();
+        let mut eot = false;
+        move || {
+            while let Some((idx, ch)) = char_it.next() {
+                if ch == '\n' {
+                    let next_range = start..idx;
+                    start = idx + ch.len_utf8();
+                    return Some(next_range);
+                }
+            }
+
+            if eot {
+                return None;
+            }
+            eot = true;
+            return Some(start..text.len());
+        }
+    });
+
+    let (paragraphs, elision_info) = CONTEXTS.with_borrow_mut(move |contexts| {
         let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
             (options.text_overflow, max_physical_width)
         {
@@ -230,54 +253,82 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
             None
         };
 
-        let mut builder =
-            contexts.layout.ranged_builder(&mut contexts.font, text, scale_factor.get(), true);
-        push_to_builder(&mut builder);
+        let mut paragraphs = Vec::with_capacity(1);
+        let mut para_y = 0.0;
 
-        if let Some((selection, selection_color)) =
-            options.selection.zip(options.selection_foreground_color)
-        {
-            builder.push(
-                parley::StyleProperty::Brush(Brush {
-                    selection_fill_color: Some(selection_color),
-                    stroke: options.stroke,
-                }),
-                selection,
+        for range in paragraph_ranges {
+            let para_text = &text[range.clone()];
+
+            let mut builder = contexts.layout.ranged_builder(
+                &mut contexts.font,
+                para_text,
+                scale_factor.get(),
+                true,
             );
+            push_to_builder(&mut builder);
+
+            if let Some((selection, selection_color)) =
+                options.selection.as_ref().zip(options.selection_foreground_color)
+            {
+                let sel_start = selection.start.max(range.start);
+                let sel_end = selection.end.min(range.end);
+                if sel_start < sel_end {
+                    let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                    builder.push(
+                        parley::StyleProperty::Brush(Brush {
+                            selection_fill_color: Some(selection_color),
+                            stroke: options.stroke,
+                        }),
+                        local_selection,
+                    );
+                }
+            }
+
+            let mut layout = builder.build(para_text);
+
+            layout.break_all_lines(
+                max_physical_width
+                    .filter(|_| options.text_wrap != TextWrap::NoWrap)
+                    .map(|width| width.get()),
+            );
+            layout.align(
+                max_physical_width.map(|width| width.get()),
+                match options.horizontal_align {
+                    TextHorizontalAlignment::Left => parley::Alignment::Left,
+                    TextHorizontalAlignment::Center => parley::Alignment::Center,
+                    TextHorizontalAlignment::Right => parley::Alignment::Right,
+                },
+                parley::AlignmentOptions::default(),
+            );
+
+            let y = PhysicalLength::new(para_y);
+            para_y += layout.height();
+            paragraphs.push(TextParagraph { range, y, layout })
         }
 
-        (builder.build(text), elision_info)
+        (paragraphs, elision_info)
     });
 
-    layout.break_all_lines(
-        max_physical_width
-            .filter(|_| options.text_wrap != TextWrap::NoWrap)
-            .map(|width| width.get()),
-    );
-    layout.align(
-        max_physical_width.map(|width| width.get()),
-        match options.horizontal_align {
-            TextHorizontalAlignment::Left => parley::Alignment::Left,
-            TextHorizontalAlignment::Center => parley::Alignment::Center,
-            TextHorizontalAlignment::Right => parley::Alignment::Right,
-        },
-        parley::AlignmentOptions::default(),
-    );
+    let max_width = paragraphs
+        .iter()
+        .map(|p| PhysicalLength::new(p.layout.width()))
+        .fold(PhysicalLength::zero(), PhysicalLength::max);
+    let height = paragraphs
+        .last()
+        .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
 
     let y_offset = match (max_physical_height, options.vertical_align) {
-        (Some(max_height), TextVerticalAlignment::Center) => {
-            (max_height - PhysicalLength::new(layout.height())) / 2.0
-        }
-        (Some(max_height), TextVerticalAlignment::Bottom) => {
-            max_height - PhysicalLength::new(layout.height())
-        }
+        (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
+        (Some(max_height), TextVerticalAlignment::Bottom) => max_height - height,
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
     Layout {
-        inner: layout,
+        paragraphs,
         y_offset,
         elision_info,
+        max_width,
+        height,
         max_physical_height,
         is_wrapping: options.text_wrap != TextWrap::NoWrap,
     }
@@ -288,15 +339,260 @@ struct ElisionInfo {
     max_physical_width: PhysicalLength,
 }
 
+struct TextParagraph {
+    range: Range<usize>,
+    y: PhysicalLength,
+    layout: parley::Layout<Brush>,
+}
+
+impl TextParagraph {
+    fn draw<R: GlyphRenderer>(
+        &self,
+        layout: &Layout,
+        item_renderer: &mut R,
+        default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
+        default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
+        draw_glyphs: &mut dyn FnMut(
+            &mut R,
+            &parley::FontData,
+            PhysicalLength,
+            <R as GlyphRenderer>::PlatformBrush,
+            PhysicalLength, // y offset for paragraph
+            &mut dyn Iterator<Item = parley::layout::Glyph>,
+        ),
+    ) {
+        let para_y = layout.y_offset + self.y;
+
+        let mut lines = self
+            .layout
+            .lines()
+            .take_while(|line| {
+                let metrics = line.metrics();
+                match layout.max_physical_height {
+                    Some(max_physical_height) if layout.is_wrapping => {
+                        max_physical_height.get() > metrics.max_coord
+                    }
+                    _ => true,
+                }
+            })
+            .peekable();
+
+        while let Some(line) = lines.next() {
+            let last_line = lines.peek().is_none();
+            for item in line.items() {
+                match item {
+                    parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let run = glyph_run.run();
+
+                        let brush = &glyph_run.style().brush;
+
+                        let mut elided_glyphs_it;
+                        let mut unelided_glyphs_it;
+                        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>;
+
+                        if last_line {
+                            elided_glyphs_it = layout.glyphs_with_elision(&glyph_run);
+                            glyphs_it = &mut elided_glyphs_it;
+                        } else {
+                            unelided_glyphs_it = glyph_run.positioned_glyphs();
+                            glyphs_it = &mut unelided_glyphs_it;
+                        };
+
+                        let (fill_brush, stroke_style) = match brush.selection_fill_color {
+                            Some(color) => {
+                                let Some(selection_brush) =
+                                    item_renderer.platform_brush_for_color(&color)
+                                else {
+                                    // Weird, a transparent selection color, but ok...
+                                    continue;
+                                };
+                                (selection_brush.clone(), &None)
+                            }
+                            None => (default_fill_brush.clone(), &brush.stroke),
+                        };
+
+                        match stroke_style {
+                            Some(TextStrokeStyle::Outside) => {
+                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
+
+                                if let Some(stroke_brush) = default_stroke_brush.clone() {
+                                    draw_glyphs(
+                                        item_renderer,
+                                        run.font(),
+                                        PhysicalLength::new(run.font_size()),
+                                        stroke_brush,
+                                        para_y,
+                                        &mut glyphs.iter().cloned(),
+                                    );
+                                }
+
+                                draw_glyphs(
+                                    item_renderer,
+                                    run.font(),
+                                    PhysicalLength::new(run.font_size()),
+                                    fill_brush,
+                                    para_y,
+                                    &mut glyphs.into_iter(),
+                                );
+                            }
+                            Some(TextStrokeStyle::Center) => {
+                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
+
+                                draw_glyphs(
+                                    item_renderer,
+                                    run.font(),
+                                    PhysicalLength::new(run.font_size()),
+                                    fill_brush,
+                                    para_y,
+                                    &mut glyphs.iter().cloned(),
+                                );
+
+                                if let Some(stroke_brush) = default_stroke_brush.clone() {
+                                    draw_glyphs(
+                                        item_renderer,
+                                        run.font(),
+                                        PhysicalLength::new(run.font_size()),
+                                        stroke_brush,
+                                        para_y,
+                                        &mut glyphs.into_iter(),
+                                    );
+                                }
+                            }
+                            None => {
+                                draw_glyphs(
+                                    item_renderer,
+                                    run.font(),
+                                    PhysicalLength::new(run.font_size()),
+                                    fill_brush,
+                                    para_y,
+                                    glyphs_it,
+                                );
+                            }
+                        }
+                    }
+                    parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
+                };
+            }
+        }
+    }
+}
+
 struct Layout {
-    inner: parley::Layout<Brush>,
+    paragraphs: Vec<TextParagraph>,
     y_offset: PhysicalLength,
+    max_width: PhysicalLength,
+    height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
     elision_info: Option<ElisionInfo>,
     is_wrapping: bool,
 }
 
 impl Layout {
+    fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
+        self.paragraphs.iter().find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
+    }
+
+    fn paragraph_by_y(&self, y: PhysicalLength) -> Option<&TextParagraph> {
+        // Adjust for vertical alignment
+        let y = y - self.y_offset;
+
+        if y < PhysicalLength::zero() {
+            return self.paragraphs.first();
+        }
+
+        let idx = self.paragraphs.binary_search_by(|paragraph| {
+            if y < paragraph.y {
+                core::cmp::Ordering::Greater
+            } else if y >= paragraph.y + PhysicalLength::new(paragraph.layout.height()) {
+                core::cmp::Ordering::Less
+            } else {
+                core::cmp::Ordering::Equal
+            }
+        });
+
+        match idx {
+            Ok(i) => self.paragraphs.get(i),
+            Err(_) => self.paragraphs.last(),
+        }
+    }
+
+    fn selection_geometry(
+        &self,
+        selection_range: Range<usize>,
+        mut callback: impl FnMut(PhysicalRect),
+    ) {
+        for paragraph in &self.paragraphs {
+            let selection_start = selection_range.start.max(paragraph.range.start);
+            let selection_end = selection_range.end.min(paragraph.range.end);
+
+            if selection_start < selection_end {
+                let local_start = selection_start - paragraph.range.start;
+                let local_end = selection_end - paragraph.range.start;
+
+                let selection = parley::layout::cursor::Selection::new(
+                    parley::layout::cursor::Cursor::from_byte_index(
+                        &paragraph.layout,
+                        local_start,
+                        Default::default(),
+                    ),
+                    parley::layout::cursor::Cursor::from_byte_index(
+                        &paragraph.layout,
+                        local_end,
+                        Default::default(),
+                    ),
+                );
+
+                selection.geometry_with(&paragraph.layout, |rect, _| {
+                    callback(PhysicalRect::new(
+                        PhysicalPoint::from_lengths(
+                            PhysicalLength::new(rect.x0 as _),
+                            PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
+                        ),
+                        PhysicalSize::new(rect.width() as _, rect.height() as _),
+                    ));
+                });
+            }
+        }
+    }
+
+    fn byte_offset_from_point(&self, pos: PhysicalPoint) -> usize {
+        let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
+            return 0;
+        };
+        let cursor = parley::layout::cursor::Cursor::from_point(
+            &paragraph.layout,
+            pos.x,
+            (pos.y_length() - self.y_offset - paragraph.y).get(),
+        );
+        paragraph.range.start + cursor.index()
+    }
+
+    fn cursor_rect_for_byte_offset(
+        &self,
+        byte_offset: usize,
+        cursor_width: PhysicalLength,
+    ) -> PhysicalRect {
+        let Some(paragraph) = self.paragraph_by_byte_offset(byte_offset) else {
+            return PhysicalRect::new(PhysicalPoint::default(), PhysicalSize::new(1.0, 1.0));
+        };
+
+        let local_offset = byte_offset - paragraph.range.start;
+        let cursor = parley::layout::cursor::Cursor::from_byte_index(
+            &paragraph.layout,
+            local_offset,
+            Default::default(),
+        );
+        let rect = cursor.geometry(&paragraph.layout, cursor_width.get());
+
+        PhysicalRect::new(
+            PhysicalPoint::from_lengths(
+                PhysicalLength::new(rect.x0 as _),
+                PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
+            ),
+            PhysicalSize::new(rect.width() as _, rect.height() as _),
+        )
+    }
+
     /// Returns an iterator over the run's glyphs but with an optional elision
     /// glyph replacing the last line's last glyph that's exceeding the max width - if applicable.
     /// Call this function only for the last line of the layout.
@@ -346,114 +642,18 @@ impl Layout {
             &parley::FontData,
             PhysicalLength,
             <R as GlyphRenderer>::PlatformBrush,
+            PhysicalLength, // y offset for paragraph
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        let mut lines = self
-            .inner
-            .lines()
-            .take_while(|line| {
-                let metrics = line.metrics();
-                match self.max_physical_height {
-                    Some(max_physical_height) if self.is_wrapping => {
-                        max_physical_height.get() > metrics.max_coord
-                    }
-                    _ => true,
-                }
-            })
-            .peekable();
-
-        while let Some(line) = lines.next() {
-            let last_line = lines.peek().is_none();
-            for item in line.items() {
-                match item {
-                    parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let run = glyph_run.run();
-
-                        let brush = &glyph_run.style().brush;
-
-                        let mut elided_glyphs_it;
-                        let mut unelided_glyphs_it;
-                        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>;
-
-                        if last_line {
-                            elided_glyphs_it = self.glyphs_with_elision(&glyph_run);
-                            glyphs_it = &mut elided_glyphs_it;
-                        } else {
-                            unelided_glyphs_it = glyph_run.positioned_glyphs();
-                            glyphs_it = &mut unelided_glyphs_it;
-                        };
-
-                        let (fill_brush, stroke_style) = match brush.selection_fill_color {
-                            Some(color) => {
-                                let Some(selection_brush) =
-                                    item_renderer.platform_brush_for_color(&color)
-                                else {
-                                    // Weird, a transparent selection color, but ok...
-                                    continue;
-                                };
-                                (selection_brush.clone(), &None)
-                            }
-                            None => (default_fill_brush.clone(), &brush.stroke),
-                        };
-
-                        match stroke_style {
-                            Some(TextStrokeStyle::Outside) => {
-                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
-
-                                if let Some(stroke_brush) = default_stroke_brush.clone() {
-                                    draw_glyphs(
-                                        item_renderer,
-                                        run.font(),
-                                        PhysicalLength::new(run.font_size()),
-                                        stroke_brush,
-                                        &mut glyphs.iter().cloned(),
-                                    );
-                                }
-
-                                draw_glyphs(
-                                    item_renderer,
-                                    run.font(),
-                                    PhysicalLength::new(run.font_size()),
-                                    fill_brush,
-                                    &mut glyphs.into_iter(),
-                                );
-                            }
-                            Some(TextStrokeStyle::Center) => {
-                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
-
-                                draw_glyphs(
-                                    item_renderer,
-                                    run.font(),
-                                    PhysicalLength::new(run.font_size()),
-                                    fill_brush,
-                                    &mut glyphs.iter().cloned(),
-                                );
-
-                                if let Some(stroke_brush) = default_stroke_brush.clone() {
-                                    draw_glyphs(
-                                        item_renderer,
-                                        run.font(),
-                                        PhysicalLength::new(run.font_size()),
-                                        stroke_brush,
-                                        &mut glyphs.into_iter(),
-                                    );
-                                }
-                            }
-                            None => {
-                                draw_glyphs(
-                                    item_renderer,
-                                    run.font(),
-                                    PhysicalLength::new(run.font_size()),
-                                    fill_brush,
-                                    glyphs_it,
-                                );
-                            }
-                        }
-                    }
-                    parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
-                };
-            }
+        for paragraph in &self.paragraphs {
+            paragraph.draw(
+                self,
+                item_renderer,
+                &default_fill_brush,
+                &default_stroke_brush,
+                draw_glyphs,
+            );
         }
     }
 }
@@ -531,8 +731,8 @@ pub fn draw_text(
             item_renderer,
             platform_fill_brush,
             platform_stroke_brush,
-            &mut |item_renderer, font, font_size, brush, glyphs_it| {
-                item_renderer.draw_glyph_run(font, font_size, brush, layout.y_offset, glyphs_it);
+            &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
+                item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
             },
         );
     }
@@ -592,59 +792,23 @@ pub fn draw_text_input(
         ),
     );
 
-    let selection = parley::layout::cursor::Selection::new(
-        parley::layout::cursor::Cursor::from_byte_index(
-            &layout.inner,
-            min_select,
-            Default::default(),
-        ),
-        parley::layout::cursor::Cursor::from_byte_index(
-            &layout.inner,
-            max_select,
-            Default::default(),
-        ),
-    );
-    selection.geometry_with(&layout.inner, |rect, _| {
-        item_renderer.fill_rectangle(
-            PhysicalRect::new(
-                PhysicalPoint::from_lengths(
-                    PhysicalLength::new(rect.x0 as _),
-                    PhysicalLength::new(rect.y0 as _) + layout.y_offset,
-                ),
-                PhysicalSize::new(rect.width() as _, rect.height() as _),
-            ),
-            text_input.selection_background_color(),
-        );
+    layout.selection_geometry(min_select..max_select, |selection_rect| {
+        item_renderer.fill_rectangle(selection_rect, text_input.selection_background_color());
     });
 
     layout.draw(
         item_renderer,
         platform_fill_brush,
         None,
-        &mut |item_renderer, font, font_size, brush, glyphs_it| {
-            item_renderer.draw_glyph_run(font, font_size, brush, layout.y_offset, glyphs_it);
+        &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
+            item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
         },
     );
 
     if cursor_visible {
-        let cursor = parley::layout::cursor::Cursor::from_byte_index(
-            &layout.inner,
-            cursor_pos,
-            Default::default(),
-        );
-        let rect =
-            cursor.geometry(&layout.inner, (text_input.text_cursor_width() * scale_factor).get());
-
-        item_renderer.fill_rectangle(
-            PhysicalRect::new(
-                PhysicalPoint::from_lengths(
-                    PhysicalLength::new(rect.x0 as _),
-                    PhysicalLength::new(rect.y0 as _) + layout.y_offset,
-                ),
-                PhysicalSize::new(rect.width() as _, rect.height() as _),
-            ),
-            visual_representation.cursor_color,
-        );
+        let cursor_rect = layout
+            .cursor_rect_for_byte_offset(cursor_pos, text_input.text_cursor_width() * scale_factor);
+        item_renderer.fill_rectangle(cursor_rect, visual_representation.cursor_color);
     }
 }
 
@@ -671,7 +835,7 @@ pub fn text_size(
             selection_foreground_color: None,
         },
     );
-    PhysicalSize::new(layout.inner.width(), layout.inner.height()) / scale_factor
+    PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
 }
 
 pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
@@ -718,14 +882,9 @@ pub fn text_input_byte_offset_for_position(
             None,
         ),
     );
-    let cursor = parley::layout::cursor::Cursor::from_point(
-        &layout.inner,
-        pos.x,
-        pos.y - layout.y_offset.get(),
-    );
-
+    let byte_offset = layout.byte_offset_from_point(pos);
     let visual_representation = text_input.visual_representation(None);
-    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
+    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
@@ -758,17 +917,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
             None,
         ),
     );
-    let cursor = parley::layout::cursor::Cursor::from_byte_index(
-        &layout.inner,
-        byte_offset,
-        Default::default(),
-    );
-    let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
-    PhysicalRect::new(
-        PhysicalPoint::from_lengths(
-            PhysicalLength::new(rect.x0 as _),
-            PhysicalLength::new(rect.y0 as _) + layout.y_offset,
-        ),
-        PhysicalSize::new(rect.width() as _, rect.height() as _),
-    ) / scale_factor
+    let cursor_rect = layout
+        .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
+    cursor_rect / scale_factor
 }
