@@ -11,6 +11,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_py
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::Type;
+use i_slint_compiler::parser::normalize_identifier;
 
 use indexmap::IndexMap;
 use pyo3::gc::PyVisit;
@@ -268,6 +269,39 @@ impl ComponentDefinition {
 
     fn global_functions(&self, name: &str) -> Option<Vec<String>> {
         self.definition.global_functions(name).map(|functioniter| functioniter.collect())
+    }
+
+    fn callback_returns_void(&self, callback_name: &str) -> bool {
+        let callback_name = normalize_identifier(callback_name);
+        self.definition
+            .properties_and_callbacks()
+            .find_map(|(name, (ty, _))| {
+                if name == callback_name {
+                    if let Type::Callback(signature) = ty {
+                        return Some(signature.return_type == Type::Void);
+                    }
+                }
+                None
+            })
+            .unwrap_or_default()
+    }
+
+    fn global_callback_returns_void(&self, global_name: &str, callback_name: &str) -> bool {
+        let global_name = normalize_identifier(global_name);
+        let callback_name = normalize_identifier(callback_name);
+        self.definition
+            .global_properties_and_callbacks(&global_name)
+            .and_then(|mut props| {
+                props.find_map(|(name, (ty, _))| {
+                    if name == callback_name {
+                        if let Type::Callback(signature) = ty {
+                            return Some(signature.return_type == Type::Void);
+                        }
+                    }
+                    None
+                })
+            })
+            .unwrap_or_default()
     }
 
     fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {

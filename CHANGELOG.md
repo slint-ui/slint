@@ -51,6 +51,7 @@ All notable changes to this project are documented in this file.
 
  - Added support for asyncio by making the Slint event loop act as asyncio event loop.
  - Added suport for translations via `slint.init_translations()` accepting a `gettext.GNUTranslation`.
+ - Added support for using the `@slint.callback()` decorator with `async` functions, as long as they don't return any value.
 
 ### Tools:
 

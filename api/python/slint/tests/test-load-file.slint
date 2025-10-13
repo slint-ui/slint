@@ -49,6 +49,11 @@ export component App inherits Window {
     public function plus-one(value: int) {
         return value + 1;
     }
+    callback invoke-call-void();
+    invoke-call-void => {
+        call-void();
+    }
+    callback call-void();
 
     in-out property <TestEnum> enum-property: TestEnum.Variant2;
     in-out property <[TestEnum]> model-with-enums: [TestEnum.Variant2, TestEnum.Variant1];

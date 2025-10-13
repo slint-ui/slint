@@ -148,6 +148,20 @@ def _build_class(
                 callback_info = getattr(value, "slint.callback")
                 name = callback_info["name"]
 
+                is_async = getattr(value, "slint.async", False)
+                if is_async:
+                    if "global_name" in callback_info:
+                        global_name = callback_info["global_name"]
+                        if not compdef.global_callback_returns_void(global_name, name):
+                            raise RuntimeError(
+                                f"Callback '{name}' in global '{global_name}' cannot be used with a callback decorator for an async function, as it doesn't return void"
+                            )
+                    else:
+                        if not compdef.callback_returns_void(name):
+                            raise RuntimeError(
+                                f"Callback '{name}' cannot be used with a callback decorator for an async function, as it doesn't return void"
+                            )
+
                 def mk_callback(
                     self: Any, callback: typing.Callable[..., Any]
                 ) -> typing.Callable[..., Any]:
@@ -386,6 +400,20 @@ def _callback_decorator(
     if "name" not in info:
         info["name"] = callable.__name__
     setattr(callable, "slint.callback", info)
+
+    try:
+        import inspect
+        if inspect.iscoroutinefunction(callable):
+            def run_as_task(*args, **kwargs) -> None:  # type: ignore
+                loop = asyncio.get_event_loop()
+                loop.create_task(callable(*args, **kwargs))
+
+            setattr(run_as_task, "slint.callback", info)
+            setattr(run_as_task, "slint.async", True)
+            return run_as_task
+    except ImportError:
+        pass
+
     return callable
 
 
@@ -414,6 +442,9 @@ def callback(
     If your Python method has a different name from the Slint component's callback, use the `name` parameter to specify
     the correct name. Similarly, use the `global_name` parameter to specify the name of the correct global singleton in
     the Slint component.
+
+    **Note:** The callback decorator can also be used with async functions. They will be run as task in the asyncio event loop.
+    This is only supported for callbacks that don't return any value, and requires Python >= 3.13.
     """
 
     if callable(global_name):
