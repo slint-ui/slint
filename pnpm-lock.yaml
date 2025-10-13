@@ -562,9 +562,6 @@ packages:
   '@astrojs/compiler@2.12.2':
     resolution: {integrity: sha512-w2zfvhjNCkNMmMMOn5b0J8+OmUaBL1o40ipMvqcG6NRpdC+lKxmTi48DT8Xw0SzJ3AfmeFLB45zXZXtmbsjcgw==}
 
-  '@astrojs/internal-helpers@0.7.3':
-    resolution: {integrity: sha512-6Pl0bQEIChuW5wqN7jdKrzWfCscW2rG/Cz+fzt4PhSQX2ivBpnhXgFUCs0M3DCYvjYHnPVG2W36X5rmFjZ62sw==}
-
   '@astrojs/internal-helpers@0.7.4':
     resolution: {integrity: sha512-lDA9MqE8WGi7T/t2BMi+EAXhs4Vcvr94Gqx3q15cFEz8oFZMO4/SFBqYr/UcmNlvW+35alowkVj+w9VhLvs5Cw==}
 
@@ -580,17 +577,8 @@ packages:
       prettier-plugin-astro:
         optional: true
 
-  '@astrojs/markdown-remark@6.3.7':
-    resolution: {integrity: sha512-KXGdq6/BC18doBCYXp08alHlWChH0hdD2B1qv9wIyOHbvwI5K6I7FhSta8dq1hBQNdun8YkKPR013D/Hm8xd0g==}
-
   '@astrojs/markdown-remark@6.3.8':
     resolution: {integrity: sha512-uFNyFWadnULWK2cOw4n0hLKeu+xaVWeuECdP10cQ3K2fkybtTlhb7J7TcScdjmS8Yps7oje9S/ehYMfZrhrgCg==}
-
-  '@astrojs/mdx@4.3.6':
-    resolution: {integrity: sha512-jH04tYgaqLfq3To42+z1oEcXrXUzo3BxZ4fTkb+7BEmOJkQ9/c3iIixFEC+x0GgE8lJb4SuEDGldpAv7+1yY8A==}
-    engines: {node: 18.20.8 || ^20.3.0 || >=22.0.0}
-    peerDependencies:
-      astro: ^5.0.0
 
   '@astrojs/mdx@4.3.7':
     resolution: {integrity: sha512-5SRmvMyT/UMWaU2eoD+htnXtE2mUZZEH2K/nEzhuEy+iCsOSuS/DUry59WuKUJRQETi1mgJFdNR4dZLJHYVuRA==}
@@ -6683,8 +6671,6 @@ snapshots:
 
   '@astrojs/compiler@2.12.2': {}
 
-  '@astrojs/internal-helpers@0.7.3': {}
-
   '@astrojs/internal-helpers@0.7.4': {}
 
   '@astrojs/language-server@2.15.4(prettier@3.6.2)(typescript@5.9.3)':
@@ -6712,32 +6698,6 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@astrojs/markdown-remark@6.3.7':
-    dependencies:
-      '@astrojs/internal-helpers': 0.7.3
-      '@astrojs/prism': 3.3.0
-      github-slugger: 2.0.0
-      hast-util-from-html: 2.0.3
-      hast-util-to-text: 4.0.2
-      import-meta-resolve: 4.2.0
-      js-yaml: 4.1.0
-      mdast-util-definitions: 6.0.0
-      rehype-raw: 7.0.0
-      rehype-stringify: 10.0.1
-      remark-gfm: 4.0.1
-      remark-parse: 11.0.0
-      remark-rehype: 11.1.2
-      remark-smartypants: 3.0.2
-      shiki: 3.13.0
-      smol-toml: 1.4.2
-      unified: 11.0.5
-      unist-util-remove-position: 5.0.0
-      unist-util-visit: 5.0.0
-      unist-util-visit-parents: 6.0.1
-      vfile: 6.0.3
-    transitivePeerDependencies:
-      - supports-color
-
   '@astrojs/markdown-remark@6.3.8':
     dependencies:
       '@astrojs/internal-helpers': 0.7.4
@@ -6760,25 +6720,6 @@ snapshots:
       unist-util-remove-position: 5.0.0
       unist-util-visit: 5.0.0
       unist-util-visit-parents: 6.0.1
-      vfile: 6.0.3
-    transitivePeerDependencies:
-      - supports-color
-
-  '@astrojs/mdx@4.3.6(astro@5.14.4(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(rollup@4.50.1)(terser@5.39.0)(typescript@5.9.3)(yaml@2.8.1))':
-    dependencies:
-      '@astrojs/markdown-remark': 6.3.7
-      '@mdx-js/mdx': 3.1.1
-      acorn: 8.15.0
-      astro: 5.14.4(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(rollup@4.50.1)(terser@5.39.0)(typescript@5.9.3)(yaml@2.8.1)
-      es-module-lexer: 1.7.0
-      estree-util-visit: 2.0.0
-      hast-util-to-html: 9.0.5
-      kleur: 4.1.5
-      rehype-raw: 7.0.0
-      remark-gfm: 4.0.1
-      remark-smartypants: 3.0.2
-      source-map: 0.7.6
-      unist-util-visit: 5.0.0
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
@@ -6819,8 +6760,8 @@ snapshots:
 
   '@astrojs/starlight@0.36.0(astro@5.14.4(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(rollup@4.50.1)(terser@5.39.0)(typescript@5.9.3)(yaml@2.8.1))':
     dependencies:
-      '@astrojs/markdown-remark': 6.3.7
-      '@astrojs/mdx': 4.3.6(astro@5.14.4(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(rollup@4.50.1)(terser@5.39.0)(typescript@5.9.3)(yaml@2.8.1))
+      '@astrojs/markdown-remark': 6.3.8
+      '@astrojs/mdx': 4.3.7(astro@5.14.4(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(rollup@4.50.1)(terser@5.39.0)(typescript@5.9.3)(yaml@2.8.1))
       '@astrojs/sitemap': 3.6.0
       '@pagefind/default-ui': 1.4.0
       '@types/hast': 3.0.4
