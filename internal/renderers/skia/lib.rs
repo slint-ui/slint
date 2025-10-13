@@ -20,6 +20,7 @@ use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollect
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -631,7 +632,7 @@ impl SkiaRenderer {
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-        components: &[(&i_slint_core::item_tree::ItemTreeRc, LogicalPoint)],
+        components: &[(ItemTreeWeak, LogicalPoint)],
     ) -> Option<DirtyRegion> {
         let window_inner = WindowInner::from_pub(window);
         let window_adapter = window_inner.window_adapter();
@@ -755,12 +756,14 @@ impl SkiaRenderer {
             }
 
             for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    item_renderer,
-                    *origin,
-                    &window_adapter,
-                );
+                if let Some(component) = ItemTreeWeak::upgrade(component) {
+                    i_slint_core::item_rendering::render_component_items(
+                        &component,
+                        item_renderer,
+                        *origin,
+                        &window_adapter,
+                    );
+                }
             }
 
             if let Some(path) = dirty_region_to_visualize {

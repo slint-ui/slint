@@ -1093,9 +1093,9 @@ impl WindowInner {
     /// Returns None if no component is set yet.
     pub fn draw_contents<T>(
         &self,
-        render_components: impl FnOnce(&[(&ItemTreeRc, LogicalPoint)]) -> T,
+        render_components: impl FnOnce(&[(ItemTreeWeak, LogicalPoint)]) -> T,
     ) -> Option<T> {
-        let component_rc = self.try_component()?;
+        let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
                 if !self
@@ -1104,17 +1104,18 @@ impl WindowInner {
                     .iter()
                     .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
                 {
-                    render_components(&[(&component_rc, LogicalPoint::default())])
+                    render_components(&[(component_weak, LogicalPoint::default())])
                 } else {
                     let borrow = self.active_popups.borrow();
-                    let mut cmps = Vec::with_capacity(borrow.len() + 1);
-                    cmps.push((&component_rc, LogicalPoint::default()));
+                    let mut item_trees = Vec::with_capacity(borrow.len() + 1);
+                    item_trees.push((component_weak, LogicalPoint::default()));
                     for popup in borrow.iter() {
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
-                            cmps.push((&popup.component, *location));
+                            item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
                     }
-                    render_components(&cmps)
+                    drop(borrow);
+                    render_components(&item_trees)
                 }
             },
         ))

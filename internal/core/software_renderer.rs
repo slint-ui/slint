@@ -22,6 +22,7 @@ use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBu
 use crate::item_rendering::{
     CachedRenderingData, RenderBorderRectangle, RenderImage, RenderRectangle,
 };
+use crate::item_tree::ItemTreeWeak;
 use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -623,12 +624,14 @@ impl SoftwareRenderer {
                 }
 
                 for (component, origin) in components {
-                    crate::item_rendering::render_component_items(
-                        component,
-                        &mut renderer,
-                        *origin,
-                        &window_adapter,
-                    );
+                    if let Some(component) = ItemTreeWeak::upgrade(component) {
+                        crate::item_rendering::render_component_items(
+                            &component,
+                            &mut renderer,
+                            *origin,
+                            &window_adapter,
+                        );
+                    }
                 }
 
                 if let Some(metrics) = &self.rendering_metrics_collector {
@@ -1124,12 +1127,14 @@ fn prepare_scene(
         drop(i);
 
         for (component, origin) in components {
-            crate::item_rendering::render_component_items(
-                component,
-                &mut renderer,
-                *origin,
-                &window_adapter,
-            );
+            if let Some(component) = ItemTreeWeak::upgrade(component) {
+                crate::item_rendering::render_component_items(
+                    &component,
+                    &mut renderer,
+                    *origin,
+                    &window_adapter,
+                );
+            }
         }
     });
 
