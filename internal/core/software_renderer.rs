@@ -2894,13 +2894,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
 
         physical_rect.origin += global_offset;
-        physical_rect = physical_rect.transformed(self.rotation).round();
+        let physical_rect = physical_rect.cast().transformed(self.rotation);
 
         let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-            physical_rect,
+            physical_rect.cast(),
             Brush::SolidColor(color),
         );
-        self.processor.process_rectangle(&args, physical_rect.cast());
+        self.processor.process_rectangle(&args, physical_rect);
     }
 
     fn draw_glyph_run(
@@ -2938,7 +2938,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             .cast();
 
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
-            let target_rect: euclid::Rect<f32, PhysicalPx> = euclid::Rect::<f32, PhysicalPx>::new(
+            let target_rect: PhysicalRect = euclid::Rect::<f32, PhysicalPx>::new(
                 (PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
                     + global_offset
                     + glyph_offset)
@@ -2946,6 +2946,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                     + euclid::vec2(glyph.bounds.xmin, 0.0),
                 glyph.size().cast(),
             )
+            .cast()
             .transformed(self.rotation);
 
             let data = {
