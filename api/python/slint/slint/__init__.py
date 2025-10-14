@@ -403,7 +403,9 @@ def _callback_decorator(
 
     try:
         import inspect
+
         if inspect.iscoroutinefunction(callable):
+
             def run_as_task(*args, **kwargs) -> None:  # type: ignore
                 loop = asyncio.get_event_loop()
                 loop.create_task(callable(*args, **kwargs))
