@@ -12,7 +12,7 @@ export component TextEdit {
     in property <length> font-size <=> base.font-size;
     in property <bool> enabled <=> base.enabled;
     in property <string> placeholder-text <=> base.placeholder-text;
-    in-out property <bool> has-focus: base.has-focus;
+    out property <bool> has-focus: base.has-focus;
     out property <length> visible-width <=> base.visible-width;
     out property <length> visible-height <=> base.visible-height;
     in-out property <string> text <=> base.text;

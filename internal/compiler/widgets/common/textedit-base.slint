@@ -11,7 +11,7 @@ export component TextEditBase inherits Rectangle {
     in property <bool> read-only <=> text-input.read-only;
     in property <length> font-size <=> text-input.font-size;
     in property <bool> enabled <=> text-input.enabled;
-    in-out property <bool> has-focus: text-input.has-focus;
+    out property <bool> has-focus: text-input.has-focus;
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
     in-out property <string> text <=> text-input.text;
