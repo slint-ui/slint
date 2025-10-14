@@ -7,9 +7,8 @@ use core::cell::RefCell;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
 use crate::graphics::{BitmapFont, FontRequest};
-use crate::items::TextWrap;
-use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
-use crate::textlayout::{FontMetrics, TextLayout};
+use crate::lengths::{LogicalLength, ScaleFactor};
+use crate::textlayout::TextLayout;
 use crate::Coord;
 
 crate::thread_local! {
@@ -34,6 +33,26 @@ pub struct RenderableGlyph {
 }
 
 impl RenderableGlyph {
+    pub fn size(&self) -> PhysicalSize {
+        PhysicalSize::from_lengths(self.width, self.height)
+    }
+}
+
+// Subset of `RenderableGlyph`, specfically for VectorFonts.
+#[cfg(feature = "software-renderer-systemfonts")]
+#[derive(Clone)]
+pub struct RenderableVectorGlyph {
+    pub x: Fixed<i32, 8>,
+    pub y: Fixed<i32, 8>,
+    pub width: PhysicalLength,
+    pub height: PhysicalLength,
+    pub alpha_map: Rc<[u8]>,
+    pub pixel_stride: u16,
+    pub bounds: fontdue::OutlineBounds,
+}
+
+#[cfg(feature = "software-renderer-systemfonts")]
+impl RenderableVectorGlyph {
     pub fn size(&self) -> PhysicalSize {
         PhysicalSize::from_lengths(self.width, self.height)
     }
@@ -181,54 +200,4 @@ where
 
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     BITMAP_FONTS.with(|fonts| fonts.borrow_mut().push(font_data))
-}
-
-pub fn text_size(
-    font_request: FontRequest,
-    text: &str,
-    max_width: Option<LogicalLength>,
-    scale_factor: ScaleFactor,
-    text_wrap: TextWrap,
-) -> LogicalSize {
-    let font = match_font(&font_request, scale_factor);
-    let (longest_line_width, height) = match font {
-        Font::PixelFont(pf) => {
-            let layout = text_layout_for_font(&pf, &font_request, scale_factor);
-            layout.text_size(
-                text,
-                max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
-                text_wrap,
-            )
-        }
-        #[cfg(feature = "software-renderer-systemfonts")]
-        Font::VectorFont(vf) => {
-            let layout = text_layout_for_font(&vf, &font_request, scale_factor);
-            layout.text_size(
-                text,
-                max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
-                text_wrap,
-            )
-        }
-    };
-
-    (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
-}
-
-pub fn font_metrics(
-    font_request: FontRequest,
-    scale_factor: ScaleFactor,
-) -> crate::items::FontMetrics {
-    let font = match_font(&font_request, scale_factor);
-
-    let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
-    let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
-    let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
-    let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
-
-    crate::items::FontMetrics {
-        ascent: ascent.get() as _,
-        descent: descent.get() as _,
-        x_height: x_height.get() as _,
-        cap_height: cap_height.get() as _,
-    }
 }
