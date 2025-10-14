@@ -13,8 +13,16 @@ use i_slint_common::sharedfontique::{self, fontique};
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
+struct CachedFont {
+    fontdue_font: Rc<fontdue::Font>,
+    // Keep a strong reference to the blob, otherwise it disappears. The fontique collection
+    // is temporary, and the shared cache keeps only weak references.
+    _fontique_blob: fontique::Blob<u8>,
+}
+
 crate::thread_local! {
-    static FONTDUE_FONTS: RefCell<HashMap<(u64, u32), Rc<fontdue::Font>>> = Default::default();
+    // fontdue fonts cached and indexed by fontique blob id (unique incremental) and true type collection index
+    static FONTDUE_FONTS: RefCell<HashMap<(u64, u32), CachedFont>> = Default::default();
 }
 
 pub fn get_or_create_fontdue_font_from_blob_and_index(
@@ -25,8 +33,8 @@ pub fn get_or_create_fontdue_font_from_blob_and_index(
         font_cache
             .borrow_mut()
             .entry((blob.id(), index))
-            .or_insert_with(move || {
-                fontdue::Font::from_bytes(
+            .or_insert_with(move || CachedFont {
+                fontdue_font: fontdue::Font::from_bytes(
                     blob.data(),
                     fontdue::FontSettings {
                         collection_index: index,
@@ -35,8 +43,10 @@ pub fn get_or_create_fontdue_font_from_blob_and_index(
                     },
                 )
                 .expect("fatal: fontdue is unable to parse truetype font")
-                .into()
+                .into(),
+                _fontique_blob: blob.clone(),
             })
+            .fontdue_font
             .clone()
     })
 }
