@@ -14,8 +14,6 @@ component ScrollView {
     in-out property <length> viewport-height <=> flickable.viewport-height;
     in-out property <length> viewport-x <=> flickable.viewport-x;
     in-out property <length> viewport-y <=> flickable.viewport-y;
-    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
-    in-out property <bool> has-focus;
 
     min-height: 50px;
     min-width: 50px;
@@ -69,7 +67,7 @@ export component TextEdit {
     in property <bool> enabled <=> text-input.enabled;
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
-    in-out property <bool> has-focus: text-input.has-focus;
+    out property <bool> has-focus: text-input.has-focus;
     in-out property <string> text <=> text-input.text;
     in-out property <length> viewport-x <=> scroll-view.viewport-x;
     in-out property <length> viewport-y <=> scroll-view.viewport-y;
