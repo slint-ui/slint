@@ -673,13 +673,13 @@ enum Style {
 #[derive(Debug)]
 struct FormattedSpan {
     range: Range<usize>,
-    style: Style
+    style: Style,
 }
 
 #[derive(Default, Debug)]
 struct RichText {
     text: std::string::String,
-    formatting: Vec<FormattedSpan>
+    formatting: Vec<FormattedSpan>,
 }
 
 fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
@@ -700,8 +700,12 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
 
                 let style = match (start_tag, tag) {
                     (pulldown_cmark::Tag::Paragraph, pulldown_cmark::TagEnd::Paragraph) => None,
-                    (pulldown_cmark::Tag::Strong, pulldown_cmark::TagEnd::Strong) => Some(Style::Strong),
-                    (pulldown_cmark::Tag::Emphasis, pulldown_cmark::TagEnd::Emphasis) => Some(Style::Emphasis),
+                    (pulldown_cmark::Tag::Strong, pulldown_cmark::TagEnd::Strong) => {
+                        Some(Style::Strong)
+                    }
+                    (pulldown_cmark::Tag::Emphasis, pulldown_cmark::TagEnd::Emphasis) => {
+                        Some(Style::Emphasis)
+                    }
                     other => {
                         std::dbg!(other);
                         None
@@ -709,10 +713,7 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
                 };
 
                 if let Some(style) = style {
-                    rich_text.formatting.push(FormattedSpan {
-                        range: start..end,
-                        style
-                    });
+                    rich_text.formatting.push(FormattedSpan { range: start..end, style });
                 }
             }
             other => {
