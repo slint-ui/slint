@@ -664,12 +664,77 @@ impl Layout {
     }
 }
 
+#[derive(Debug)]
+enum Style {
+    Emphasis,
+    Strong,
+}
+
+#[derive(Debug)]
+struct FormattedSpan {
+    range: Range<usize>,
+    style: Style
+}
+
+#[derive(Default, Debug)]
+struct RichText {
+    text: std::string::String,
+    formatting: Vec<FormattedSpan>
+}
+
+fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
+    let mut rich_text = RichText::default();
+    let mut event_stack = std::vec::Vec::new();
+
+    for event in parser {
+        match event {
+            pulldown_cmark::Event::Start(tag) => {
+                event_stack.push((tag, rich_text.text.len()));
+            }
+            pulldown_cmark::Event::Text(text) => {
+                rich_text.text.push_str(&text);
+            }
+            pulldown_cmark::Event::End(tag) => {
+                let (start_tag, start) = event_stack.pop().unwrap();
+                let end = rich_text.text.len();
+
+                let style = match (start_tag, tag) {
+                    (pulldown_cmark::Tag::Paragraph, pulldown_cmark::TagEnd::Paragraph) => None,
+                    (pulldown_cmark::Tag::Strong, pulldown_cmark::TagEnd::Strong) => Some(Style::Strong),
+                    (pulldown_cmark::Tag::Emphasis, pulldown_cmark::TagEnd::Emphasis) => Some(Style::Emphasis),
+                    other => {
+                        std::dbg!(other);
+                        None
+                    }
+                };
+
+                if let Some(style) = style {
+                    rich_text.formatting.push(FormattedSpan {
+                        range: start..end,
+                        style
+                    });
+                }
+            }
+            other => {
+                std::dbg!(other);
+            }
+        }
+    }
+
+    std::dbg!(rich_text)
+}
+
 pub fn draw_text(
     item_renderer: &mut impl GlyphRenderer,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     font_request: Option<FontRequest>,
     size: LogicalSize,
 ) {
+    if text.is_markdown() {
+        let text = text.text();
+        parse_markdown(pulldown_cmark::Parser::new(&text));
+    }
+
     let max_width = size.width_length();
     let max_height = size.height_length();
 
