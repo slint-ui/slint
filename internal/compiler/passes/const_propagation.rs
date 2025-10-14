@@ -3,23 +3,24 @@
 
 //! Try to simplify property bindings by propagating constant expressions
 
+use super::GlobalAnalysis;
 use crate::expression_tree::*;
 use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{format_smolstr, ToSmolStr};
 
-pub fn const_propagation(component: &Component) {
+pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis) {
     visit_all_expressions(component, |expr, ty| {
         if matches!(ty(), Type::Callback { .. }) {
             return;
         }
-        simplify_expression(expr);
+        simplify_expression(expr, global_analysis);
     });
 }
 
 /// Returns false if the expression still contains a reference to an element
-fn simplify_expression(expr: &mut Expression) -> bool {
+fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
     match expr {
         Expression::PropertyReference(nr) => {
             if nr.is_constant()
@@ -31,7 +32,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                 }
             {
                 // Inline the constant value
-                if let Some(result) = extract_constant_property_reference(nr) {
+                if let Some(result) = extract_constant_property_reference(nr, ga) {
                     *expr = result;
                     return true;
                 }
@@ -39,8 +40,8 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             false
         }
         Expression::BinaryExpression { lhs, op, rhs } => {
-            let mut can_inline = simplify_expression(lhs);
-            can_inline &= simplify_expression(rhs);
+            let mut can_inline = simplify_expression(lhs, ga);
+            can_inline &= simplify_expression(rhs, ga);
 
             let new = match (*op, &mut **lhs, &mut **rhs) {
                 ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
@@ -116,7 +117,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             can_inline
         }
         Expression::UnaryOp { sub, op } => {
-            let can_inline = simplify_expression(sub);
+            let can_inline = simplify_expression(sub, ga);
             let new = match (*op, &mut **sub) {
                 ('!', Expression::BoolLiteral(b)) => Some(Expression::BoolLiteral(!*b)),
                 ('-', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(-*n, *u)),
@@ -129,23 +130,23 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             can_inline
         }
         Expression::StructFieldAccess { base, name } => {
-            let r = simplify_expression(base);
+            let r = simplify_expression(base, ga);
             if let Expression::Struct { values, .. } = &mut **base {
                 if let Some(e) = values.remove(name) {
                     *expr = e;
-                    return simplify_expression(expr);
+                    return simplify_expression(expr, ga);
                 }
             }
             r
         }
         Expression::Cast { from, to } => {
-            let can_inline = simplify_expression(from);
+            let can_inline = simplify_expression(from, ga);
             let new = if from.ty() == *to {
                 Some(std::mem::take(&mut **from))
             } else {
                 match (&**from, to) {
                     (Expression::NumberLiteral(x, Unit::None), Type::String) => {
-                        Some(Expression::StringLiteral((*x).to_smolstr()))
+                        Some(Expression::StringLiteral(x.to_smolstr()))
                     }
                     (Expression::Struct { values, .. }, Type::Struct(ty)) => {
                         Some(Expression::Struct { ty: ty.clone(), values: values.clone() })
@@ -159,7 +160,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             can_inline
         }
         Expression::MinMax { op, lhs, rhs, ty: _ } => {
-            let can_inline = simplify_expression(lhs) & simplify_expression(rhs);
+            let can_inline = simplify_expression(lhs, ga) & simplify_expression(rhs, ga);
             if let (Expression::NumberLiteral(lhs, u), Expression::NumberLiteral(rhs, _)) =
                 (&**lhs, &**rhs)
             {
@@ -172,17 +173,17 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             can_inline
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let mut can_inline = simplify_expression(condition);
+            let mut can_inline = simplify_expression(condition, ga);
             can_inline &= match &**condition {
                 Expression::BoolLiteral(true) => {
                     *expr = *true_expr.clone();
-                    simplify_expression(expr)
+                    simplify_expression(expr, ga)
                 }
                 Expression::BoolLiteral(false) => {
                     *expr = *false_expr.clone();
-                    simplify_expression(expr)
+                    simplify_expression(expr, ga)
                 }
-                _ => simplify_expression(true_expr) & simplify_expression(false_expr),
+                _ => simplify_expression(true_expr, ga) & simplify_expression(false_expr, ga),
             };
             can_inline
         }
@@ -191,15 +192,15 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             if stmts.len() == 1 && !matches!(stmts[0], Expression::StoreLocalVariable { .. }) =>
         {
             *expr = stmts[0].clone();
-            simplify_expression(expr)
+            simplify_expression(expr, ga)
         }
         Expression::FunctionCall { function, arguments, .. } => {
             let mut args_can_inline = true;
             for arg in arguments.iter_mut() {
-                args_can_inline &= simplify_expression(arg);
+                args_can_inline &= simplify_expression(arg, ga);
             }
             if args_can_inline {
-                if let Some(inlined) = try_inline_function(function, arguments) {
+                if let Some(inlined) = try_inline_function(function, arguments, ga) {
                     *expr = inlined;
                     return true;
                 }
@@ -212,7 +213,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
         Expression::ComputeLayoutInfo { .. } => false,
         _ => {
             let mut result = true;
-            expr.visit_mut(|expr| result &= simplify_expression(expr));
+            expr.visit_mut(|expr| result &= simplify_expression(expr, ga));
             result
         }
     }
@@ -221,7 +222,10 @@ fn simplify_expression(expr: &mut Expression) -> bool {
 /// Will extract the property binding from the given named reference
 /// and propagate constant expression within it. If that's possible,
 /// return the new expression
-fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression> {
+fn extract_constant_property_reference(
+    nr: &NamedReference,
+    ga: &GlobalAnalysis,
+) -> Option<Expression> {
     debug_assert!(nr.is_constant());
     // find the binding.
     let mut element = nr.element();
@@ -239,7 +243,7 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
         };
         if let Some(decl) = element.clone().borrow().property_declarations.get(nr.name()) {
             if let Some(alias) = &decl.is_alias {
-                return extract_constant_property_reference(alias);
+                return extract_constant_property_reference(alias, ga);
             }
         } else if let ElementType::Component(c) = &element.clone().borrow().base_type {
             element = c.root_element.clone();
@@ -251,20 +255,26 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
         debug_assert!(!matches!(ty, Type::Invalid));
         return Some(Expression::default_value_for_type(&ty));
     };
-    if !(simplify_expression(&mut expression)) {
+    if !(simplify_expression(&mut expression, ga)) {
         return None;
     }
     Some(expression)
 }
 
-fn try_inline_function(function: &Callable, arguments: &[Expression]) -> Option<Expression> {
-    let Callable::Function(function) = function else {
-        return None;
+fn try_inline_function(
+    function: &Callable,
+    arguments: &[Expression],
+    ga: &GlobalAnalysis,
+) -> Option<Expression> {
+    let function = match function {
+        Callable::Function(function) => function,
+        Callable::Builtin(b) => return try_inline_builtin_function(b, arguments, ga),
+        _ => return None,
     };
     if !function.is_constant() {
         return None;
     }
-    let mut body = extract_constant_property_reference(function)?;
+    let mut body = extract_constant_property_reference(function, ga)?;
 
     fn substitute_arguments_recursive(e: &mut Expression, arguments: &[Expression]) {
         if let Expression::FunctionParameterReference { index, ty } = e {
@@ -277,10 +287,39 @@ fn try_inline_function(function: &Callable, arguments: &[Expression]) -> Option<
     }
     substitute_arguments_recursive(&mut body, arguments);
 
-    if simplify_expression(&mut body) {
+    if simplify_expression(&mut body, ga) {
         Some(body)
     } else {
         None
+    }
+}
+
+fn try_inline_builtin_function(
+    b: &BuiltinFunction,
+    args: &[Expression],
+    ga: &GlobalAnalysis,
+) -> Option<Expression> {
+    let a = |idx: usize| -> Option<f64> {
+        match args.get(idx)? {
+            Expression::NumberLiteral(n, Unit::None) => Some(*n),
+            _ => None,
+        }
+    };
+    let num = |n: f64| Some(Expression::NumberLiteral(n, Unit::None));
+
+    match b {
+        BuiltinFunction::GetWindowDefaultFontSize => match ga.default_font_size {
+            crate::passes::binding_analysis::DefaultFontSize::LogicalValue(val) => {
+                Some(Expression::NumberLiteral(val as _, Unit::Px))
+            }
+            _ => None,
+        },
+        BuiltinFunction::Mod => num(a(0)?.rem_euclid(a(1)?)),
+        BuiltinFunction::Round => num(a(0)?.round()),
+        BuiltinFunction::Ceil => num(a(0)?.ceil()),
+        BuiltinFunction::Floor => num(a(0)?.floor()),
+        BuiltinFunction::Abs => num(a(0)?.abs()),
+        _ => None,
     }
 }
 
@@ -346,4 +385,102 @@ export component Foo {
         },
         _ => panic!("not code block: {out3_binding:?}"),
     };
+}
+
+#[test]
+fn test_propagate_font_size() {
+    struct Case {
+        default_font_size: &'static str,
+        another_window: &'static str,
+        check_expression: fn(&Expression),
+    }
+
+    #[track_caller]
+    fn assert_expr_is_mul(e: &Expression, l: f64, r: f64) {
+        assert!(
+            matches!(e, Expression::Cast { from, .. }
+                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*'}
+                        if matches!((lhs.as_ref(), rhs.as_ref()), (Expression::NumberLiteral(lhs, _), Expression::NumberLiteral(rhs, _)) if *lhs == l && *rhs == r ))),
+            "Expression {e:?} is not a {l} * {r} expected"
+        );
+    }
+
+    for Case { default_font_size, another_window, check_expression } in [
+        Case {
+            default_font_size: "default-font-size: 12px;",
+            another_window: "",
+            check_expression: |e| assert_expr_is_mul(e, 5.0, 12.0)
+        },
+        Case {
+            default_font_size: "default-font-size: some-value;",
+            another_window: "",
+            check_expression: |e|  {
+                assert!(!e.is_constant(None), "{e:?} should not be constant since some-value can vary at runtime");
+            },
+        },
+        Case {
+            default_font_size: "default-font-size: 25px;",
+            another_window: "export component AnotherWindow inherits Window { default-font-size: 8px; }",
+            check_expression: |e|  {
+                assert!(e.is_constant(None) && !matches!(e, Expression::NumberLiteral(_,_ )), "{e:?} should be constant but not known at compile time since there are two windows");
+            },
+        },
+        Case {
+            default_font_size: "default-font-size: 25px;",
+            another_window: "export component AnotherWindow inherits Window { }",
+            check_expression: |e|  {
+                assert!(!e.is_constant(None), "should not be const since at least one window has it unset");
+            },
+        },
+        Case {
+            default_font_size: "default-font-size: 20px;",
+            another_window: "export component AnotherWindow inherits Window { default-font-size: 20px;  }",
+            check_expression: |e| assert_expr_is_mul(e, 5.0, 20.0)
+        },
+        Case {
+            default_font_size: "default-font-size: 20px;",
+            another_window: "export component AnotherWindow inherits Window { in property <float> f: 1; default-font-size: 20px*f;  }",
+            check_expression: |e| {
+                assert!(!e.is_constant(None), "{e:?} should not be constant since 'f' can vary at runtime");
+            },
+        },
+
+    ] {
+        let source = format!(
+            r#"
+component SomeComponent {{
+    in-out property <length> rem-prop: 5rem;
+}}
+
+{another_window}
+
+export component Foo inherits Window {{
+    in property <length> some-value: 45px;
+    {default_font_size}
+    sc1 := SomeComponent {{}}
+    sc2 := SomeComponent {{}}
+
+    out property <length> test: sc1.rem-prop;
+}}
+"#
+        );
+
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+
+        let doc_node = crate::parser::parse(
+            source.clone(),
+            Some(std::path::Path::new("HELLO")),
+            &mut test_diags,
+        );
+        let mut compiler_config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.style = Some("fluent".into());
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+
+        let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
+        let out1_binding = bindings.get("test").unwrap().borrow().expression.clone();
+        check_expression(&out1_binding);
+    }
 }

@@ -21,6 +21,34 @@ use crate::expression_tree::Callable;
 use crate::CompilerConfiguration;
 use smol_str::{SmolStr, ToSmolStr};
 
+/// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum DefaultFontSize {
+    /// Not yet known/computed
+    #[default]
+    Unknown,
+    /// The default font size is set to a specific constant value in `px` (logical)
+    LogicalValue(f32),
+    /// The default font size is set to different, but always constant values
+    Const,
+    /// All windows are either using const value or unset
+    NotSet,
+    /// At least one `Window` has a non-constant default-font-size
+    Variable,
+}
+impl DefaultFontSize {
+    /// Returns true if the default font size is a constant value
+    pub fn is_const(&self) -> bool {
+        // Note that NotSet is considered const for now as the renderer won't change the default font size at runtime
+        matches!(self, Self::Const | Self::LogicalValue(_))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GlobalAnalysis {
+    pub default_font_size: DefaultFontSize,
+}
+
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
 /// So if binding for property A has B in its BindingExpression::two_way_binding, then
 /// ReverseAliases maps B to A.
@@ -30,18 +58,21 @@ pub fn binding_analysis(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
     diag: &mut BuildDiagnostics,
-) {
+) -> GlobalAnalysis {
+    let mut global_analysis = GlobalAnalysis::default();
     let mut reverse_aliases = Default::default();
     mark_used_base_properties(doc);
     propagate_is_set_on_aliases(doc, &mut reverse_aliases);
+    check_window_properties(doc, &mut global_analysis);
     perform_binding_analysis(
         doc,
         &reverse_aliases,
+        &mut global_analysis,
         compiler_config.error_on_binding_loop_with_window_layout,
         diag,
     );
+    global_analysis
 }
-
 /// A reference to a property which might be deep in a component path.
 /// eg: `foo.bar.baz.background`: `baz.background` is the `prop` and `foo` and `bar` are in elements
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -121,8 +152,7 @@ impl From<NamedReference> for PropertyPath {
     }
 }
 
-#[derive(Default)]
-struct AnalysisContext {
+struct AnalysisContext<'a> {
     visited: HashSet<PropertyPath>,
     /// The stack of properties that depends on each other
     currently_analyzing: linked_hash_set::LinkedHashSet<PropertyPath>,
@@ -130,16 +160,23 @@ struct AnalysisContext {
     /// And we should issue a warning if that's part of a loop instead of an error
     window_layout_property: Option<PropertyPath>,
     error_on_binding_loop_with_window_layout: bool,
+    global_analysis: &'a mut GlobalAnalysis,
 }
 
 fn perform_binding_analysis(
     doc: &Document,
     reverse_aliases: &ReverseAliases,
+    global_analysis: &mut GlobalAnalysis,
     error_on_binding_loop_with_window_layout: bool,
     diag: &mut BuildDiagnostics,
 ) {
-    let mut context =
-        AnalysisContext { error_on_binding_loop_with_window_layout, ..Default::default() };
+    let mut context = AnalysisContext {
+        error_on_binding_loop_with_window_layout,
+        visited: HashSet::new(),
+        currently_analyzing: Default::default(),
+        window_layout_property: None,
+        global_analysis,
+    };
     doc.visit_all_used_components(|component| {
         crate::object_tree::recurse_elem_including_sub_components_no_borrow(
             component,
@@ -318,7 +355,7 @@ fn analyze_binding(
         }
     }
 
-    let mut process_prop = |prop: &PropertyPath, r| {
+    let mut process_prop = |prop: &PropertyPath, r, context: &mut AnalysisContext| {
         depends_on_external |=
             process_property(&current.relative(prop), r, context, reverse_aliases, diag);
         for x in reverse_aliases.get(&prop.prop).unwrap_or(&Default::default()) {
@@ -334,10 +371,12 @@ fn analyze_binding(
         }
     };
 
-    recurse_expression(&current.prop.element(), &b.expression, &mut process_prop);
+    recurse_expression(&current.prop.element(), &b.expression, &mut |p, r| {
+        process_prop(p, r, context)
+    });
 
-    let mut is_const =
-        b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
+    let mut is_const = b.expression.is_constant(Some(context.global_analysis))
+        && b.two_way_bindings.iter().all(|n| n.is_constant());
 
     if is_const && matches!(b.expression, Expression::Invalid) {
         // check the base
@@ -355,7 +394,9 @@ fn analyze_binding(
     match &binding.borrow().animation {
         Some(PropertyAnimation::Static(e)) => analyze_element(e, context, reverse_aliases, diag),
         Some(PropertyAnimation::Transition { animations, state_ref }) => {
-            recurse_expression(&current.prop.element(), state_ref, &mut process_prop);
+            recurse_expression(&current.prop.element(), state_ref, &mut |p, r| {
+                process_prop(p, r, context)
+            });
             for a in animations {
                 analyze_element(&a.animation, context, reverse_aliases, diag);
             }
@@ -664,6 +705,66 @@ fn visit_builtin_property(
     }
 }
 
+/// Analyze the Window default-font-size property
+fn check_window_properties(doc: &Document, global_analysis: &mut GlobalAnalysis) {
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |elem, _| {
+                if elem.borrow().builtin_type().as_ref().is_some_and(|b| b.name == "Window") {
+                    const DEFAULT_FONT_SIZE: &str = "default-font-size";
+                    if elem.borrow().is_binding_set(DEFAULT_FONT_SIZE, false)
+                        || elem
+                            .borrow()
+                            .property_analysis
+                            .borrow()
+                            .get(DEFAULT_FONT_SIZE)
+                            .is_some_and(|a| a.is_set)
+                    {
+                        let value = elem.borrow().bindings.get(DEFAULT_FONT_SIZE).and_then(|e| {
+                            match &e.borrow().expression {
+                                Expression::NumberLiteral(v, crate::expression_tree::Unit::Px) => {
+                                    Some(*v as f32)
+                                }
+                                _ => None,
+                            }
+                        });
+                        let is_const = value.is_some()
+                            || NamedReference::new(elem, SmolStr::new_static(DEFAULT_FONT_SIZE))
+                                .is_constant();
+                        global_analysis.default_font_size = match global_analysis.default_font_size
+                        {
+                            DefaultFontSize::Unknown => match value {
+                                Some(v) => DefaultFontSize::LogicalValue(v),
+                                None if is_const => DefaultFontSize::Const,
+                                None => DefaultFontSize::Variable,
+                            },
+                            DefaultFontSize::NotSet if is_const => DefaultFontSize::NotSet,
+                            DefaultFontSize::LogicalValue(val) => match value {
+                                Some(v) if v == val => DefaultFontSize::LogicalValue(val),
+                                _ if is_const => DefaultFontSize::Const,
+                                _ => DefaultFontSize::Variable,
+                            },
+                            DefaultFontSize::Const if is_const => DefaultFontSize::Const,
+                            _ => DefaultFontSize::Variable,
+                        }
+                    } else {
+                        global_analysis.default_font_size = match global_analysis.default_font_size
+                        {
+                            DefaultFontSize::Unknown => DefaultFontSize::NotSet,
+                            DefaultFontSize::NotSet => DefaultFontSize::NotSet,
+                            DefaultFontSize::LogicalValue(_) => DefaultFontSize::NotSet,
+                            DefaultFontSize::Const => DefaultFontSize::NotSet,
+                            DefaultFontSize::Variable => DefaultFontSize::Variable,
+                        }
+                    }
+                }
+            },
+        );
+    });
+}
+
 /// Make sure that the is_set property analysis is set to any property which has a two way binding
 /// to a property that is, itself, is set
 ///
@@ -709,7 +810,7 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     fn check_alias(e: &ElementRc, name: &SmolStr, binding: &BindingExpression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
         let is_binding_constant =
-            binding.is_constant() && binding.two_way_bindings.iter().all(|n| n.is_constant());
+            binding.is_constant(None) && binding.two_way_bindings.iter().all(|n| n.is_constant());
         if is_binding_constant && !NamedReference::new(e, name.clone()).is_externally_modified() {
             for alias in &binding.two_way_bindings {
                 crate::namedreference::mark_property_set_derived_in_base(

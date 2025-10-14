@@ -58,6 +58,8 @@ mod z_order;
 use crate::expression_tree::Expression;
 use smol_str::SmolStr;
 
+pub use binding_analysis::GlobalAnalysis;
+
 pub fn ignore_debug_hooks(expr: &Expression) -> &Expression {
     let mut expr = expr;
     loop {
@@ -188,7 +190,8 @@ pub async fn run_passes(
         doc.used_types.borrow_mut().sub_components.clear();
     }
 
-    binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
+    let global_analysis =
+        binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
     collect_globals::mark_library_globals(doc);
     unique_id::assign_unique_id(doc);
 
@@ -211,7 +214,7 @@ pub async fn run_passes(
     doc.visit_all_used_components(|component| {
         if !diag.has_errors() {
             // binding loop causes panics in const_propagation
-            const_propagation::const_propagation(component);
+            const_propagation::const_propagation(component, &global_analysis);
         }
         deduplicate_property_read::deduplicate_property_read(component);
         if !component.is_global() {
