@@ -25,8 +25,10 @@ fn main() -> std::io::Result<()> {
             && source.contains("//bundle-translations")
         {
             "#[ignore = \"translation bundle not working with the macro\"]"
-        } else if live_preview && source.contains("ComponentContainer") {
-            "#[ignore = \"ComponentContainer doesn't work with the interpreter\"]"
+        } else if live_preview && testcase.is_ignored("js") {
+            "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
+        } else if live_preview && testcase.is_ignored("live-preview") {
+            "#[ignore = \"testcase ignored in live-preview mode\"]"
         } else if live_preview && source.contains("#3464") {
             "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
         } else if live_preview && module_name.contains("widgets_menubar") {
