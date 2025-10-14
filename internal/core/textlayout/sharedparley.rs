@@ -668,6 +668,7 @@ impl Layout {
 enum Style {
     Emphasis,
     Strong,
+    Strikethrough,
 }
 
 #[derive(Debug)]
@@ -706,6 +707,9 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
                     (pulldown_cmark::Tag::Emphasis, pulldown_cmark::TagEnd::Emphasis) => {
                         Some(Style::Emphasis)
                     }
+                    (pulldown_cmark::Tag::Strikethrough, pulldown_cmark::TagEnd::Strikethrough) => {
+                        Some(Style::Strikethrough)
+                    }
                     other => {
                         std::dbg!(other);
                         None
@@ -733,7 +737,10 @@ pub fn draw_text(
 ) {
     if text.is_markdown() {
         let text = text.text();
-        parse_markdown(pulldown_cmark::Parser::new(&text));
+        parse_markdown(pulldown_cmark::Parser::new_ext(
+            &text,
+            pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
+        ));
     }
 
     let max_width = size.width_length();
