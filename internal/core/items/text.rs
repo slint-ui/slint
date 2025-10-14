@@ -49,6 +49,7 @@ pub struct ComplexText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub is_markdown: Property<bool>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -200,6 +201,10 @@ impl RenderText for ComplexText {
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         (self.stroke(), self.stroke_width(), self.stroke_style())
     }
+
+    fn is_markdown(self: core::pin::Pin<&Self>) -> bool {
+        self.is_markdown()
+    }
 }
 
 impl ComplexText {
@@ -229,6 +234,7 @@ pub struct SimpleText {
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
 
+    pub is_markdown: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -370,6 +376,10 @@ impl RenderText for SimpleText {
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         Default::default()
+    }
+
+    fn is_markdown(self: core::pin::Pin<&Self>) -> bool {
+        self.is_markdown()
     }
 }
 

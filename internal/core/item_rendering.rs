@@ -281,6 +281,7 @@ pub trait RenderText {
     fn overflow(self: Pin<&Self>) -> TextOverflow;
     fn letter_spacing(self: Pin<&Self>) -> LogicalLength;
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
+    fn is_markdown(self: Pin<&Self>) -> bool;
 }
 
 impl RenderText for (SharedString, Brush) {
@@ -320,6 +321,10 @@ impl RenderText for (SharedString, Brush) {
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         Default::default()
+    }
+
+    fn is_markdown(self: Pin<&Self>) -> bool {
+        false
     }
 }
 
