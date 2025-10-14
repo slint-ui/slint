@@ -48,7 +48,7 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = ["shared-fontique", "rustybuzz", "fontdue", "software-renderer", "shared-parley"]
+software-renderer-systemfonts = ["shared-fontique", "skrifa", "fontdue", "software-renderer", "shared-parley"]
 software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]
@@ -117,8 +117,7 @@ raw-window-handle-06 = { workspace = true, optional = true }
 bitflags = { version = "2.4.2" }
 
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
-
-rustybuzz = { workspace = true, optional = true }
+skrifa = { workspace = true, optional = true }
 fontdue = { workspace = true, optional = true }
 
 wgpu-26 = { workspace = true, optional = true }
