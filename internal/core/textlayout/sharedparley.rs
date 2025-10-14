@@ -329,15 +329,7 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout {
-        paragraphs,
-        y_offset,
-        elision_info,
-        max_width,
-        height,
-        max_physical_height,
-        is_wrapping: options.text_wrap != TextWrap::NoWrap,
-    }
+    Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
 }
 
 struct ElisionInfo {
@@ -375,8 +367,11 @@ impl TextParagraph {
             .take_while(|line| {
                 let metrics = line.metrics();
                 match layout.max_physical_height {
-                    Some(max_physical_height) if layout.is_wrapping => {
-                        max_physical_height.get() > metrics.max_coord
+                    // If overflow: clip is set, we apply a hard pixel clip, but with overflow: elide,
+                    // we want to place an elipsis on the last line and not draw any lines beyond the
+                    // given max height.
+                    Some(max_physical_height) if layout.elision_info.is_some() => {
+                        max_physical_height.get() >= metrics.max_coord
                     }
                     _ => true,
                 }
@@ -490,7 +485,6 @@ struct Layout {
     height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
     elision_info: Option<ElisionInfo>,
-    is_wrapping: bool,
 }
 
 impl Layout {
