@@ -695,21 +695,15 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
             pulldown_cmark::Event::Text(text) => {
                 rich_text.text.push_str(&text);
             }
-            pulldown_cmark::Event::End(tag) => {
+            pulldown_cmark::Event::End(_) => {
                 let (start_tag, start) = event_stack.pop().unwrap();
                 let end = rich_text.text.len();
 
-                let style = match (start_tag, tag) {
-                    (pulldown_cmark::Tag::Paragraph, pulldown_cmark::TagEnd::Paragraph) => None,
-                    (pulldown_cmark::Tag::Strong, pulldown_cmark::TagEnd::Strong) => {
-                        Some(Style::Strong)
-                    }
-                    (pulldown_cmark::Tag::Emphasis, pulldown_cmark::TagEnd::Emphasis) => {
-                        Some(Style::Emphasis)
-                    }
-                    (pulldown_cmark::Tag::Strikethrough, pulldown_cmark::TagEnd::Strikethrough) => {
-                        Some(Style::Strikethrough)
-                    }
+                let style = match start_tag {
+                    pulldown_cmark::Tag::Paragraph => None,
+                    pulldown_cmark::Tag::Strong => Some(Style::Strong),
+                    pulldown_cmark::Tag::Emphasis => Some(Style::Emphasis),
+                    pulldown_cmark::Tag::Strikethrough => Some(Style::Strikethrough),
                     other => {
                         std::dbg!(other);
                         None
