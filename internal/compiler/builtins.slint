@@ -101,6 +101,7 @@ component SimpleText inherits Empty {
     in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
+    in property <bool> is-markdown;
     //-default_size_binding:implicit_size
 
     in property <angle> rotation-angle <=> transform-rotation;
