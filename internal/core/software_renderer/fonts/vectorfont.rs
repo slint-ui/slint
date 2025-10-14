@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use core::num::NonZeroU16;
+
 use alloc::rc::Rc;
+use skrifa::MetadataProvider;
 
 use crate::lengths::PhysicalPx;
 use crate::software_renderer::fixed::Fixed;
@@ -49,7 +52,6 @@ pub struct VectorFont {
     ascender: PhysicalLength,
     descender: PhysicalLength,
     height: PhysicalLength,
-    scale: FontScaleFactor,
     pixel_size: PhysicalLength,
     x_height: PhysicalLength,
     cap_height: PhysicalLength,
@@ -70,14 +72,17 @@ impl VectorFont {
         fontdue_font: Rc<fontdue::Font>,
         pixel_size: PhysicalLength,
     ) -> Self {
-        let face = rustybuzz::ttf_parser::Face::parse(font_blob.data(), font_index).unwrap();
+        let face = skrifa::FontRef::from_index(font_blob.data(), font_index).unwrap();
 
-        let ascender = FontLength::new(face.ascender() as _);
-        let descender = FontLength::new(face.descender() as _);
-        let height = FontLength::new(face.height() as _);
-        let x_height = FontLength::new(face.x_height().unwrap_or_default() as _);
-        let cap_height = FontLength::new(face.capital_height().unwrap_or_default() as _);
-        let units_per_em = face.units_per_em();
+        let metrics = face
+            .metrics(skrifa::instance::Size::unscaled(), skrifa::instance::LocationRef::new(&[]));
+
+        let ascender = FontLength::new(metrics.ascent as _);
+        let descender = FontLength::new(metrics.descent as _);
+        let height = FontLength::new((metrics.ascent - metrics.descent) as _);
+        let x_height = FontLength::new(metrics.x_height.unwrap_or_default() as _);
+        let cap_height = FontLength::new(metrics.cap_height.unwrap_or_default() as _);
+        let units_per_em = metrics.units_per_em;
         let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
         Self {
             font_index,
@@ -86,7 +91,6 @@ impl VectorFont {
             ascender: (ascender.cast() * scale).cast(),
             descender: (descender.cast() * scale).cast(),
             height: (height.cast() * scale).cast(),
-            scale,
             pixel_size,
             x_height: (x_height.cast() * scale).cast(),
             cap_height: (cap_height.cast() * scale).cast(),
@@ -135,53 +139,35 @@ impl TextShaper for VectorFont {
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
-        let mut buffer = rustybuzz::UnicodeBuffer::new();
-        buffer.push_str(text);
-
-        let face =
-            rustybuzz::ttf_parser::Face::parse(self.font_blob.data(), self.font_index).unwrap();
-        let rb_face = rustybuzz::Face::from_face(face);
-
-        let glyph_buffer = rustybuzz::shape(&rb_face, &[], buffer);
-
-        let output_glyph_generator =
-            glyph_buffer.glyph_infos().iter().zip(glyph_buffer.glyph_positions().iter()).map(
-                |(info, position)| {
-                    let mut out_glyph = Glyph::<PhysicalLength>::default();
-
-                    out_glyph.glyph_id = core::num::NonZeroU16::new(info.glyph_id as u16);
-
-                    out_glyph.offset_x =
-                        (FontLength::new(position.x_offset).cast() * self.scale).cast();
-                    out_glyph.offset_y =
-                        (FontLength::new(position.y_offset).cast() * self.scale).cast();
-                    out_glyph.advance =
-                        (FontLength::new(position.x_advance).cast() * self.scale).cast();
-
-                    out_glyph.text_byte_offset = info.cluster as usize;
-
-                    out_glyph
+        glyphs.extend(text.char_indices().map(|(byte_offset, char)| {
+            let glyph_id = NonZeroU16::try_from(self.fontdue_font.lookup_glyph_index(char)).ok();
+            let x_advance = glyph_id.map_or_else(
+                || self.pixel_size.get(),
+                |id| {
+                    self.fontdue_font
+                        .metrics_indexed(id.get(), self.pixel_size.get() as _)
+                        .advance_width as _
                 },
             );
 
-        // Cannot return impl Iterator, so extend argument instead
-        glyphs.extend(output_glyph_generator);
+            Glyph {
+                glyph_id,
+                advance: PhysicalLength::new(x_advance),
+                text_byte_offset: byte_offset,
+                ..Default::default()
+            }
+        }));
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
-        let face =
-            rustybuzz::ttf_parser::Face::parse(self.font_blob.data(), self.font_index).unwrap();
-        face.glyph_index(ch).map(|glyph_index| {
+        NonZeroU16::try_from(self.fontdue_font.lookup_glyph_index(ch)).ok().map(|glyph_id| {
             let mut out_glyph = Glyph::default();
-
-            out_glyph.glyph_id = core::num::NonZeroU16::new(glyph_index.0);
-
-            out_glyph.advance =
-                (FontLength::new(face.glyph_hor_advance(glyph_index).unwrap_or_default() as _)
-                    .cast()
-                    * self.scale)
-                    .cast();
-
+            out_glyph.glyph_id = Some(glyph_id);
+            out_glyph.advance = PhysicalLength::new(
+                self.fontdue_font
+                    .metrics_indexed(glyph_id.get(), self.pixel_size.get() as _)
+                    .advance_width as _,
+            );
             out_glyph
         })
     }

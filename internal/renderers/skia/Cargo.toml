@@ -108,7 +108,7 @@ foreign-types = { version = "0.5.0", optional = true }
 wgpu-26 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-27 = { workspace = true, optional = true, features = ["metal"] }
 
-read-fonts = { version = "0.35" }
+read-fonts = { workspace = true }
 write-fonts = { version = "0.43" }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
