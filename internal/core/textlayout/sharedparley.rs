@@ -972,7 +972,7 @@ pub fn draw_text(
     } else {
         Text::PlainText(&str)
     };
-    
+
     #[cfg(not(feature = "experimental-rich-text"))]
     let layout_text = Text::PlainText(&str);
 
