@@ -140,7 +140,7 @@ impl LayoutOptions {
 enum Text<'a> {
     PlainText(&'a str),
     #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
-    RichText(RichText),
+    RichText(RichText<'a>),
 }
 
 fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> Layout {
@@ -286,6 +286,9 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                                         parley::style::GenericFamily::Monospace,
                                     ),
                                 ))
+                            }
+                            Style::Link { .. } | Style::Underline => {
+                                parley::StyleProperty::Underline(true)
                             }
                         };
                         builder.push(property, span.range);
@@ -706,17 +709,24 @@ impl Layout {
 
 #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
 #[derive(Debug, PartialEq)]
-enum Style {
+enum Style<'a> {
     Emphasis,
     Strong,
     Strikethrough,
     Code,
+    Link {
+        #[cfg(not(feature = "experimental-rich-text"))]
+        _marker: std::marker::PhantomData<&'a ()>,
+        #[cfg(feature = "experimental-rich-text")]
+        url: pulldown_cmark::CowStr<'a>,
+    },
+    Underline,
 }
 
 #[derive(Debug, PartialEq)]
-struct FormattedSpan {
+struct FormattedSpan<'a> {
     range: Range<usize>,
-    style: Style,
+    style: Style<'a>,
 }
 
 #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
@@ -727,17 +737,17 @@ enum ListItemType {
 }
 
 #[derive(Debug, PartialEq)]
-struct RichTextParagraph {
+struct RichTextParagraph<'a> {
     text: std::string::String,
-    formatting: Vec<FormattedSpan>,
+    formatting: Vec<FormattedSpan<'a>>,
 }
 
 #[derive(Debug, Default)]
-struct RichText {
-    paragraphs: Vec<RichTextParagraph>,
+struct RichText<'a> {
+    paragraphs: Vec<RichTextParagraph<'a>>,
 }
 
-impl RichText {
+impl<'a> RichText<'a> {
     #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = std::string::String::with_capacity(indentation as usize * 4);
@@ -762,13 +772,13 @@ impl RichText {
 }
 
 #[cfg(feature = "experimental-rich-text")]
-fn parse_markdown(string: &str) -> RichText {
+fn parse_markdown(string: &str) -> RichText<'_> {
     let parser =
         pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
 
     let mut rich_text = RichText::default();
     let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
-    let mut current_style_tag = None;
+    let mut style_stack = std::vec::Vec::new();
 
     for event in parser {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
@@ -801,24 +811,15 @@ fn parse_markdown(string: &str) -> RichText {
                 pulldown_cmark::TagEnd::Paragraph | pulldown_cmark::TagEnd::Item,
             ) => {}
             pulldown_cmark::Event::Start(tag) => {
-                debug_assert_eq!(current_style_tag, None);
-                current_style_tag = Some((tag, rich_text.paragraphs.last().unwrap().text.len()));
-            }
-            pulldown_cmark::Event::Text(text) => {
-                rich_text.paragraphs.last_mut().unwrap().text.push_str(&text);
-            }
-            pulldown_cmark::Event::End(_) => {
-                let (start_tag, start) = current_style_tag.take().unwrap();
-
-                let style = match start_tag {
-                    pulldown_cmark::Tag::Strong => Some(Style::Strong),
-                    pulldown_cmark::Tag::Emphasis => Some(Style::Emphasis),
-                    pulldown_cmark::Tag::Strikethrough => Some(Style::Strikethrough),
+                let style = match tag {
+                    pulldown_cmark::Tag::Strong => Style::Strong,
+                    pulldown_cmark::Tag::Emphasis => Style::Emphasis,
+                    pulldown_cmark::Tag::Strikethrough => Style::Strikethrough,
+                    pulldown_cmark::Tag::Link { dest_url, .. } => Style::Link { url: dest_url },
                     pulldown_cmark::Tag::Paragraph
                     | pulldown_cmark::Tag::List(_)
                     | pulldown_cmark::Tag::Item => unreachable!(),
                     pulldown_cmark::Tag::Heading { .. }
-                    | pulldown_cmark::Tag::Link { .. }
                     | pulldown_cmark::Tag::Image { .. }
                     | pulldown_cmark::Tag::DefinitionList
                     | pulldown_cmark::Tag::DefinitionListTitle
@@ -834,15 +835,21 @@ fn parse_markdown(string: &str) -> RichText {
                     | pulldown_cmark::Tag::BlockQuote(_)
                     | pulldown_cmark::Tag::CodeBlock(_)
                     | pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                        unimplemented!("{:?}", start_tag)
+                        unimplemented!("{:?}", tag)
                     }
                 };
 
-                if let Some(style) = style {
-                    let paragraph = rich_text.paragraphs.last_mut().unwrap();
-                    let end = paragraph.text.len();
-                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
-                }
+                style_stack.push((style, rich_text.paragraphs.last().unwrap().text.len()));
+            }
+            pulldown_cmark::Event::Text(text) => {
+                rich_text.paragraphs.last_mut().unwrap().text.push_str(&text);
+            }
+            pulldown_cmark::Event::End(_) => {
+                let (style, start) = style_stack.pop().unwrap();
+
+                let paragraph = rich_text.paragraphs.last_mut().unwrap();
+                let end = paragraph.text.len();
+                paragraph.formatting.push(FormattedSpan { range: start..end, style });
             }
             pulldown_cmark::Event::Code(text) => {
                 let paragraph = rich_text.paragraphs.last_mut().unwrap();
@@ -852,12 +859,25 @@ fn parse_markdown(string: &str) -> RichText {
                     .formatting
                     .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
             }
+            pulldown_cmark::Event::InlineHtml(html) => match &*html {
+                "<u>" => {
+                    style_stack
+                        .push((Style::Underline, rich_text.paragraphs.last().unwrap().text.len()));
+                }
+                "</u>" => {
+                    let (style, start) = style_stack.pop().unwrap();
+
+                    let paragraph = rich_text.paragraphs.last_mut().unwrap();
+                    let end = paragraph.text.len();
+                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                }
+                other => unimplemented!("{}", other),
+            },
             pulldown_cmark::Event::Rule
             | pulldown_cmark::Event::TaskListMarker(_)
             | pulldown_cmark::Event::FootnoteReference(_)
             | pulldown_cmark::Event::InlineMath(_)
             | pulldown_cmark::Event::DisplayMath(_)
-            | pulldown_cmark::Event::InlineHtml(_)
             | pulldown_cmark::Event::Html(_) => unimplemented!("{:?}", event),
         }
     }
@@ -950,6 +970,30 @@ new *line*
                 formatting: std::vec![]
             },
         ]
+    );
+
+    assert_eq!(
+        parse_markdown("hello [*world*](https://example.com)").paragraphs,
+        [RichTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![
+                FormattedSpan { range: 6..11, style: Style::Emphasis },
+                FormattedSpan {
+                    range: 6..11,
+                    style: Style::Link {
+                        url: pulldown_cmark::CowStr::Borrowed("https://example.com")
+                    }
+                }
+            ]
+        }]
+    );
+
+    assert_eq!(
+        parse_markdown("<u>hello world</u>").paragraphs,
+        [RichTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },]
+        }]
     );
 }
 
