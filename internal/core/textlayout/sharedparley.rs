@@ -728,7 +728,7 @@ impl Layout {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Style {
     Emphasis,
     Strong,
@@ -736,7 +736,7 @@ enum Style {
     Code,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct FormattedSpan {
     range: Range<usize>,
     style: Style,
@@ -748,7 +748,7 @@ enum ListItemType {
     Unordered,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct RichTextParagraph {
     text: std::string::String,
     formatting: Vec<FormattedSpan>,
@@ -780,7 +780,10 @@ impl RichText {
     }
 }
 
-fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
+fn parse_markdown(string: &str) -> RichText {
+    let parser =
+        pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+
     let mut rich_text = RichText::default();
     let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
     let mut current_style_tag = None;
@@ -849,7 +852,7 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
                     | pulldown_cmark::Tag::BlockQuote(_)
                     | pulldown_cmark::Tag::CodeBlock(_)
                     | pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                        unimplemented!()
+                        unimplemented!("{:?}", start_tag)
                     }
                 };
 
@@ -873,11 +876,77 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
             | pulldown_cmark::Event::InlineMath(_)
             | pulldown_cmark::Event::DisplayMath(_)
             | pulldown_cmark::Event::InlineHtml(_)
-            | pulldown_cmark::Event::Html(_) => unimplemented!(),
+            | pulldown_cmark::Event::Html(_) => unimplemented!("{:?}", event),
         }
     }
 
     rich_text
+}
+
+#[test]
+fn markdown_parsing() {
+    assert_eq!(
+        parse_markdown("hello *world*").paragraphs,
+        [RichTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }]
+        }]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+- line 1
+- line 2
+            "
+        )
+        .paragraphs,
+        [
+            RichTextParagraph { text: "• line 1".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "• line 2".into(), formatting: std::vec![] }
+        ]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+1. a
+2. b
+4. c
+        "
+        )
+        .paragraphs,
+        [
+            RichTextParagraph { text: "1. a".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "2. b".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "3. c".into(), formatting: std::vec![] }
+        ]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+Normal _italic_ **strong** ~~strikethrough~~ `code`
+new *line*
+"
+        )
+        .paragraphs,
+        [
+            RichTextParagraph {
+                text: "Normal italic strong strikethrough code".into(),
+                formatting: std::vec![
+                    FormattedSpan { range: 7..13, style: Style::Emphasis },
+                    FormattedSpan { range: 14..20, style: Style::Strong },
+                    FormattedSpan { range: 21..34, style: Style::Strikethrough },
+                    FormattedSpan { range: 35..39, style: Style::Code }
+                ]
+            },
+            RichTextParagraph {
+                text: "new line".into(),
+                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },]
+            }
+        ]
+    );
 }
 
 pub fn draw_text(
@@ -889,10 +958,7 @@ pub fn draw_text(
     let str = text.text();
 
     let layout_text = if text.is_markdown() {
-        Text::RichText(parse_markdown(pulldown_cmark::Parser::new_ext(
-            &str,
-            pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
-        )))
+        Text::RichText(parse_markdown(&str))
     } else {
         Text::PlainText(&str)
     };
