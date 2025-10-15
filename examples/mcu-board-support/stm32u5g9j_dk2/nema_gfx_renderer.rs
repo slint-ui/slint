@@ -123,12 +123,12 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                         color,
                     );
                 } else {
-                    nema_fill_rounded_rect_aa(
-                        args.x,
-                        args.y,
-                        args.width,
-                        args.height,
-                        radius,
+                    nema_fill_rounded_rect(
+                        args.x.round() as i32,
+                        args.y.round() as i32,
+                        args.width as i32,
+                        args.height as i32,
+                        radius as i32,
                         color,
                     );
                 }
