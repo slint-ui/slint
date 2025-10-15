@@ -15,6 +15,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::api::{LogicalInset, PhysicalInset};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
@@ -726,8 +727,12 @@ impl WinitWindowAdapter {
             self.size.set(physical_size);
             self.pending_requested_size.set(None);
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
-            self.window().try_dispatch_event(WindowEvent::Resized {
-                size: physical_size.to_logical(scale_factor),
+
+            let size = physical_size.to_logical(scale_factor);
+            self.window().try_dispatch_event(WindowEvent::Resized { size })?;
+
+            self.window().try_dispatch_event(WindowEvent::SafeAreaChanged {
+                inset: self.safe_area_inset().to_logical(scale_factor),
             })?;
 
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
@@ -1082,6 +1087,32 @@ impl WindowAdapter for WinitWindowAdapter {
         self.size.get()
     }
 
+    fn safe_area_inset(&self) -> PhysicalInset {
+        #[cfg(not(target_os = "ios"))]
+        return Default::default();
+        #[cfg(target_os = "ios")]
+        self.winit_window_or_none
+            .borrow()
+            .as_window()
+            .and_then(|window| {
+                let outer_position = window.outer_position().ok()?;
+                let inner_position = window.inner_position().ok()?;
+                let outer_size = window.outer_size();
+                let inner_size = window.inner_size();
+                Some(PhysicalInset::new(
+                    inner_position.y - outer_position.y,
+                    outer_size.height as i32
+                        - (inner_size.height as i32)
+                        - (inner_position.y - outer_position.y),
+                    inner_position.x - outer_position.x,
+                    outer_size.width as i32
+                        - (inner_size.width as i32)
+                        - (inner_position.x - outer_position.x),
+                ))
+            })
+            .unwrap_or_default()
+    }
+
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true) {
             self.frame_throttle.request_throttled_redraw();
@@ -1167,6 +1198,16 @@ impl WindowAdapter for WinitWindowAdapter {
             self.window()
                 .try_dispatch_event(WindowEvent::Resized {
                     size: i_slint_core::api::LogicalSize::new(width, height),
+                })
+                .unwrap();
+            self.window()
+                .try_dispatch_event(WindowEvent::SafeAreaChanged {
+                    inset: LogicalInset::new(
+                        window_item.safe_area_inset_top().get(),
+                        window_item.safe_area_inset_bottom().get(),
+                        window_item.safe_area_inset_left().get(),
+                        window_item.safe_area_inset_right().get(),
+                    ),
                 })
                 .unwrap();
         }

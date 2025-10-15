@@ -305,6 +305,10 @@ export component ContextMenuArea inherits Empty {
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
+    out property <length> safe-area-inset-top;
+    out property <length> safe-area-inset-bottom;
+    out property <length> safe-area-inset-left;
+    out property <length> safe-area-inset-right;
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
     in property <brush> color <=> background;
     in property <string> title: "Slint Window";

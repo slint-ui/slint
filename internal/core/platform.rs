@@ -8,7 +8,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 #![warn(missing_docs)]
 
 pub use crate::api::PlatformError;
-use crate::api::{LogicalPosition, LogicalSize};
+use crate::api::{LogicalInset, LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 #[cfg(feature = "software-renderer")]
 pub use crate::software_renderer;
@@ -381,6 +381,11 @@ pub enum WindowEvent {
     Resized {
         /// The new logical size of the window
         size: LogicalSize,
+    },
+    /// The safe area of the window has changed.
+    SafeAreaChanged {
+        /// The new logical rectangle of the window's safe area
+        inset: LogicalInset,
     },
     /// The user requested to close the window.
     ///
