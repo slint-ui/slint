@@ -215,10 +215,16 @@ impl PartialRendererCache {
 }
 
 /// A region composed of a few rectangles that need to be redrawn.
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone)]
 pub struct DirtyRegion {
     rectangles: [euclid::Box2D<Coord, LogicalPx>; Self::MAX_COUNT],
     count: usize,
+}
+
+impl core::fmt::Debug for DirtyRegion {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", &self.rectangles[..self.count])
+    }
 }
 
 impl DirtyRegion {

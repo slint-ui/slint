@@ -240,7 +240,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 }
 
                 if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
-                    collector.measure_frame_rendered(&mut item_renderer);
+                    let metrics = item_renderer.metrics();
+                    collector.measure_frame_rendered(&mut item_renderer, metrics);
                 }
 
                 let commands = canvas.borrow_mut().flush_to_surface(surface.render_surface());

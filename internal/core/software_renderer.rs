@@ -20,7 +20,7 @@ use crate::api::PlatformError;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
-    CachedRenderingData, RenderBorderRectangle, RenderImage, RenderRectangle,
+    CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage, RenderRectangle,
 };
 use crate::item_tree::ItemTreeWeak;
 use crate::items::{ItemRc, TextOverflow, TextWrap};
@@ -634,16 +634,26 @@ impl SoftwareRenderer {
                     }
                 }
 
-                if let Some(metrics) = &self.rendering_metrics_collector {
-                    metrics.measure_frame_rendered(&mut renderer);
-                    if metrics.refresh_mode() == RefreshMode::FullSpeed {
-                        self.partial_rendering_state.force_screen_refresh();
-                    }
-                }
+                self.measure_frame_rendered(&mut renderer);
 
                 dirty_region
             })
             .unwrap_or_default()
+    }
+
+    fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
+        if let Some(metrics) = &self.rendering_metrics_collector {
+            let prev_frame_dirty = self.prev_frame_dirty.take();
+            let m = crate::graphics::rendering_metrics_collector::RenderingMetrics {
+                dirty_region: Some(prev_frame_dirty.clone()),
+                ..Default::default()
+            };
+            self.prev_frame_dirty.set(prev_frame_dirty);
+            metrics.measure_frame_rendered(renderer, m);
+            if metrics.refresh_mode() == RefreshMode::FullSpeed {
+                self.partial_rendering_state.force_screen_refresh();
+            }
+        }
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
@@ -1252,12 +1262,7 @@ fn prepare_scene(
         }
     });
 
-    if let Some(metrics) = &software_renderer.rendering_metrics_collector {
-        metrics.measure_frame_rendered(&mut renderer);
-        if metrics.refresh_mode() == RefreshMode::FullSpeed {
-            software_renderer.partial_rendering_state.force_screen_refresh();
-        }
-    }
+    software_renderer.measure_frame_rendered(&mut renderer);
 
     let prepare_scene = renderer.into_inner();
 

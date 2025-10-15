@@ -29,15 +29,20 @@ pub enum RefreshMode {
 pub struct RenderingMetrics {
     /// The number of layers that were created. None if the renderer does not create layers.
     pub layers_created: Option<usize>,
+
+    /// dirty_region
+    pub dirty_region: Option<crate::partial_renderer::DirtyRegion>,
 }
 
 impl core::fmt::Display for RenderingMetrics {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let Some(layer_count) = self.layers_created {
-            write!(f, "[{layer_count} layers created]")
-        } else {
-            Ok(())
+            write!(f, "[{layer_count} layers created]")?
         }
+        if let Some(dirty_region) = &self.dirty_region {
+            write!(f, "(dirty: {dirty_region:?})")?
+        }
+        Ok(())
     }
 }
 
@@ -158,10 +163,11 @@ impl RenderingMetricsCollector {
     pub fn measure_frame_rendered(
         self: &Rc<Self>,
         renderer: &mut dyn crate::item_rendering::ItemRenderer,
+        metrics: RenderingMetrics,
     ) {
         self.collected_frame_data_since_second_ago
             .borrow_mut()
-            .push(FrameData { timestamp: Instant::now(), metrics: renderer.metrics() });
+            .push(FrameData { timestamp: Instant::now(), metrics });
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
