@@ -240,6 +240,79 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         let mut paragraphs = Vec::with_capacity(1);
         let mut para_y = 0.0;
 
+        let mut paragraph_from_text =
+            |text: &str,
+             range: std::ops::Range<usize>,
+             formatting: Option<std::vec::Vec<FormattedSpan>>| {
+                let mut builder = contexts.layout.ranged_builder(
+                    &mut contexts.font,
+                    text,
+                    scale_factor.get(),
+                    true,
+                );
+                push_to_builder(&mut builder);
+
+                if let Some((selection, selection_color)) =
+                    options.selection.as_ref().zip(options.selection_foreground_color)
+                {
+                    let sel_start = selection.start.max(range.start);
+                    let sel_end = selection.end.min(range.end);
+                    if sel_start < sel_end {
+                        let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                        builder.push(
+                            parley::StyleProperty::Brush(Brush {
+                                selection_fill_color: Some(selection_color),
+                                stroke: options.stroke,
+                            }),
+                            local_selection,
+                        );
+                    }
+                }
+
+                if let Some(formatting) = formatting {
+                    for span in formatting {
+                        let property = match span.style {
+                            Style::Emphasis => {
+                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic)
+                            }
+                            Style::Strikethrough => parley::StyleProperty::Strikethrough(true),
+                            Style::Strong => {
+                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD)
+                            }
+                            Style::Code => {
+                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
+                                    parley::style::FontFamily::Generic(
+                                        parley::style::GenericFamily::Monospace,
+                                    ),
+                                ))
+                            }
+                        };
+                        builder.push(property, span.range);
+                    }
+                }
+
+                let mut layout = builder.build(text);
+
+                layout.break_all_lines(
+                    max_physical_width
+                        .filter(|_| options.text_wrap != TextWrap::NoWrap)
+                        .map(|width| width.get()),
+                );
+                layout.align(
+                    max_physical_width.map(|width| width.get()),
+                    match options.horizontal_align {
+                        TextHorizontalAlignment::Left => parley::Alignment::Left,
+                        TextHorizontalAlignment::Center => parley::Alignment::Center,
+                        TextHorizontalAlignment::Right => parley::Alignment::Right,
+                    },
+                    parley::AlignmentOptions::default(),
+                );
+
+                let y = PhysicalLength::new(para_y);
+                para_y += layout.height();
+                TextParagraph { range, y, layout }
+            };
+
         match text {
             Text::PlainText(text) => {
                 let paragraph_ranges = core::iter::from_fn({
@@ -264,108 +337,16 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                 });
 
                 for range in paragraph_ranges {
-                    let para_text = &text[range.clone()];
-
-                    let mut builder = contexts.layout.ranged_builder(
-                        &mut contexts.font,
-                        para_text,
-                        scale_factor.get(),
-                        true,
-                    );
-                    push_to_builder(&mut builder);
-
-                    if let Some((selection, selection_color)) =
-                        options.selection.as_ref().zip(options.selection_foreground_color)
-                    {
-                        let sel_start = selection.start.max(range.start);
-                        let sel_end = selection.end.min(range.end);
-                        if sel_start < sel_end {
-                            let local_selection =
-                                (sel_start - range.start)..(sel_end - range.start);
-                            builder.push(
-                                parley::StyleProperty::Brush(Brush {
-                                    selection_fill_color: Some(selection_color),
-                                    stroke: options.stroke,
-                                }),
-                                local_selection,
-                            );
-                        }
-                    }
-
-                    let mut layout = builder.build(para_text);
-
-                    layout.break_all_lines(
-                        max_physical_width
-                            .filter(|_| options.text_wrap != TextWrap::NoWrap)
-                            .map(|width| width.get()),
-                    );
-                    layout.align(
-                        max_physical_width.map(|width| width.get()),
-                        match options.horizontal_align {
-                            TextHorizontalAlignment::Left => parley::Alignment::Left,
-                            TextHorizontalAlignment::Center => parley::Alignment::Center,
-                            TextHorizontalAlignment::Right => parley::Alignment::Right,
-                        },
-                        parley::AlignmentOptions::default(),
-                    );
-
-                    let y = PhysicalLength::new(para_y);
-                    para_y += layout.height();
-                    paragraphs.push(TextParagraph { range, y, layout })
+                    paragraphs.push(paragraph_from_text(&text[range.clone()], range, None));
                 }
             }
             Text::RichText(rich_text) => {
                 for paragraph in rich_text.paragraphs {
-                    let para_text = &paragraph.text;
-
-                    let mut builder = contexts.layout.ranged_builder(
-                        &mut contexts.font,
-                        para_text,
-                        scale_factor.get(),
-                        true,
-                    );
-                    push_to_builder(&mut builder);
-
-                    for span in paragraph.formatting {
-                        let property = match span.style {
-                            Style::Emphasis => {
-                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic)
-                            }
-                            Style::Strikethrough => parley::StyleProperty::Strikethrough(true),
-                            Style::Strong => {
-                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD)
-                            }
-                            Style::Code => {
-                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
-                                    parley::style::FontFamily::Generic(
-                                        parley::style::GenericFamily::Monospace,
-                                    ),
-                                ))
-                            }
-                        };
-                        builder.push(property, span.range);
-                    }
-
-                    let mut layout = builder.build(para_text);
-
-                    layout.break_all_lines(
-                        max_physical_width
-                            .filter(|_| options.text_wrap != TextWrap::NoWrap)
-                            .map(|width| width.get()),
-                    );
-                    layout.align(
-                        max_physical_width.map(|width| width.get()),
-                        match options.horizontal_align {
-                            TextHorizontalAlignment::Left => parley::Alignment::Left,
-                            TextHorizontalAlignment::Center => parley::Alignment::Center,
-                            TextHorizontalAlignment::Right => parley::Alignment::Right,
-                        },
-                        parley::AlignmentOptions::default(),
-                    );
-
-                    let y = PhysicalLength::new(para_y);
-                    para_y += layout.height();
-                    paragraphs.push(TextParagraph { range: 0..0, y, layout })
+                    paragraphs.push(paragraph_from_text(
+                        &paragraph.text,
+                        0..0,
+                        Some(paragraph.formatting),
+                    ));
                 }
             }
         };
