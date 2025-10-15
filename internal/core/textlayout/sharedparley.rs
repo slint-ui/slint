@@ -949,6 +949,27 @@ new *line*
             }
         ]
     );
+
+    assert_eq!(
+        parse_markdown(
+            "
+- root
+  - child
+    - grandchild
+      - great grandchild
+"
+        )
+        .paragraphs,
+        [
+            RichTextParagraph { text: "• root".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "    ◦ child".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "        ▪ grandchild".into(), formatting: std::vec![] },
+            RichTextParagraph {
+                text: "            • great grandchild".into(),
+                formatting: std::vec![]
+            },
+        ]
+    );
 }
 
 pub fn draw_text(
