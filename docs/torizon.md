@@ -1,5 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-<!-- cSpell: ignore Torizon Toradex Vivante imx8 am62 am62p imx95 PowerVR -->
+<!-- cSpell: ignore Torizon Toradex Vivante imx8 am62 imx95 PowerVR -->
 # Running Slint Demos on Torizon OS
 
 Toradex provides [Torizon OS](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.
@@ -21,9 +21,8 @@ Our pre-compiled demos are available in multiple variants optimized for differen
 1. **Standard ARM64 without GPU build** (`torizon-demos-arm64`) - Uses software rendering
 2. **i.MX8 GPU build** (`torizon-demos-arm64-imx8`) - Optimized for i.MX8 series with GPU acceleration
 3. **AM62 GPU build** (`torizon-demos-arm64-am62`) - Optimized for AM62 series with GPU acceleration
-4. **AM62P GPU build** (`torizon-demos-arm64-am62p`) - Optimized for AM62P series with GPU acceleration
-5. **i.MX95 GPU build** (`torizon-demos-arm64-imx95`) - Optimized for i.MX95 series with GPU acceleration
-6. **Vivante GPU build** (`torizon-demos-arm64-vivante`) - Legacy variant for i.MX8 with Vivante GPU acceleration
+4. **i.MX95 GPU build** (`torizon-demos-arm64-imx95`) - Optimized for i.MX95 series with GPU acceleration
+5. **Vivante GPU build** (`torizon-demos-arm64-vivante`) - Legacy variant for i.MX8 with Vivante GPU acceleration
 
 A complete list of all containers can be found at
 
@@ -102,13 +101,6 @@ sudo docker run --rm --privileged --user=torizon \
   --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw' \
   ghcr.io/slint-ui/slint/torizon-demos-arm64-imx8 printerdemo
 
-# Gallery demo on AM62P with GPU acceleration
-sudo docker run --rm --privileged --user=torizon \
-  -v /dev:/dev -v /tmp:/tmp -v /run/udev:/run/udev \
-  --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' \
-  --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw' \
-  ghcr.io/slint-ui/slint/torizon-demos-arm64-am62p gallery
-
 # Todo demo on AM62 without GPU acceleration
 sudo docker run --rm --privileged --user=torizon \
   -v /dev:/dev -v /tmp:/tmp -v /run/udev:/run/udev \
@@ -179,7 +171,6 @@ ssh torizon@<device-ip> "sudo reboot"
 **Platform-specific variants:**
 - For **i.MX8**: `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx8:latest`
 - For **AM62 with GPU**: `ghcr.io/slint-ui/slint/torizon-demos-arm64-am62:latest`
-- For **AM62P**: `ghcr.io/slint-ui/slint/torizon-demos-arm64-am62p:latest`
 - For **i.MX95**: `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx95:latest`
 - For **Generic ARM64**: `ghcr.io/slint-ui/slint/torizon-demos-arm64:latest`
 
