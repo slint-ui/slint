@@ -761,16 +761,18 @@ struct RichText {
 
 impl RichText {
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
-        let mut text = std::string::String::new();
+        let mut text = std::string::String::with_capacity(indentation as usize * 4);
         for _ in 0..indentation {
             text.push_str("    ");
         }
         match list_item_type {
             Some(ListItemType::Unordered) => {
-                if indentation % 2 == 0 {
+                if indentation % 3 == 0 {
                     text.push_str("• ")
-                } else {
+                } else if indentation % 3 == 1 {
                     text.push_str("◦ ")
+                } else {
+                    text.push_str("▪ ")
                 }
             }
             Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
