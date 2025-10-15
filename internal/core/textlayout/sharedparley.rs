@@ -139,6 +139,7 @@ impl LayoutOptions {
 
 enum Text<'a> {
     PlainText(&'a str),
+    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     RichText(RichText),
 }
 
@@ -709,6 +710,7 @@ impl Layout {
     }
 }
 
+#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
 #[derive(Debug, PartialEq)]
 enum Style {
     Emphasis,
@@ -723,6 +725,7 @@ struct FormattedSpan {
     style: Style,
 }
 
+#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
 #[derive(Debug)]
 enum ListItemType {
     Ordered(u64),
@@ -741,6 +744,7 @@ struct RichText {
 }
 
 impl RichText {
+    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = std::string::String::with_capacity(indentation as usize * 4);
         for _ in 0..indentation {
@@ -763,6 +767,7 @@ impl RichText {
     }
 }
 
+#[cfg(feature = "experimental-rich-text")]
 fn parse_markdown(string: &str) -> RichText {
     let parser =
         pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
@@ -961,11 +966,15 @@ pub fn draw_text(
 ) {
     let str = text.text();
 
+    #[cfg(feature = "experimental-rich-text")]
     let layout_text = if text.is_markdown() {
         Text::RichText(parse_markdown(&str))
     } else {
         Text::PlainText(&str)
     };
+    
+    #[cfg(not(feature = "experimental-rich-text"))]
+    let layout_text = Text::PlainText(&str);
 
     let max_width = size.width_length();
     let max_height = size.height_length();

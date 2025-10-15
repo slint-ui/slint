@@ -63,6 +63,8 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental = []
 
+experimental-rich-text = ["dep:pulldown-cmark"]
+
 unstable-wgpu-26 = ["dep:wgpu-26"]
 unstable-wgpu-27 = ["dep:wgpu-27"]
 
@@ -70,7 +72,7 @@ tr = ["dep:tr"]
 
 default = ["std", "unicode"]
 
-shared-parley = ["shared-fontique", "dep:parley", "dep:pulldown-cmark"]
+shared-parley = ["shared-fontique", "dep:parley"]
 
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
