@@ -244,6 +244,7 @@ fn visibility() {
     slint::slint! {
         export component Ui inherits Window {
             in property <bool> c : true;
+            in property <bool> another: false;
             background: black;
             Rectangle {
                 x: 10phx;
@@ -255,6 +256,13 @@ fn visibility() {
                     height: 13phx;
                     background: red;
                     visible: c;
+                    Rectangle {
+                        x: 3phx;
+                        y: 3phx;
+                        width: 3phx;
+                        height: 3phx;
+                        background: another ? blue: green;
+                    }
                 }
                 Rectangle {
                     x: 50phx;
@@ -263,6 +271,13 @@ fn visibility() {
                     height: 17phx;
                     background: gray;
                     visible: !c;
+                    Rectangle {
+                        x: 3phx;
+                        y: 3phx;
+                        width: 3phx;
+                        height: 3phx;
+                        background: another ? blue: green;
+                    }
                 }
             }
         }
@@ -277,14 +292,26 @@ fn visibility() {
         do_test_render_region(renderer, 0, 0, 180, 260);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
     ui.set_c(false);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 10 + 5, 19 + 8, 10 + 50 + 15, 19 + 80 + 13);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_another(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10 + 50 + 3, 19 + 8 + 3, 10 + 50 + 6, 19 + 8 + 6);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
     ui.set_c(true);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 10 + 5, 19 + 8, 10 + 50 + 15, 19 + 80 + 13);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_another(false);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10 + 5 + 3, 19 + 80 + 3, 10 + 5 + 6, 19 + 80 + 6);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
