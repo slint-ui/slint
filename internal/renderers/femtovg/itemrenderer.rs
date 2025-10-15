@@ -192,6 +192,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
     }
+
+    pub fn metrics(&self) -> RenderingMetrics {
+        self.metrics.clone()
+    }
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
@@ -903,10 +907,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         *state *= opacity;
         self.canvas.borrow_mut().set_global_alpha(*state);
     }
-
-    fn metrics(&self) -> RenderingMetrics {
-        self.metrics.clone()
-    }
 }
 
 #[derive(Clone)]
@@ -1033,7 +1033,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 global_alpha: 1.,
                 current_render_target: femtovg::RenderTarget::Screen,
             }],
-            metrics: RenderingMetrics { layers_created: Some(0) },
+            metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
         }
     }
 

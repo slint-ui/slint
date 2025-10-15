@@ -1014,10 +1014,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
             (*painter)->setOpacity((*painter)->opacity() * opacity);
         }}
     }
-
-    fn metrics(&self) -> RenderingMetrics {
-        self.metrics.clone()
-    }
 }
 
 #[derive(Clone)]
@@ -1609,7 +1605,7 @@ impl QtWindow {
                 painter,
                 cache: &self.cache,
                 window: &self.window,
-                metrics: RenderingMetrics { layers_created: Some(0) },
+                metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
             };
 
             for (component, origin) in components {
@@ -1624,7 +1620,8 @@ impl QtWindow {
             }
 
             if let Some(collector) = &*self.rendering_metrics_collector.borrow() {
-                collector.measure_frame_rendered(&mut renderer);
+                let metrics = renderer.metrics.clone();
+                collector.measure_frame_rendered(&mut renderer, metrics);
             }
 
             if self.window.has_active_animations() {

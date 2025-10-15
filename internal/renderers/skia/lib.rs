@@ -776,7 +776,7 @@ impl SkiaRenderer {
             }
 
             if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
-                collector.measure_frame_rendered(item_renderer);
+                collector.measure_frame_rendered(item_renderer, Default::default());
                 if collector.refresh_mode()
                     == i_slint_core::graphics::rendering_metrics_collector::RefreshMode::FullSpeed
                 {
