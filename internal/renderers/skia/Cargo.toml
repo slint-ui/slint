@@ -122,7 +122,7 @@ skia-safe = { version = "0.89", features = ["textlayout"] }
 
 [target.aarch64-apple-ios-sim.dependencies]
 # Disabling encoding assertions until https://github.com/madsmtm/objc2/issues/795 is fixed.
-objc2 = { version = "*", features = ["disable-encoding-assertions"] }
+objc2 = { version = "0.6.0", features = ["disable-encoding-assertions"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
