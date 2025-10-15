@@ -32,3 +32,8 @@ uv.lock
 .python-version
 
 MODULE.bazel.lock
+
+# Ignore Xcode projects created by xcodegen
+*.xcodeproj
+*.xcworkspace
+Info.plist
