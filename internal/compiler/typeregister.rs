@@ -85,6 +85,7 @@ pub struct BuiltinTypes {
     pub logical_point_type: Rc<Struct>,
     pub font_metrics_type: Type,
     pub layout_info_type: Rc<Struct>,
+    pub gridlayout_input_data_type: Type,
     pub path_element_type: Type,
     pub box_layout_cell_data_type: Type,
 }
@@ -142,6 +143,17 @@ impl BuiltinTypes {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
                 name: BuiltinPrivateStruct::BoxLayoutCellData.into(),
+            })),
+            gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    ("row".into(), Type::Int32),
+                    ("column".into(), Type::Int32),
+                    ("rowspan".into(), Type::Int32),
+                    ("colspan".into(), Type::Int32),
+                ])
+                .collect(),
+                name: BuiltinPrivateStruct::GridLayoutInputData.into(),
+                rust_attributes: None,
             })),
         }
     }
@@ -718,6 +730,11 @@ pub fn font_metrics_type() -> Type {
 /// The [`Type`] for a runtime LayoutInfo structure
 pub fn layout_info_type() -> Rc<Struct> {
     BUILTIN.with(|types| types.layout_info_type.clone())
+}
+
+/// The [`Type`] for a runtime GridLayoutOrganizedData structure
+pub fn organized_layout_type() -> Type {
+    Type::LayoutCache
 }
 
 /// The [`Type`] for a runtime PathElement structure

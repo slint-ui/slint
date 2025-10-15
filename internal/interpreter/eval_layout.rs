@@ -6,11 +6,13 @@ use crate::eval::{self, eval_expression, EvalLocalContext};
 use crate::Value;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
-use i_slint_compiler::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
+use i_slint_compiler::layout::{
+    GridLayout, Layout, LayoutConstraints, LayoutGeometry, Orientation,
+};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::items::{DialogButtonRole, ItemRc};
-use i_slint_core::layout::{self as core_layout};
+use i_slint_core::layout::{self as core_layout, GridLayoutOrganizedData};
 use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -31,6 +33,28 @@ pub(crate) fn from_runtime(o: core_layout::Orientation) -> Orientation {
     }
 }
 
+pub(crate) fn compute_grid_layout_info(
+    grid_layout: &GridLayout,
+    organized_data: &GridLayoutOrganizedData,
+    orientation: Orientation,
+    local_context: &mut EvalLocalContext,
+) -> Value {
+    let component = local_context.component_instance;
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    };
+    let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
+    let constraints = grid_layout_constraints(grid_layout, orientation, local_context);
+    core_layout::grid_layout_info(
+        organized_data.clone(),
+        Slice::from_slice(constraints.as_slice()),
+        spacing,
+        &padding,
+        to_runtime(orientation),
+    )
+    .into()
+}
+
 pub(crate) fn compute_layout_info(
     lay: &Layout,
     orientation: Orientation,
@@ -41,18 +65,8 @@ pub(crate) fn compute_layout_info(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
     match lay {
-        Layout::GridLayout(grid_layout) => {
-            let cells =
-                grid_layout_data(grid_layout, orientation, component, &expr_eval, local_context);
-            let (padding, spacing) =
-                padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
-            core_layout::grid_layout_info(
-                Slice::from(cells.as_slice()),
-                spacing,
-                &padding,
-                to_runtime(orientation),
-            )
-            .into()
+        Layout::GridLayout(_) => {
+            panic!("only BoxLayout is supported");
         }
         Layout::BoxLayout(box_layout) => {
             let (cells, alignment) =
@@ -74,6 +88,44 @@ pub(crate) fn compute_layout_info(
     }
 }
 
+pub(crate) fn organize_grid_layout(
+    layout: &GridLayout,
+    local_context: &mut EvalLocalContext,
+) -> Value {
+    let cells = grid_layout_input_data(layout, local_context);
+    core_layout::organize_grid_layout(Slice::from_slice(cells.as_slice())).into()
+}
+
+pub(crate) fn solve_grid_layout(
+    organized_data: &GridLayoutOrganizedData,
+    grid_layout: &GridLayout,
+    orientation: Orientation,
+    local_context: &mut EvalLocalContext,
+) -> Value {
+    let component = local_context.component_instance;
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    };
+    let constraints = grid_layout_constraints(grid_layout, orientation, local_context);
+
+    let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
+    let size_ref = grid_layout.geometry.rect.size_reference(orientation);
+
+    let data = core_layout::GridLayoutData {
+        size: size_ref.map(expr_eval).unwrap_or(0.),
+        spacing,
+        padding,
+        organized_data: organized_data.clone(),
+    };
+
+    core_layout::solve_grid_layout(
+        &data,
+        Slice::from_slice(constraints.as_slice()),
+        to_runtime(orientation),
+    )
+    .into()
+}
+
 pub(crate) fn solve_layout(
     lay: &Layout,
     orientation: Orientation,
@@ -85,33 +137,8 @@ pub(crate) fn solve_layout(
     };
 
     match lay {
-        Layout::GridLayout(grid_layout) => {
-            let mut cells =
-                grid_layout_data(grid_layout, orientation, component, &expr_eval, local_context);
-            if let (Some(buttons_roles), Orientation::Horizontal) =
-                (&grid_layout.dialog_button_roles, orientation)
-            {
-                let roles = buttons_roles
-                    .iter()
-                    .map(|r| DialogButtonRole::from_str(r).unwrap())
-                    .collect::<Vec<_>>();
-                core_layout::reorder_dialog_button_layout(&mut cells, &roles);
-            }
-
-            let (padding, spacing) =
-                padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
-
-            let size_ref = grid_layout.geometry.rect.size_reference(orientation);
-            core_layout::solve_grid_layout(
-                &core_layout::GridLayoutData {
-                    size: size_ref.map(expr_eval).unwrap_or(0.),
-                    spacing,
-                    padding,
-                    cells: Slice::from(cells.as_slice()),
-                },
-                to_runtime(orientation),
-            )
-            .into()
+        Layout::GridLayout(_) => {
+            panic!("solve_layout called on GridLayout; use solve_grid_layout instead");
         }
         Layout::BoxLayout(box_layout) => {
             let mut repeated_indices = Vec::new();
@@ -155,31 +182,14 @@ fn padding_and_spacing(
     (padding, spacing)
 }
 
-/// return the celldata, the padding, and the spacing of a grid layout
-fn grid_layout_data(
+fn grid_layout_input_data(
     grid_layout: &i_slint_compiler::layout::GridLayout,
-    orientation: Orientation,
-    component: InstanceRef,
-    expr_eval: &impl Fn(&NamedReference) -> f32,
     local_context: &mut EvalLocalContext,
-) -> Vec<core_layout::GridLayoutCellData> {
-    let mut cells = grid_layout
+) -> Vec<core_layout::GridLayoutInputData> {
+    grid_layout
         .elems
         .iter()
         .map(|cell| {
-            let mut layout_info = get_layout_info(
-                &cell.item.element,
-                component,
-                &component.window_adapter(),
-                orientation,
-            );
-            fill_layout_info_constraints(
-                &mut layout_info,
-                &cell.item.constraints,
-                orientation,
-                &expr_eval,
-            );
-            let span = cell.span(orientation);
             let mut eval_or_default = |expr: &Option<Expression>, default: u16| match expr {
                 None => default,
                 Some(e) => {
@@ -195,21 +205,40 @@ fn grid_layout_data(
             };
             let row = eval_or_default(&cell.row_expr, u16::MAX);
             let col = eval_or_default(&cell.col_expr, u16::MAX);
-            let span = eval_or_default(&span, 1);
-            core_layout::GridLayoutCellData {
-                new_row: cell.new_row,
-                col_or_row: match orientation {
-                    Orientation::Horizontal => col,
-                    Orientation::Vertical => row,
-                },
-                row,
-                span,
-                constraint: layout_info,
-            }
+            let rowspan = eval_or_default(&cell.rowspan_expr, 1);
+            let colspan = eval_or_default(&cell.colspan_expr, 1);
+            core_layout::GridLayoutInputData { new_row: cell.new_row, col, row, colspan, rowspan }
         })
-        .collect::<Vec<_>>();
-    core_layout::determine_row_col_numbers(&mut cells, to_runtime(orientation));
-    cells
+        .collect()
+}
+
+fn grid_layout_constraints(
+    grid_layout: &i_slint_compiler::layout::GridLayout,
+    orientation: Orientation,
+    ctx: &mut EvalLocalContext,
+) -> Vec<core_layout::LayoutInfo> {
+    let component = ctx.component_instance;
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    };
+    let mut constraints = Vec::with_capacity(grid_layout.elems.len());
+
+    for cell in grid_layout.elems.iter() {
+        let mut layout_info = get_layout_info(
+            &cell.item.element,
+            component,
+            &component.window_adapter(),
+            orientation,
+        );
+        fill_layout_info_constraints(
+            &mut layout_info,
+            &cell.item.constraints,
+            orientation,
+            &expr_eval,
+        );
+        constraints.push(layout_info);
+    }
+    constraints
 }
 
 fn box_layout_data(

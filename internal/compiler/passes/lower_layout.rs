@@ -12,7 +12,7 @@ use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
-use crate::typeregister::{TypeRegister, layout_info_type};
+use crate::typeregister::{TypeRegister, layout_info_type, organized_layout_type};
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -163,6 +163,11 @@ fn lower_grid_layout(
         dialog_button_roles: None,
     };
 
+    let layout_organized_data_prop = create_new_prop(
+        grid_layout_element,
+        SmolStr::new_static("layout-organized-data"),
+        organized_layout_type().into(),
+    );
     let layout_cache_prop_h = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-h"),
@@ -203,7 +208,14 @@ fn lower_grid_layout(
                         &*binding.borrow(),
                     );
                 });
-                grid.add_element(&x, new_row, &layout_cache_prop_h, &layout_cache_prop_v, diag);
+                grid.add_element(
+                    &x,
+                    new_row,
+                    &layout_cache_prop_h,
+                    &layout_cache_prop_v,
+                    &layout_organized_data_prop,
+                    diag,
+                );
                 collected_children.push(x);
                 new_row = false;
             }
@@ -221,6 +233,7 @@ fn lower_grid_layout(
                 new_row,
                 &layout_cache_prop_h,
                 &layout_cache_prop_v,
+                &layout_organized_data_prop,
                 diag,
             );
             collected_children.push(layout_child);
@@ -229,10 +242,23 @@ fn lower_grid_layout(
     }
     grid_layout_element.borrow_mut().children = collected_children;
     let span = grid_layout_element.borrow().to_source_location();
+
+    layout_organized_data_prop.element().borrow_mut().bindings.insert(
+        layout_organized_data_prop.name().clone(),
+        BindingExpression::new_with_span(
+            Expression::OrganizeGridLayout(grid.clone()),
+            span.clone(),
+        )
+        .into(),
+    );
     layout_cache_prop_h.element().borrow_mut().bindings.insert(
         layout_cache_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Horizontal),
+            Expression::SolveGridLayout {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Horizontal,
+            },
             span.clone(),
         )
         .into(),
@@ -240,7 +266,11 @@ fn lower_grid_layout(
     layout_cache_prop_v.element().borrow_mut().bindings.insert(
         layout_cache_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Vertical),
+            Expression::SolveGridLayout {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Vertical,
+            },
             span.clone(),
         )
         .into(),
@@ -248,10 +278,11 @@ fn lower_grid_layout(
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(
-                Layout::GridLayout(grid.clone()),
-                Orientation::Horizontal,
-            ),
+            Expression::ComputeGridLayoutInfo {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Horizontal,
+            },
             span.clone(),
         )
         .into(),
@@ -259,7 +290,11 @@ fn lower_grid_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::GridLayout(grid.clone()), Orientation::Vertical),
+            Expression::ComputeGridLayoutInfo {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Vertical,
+            },
             span,
         )
         .into(),
@@ -278,6 +313,7 @@ impl GridLayout {
         new_row: bool,
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
+        organized_data_prop: &NamedReference,
         diag: &mut BuildDiagnostics,
     ) {
         let mut get_expr = |name: &str| {
@@ -300,6 +336,7 @@ impl GridLayout {
             (&rowspan_expr, &colspan_expr),
             layout_cache_prop_h,
             layout_cache_prop_v,
+            organized_data_prop,
             diag,
         );
     }
@@ -311,6 +348,7 @@ impl GridLayout {
         (rowspan, colspan): (u16, u16),
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
+        organized_data_prop: &NamedReference,
         diag: &mut BuildDiagnostics,
     ) {
         self.add_element_with_coord_as_expr(
@@ -326,6 +364,7 @@ impl GridLayout {
             ),
             layout_cache_prop_h,
             layout_cache_prop_v,
+            organized_data_prop,
             diag,
         )
     }
@@ -338,6 +377,7 @@ impl GridLayout {
         (rowspan_expr, colspan_expr): (&Option<Expression>, &Option<Expression>),
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
+        organized_data_prop: &NamedReference,
         diag: &mut BuildDiagnostics,
     ) {
         let index = self.elems.len();
@@ -353,20 +393,21 @@ impl GridLayout {
             }
 
             let e = &layout_item.elem;
-            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 3, &None, diag);
+            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, &None, diag);
             if !layout_item.item.constraints.fixed_width {
-                set_prop_from_cache(e, "width", layout_cache_prop_h, index * 3 + 1, &None, diag);
+                set_prop_from_cache(e, "width", layout_cache_prop_h, index * 2 + 1, &None, diag);
             }
-            if col_expr.is_none() {
-                set_prop_from_cache(e, "col", layout_cache_prop_h, index * 3 + 2, &None, diag);
+            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, &None, diag);
+            if !layout_item.item.constraints.fixed_height {
+                set_prop_from_cache(e, "height", layout_cache_prop_v, index * 2 + 1, &None, diag);
             }
 
-            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 3, &None, diag);
-            if !layout_item.item.constraints.fixed_height {
-                set_prop_from_cache(e, "height", layout_cache_prop_v, index * 3 + 1, &None, diag);
+            let org_index = index * 4;
+            if col_expr.is_none() {
+                set_prop_from_cache(e, "col", organized_data_prop, org_index, &None, diag);
             }
             if row_expr.is_none() {
-                set_prop_from_cache(e, "row", layout_cache_prop_v, index * 3 + 2, &None, diag);
+                set_prop_from_cache(e, "row", organized_data_prop, org_index + 2, &None, diag);
             }
 
             self.elems.push(GridLayoutElement {
@@ -542,6 +583,11 @@ fn lower_dialog_layout(
         .vertical
         .get_or_insert(NamedReference::new(metrics, SmolStr::new_static("layout-spacing")));
 
+    let layout_organized_data_prop = create_new_prop(
+        dialog_element,
+        SmolStr::new_static("layout-organized-data"),
+        organized_layout_type().into(),
+    );
     let layout_cache_prop_h =
         create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);
     let layout_cache_prop_v =
@@ -672,6 +718,7 @@ fn lower_dialog_layout(
                 (1, 1),
                 &layout_cache_prop_h,
                 &layout_cache_prop_v,
+                &layout_organized_data_prop,
                 diag,
             );
         } else if main_widget.is_some() {
@@ -692,6 +739,7 @@ fn lower_dialog_layout(
             (1, button_roles.len() as u16 + 1),
             &layout_cache_prop_h,
             &layout_cache_prop_v,
+            &layout_organized_data_prop,
             diag,
         );
     } else {
@@ -703,10 +751,22 @@ fn lower_dialog_layout(
     grid.dialog_button_roles = Some(button_roles);
 
     let span = dialog_element.borrow().to_source_location();
+    layout_organized_data_prop.element().borrow_mut().bindings.insert(
+        layout_organized_data_prop.name().clone(),
+        BindingExpression::new_with_span(
+            Expression::OrganizeGridLayout(grid.clone()),
+            span.clone(),
+        )
+        .into(),
+    );
     layout_cache_prop_h.element().borrow_mut().bindings.insert(
         layout_cache_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Horizontal),
+            Expression::SolveGridLayout {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Horizontal,
+            },
             span.clone(),
         )
         .into(),
@@ -714,7 +774,11 @@ fn lower_dialog_layout(
     layout_cache_prop_v.element().borrow_mut().bindings.insert(
         layout_cache_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Vertical),
+            Expression::SolveGridLayout {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Vertical,
+            },
             span.clone(),
         )
         .into(),
@@ -722,10 +786,11 @@ fn lower_dialog_layout(
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(
-                Layout::GridLayout(grid.clone()),
-                Orientation::Horizontal,
-            ),
+            Expression::ComputeGridLayoutInfo {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Horizontal,
+            },
             span.clone(),
         )
         .into(),
@@ -733,7 +798,11 @@ fn lower_dialog_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::GridLayout(grid.clone()), Orientation::Vertical),
+            Expression::ComputeGridLayoutInfo {
+                layout_organized_data_prop: layout_organized_data_prop.clone(),
+                layout: grid.clone(),
+                orientation: Orientation::Vertical,
+            },
             span,
         )
         .into(),

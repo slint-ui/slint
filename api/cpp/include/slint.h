@@ -123,19 +123,32 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
     return result;
 }
 
-inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data,
-                                             cbindgen_private::Orientation orientation)
+inline SharedVector<float>
+organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data)
 {
     SharedVector<float> result;
-    cbindgen_private::slint_solve_grid_layout(&data, orientation, &result);
+    cbindgen_private::slint_organize_grid_layout(input_data, &result);
+    return result;
+}
+
+inline SharedVector<float>
+solve_grid_layout(const cbindgen_private::GridLayoutData &data,
+                  cbindgen_private::Slice<cbindgen_private::LayoutInfo> constraints,
+                  cbindgen_private::Orientation orientation)
+{
+    SharedVector<float> result;
+    cbindgen_private::slint_solve_grid_layout(&data, constraints, orientation, &result);
     return result;
 }
 
 inline cbindgen_private::LayoutInfo
-grid_layout_info(cbindgen_private::Slice<cbindgen_private::GridLayoutCellData> cells, float spacing,
-                 const cbindgen_private::Padding &padding, cbindgen_private::Orientation o)
+grid_layout_info(const cbindgen_private::GridLayoutOrganizedData &organized_data,
+                 cbindgen_private::Slice<cbindgen_private::LayoutInfo> constraints, float spacing,
+                 const cbindgen_private::Padding &padding,
+                 cbindgen_private::Orientation orientation)
 {
-    return cbindgen_private::slint_grid_layout_info(cells, spacing, &padding, o);
+    return cbindgen_private::slint_grid_layout_info(&organized_data, constraints, spacing, &padding,
+                                                    orientation);
 }
 
 inline cbindgen_private::LayoutInfo

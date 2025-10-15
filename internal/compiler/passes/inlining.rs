@@ -593,6 +593,13 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
                 }
             }
         },
+        Expression::SolveGridLayout { layout, .. }
+        | Expression::OrganizeGridLayout(layout)
+        | Expression::ComputeGridLayoutInfo { layout, .. } => {
+            for e in &mut layout.elems {
+                fxe(&mut e.item.element);
+            }
+        }
         Expression::RepeaterModelReference { element }
         | Expression::RepeaterIndexReference { element } => fx(element),
         _ => expr.visit_mut(|e| fixup_element_references(e, mapping)),

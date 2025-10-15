@@ -2374,8 +2374,17 @@ pub fn visit_named_references_in_expression(
             ..
         } => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
-        Expression::SolveLayout(l, _) => l.visit_named_references(vis),
+        Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
         Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
+            vis(layout_organized_data_prop);
+            layout.visit_named_references(vis);
+        }
+        Expression::SolveLayout(l, _) => l.visit_named_references(vis),
+        Expression::SolveGridLayout { layout_organized_data_prop, layout, .. } => {
+            vis(layout_organized_data_prop);
+            layout.visit_named_references(vis);
+        }
         // This is not really a named reference, but the result is the same, it need to be updated
         // FIXME: this should probably be lowered into a PropertyReference
         Expression::RepeaterModelReference { element }
