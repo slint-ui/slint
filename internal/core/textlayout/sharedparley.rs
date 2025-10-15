@@ -370,6 +370,11 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                         Style::Strong => {
                             parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD)
                         }
+                        Style::Code => parley::StyleProperty::FontStack(
+                            parley::style::FontStack::Single(parley::style::FontFamily::Generic(
+                                parley::style::GenericFamily::Monospace,
+                            )),
+                        ),
                     };
                     builder.push(property, span.range);
                 }
@@ -760,6 +765,7 @@ enum Style {
     Emphasis,
     Strong,
     Strikethrough,
+    Code,
 }
 
 #[derive(Debug)]
@@ -776,8 +782,6 @@ enum ListItemType {
 
 #[derive(Debug)]
 struct RichTextParagraph {
-    indentation: u32,
-    list_item_type: Option<ListItemType>,
     text: std::string::String,
     formatting: Vec<FormattedSpan>,
 }
@@ -785,6 +789,27 @@ struct RichTextParagraph {
 #[derive(Debug, Default)]
 struct RichText {
     paragraphs: Vec<RichTextParagraph>,
+}
+
+impl RichText {
+    fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
+        let mut text = std::string::String::new();
+        for _ in 0..indentation {
+            text.push_str("    ");
+        }
+        match list_item_type {
+            Some(ListItemType::Unordered) => {
+                if indentation % 2 == 0 {
+                    text.push_str("• ")
+                } else {
+                    text.push_str("◦ ")
+                }
+            }
+            Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
+            None => {}
+        };
+        self.paragraphs.push(RichTextParagraph { text, formatting: Default::default() });
+    }
 }
 
 fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
@@ -799,23 +824,16 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
             pulldown_cmark::Event::SoftBreak
             | pulldown_cmark::Event::HardBreak
             | pulldown_cmark::Event::Start(pulldown_cmark::Tag::Paragraph) => {
-                rich_text.paragraphs.push(RichTextParagraph {
-                    indentation,
-                    list_item_type: None,
-                    text: Default::default(),
-                    formatting: Default::default(),
-                });
+                rich_text.begin_paragraph(indentation, None);
             }
             pulldown_cmark::Event::Start(pulldown_cmark::Tag::Item) => {
-                rich_text.paragraphs.push(RichTextParagraph {
+                rich_text.begin_paragraph(
                     indentation,
-                    list_item_type: Some(match list_state_stack.last().copied() {
+                    Some(match list_state_stack.last().copied() {
                         Some(Some(index)) => ListItemType::Ordered(index),
                         _ => ListItemType::Unordered,
                     }),
-                    text: Default::default(),
-                    formatting: Default::default(),
-                });
+                );
                 if let Some(state) = list_state_stack.last_mut() {
                     *state = state.map(|state| state + 1);
                 }
@@ -843,9 +861,27 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
                     pulldown_cmark::Tag::Strong => Some(Style::Strong),
                     pulldown_cmark::Tag::Emphasis => Some(Style::Emphasis),
                     pulldown_cmark::Tag::Strikethrough => Some(Style::Strikethrough),
-                    other => {
-                        std::dbg!(other);
-                        None
+                    pulldown_cmark::Tag::Paragraph
+                    | pulldown_cmark::Tag::List(_)
+                    | pulldown_cmark::Tag::Item => unreachable!(),
+                    pulldown_cmark::Tag::Heading { .. }
+                    | pulldown_cmark::Tag::Link { .. }
+                    | pulldown_cmark::Tag::Image { .. }
+                    | pulldown_cmark::Tag::DefinitionList
+                    | pulldown_cmark::Tag::DefinitionListTitle
+                    | pulldown_cmark::Tag::DefinitionListDefinition
+                    | pulldown_cmark::Tag::TableHead
+                    | pulldown_cmark::Tag::TableRow
+                    | pulldown_cmark::Tag::TableCell
+                    | pulldown_cmark::Tag::HtmlBlock
+                    | pulldown_cmark::Tag::Superscript
+                    | pulldown_cmark::Tag::Subscript
+                    | pulldown_cmark::Tag::Table(_)
+                    | pulldown_cmark::Tag::MetadataBlock(_)
+                    | pulldown_cmark::Tag::BlockQuote(_)
+                    | pulldown_cmark::Tag::CodeBlock(_)
+                    | pulldown_cmark::Tag::FootnoteDefinition(_) => {
+                        unimplemented!()
                     }
                 };
 
@@ -855,9 +891,21 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
                 }
             }
-            other => {
-                std::dbg!(other);
+            pulldown_cmark::Event::Code(text) => {
+                let paragraph = rich_text.paragraphs.last_mut().unwrap();
+                let start = paragraph.text.len();
+                paragraph.text.push_str(&text);
+                paragraph
+                    .formatting
+                    .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
             }
+            pulldown_cmark::Event::Rule
+            | pulldown_cmark::Event::TaskListMarker(_)
+            | pulldown_cmark::Event::FootnoteReference(_)
+            | pulldown_cmark::Event::InlineMath(_)
+            | pulldown_cmark::Event::DisplayMath(_)
+            | pulldown_cmark::Event::InlineHtml(_)
+            | pulldown_cmark::Event::Html(_) => unimplemented!(),
         }
     }
 
