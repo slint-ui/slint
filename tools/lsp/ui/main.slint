@@ -80,6 +80,7 @@ export component PreviewUi inherits Window {
 
             MenuItem {
                 title: @tr("Reload");
+                icon: Icons.sync;
                 activated => {
                     Api.reload-preview();
                 }
@@ -121,24 +122,28 @@ export component PreviewUi inherits Window {
 
             MenuItem {
                 title: @tr("Library");
+                icon: Icons.library;
                 checkable: true;
                 checked <=> root.library-widget;
             }
 
             MenuItem {
                 title: @tr("Properties");
+                icon: Icons.properties;
                 checkable: true;
                 checked <=> root.properties-widget;
             }
 
             MenuItem {
                 title: @tr("Outline");
+                icon: Icons.outline;
                 checkable: true;
                 checked <=> root.outline-widget;
             }
 
             MenuItem {
                 title: @tr("Simulation Data");
+                icon: Icons.simulator;
                 checkable: true;
                 checked <=> root.data-widget;
             }
