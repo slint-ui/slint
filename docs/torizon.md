@@ -1,5 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-<!-- cSpell: ignore Torizon Toradex Vivante imx8 am62 imx95 PowerVR -->
+<!-- cSpell: ignore Torizon Toradex imx8 am62 imx95 -->
 # Running Slint Demos on Torizon OS
 
 Toradex provides [Torizon OS](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.
@@ -22,7 +22,6 @@ Our pre-compiled demos are available in multiple variants optimized for differen
 2. **i.MX8 GPU build** (`torizon-demos-arm64-imx8`) - Optimized for i.MX8 series with GPU acceleration
 3. **AM62 GPU build** (`torizon-demos-arm64-am62`) - Optimized for AM62 series with GPU acceleration
 4. **i.MX95 GPU build** (`torizon-demos-arm64-imx95`) - Optimized for i.MX95 series with GPU acceleration
-5. **Vivante GPU build** (`torizon-demos-arm64-vivante`) - Legacy variant for i.MX8 with Vivante GPU acceleration
 
 A complete list of all containers can be found at
 

@@ -44,12 +44,6 @@ jobs:
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: "-imx95"
                       build_home_automation_sw_renderer: false
-                    # Legacy vivante support (for backward compatibility)
-                    - target: arm64
-                      image_arch: linux/arm64
-                      rust_toolchain_arch: aarch64-unknown-linux-gnu
-                      base_image_suffix: "-vivante"
-                      build_home_automation_sw_renderer: false
 
         steps:
             - uses: actions/checkout@v5
