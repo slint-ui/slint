@@ -120,6 +120,10 @@ wgpu-27 = { workspace = true, optional = true, features = ["vulkan"] }
 # Text layout is enabled here just so that we can make use of the pre-built Skia libraries.
 skia-safe = { version = "0.89", features = ["textlayout"] }
 
+[target.aarch64-apple-ios-sim.dependencies]
+# Disabling encoding assertions until https://github.com/madsmtm/objc2/issues/795 is fixed.
+objc2 = { version = "*", features = ["disable-encoding-assertions"] }
+
 [build-dependencies]
 cfg_aliases = { workspace = true }
 
