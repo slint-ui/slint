@@ -96,6 +96,9 @@ struct Brush {
     /// When set, this overrides the fill/stroke to use this color for just a fill, for selection.
     selection_fill_color: Option<crate::Color>,
     stroke: Option<TextStrokeStyle>,
+    underline_color: crate::Color,
+    strikethrough_color: crate::Color,
+    link_color: Option<crate::Color>,
 }
 
 struct LayoutOptions {
@@ -109,6 +112,9 @@ struct LayoutOptions {
     text_overflow: TextOverflow,
     selection: Option<core::ops::Range<usize>>,
     selection_foreground_color: Option<crate::Color>,
+    underline_color: crate::Color,
+    strikethrough_color: crate::Color,
+    link_color: crate::Color,
 }
 
 impl LayoutOptions {
@@ -133,6 +139,9 @@ impl LayoutOptions {
             stroke: None,
             text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
+            strikethrough_color: crate::Color::from_rgb_u8(0, 0, 0),
+            underline_color: crate::Color::from_rgb_u8(0, 0, 0),
+            link_color: crate::Color::from_rgb_u8(64, 64, 255),
         }
     }
 }
@@ -213,6 +222,9 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         builder.push_default(parley::StyleProperty::Brush(Brush {
             selection_fill_color: None,
             stroke: options.stroke,
+            strikethrough_color: options.strikethrough_color,
+            underline_color: options.underline_color,
+            link_color: None,
         }));
     };
 
@@ -264,6 +276,9 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                             parley::StyleProperty::Brush(Brush {
                                 selection_fill_color: Some(selection_color),
                                 stroke: options.stroke,
+                                strikethrough_color: options.strikethrough_color,
+                                underline_color: options.underline_color,
+                                link_color: None,
                             }),
                             local_selection,
                         );
@@ -272,26 +287,59 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
                 if let Some(formatting) = formatting {
                     for span in formatting {
-                        let property = match span.style {
+                        match span.style {
                             Style::Emphasis => {
-                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic)
+                                builder.push(
+                                    parley::StyleProperty::FontStyle(
+                                        parley::style::FontStyle::Italic,
+                                    ),
+                                    span.range,
+                                );
                             }
-                            Style::Strikethrough => parley::StyleProperty::Strikethrough(true),
+                            Style::Strikethrough => {
+                                builder
+                                    .push(parley::StyleProperty::Strikethrough(true), span.range);
+                            }
                             Style::Strong => {
-                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD)
+                                builder.push(
+                                    parley::StyleProperty::FontWeight(
+                                        parley::style::FontWeight::BOLD,
+                                    ),
+                                    span.range,
+                                );
                             }
                             Style::Code => {
-                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
-                                    parley::style::FontFamily::Generic(
-                                        parley::style::GenericFamily::Monospace,
+                                builder.push(
+                                    parley::StyleProperty::FontStack(
+                                        parley::style::FontStack::Single(
+                                            parley::style::FontFamily::Generic(
+                                                parley::style::GenericFamily::Monospace,
+                                            ),
+                                        ),
                                     ),
-                                ))
+                                    span.range,
+                                );
                             }
-                            Style::Link { .. } | Style::Underline => {
-                                parley::StyleProperty::Underline(true)
+                            Style::Underline => {
+                                builder.push(parley::StyleProperty::Underline(true), span.range);
                             }
-                        };
-                        builder.push(property, span.range);
+                            Style::Link { .. } => {
+                                builder.push(
+                                    parley::StyleProperty::Underline(true),
+                                    span.range.clone(),
+                                );
+                                builder.push(
+                                    parley::StyleProperty::Brush(Brush {
+                                        selection_fill_color: None,
+                                        stroke: options.stroke,
+                                        strikethrough_color: options.strikethrough_color,
+                                        underline_color: options.underline_color,
+                                        link_color: Some(options.link_color),
+                                    }),
+                                    span.range,
+                                );
+                            }
+                        }
                     }
                 }
 
@@ -448,18 +496,28 @@ impl TextParagraph {
                             glyphs_it = &mut unelided_glyphs_it;
                         };
 
-                        let (fill_brush, stroke_style) = match brush.selection_fill_color {
-                            Some(color) => {
-                                let Some(selection_brush) =
-                                    item_renderer.platform_brush_for_color(&color)
-                                else {
-                                    // Weird, a transparent selection color, but ok...
-                                    continue;
-                                };
-                                (selection_brush.clone(), &None)
-                            }
-                            None => (default_fill_brush.clone(), &brush.stroke),
-                        };
+                        let (fill_brush, stroke_style) =
+                            match (brush.selection_fill_color, brush.link_color) {
+                                (Some(color), _) => {
+                                    let Some(selection_brush) =
+                                        item_renderer.platform_brush_for_color(&color)
+                                    else {
+                                        // Weird, a transparent selection color, but ok...
+                                        continue;
+                                    };
+                                    (selection_brush.clone(), &None)
+                                }
+                                (None, Some(color)) => {
+                                    let Some(link_brush) =
+                                        item_renderer.platform_brush_for_color(&color)
+                                    else {
+                                        // Weird, a transparent selection color, but ok...
+                                        continue;
+                                    };
+                                    (link_brush.clone(), &None)
+                                }
+                                (None, None) => (default_fill_brush.clone(), &brush.stroke),
+                            };
 
                         match stroke_style {
                             Some(TextStrokeStyle::Outside) => {
@@ -518,6 +576,46 @@ impl TextParagraph {
                                     glyphs_it,
                                 );
                             }
+                        }
+
+                        let metrics = run.metrics();
+
+                        if let Some(decoration) = &glyph_run.style().underline {
+                            item_renderer.fill_rectangle(
+                                PhysicalRect::new(
+                                    PhysicalPoint::from_lengths(
+                                        PhysicalLength::new(glyph_run.offset()),
+                                        para_y
+                                            + PhysicalLength::new(
+                                                run.font_size() - metrics.underline_offset,
+                                            ),
+                                    ),
+                                    PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
+                                ),
+                                decoration
+                                    .brush
+                                    .link_color
+                                    .unwrap_or(decoration.brush.underline_color),
+                            );
+                        }
+
+                        if let Some(decoration) = &glyph_run.style().strikethrough {
+                            item_renderer.fill_rectangle(
+                                PhysicalRect::new(
+                                    PhysicalPoint::from_lengths(
+                                        PhysicalLength::new(glyph_run.offset()),
+                                        para_y
+                                            + PhysicalLength::new(
+                                                run.font_size() - metrics.strikethrough_offset,
+                                            ),
+                                    ),
+                                    PhysicalSize::new(
+                                        glyph_run.advance(),
+                                        metrics.strikethrough_size,
+                                    ),
+                                ),
+                                decoration.brush.strikethrough_color,
+                            );
                         }
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
@@ -1065,6 +1163,9 @@ pub fn draw_text(
             text_overflow,
             selection: None,
             selection_foreground_color: None,
+            strikethrough_color: crate::Color::from_rgb_u8(0, 0, 0),
+            underline_color: crate::Color::from_rgb_u8(0, 0, 0),
+            link_color: crate::Color::from_rgb_u8(64, 64, 255),
         },
     );
 
@@ -1187,6 +1288,9 @@ pub fn text_size(
             text_overflow: TextOverflow::Clip,
             selection: None,
             selection_foreground_color: None,
+            strikethrough_color: crate::Color::from_rgb_u8(0, 0, 0),
+            underline_color: crate::Color::from_rgb_u8(0, 0, 0),
+            link_color: crate::Color::from_rgb_u8(64, 64, 255),
         },
     );
     PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
