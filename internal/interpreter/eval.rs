@@ -428,7 +428,24 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::ComputeLayoutInfo(lay, o) => crate::eval_layout::compute_layout_info(lay, *o, local_context),
+        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+               let cache = load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance), &layout_organized_data_prop.element(), layout_organized_data_prop.name()).unwrap();
+            if let Value::LayoutCache(cache) = cache {
+                crate::eval_layout::compute_grid_layout_info(layout, &cache, *orientation, local_context)
+            } else {
+                panic!("invalid layout organized data cache")
+             }
+        }
+        Expression::OrganizeGridLayout(lay) => crate::eval_layout::organize_grid_layout(lay, local_context),
         Expression::SolveLayout(lay, o) => crate::eval_layout::solve_layout(lay, *o, local_context),
+        Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
+            let cache = load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance), &layout_organized_data_prop.element(), layout_organized_data_prop.name()).unwrap();
+            if let Value::LayoutCache(cache) = cache {
+                crate::eval_layout::solve_grid_layout(&cache, layout, *orientation, local_context)
+            } else {
+                panic!("invalid layout organized data cache")
+             }
+        }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
                 return local_context.return_value.clone().expect("minmax lhs expression did not evaluate to number");

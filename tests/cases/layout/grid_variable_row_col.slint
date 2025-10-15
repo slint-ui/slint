@@ -29,6 +29,9 @@ export component TestCase inherits Window {
             width: 40phx;
             height: 40phx;
         }
+        txt := Text {
+            text: txt.row + "," + txt.col;
+        }
         rr := Rectangle {
             background: red;
             row: red_row;
@@ -39,10 +42,12 @@ export component TestCase inherits Window {
         }
     }
     out property <bool> initial_grid_ok: {
-        // red is at (0, 0), green is at (row=0, col=1), blue is at (row=1, col=0) with colspan 2
+        // red is at (0, 0), green is at (row=0, col=1), txt is at (row=0, col=2),
+        // and blue is at (row=1, col=0) with colspan 2
         rr.x == 50phx  && rr.y == 50phx  && rr.colspan == 1 &&
         rg.x == 100phx && rg.y == 50phx  && rg.colspan == 1 &&
-        rb.x == 50phx  && rb.y == 100phx && rb.width == 90phx && rb.colspan == 2
+        rb.x == 50phx  && rb.y == 100phx && rb.width == 90phx && rb.colspan == 2 &&
+        txt.text == "0,2"
     }
 
     public function change_grid() {
@@ -54,9 +59,11 @@ export component TestCase inherits Window {
 
     out property <bool> final_grid_ok: {
         // now they are all at col 0, and in the order green, red, blue
-        rr.x == 50phx && rr.y == 100phx && rr.width == 40phx && rr.colspan == 1 &&
-        rg.x == 50phx && rg.y == 50phx  && rg.width == 40phx && rg.colspan == 1 &&
-        rb.x == 50phx && rb.y == 150phx && rb.width == 40phx && rb.colspan == 1
+        // and txt is at (row=0, col=1)
+        rr.x == 50phx && rr.y == 100phx && rr.width == 40phx && rr.row == 1 && rr.colspan == 1 &&
+        rg.x == 50phx && rg.y == 50phx  && rg.width == 40phx && rg.row == 0 && rg.colspan == 1 &&
+        rb.x == 50phx && rb.y == 150phx && rb.width == 40phx && rb.row == 2 && rb.colspan == 1 &&
+        txt.text == "0,1"
     }
 
     init => {

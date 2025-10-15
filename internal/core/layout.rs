@@ -305,23 +305,39 @@ mod grid_internal {
         assert_eq!(my_items[2].size, 100.);
     }
 
+    pub fn to_layout_cell_data(
+        organized_data: &GridLayoutOrganizedData,
+        constraints: Slice<LayoutInfo>,
+        orientation: Orientation,
+    ) -> Vec<GridLayoutCellData> {
+        assert!(organized_data.len() % 4 == 0);
+        assert!(constraints.len() * 4 == organized_data.len());
+
+        let mut cells: Vec<GridLayoutCellData> = Vec::with_capacity(organized_data.len() / 4);
+        let offset = if orientation == Orientation::Horizontal { 0 } else { 2 };
+        for (idx, constraint) in constraints.iter().enumerate() {
+            cells.push(GridLayoutCellData {
+                col_or_row: organized_data[idx * 4 + offset] as u16,
+                span: organized_data[idx * 4 + offset + 1] as u16,
+                constraint: *constraint,
+            });
+        }
+        cells
+    }
+
     /// Create a vector of LayoutData (e.g. one per row if Vertical) for an array of GridLayoutCellData (one per cell)
-    /// Used by both solve_grid_layout() and grid_layout_info() (each with their own copy of the GridLayoutCellData slice)
+    /// Used by both solve_grid_layout() and grid_layout_info()
     pub fn to_layout_data(
-        data: &[GridLayoutCellData],
+        cells: &[GridLayoutCellData],
         spacing: Coord,
         size: Option<Coord>,
-        orientation: Orientation,
-    ) -> (Vec<LayoutData>, Vec<GridLayoutCellData>) {
-        let mut cells: Vec<GridLayoutCellData> = data.to_vec();
-        determine_row_col_numbers(&mut cells, orientation);
-
+    ) -> Vec<LayoutData> {
         let mut num = 0usize;
         for cell in cells.iter() {
             num = num.max(cell.col_or_row as usize + cell.span.max(1) as usize);
         }
         if num < 1 {
-            return (Default::default(), cells);
+            return Default::default();
         }
         let mut layout_data =
             alloc::vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num];
@@ -402,7 +418,7 @@ mod grid_internal {
                 }
             }
         }
-        (layout_data, cells)
+        layout_data
     }
 }
 
@@ -427,74 +443,91 @@ pub struct Padding {
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct GridLayoutData<'a> {
+/// The horizontal or vertical data for all cells of a GridLayout, used as input to solve_grid_layout()
+pub struct GridLayoutData {
     pub size: Coord,
     pub spacing: Coord,
     pub padding: Padding,
-    pub cells: Slice<'a, GridLayoutCellData>,
+    pub organized_data: GridLayoutOrganizedData,
 }
 
 /// The horizontal or vertical data for a cell of a GridLayout
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct GridLayoutCellData {
-    /// whether this cell is the first one in a Row element
-    pub new_row: bool,
     /// col or row (u16::MAX means auto).
     pub col_or_row: u16,
-    /// row number, needed to detect row changes (and set col to 0).
-    /// This duplicates col_or_row in case of vertical data, but col_or_row allows more common code.
-    pub row: u16,
     /// colspan or rowspan
     pub span: u16,
     pub constraint: LayoutInfo,
 }
 
+/// The input data for a cell of a GridLayout, before row/col determination and before H/V split
+/// Used as input to organize_grid_layout()
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
+pub struct GridLayoutInputData {
+    /// whether this cell is the first one in a Row element
+    pub new_row: bool,
+    /// col and row number (u16::MAX means auto).
+    pub col: u16,
+    pub row: u16,
+    /// colspan and rowspan
+    pub colspan: u16,
+    pub rowspan: u16,
+}
+
+/// The organized layout data for a GridLayout, after row/col determination:
+/// For each cell, stores col, colspan, row, rowspan
+pub type GridLayoutOrganizedData = SharedVector<Coord>;
+
+impl GridLayoutOrganizedData {
+    pub fn push_cell(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
+        self.push(col as Coord);
+        self.push(colspan as Coord);
+        self.push(row as Coord);
+        self.push(rowspan as Coord);
+    }
+}
+
 // Implement "auto" behavior for row/col numbers (unless specified in the slint file).
-// Shared code between to_layout_data() (when compiled) and eval_layout.rs (when interpreted)
-pub fn determine_row_col_numbers(data: &mut [GridLayoutCellData], orientation: Orientation) {
+pub fn organize_grid_layout(core_slice: Slice<GridLayoutInputData>) -> GridLayoutOrganizedData {
+    let data = core_slice.as_slice();
+    let mut organized_data = GridLayoutOrganizedData::default();
+    organized_data.reserve(data.len() * 4);
     let mut row = 0;
     let mut col = 0;
     let mut first = true;
     let auto = u16::MAX;
-    for cell in data.iter_mut() {
+    for cell in data.iter() {
         if cell.new_row && !first {
             row += 1;
             col = 0;
         }
         first = false;
-        if cell.row == auto {
-            cell.row = row;
-        } else if row != cell.row {
+        if cell.row != auto && row != cell.row {
             row = cell.row;
             col = 0;
         }
-        if orientation == Orientation::Horizontal {
-            if cell.col_or_row == auto {
-                cell.col_or_row = col;
-            } else {
-                col = cell.col_or_row;
-            }
-        } else {
-            if cell.col_or_row == auto {
-                cell.col_or_row = row;
-            } else {
-                row = cell.col_or_row;
-            }
+        if cell.col != auto {
+            col = cell.col;
         }
+
+        organized_data.push_cell(col, cell.colspan, row, cell.rowspan);
         col += 1;
     }
+    organized_data
 }
 
-/// return, an array which is of size `data.cells.len() * 3` which for each cell stores:
-/// pos (x or y), size (width or height), row or column number
-pub fn solve_grid_layout(data: &GridLayoutData, orientation: Orientation) -> SharedVector<Coord> {
-    let (mut layout_data, cells) = grid_internal::to_layout_data(
-        data.cells.as_slice(),
-        data.spacing,
-        Some(data.size),
-        orientation,
-    );
+/// return, an array which is of size `data.cells.len() * 2` which for each cell stores:
+/// pos (x or y), size (width or height)
+pub fn solve_grid_layout(
+    data: &GridLayoutData,
+    constraints: Slice<LayoutInfo>,
+    orientation: Orientation,
+) -> SharedVector<Coord> {
+    let cells = grid_internal::to_layout_cell_data(&data.organized_data, constraints, orientation);
+    let mut layout_data = grid_internal::to_layout_data(&cells, data.spacing, Some(data.size));
 
     if layout_data.is_empty() {
         return Default::default();
@@ -507,8 +540,8 @@ pub fn solve_grid_layout(data: &GridLayoutData, orientation: Orientation) -> Sha
         data.spacing,
     );
 
-    let mut result = SharedVector::with_capacity(4 * cells.len());
-    for cell in cells.iter() {
+    let mut result = SharedVector::with_capacity(2 * cells.len());
+    for cell in cells.as_slice().iter() {
         let cdata = &layout_data[cell.col_or_row as usize];
         result.push(cdata.pos);
         result.push(if cell.span > 0 {
@@ -518,19 +551,19 @@ pub fn solve_grid_layout(data: &GridLayoutData, orientation: Orientation) -> Sha
         } else {
             0 as Coord
         });
-        result.push(cell.col_or_row as _);
     }
     result
 }
 
 pub fn grid_layout_info(
-    cells: Slice<GridLayoutCellData>,
+    organized_data: GridLayoutOrganizedData, // not & because the code generator doesn't support it in ExtraBuiltinFunctionCall
+    constraints: Slice<LayoutInfo>,
     spacing: Coord,
     padding: &Padding,
     orientation: Orientation,
 ) -> LayoutInfo {
-    let (layout_data, _) =
-        grid_internal::to_layout_data(cells.as_slice(), spacing, None, orientation);
+    let cells = grid_internal::to_layout_cell_data(&organized_data, constraints, orientation);
+    let layout_data = grid_internal::to_layout_data(&cells, spacing, None);
     if layout_data.is_empty() {
         return Default::default();
     }
@@ -800,22 +833,32 @@ pub(crate) mod ffi {
     use super::*;
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn slint_organize_grid_layout(
+        input_data: Slice<GridLayoutInputData>,
+        result: &mut GridLayoutOrganizedData,
+    ) {
+        *result = super::organize_grid_layout(input_data);
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_grid_layout(
         data: &GridLayoutData,
+        constraints: Slice<LayoutInfo>,
         orientation: Orientation,
         result: &mut SharedVector<Coord>,
     ) {
-        *result = super::solve_grid_layout(data, orientation)
+        *result = super::solve_grid_layout(data, constraints, orientation)
     }
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_grid_layout_info(
-        cells: Slice<GridLayoutCellData>,
+        organized_data: &GridLayoutOrganizedData,
+        constraints: Slice<LayoutInfo>,
         spacing: Coord,
         padding: &Padding,
         orientation: Orientation,
     ) -> LayoutInfo {
-        super::grid_layout_info(cells, spacing, padding, orientation)
+        super::grid_layout_info(organized_data.clone(), constraints, spacing, padding, orientation)
     }
 
     #[unsafe(no_mangle)]

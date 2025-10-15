@@ -498,13 +498,13 @@ fn recurse_expression(
         Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveLayout(..)) {
-                if let Some(nr) = l.rect().size_reference(*o) {
+                if let Some(nr) = l.geometry().rect.size_reference(*o) {
                     vis(&nr.clone().into(), P);
                 }
             }
             match l {
-                crate::layout::Layout::GridLayout(l) => {
-                    visit_layout_items_dependencies(l.elems.iter().map(|it| &it.item), *o, vis)
+                crate::layout::Layout::GridLayout(_) => {
+                    panic!("GridLayout should use SolveGridLayout/ComputeGridLayoutInfo")
                 }
                 crate::layout::Layout::BoxLayout(l) => {
                     visit_layout_items_dependencies(l.elems.iter(), *o, vis)
@@ -512,6 +512,29 @@ fn recurse_expression(
             }
 
             let mut g = l.geometry().clone();
+            g.rect = Default::default(); // already visited;
+            g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
+        }
+        Expression::OrganizeGridLayout(layout) => {
+            let mut g = layout.geometry.clone();
+            g.rect = Default::default();
+            g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
+        }
+        Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
+        | Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+            // we should only visit the layout geometry for the orientation
+            if matches!(expr, Expression::SolveGridLayout { .. }) {
+                if let Some(nr) = layout.geometry.rect.size_reference(*orientation) {
+                    vis(&nr.clone().into(), P);
+                }
+            }
+            vis(&layout_organized_data_prop.clone().into(), P);
+            visit_layout_items_dependencies(
+                layout.elems.iter().map(|it| &it.item),
+                *orientation,
+                vis,
+            );
+            let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }

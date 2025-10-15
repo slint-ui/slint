@@ -465,7 +465,7 @@ pub struct GridLayout {
 }
 
 impl GridLayout {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.item.constraints.visit_named_references(visitor);
         }
