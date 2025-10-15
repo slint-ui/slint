@@ -909,7 +909,7 @@ fn parse_markdown(parser: pulldown_cmark::Parser) -> RichText {
         }
     }
 
-    std::dbg!(rich_text)
+    rich_text
 }
 
 pub fn draw_text(
@@ -920,13 +920,13 @@ pub fn draw_text(
 ) {
     let str = text.text();
 
-    let rich_text = if text.is_markdown() {
-        Some(parse_markdown(pulldown_cmark::Parser::new_ext(
+    let layout_text = if text.is_markdown() {
+        Text::RichText(parse_markdown(pulldown_cmark::Parser::new_ext(
             &str,
             pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
         )))
     } else {
-        None
+        Text::Str(&str)
     };
 
     let max_width = size.width_length();
@@ -963,10 +963,7 @@ pub fn draw_text(
     let text_overflow = text.overflow();
 
     let layout = layout(
-        match rich_text {
-            Some(rich_text) => Text::RichText(rich_text),
-            None => Text::Str(str.as_str()),
-        },
+        layout_text,
         scale_factor,
         LayoutOptions {
             horizontal_align,
