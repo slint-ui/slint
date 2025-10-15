@@ -11,6 +11,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
+use crate::lengths::LogicalLength;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -247,6 +248,113 @@ fn logical_physical_size() {
     assert!(logical.height.approx_eq(&25.));
 
     assert_eq!(logical.to_physical(2.), phys);
+}
+
+/// An inset represented in the coordinate space of logical pixels. That is the thickness
+/// of the border between the safe area and the edges of the window.
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct LogicalInset {
+    /// The top inset in logical pixels.
+    pub top: f32,
+    /// The bottom in logical pixels.
+    pub bottom: f32,
+    /// The left inset in logical pixels.
+    pub left: f32,
+    /// The right inset in logical pixels.
+    pub right: f32,
+}
+
+impl LogicalInset {
+    /// Construct a new logical inset from the given border values, that are assumed to be
+    /// in the logical coordinate space.
+    pub const fn new(top: f32, bottom: f32, left: f32, right: f32) -> Self {
+        Self { top, bottom, left, right }
+    }
+
+    /// Converts the top inset to logical pixels.
+    #[inline]
+    pub const fn top(&self) -> LogicalLength {
+        LogicalLength::new(self.top)
+    }
+    /// Converts the bottom inset to logical pixels.
+    #[inline]
+    pub const fn bottom(&self) -> LogicalLength {
+        LogicalLength::new(self.bottom)
+    }
+    /// Converts the left inset to logical pixels.
+    #[inline]
+    pub const fn left(&self) -> LogicalLength {
+        LogicalLength::new(self.left)
+    }
+    /// Converts the right inset to logical pixels.
+    #[inline]
+    pub const fn right(&self) -> LogicalLength {
+        LogicalLength::new(self.right)
+    }
+}
+
+/// An inset represented in the coordinate space of physical pixels. That is the thickness
+/// of the border between the safe area and the edges of the window.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct PhysicalInset {
+    /// The top inset in physical pixels.
+    pub top: i32,
+    /// The bottom in physical pixels.
+    pub bottom: i32,
+    /// The left inset in physical pixels.
+    pub left: i32,
+    /// The right inset in physical pixels.
+    pub right: i32,
+}
+
+impl PhysicalInset {
+    /// Construct a new logical inset from the given border values, that are assumed to be
+    /// in the physical coordinate space.
+    pub const fn new(top: i32, bottom: i32, left: i32, right: i32) -> Self {
+        Self { top, bottom, left, right }
+    }
+
+    /// Convert a given logical inset to a physical inset by dividing the lengths by the
+    /// specified scale factor.
+    #[inline]
+    pub const fn to_logical(&self, scale_factor: f32) -> LogicalInset {
+        LogicalInset::new(
+            self.top_to_logical(scale_factor).0,
+            self.bottom_to_logical(scale_factor).0,
+            self.left_to_logical(scale_factor).0,
+            self.right_to_logical(scale_factor).0,
+        )
+    }
+
+    /// Convert the top logical inset to a physical inset by dividing the length by the
+    /// specified scale factor.
+    #[inline]
+    pub const fn top_to_logical(&self, scale_factor: f32) -> LogicalLength {
+        LogicalLength::new(self.top as f32 / scale_factor)
+    }
+
+    /// Convert the bottom logical inset to a physical inset by dividing the length by the
+    /// specified scale factor.
+    #[inline]
+    pub const fn bottom_to_logical(&self, scale_factor: f32) -> LogicalLength {
+        LogicalLength::new(self.bottom as f32 / scale_factor)
+    }
+
+    #[inline]
+    /// Convert the left logical inset to a physical inset by dividing the length by the
+    /// specified scale factor.
+    pub const fn left_to_logical(&self, scale_factor: f32) -> LogicalLength {
+        LogicalLength::new(self.left as f32 / scale_factor)
+    }
+
+    /// Convert the right logical inset to a physical inset by dividing the length by the
+    /// specified scale factor.
+    #[inline]
+    pub const fn right_to_logical(&self, scale_factor: f32) -> LogicalLength {
+        LogicalLength::new(self.right as f32 / scale_factor)
+    }
 }
 
 #[i_slint_core_macros::slint_doc]
@@ -674,6 +782,14 @@ impl Window {
             crate::platform::WindowEvent::Resized { size } => {
                 self.0.set_window_item_geometry(size.to_euclid());
                 self.0.window_adapter().renderer().resize(size.to_physical(self.scale_factor()))?;
+            }
+            crate::platform::WindowEvent::SafeAreaChanged { inset } => {
+                self.0.set_window_item_safe_area(
+                    inset.top(),
+                    inset.bottom(),
+                    inset.left(),
+                    inset.right(),
+                );
             }
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
