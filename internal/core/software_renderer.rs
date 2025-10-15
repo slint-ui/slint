@@ -636,18 +636,20 @@ impl SoftwareRenderer {
                     }
                 }
 
-                self.measure_frame_rendered(&mut renderer);
+                let ops = renderer.actual_renderer.processor.buffer.ops();
+                self.measure_frame_rendered(&mut renderer, ops);
 
                 dirty_region
             })
             .unwrap_or_default()
     }
 
-    fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
+    fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer, ops: Option<(usize, usize)>) {
         if let Some(metrics) = &self.rendering_metrics_collector {
             let prev_frame_dirty = self.prev_frame_dirty.take();
             let m = crate::graphics::rendering_metrics_collector::RenderingMetrics {
                 dirty_region: Some(prev_frame_dirty.clone()),
+                hardware_accelerated_ops: ops,
                 ..Default::default()
             };
             self.prev_frame_dirty.set(prev_frame_dirty);
@@ -1316,7 +1318,7 @@ fn prepare_scene(
         }
     });
 
-    software_renderer.measure_frame_rendered(&mut renderer);
+    software_renderer.measure_frame_rendered(&mut renderer, None);
 
     let prepare_scene = renderer.into_inner();
 

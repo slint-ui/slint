@@ -15,6 +15,7 @@ pub struct NemaGFXEnhancedBuffer<'a> {
     height: u32,
     pixel_stride: usize,
     ops_count: usize,
+    fallback_count: usize,
     command_list: Option<Box<nema_cmdlist_t>>,
 }
 
@@ -32,6 +33,7 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
 {
     type TargetPixel = software_renderer::Rgb565Pixel;
     fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel] {
+        self.fallback_count += 1;
         let cnt = core::mem::take(&mut self.ops_count);
         if cnt > 0 {
             defmt::info!("OPS {}", cnt);
@@ -237,6 +239,10 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
 
         true
     }
+
+    fn ops(&self) -> Option<(usize, usize)> {
+        Some((self.ops_count, self.fallback_count))
+    }
 }
 
 impl<'a> NemaGFXEnhancedBuffer<'a> {
@@ -246,7 +252,15 @@ impl<'a> NemaGFXEnhancedBuffer<'a> {
         height: u32,
         pixel_stride: usize,
     ) -> Self {
-        Self { data, width, height, pixel_stride, ops_count: 0, command_list: None }
+        Self {
+            data,
+            width,
+            height,
+            pixel_stride,
+            ops_count: 0,
+            fallback_count: 0,
+            command_list: None,
+        }
     }
 
     fn ensure_command_list_bound(&mut self) {

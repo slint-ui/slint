@@ -32,6 +32,9 @@ pub struct RenderingMetrics {
 
     /// dirty_region
     pub dirty_region: Option<crate::partial_renderer::DirtyRegion>,
+
+    /// hardware_accelerated_ops (hardware / software)
+    pub hardware_accelerated_ops: Option<(usize, usize)>,
 }
 
 impl core::fmt::Display for RenderingMetrics {
@@ -42,6 +45,10 @@ impl core::fmt::Display for RenderingMetrics {
         if let Some(dirty_region) = &self.dirty_region {
             write!(f, "(dirty: {dirty_region:?})")?
         }
+        if let Some((hw, sw)) = &self.hardware_accelerated_ops {
+            write!(f, "(hw_ops: {hw} / sw_ops: {sw})")?
+        }
+
         Ok(())
     }
 }

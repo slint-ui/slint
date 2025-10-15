@@ -229,4 +229,9 @@ pub trait TargetPixelBuffer {
     fn draw_texture(&mut self, _: &DrawTextureArgs, _clip: &PhysicalRegion) -> bool {
         false
     }
+
+    /// Returns the number of hardware accelerated operations and the number of software operations
+    fn ops(&self) -> Option<(usize, usize)> {
+        None
+    }
 }
