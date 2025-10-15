@@ -871,6 +871,7 @@ fn parse_markdown(string: &str) -> RichText {
     rich_text
 }
 
+#[cfg(feature = "experimental-rich-text")]
 #[test]
 fn markdown_parsing() {
     assert_eq!(
