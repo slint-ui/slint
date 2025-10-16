@@ -10,9 +10,22 @@ component MiniDot {
     Rectangle {
         y: 160px;
         x: -(self.width / 2);
-        width: 4px;
+        width: 3px;
         height: 6px;
         background: #47505b;
+        border-radius: self.width / 2;
+    }
+}
+
+component MediumDot {
+    width: 0;
+    height: 0;
+    Rectangle {
+        y: 158px;
+        x: -(self.width / 2);
+        width: 4px;
+        height: 10px;
+        background: #505b63;
         border-radius: self.width / 2;
     }
 }
@@ -21,11 +34,11 @@ component BigDot {
     width: 0;
     height: 0;
     Rectangle {
-        y: 159px;
+        y: 154px;
         x: -(self.width / 2);
         width: 5px;
-        height: 10px;
-        background: #a5adb3;
+        height: 14px;
+        background: #b2c7d8;
         border-radius: self.width / 2;
     }
 }
@@ -34,7 +47,7 @@ component KPHText {
     width: 0;
     height: 0;
     Text {
-        y: 127px;
+        y: 122px;
         width: 36px;
         color: white;
         text: (root.transform-rotation / 1deg).floor();
@@ -49,6 +62,11 @@ component KPHText {
 export component MainWindow inherits Window {
     property <color> background-color: #020414;
     property <int> speed: 0;
+    property <int> max-speed: 260;
+    property <int> total-mini-dots: max-speed / 2;
+    property <int> total-medium-dots: total-mini-dots / 10;
+    property <int> total-big-dots: total-mini-dots / 10;
+    property <int> kph-indicators: total-mini-dots / 10;
 
     width: 500px;
     height: 500px;
@@ -80,20 +98,14 @@ export component MainWindow inherits Window {
             height: 0px;
             transform-rotation: 50deg;
 
-            property <int> max-speed: 260;
-            property <int> total-mini-dots: max-speed / 2;
-            property <int> total-big-dots: total-mini-dots / 5;
-            property <int> kph-indicators: total-big-dots / 2;
-
             for i in total-mini-dots: MiniDot {
                 transform-rotation: 260deg * (i / total-mini-dots);
             }
+            for i in total-medium-dots: MediumDot {
+                transform-rotation: 260deg * (i / total-medium-dots) + 10deg;
+            }
             for i in total-big-dots + 1: BigDot {
                 transform-rotation: 260deg * (i / total-big-dots);
-            }
-
-            for i in kph-indicators + 1: KPHText {
-                transform-rotation: 260deg * (i / kph-indicators);
             }
         }
 
@@ -137,6 +149,12 @@ export component MainWindow inherits Window {
                 x: parent.width / 2 - self.width / 2;
                 y: parent.height / 2 + 20px;
             }
+        }
+    }
+    Rectangle {
+        transform-rotation: 50deg;
+        for i in kph-indicators + 1: KPHText {
+            transform-rotation: 260deg * (i / kph-indicators);
         }
     }
 
