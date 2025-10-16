@@ -137,7 +137,13 @@ impl LayoutOptions {
     }
 }
 
-fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> Layout {
+enum Text<'a> {
+    PlainText(&'a str),
+    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+    RichText(RichText),
+}
+
+fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> Layout {
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
     // that character and parley will panic. We just filter out empty selection ranges.
@@ -210,27 +216,6 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         }));
     };
 
-    let paragraph_ranges = core::iter::from_fn({
-        let mut start = 0;
-        let mut char_it = text.char_indices().peekable();
-        let mut eot = false;
-        move || {
-            while let Some((idx, ch)) = char_it.next() {
-                if ch == '\n' {
-                    let next_range = start..idx;
-                    start = idx + ch.len_utf8();
-                    return Some(next_range);
-                }
-            }
-
-            if eot {
-                return None;
-            }
-            eot = true;
-            return Some(start..text.len());
-        }
-    });
-
     let (paragraphs, elision_info) = CONTEXTS.with_borrow_mut(move |contexts| {
         let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
             (options.text_overflow, max_physical_width)
@@ -256,55 +241,116 @@ fn layout(text: &str, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         let mut paragraphs = Vec::with_capacity(1);
         let mut para_y = 0.0;
 
-        for range in paragraph_ranges {
-            let para_text = &text[range.clone()];
+        let mut paragraph_from_text =
+            |text: &str,
+             range: std::ops::Range<usize>,
+             formatting: Option<std::vec::Vec<FormattedSpan>>| {
+                let mut builder = contexts.layout.ranged_builder(
+                    &mut contexts.font,
+                    text,
+                    scale_factor.get(),
+                    true,
+                );
+                push_to_builder(&mut builder);
 
-            let mut builder = contexts.layout.ranged_builder(
-                &mut contexts.font,
-                para_text,
-                scale_factor.get(),
-                true,
-            );
-            push_to_builder(&mut builder);
+                if let Some((selection, selection_color)) =
+                    options.selection.as_ref().zip(options.selection_foreground_color)
+                {
+                    let sel_start = selection.start.max(range.start);
+                    let sel_end = selection.end.min(range.end);
+                    if sel_start < sel_end {
+                        let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                        builder.push(
+                            parley::StyleProperty::Brush(Brush {
+                                selection_fill_color: Some(selection_color),
+                                stroke: options.stroke,
+                            }),
+                            local_selection,
+                        );
+                    }
+                }
 
-            if let Some((selection, selection_color)) =
-                options.selection.as_ref().zip(options.selection_foreground_color)
-            {
-                let sel_start = selection.start.max(range.start);
-                let sel_end = selection.end.min(range.end);
-                if sel_start < sel_end {
-                    let local_selection = (sel_start - range.start)..(sel_end - range.start);
-                    builder.push(
-                        parley::StyleProperty::Brush(Brush {
-                            selection_fill_color: Some(selection_color),
-                            stroke: options.stroke,
-                        }),
-                        local_selection,
-                    );
+                if let Some(formatting) = formatting {
+                    for span in formatting {
+                        let property = match span.style {
+                            Style::Emphasis => {
+                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic)
+                            }
+                            Style::Strikethrough => parley::StyleProperty::Strikethrough(true),
+                            Style::Strong => {
+                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD)
+                            }
+                            Style::Code => {
+                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
+                                    parley::style::FontFamily::Generic(
+                                        parley::style::GenericFamily::Monospace,
+                                    ),
+                                ))
+                            }
+                        };
+                        builder.push(property, span.range);
+                    }
+                }
+
+                let mut layout = builder.build(text);
+
+                layout.break_all_lines(
+                    max_physical_width
+                        .filter(|_| options.text_wrap != TextWrap::NoWrap)
+                        .map(|width| width.get()),
+                );
+                layout.align(
+                    max_physical_width.map(|width| width.get()),
+                    match options.horizontal_align {
+                        TextHorizontalAlignment::Left => parley::Alignment::Left,
+                        TextHorizontalAlignment::Center => parley::Alignment::Center,
+                        TextHorizontalAlignment::Right => parley::Alignment::Right,
+                    },
+                    parley::AlignmentOptions::default(),
+                );
+
+                let y = PhysicalLength::new(para_y);
+                para_y += layout.height();
+                TextParagraph { range, y, layout }
+            };
+
+        match text {
+            Text::PlainText(text) => {
+                let paragraph_ranges = core::iter::from_fn({
+                    let mut start = 0;
+                    let mut char_it = text.char_indices().peekable();
+                    let mut eot = false;
+                    move || {
+                        while let Some((idx, ch)) = char_it.next() {
+                            if ch == '\n' {
+                                let next_range = start..idx;
+                                start = idx + ch.len_utf8();
+                                return Some(next_range);
+                            }
+                        }
+
+                        if eot {
+                            return None;
+                        }
+                        eot = true;
+                        return Some(start..text.len());
+                    }
+                });
+
+                for range in paragraph_ranges {
+                    paragraphs.push(paragraph_from_text(&text[range.clone()], range, None));
                 }
             }
-
-            let mut layout = builder.build(para_text);
-
-            layout.break_all_lines(
-                max_physical_width
-                    .filter(|_| options.text_wrap != TextWrap::NoWrap)
-                    .map(|width| width.get()),
-            );
-            layout.align(
-                max_physical_width.map(|width| width.get()),
-                match options.horizontal_align {
-                    TextHorizontalAlignment::Left => parley::Alignment::Left,
-                    TextHorizontalAlignment::Center => parley::Alignment::Center,
-                    TextHorizontalAlignment::Right => parley::Alignment::Right,
-                },
-                parley::AlignmentOptions::default(),
-            );
-
-            let y = PhysicalLength::new(para_y);
-            para_y += layout.height();
-            paragraphs.push(TextParagraph { range, y, layout })
-        }
+            Text::RichText(rich_text) => {
+                for paragraph in rich_text.paragraphs {
+                    paragraphs.push(paragraph_from_text(
+                        &paragraph.text,
+                        0..0,
+                        Some(paragraph.formatting),
+                    ));
+                }
+            }
+        };
 
         (paragraphs, elision_info)
     });
@@ -658,12 +704,273 @@ impl Layout {
     }
 }
 
+#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+#[derive(Debug, PartialEq)]
+enum Style {
+    Emphasis,
+    Strong,
+    Strikethrough,
+    Code,
+}
+
+#[derive(Debug, PartialEq)]
+struct FormattedSpan {
+    range: Range<usize>,
+    style: Style,
+}
+
+#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+#[derive(Debug)]
+enum ListItemType {
+    Ordered(u64),
+    Unordered,
+}
+
+#[derive(Debug, PartialEq)]
+struct RichTextParagraph {
+    text: std::string::String,
+    formatting: Vec<FormattedSpan>,
+}
+
+#[derive(Debug, Default)]
+struct RichText {
+    paragraphs: Vec<RichTextParagraph>,
+}
+
+impl RichText {
+    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+    fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
+        let mut text = std::string::String::with_capacity(indentation as usize * 4);
+        for _ in 0..indentation {
+            text.push_str("    ");
+        }
+        match list_item_type {
+            Some(ListItemType::Unordered) => {
+                if indentation % 3 == 0 {
+                    text.push_str("• ")
+                } else if indentation % 3 == 1 {
+                    text.push_str("◦ ")
+                } else {
+                    text.push_str("▪ ")
+                }
+            }
+            Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
+            None => {}
+        };
+        self.paragraphs.push(RichTextParagraph { text, formatting: Default::default() });
+    }
+}
+
+#[cfg(feature = "experimental-rich-text")]
+fn parse_markdown(string: &str) -> RichText {
+    let parser =
+        pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+
+    let mut rich_text = RichText::default();
+    let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
+    let mut current_style_tag = None;
+
+    for event in parser {
+        let indentation = list_state_stack.len().saturating_sub(1) as _;
+
+        match event {
+            pulldown_cmark::Event::SoftBreak
+            | pulldown_cmark::Event::HardBreak
+            | pulldown_cmark::Event::Start(pulldown_cmark::Tag::Paragraph) => {
+                rich_text.begin_paragraph(indentation, None);
+            }
+            pulldown_cmark::Event::Start(pulldown_cmark::Tag::Item) => {
+                rich_text.begin_paragraph(
+                    indentation,
+                    Some(match list_state_stack.last().copied() {
+                        Some(Some(index)) => ListItemType::Ordered(index),
+                        _ => ListItemType::Unordered,
+                    }),
+                );
+                if let Some(state) = list_state_stack.last_mut() {
+                    *state = state.map(|state| state + 1);
+                }
+            }
+            pulldown_cmark::Event::Start(pulldown_cmark::Tag::List(index)) => {
+                list_state_stack.push(index);
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
+                list_state_stack.pop();
+            }
+            pulldown_cmark::Event::End(
+                pulldown_cmark::TagEnd::Paragraph | pulldown_cmark::TagEnd::Item,
+            ) => {}
+            pulldown_cmark::Event::Start(tag) => {
+                debug_assert_eq!(current_style_tag, None);
+                current_style_tag = Some((tag, rich_text.paragraphs.last().unwrap().text.len()));
+            }
+            pulldown_cmark::Event::Text(text) => {
+                rich_text.paragraphs.last_mut().unwrap().text.push_str(&text);
+            }
+            pulldown_cmark::Event::End(_) => {
+                let (start_tag, start) = current_style_tag.take().unwrap();
+
+                let style = match start_tag {
+                    pulldown_cmark::Tag::Strong => Some(Style::Strong),
+                    pulldown_cmark::Tag::Emphasis => Some(Style::Emphasis),
+                    pulldown_cmark::Tag::Strikethrough => Some(Style::Strikethrough),
+                    pulldown_cmark::Tag::Paragraph
+                    | pulldown_cmark::Tag::List(_)
+                    | pulldown_cmark::Tag::Item => unreachable!(),
+                    pulldown_cmark::Tag::Heading { .. }
+                    | pulldown_cmark::Tag::Link { .. }
+                    | pulldown_cmark::Tag::Image { .. }
+                    | pulldown_cmark::Tag::DefinitionList
+                    | pulldown_cmark::Tag::DefinitionListTitle
+                    | pulldown_cmark::Tag::DefinitionListDefinition
+                    | pulldown_cmark::Tag::TableHead
+                    | pulldown_cmark::Tag::TableRow
+                    | pulldown_cmark::Tag::TableCell
+                    | pulldown_cmark::Tag::HtmlBlock
+                    | pulldown_cmark::Tag::Superscript
+                    | pulldown_cmark::Tag::Subscript
+                    | pulldown_cmark::Tag::Table(_)
+                    | pulldown_cmark::Tag::MetadataBlock(_)
+                    | pulldown_cmark::Tag::BlockQuote(_)
+                    | pulldown_cmark::Tag::CodeBlock(_)
+                    | pulldown_cmark::Tag::FootnoteDefinition(_) => {
+                        unimplemented!("{:?}", start_tag)
+                    }
+                };
+
+                if let Some(style) = style {
+                    let paragraph = rich_text.paragraphs.last_mut().unwrap();
+                    let end = paragraph.text.len();
+                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                }
+            }
+            pulldown_cmark::Event::Code(text) => {
+                let paragraph = rich_text.paragraphs.last_mut().unwrap();
+                let start = paragraph.text.len();
+                paragraph.text.push_str(&text);
+                paragraph
+                    .formatting
+                    .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
+            }
+            pulldown_cmark::Event::Rule
+            | pulldown_cmark::Event::TaskListMarker(_)
+            | pulldown_cmark::Event::FootnoteReference(_)
+            | pulldown_cmark::Event::InlineMath(_)
+            | pulldown_cmark::Event::DisplayMath(_)
+            | pulldown_cmark::Event::InlineHtml(_)
+            | pulldown_cmark::Event::Html(_) => unimplemented!("{:?}", event),
+        }
+    }
+
+    rich_text
+}
+
+#[cfg(feature = "experimental-rich-text")]
+#[test]
+fn markdown_parsing() {
+    assert_eq!(
+        parse_markdown("hello *world*").paragraphs,
+        [RichTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }]
+        }]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+- line 1
+- line 2
+            "
+        )
+        .paragraphs,
+        [
+            RichTextParagraph { text: "• line 1".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "• line 2".into(), formatting: std::vec![] }
+        ]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+1. a
+2. b
+4. c
+        "
+        )
+        .paragraphs,
+        [
+            RichTextParagraph { text: "1. a".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "2. b".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "3. c".into(), formatting: std::vec![] }
+        ]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+Normal _italic_ **strong** ~~strikethrough~~ `code`
+new *line*
+"
+        )
+        .paragraphs,
+        [
+            RichTextParagraph {
+                text: "Normal italic strong strikethrough code".into(),
+                formatting: std::vec![
+                    FormattedSpan { range: 7..13, style: Style::Emphasis },
+                    FormattedSpan { range: 14..20, style: Style::Strong },
+                    FormattedSpan { range: 21..34, style: Style::Strikethrough },
+                    FormattedSpan { range: 35..39, style: Style::Code }
+                ]
+            },
+            RichTextParagraph {
+                text: "new line".into(),
+                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },]
+            }
+        ]
+    );
+
+    assert_eq!(
+        parse_markdown(
+            "
+- root
+  - child
+    - grandchild
+      - great grandchild
+"
+        )
+        .paragraphs,
+        [
+            RichTextParagraph { text: "• root".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "    ◦ child".into(), formatting: std::vec![] },
+            RichTextParagraph { text: "        ▪ grandchild".into(), formatting: std::vec![] },
+            RichTextParagraph {
+                text: "            • great grandchild".into(),
+                formatting: std::vec![]
+            },
+        ]
+    );
+}
+
 pub fn draw_text(
     item_renderer: &mut impl GlyphRenderer,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     font_request: Option<FontRequest>,
     size: LogicalSize,
 ) {
+    let str = text.text();
+
+    #[cfg(feature = "experimental-rich-text")]
+    let layout_text = if text.is_markdown() {
+        Text::RichText(parse_markdown(&str))
+    } else {
+        Text::PlainText(&str)
+    };
+
+    #[cfg(not(feature = "experimental-rich-text"))]
+    let layout_text = Text::PlainText(&str);
+
     let max_width = size.width_length();
     let max_height = size.height_length();
 
@@ -698,7 +1005,7 @@ pub fn draw_text(
     let text_overflow = text.overflow();
 
     let layout = layout(
-        text.text().as_str(),
+        layout_text,
         scale_factor,
         LayoutOptions {
             horizontal_align,
@@ -781,7 +1088,7 @@ pub fn draw_text_input(
     let text: SharedString = visual_representation.text.into();
 
     let layout = layout(
-        &text,
+        Text::PlainText(&text),
         scale_factor,
         LayoutOptions::new_from_textinput(
             text_input,
@@ -820,7 +1127,7 @@ pub fn text_size(
     text_wrap: TextWrap,
 ) -> LogicalSize {
     let layout = layout(
-        text,
+        Text::PlainText(text),
         scale_factor,
         LayoutOptions {
             max_width,
@@ -872,7 +1179,7 @@ pub fn text_input_byte_offset_for_position(
     }
 
     let layout = layout(
-        &text,
+        Text::PlainText(&text),
         scale_factor,
         LayoutOptions::new_from_textinput(
             text_input,
@@ -907,7 +1214,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     }
 
     let layout = layout(
-        &text,
+        Text::PlainText(&text),
         scale_factor,
         LayoutOptions::new_from_textinput(
             text_input,

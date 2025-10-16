@@ -1728,6 +1728,10 @@ declare_item_vtable! {
 }
 
 declare_item_vtable! {
+    fn slint_get_MarkdownTextVTable() -> MarkdownTextVTable for MarkdownText
+}
+
+declare_item_vtable! {
     fn slint_get_SimpleTextVTable() -> SimpleTextVTable for SimpleText
 }
 
