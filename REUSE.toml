@@ -116,6 +116,7 @@ path = [
   "examples/orbit-animation/images/**.png",
   "examples/orbit-animation/images/**.svg",
   "examples/sprite-sheet/images/**.png",
+  "examples/speedometer/needle.png",
   "component-sets/material/docs/**.json",
   "component-sets/material/docs/**.svg",
   "component-sets/material/docs/**.css",
