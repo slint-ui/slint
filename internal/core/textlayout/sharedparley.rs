@@ -63,9 +63,15 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
+    fn fill_rectange_with_color(&mut self, physical_rect: PhysicalRect, color: crate::Color) {
+        if let Some(platform_brush) = self.platform_brush_for_color(&color) {
+            self.fill_rectangle(physical_rect, platform_brush);
+        }
+    }
+
     /// Fills the given rectangle with the specified color. This is used for drawing selection
     /// rectangles as well as the text cursor.
-    fn fill_rectangle(&mut self, physical_rect: PhysicalRect, color: crate::Color);
+    fn fill_rectangle(&mut self, physical_rect: PhysicalRect, brush: Self::PlatformBrush);
 }
 
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
@@ -96,8 +102,6 @@ struct Brush {
     /// When set, this overrides the fill/stroke to use this color for just a fill, for selection.
     selection_fill_color: Option<crate::Color>,
     stroke: Option<TextStrokeStyle>,
-    underline_color: crate::Color,
-    strikethrough_color: crate::Color,
     link_color: Option<crate::Color>,
 }
 
@@ -112,8 +116,6 @@ struct LayoutOptions {
     text_overflow: TextOverflow,
     selection: Option<core::ops::Range<usize>>,
     selection_foreground_color: Option<crate::Color>,
-    underline_color: crate::Color,
-    strikethrough_color: crate::Color,
     link_color: crate::Color,
 }
 
@@ -139,8 +141,6 @@ impl LayoutOptions {
             stroke: None,
             text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
-            strikethrough_color: crate::Color::from_rgb_u8(0, 0, 0),
-            underline_color: crate::Color::from_rgb_u8(0, 0, 0),
             link_color: crate::Color::from_rgb_u8(64, 64, 255),
         }
     }
@@ -222,8 +222,6 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         builder.push_default(parley::StyleProperty::Brush(Brush {
             selection_fill_color: None,
             stroke: options.stroke,
-            strikethrough_color: options.strikethrough_color,
-            underline_color: options.underline_color,
             link_color: None,
         }));
     };
@@ -276,8 +274,6 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                             parley::StyleProperty::Brush(Brush {
                                 selection_fill_color: Some(selection_color),
                                 stroke: options.stroke,
-                                strikethrough_color: options.strikethrough_color,
-                                underline_color: options.underline_color,
                                 link_color: None,
                             }),
                             local_selection,
@@ -332,8 +328,6 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                                     parley::StyleProperty::Brush(Brush {
                                         selection_fill_color: None,
                                         stroke: options.stroke,
-                                        strikethrough_color: options.strikethrough_color,
-                                        underline_color: options.underline_color,
                                         link_color: Some(options.link_color),
                                     }),
                                     span.range,
@@ -538,7 +532,7 @@ impl TextParagraph {
                                     item_renderer,
                                     run.font(),
                                     PhysicalLength::new(run.font_size()),
-                                    fill_brush,
+                                    fill_brush.clone(),
                                     para_y,
                                     &mut glyphs.into_iter(),
                                 );
@@ -550,7 +544,7 @@ impl TextParagraph {
                                     item_renderer,
                                     run.font(),
                                     PhysicalLength::new(run.font_size()),
-                                    fill_brush,
+                                    fill_brush.clone(),
                                     para_y,
                                     &mut glyphs.iter().cloned(),
                                 );
@@ -571,7 +565,7 @@ impl TextParagraph {
                                     item_renderer,
                                     run.font(),
                                     PhysicalLength::new(run.font_size()),
-                                    fill_brush,
+                                    fill_brush.clone(),
                                     para_y,
                                     glyphs_it,
                                 );
@@ -592,10 +586,7 @@ impl TextParagraph {
                                     ),
                                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                                 ),
-                                decoration
-                                    .brush
-                                    .link_color
-                                    .unwrap_or(decoration.brush.underline_color),
+                                fill_brush.clone(),
                             );
                         }
 
@@ -614,7 +605,7 @@ impl TextParagraph {
                                         metrics.strikethrough_size,
                                     ),
                                 ),
-                                decoration.brush.strikethrough_color,
+                                fill_brush,
                             );
                         }
                     }
@@ -1196,8 +1187,6 @@ pub fn draw_text(
             text_overflow,
             selection: None,
             selection_foreground_color: None,
-            strikethrough_color: crate::Color::from_rgb_u8(0, 0, 0),
-            underline_color: crate::Color::from_rgb_u8(0, 0, 0),
             link_color: crate::Color::from_rgb_u8(64, 64, 255),
         },
     );
@@ -1281,7 +1270,8 @@ pub fn draw_text_input(
     );
 
     layout.selection_geometry(min_select..max_select, |selection_rect| {
-        item_renderer.fill_rectangle(selection_rect, text_input.selection_background_color());
+        item_renderer
+            .fill_rectange_with_color(selection_rect, text_input.selection_background_color());
     });
 
     layout.draw(
@@ -1296,7 +1286,7 @@ pub fn draw_text_input(
     if cursor_visible {
         let cursor_rect = layout
             .cursor_rect_for_byte_offset(cursor_pos, text_input.text_cursor_width() * scale_factor);
-        item_renderer.fill_rectangle(cursor_rect, visual_representation.cursor_color);
+        item_renderer.fill_rectange_with_color(cursor_rect, visual_representation.cursor_color);
     }
 }
 
@@ -1321,8 +1311,6 @@ pub fn text_size(
             text_overflow: TextOverflow::Clip,
             selection: None,
             selection_foreground_color: None,
-            strikethrough_color: crate::Color::from_rgb_u8(0, 0, 0),
-            underline_color: crate::Color::from_rgb_u8(0, 0, 0),
             link_color: crate::Color::from_rgb_u8(64, 64, 255),
         },
     );
