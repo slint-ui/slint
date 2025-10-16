@@ -1,0 +1,31 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "speedometer"
+version = "1.14.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "speedometer"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+name = "speedometer_lib"
+
+[dependencies]
+slint = { path = "../../../api/rs/slint" }
+chrono = "0.4"
+
+[features]
+sw-renderer = []
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features = ["console"] }
+console_error_panic_hook = "0.1.5"

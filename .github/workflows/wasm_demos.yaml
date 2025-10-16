@@ -76,6 +76,7 @@ jobs:
                       examples/carousel/rust/
                       examples/memory/
                       examples/slide_puzzle/
+                      examples/speedometer/rust/
                       examples/imagefilter/rust
                       examples/plotter/
                       examples/opengl_underlay/
