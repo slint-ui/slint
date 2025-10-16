@@ -286,7 +286,7 @@ enum BindingResult {
 
 struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
-    evaluate: unsafe fn(_self: *mut BindingHolder, value: *mut ()) -> BindingResult,
+    evaluate: unsafe fn(_self: *const BindingHolder, value: *mut ()) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder, was_dirty: bool),
     intercept_set: unsafe fn(_self: *const BindingHolder, value: *const ()) -> bool,
     intercept_set_binding:
@@ -429,13 +429,10 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
     /// and value must be a pointer to T
     unsafe fn evaluate<B: BindingCallable>(
-        _self: *mut BindingHolder,
+        _self: *const BindingHolder,
         value: *mut (),
     ) -> BindingResult {
-        let pinned_holder = Pin::new_unchecked(&*_self);
-        CURRENT_BINDING.set(Some(pinned_holder), || {
-            Pin::new_unchecked(&((*(_self as *mut BindingHolder<B>)).binding)).evaluate(value)
-        })
+        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).evaluate(value)
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
@@ -637,14 +634,23 @@ impl PropertyHandle {
     // handle is not locked. (Upholding the requirements of UnsafeCell)
     unsafe fn update<T>(&self, value: *mut T) {
         let remove = self.access(|binding| {
-            if let Some(mut binding) = binding {
+            if let Some(binding) = binding {
                 if binding.dirty.get() {
+                    unsafe fn evaluate_as_current_binding(
+                        value: *mut (),
+                        binding: Pin<&BindingHolder>,
+                    ) -> BindingResult {
+                        CURRENT_BINDING.set(Some(binding), || {
+                            (binding.vtable.evaluate)(
+                                binding.get_ref() as *const BindingHolder,
+                                value as *mut (),
+                            )
+                        })
+                    }
+
                     // clear all the nodes so that we can start from scratch
                     binding.dep_nodes.set(Default::default());
-                    let r = (binding.vtable.evaluate)(
-                        binding.as_mut().get_unchecked_mut() as *mut BindingHolder,
-                        value as *mut (),
-                    );
+                    let r = evaluate_as_current_binding(value as *mut (), binding.as_ref());
                     binding.dirty.set(false);
                     if r == BindingResult::RemoveBinding {
                         return true;
