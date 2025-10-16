@@ -18,11 +18,6 @@ export component HeaderView {
     in-out property <bool> data-widget <=> shortcut-simulator-data.checked;
 
     callback style-selected();
-    callback edit-mode-toggled();
-    callback library-toggled(bool);
-    callback properties-toggled(bool);
-    callback outline-toggled(bool);
-    callback simulator-toggled(bool);
 
     background-layer := Rectangle {
         background: Palette.alternate-background;
@@ -68,9 +63,6 @@ export component HeaderView {
 
                     interaction-switch := Switch {
                         checked: true;
-                        toggled => {
-                            root.edit-mode-toggled();
-                        }
                     }
 
                     BodyText {
@@ -87,10 +79,6 @@ export component HeaderView {
                         icon: Icons.library;
                         colorize-icon: !self.checked;
                         primary: self.checked;
-                        clicked => {
-                            root.library-toggled(self.checked);
-                            library-widget = self.checked;
-                        }
                     }
 
                     shortcut-properties := Button {
@@ -99,10 +87,6 @@ export component HeaderView {
                         icon: Icons.properties;
                         colorize-icon: !self.checked;
                         primary: self.checked;
-                        clicked => {
-                            root.properties-toggled(self.checked);
-                            properties-widget = self.checked;
-                        }
                     }
 
                     shortcut-outline := Button {
@@ -111,10 +95,6 @@ export component HeaderView {
                         icon: Icons.outline;
                         colorize-icon: !self.checked;
                         primary: self.checked;
-                        clicked => {
-                            root.outline-toggled(self.checked);
-                            outline-widget = self.checked;
-                        }
                     }
 
                     shortcut-simulator-data := Button {
@@ -123,10 +103,6 @@ export component HeaderView {
                         icon: Icons.simulator;
                         colorize-icon: !self.checked;
                         primary: self.checked;
-                        clicked => {
-                            root.simulator-toggled(self.checked);
-                            data-widget = self.checked;
-                        }
                     }
                 }
             }
