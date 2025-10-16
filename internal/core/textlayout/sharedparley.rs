@@ -836,7 +836,7 @@ struct RichTextParagraph<'a> {
     #[cfg(feature = "experimental-rich-text")]
     links: std::vec::Vec<(Range<usize>, pulldown_cmark::CowStr<'a>)>,
     #[cfg(not(feature = "experimental-rich-text"))]
-    _phantom: std::marker::PhantomData<&'a ()>
+    _phantom: std::marker::PhantomData<&'a ()>,
 }
 
 #[derive(Debug, Default)]
