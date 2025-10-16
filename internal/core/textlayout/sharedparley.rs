@@ -833,7 +833,10 @@ enum ListItemType {
 struct RichTextParagraph<'a> {
     text: std::string::String,
     formatting: Vec<FormattedSpan>,
+    #[cfg(feature = "experimental-rich-text")]
     links: std::vec::Vec<(Range<usize>, pulldown_cmark::CowStr<'a>)>,
+    #[cfg(not(feature = "experimental-rich-text"))]
+    _phantom: std::marker::PhantomData<&'a ()>
 }
 
 #[derive(Debug, Default)]
@@ -841,8 +844,8 @@ struct RichText<'a> {
     paragraphs: Vec<RichTextParagraph<'a>>,
 }
 
+#[cfg(feature = "experimental-rich-text")]
 impl<'a> RichText<'a> {
-    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = std::string::String::with_capacity(indentation as usize * 4);
         for _ in 0..indentation {
