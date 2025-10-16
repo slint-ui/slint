@@ -271,7 +271,8 @@ pub struct SubComponent {
     pub change_callbacks: Vec<(PropertyReference, MutExpression)>,
     /// The animation for properties which are animated
     pub animations: HashMap<PropertyReference, Expression>,
-    pub two_way_bindings: Vec<(PropertyReference, PropertyReference)>,
+    /// The two way bindings that map the first property to the second wih optional field access
+    pub two_way_bindings: Vec<(PropertyReference, PropertyReference, Vec<SmolStr>)>,
     pub const_properties: Vec<PropertyReference>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,

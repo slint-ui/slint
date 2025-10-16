@@ -145,26 +145,23 @@ fn process_tabwidget(
         };
         tab.bindings.insert(
             SmolStr::new_static("title"),
-            BindingExpression::new_two_way(NamedReference::new(
-                child,
-                SmolStr::new_static("title"),
-            ))
+            BindingExpression::new_two_way(
+                NamedReference::new(child, SmolStr::new_static("title")).into(),
+            )
             .into(),
         );
         tab.bindings.insert(
             SmolStr::new_static("current"),
-            BindingExpression::new_two_way(NamedReference::new(
-                elem,
-                SmolStr::new_static("current-index"),
-            ))
+            BindingExpression::new_two_way(
+                NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
+            )
             .into(),
         );
         tab.bindings.insert(
             SmolStr::new_static("current-focused"),
-            BindingExpression::new_two_way(NamedReference::new(
-                elem,
-                SmolStr::new_static("current-focused"),
-            ))
+            BindingExpression::new_two_way(
+                NamedReference::new(elem, SmolStr::new_static("current-focused")).into(),
+            )
             .into(),
         );
         tab.bindings.insert(
@@ -196,34 +193,30 @@ fn process_tabwidget(
     );
     tabbar.borrow_mut().bindings.insert(
         SmolStr::new_static("current"),
-        BindingExpression::new_two_way(NamedReference::new(
-            elem,
-            SmolStr::new_static("current-index"),
-        ))
+        BindingExpression::new_two_way(
+            NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
+        )
         .into(),
     );
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static("current-focused"),
-        BindingExpression::new_two_way(NamedReference::new(
-            &tabbar,
-            SmolStr::new_static("current-focused"),
-        ))
+        BindingExpression::new_two_way(
+            NamedReference::new(&tabbar, SmolStr::new_static("current-focused")).into(),
+        )
         .into(),
     );
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static("tabbar-preferred-width"),
-        BindingExpression::new_two_way(NamedReference::new(
-            &tabbar,
-            SmolStr::new_static("preferred-width"),
-        ))
+        BindingExpression::new_two_way(
+            NamedReference::new(&tabbar, SmolStr::new_static("preferred-width")).into(),
+        )
         .into(),
     );
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static("tabbar-preferred-height"),
-        BindingExpression::new_two_way(NamedReference::new(
-            &tabbar,
-            SmolStr::new_static("preferred-height"),
-        ))
+        BindingExpression::new_two_way(
+            NamedReference::new(&tabbar, SmolStr::new_static("preferred-height")).into(),
+        )
         .into(),
     );
 

@@ -1805,8 +1805,9 @@ fn resolve_two_way_bindings(
 
                             binding.expression = Expression::Invalid;
 
-                            if let Some(nr) = resolve_two_way_binding(n, &mut lookup_ctx) {
-                                binding.two_way_bindings.push(nr.clone());
+                            if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
+                                let nr = twb.property.clone();
+                                binding.two_way_bindings.push(twb);
 
                                 nr.element()
                                     .borrow()
@@ -1926,12 +1927,11 @@ fn resolve_two_way_bindings(
 pub fn resolve_two_way_binding(
     node: syntax_nodes::TwoWayBinding,
     ctx: &mut LookupCtx,
-) -> Option<NamedReference> {
+) -> Option<TwoWayBinding> {
+    const ERROR_MESSAGE: &str = "The expression in a two way binding must be a property reference";
+
     let Some(n) = node.Expression().QualifiedName() else {
-        ctx.diag.push_error(
-            "The expression in a two way binding must be a property reference".into(),
-            &node.Expression(),
-        );
+        ctx.diag.push_error(ERROR_MESSAGE.into(), &node.Expression());
         return None;
     };
 
@@ -1946,21 +1946,37 @@ pub fn resolve_two_way_binding(
         Type::InferredProperty | Type::InferredCallback | Type::Invalid
     );
     match r {
-        LookupResult::Expression { expression: Expression::PropertyReference(n), .. } => {
-            if report_error && n.ty() != ctx.property_type {
-                ctx.diag.push_error(
-                    "The property does not have the same type as the bound property".into(),
-                    &node,
-                );
+        LookupResult::Expression { expression, .. } => {
+            fn unwrap_fields(expression: &Expression) -> Option<TwoWayBinding> {
+                match expression {
+                    Expression::PropertyReference(nr) => Some(nr.clone().into()),
+                    Expression::StructFieldAccess { base, name } => {
+                        let mut prop = unwrap_fields(base)?;
+                        prop.field_access.push(name.clone());
+                        Some(prop)
+                    }
+                    _ => None,
+                }
             }
-            Some(n)
+            if let Some(result) = unwrap_fields(&expression) {
+                if report_error && expression.ty() != ctx.property_type {
+                    ctx.diag.push_error(
+                        "The property does not have the same type as the bound property".into(),
+                        &node,
+                    );
+                }
+                Some(result)
+            } else {
+                ctx.diag.push_error(ERROR_MESSAGE.into(), &node);
+                None
+            }
         }
         LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(n))) => {
             if report_error && n.ty() != ctx.property_type {
                 ctx.diag.push_error("Cannot bind to a callback".into(), &node);
                 None
             } else {
-                Some(n)
+                Some(n.into())
             }
         }
         LookupResult::Callable(..) => {
@@ -1970,10 +1986,7 @@ pub fn resolve_two_way_binding(
             None
         }
         _ => {
-            ctx.diag.push_error(
-                "The expression in a two way binding must be a property reference".into(),
-                &node,
-            );
+            ctx.diag.push_error(ERROR_MESSAGE.into(), &node);
             None
         }
     }
@@ -1999,7 +2012,7 @@ fn check_callback_alias_validity(
         return;
     };
 
-    if alias.element().borrow().base_type == ElementType::Global {
+    if alias.property.element().borrow().base_type == ElementType::Global {
         diag.push_error(
             "Can't assign a local callback handler to an alias to a global callback".into(),
             &node.child_token(SyntaxKind::Identifier).unwrap(),

@@ -1139,10 +1139,26 @@ fn generate_sub_component(
     let popup_id_names =
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
-    for (prop1, prop2) in &component.two_way_bindings {
+    for (prop1, prop2, fields) in &component.two_way_bindings {
         let p1 = access_member(prop1, &ctx);
         let p2 = access_member(prop2, &ctx);
-        let r = p1.then(|p1| p2.then(|p2| quote!(sp::Property::link_two_way(#p1, #p2))));
+        let r = p1.then(|p1| {
+            p2.then(|p2| {
+                if fields.is_empty() {
+                    quote!(sp::Property::link_two_way(#p1, #p2))
+                } else {
+                    let mut access = quote!();
+                    let mut ty = ctx.property_ty(prop2);
+                    for f in fields {
+                        let Type::Struct (s) = &ty else { panic!("Field of two way binding on a non-struct type") };
+                        let a = struct_field_access(s, f);
+                        access.extend(quote!(.#a));
+                        ty = s.fields.get(f).unwrap();
+                    }
+                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| s #access .clone(), |s, v| s #access = v.clone()))
+                }
+            })
+        });
         init.push(quote!(#r;))
     }
 
@@ -2467,19 +2483,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote! {args.#i.clone()}
         }
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
-            Type::Struct (s) if s.name.is_none() => {
-                let index = s.fields
-                    .keys()
-                    .position(|k| k == name)
-                    .expect("Expression::StructFieldAccess: Cannot find a key in an object");
-                let index = proc_macro2::Literal::usize_unsuffixed(index);
-                let base_e = compile_expression(base, ctx);
-                quote!((#base_e).#index )
-            }
-            Type::Struct { .. } => {
-                let name = ident(name);
-                let base_e = compile_expression(base, ctx);
-                quote!((#base_e).#name)
+            Type::Struct(s) => {
+                let base_e = compile_expression_no_parenthesis(base, ctx);
+                let f = struct_field_access(&s, name);
+                quote!((#base_e).#f)
             }
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
@@ -2832,6 +2839,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 
             }
         },
+    }
+}
+
+fn struct_field_access(s: &Struct, name: &str) -> proc_macro2::TokenTree {
+    if s.name.is_none() {
+        let index = s
+            .fields
+            .keys()
+            .position(|k| k == name)
+            .expect("Expression::StructFieldAccess: Cannot find a key in an object");
+        proc_macro2::Literal::usize_unsuffixed(index).into()
+    } else {
+        ident(name).into()
     }
 }
 

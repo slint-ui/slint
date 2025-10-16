@@ -1,0 +1,177 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct MyStruct {
+    value: int,
+    name: string,
+    xyz: string,
+}
+
+component MyLineEdit {
+    in-out property <string> text <=> tx.text;
+    tx := TextInput {
+        text: "to be overridden";
+    }
+}
+
+component MyStructViewer {
+    in property <MyStruct> value: {name: "Olivier", value: 3, xyz: "xyz"};
+    HorizontalLayout {
+        Text {
+            text <=> value.name;
+        }
+        Text {
+            text <=> value.xyz;
+        }
+        Text {
+            text: value.value;
+        }
+    }
+
+}
+
+component WithinComp {
+    out property <MyStruct> my_struct: { name: "S", value: 7, xyz: "xxx" };
+    in property <int> val <=> my_struct.value;
+}
+
+
+export component TestCase {
+
+    VerticalLayout {
+        if true : MyLineEdit {
+            text <=> v.value.name;
+
+        }
+        v := MyStructViewer {
+        }
+        spinbox := Rectangle {
+            property <int> val <=> v.value.value;
+            init => {
+                val += 10;
+            }
+        }
+        w := WithinComp {
+            val: root.value.value + 100;
+        }
+    }
+
+    in-out property xyz <=> v.value.xyz;
+    in-out property value <=> v.value;
+    in-out property <{inner: MyStruct, z: int}> inner: {inner: value, z: v.value.value };
+    in-out property <string> inner_xyz <=> inner.inner.xyz;
+
+    out property <bool> test: v.value.name == "Olivier" && v.value.value == 13 && spinbox.val == 13 && xyz == "xyz" && value.value == 13
+        && inner.inner == v.value && inner.z == 13
+        && w.my_struct.value == 113;
+
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "xyz".into() });
+instance.set_xyz("abc".into());
+assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "abc".into() });
+
+assert_eq!(instance.get_inner_xyz(), "abc");
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text1(), slint::SharedString("Hello"));
+assert_eq(instance.get_text2(), slint::SharedString("Blah"));
+assert_eq(instance.get_ti1_text(), slint::SharedString("Hello"));
+assert_eq(instance.get_ti2_text(), slint::SharedString("Blah"));
+assert_eq(instance.get_text_item_text(), slint::SharedString("Blah"));
+assert_eq(instance.get_othercomp_t(), instance.get_othercomp_get_text());
+assert_eq(instance.get_othercomp_t(), slint::SharedString("real value"));
+assert_eq(instance.get_othercomp_get_text(), slint::SharedString("real value"));
+
+
+instance.set_text1(slint::SharedString("Text1New"));
+instance.set_text2(slint::SharedString("Text2New"));
+assert_eq(instance.get_text1(), slint::SharedString("Text1New"));
+assert_eq(instance.get_text2(), slint::SharedString("Text2New"));
+assert_eq(instance.get_ti1_text(), slint::SharedString("Text1New"));
+assert_eq(instance.get_ti2_text(), slint::SharedString("Text2New"));
+assert_eq(instance.get_text_item_text(), slint::SharedString("Text2New"));
+
+instance.invoke_set_ti1(slint::SharedString("Hallo"));
+instance.invoke_set_ti2(slint::SharedString("Bonjour"));
+assert_eq(instance.get_text1(), slint::SharedString("Hallo"));
+assert_eq(instance.get_text2(), slint::SharedString("Text2New"));
+assert_eq(instance.get_ti1_text(), slint::SharedString("Hallo"));
+assert_eq(instance.get_ti2_text(), slint::SharedString("Bonjour"));
+assert_eq(instance.get_text_item_text(), slint::SharedString("Bonjour"));
+
+assert_eq(instance.get_othercomp_some_value(), 0);
+assert_eq(instance.get_othercomp_some_value_alias(), 0);
+assert_eq(instance.get_othercomp_some_value_alias2(), 0);
+instance.set_othercomp_some_value(88);
+assert_eq(instance.get_othercomp_some_value(), 88);
+assert_eq(instance.get_othercomp_some_value_alias(), 88);
+assert_eq(instance.get_othercomp_some_value_alias2(), 88);
+instance.set_othercomp_some_value_alias(81);
+assert_eq(instance.get_othercomp_some_value(), 81);
+assert_eq(instance.get_othercomp_some_value_alias(), 81);
+assert_eq(instance.get_othercomp_some_value_alias2(), 81);
+instance.set_othercomp_some_value_alias2(1);
+assert_eq(instance.get_othercomp_some_value(), 1);
+assert_eq(instance.get_othercomp_some_value_alias(), 1);
+assert_eq(instance.get_othercomp_some_value_alias2(), 1);
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.text1, "Hello");
+assert.equal(instance.text2, "Blah");
+assert.equal(instance.ti1_text, "Hello");
+assert.equal(instance.ti2_text, "Blah");
+assert.equal(instance.text_item_text, "Blah");
+assert.equal(instance.othercomp_t, instance.othercomp_get_text);
+assert.equal(instance.othercomp_t, "real value");
+assert.equal(instance.othercomp_get_text, "real value");
+
+instance.text1 = "Text1New";
+instance.text2 = "Text2New";
+assert.equal(instance.text1, "Text1New");
+assert.equal(instance.text2, "Text2New");
+assert.equal(instance.ti1_text, "Text1New");
+assert.equal(instance.ti2_text, "Text2New");
+assert.equal(instance.text_item_text, "Text2New");
+
+instance.set_ti1("Hallo");
+instance.set_ti2("Bonjour");
+assert.equal(instance.text1, "Hallo");
+assert.equal(instance.text2, "Text2New");
+assert.equal(instance.ti1_text, "Hallo");
+assert.equal(instance.ti2_text, "Bonjour");
+assert.equal(instance.text_item_text, "Bonjour");
+
+assert.equal(instance.othercomp_some_value, 0);
+assert.equal(instance.othercomp_some_value_alias, 0);
+assert.equal(instance.othercomp_some_value_alias2, 0);
+instance.othercomp_some_value = 88;
+assert.equal(instance.othercomp_some_value, 88);
+assert.equal(instance.othercomp_some_value_alias, 88);
+assert.equal(instance.othercomp_some_value_alias2, 88);
+instance.othercomp_some_value_alias = 81;
+assert.equal(instance.othercomp_some_value, 81);
+assert.equal(instance.othercomp_some_value_alias, 81);
+assert.equal(instance.othercomp_some_value_alias2, 81);
+instance.othercomp_some_value_alias2 = 1;
+assert.equal(instance.othercomp_some_value, 1);
+assert.equal(instance.othercomp_some_value_alias, 1);
+assert.equal(instance.othercomp_some_value_alias2, 1);
+```
+
+*/

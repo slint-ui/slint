@@ -59,13 +59,15 @@ impl PrettyPrinter<'_> {
                 DisplayExpression(&f.code, &ctx)
             )?;
         }
-        for (p1, p2) in &sc.two_way_bindings {
+        for (p1, p2, fields) in &sc.two_way_bindings {
             self.indent()?;
             writeln!(
                 self.writer,
-                "{} <=> {};",
+                "{} <=> {}{}{};",
                 DisplayPropertyRef(p1, &ctx),
-                DisplayPropertyRef(p2, &ctx)
+                DisplayPropertyRef(p2, &ctx),
+                if fields.is_empty() { "" } else { "." },
+                fields.join(".")
             )?
         }
         for (p, init) in &sc.property_init {

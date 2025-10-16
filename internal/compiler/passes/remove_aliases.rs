@@ -73,13 +73,17 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
 
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in &e.borrow().bindings {
-            for nr in &binding.borrow().two_way_bindings {
-                let other_e = nr.element();
-                if name == nr.name() && Rc::ptr_eq(e, &other_e) {
+            for twb in &binding.borrow().two_way_bindings {
+                if !twb.field_access.is_empty() {
+                    // Don't optimize two way bindings to fields for now
+                    continue;
+                }
+                let other_e = twb.property.element();
+                if name == twb.property.name() && Rc::ptr_eq(e, &other_e) {
                     diag.push_error("Property cannot alias to itself".into(), &*binding.borrow());
                     continue 'bindings;
                 }
-                property_sets.add_link(NamedReference::new(e, name.clone()), nr.clone());
+                property_sets.add_link(NamedReference::new(e, name.clone()), twb.property.clone());
             }
         }
     };
@@ -208,7 +212,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 // This is not a declaration, we must re-create the binding
                 elem.bindings.insert(
                     remove.name().clone(),
-                    BindingExpression::new_two_way(to.clone()).into(),
+                    BindingExpression::new_two_way(to.clone().into()).into(),
                 );
                 drop(elem);
                 if remove.is_externally_modified() {
@@ -246,5 +250,5 @@ fn best_property(p1: NamedReference, p2: NamedReference) -> NamedReference {
 
 /// Remove the `to` from the two_way_bindings
 fn remove_from_binding_expression(expression: &mut BindingExpression, to: &NamedReference) {
-    expression.two_way_bindings.retain(|x| x != to);
+    expression.two_way_bindings.retain(|x| &x.property != to);
 }

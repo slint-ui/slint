@@ -2452,7 +2452,7 @@ pub fn visit_all_named_references_in_element(
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {
         for nr in &mut expr.borrow_mut().two_way_bindings {
-            vis(nr);
+            vis(&mut nr.property);
         }
     }
 
@@ -2910,10 +2910,9 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     let mut injected_parent_mut = injected_parent.borrow_mut();
     injected_parent_mut.bindings.insert(
         "z".into(),
-        RefCell::new(BindingExpression::new_two_way(NamedReference::new(
-            old_elem,
-            SmolStr::new_static("z"),
-        ))),
+        RefCell::new(BindingExpression::new_two_way(
+            NamedReference::new(old_elem, SmolStr::new_static("z")).into(),
+        )),
     );
     // (should be removed by const propagation in the llr)
     injected_parent_mut.property_declarations.insert(
