@@ -1662,9 +1662,12 @@ pub fn instantiate(
                             .unwrap();
                     }
                 }
-                for nr in &binding.two_way_bindings {
+                for twb in &binding.two_way_bindings {
+                    if !twb.field_access.is_empty() {
+                        todo!("TODO:Two way binding with field access");
+                    }
                     // Safety: The compiler must have ensured that the properties exist and are of the same type
-                    prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
+                    prop_info.link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
                 }
             } else {
                 let item_within_component = &description.items[&elem.id];
@@ -1673,9 +1676,13 @@ pub fn instantiate(
                     item_within_component.rtti.properties.get(prop_name.as_str())
                 {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
-                    for nr in &binding.two_way_bindings {
+                    for twb in &binding.two_way_bindings {
+                        if !twb.field_access.is_empty() {
+                            todo!("TODO: Two way binding with field access");
+                        }
                         // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        prop_rtti.link_two_ways(item, get_property_ptr(nr, instance_ref));
+                        prop_rtti
+                            .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
                         if is_const {

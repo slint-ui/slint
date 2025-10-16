@@ -597,7 +597,10 @@ impl Snapshotter {
             two_way_bindings: binding_expression
                 .two_way_bindings
                 .iter()
-                .map(|twb| twb.snapshot(self))
+                .map(|twb| crate::expression_tree::TwoWayBinding {
+                    property: twb.property.snapshot(self),
+                    field_access: twb.field_access.clone(),
+                })
                 .collect(),
         }
     }
