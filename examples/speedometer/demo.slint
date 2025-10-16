@@ -1,0 +1,177 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import "./01 Digitall.ttf";
+
+component MiniDot {
+    width: 0;
+    height: 0;
+    Rectangle {
+        y: 160px;
+        x: -(self.width / 2);
+        width: 4px;
+        height: 6px;
+        background: #47505b;
+        border-radius: self.width / 2;
+    }
+}
+
+component BigDot {
+    width: 0;
+    height: 0;
+    Rectangle {
+        y: 159px;
+        x: -(self.width / 2);
+        width: 5px;
+        height: 10px;
+        background: #a5adb3;
+        border-radius: self.width / 2;
+    }
+}
+
+component KPHText {
+    width: 0;
+    height: 0;
+    Text {
+        y: 127px;
+        width: 36px;
+        color: white;
+        text: (root.transform-rotation / 1deg).floor();
+        font-size: 18px;
+        transform-rotation: -root.transform-rotation - 50deg;
+        font-family: "01 Digitall";
+        opacity: 0.9;
+        horizontal-alignment: left;
+    }
+}
+
+export component MainWindow inherits Window {
+    property <color> background-color: #020414;
+    property <int> speed: 0;
+
+    width: 500px;
+    height: 500px;
+    background: background-color;
+    title: "Sci-Fi Speedometer";
+
+    animate speed {
+        duration: 1000ms;
+        easing: ease-in-out;
+    }
+
+    property <angle> stop1: speed < 100 ? 0deg : (speed - 100) * 1deg;
+    property <angle> stop2: speed * 1deg;
+    property <angle> stop3: speed * 1deg + 1deg;
+    property <angle> stop4: 360deg;
+
+    Rectangle {
+        width: 315px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: @conic-gradient(background-color stop1, red stop2, background-color stop3, background-color stop4);
+        transform-rotation: -130deg;
+    }
+
+        Rectangle {
+
+        dial := Rectangle {
+            width: 0px;
+            height: 0px;
+            transform-rotation: 50deg;
+
+            property <int> max-speed: 260;
+            property <int> total-mini-dots: max-speed / 2;
+            property <int> total-big-dots: total-mini-dots / 5;
+            property <int> kph-indicators: total-big-dots / 2;
+
+            for i in total-mini-dots: MiniDot {
+                transform-rotation: 260deg * (i / total-mini-dots);
+            }
+            for i in total-big-dots + 1: BigDot {
+                transform-rotation: 260deg * (i / total-big-dots);
+            }
+
+            for i in kph-indicators + 1: KPHText {
+                transform-rotation: 260deg * (i / kph-indicators);
+            }
+        }
+
+        holder := Rectangle {
+            width: 0px;
+            height: 0px;
+            background: red;
+            transform-rotation: (speed * 1deg) - 130deg;
+            needle := Image {
+                x: -self.width / 2;
+                y: -self.height;
+                source: @image-url("needle.png");
+                transform-scale: 0.51;
+                transform-scale-x: 0.3;
+                transform-origin: { x: self.width / 2, y: self.height };
+            }
+        }
+
+        inner-circle := Rectangle {
+            width: 180px;
+            height: self.width;
+            border-radius: self.width / 2;
+            border-width: 1px;
+            border-color: @conic-gradient(#020414 67.5deg, #ff0000 121deg, #020414 167deg, #020414 256deg, #ff0000 302deg, #000000 351deg);
+            background: background-color;
+            drop-shadow-blur: 30px;
+            drop-shadow-color: #fe5a5a60;
+
+            Text {
+                text: speed;
+                font-family: "01 Digitall";
+                font-size: 52px;
+                color: white;
+                y: parent.height / 2 - self.height / 2 - 20px;
+            }
+
+            kmh-label :=Text {
+                text: "km/h";
+                font-size: 18px;
+                color: white;
+                x: parent.width / 2 - self.width / 2;
+                y: parent.height / 2 + 20px;
+            }
+        }
+    }
+
+    control-buttons := HorizontalBox {
+        spacing: 10px;
+        alignment: center;
+        height: 50px;
+        y: 450px;
+
+        Button {
+            text: "STOP";
+            clicked => {
+                speed = 0;
+            }
+        }
+
+        Button {
+            text: "CRUISE";
+            clicked => {
+                speed = 60;
+            }
+        }
+
+        Button {
+            text: "FAST";
+            clicked => {
+                speed = 120;
+            }
+        }
+
+        Button {
+            text: "MAX";
+            clicked => {
+                speed = 240;
+            }
+        }
+    }
+}
