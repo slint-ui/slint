@@ -210,18 +210,6 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
-                    library-toggled(val) => {
-                        root.library-widget = val;
-                    }
-                    outline-toggled(val) => {
-                        root.outline-widget = val;
-                    }
-                    properties-toggled(val) => {
-                        root.properties-widget = val;
-                    }
-                    simulator-toggled(val) => {
-                        root.data-widget = val;
-                    }
                     edit := Button {
                         icon: Icons.inspect;
                         colorize-icon: preview.select-mode ? false : true;
