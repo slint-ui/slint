@@ -72,10 +72,9 @@ pub fn ensure_window(
     let make_two_way = |name: &'static str| {
         new_root.borrow_mut().bindings.insert(
             name.into(),
-            RefCell::new(BindingExpression::new_two_way(NamedReference::new(
-                &win_elem,
-                SmolStr::new_static(name),
-            ))),
+            RefCell::new(BindingExpression::new_two_way(
+                NamedReference::new(&win_elem, SmolStr::new_static(name)).into(),
+            )),
         );
     };
     make_two_way("width");

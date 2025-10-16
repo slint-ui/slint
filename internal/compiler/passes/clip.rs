@@ -109,10 +109,9 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     }
     clip.borrow_mut().bindings.insert(
         SmolStr::new_static("clip"),
-        BindingExpression::new_two_way(NamedReference::new(
-            parent_elem,
-            SmolStr::new_static("clip"),
-        ))
+        BindingExpression::new_two_way(
+            NamedReference::new(parent_elem, SmolStr::new_static("clip")).into(),
+        )
         .into(),
     );
 }
