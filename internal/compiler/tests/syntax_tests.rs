@@ -170,6 +170,14 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
             }
         }
 
+        // Windows edge-case, if the end falls on a newline, it should span the entire
+        // newline character, which is two characters, not one.
+        if let Some(end_offset) = end {
+            if source.get(end_offset..=(end_offset + 1)) == Some("\r\n") {
+                end = Some(end_offset + 1)
+            };
+        }
+
         let expected_diag_level = match warning_or_error {
             "warning" => DiagnosticLevel::Warning,
             "error" => DiagnosticLevel::Error,
