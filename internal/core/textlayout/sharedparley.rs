@@ -323,7 +323,7 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                             Style::Underline => {
                                 builder.push(parley::StyleProperty::Underline(true), span.range);
                             }
-                            Style::Link { .. } => {
+                            Style::Link => {
                                 builder.push(
                                     parley::StyleProperty::Underline(true),
                                     span.range.clone(),
@@ -807,24 +807,19 @@ impl Layout {
 
 #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
 #[derive(Debug, PartialEq)]
-enum Style<'a> {
+enum Style {
     Emphasis,
     Strong,
     Strikethrough,
     Code,
-    Link {
-        #[cfg(not(feature = "experimental-rich-text"))]
-        _marker: std::marker::PhantomData<&'a ()>,
-        #[cfg(feature = "experimental-rich-text")]
-        url: pulldown_cmark::CowStr<'a>,
-    },
+    Link,
     Underline,
 }
 
 #[derive(Debug, PartialEq)]
-struct FormattedSpan<'a> {
+struct FormattedSpan {
     range: Range<usize>,
-    style: Style<'a>,
+    style: Style,
 }
 
 #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
@@ -837,7 +832,11 @@ enum ListItemType {
 #[derive(Debug, PartialEq)]
 struct RichTextParagraph<'a> {
     text: std::string::String,
-    formatting: Vec<FormattedSpan<'a>>,
+    formatting: Vec<FormattedSpan>,
+    #[cfg(feature = "experimental-rich-text")]
+    links: std::vec::Vec<(Range<usize>, pulldown_cmark::CowStr<'a>)>,
+    #[cfg(not(feature = "experimental-rich-text"))]
+    _phantom: std::marker::PhantomData<&'a ()>
 }
 
 #[derive(Debug, Default)]
@@ -845,8 +844,8 @@ struct RichText<'a> {
     paragraphs: Vec<RichTextParagraph<'a>>,
 }
 
+#[cfg(feature = "experimental-rich-text")]
 impl<'a> RichText<'a> {
-    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = std::string::String::with_capacity(indentation as usize * 4);
         for _ in 0..indentation {
@@ -865,7 +864,11 @@ impl<'a> RichText<'a> {
             Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
             None => {}
         };
-        self.paragraphs.push(RichTextParagraph { text, formatting: Default::default() });
+        self.paragraphs.push(RichTextParagraph {
+            text,
+            formatting: Default::default(),
+            links: Default::default(),
+        });
     }
 }
 
@@ -877,6 +880,7 @@ fn parse_markdown(string: &str) -> RichText<'_> {
     let mut rich_text = RichText::default();
     let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
     let mut style_stack = std::vec::Vec::new();
+    let mut current_url = None;
 
     for event in parser {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
@@ -913,7 +917,10 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                     pulldown_cmark::Tag::Strong => Style::Strong,
                     pulldown_cmark::Tag::Emphasis => Style::Emphasis,
                     pulldown_cmark::Tag::Strikethrough => Style::Strikethrough,
-                    pulldown_cmark::Tag::Link { dest_url, .. } => Style::Link { url: dest_url },
+                    pulldown_cmark::Tag::Link { dest_url, .. } => {
+                        current_url = Some(dest_url);
+                        Style::Link
+                    }
                     pulldown_cmark::Tag::Paragraph
                     | pulldown_cmark::Tag::List(_)
                     | pulldown_cmark::Tag::Item => unreachable!(),
@@ -947,6 +954,11 @@ fn parse_markdown(string: &str) -> RichText<'_> {
 
                 let paragraph = rich_text.paragraphs.last_mut().unwrap();
                 let end = paragraph.text.len();
+
+                if let Some(url) = current_url.take() {
+                    paragraph.links.push((start..end, url));
+                }
+
                 paragraph.formatting.push(FormattedSpan { range: start..end, style });
             }
             pulldown_cmark::Event::Code(text) => {
@@ -990,7 +1002,8 @@ fn markdown_parsing() {
         parse_markdown("hello *world*").paragraphs,
         [RichTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }]
+            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
+            links: std::vec![]
         }]
     );
 
@@ -1003,8 +1016,16 @@ fn markdown_parsing() {
         )
         .paragraphs,
         [
-            RichTextParagraph { text: "• line 1".into(), formatting: std::vec![] },
-            RichTextParagraph { text: "• line 2".into(), formatting: std::vec![] }
+            RichTextParagraph {
+                text: "• line 1".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            RichTextParagraph {
+                text: "• line 2".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            }
         ]
     );
 
@@ -1018,9 +1039,9 @@ fn markdown_parsing() {
         )
         .paragraphs,
         [
-            RichTextParagraph { text: "1. a".into(), formatting: std::vec![] },
-            RichTextParagraph { text: "2. b".into(), formatting: std::vec![] },
-            RichTextParagraph { text: "3. c".into(), formatting: std::vec![] }
+            RichTextParagraph { text: "1. a".into(), formatting: std::vec![], links: std::vec![] },
+            RichTextParagraph { text: "2. b".into(), formatting: std::vec![], links: std::vec![] },
+            RichTextParagraph { text: "3. c".into(), formatting: std::vec![], links: std::vec![] }
         ]
     );
 
@@ -1040,11 +1061,13 @@ new *line*
                     FormattedSpan { range: 14..20, style: Style::Strong },
                     FormattedSpan { range: 21..34, style: Style::Strikethrough },
                     FormattedSpan { range: 35..39, style: Style::Code }
-                ]
+                ],
+                links: std::vec![]
             },
             RichTextParagraph {
                 text: "new line".into(),
-                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },]
+                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
+                links: std::vec![]
             }
         ]
     );
@@ -1060,12 +1083,25 @@ new *line*
         )
         .paragraphs,
         [
-            RichTextParagraph { text: "• root".into(), formatting: std::vec![] },
-            RichTextParagraph { text: "    ◦ child".into(), formatting: std::vec![] },
-            RichTextParagraph { text: "        ▪ grandchild".into(), formatting: std::vec![] },
+            RichTextParagraph {
+                text: "• root".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            RichTextParagraph {
+                text: "    ◦ child".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            RichTextParagraph {
+                text: "        ▪ grandchild".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
             RichTextParagraph {
                 text: "            • great grandchild".into(),
-                formatting: std::vec![]
+                formatting: std::vec![],
+                links: std::vec![]
             },
         ]
     );
@@ -1076,13 +1112,9 @@ new *line*
             text: "hello world".into(),
             formatting: std::vec![
                 FormattedSpan { range: 6..11, style: Style::Emphasis },
-                FormattedSpan {
-                    range: 6..11,
-                    style: Style::Link {
-                        url: pulldown_cmark::CowStr::Borrowed("https://example.com")
-                    }
-                }
-            ]
+                FormattedSpan { range: 6..11, style: Style::Link }
+            ],
+            links: std::vec![(6..11, pulldown_cmark::CowStr::Borrowed("https://example.com"))]
         }]
     );
 
@@ -1090,7 +1122,8 @@ new *line*
         parse_markdown("<u>hello world</u>").paragraphs,
         [RichTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },]
+            formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
+            links: std::vec![]
         }]
     );
 }
