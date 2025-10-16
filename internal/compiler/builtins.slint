@@ -120,7 +120,18 @@ component ComplexText inherits SimpleText {
 
 export { ComplexText as Text }
 
-export component MarkdownText inherits SimpleText {
+export component MarkdownText inherits Empty {
+    in property <length> width;
+    in property <length> height;
+    in property <string> text;
+    in property <length> font-size;
+    in property <int> font-weight;
+    in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+    in property <TextHorizontalAlignment> horizontal-alignment;
+    in property <TextVerticalAlignment> vertical-alignment;
+
+    in property <angle> rotation-angle <=> transform-rotation;
+
     in property <string> font-family;
     in property <bool> font-italic;
     in property <TextOverflow> overflow;
