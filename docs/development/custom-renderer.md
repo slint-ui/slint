@@ -9,10 +9,11 @@ This document covers how to implement a custom renderer for Slint. This is inten
 
 ## Overview
 
-Slint includes three built-in renderers:
+Slint includes four built-in renderers:
 - **Software Renderer** (`internal/renderers/software/`) - Pure Rust CPU-based rendering
 - **FemtoVG Renderer** (`internal/renderers/femtovg/`) - OpenGL ES 2.0 via FemtoVG library
 - **Skia Renderer** (`internal/renderers/skia/`) - GPU-accelerated via Skia library
+- **Vello Renderer** (`internal/renderers/vello/`) - GPU-accelerated via Vello library and WGPU
 
 ## Core Traits
 
@@ -120,6 +121,24 @@ impl SoftwareRenderer {
 
 Supports memory-constrained devices via line-by-line rendering.
 
+### Vello Pattern: WGPU Scene Rendering
+
+Vello builds a scene graph rendered via WGPU:
+
+```rust
+pub struct VelloRenderer {
+    instance: RefCell<Option<wgpu::Instance>>,
+    device: RefCell<Option<wgpu::Device>>,
+    queue: RefCell<Option<wgpu::Queue>>,
+    surface: RefCell<Option<wgpu::Surface<'static>>>,
+    renderer: RefCell<Option<vello::Renderer>>,
+    scene: RefCell<Option<vello::Scene>>,
+    // ...
+}
+```
+
+Uses `vello::Scene` for building draw commands and `vello::Renderer` to render to a WGPU texture. Shapes use `vello::kurbo` (Rect, RoundedRect, curves) and fills use `vello::peniko` brushes (solid colors, linear/radial gradients). Text rendering uses shared Parley infrastructure.
+
 ## Backend Integration
 
 ### WinitCompatibleRenderer (`internal/backends/winit/`)
@@ -170,6 +189,7 @@ Renderers are enabled via Cargo features in `api/rs/slint/Cargo.toml`:
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software"]
+renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 ```
 
 ### Backend Selector
@@ -189,6 +209,7 @@ To add a new renderer:
 ```sh
 SLINT_BACKEND=winit-software cargo run    # Force software renderer
 SLINT_BACKEND=winit-skia cargo run        # Force Skia renderer
+SLINT_BACKEND=winit-vello cargo run       # Force Vello renderer
 ```
 
 ## Window & Event Loop Integration
@@ -265,10 +286,13 @@ internal/renderers/
 │   ├── metal_surface.rs
 │   ├── vulkan_surface.rs
 │   └── software_surface.rs
-└── software/
-    ├── lib.rs           # SoftwareRenderer, scene building
-    ├── scene.rs         # Scene graph structures
-    └── draw_functions.rs
+├── software/
+│   ├── lib.rs           # SoftwareRenderer, scene building
+│   ├── scene.rs         # Scene graph structures
+│   └── draw_functions.rs
+└── vello/
+    ├── lib.rs           # VelloRenderer, WGPU setup, scene rendering
+    └── itemrenderer.rs  # VelloItemRenderer (ItemRenderer impl)
 ```
 
 ## Example: Studying Existing Implementations

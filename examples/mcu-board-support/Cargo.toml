@@ -205,7 +205,7 @@ derive_more = { workspace = true }
 embedded-graphics = { version = "0.8", optional = true }
 once_cell = { version = "1.9", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1", default-features = false }
-rgb = "0.8.27"
+rgb = { workspace = true }
 cfg-if = "1"
 
 log = "0.4.27"

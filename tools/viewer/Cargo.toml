@@ -28,6 +28,7 @@ renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]
+renderer-vello = ["slint-interpreter/renderer-vello"]
 renderer-software = ["slint-interpreter/renderer-software"]
 
 # Compat
@@ -49,7 +50,7 @@ renderer-winit-software = ["renderer-software"]
 ## so that the viewer can find the translation
 gettext = ["i-slint-core/gettext-rs"]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software"]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "renderer-vello"]
 
 [dependencies]
 i-slint-compiler = { workspace = true }

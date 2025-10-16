@@ -697,6 +697,7 @@ links = "slint_cpp"
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software"]
+renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 
 # Backends
 backend-winit = ["i-slint-backend-selector/backend-winit"]
@@ -716,6 +717,7 @@ testing = ["i-slint-backend-testing"]
 define_cargo_feature(backend-winit "Enable winit" ON)
 define_cargo_feature(backend-qt "Enable Qt" OFF)
 define_cargo_feature(renderer-femtovg "Enable FemtoVG" ON)
+define_cargo_feature(renderer-vello "Enable Vello" OFF)
 define_cargo_feature(interpreter "Enable interpreter" ON)
 ```
 

@@ -95,6 +95,7 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
   - `femtovg/` - OpenGL ES 2.0
   - `skia/` - Skia graphics
   - `software/` - CPU-only fallback
+  - `vello/` - GPU-accelerated via Vello and WGPU
 
 ### Language APIs (`api/`)
 
@@ -129,7 +130,7 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
 - Internal crates (`internal/`) are not semver-stable - they use exact version pinning
 - FFI modules are gated with `#[cfg(feature = "ffi")]`
 - C++ headers generated via `cargo xtask cbindgen`
-- Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`) and backends (`backend-winit`, `backend-qt`)
+- Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`, `renderer-vello`) and backends (`backend-winit`, `backend-qt`)
 
 ## Version Control (Git)
 

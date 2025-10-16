@@ -36,7 +36,7 @@ lyon_path = { workspace = true }
 pin-weak = "1"
 femtovg = { version = "0.20.3", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
-rgb = { version = "0.8.27" }
+rgb = { workspace = true }
 
 glow = { workspace = true }
 

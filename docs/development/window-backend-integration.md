@@ -324,7 +324,7 @@ The placement algorithm:
 Cross-platform backend using the winit library:
 
 - **Platforms**: Windows, macOS, Linux (X11/Wayland), iOS, Android, WASM
-- **Renderers**: FemtoVG (OpenGL/WGPU), Skia, Software
+- **Renderers**: FemtoVG (OpenGL/WGPU), Skia, Software, Vello (WGPU)
 - **Features**: Accessibility (AccessKit), menus (muda)
 
 ```rust
