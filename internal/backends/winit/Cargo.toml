@@ -53,6 +53,7 @@ renderer-software = [
   "i-slint-renderer-software/std",
   "dep:bytemuck",
 ]
+renderer-vello = ["dep:i-slint-renderer-vello"]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-26 = [
@@ -96,6 +97,8 @@ softbuffer = { workspace = true, optional = true, default-features = false }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
+
+i-slint-renderer-vello = { workspace = true, optional = true }
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
 muda = { version = "0.17.0", optional = true, default-features = false }

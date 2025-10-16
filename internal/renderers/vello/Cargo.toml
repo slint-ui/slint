@@ -1,0 +1,39 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-renderer-vello"
+description = "Vello based renderer for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+unstable-wgpu-26 = []
+unstable-wgpu-27 = []
+
+[dependencies]
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley", "unstable-wgpu-26"] }
+i-slint-core-macros = { workspace = true, features = ["default"] }
+i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
+
+const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
+vtable = { workspace = true }
+
+cfg-if = "1"
+derive_more = { workspace = true }
+lyon_path = "1.0"
+pin-weak = "1"
+vello = { path = "/Users/simon/src/vello/vello", version = "0.6.0" }
+raw-window-handle = { version = "0.6", features = ["std"] }
+wgpu-26 = { workspace = true, default-features = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

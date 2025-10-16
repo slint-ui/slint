@@ -20,6 +20,8 @@ mod htmlimage;
 #[cfg(feature = "svg")]
 mod svg;
 
+pub use rgb;
+
 #[allow(missing_docs)]
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 #[vtable::vtable]

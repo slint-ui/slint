@@ -20,7 +20,15 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+default = [
+  "std",
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+  "renderer-vello",
+]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -168,6 +176,8 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software", "dep:fontique"]
+
+renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.

@@ -88,6 +88,8 @@ mod renderer {
     pub(crate) mod femtovg;
     #[cfg(enable_skia_renderer)]
     pub(crate) mod skia;
+    #[cfg(feature = "renderer-vello")]
+    pub(crate) mod vello;
 
     #[cfg(feature = "renderer-software")]
     pub(crate) mod sw;
@@ -463,6 +465,10 @@ impl BackendBuilder {
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
             (Some("skia-software"), None) => {
                 renderer::skia::WinitSkiaRenderer::new_software_suspended
+            }
+            #[cfg(feature = "renderer-vello")]
+            (Some("vello"), maybe_graphics_api) => {
+                renderer::vello::WinitVelloRenderer::factory_for_graphics_api(maybe_graphics_api)?
             }
             #[cfg(feature = "renderer-software")]
             (Some("sw"), None) | (Some("software"), None) => {

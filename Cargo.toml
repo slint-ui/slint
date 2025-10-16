@@ -49,6 +49,7 @@ members = [
   'internal/renderers/software',
   'internal/renderers/skia',
   'internal/renderers/femtovg',
+  'internal/renderers/vello',
   'internal/common',
   'internal/compiler',
   'internal/compiler/parser-test-macro',
@@ -133,6 +134,7 @@ i-slint-core = { version = "=1.15.0", path = "internal/core", default-features =
 i-slint-core-macros = { version = "=1.15.0", path = "internal/core-macros", default-features = false }
 i-slint-renderer-femtovg = { version = "=1.15.0", path = "internal/renderers/femtovg", default-features = false }
 i-slint-renderer-skia = { version = "=1.15.0", path = "internal/renderers/skia", default-features = false }
+i-slint-renderer-vello = { version = "=1.15.0", path = "internal/renderers/vello", default-features = false }
 i-slint-renderer-software = { version = "=1.15.0", path = "internal/renderers/software", default-features = false }
 slint = { version = "=1.15.0", path = "api/rs/slint", default-features = false }
 slint-build = { version = "=1.15.0", path = "api/rs/build", default-features = false }

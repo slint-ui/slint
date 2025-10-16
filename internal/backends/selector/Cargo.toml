@@ -40,6 +40,8 @@ renderer-skia-vulkan = [
 ]
 renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-backend-linuxkms?/renderer-software"]
 
+renderer-vello = ["i-slint-backend-winit?/renderer-vello"]
+
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
@@ -50,6 +52,7 @@ system-testing = ["i-slint-backend-testing/system-testing"]
 unstable-wgpu-26 = [
   "i-slint-core/unstable-wgpu-26",
   "i-slint-renderer-skia?/unstable-wgpu-26",
+  "i-slint-renderer-vello?/unstable-wgpu-26",
   "i-slint-backend-winit?/unstable-wgpu-26",
 ]
 
@@ -73,6 +76,7 @@ cfg-if = "1"
 i-slint-core = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true }
 i-slint-core-macros = { workspace = true }
+i-slint-renderer-vello = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
