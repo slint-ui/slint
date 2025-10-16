@@ -1927,6 +1927,46 @@ impl WindowAdapter for QtWindow {
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
+
+    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        let widget_ptr = self.widget_ptr();
+        //unidirectional resize cursors are replaced with bidirectional ones
+        let cursor_shape = match cursor {
+            MouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
+            MouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
+            MouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
+            MouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
+            MouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
+            MouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
+            MouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
+            MouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
+            MouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
+            MouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
+            MouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
+            MouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
+            MouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
+            MouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
+            MouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
+            MouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
+            MouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
+            MouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            _ => key_generated::Qt_CursorShape_ArrowCursor,
+        };
+        cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
+            widget_ptr->setCursor(QCursor{cursor_shape});
+        }};
+    }
 }
 
 fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
@@ -1965,44 +2005,6 @@ impl WindowAdapterInternal for QtWindow {
         Some(popup_window as _)
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursor) {
-        let widget_ptr = self.widget_ptr();
-        //unidirectional resize cursors are replaced with bidirectional ones
-        let cursor_shape = match cursor {
-            MouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
-            MouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
-            MouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
-            MouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
-            MouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
-            MouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
-            MouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
-            MouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
-            MouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
-            MouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
-            MouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
-            MouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
-            MouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
-            MouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
-            MouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
-            MouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
-            MouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
-            MouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            MouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            MouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-        };
-        cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
-            widget_ptr->setCursor(QCursor{cursor_shape});
-        }};
-    }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         let widget_ptr = self.widget_ptr();
