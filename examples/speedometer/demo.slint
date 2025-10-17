@@ -1,8 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 import "./01 Digitall.ttf";
+
+component CarButton inherits Rectangle {
+    callback clicked <=> touch-area.clicked;
+    in property <string> text;
+    property <angle> touch-animation: touch-area.pressed ? 180deg : 0deg;
+    animate touch-animation { duration: 500ms; }
+    property <angle> stop1: 67deg + touch-animation;
+    property <angle> stop2: 121deg + touch-animation;
+    property <angle> stop3: 167deg + touch-animation;
+    property <angle> stop4: 256deg + touch-animation;
+    property <angle> stop5: 302deg + touch-animation;
+    property <angle> stop6: 351deg + touch-animation;
+
+    width: 80px;
+    height: 30px;
+    border-radius: 20px;
+    border-width: 1px;
+    border-color: @conic-gradient(#020414 stop1, #ff0000 stop2, #020414 stop3, #020414 stop4, #ff0000 stop5, #000000 stop6 );
+    background: @linear-gradient(45deg + touch-animation, #000000 0%, #4d0404 100%);
+
+    label :=Text {
+        text: text;
+        font-family: "01 Digitall";
+        font-size: 16px;
+        color: touch-area.pressed ? #ff0404 : #ffffff;
+        letter-spacing: 2px;
+    }
+
+    touch-area := TouchArea {}
+}
 
 component MiniDot {
     width: 0;
@@ -54,7 +83,6 @@ component KPHText {
         font-size: 18px;
         transform-rotation: -root.transform-rotation - 50deg;
         font-family: "01 Digitall";
-        opacity: 0.9;
         horizontal-alignment: left;
     }
 }
@@ -131,8 +159,8 @@ export component MainWindow inherits Window {
             border-width: 1px;
             border-color: @conic-gradient(#020414 67.5deg, #ff0000 121deg, #020414 167deg, #020414 256deg, #ff0000 302deg, #000000 351deg);
             background: background-color;
-            drop-shadow-blur: 30px;
-            drop-shadow-color: #fe5a5a60;
+            drop-shadow-blur: 25px;
+            drop-shadow-color: #fe5a5a.with-alpha(0.4 + (0.2 * (speed / 260)));
 
             Text {
                 text: speed;
@@ -158,35 +186,35 @@ export component MainWindow inherits Window {
         }
     }
 
-    control-buttons := HorizontalBox {
-        spacing: 10px;
+    control-buttons := HorizontalLayout {
+        spacing: 20px;
         alignment: center;
         height: 50px;
-        y: 450px;
+        y: 420px;
 
-        Button {
+        CarButton {
             text: "STOP";
             clicked => {
                 speed = 0;
             }
         }
 
-        Button {
-            text: "CRUISE";
+        CarButton {
+            text: "DRIVE";
             clicked => {
                 speed = 60;
             }
         }
 
-        Button {
+        CarButton {
             text: "FAST";
             clicked => {
                 speed = 120;
             }
         }
 
-        Button {
-            text: "MAX";
+        CarButton {
+            text: "TURBO";
             clicked => {
                 speed = 240;
             }

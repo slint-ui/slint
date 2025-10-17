@@ -1,5 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-![Speedometer Screenshot](https://github.com/user-attachments/assets/bc3a6036-6fa7-4a1a-84ec-b0f16da663ef)
+![Speedometer Screenshot](https://github.com/user-attachments/assets/a5f19f43-9f36-443b-9e6d-cc6b504595e6)
 
 # Speedometer demo
 
