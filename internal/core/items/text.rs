@@ -1269,10 +1269,10 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::DownArrow => Self::NextLine,
             key_codes::PageUp => Self::PageUp,
             key_codes::PageDown => Self::PageDown,
-            // On macos this scrolls to the top or the bottom of the page
-            #[cfg(not(target_os = "macos"))]
+            // On macOS and iOS this scrolls to the top or the bottom of the page
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::Home => Self::StartOfLine,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
