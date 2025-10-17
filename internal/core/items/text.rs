@@ -807,7 +807,7 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
@@ -826,13 +826,13 @@ impl Item for TextInput {
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { button: PointerEventButton::Middle, .. } => {
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
