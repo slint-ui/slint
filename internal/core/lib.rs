@@ -62,6 +62,12 @@ pub mod window;
 #[doc(inline)]
 pub use string::SharedString;
 
+/// Register a font from memory.
+#[cfg(feature = "shared-fontique")]
+pub fn register_font_from_memory(font_data: alloc::vec::Vec<u8>) -> usize {
+    i_slint_common::sharedfontique::register_font_from_memory(font_data)
+}
+
 #[doc(inline)]
 pub use sharedvector::SharedVector;
 

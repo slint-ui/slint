@@ -51,6 +51,44 @@
     var galleries = [];
     var currentGallery = undefined;
 
+    // Get Noto CJK font URL from GitHub for the detected language
+    function getNotoFontUrl(lang) {
+      const langCode = lang.split('-')[0].toLowerCase();
+
+      // Direct URLs to OTF files from Noto CJK GitHub repository (using raw.githubusercontent.com for CORS)
+      const fontMap = {
+        'ja': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf',
+        // 'zh': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf',
+        // 'ko': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/Korean/NotoSansCJKkr-Regular.otf',
+      };
+
+      return fontMap[langCode];
+    }
+
+    // Fetch font from GitHub
+    async function fetchFont(fontUrl) {
+      const fontResponse = await fetch(fontUrl);
+      if (!fontResponse.ok) {
+        throw new Error(`HTTP ${fontResponse.status}: ${fontResponse.statusText}`);
+      }
+      return await fontResponse.arrayBuffer();
+    }
+
+    // Load font for the detected language
+    async function loadFontForLanguage(module, lang) {
+      const fontUrl = getNotoFontUrl(lang);
+
+      if (fontUrl) {
+        try {
+          const fontData = await fetchFont(fontUrl);
+          const uint8Array = new Uint8Array(fontData);
+          const result = await module.load_font_from_bytes(uint8Array);
+        } catch (error) {
+          console.error(`Failed to load font for language ${lang}:`, error);
+        }
+      }
+    }
+
     function initGallery(gallery) {
       document.getElementById("spinner").hidden = false;
 
@@ -67,7 +105,7 @@
         document.getElementById("canvas-parent").appendChild(galleries[gallery]);
         document.getElementById("spinner").hidden = true;
       } else {
-        import(gallery).then(module => {
+        import(gallery).then(async module => {
           let canvas = document.createElement("canvas");
           canvas.id = "canvas";
           canvas.dataset.slintAutoResizeToPreferred = "true";
@@ -75,11 +113,23 @@
           galleries[gallery] = canvas;
 
           document.getElementById("canvas-parent").appendChild(canvas);
-          module.default().finally(() => {
-            document.getElementById("canvas").hidden = false;
-            document.getElementById("spinner").hidden = true;
-          });
-        })
+
+          // Initialize WASM module first
+          await module.default();
+
+          // Detect browser language and load appropriate font
+          const browserLang = (navigator.languages && navigator.languages[0]) || navigator.language || navigator.userLanguage || 'en';
+          await loadFontForLanguage(module, browserLang);
+
+          // Start the application
+          module.main();
+
+          document.getElementById("canvas").hidden = false;
+          document.getElementById("spinner").hidden = true;
+        }).catch(error => {
+          console.error('Failed to initialize gallery:', error);
+          document.getElementById("spinner").hidden = true;
+        });
       }
     }
 
