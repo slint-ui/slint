@@ -5,20 +5,20 @@ export component Def {
     Timer {
         interval: 100ms;
         Rectangle {}
-    //  ^error{Timer cannot have children elements}
+//      >        <error{Timer cannot have children elements}
     }
 
     Timer {
         interval: 200ms;
         width: 500px;
-    //  ^error{Unknown property width in Timer}
+//      >   <error{Unknown property width in Timer}
         y: 12px;
-    //  ^error{Unknown property y in Timer}
+//      ^error{Unknown property y in Timer}
 
         opacity: 0.5;
-    //  ^error{Unknown property opacity in Timer}
+//      >     <error{Unknown property opacity in Timer}
         visible: false;
-    //  ^error{Unknown property visible in Timer}
+//      >     <error{Unknown property visible in Timer}
 
     }
 

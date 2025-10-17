@@ -4,11 +4,11 @@
 import { LibraryType } from "@test-lib/lib.slint";
 
 import { NotFound } from "@not-found/foo.slint";
-//                       ^error{Cannot find requested import "@not-found/foo.slint" in the library search path}
+//                       >                    <error{Cannot find requested import "@not-found/foo.slint" in the library search path}
 
 import { NotFound2 } from "@test-lib/lib.slint";
-//                        ^error{No exported type called 'NotFound2' found in "@test-lib/lib.slint"}
+//                        >                   <error{No exported type called 'NotFound2' found in "@test-lib/lib.slint"}
 
 import { NotFound4 } from "@notexist";
-//                        ^error{Cannot find requested import "@notexist" in the library search path}
+//                        >         <error{Cannot find requested import "@notexist" in the library search path}
 

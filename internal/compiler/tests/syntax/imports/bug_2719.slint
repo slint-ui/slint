@@ -4,12 +4,12 @@
 import { Qq } from "../../typeloader/incpath/bug_2719_import.slint";
 
 import { SomeRect } from "tests/typeloader/incpath/local_helper_type.slint";
-//                       ^warning{Loading "tests/typeloader/incpath/local_helper_type.slint" relative to the work directory is deprecated. Files should be imported relative to their import location}
+//                       >                                                <warning{Loading "tests/typeloader/incpath/local_helper_type.slint" relative to the work directory is deprecated. Files should be imported relative to their import location}
 
 
 export component X {
     Qq {  }
     SomeRect {  }
     Yy {  }
-//  ^error{Unknown element 'Yy'}
+//  > <error{Unknown element 'Yy'}
 }

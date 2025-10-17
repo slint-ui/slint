@@ -2,55 +2,56 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Abc := Rectangle {
-//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//  ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     function par() {}
 }
 
 export Xxx := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     function fooo(a: int, a: int) -> int { return a; }
 //                        ^error{Duplicated argument name 'a'}
 
     function plop2() -> int {
-//  ^error{Cannot convert string to int}
+//  >error{Cannot convert string to int}
         return 45;
         "xxx"
     }
+//  <error{Cannot convert string to int}
 
     function plop3() { return 45; "xxx" }
 
     function plop4(string: int) -> int {  return "45"; }
-//                                        ^error{Cannot convert string to int}
+//                                        >          <error{Cannot convert string to int}
 
     function plop5() {  plop4("456") }
-//                            ^error{Cannot convert string to int}
+//                            >   <error{Cannot convert string to int}
 
 
     function background() {}
-//           ^error{Cannot declare function 'background' when a property with the same name exists}
+//           >        <error{Cannot declare function 'background' when a property with the same name exists}
 
 
     Abc {
         property <int> par;
-//                     ^error{Cannot declare property 'par' when a function with the same name exists}
+//                     > <error{Cannot declare property 'par' when a function with the same name exists}
         callback par();
-//               ^error{Cannot declare callback 'par' when a function with the same name exists}
+//               > <error{Cannot declare callback 'par' when a function with the same name exists}
     }
 
     TouchArea {
         function clicked() {}
-//               ^error{Cannot override 'clicked'}
+//               >     <error{Cannot override 'clicked'}
     }
 
     Abc {  par => {} }
-//         ^error{'par' is not a callback in Abc}
+//         > <error{'par' is not a callback in Abc}
     aa := Abc { par: 42; }
-//              ^error{Cannot assign to par in Abc because it does not have a valid property type}
+//              > <error{Cannot assign to par in Abc because it does not have a valid property type}
     Abc { par <=> aa.par; }
-//        ^error{Cannot assign to par in Abc because it does not have a valid property type}
-//        ^^error{Cannot bind to a function}
-//                   ^^^error{The function 'par' is private. Annotate it with 'public' to make it accessible from other components}
+//        > <error{Cannot assign to par in Abc because it does not have a valid property type}
+//                   > <^error{The function 'par' is private. Annotate it with 'public' to make it accessible from other components}
+//        >             <^^error{Cannot bind to a function}
     fooo => {}
-//  ^error{'fooo' is not a callback in Rectangle}
+//  >  <error{'fooo' is not a callback in Rectangle}
 
 }

@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export TestCase := Window {
-//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     ta := TouchArea { }
 
     Rectangle {
         property foo;
-//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
+//               > <error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
         property bar: 45;
-//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
+//               > <error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
         property hello <=> ta.pressed;
 
         property <=> ta.pressed;
 
         property yo yo;
-//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
-//                  ^^error{Syntax error: expected ';'}
+//               ><error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
+//                  ><^error{Syntax error: expected ';'}
 //                    ^^^error{Parse error}
 
 

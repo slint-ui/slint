@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     x: 42phx;
     x: 32phx;
 //  ^error{Duplicated property binding}
     width: 12phx;
     width <=> self.height;
-//  ^error{Duplicated property binding}
+//  >   <error{Duplicated property binding}
 
     not_exist <=> 12phx;
-//  ^error{Unknown property not-exist in Rectangle}
+//  >       <error{Unknown property not-exist in Rectangle}
 
     property <int> foo: 12;
     foo: 13;
-//  ^error{Duplicated property binding}
+//  > <error{Duplicated property binding}
 
 
 }

@@ -3,16 +3,16 @@
 
 import { TabWidget  } from "std-widgets.slint";
 export Test1 := Rectangle {
-//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//           ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     TabWidget {
         Rectangle {}
-//      ^error{Rectangle is not allowed within TabWidget. Only Tab are valid children}
+//      >        <error{Rectangle is not allowed within TabWidget. Only Tab are valid children}
         Tab {
             Tab {}
-//          ^error{Tab can only be within a TabWidget element}
+//          >  <error{Tab can only be within a TabWidget element}
         }
     }
 
     Tab {}
-//  ^error{Tab can only be within a TabWidget element}
+//  >  <error{Tab can only be within a TabWidget element}
 }

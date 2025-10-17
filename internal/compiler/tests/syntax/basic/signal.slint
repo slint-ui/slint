@@ -2,20 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Base := Rectangle {
-//   ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//   ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback blah;
 }
 
 export SubElements := Rectangle {
-//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback foobar;
     callback foobar;
-//           ^error{Duplicated callback declaration}
+//           >    <error{Duplicated callback declaration}
 
     callback callback_with_arg(int, string);
 
     callback invalid_arg(InvalidType);
-//                       ^error{Unknown type 'InvalidType'}
+//                       >         <error{Unknown type 'InvalidType'}
 
     TouchArea {
         clicked => { foobar() }
@@ -23,7 +23,7 @@ export SubElements := Rectangle {
 
     TouchArea {
         clicked: 45;
-//      ^error{'clicked' is a callback. Use `=>` to connect}
+//      >     <error{'clicked' is a callback. Use `=>` to connect}
         x => {}
 //      ^error{'x' is not a callback in TouchArea}
     }
@@ -31,30 +31,30 @@ export SubElements := Rectangle {
     TouchArea {
         clicked => { foobar() }
         clicked => { foobar() }
-//      ^error{Duplicated callback}
+//      >     <error{Duplicated callback}
     }
 
     does_not_exist => {
-//  ^error{'does-not-exist' is not a callback in Rectangle}
+//  >            <error{'does-not-exist' is not a callback in Rectangle}
         root.does_not_exist();
     }
 
     foobar() => { foobar() }
     callback_with_arg(a, b, c, d) => { }
-//  ^error{'callback-with-arg' only has 2 arguments, but 4 were provided}
+//  >               <error{'callback-with-arg' only has 2 arguments, but 4 were provided}
 
     Base {
         callback blah;
-//               ^error{Cannot override callback 'blah'}
+//               >  <error{Cannot override callback 'blah'}
     }
 
     property <bool> pressed;
     callback pressed;
-//           ^error{Cannot declare callback 'pressed' when a property with the same name exists}
+//           >     <error{Cannot declare callback 'pressed' when a property with the same name exists}
 
     callback init;
-//           ^error{Cannot override callback 'init'}
+//           >  <error{Cannot override callback 'init'}
 
     callback width;
-//           ^error{Cannot declare callback 'width' when a property with the same name exists}
+//           >   <error{Cannot declare callback 'width' when a property with the same name exists}
 }

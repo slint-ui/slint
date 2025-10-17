@@ -18,9 +18,9 @@ export component C1 {
     // pressed is "output" in Button
     out <=> b.pressed;  // ok  (but then there should be no other assignment?)
     in <=> b.pressed; // Error
-//  ^error{Cannot link to a output property}
+//  >               <error{Cannot link to a output property}
     inout <=> b.pressed;
-//  ^error{Cannot link to a output property}
+//  >                  <error{Cannot link to a output property}
     priv <=> b.pressed; // makes assignment forbidden
 
 
@@ -28,17 +28,17 @@ export component C1 {
     b:= Button {
         clicked => {
             in = !in;
-//          ^error{Assignment on a input property}
+//          >      <error{Assignment on a input property}
             out = !out;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >        <error{Cannot modify a property that is linked to a read-only property}
             inout = !inout;
             priv = !priv;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >          <error{Cannot modify a property that is linked to a read-only property}
 
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          ^error{Assignment on a output property}
+//          >                          <error{Assignment on a output property}
 
         }
     }
@@ -61,17 +61,17 @@ export component C1 {
     b:= Button {
         clicked => {
             in = !in;
-//          ^error{Assignment on a input property}
+//          >      <error{Assignment on a input property}
             out = !out;
             inout = !inout;
             priv = !priv;
 
 
             self.enabled = !self.enabled;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >                          <error{Cannot modify a property that is linked to a read-only property}
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          ^error{Assignment on a output property}
+//          >                          <error{Assignment on a output property}
 
         }
     }
@@ -86,23 +86,23 @@ export component C3 {
     // checked is "input/output" in Button
     out <=> b.checked;
     in <=> b.checked;
-//  ^warning{Linking input properties to input output properties is deprecated}
+//  >               <warning{Linking input properties to input output properties is deprecated}
     inout <=> b.checked;
     priv <=> b.checked;
 
     b:= Button {
         clicked => {
             in = !in;
-//          ^error{Assignment on a input property}
+//          >      <error{Assignment on a input property}
             out = !out;
             inout = !inout;
             priv = !priv;
 
             self.enabled = !self.enabled;
             self.checked = !self.checked;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >                          <error{Cannot modify a property that is linked to a read-only property}
             self.pressed = !self.pressed;
-//          ^error{Assignment on a output property}
+//          >                          <error{Assignment on a output property}
         }
     }
 }
@@ -118,7 +118,7 @@ export component C5 {
     Button {
         enabled <=> in;
         clicked => { self.enabled = !self.enabled; }
-//                   ^error{Cannot modify a property that is linked to a read-only property}
+//                   >                          <error{Cannot modify a property that is linked to a read-only property}
     }
     Button { enabled <=> inout; }
     Button { enabled <=> priv; }
@@ -136,7 +136,7 @@ export component C6 {
     }
     Button {
         checked <=> in;
-//      ^error{Cannot link to a input property}
+//      >             <error{Cannot link to a input property}
         clicked => { self.checked = !self.checked; }
     }
     Button {
@@ -155,31 +155,31 @@ export component C7 {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          ^error{Assignment on a output property}
+//          >                          <error{Assignment on a output property}
         }
     }
     Button {
         enabled <=> b1.pressed;
         clicked => { self.enabled = !self.enabled; }
-//                   ^error{Cannot modify a property that is linked to a read-only property}
+//                   >                          <error{Cannot modify a property that is linked to a read-only property}
     }
     b2 := Button {
         clicked => {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          ^error{Assignment on a output property}
+//          >                          <error{Assignment on a output property}
         }
     }
     Button { checked <=> b2.pressed;  }
-//           ^error{Cannot link to a output property}
+//           >                     <error{Cannot link to a output property}
 
     b3 := Button {
         clicked => {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          ^error{Assignment on a output property}
+//          >                          <error{Assignment on a output property}
         }
     }
     Button {
@@ -207,7 +207,7 @@ export component C8 {
         clicked => {
             out1 = !out1;
             out2 = !out2;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >          <error{Cannot modify a property that is linked to a read-only property}
             out3 = !out3;
             out4 = !out4;
         }
@@ -222,20 +222,20 @@ export component C9 {
 
     out property <bool> out <=> in1;
     in property <bool> in <=> in2;
-//                        ^error{Cannot link to a input property}
+//                        >      <error{Cannot link to a input property}
     in-out property <bool> inout <=> in3;
-//                               ^error{Cannot link to a input property}
+//                               >      <error{Cannot link to a input property}
     property <bool> priv <=> in4;
 
     Button {
         clicked => {
             out = !out;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >        <error{Cannot modify a property that is linked to a read-only property}
             in = !in;
-//          ^error{Assignment on a input property}
+//          >      <error{Assignment on a input property}
             inout = !inout;
             priv = !priv;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >          <error{Cannot modify a property that is linked to a read-only property}
         }
     }
 }
@@ -249,7 +249,7 @@ export component C10 {
 
     out property <bool> out <=> inout1;
     in property <bool> in <=> inout2;
-//                        ^error{Cannot link input property}
+//                        >         <error{Cannot link input property}
     in-out property <bool> inout <=> inout3;
     property <bool> priv <=> inout4;
 
@@ -261,7 +261,7 @@ export component C10 {
             inout4 = !inout4;
             out = !out;
             in = !in;
-//          ^error{Assignment on a input property}
+//          >      <error{Assignment on a input property}
             inout = !inout;
             priv = !priv;
         }
@@ -283,12 +283,12 @@ export component C11 {
         clicked => {
             priv1 = !priv1;
             priv2 = !priv2;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >            <error{Cannot modify a property that is linked to a read-only property}
             priv3 = !priv3;
             priv4 = !priv4;
             out = !out;
             in = !in;
-//          ^error{Assignment on a input property}
+//          >      <error{Assignment on a input property}
             inout = !inout;
             priv = !priv;
         }
@@ -297,25 +297,25 @@ export component C11 {
 
 export component C12 {
     in property <bool> in1 <=> btn.pressed;
-//                         ^error{Cannot link to a output property}
+//                         >              <error{Cannot link to a output property}
     in property <bool> in2 <=> btn.checked;
-//                         ^warning{Linking input properties to input output properties is deprecated}
+//                         >              <warning{Linking input properties to input output properties is deprecated}
     in property <bool> in3 <=> btn.enabled;
     in property <bool> in4 <=> btn.accessible-checked;
     in property <bool> in5 <=> inout1;
-//                         ^error{Cannot link input property}
+//                         >         <error{Cannot link input property}
 
     in property <bool> boggus1 <=> btn.internal;
-//                                     ^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//                                     >      <error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
 
     in-out property <bool> inout1;
 
     btn := Button {
         clicked => {
             self.checked = !self.checked;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >                          <error{Cannot modify a property that is linked to a read-only property}
             self.enabled = !self.enabled;
-//          ^error{Cannot modify a property that is linked to a read-only property}
+//          >                          <error{Cannot modify a property that is linked to a read-only property}
         }
     }
 }
@@ -327,63 +327,63 @@ export component C13 {
     property <bool> priv;
 
     Button { internal <=> in; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> out; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> priv; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> inout; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> self.checked; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
 
     Button { pressed <=> self.pressed; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> self.checked; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> self.enabled; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> self.accessible-checked; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> self.internal; }
-//           ^error{Cannot assign to output property 'pressed'}
-//                            ^^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//           >     <error{Cannot assign to output property 'pressed'}
+//                            >      <^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     Button { pressed <=> out; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> in; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> inout; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
     Button { pressed <=> priv; }
-//           ^error{Cannot assign to output property 'pressed'}
+//           >     <error{Cannot assign to output property 'pressed'}
 
 }
 
 export Legacy1 := Rectangle {
-//             ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//             ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     b1:= Button {}
     in property in1 <=> b1.pressed;
-//                  ^warning{Link to a output property is deprecated}
+//                  >             <warning{Link to a output property is deprecated}
     out property out1 <=> b1.pressed;
     in-out property inout1 <=> b1.pressed;
-//                         ^warning{Link to a output property is deprecated}
+//                         >             <warning{Link to a output property is deprecated}
 
 
     property <bool> p1;
     Button {
         pressed <=> p1;
-//      ^warning{Assigning to output property 'pressed' is deprecated}
+//      >     <warning{Assigning to output property 'pressed' is deprecated}
         clicked => {
             p1 = !p1;
             out1 = !out1;
-//          ^warning{Modifying a property that is linked to a read-only property is deprecated}
+//          >          <warning{Modifying a property that is linked to a read-only property is deprecated}
         }
     }
     Button {
         enabled <=> self.pressed;
         clicked => {
             self.enabled = !self.enabled;
-//          ^warning{Modifying a property that is linked to a read-only property is deprecated}
+//          >                          <warning{Modifying a property that is linked to a read-only property is deprecated}
         }
     }
 
@@ -391,41 +391,41 @@ export Legacy1 := Rectangle {
 }
 
 export Legacy2 := Rectangle {
-//             ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//             ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
     property <bool> priv;
 
     Button { internal <=> in; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> out; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> priv; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> inout; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
     Button { internal <=> self.checked; }
-//           ^error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to private property 'internal'}
 
     Button { pressed <=> self.pressed; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> self.checked; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> self.enabled; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> self.accessible-checked; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> self.internal; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
-//                            ^^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//                            >      <^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     Button { pressed <=> out; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> in; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> inout; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> priv; }
-//           ^warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to output property 'pressed' is deprecated}
 
 }

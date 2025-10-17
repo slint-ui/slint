@@ -2,32 +2,32 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     property infer_loop <=> infer_loop2;
-//  ^error{Could not infer type of property 'infer-loop'}
+//  >                                  <error{Could not infer type of property 'infer-loop'}
     property infer_loop2 <=> infer_loop3;
-//  ^error{Could not infer type of property 'infer-loop2'}
+//  >                                   <error{Could not infer type of property 'infer-loop2'}
     property infer_loop3 <=> infer_loop;
-//  ^error{Could not infer type of property 'infer-loop3'}
-//                           ^^error{Unknown unqualified identifier 'infer_loop'}
+//                           >        <error{Unknown unqualified identifier 'infer_loop'}
+//  >                                  <^error{Could not infer type of property 'infer-loop3'}
 
     property infer_error <=> r.infer_error;
-//  ^error{Could not infer type of property 'infer-error'}
+//  >                                     <error{Could not infer type of property 'infer-error'}
     r := Rectangle {
         property infer_error <=> 0;
-//      ^error{Could not infer type of property 'infer-error'}
-//                               ^^error{The expression in a two way binding must be a property reference}
+//                               ^error{The expression in a two way binding must be a property reference}
+//      >                         <^error{Could not infer type of property 'infer-error'}
     }
 
     property auto_background <=> background;
     property <string> alias_to_background <=> auto_background;
-//                                        ^error{The property does not have the same type as the bound property}
+//                                        >                  <error{The property does not have the same type as the bound property}
 
 
     property abc <=> self.opacity;
     abc: "eee";
-//  ^error{Duplicated property binding}
+//  > <error{Duplicated property binding}
 
 
 }
