@@ -819,7 +819,7 @@ fn resize_selected_element_impl(
 
     // They all have the same size anyway:
     let (path, offset) = element_node.path_and_offset();
-    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?;
+    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
 
     let position = rect.origin;
     let root_element = element_selection::root_element(&component_instance);
@@ -830,7 +830,7 @@ fn resize_selected_element_impl(
                 .element_positions(&parent_element)
                 .iter()
                 .find(|g| g.contains(position))
-                .map(|g| g.origin)
+                .map(|g| g.rect.origin)
         })
         .unwrap_or_default();
 

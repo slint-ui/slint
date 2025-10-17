@@ -472,13 +472,13 @@ impl ItemRc {
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
+        let supports_transformations = self
+            .window_adapter()
+            .map(|adapter| adapter.renderer().supports_transformations())
+            .unwrap_or(true);
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             let geometry = parent.geometry();
-            if self
-                .window_adapter()
-                .map(|adapter| adapter.renderer().supports_transformations())
-                .unwrap_or(true)
-            {
+            if supports_transformations {
                 if let Some(transform) = parent.children_transform() {
                     result = transform.transform_point(result.cast()).cast();
                 }
@@ -501,11 +501,20 @@ impl ItemRc {
         if current.is_root_item_of(item_tree) {
             return result;
         }
+        let supports_transformations = self
+            .window_adapter()
+            .map(|adapter| adapter.renderer().supports_transformations())
+            .unwrap_or(true);
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if parent.is_root_item_of(item_tree) {
                 break;
             }
             let geometry = parent.geometry();
+            if supports_transformations {
+                if let Some(transform) = parent.children_transform() {
+                    result = transform.transform_point(result.cast()).cast();
+                }
+            }
             result += geometry.origin.to_vector();
             current = parent.clone();
         }

@@ -421,7 +421,8 @@ export component PreviewView inherits Rectangle {
                             y: s.y;
                             width: s.width;
                             height: s.height;
-                            interactive: root.mode == DrawAreaMode.selecting;
+                            transform-rotation: s.angle;
+                            interactive: root.mode == DrawAreaMode.selecting && s.angle == 0.0;
                             selection: Api.selection;
                             is-primary: self.selection.highlight-index == idx;
                             resize(x, y, w, h) => {
