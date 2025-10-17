@@ -131,6 +131,26 @@ impl std::ops::DerefMut for Collection {
     }
 }
 
+/// Register a font from byte data dynamically.
+pub fn register_font_from_memory(font_data: Vec<u8>) -> usize {
+    let blob = fontique::Blob::new(Arc::new(font_data));
+
+    let mut collection = get_collection();
+    let fonts = collection.register_fonts(blob, None);
+
+    let family_count = fonts.len();
+
+    // Set up fallbacks for all scripts
+    for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
+        collection.append_fallbacks(
+            fontique::FallbackKey::new(script, None),
+            fonts.iter().map(|(family_id, _)| *family_id),
+        );
+    }
+
+    family_count
+}
+
 /// Font metrics in design space. Scale with desired pixel size and divided by units_per_em
 /// to obtain pixel metrics.
 #[derive(Clone)]
