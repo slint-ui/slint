@@ -37,7 +37,7 @@ export component TextField {
     accessible-role: text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;
-    accessible-placeholder-text: root.text == "" ? placeholder_text : "";
+    accessible-placeholder-text: placeholder_text;
     accessible-action-set-value(v) => { text = v; edited(v); }
 
     layout := VerticalLayout {

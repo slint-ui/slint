@@ -623,9 +623,8 @@ impl NodeCollection {
             }
         }
 
-        if let Some(placeholder) = item
-            .accessible_string_property(AccessibleStringProperty::PlaceholderText)
-            .filter(|x| !x.is_empty())
+        if let Some(placeholder) =
+            item.accessible_string_property(AccessibleStringProperty::PlaceholderText)
         {
             node.set_placeholder(placeholder.to_string());
         }
