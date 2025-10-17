@@ -67,6 +67,11 @@ mod single_linked_list_pin {
             }
             I(&self.0)
         }
+
+        /// Returns true if the list is empty
+        pub fn is_empty(&self) -> bool {
+            self.0.is_none()
+        }
     }
 
     #[test]
@@ -1436,6 +1441,12 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
 
     /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
     pub fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
+        let dep_nodes = self.holder.dep_nodes.take();
+        if dep_nodes.is_empty() {
+            // No need to register dependency if we have no dependency ourselves
+            return;
+        }
+        self.holder.dep_nodes.set(dep_nodes);
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 if let Some(cur_binding) = cur_binding {
@@ -1463,8 +1474,9 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will also mark the other binding/tracker dirty.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
+        let r = self.evaluate_as_dependency_root(f);
         self.register_as_dependency_to_current_binding();
-        self.evaluate_as_dependency_root(f)
+        r
     }
 
     /// Evaluate the function, and record dependencies of properties accessed within this function.
@@ -1488,8 +1500,9 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// Call [`Self::evaluate`] if and only if it is dirty.
     /// But register a dependency in any case.
     pub fn evaluate_if_dirty<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> Option<R> {
+        let r = self.is_dirty().then(|| self.evaluate_as_dependency_root(f));
         self.register_as_dependency_to_current_binding();
-        self.is_dirty().then(|| self.evaluate_as_dependency_root(f))
+        r
     }
 
     /// Mark this PropertyTracker as dirty
