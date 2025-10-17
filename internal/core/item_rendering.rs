@@ -210,11 +210,26 @@ pub fn item_children_bounding_rect(
     index: isize,
     clip_rect: &LogicalRect,
 ) -> LogicalRect {
+    item_children_bounding_rect_inner(component, index, clip_rect, Default::default())
+}
+
+fn item_children_bounding_rect_inner(
+    component: &ItemTreeRc,
+    index: isize,
+    clip_rect: &LogicalRect,
+    transform: crate::lengths::ItemTransform,
+) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
 
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
-            let item_geometry = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
+            let item_geometry = transform.outer_transformed_rect(
+                &ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index),
+            );
+            let children_transform = ItemRc::new(component.clone(), index)
+                .children_transform()
+                .unwrap_or_default()
+                .then_translate(item_geometry.origin.to_vector());
 
             let local_clip_rect = clip_rect.translate(-item_geometry.origin.to_vector());
 
@@ -223,10 +238,11 @@ pub fn item_children_bounding_rect(
             }
 
             if !item.as_ref().clips_children() {
-                bounding_rect = bounding_rect.union(&item_children_bounding_rect(
+                bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
                     component,
                     index as isize,
                     &local_clip_rect,
+                    transform.then(&children_transform),
                 ));
             }
             VisitChildrenResult::CONTINUE
