@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html>
+    <head>
+        <style>
+            #loading {
+                margin-top: 20px;
+                text-align: center;
+            }
+            .overlay {
+                position: absolute;
+                display: flex;
+                top: 0;
+                width: 100%;
+            }
+            canvas {
+                top: 0;
+                padding-left: 0;
+                padding-right: 0;
+                margin-left: auto;
+                margin-right: auto;
+                margin-top: 20px;
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="loading">Loading...</div>
+        <div class="overlay">
+            <!-- canvas required by the Slint runtime -->
+            <canvas id="canvas" data-slint-auto-resize-to-preferred="true" unselectable="on"></canvas>
+            <script type="module">
+                // import the generated file.
+                import init from "./pkg/speedometer_lib.js";
+                init();
+            </script>
+        </div>
+    </body>
+</html>

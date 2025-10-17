@@ -5,5 +5,5 @@
 
 Demonstrate how to create a speedometer with Slint using conic gradients, scale and rotation.
 
-[Online Preview](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/speedometer/demo.slint)
+| [Online simulation](https://slint.dev/snapshots/master/demos/speedometer/) |
 [Online code editor](https://slint.dev/snapshots/master/editor/index.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/speedometer/demo.slint)
