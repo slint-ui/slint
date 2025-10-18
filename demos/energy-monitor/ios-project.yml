@@ -9,15 +9,14 @@ targets:
   Energy Monitor:
     type: application
     platform: iOS
-    deploymentTarget: "12.0"
+    deploymentTarget: "16.6"
     info:
-        path: Info.plist
-        properties:
-            UILaunchScreen:
-                - ImageRespectSafeAreaInsets: false
+      path: Info.plist
+      properties:
+        UILaunchScreen:
+          - ImageRespectSafeAreaInsets: false
     sources: []
     postCompileScripts:
       - script: |
           ../../scripts/build_for_ios_with_cargo.bash energy-monitor
-        outputFileLists:
-            $TARGET_BUILD_DIR/$EXECUTABLE_PATH
+        outputFileLists: $TARGET_BUILD_DIR/$EXECUTABLE_PATH

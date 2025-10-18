@@ -12,7 +12,15 @@ import { Images } from "images.slint";
 import { Theme } from "theme.slint";
 import { HeaderAdapter } from "blocks/blocks.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
-import { BalanceAdapter, OverviewAdapter, UsageAdapter, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
+import {
+    BalanceAdapter,
+    OverviewAdapter,
+    UsageAdapter,
+    WeatherAdapter,
+    MenuPageAdapter,
+    MenuOverviewAdapter,
+    SettingsAdapter,
+} from "pages/pages.slint";
 import { KioskOverlay } from "blocks/kiosk_overlay.slint";
 
 export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter,
@@ -38,32 +46,36 @@ export component MainWindow inherits Window {
     }
     */
 
-    if root.screen-size == ScreenSize.Mobile : MobileMain {
+    if root.screen-size == ScreenSize.Mobile: HorizontalLayout {
+        padding-left: root.safe-area-inset-left;
+        padding-top: root.safe-area-inset-top;
+        padding-right: root.safe-area-inset-right;
+        padding-bottom: root.safe-area-inset-bottom;
+        MobileMain {
+            preferred-width: 100%;
+            preferred-height: 100%;
+        }
+    }
+
+    if root.screen-size == ScreenSize.EmbeddedMedium: MidMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
 
-    if root.screen-size == ScreenSize.EmbeddedMedium : MidMain {
+    if root.screen-size == ScreenSize.EmbeddedSmall: SmallMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
 
-    if root.screen-size == ScreenSize.EmbeddedSmall : SmallMain {
-        preferred-width: 100%;
-        preferred-height: 100%;
-    }
-
-    if SettingsAdapter.kiosk-mode-checked : KioskOverlay {}
+    if SettingsAdapter.kiosk-mode-checked: KioskOverlay { }
 
     pure function get-screen-size() -> ScreenSize {
         if (root.width <= root.mobile-break-point && root.width < root.height) {
             return ScreenSize.Mobile;
         }
-
         if (root.width < root.mid-break-point) {
             return ScreenSize.EmbeddedSmall;
         }
-
         return ScreenSize.EmbeddedMedium;
     }
 }
