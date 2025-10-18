@@ -99,28 +99,31 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// global Struct { property<int> xx; }
 /// component C { property<int> xx; }
 /// component C inherits D { }
+/// interface I { property<int> xx; }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
     let is_global = !simple_component && p.peek().as_str() == "global";
+    let is_interface = !simple_component && p.peek().as_str() == "interface";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
-    if !is_global && !simple_component && !is_new_component {
+    if !is_global && !simple_component && !is_new_component && !is_interface {
         p.error(
             "Parse error: expected a top-level item such as a component, a struct, or a global",
         );
         return false;
     }
     let mut p = p.start_node(SyntaxKind::Component);
-    if is_global || is_new_component {
+    if is_global || is_new_component || is_interface {
         p.consume();
     }
     if !p.start_node(SyntaxKind::DeclaredIdentifier).expect(SyntaxKind::Identifier) {
         drop(p.start_node(SyntaxKind::Element));
         return false;
     }
-    if is_global {
+    if is_global || is_interface {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            let description = if is_global { "a global" } else { "an interface" };
+            p.warning(format!("':=' to declare {description} is deprecated. Remove the ':='"));
             p.consume();
         }
     } else if !is_new_component {
@@ -144,7 +147,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return false;
     }
 
-    if is_global && p.peek().kind() == SyntaxKind::LBrace {
+    if (is_global || is_interface) && p.peek().kind() == SyntaxKind::LBrace {
         let mut p = p.start_node(SyntaxKind::Element);
         p.consume();
         parse_element_content(&mut *p);
