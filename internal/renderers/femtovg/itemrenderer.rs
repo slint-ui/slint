@@ -947,12 +947,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         let text_path = rect_to_path((size * self.scale_factor).into());
         match self.brush_to_paint(stroke_brush.clone(), &text_path) {
             Some(mut paint) => {
-                if stroke_brush.is_transparent() {
-                    None
-                } else {
-                    paint.set_line_width(physical_stroke_width);
-                    Some(GlyphBrush::Stroke(paint))
-                }
+                paint.set_line_width(physical_stroke_width);
+                Some(GlyphBrush::Stroke(paint))
             }
             None => None,
         }

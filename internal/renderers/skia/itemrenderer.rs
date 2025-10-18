@@ -941,17 +941,13 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             size.height_length() * self.scale_factor,
         ) {
             Some(mut stroke_paint) => {
-                if brush.is_transparent() {
-                    None
-                } else {
-                    stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
-                    stroke_paint.set_stroke_width(physical_stroke_width);
-                    // Set stroke cap/join/miter to match FemtoVG
-                    stroke_paint.set_stroke_cap(skia_safe::PaintCap::Butt);
-                    stroke_paint.set_stroke_join(skia_safe::PaintJoin::Miter);
-                    stroke_paint.set_stroke_miter(10.0);
-                    Some(stroke_paint)
-                }
+                stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
+                stroke_paint.set_stroke_width(physical_stroke_width);
+                // Set stroke cap/join/miter to match FemtoVG
+                stroke_paint.set_stroke_cap(skia_safe::PaintCap::Butt);
+                stroke_paint.set_stroke_join(skia_safe::PaintJoin::Miter);
+                stroke_paint.set_stroke_miter(10.0);
+                Some(stroke_paint)
             }
             None => None,
         }
