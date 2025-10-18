@@ -473,6 +473,14 @@ impl Component {
         }
     }
 
+    /// This is an interface introduced with the "interface" keyword
+    pub fn is_interface(&self) -> bool {
+        match &self.root_element.borrow().base_type {
+            ElementType::Interface => true,
+            _ => false,
+        }
+    }
+
     /// Returns the names of aliases to global singletons, exactly as
     /// specified in the .slint markup (not normalized).
     pub fn global_aliases(&self) -> Vec<SmolStr> {
