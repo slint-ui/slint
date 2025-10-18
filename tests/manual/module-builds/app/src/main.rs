@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut bdata = blogica::backend::BData::default();
 
             bdata.colors = slint::ModelRc::new(slint::VecModel::from(
-                (1..6)
+                (1..5)
                     .into_iter()
                     .map(|_| {
                         let red = rand::random::<u8>();
@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             ));
 
             bdata.codes = slint::ModelRc::new(slint::VecModel::from(
-                (1..6)
+                (1..5)
                     .into_iter()
                     .map(|_| slint::SharedString::from(random_word::get(random_word::Lang::En)))
                     .collect::<Vec<_>>(),
