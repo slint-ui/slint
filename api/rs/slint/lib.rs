@@ -233,6 +233,14 @@ pub use i_slint_core::{
     string::{SharedString, ToSharedString},
 };
 
+/// Register a custom font from byte data at runtime.
+///
+/// Returns the number of font families that were registered from the provided data.
+#[cfg(feature = "shared-fontique")]
+pub fn register_font_from_memory(font_data: Vec<u8>) -> usize {
+    i_slint_core::register_font_from_memory(font_data)
+}
+
 pub mod private_unstable_api;
 
 /// Enters the main event loop. This is necessary in order to receive
