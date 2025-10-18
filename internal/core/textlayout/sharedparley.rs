@@ -997,8 +997,11 @@ pub fn draw_text(
         TextStrokeStyle::Outside => stroke_width * 2.0,
         TextStrokeStyle::Center => stroke_width,
     };
-    let platform_stroke_brush =
-        item_renderer.platform_text_stroke_brush(stroke_brush, stroke_width, size);
+    let platform_stroke_brush = if !stroke_brush.is_transparent() {
+        item_renderer.platform_text_stroke_brush(stroke_brush, stroke_width, size)
+    } else {
+        None
+    };
 
     let (horizontal_align, vertical_align) = text.alignment();
 
