@@ -1180,6 +1180,10 @@ impl Default for PropertyAnimation {
 pub struct WindowItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
+    pub safe_area_inset_top: Property<LogicalLength>,
+    pub safe_area_inset_bottom: Property<LogicalLength>,
+    pub safe_area_inset_left: Property<LogicalLength>,
+    pub safe_area_inset_right: Property<LogicalLength>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
