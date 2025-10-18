@@ -384,6 +384,9 @@ fn generate(component: &Rc<Component>) -> CompiledGlobal {
             public_properties: Default::default(),
             _original: component.clone(),
         },
-        ElementType::Error | ElementType::Native(_) | ElementType::Component(_) => unreachable!(),
+        ElementType::Error
+        | ElementType::Interface
+        | ElementType::Native(_)
+        | ElementType::Component(_) => unreachable!(),
     }
 }

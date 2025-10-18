@@ -116,7 +116,9 @@ impl NamedReference {
                 ElementType::Native(n) => {
                     return n.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output());
                 }
-                crate::langtype::ElementType::Error | crate::langtype::ElementType::Global => {
+                crate::langtype::ElementType::Error
+                | crate::langtype::ElementType::Global
+                | crate::langtype::ElementType::Interface => {
                     return true;
                 }
             }
