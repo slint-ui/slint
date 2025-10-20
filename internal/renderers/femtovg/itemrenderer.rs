@@ -671,7 +671,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let border_width = clip_item.border_width();
 
         if !radius.is_zero() {
-            if let Some(layer_image) = self.render_layer(item_rc, &|| item_rc.geometry().size) {
+            if let Some(layer_image) = self.render_layer(item_rc, &|| item_rc.geometry()) {
                 let layer_image_paint = layer_image.as_paint();
 
                 let layer_path = clip_path_for_rect_alike_item(
@@ -1036,7 +1036,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     fn render_layer(
         &mut self,
         item_rc: &ItemRc,
-        layer_logical_size_fn: &dyn Fn() -> LogicalSize,
+        layer_bounding_rect_fn: &dyn Fn() -> LogicalRect,
     ) -> Option<Rc<Texture<R>>> {
         let existing_layer_texture =
             self.graphics_cache.with_entry(item_rc, |cache_entry| match cache_entry {
@@ -1046,7 +1046,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             ItemGraphicsCacheEntry::Texture({
-                let size = (layer_logical_size_fn() * self.scale_factor).ceil().try_cast()?;
+                let bounding_rect = layer_bounding_rect_fn();
+                let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
 
                 let layer_image = existing_layer_texture
                     .and_then(|layer_texture| {
@@ -1083,14 +1084,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                         size.height,
                         femtovg::Color::rgba(0, 0, 0, 0),
                     );
+
+                    let origin = bounding_rect.origin * self.scale_factor;
+                    canvas.translate(-origin.x, -origin.y);
                 }
 
                 *self.state.last_mut().unwrap() = State {
-                    scissor: LogicalRect::new(
-                        LogicalPoint::default(),
-                        PhysicalSize::new(size.width as f32, size.height as f32)
-                            / self.scale_factor,
-                    ),
+                    scissor: LogicalRect::new(LogicalPoint::default(), bounding_rect.size),
                     global_alpha: 1.,
                     current_render_target: layer_image.as_render_target(),
                 };
@@ -1133,7 +1133,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                         ),
                     )
                 });
-                children_rect.size
+                children_rect
             })
             .and_then(|image| image.size().map(|size| (image, size)))
         {
