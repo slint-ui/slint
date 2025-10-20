@@ -195,7 +195,7 @@ jobs:
                 version: 10.18.2
             - name: Install GNU Sed
               run: brew install gnu-sed
-            - uses: actions/setup-node@v5
+            - uses: actions/setup-node@v6
               with:
                   node-version: 20
                   package-manager-cache: false
@@ -273,7 +273,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-node@v5
+            - uses: actions/setup-node@v6
               with:
                 node-version: 20
                 package-manager-cache: false
