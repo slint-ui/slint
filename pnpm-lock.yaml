@@ -239,8 +239,8 @@ importers:
         specifier: 1.0.0-beta.19
         version: 1.0.0-beta.19(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       html-react-parser:
-        specifier: 5.2.6
-        version: 5.2.6(@types/react@19.2.2)(react@19.2.0)
+        specifier: 5.2.7
+        version: 5.2.7(@types/react@19.2.2)(react@19.2.0)
       react:
         specifier: 19.2.0
         version: 19.2.0
@@ -4091,8 +4091,8 @@ packages:
     engines: {node: ^14.13.1 || >=16.0.0}
     hasBin: true
 
-  html-react-parser@5.2.6:
-    resolution: {integrity: sha512-qcpPWLaSvqXi+TndiHbCa+z8qt0tVzjMwFGFBAa41ggC+ZA5BHaMIeMJla9g3VSp4SmiZb9qyQbmbpHYpIfPOg==}
+  html-react-parser@5.2.7:
+    resolution: {integrity: sha512-WzIAcqQoZoF49J9aev8NBDLz9TJvt2RmipeYA+/5+5x0sWCwFxqKiq0lysieiSA/G6dbUZ6KGGy65Cx2fjie5Q==}
     peerDependencies:
       '@types/react': 0.14 || 15 || 16 || 17 || 18 || 19
       react: 0.14 || 15 || 16 || 17 || 18 || 19
@@ -5737,17 +5737,11 @@ packages:
     resolution: {integrity: sha512-fZtbhtvI9I48xDSywd/somNqgUHl2L2cstmXCCif0itOf96jeW18MBSyrLuNicYQVkvpOxkZtkzujiTJ9LW5Jw==}
     engines: {node: '>=10'}
 
-  style-to-js@1.1.17:
-    resolution: {integrity: sha512-xQcBGDxJb6jjFCTzvQtfiPn6YvvP2O8U1MDIPNfJQlWMYfktPy+iGsHE7cssjs7y84d9fQaK4UF3RIJaAHSoYA==}
-
   style-to-js@1.1.18:
     resolution: {integrity: sha512-JFPn62D4kJaPTnhFUI244MThx+FEGbi+9dw1b9yBBQ+1CZpV7QAT8kUtJ7b7EUNdHajjF/0x8fT+16oLJoojLg==}
 
   style-to-object@1.0.11:
     resolution: {integrity: sha512-5A560JmXr7wDyGLK12Nq/EYS38VkGlglVzkis1JEdbGWSnbQIEhZzTJhzURXN5/8WwwFCs/f/VVcmkTppbXLow==}
-
-  style-to-object@1.0.9:
-    resolution: {integrity: sha512-G4qppLgKu/k6FwRpHiGiKPaPTFcG3g4wNVX/Qsfu+RqQM30E7Tyu/TEgxcL9PNLF5pdRLwQdE3YKKf+KF2Dzlw==}
 
   sucrase@3.35.0:
     resolution: {integrity: sha512-8EbVDiu9iN/nESwxeSxDKe0dunta1GOlHufmSSXxMD2z2/tMZpDMpvXQGsc+ajGo8y2uYUmixaSRUc/QPoQ0GA==}
@@ -10835,13 +10829,13 @@ snapshots:
       relateurl: 0.2.7
       terser: 5.39.0
 
-  html-react-parser@5.2.6(@types/react@19.2.2)(react@19.2.0):
+  html-react-parser@5.2.7(@types/react@19.2.2)(react@19.2.0):
     dependencies:
       domhandler: 5.0.3
       html-dom-parser: 5.1.1
       react: 19.2.0
       react-property: 2.0.2
-      style-to-js: 1.1.17
+      style-to-js: 1.1.18
     optionalDependencies:
       '@types/react': 19.2.2
 
@@ -12854,19 +12848,11 @@ snapshots:
       '@tokenizer/token': 0.3.0
       peek-readable: 4.1.0
 
-  style-to-js@1.1.17:
-    dependencies:
-      style-to-object: 1.0.9
-
   style-to-js@1.1.18:
     dependencies:
       style-to-object: 1.0.11
 
   style-to-object@1.0.11:
-    dependencies:
-      inline-style-parser: 0.2.4
-
-  style-to-object@1.0.9:
     dependencies:
       inline-style-parser: 0.2.4
 
