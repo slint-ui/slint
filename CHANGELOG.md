@@ -18,6 +18,9 @@ All notable changes to this project are documented in this file.
  - use `fontique` and `parley` crate for text layout
  - Fixed maximum size of empty layout with alignment
  - partial renderer: Don't mark region dirty if the geometry is dirty but hasn't changed
+ - Close PopupWindow when their parent is destroyed
+ - Fixed scrolling of ListView with varying item heights (#9208)
+ - Display the dirty region when running the software renderer with `SLINT_DEBUG_PERFORMANCE`.
 
 ### Slint Language
 
@@ -37,6 +40,7 @@ All notable changes to this project are documented in this file.
  - Menu: fixed menu separator appearence (#8339)
  - LineEdit: call `edited` callback when the "x" button is pressed
  - ScrollView: Fixed scrolled callback with Qt style (#9574)
+ - TextEdit: made `has-focus` an `out` property
 
 ### Rust
 
@@ -62,6 +66,7 @@ All notable changes to this project are documented in this file.
  - live-preview: Fixed resetting binding of declared properties
  - live-preview: Added a way to always see the code of properties
  - live-preview: Added support for editing `@conical-gradient` in the color picker
+ - formatter: Format `import` statements
 
 ## [1.13.1] - 2025-09-11
 
