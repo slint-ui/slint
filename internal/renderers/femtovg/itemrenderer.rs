@@ -1090,7 +1090,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 }
 
                 *self.state.last_mut().unwrap() = State {
-                                        scissor: LogicalRect::new(LogicalPoint::default(), bounding_rect.size),
+                    scissor: LogicalRect::new(LogicalPoint::default(), bounding_rect.size),
                     global_alpha: 1.,
                     current_render_target: layer_image.as_render_target(),
                 };
