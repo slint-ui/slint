@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.19",
-    "html-react-parser": "5.2.6",
+    "html-react-parser": "5.2.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-rnd": "10.5.2",
