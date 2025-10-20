@@ -451,8 +451,6 @@ impl WinitWindowAdapter {
             }
         }
 
-        let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
-
         // Never show the window right away, as we
         //  a) need to compute the correct size based on the scale factor before it's shown on the screen (handled by set_visible)
         //  b) need to create the accesskit adapter before it's shown on the screen, as required by accesskit.
@@ -480,7 +478,7 @@ impl WinitWindowAdapter {
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
         self.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
-        *winit_window_or_none = WinitWindowOrNone::HasWindow {
+        *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
@@ -491,24 +489,31 @@ impl WinitWindowAdapter {
             )
             .into(),
             #[cfg(muda)]
-            muda_adapter: self
-                .menubar
-                .borrow()
-                .as_ref()
-                .map(|menubar| {
-                    crate::muda::MudaAdapter::setup(
-                        menubar,
-                        &winit_window,
-                        self.event_loop_proxy.clone(),
-                        self.self_weak.clone(),
-                    )
-                })
-                .into(),
+            muda_adapter: RefCell::new(None),
             #[cfg(muda)]
             context_menu_muda_adapter: None.into(),
         };
 
-        drop(winit_window_or_none);
+        #[cfg(muda)]
+        {
+            let new_muda_adapter = self.menubar.borrow().as_ref().map(|menubar| {
+                crate::muda::MudaAdapter::setup(
+                    menubar,
+                    &winit_window,
+                    self.event_loop_proxy.clone(),
+                    self.self_weak.clone(),
+                )
+            });
+            match &*self.winit_window_or_none.borrow() {
+                WinitWindowOrNone::HasWindow { muda_adapter, .. } => {
+                    *muda_adapter.borrow_mut() = new_muda_adapter;
+                }
+                WinitWindowOrNone::None(_) => {
+                    // During muda menubar creation the winit window was destroyed again? Well then...
+                    // there's nothing to do for us :)
+                }
+            }
+        }
 
         if show_after_creation {
             self.shown.set(WindowVisibility::Hidden);
