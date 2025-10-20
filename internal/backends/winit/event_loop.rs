@@ -197,6 +197,12 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     .err();
             }
             WindowEvent::Focused(have_focus) => {
+                // Work around https://github.com/rust-windowing/winit/issues/4371
+                let have_focus = if cfg!(target_os = "macos") {
+                    window.winit_window().map_or(have_focus, |w| w.has_focus())
+                } else {
+                    have_focus
+                };
                 self.loop_error = window.activation_changed(have_focus).err();
             }
 
