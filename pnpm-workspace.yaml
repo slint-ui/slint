@@ -22,9 +22,9 @@ catalog:
   "vite": 7.1.9
   "@types/node": 20.16.10
   "@astrojs/check": 0.9.4
-  "@astrojs/starlight": 0.36.0
-  "starlight-links-validator": 0.18.0
-  "astro": 5.14.4
+  "@astrojs/starlight": 0.36.1
+  "starlight-links-validator": 0.19.0
+  "astro": 5.14.6
   "astro-embed": 0.9.1
   "sharp": 0.34.4
   "@expressive-code/plugin-line-numbers": 0.41.3
