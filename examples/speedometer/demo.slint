@@ -87,6 +87,34 @@ component KPHText {
     }
 }
 
+component SpeedTextDigit inherits Text {
+    in property <bool> active: true;
+    in property <int> digit;
+    text: active ? digit : 0;
+    color: active ? white : #4a404f;
+    width: 36px;
+    font-size: 52px;
+    font-family: "01 Digitall";
+}
+
+component SpeedText {
+    in property <int> speed;
+    HorizontalLayout {
+        property <length> default-width: 18px;
+        SpeedTextDigit {
+            digit: (speed / 100).floor();
+            active: speed > 99;
+        }
+        SpeedTextDigit {
+            digit: (speed.mod(100) / 10).floor();
+            active: speed > 9;
+        }
+        SpeedTextDigit {
+            digit: speed.mod(10);
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     property <color> background-color: #020414;
     property <int> speed: 0;
@@ -162,15 +190,12 @@ export component MainWindow inherits Window {
             drop-shadow-blur: 25px;
             drop-shadow-color: #fe5a5a.with-alpha(0.4 + (0.2 * (speed / 260)));
 
-            Text {
-                text: speed;
-                font-family: "01 Digitall";
-                font-size: 52px;
-                color: white;
+            SpeedText {
+                speed: speed;
                 y: parent.height / 2 - self.height / 2 - 20px;
             }
 
-            kmh-label :=Text {
+            kmh-label := Text {
                 text: "km/h";
                 font-size: 18px;
                 color: white;
@@ -216,7 +241,7 @@ export component MainWindow inherits Window {
         CarButton {
             text: "TURBO";
             clicked => {
-                speed = 240;
+                speed = 260;
             }
         }
     }
