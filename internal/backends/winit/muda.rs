@@ -245,8 +245,6 @@ impl MudaAdapter {
     pub fn window_activation_changed(&self, is_active: bool) {
         if is_active {
             self.menu.init_for_nsapp();
-        } else {
-            self.menu.remove_for_nsapp();
         }
     }
 }
