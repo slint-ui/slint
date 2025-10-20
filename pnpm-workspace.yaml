@@ -19,7 +19,7 @@ catalog:
   "@biomejs/biome": 2.2.6
   "cspell": 9.2.1
   "typescript": 5.9.3
-  "vite": 7.1.9
+  "vite": 7.1.11
   "@types/node": 20.16.10
   "@astrojs/check": 0.9.4
   "@astrojs/starlight": 0.36.1
