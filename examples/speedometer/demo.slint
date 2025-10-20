@@ -18,13 +18,13 @@ component CarButton inherits Rectangle {
 
     width: 80px;
     height: 30px;
-    border-radius: 20px;
+    border-radius: self.height / 2;
     border-width: 1px;
-    border-color: @conic-gradient(#020414 stop1, #ff0000 stop2, #020414 stop3, #020414 stop4, #ff0000 stop5, #000000 stop6 );
+    border-color: @conic-gradient(#020414 stop1, #ff0000 stop2, #020414 stop3, #020414 stop4, #ff0000 stop5, #000000 stop6);
     background: @linear-gradient(45deg + touch-animation, #000000 0%, #4d0404 100%);
     opacity: enabled ? 1 : 0.5;
 
-    label :=Text {
+    label := Text {
         text: text;
         font-family: "01 Digitall";
         font-size: 16px;
@@ -79,19 +79,30 @@ component BigDot {
 component KPHText {
     in property <int> current-speed;
     in property <bool> current-engine-running;
+    property <bool> showing: false;
     width: 0;
     height: 0;
-    visible: false;
+    opacity: 0;
+
+
+    states [
+        visible when showing : {
+            opacity: 1;
+            in-out {
+                animate opacity { easing: ease-out; duration: 250ms; }
+            }
+        }
+    ]
 
     changed current-speed => {
         if current-speed >= (root.transform-rotation / 1deg).floor() && current-engine-running {
-            self.visible = true;
+            showing = true;
         }
     }
 
     changed current-engine-running => {
         if (!current-engine-running) {
-            self.visible = false;
+            showing = false;
         }
     }
 
@@ -111,7 +122,7 @@ component SpeedTextDigit inherits Text {
     in property <bool> active: true;
     in property <int> digit;
     text: active ? digit : 0;
-    color: active ? white : #4a404f;
+    color: active ? white : #392e2e;
     width: 36px;
     font-size: 52px;
     font-family: "01 Digitall";
@@ -125,10 +136,12 @@ component SpeedText {
             digit: (speed / 100).floor();
             active: speed > 99;
         }
+
         SpeedTextDigit {
             digit: (speed.mod(100) / 10).floor();
             active: speed > 9;
         }
+
         SpeedTextDigit {
             digit: speed.mod(10);
         }
@@ -152,7 +165,7 @@ export component MainWindow inherits Window {
     title: "Sci-Fi Speedometer";
 
     animate speed {
-        duration: starting-up ? 600ms : 1000ms;
+        duration: starting-up ? 750ms : 500ms;
         easing: ease-in-out;
     }
 
@@ -245,9 +258,9 @@ export component MainWindow inherits Window {
                     y: parent.height / 2 + 20px;
                 }
             }
-
         }
     }
+
     Rectangle {
         transform-rotation: 50deg;
         for i in kph-indicators + 1: KPHText {
