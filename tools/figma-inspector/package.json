@@ -25,7 +25,7 @@
     "@types/jszip": "3.4.1",
     "@types/node": "catalog:",
     "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.1",
+    "@types/react-dom": "19.2.2",
     "@vitejs/plugin-react": "5.0.4",
     "cross-env": "10.1.0",
     "jszip": "3.10.1",
