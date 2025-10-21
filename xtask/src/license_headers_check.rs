@@ -32,7 +32,7 @@ impl LicenseTagStyle {
             line_break: "\n",
             tag_end: SPDX_LICENSE_LINE,
             overall_start: "",
-            overall_end: "*/ \n",
+            overall_end: " */\n",
             is_real_end: false,
         }
     }
@@ -602,6 +602,9 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
         ("^demos/", MIT_LICENSE),
         ("^docs/", MIT_LICENSE),
         ("^api/cpp/docs/", MIT_LICENSE),
+        ("^ui-libraries/material", MIT_LICENSE),
+        ("^tests/manual/module-builds/", MIT_LICENSE),
+        ("^tools/figma-inspector/", MIT_LICENSE),
         ("(^|/)(README|CONTRIBUTING|CHANGELOG|LICENSE)\\.md", TRIPLE_LICENSE),
         (".*\\.md$", MIT_LICENSE),
         (".*", TRIPLE_LICENSE),
