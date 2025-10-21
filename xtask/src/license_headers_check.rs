@@ -564,7 +564,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.svg$", LicenseLocation::NoLicense),
             ("\\.tmPreferences$", LicenseLocation::NoLicense),
-            ("\\.toml$", LicenseLocation::NoLicense),
+            ("\\.toml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.ttf$", LicenseLocation::NoLicense),
