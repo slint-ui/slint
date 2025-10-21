@@ -779,9 +779,9 @@ impl Image {
                         } else {
                             let af = rgba_premul.a as f32 / 255.0;
                             Rgba8Pixel {
-                                r: (rgba_premul.r as f32 * 255. / af) as u8,
-                                g: (rgba_premul.g as f32 * 255. / af) as u8,
-                                b: (rgba_premul.b as f32 * 255. / af) as u8,
+                                r: (rgba_premul.r as f32 / af).round().clamp(0.0, 255.0) as u8,
+                                g: (rgba_premul.g as f32 / af).round().clamp(0.0, 255.0) as u8,
+                                b: (rgba_premul.b as f32 / af).round().clamp(0.0, 255.0) as u8,
                                 a: rgba_premul.a,
                             }
                         }
@@ -813,9 +813,9 @@ impl Image {
                         } else {
                             let af = rgba.a as f32 / 255.0;
                             Rgba8Pixel {
-                                r: (rgba.r as f32 * af / 255.) as u8,
-                                g: (rgba.g as f32 * af / 255.) as u8,
-                                b: (rgba.b as f32 * af / 255.) as u8,
+                                r: (rgba.r as f32 * af).round().clamp(0.0, 255.0) as u8,
+                                g: (rgba.g as f32 * af).round().clamp(0.0, 255.0) as u8,
+                                b: (rgba.b as f32 * af).round().clamp(0.0, 255.0) as u8,
                                 a: rgba.a,
                             }
                         }
