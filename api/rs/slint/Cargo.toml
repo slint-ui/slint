@@ -311,7 +311,6 @@ features = [
   "renderer-software",
   "renderer-femtovg",
   "raw-window-handle-06",
-  "unstable-wgpu-26",
   "unstable-wgpu-27",
   "unstable-winit-030",
   "unstable-libinput-09",
