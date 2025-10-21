@@ -1,5 +1,5 @@
 // Copyright © 2024 William Spinelli <174336620+williams-one@users.noreply.github.com>
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: MIT
 
 // from embassy/examples/stm32u5/src/bin/hspi_memory_mapped.rs
 

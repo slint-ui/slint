@@ -7,7 +7,7 @@ links = "blogicb"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 publish = false
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+license = "MIT"
 
 [dependencies]
 slint = { path = "../../../../api/rs/slint" }
