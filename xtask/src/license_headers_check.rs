@@ -595,7 +595,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
 static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock::new(|| {
     [
         ("^editors/tree-sitter-slint/grammar.js$", MIT_LICENSE),
-        ("^editors/zed/", GPL_OR_LATER),
+        ("^editors/zed/", MIT_LICENSE),
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
@@ -617,7 +617,6 @@ const TRIPLE_LICENSE: &str =
     "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0";
 const MIT_LICENSE: &str = "MIT";
 const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
-const GPL_OR_LATER: &str = "GPL-3.0-or-later";
 
 // This is really just the SPDX expression after the copyright line. The existence of the
 // Copyright prefix is enforced by the tag scanning (tag_start).
