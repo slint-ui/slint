@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// SPDX-License-Identifier: MIT
 
 import { test, expect, vi, beforeEach } from "vitest";
 import { exportFigmaVariablesToSeparateFiles } from "../backend/utils/export-variables";
