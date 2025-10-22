@@ -106,6 +106,7 @@ pub fn logical_size_to_api(size: LogicalSize) -> crate::api::LogicalSize {
 /// of the border between the safe area and the edges of the window.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C)]
 pub struct LogicalInset {
     /// The top inset in logical pixels.
     pub top: f32,

@@ -100,6 +100,7 @@ pub type Coord = i32;
 /// This type is not exported from the public API crate, so function having this
 /// parameter cannot be called from the public API without naming it
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
 pub struct InternalToken;
 
 #[cfg(not(target_family = "wasm"))]
