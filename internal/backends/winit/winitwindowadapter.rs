@@ -733,6 +733,7 @@ impl WinitWindowAdapter {
 
             self.window().try_dispatch_event(WindowEvent::SafeAreaChanged {
                 inset: self.safe_area_inset().to_logical(scale_factor),
+                token: corelib::InternalToken,
             })?;
 
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
@@ -1087,32 +1088,6 @@ impl WindowAdapter for WinitWindowAdapter {
         self.size.get()
     }
 
-    fn safe_area_inset(&self) -> PhysicalInset {
-        #[cfg(not(target_os = "ios"))]
-        return Default::default();
-        #[cfg(target_os = "ios")]
-        self.winit_window_or_none
-            .borrow()
-            .as_window()
-            .and_then(|window| {
-                let outer_position = window.outer_position().ok()?;
-                let inner_position = window.inner_position().ok()?;
-                let outer_size = window.outer_size();
-                let inner_size = window.inner_size();
-                Some(PhysicalInset::new(
-                    inner_position.y - outer_position.y,
-                    outer_size.height as i32
-                        - (inner_size.height as i32)
-                        - (inner_position.y - outer_position.y),
-                    inner_position.x - outer_position.x,
-                    outer_size.width as i32
-                        - (inner_size.width as i32)
-                        - (inner_position.x - outer_position.x),
-                ))
-            })
-            .unwrap_or_default()
-    }
-
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true) {
             self.frame_throttle.request_throttled_redraw();
@@ -1208,6 +1183,7 @@ impl WindowAdapter for WinitWindowAdapter {
                         window_item.safe_area_inset_left().get(),
                         window_item.safe_area_inset_right().get(),
                     ),
+                    token: corelib::InternalToken,
                 })
                 .unwrap();
         }
@@ -1507,6 +1483,30 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             winit_window.focus_window();
         }
         Ok(())
+    }
+
+    #[cfg(target_os = "ios")]
+    fn safe_area_inset(&self) -> PhysicalInset {
+        self.winit_window_or_none
+            .borrow()
+            .as_window()
+            .and_then(|window| {
+                let outer_position = window.outer_position().ok()?;
+                let inner_position = window.inner_position().ok()?;
+                let outer_size = window.outer_size();
+                let inner_size = window.inner_size();
+                Some(PhysicalInset::new(
+                    inner_position.y - outer_position.y,
+                    outer_size.height as i32
+                        - (inner_size.height as i32)
+                        - (inner_position.y - outer_position.y),
+                    inner_position.x - outer_position.x,
+                    outer_size.width as i32
+                        - (inner_size.width as i32)
+                        - (inner_position.x - outer_position.x),
+                ))
+            })
+            .unwrap_or_default()
     }
 }
 

@@ -383,9 +383,11 @@ pub enum WindowEvent {
         size: LogicalSize,
     },
     /// The safe area of the window has changed.
+    #[doc(hidden)]
     SafeAreaChanged {
         /// The new logical rectangle of the window's safe area
         inset: LogicalInset,
+        token: crate::InternalToken,
     },
     /// The user requested to close the window.
     ///

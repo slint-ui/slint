@@ -783,7 +783,7 @@ impl Window {
                 self.0.set_window_item_geometry(size.to_euclid());
                 self.0.window_adapter().renderer().resize(size.to_physical(self.scale_factor()))?;
             }
-            crate::platform::WindowEvent::SafeAreaChanged { inset } => {
+            crate::platform::WindowEvent::SafeAreaChanged { inset, .. } => {
                 self.0.set_window_item_safe_area(
                     inset.top(),
                     inset.bottom(),

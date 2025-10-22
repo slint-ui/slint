@@ -110,12 +110,6 @@ pub trait WindowAdapter {
     /// Return the size of the Window on the screen
     fn size(&self) -> PhysicalSize;
 
-    /// Return the inset of the safe area of the Window in physical pixels.
-    /// This is necessary to avoid overlapping system UI such as notches or system bars.
-    fn safe_area_inset(&self) -> PhysicalInset {
-        Default::default()
-    }
-
     /// Issues a request to the windowing system to re-render the contents of the window.
     ///
     /// This request is typically asynchronous.
@@ -256,6 +250,12 @@ pub trait WindowAdapterInternal {
     /// Brings the window to the front and focuses it.
     fn bring_to_front(&self) -> Result<(), PlatformError> {
         Ok(())
+    }
+
+    /// Return the inset of the safe area of the Window in physical pixels.
+    /// This is necessary to avoid overlapping system UI such as notches or system bars.
+    fn safe_area_inset(&self) -> PhysicalInset {
+        Default::default()
     }
 }
 
@@ -556,7 +556,10 @@ impl WindowInner {
         window_adapter.renderer().set_window_adapter(&window_adapter);
         let scale_factor = self.scale_factor();
         self.set_window_item_geometry(window_adapter.size().to_logical(scale_factor).to_euclid());
-        let inset = window_adapter.safe_area_inset();
+        let inset = window_adapter
+            .internal(crate::InternalToken)
+            .map(|internal| internal.safe_area_inset())
+            .unwrap_or_default();
         self.set_window_item_safe_area(
             inset.top_to_logical(scale_factor),
             inset.bottom_to_logical(scale_factor),
@@ -1150,7 +1153,11 @@ impl WindowInner {
         let size = self.window_adapter().size();
         let scale_factor = self.scale_factor();
         self.set_window_item_geometry(size.to_logical(scale_factor).to_euclid());
-        let inset = self.window_adapter().safe_area_inset();
+        let inset = self
+            .window_adapter()
+            .internal(crate::InternalToken)
+            .map(|internal| internal.safe_area_inset())
+            .unwrap_or_default();
         self.set_window_item_safe_area(
             inset.top_to_logical(scale_factor),
             inset.bottom_to_logical(scale_factor),
