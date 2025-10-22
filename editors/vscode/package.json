@@ -11,7 +11,7 @@
     "live preview",
     "drag-and-drop editor"
   ],
-  "version": "1.14.0",
+  "version": "1.14.1",
   "publisher": "Slint",
   "icon": "extension-logo.png",
   "license": "GPL-3.0",

@@ -1,7 +1,7 @@
 {
     "//": "cSpell: ignore codingame dragdrop femtovg frsource lumino treemended quickaccess ",
     "name": "slintpad",
-    "version": "1.14.0",
+    "version": "1.14.1",
     "description": "",
     "main": "index.js",
     "scripts": {

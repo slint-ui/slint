@@ -1,7 +1,7 @@
 {
   "name": "slint.figma.plugin",
   "private": true,
-  "version": "1.14.0",
+  "version": "1.14.1",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode dev",
