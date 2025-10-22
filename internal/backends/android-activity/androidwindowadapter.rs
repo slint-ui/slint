@@ -9,6 +9,7 @@ use android_activity::input::{
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window};
 use i_slint_core::items::ColorScheme;
+use i_slint_core::lengths::PhysicalInset;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
@@ -55,21 +56,6 @@ impl WindowAdapter for AndroidWindowAdapter {
             width: w.width() as u32,
             height: w.height() as u32,
         })
-    }
-    fn safe_area_inset(&self) -> PhysicalInset {
-        if self.fullscreen.get() {
-            Default::default()
-        } else {
-            let (offset, size) =
-                self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e));
-            let win_size = self.size();
-            PhysicalInset {
-                left: offset.x.max(0) as u32,
-                top: offset.y.max(0) as u32,
-                right: (win_size.width.saturating_sub(size.width + offset.x as u32)),
-                bottom: (win_size.height.saturating_sub(size.height + offset.y as u32)),
-            }
-        }
     }
     fn renderer(&self) -> &dyn i_slint_core::platform::Renderer {
         &self.renderer
@@ -177,6 +163,22 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn color_scheme(&self) -> ColorScheme {
         self.color_scheme.as_ref().get()
     }
+
+    fn safe_area_inset(&self) -> PhysicalInset {
+        if self.fullscreen.get() {
+            Default::default()
+        } else {
+            let (offset, size) =
+                self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e));
+            let win_size = self.size();
+            PhysicalInset {
+                left: offset.x.max(0) as u32,
+                top: offset.y.max(0) as u32,
+                right: (win_size.width.saturating_sub(size.width + offset.x as u32)),
+                bottom: (win_size.height.saturating_sub(size.height + offset.y as u32)),
+            }
+        }
+    }
 }
 
 impl AndroidWindowAdapter {
@@ -274,6 +276,7 @@ impl AndroidWindowAdapter {
                     })?;
                     self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
                         inset: self.safe_area_inset().to_logical(scale_factor),
+                        token: corelib::InternalToken,
                     })?;
                 }
             }
@@ -465,6 +468,7 @@ impl AndroidWindowAdapter {
             .try_dispatch_event(WindowEvent::Resized { size: size.to_logical(scale_factor) })?;
         self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
             inset: self.safe_area_inset().to_logical(scale_factor),
+            token: corelib::InternalToken,
         })?;
         self.offset.set(offset);
         Ok(())

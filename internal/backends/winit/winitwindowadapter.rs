@@ -1485,7 +1485,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(target_os = "ios")]
-    fn safe_area_inset(&self) -> PhysicalInset {
+    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalInset {
         self.winit_window_or_none
             .borrow()
             .as_window()
@@ -1494,7 +1494,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 let inner_position = window.inner_position().ok()?;
                 let outer_size = window.outer_size();
                 let inner_size = window.inner_size();
-                Some(PhysicalInset::new(
+                Some(i_slint_core::lengths::PhysicalInset::new(
                     inner_position.y - outer_position.y,
                     outer_size.height as i32
                         - (inner_size.height as i32)
