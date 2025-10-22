@@ -770,23 +770,7 @@ impl Image {
             SharedImageBuffer::RGBA8Premultiplied(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
-                data: buffer
-                    .data
-                    .into_iter()
-                    .map(|rgba_premul| {
-                        if rgba_premul.a == 0 {
-                            Rgba8Pixel::new(0, 0, 0, 0)
-                        } else {
-                            let af = rgba_premul.a as f32 / 255.0;
-                            Rgba8Pixel {
-                                r: (rgba_premul.r as f32 * 255. / af) as u8,
-                                g: (rgba_premul.g as f32 * 255. / af) as u8,
-                                b: (rgba_premul.b as f32 * 255. / af) as u8,
-                                a: rgba_premul.a,
-                            }
-                        }
-                    })
-                    .collect(),
+                data: buffer.data.into_iter().map(Image::premultiplied_rgba_to_rgba).collect(),
             },
         })
     }
@@ -804,26 +788,41 @@ impl Image {
             SharedImageBuffer::RGBA8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
-                data: buffer
-                    .data
-                    .into_iter()
-                    .map(|rgba| {
-                        if rgba.a == 255 {
-                            rgba
-                        } else {
-                            let af = rgba.a as f32 / 255.0;
-                            Rgba8Pixel {
-                                r: (rgba.r as f32 * af / 255.) as u8,
-                                g: (rgba.g as f32 * af / 255.) as u8,
-                                b: (rgba.b as f32 * af / 255.) as u8,
-                                a: rgba.a,
-                            }
-                        }
-                    })
-                    .collect(),
+                data: buffer.data.into_iter().map(Image::rgba_to_premultiplied_rgba).collect(),
             },
             SharedImageBuffer::RGBA8Premultiplied(buffer) => buffer,
         })
+    }
+
+    /// Returns the pixel converted from premultiplied RGBA to RGBA.
+    fn premultiplied_rgba_to_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
+        if pixel.a == 0 {
+            Rgba8Pixel::new(0, 0, 0, 0)
+        } else {
+            let af = pixel.a as u32;
+            let round = (af / 2) as u32;
+            Rgba8Pixel {
+                r: ((pixel.r as u32 * 255 + round) / af).min(255) as u8,
+                g: ((pixel.g as u32 * 255 + round) / af).min(255) as u8,
+                b: ((pixel.b as u32 * 255 + round) / af).min(255) as u8,
+                a: pixel.a,
+            }
+        }
+    }
+
+    /// Returns the pixel converted from RGBA to premultiplied RGBA.
+    fn rgba_to_premultiplied_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
+        if pixel.a == 255 {
+            pixel
+        } else {
+            let af = pixel.a as u32;
+            Rgba8Pixel {
+                r: (((pixel.r as u32 * af + 128) * 257) >> 16) as u8,
+                g: (((pixel.g as u32 * af + 128) * 257) >> 16) as u8,
+                b: (((pixel.b as u32 * af + 128) * 257) >> 16) as u8,
+                a: pixel.a,
+            }
+        }
     }
 
     /// Returns the [WGPU](http://wgpu.rs) 26.x texture that this image wraps; returns None if the image does not
@@ -1471,4 +1470,53 @@ pub struct BorrowedOpenGLTexture {
     pub size: IntSize,
     /// Origin of the texture when rendering.
     pub origin: BorrowedOpenGLTextureOrigin,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::graphics::Rgba8Pixel;
+
+    use super::Image;
+
+    #[test]
+    fn test_premultiplied_to_rgb_zero_alpha() {
+        let pixel = Rgba8Pixel::new(5, 10, 15, 0);
+        let converted = Image::premultiplied_rgba_to_rgba(pixel);
+        assert_eq!(converted, Rgba8Pixel::new(0, 0, 0, 0));
+    }
+
+    #[test]
+    fn test_premultiplied_to_rgb_full_alpha() {
+        let pixel = Rgba8Pixel::new(5, 10, 15, 255);
+        let converted = Image::premultiplied_rgba_to_rgba(pixel);
+        assert_eq!(converted, Rgba8Pixel::new(5, 10, 15, 255));
+    }
+
+    #[test]
+    fn test_premultiplied_to_rgb() {
+        let pixel = Rgba8Pixel::new(5, 10, 15, 128);
+        let converted = Image::premultiplied_rgba_to_rgba(pixel);
+        assert_eq!(converted, Rgba8Pixel::new(10, 20, 30, 128));
+    }
+
+    #[test]
+    fn test_rgb_to_premultiplied_zero_alpha() {
+        let pixel = Rgba8Pixel::new(10, 20, 30, 0);
+        let converted = Image::rgba_to_premultiplied_rgba(pixel);
+        assert_eq!(converted, Rgba8Pixel::new(0, 0, 0, 0));
+    }
+
+    #[test]
+    fn test_rgb_to_premultiplied_full_alpha() {
+        let pixel = Rgba8Pixel::new(10, 20, 30, 255);
+        let converted = Image::rgba_to_premultiplied_rgba(pixel);
+        assert_eq!(converted, Rgba8Pixel::new(10, 20, 30, 255));
+    }
+
+    #[test]
+    fn test_rgb_to_premultiplied() {
+        let pixel = Rgba8Pixel::new(10, 20, 30, 128);
+        let converted = Image::rgba_to_premultiplied_rgba(pixel);
+        assert_eq!(converted, Rgba8Pixel::new(5, 10, 15, 128));
+    }
 }
