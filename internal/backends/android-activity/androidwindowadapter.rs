@@ -172,10 +172,10 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e));
             let win_size = self.size();
             PhysicalInset {
-                left: offset.x.max(0) as u32,
-                top: offset.y.max(0) as u32,
-                right: (win_size.width.saturating_sub(size.width + offset.x as u32)),
-                bottom: (win_size.height.saturating_sub(size.height + offset.y as u32)),
+                left: offset.x.max(0),
+                top: offset.y.max(0),
+                right: win_size.width.saturating_sub(size.width + (offset.x as u32)) as i32,
+                bottom: win_size.height.saturating_sub(size.height + (offset.y as u32)) as i32,
             }
         }
     }
@@ -275,8 +275,11 @@ impl AndroidWindowAdapter {
                         size: self.size().to_logical(scale_factor),
                     })?;
                     self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
-                        inset: self.safe_area_inset().to_logical(scale_factor),
-                        token: corelib::InternalToken,
+                        inset: self
+                            .internal(i_slint_core::InternalToken)
+                            .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
+                            .unwrap_or_default(),
+                        token: i_slint_core::InternalToken,
                     })?;
                 }
             }
@@ -467,8 +470,11 @@ impl AndroidWindowAdapter {
         self.window
             .try_dispatch_event(WindowEvent::Resized { size: size.to_logical(scale_factor) })?;
         self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
-            inset: self.safe_area_inset().to_logical(scale_factor),
-            token: corelib::InternalToken,
+            inset: self
+                .internal(i_slint_core::InternalToken)
+                .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
+                .unwrap_or_default(),
+            token: i_slint_core::InternalToken,
         })?;
         self.offset.set(offset);
         Ok(())
