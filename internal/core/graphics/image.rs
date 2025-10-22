@@ -468,6 +468,7 @@ impl ImageInner {
             ImageInner::StaticTextures(ts) => {
                 let mut buffer =
                     SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);
+                /*
                 let stride = buffer.width() as usize;
                 let slice = buffer.make_mut_slice();
                 for t in ts.textures.iter() {
@@ -524,7 +525,8 @@ impl ImageInner {
                             }
                         };
                     }
-                }
+
+                } */
                 Some(SharedImageBuffer::RGBA8Premultiplied(buffer))
             }
             ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None),

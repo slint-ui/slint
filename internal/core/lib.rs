@@ -80,9 +80,6 @@ pub use graphics::Color;
 #[doc(inline)]
 pub use graphics::Brush;
 
-#[doc(inline)]
-pub use graphics::RgbaColor;
-
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use graphics::PathData;
