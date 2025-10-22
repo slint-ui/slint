@@ -574,7 +574,7 @@ impl TextParagraph {
 
                         let metrics = run.metrics();
 
-                        if let Some(decoration) = &glyph_run.style().underline {
+                        if glyph_run.style().underline.is_some() {
                             item_renderer.fill_rectangle(
                                 PhysicalRect::new(
                                     PhysicalPoint::from_lengths(
@@ -590,7 +590,7 @@ impl TextParagraph {
                             );
                         }
 
-                        if let Some(decoration) = &glyph_run.style().strikethrough {
+                        if glyph_run.style().strikethrough.is_some() {
                             item_renderer.fill_rectangle(
                                 PhysicalRect::new(
                                     PhysicalPoint::from_lengths(
