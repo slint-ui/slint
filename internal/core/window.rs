@@ -7,8 +7,8 @@
 //! Exposed Window API
 
 use crate::api::{
-    CloseRequestResponse, LogicalPosition, PhysicalInset, PhysicalPosition, PhysicalSize,
-    PlatformError, Window, WindowPosition, WindowSize,
+    CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
+    WindowPosition, WindowSize,
 };
 use crate::input::{
     key_codes, ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent,
@@ -254,7 +254,7 @@ pub trait WindowAdapterInternal {
 
     /// Return the inset of the safe area of the Window in physical pixels.
     /// This is necessary to avoid overlapping system UI such as notches or system bars.
-    fn safe_area_inset(&self) -> PhysicalInset {
+    fn safe_area_inset(&self) -> crate::lengths::PhysicalInset {
         Default::default()
     }
 }

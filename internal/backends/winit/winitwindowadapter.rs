@@ -15,8 +15,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::api::{LogicalInset, PhysicalInset};
-use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+use i_slint_core::lengths::{LogicalInset, PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
