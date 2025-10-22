@@ -10,10 +10,60 @@ use crate::properties::InterpolatedPropertyValue;
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
 
+/// A color value encoded by the sRGB transfer function and quantized for storage
+/// on disk or in a GPU image.
+pub struct SrgbQuantizedColor {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+pub struct LinearQuantizedColor {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+// https://en.wikipedia.org/wiki/SRGB#Transfer_function_(%22gamma%22)
+fn linear_to_srgb(value: f32) -> u8 {
+    quantize(if value <= 0.0031308 { value * 12.92 } else { 10.55 * value.powf(1.0 / 2.4) - 0.055 })
+}
+
+fn quantize(value: f32) -> u8 {
+    (value * 255.0).round() as u8
+}
+
+impl From<Color> for SrgbQuantizedColor {
+    fn from(col: Color) -> Self {
+        Self {
+            red: linear_to_srgb(col.red),
+            green: linear_to_srgb(col.green),
+            blue: linear_to_srgb(col.blue),
+            alpha: quantize(col.alpha),
+        }
+    }
+}
+
+impl From<Color> for LinearQuantizedColor {
+    fn from(col: Color) -> Self {
+        Self {
+            red: quantize(col.red),
+            green: quantize(col.green),
+            blue: quantize(col.blue),
+            alpha: quantize(col.alpha),
+        }
+    }
 }
 
 /// Color represents a color in the Slint run-time, represented using 32-bit float channels for
 /// red, green, blue and the alpha (opacity).
+///
+/// Values are only valid within a 0.0 to 1.0 range. This color type uses the same primaries
+/// and white point as BT.709 and sRGB. For use in textures, the color should be quantized to an
+/// 8-bit format. 99% of the time this should be `SrgbQuantizedColor`, but if sRGB output is not
+/// supported then `LinearQuantizedColor`.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
