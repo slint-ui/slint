@@ -1051,7 +1051,7 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable for TwoWayBinding<T>
 
 impl<T: PartialEq + Clone + 'static> Property<T> {
     /// If the property is a two way binding, return the common property
-    fn check_common_property(self: Pin<&Self>) -> Option<Pin<Rc<Property<T>>>> {
+    pub(crate) fn check_common_property(self: Pin<&Self>) -> Option<Pin<Rc<Property<T>>>> {
         let handle_val = self.handle.handle.get();
         if handle_val & 0b10 == 0b10 {
             let holder = (handle_val & !0b11) as *const BindingHolder;
@@ -1146,6 +1146,47 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         map_to: impl Fn(&T) -> T2 + Clone + 'static, // Rename map_to_t2
         map_from: impl Fn(&mut T, &T2) + Clone + 'static,
     ) {
+        let common_property = if let Some(common_property) = prop1.check_common_property() {
+            common_property
+        } else {
+            let prop1_handle_val = prop1.handle.handle.get();
+            let handle = if prop1_handle_val & 0b10 == 0b10 {
+                // If prop1 is a binding, just "steal it"
+                prop1.handle.handle.set(0);
+                PropertyHandle { handle: Cell::new(prop1_handle_val) }
+            } else {
+                PropertyHandle::default()
+            };
+
+            let common_property = Rc::pin(Property {
+                handle,
+                value: UnsafeCell::new(prop1.get_internal()),
+                pinned: PhantomPinned,
+                #[cfg(slint_debug_property)]
+                debug_name: alloc::format("{}*", prop1.debug_name.borrow()).into(),
+            });
+            // Safety: TwoWayBinding's T is the same as the type for both properties
+            unsafe {
+                prop1.handle.set_binding(
+                    TwoWayBinding::<T> { common_property: common_property.clone() },
+                    #[cfg(slint_debug_property)]
+                    debug_name.as_str(),
+                );
+            }
+            common_property
+        };
+        prop2.handle.remove_binding();
+        Self::link_two_way_with_map_to_common_property(common_property, prop2, map_to, map_from);
+    }
+
+    /// Make a two way binding between the common property and the binding prop2.
+    /// if prop2 has a binding, it will be preserved
+    pub(crate) fn link_two_way_with_map_to_common_property<T2: PartialEq + Clone + 'static>(
+        common_property: Pin<Rc<Self>>,
+        prop2: Pin<&Property<T2>>,
+        map_to: impl Fn(&T) -> T2 + Clone + 'static,
+        map_from: impl Fn(&mut T, &T2) + Clone + 'static,
+    ) {
         struct TwoWayBindingWithMap<T, T2, M1, M2> {
             common_property: Pin<Rc<Property<T>>>,
             map_to: M1,
@@ -1218,45 +1259,28 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         }
 
         #[cfg(slint_debug_property)]
-        let debug_name =
-            alloc::format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
+        let debug_name = alloc::format!(
+            "<{}<=>{}>",
+            common_property.debug_name.borrow(),
+            prop2.debug_name.borrow()
+        );
 
-        let common_property = if let Some(common_property) = prop1.check_common_property() {
-            common_property
-        } else {
-            let prop1_handle_val = prop1.handle.handle.get();
-            let handle = if prop1_handle_val & 0b10 == 0b10 {
-                // If prop1 is a binding, just "steal it"
-                prop1.handle.handle.set(0);
-                PropertyHandle { handle: Cell::new(prop1_handle_val) }
-            } else {
-                PropertyHandle::default()
-            };
-
-            let common_property = Rc::pin(Property {
-                handle,
-                value: UnsafeCell::new(prop1.get_internal()),
-                pinned: PhantomPinned,
-                #[cfg(slint_debug_property)]
-                debug_name: debug_name.clone().into(),
-            });
-            // Safety: TwoWayBinding's T is the same as the type for both properties
-            unsafe {
-                prop1.handle.set_binding(
-                    TwoWayBinding::<T> { common_property: common_property.clone() },
-                    #[cfg(slint_debug_property)]
-                    debug_name.as_str(),
-                );
-            }
-            common_property
-        };
+        let old_handle = prop2.handle.handle.get();
+        let has_binding = old_handle & 0b11 == 0b10;
+        if has_binding {
+            prop2.handle.handle.set(0);
+        }
 
         unsafe {
             prop2.handle.set_binding(
                 TwoWayBindingWithMap { common_property, map_to, map_from, marker: PhantomData },
                 #[cfg(slint_debug_property)]
                 debug_name.as_str(),
-            )
+            );
+
+            if has_binding {
+                prop2.handle.set_binding_impl((old_handle & !0b11) as *mut BindingHolder);
+            }
         };
     }
 }
