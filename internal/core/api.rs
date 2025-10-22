@@ -11,7 +11,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
-use crate::lengths::LogicalLength;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
