@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+    out property <string> res;
+    l := HorizontalLayout {
+        if true : Text {
+            property p <=> swg.pressed-position;
+            text: p.x / 1px;
+            init => {
+                res += "x: " + p.x / 1px + " y: " + p.y / 1px;
+            }
+        }
+    }
+    swg := SwipeGestureHandler {
+    }
+
+    init => {
+        debug(l.preferred-height);
+    }
+
+    out property <bool> test: res == "x: 0 y: 0";
+}
