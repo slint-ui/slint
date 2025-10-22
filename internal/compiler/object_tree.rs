@@ -1067,7 +1067,7 @@ impl Element {
             .to_string();
         let mut r = Element {
             id,
-            base_type,
+            base_type: base_type.clone(),
             debug: vec![ElementDebugInfo {
                 qualified_id,
                 element_hash: 0,
@@ -1150,6 +1150,13 @@ impl Element {
                     PropertyVisibility::Private
                 }
             });
+
+            if base_type == ElementType::Interface && visibility == PropertyVisibility::Private {
+                diag.push_warning(
+                    "'private' properties are inaccessible in an interface".into(),
+                    &prop_decl,
+                );
+            }
 
             r.property_declarations.insert(
                 prop_name.clone().into(),
