@@ -141,6 +141,20 @@ pub unsafe extern "C" fn slint_property_set_binding_internal(
     handle.0.set_binding_impl(binding.cast());
 }
 
+/// Delete a binding. The pointer must be a pointer to a binding (so a BindingHolder)
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_delete_binding(binding: *mut c_void) {
+    let b = binding as *mut BindingHolder;
+    ((*b).vtable.drop)(b);
+}
+
+/// Evaluate a raw binding
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_evaluate_binding(binding: *mut c_void, value: *mut c_void) {
+    let b = binding as *mut BindingHolder;
+    ((*b).vtable.evaluate)(b, value);
+}
+
 /// Returns whether the property behind this handle is marked as dirty
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
@@ -506,7 +520,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         core::mem::drop(Box::from_raw(_self as *mut BindingHolder<C_ChangeTrackerInner>));
     }
 
-    unsafe fn evaluate(_self: *mut BindingHolder, _value: *mut ()) -> BindingResult {
+    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
         let pinned_holder = Pin::new_unchecked(&*_self);
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
