@@ -795,7 +795,7 @@ impl Image {
     }
 
     /// Returns the pixel converted from premultiplied RGBA to RGBA.
-    pub fn premultiplied_rgba_to_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
+    fn premultiplied_rgba_to_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
         if pixel.a == 0 {
             Rgba8Pixel::new(0, 0, 0, 0)
         } else {
@@ -811,7 +811,7 @@ impl Image {
     }
 
     /// Returns the pixel converted from RGBA to premultiplied RGBA.
-    pub fn rgba_to_premultiplied_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
+    fn rgba_to_premultiplied_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
         if pixel.a == 255 {
             pixel
         } else {
