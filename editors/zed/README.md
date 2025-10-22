@@ -1,4 +1,4 @@
-<!-- Copyright © Luke. D Jones <luke@ljones.dev> ; SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright © Luke. D Jones <luke@ljones.dev> ; SPDX-License-Identifier: MIT -->
 
 # Zed Slint
 
