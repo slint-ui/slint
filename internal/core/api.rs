@@ -275,22 +275,22 @@ impl LogicalInset {
     /// Converts the top inset to logical pixels.
     #[inline]
     pub const fn top(&self) -> LogicalLength {
-        LogicalLength::new(self.top)
+        LogicalLength::new(self.top as crate::Coord)
     }
     /// Converts the bottom inset to logical pixels.
     #[inline]
     pub const fn bottom(&self) -> LogicalLength {
-        LogicalLength::new(self.bottom)
+        LogicalLength::new(self.bottom as crate::Coord)
     }
     /// Converts the left inset to logical pixels.
     #[inline]
     pub const fn left(&self) -> LogicalLength {
-        LogicalLength::new(self.left)
+        LogicalLength::new(self.left as crate::Coord)
     }
     /// Converts the right inset to logical pixels.
     #[inline]
     pub const fn right(&self) -> LogicalLength {
-        LogicalLength::new(self.right)
+        LogicalLength::new(self.right as crate::Coord)
     }
 }
 
@@ -321,10 +321,10 @@ impl PhysicalInset {
     #[inline]
     pub const fn to_logical(&self, scale_factor: f32) -> LogicalInset {
         LogicalInset::new(
-            self.top_to_logical(scale_factor).0,
-            self.bottom_to_logical(scale_factor).0,
-            self.left_to_logical(scale_factor).0,
-            self.right_to_logical(scale_factor).0,
+            self.top_to_logical(scale_factor).0 as f32,
+            self.bottom_to_logical(scale_factor).0 as f32,
+            self.left_to_logical(scale_factor).0 as f32,
+            self.right_to_logical(scale_factor).0 as f32,
         )
     }
 
@@ -332,28 +332,28 @@ impl PhysicalInset {
     /// specified scale factor.
     #[inline]
     pub const fn top_to_logical(&self, scale_factor: f32) -> LogicalLength {
-        LogicalLength::new(self.top as f32 / scale_factor)
+        LogicalLength::new((self.top as f32 / scale_factor) as crate::Coord)
     }
 
     /// Convert the bottom logical inset to a physical inset by dividing the length by the
     /// specified scale factor.
     #[inline]
     pub const fn bottom_to_logical(&self, scale_factor: f32) -> LogicalLength {
-        LogicalLength::new(self.bottom as f32 / scale_factor)
+        LogicalLength::new((self.bottom as f32 / scale_factor) as crate::Coord)
     }
 
     #[inline]
     /// Convert the left logical inset to a physical inset by dividing the length by the
     /// specified scale factor.
     pub const fn left_to_logical(&self, scale_factor: f32) -> LogicalLength {
-        LogicalLength::new(self.left as f32 / scale_factor)
+        LogicalLength::new((self.left as f32 / scale_factor) as crate::Coord)
     }
 
     /// Convert the right logical inset to a physical inset by dividing the length by the
     /// specified scale factor.
     #[inline]
     pub const fn right_to_logical(&self, scale_factor: f32) -> LogicalLength {
-        LogicalLength::new(self.right as f32 / scale_factor)
+        LogicalLength::new((self.right as f32 / scale_factor) as crate::Coord)
     }
 }
 
