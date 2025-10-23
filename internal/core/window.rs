@@ -963,22 +963,9 @@ impl WindowInner {
                     &self.window_adapter(),
                     item,
                 );
-                if result == crate::input::FocusEventResult::FocusAccepted && !item.is_visible() {
-                    let mut parent = item.parent_item(ParentItemTraversalMode::StopAtPopups);
-                    while let Some(item_rc) = parent.as_ref() {
-                        let item_ref = item_rc.borrow();
-                        if let Some(flickable) =
-                            vtable::VRef::downcast_pin::<crate::items::Flickable>(item_ref)
-                        {
-                            let geo = item.geometry();
-                            flickable.reveal_points(
-                                item_rc,
-                                &[geo.origin, LogicalPoint::new(geo.max_x(), geo.max_y())],
-                            );
-                        }
-
-                        parent = item.parent_item(ParentItemTraversalMode::StopAtPopups);
-                    }
+                // Reveal offscreen item when it gains focus
+                if result == crate::input::FocusEventResult::FocusAccepted {
+                    item.try_scroll_into_visible();
                 }
 
                 result

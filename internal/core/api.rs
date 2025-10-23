@@ -674,6 +674,9 @@ impl Window {
             crate::platform::WindowEvent::Resized { size } => {
                 self.0.set_window_item_geometry(size.to_euclid());
                 self.0.window_adapter().renderer().resize(size.to_physical(self.scale_factor()))?;
+                if let Some(item_rc) = self.0.focus_item.borrow().upgrade() {
+                    item_rc.try_scroll_into_visible();
+                }
             }
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
