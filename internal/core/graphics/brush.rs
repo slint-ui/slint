@@ -286,8 +286,10 @@ impl ConicGradientBrush {
             // All backends (Qt, Software, FemtoVG, Skia) require positions in [0, 1]
 
             // Check if stops already span the full range [0, 1]
-            let min_pos = stops.iter().map(|s| s.position).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-            let max_pos = stops.iter().map(|s| s.position).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+            let min_pos =
+                stops.iter().map(|s| s.position).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+            let max_pos =
+                stops.iter().map(|s| s.position).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
 
             if min_pos >= 0.0 && max_pos <= 1.0 {
                 // Stops already span [0, 1], can be passed to backends as-is
@@ -304,7 +306,9 @@ impl ConicGradientBrush {
                 // Check circularly to handle wrapping at 0/1 boundary
                 for i in 0..stops.len() {
                     let j = (i + 1) % stops.len();
-                    if (stops[i].position - stops[j].position).abs() < EPSILON && stops[i].color != stops[j].color {
+                    if (stops[i].position - stops[j].position).abs() < EPSILON
+                        && stops[i].color != stops[j].color
+                    {
                         stops[i].position = (stops[i].position - EPSILON).max(0.0);
                         stops[j].position = (stops[j].position + EPSILON).min(1.0);
                     }
@@ -312,8 +316,14 @@ impl ConicGradientBrush {
 
                 // 3. Calculate color at 0/1 boundary by interpolating between min and max stops
                 // For seamless circular gradient, 0.0 and 1.0 must have the same color
-                let max_stop = stops.iter().max_by(|a, b| a.position.partial_cmp(&b.position).unwrap()).unwrap();
-                let min_stop = stops.iter().min_by(|a, b| a.position.partial_cmp(&b.position).unwrap()).unwrap();
+                let max_stop = stops
+                    .iter()
+                    .max_by(|a, b| a.position.partial_cmp(&b.position).unwrap())
+                    .unwrap();
+                let min_stop = stops
+                    .iter()
+                    .min_by(|a, b| a.position.partial_cmp(&b.position).unwrap())
+                    .unwrap();
 
                 let boundary_color = {
                     let gap = 1.0 - max_stop.position + min_stop.position;
@@ -326,7 +336,9 @@ impl ConicGradientBrush {
                 };
 
                 // 4. Sort stops by position and add boundary stops at 0 and 1
-                stops.sort_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
+                stops.sort_by(|a, b| {
+                    a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+                });
                 stops.insert(0, GradientStop { position: 0.0, color: boundary_color });
                 stops.push(GradientStop { position: 1.0, color: boundary_color });
             }
