@@ -186,9 +186,7 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     export_names = [component.py_name for component in artifacts.components]
     export_names += [struct.py_name for struct in artifacts.structs]
     export_names += [enum.py_name for enum in artifacts.enums]
-    export_names += [
-        _normalize_prop(alias) for _, alias in artifacts.named_exports
-    ]
+    export_names += [_normalize_prop(alias) for _, alias in artifacts.named_exports]
     if export_names:
         all_list = cst.List(
             elements=[
