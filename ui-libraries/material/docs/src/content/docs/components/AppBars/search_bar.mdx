@@ -95,6 +95,9 @@ Invoked when a key is pressed in the search bar.
 ### key-released(event: KeyEvent) -> EventResult
 Invoked when a key is released in the search bar.
 
+### item-activated(index: int) -> bool
+Invoked when a search item is clicked.  If a callback returns 'true', then do not perform the default behavior of changing the search text.
+
 ## Functions
 
 ### clear-focus()
