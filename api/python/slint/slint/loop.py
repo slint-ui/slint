@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from . import slint as native
+from . import core
 import asyncio.selector_events
 import asyncio
 import asyncio.events
@@ -44,7 +44,7 @@ class _SlintSelector(selectors.BaseSelector):
     def __init__(self) -> None:
         self.fd_to_selector_key: typing.Dict[typing.Any, selectors.SelectorKey] = {}
         self.mapping = _SlintSelectorMapping(self)
-        self.adapters: typing.Dict[int, native.AsyncAdapter] = {}
+        self.adapters: typing.Dict[int, core.AsyncAdapter] = {}
 
     def register(
         self, fileobj: typing.Any, events: typing.Any, data: typing.Any = None
@@ -53,7 +53,7 @@ class _SlintSelector(selectors.BaseSelector):
         key = selectors.SelectorKey(fileobj, fd, events, data)
         self.fd_to_selector_key[fd] = key
 
-        adapter = native.AsyncAdapter(fd)
+        adapter = core.AsyncAdapter(fd)
         self.adapters[fd] = adapter
 
         if events & selectors.EVENT_READ:
@@ -114,7 +114,7 @@ class _SlintSelector(selectors.BaseSelector):
 class SlintEventLoop(asyncio.SelectorEventLoop):
     def __init__(self) -> None:
         self._is_running = False
-        self._timers: typing.Set[native.Timer] = set()
+        self._timers: typing.Set[core.Timer] = set()
         self.stop_run_forever_event = asyncio.Event()
         self._soon_tasks: typing.List[asyncio.TimerHandle] = []
         super().__init__(_SlintSelector())
@@ -122,14 +122,14 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
     def run_forever(self) -> None:
         async def loop_stopper(event: asyncio.Event) -> None:
             await event.wait()
-            native.quit_event_loop()
+            core.quit_event_loop()
 
         asyncio.events._set_running_loop(self)
         self._is_running = True
         try:
             self.stop_run_forever_event = asyncio.Event()
             self.create_task(loop_stopper(self.stop_run_forever_event))
-            native.run_event_loop()
+            core.run_event_loop()
         finally:
             self._is_running = False
             asyncio.events._set_running_loop(None)
@@ -178,7 +178,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         return False
 
     def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:  # type: ignore
-        timer = native.Timer()
+        timer = core.Timer()
 
         handle = asyncio.TimerHandle(
             when=self.time() + delay,
@@ -196,7 +196,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
                 handle._run()
 
         timer.start(
-            native.TimerMode.SingleShot,
+            core.TimerMode.SingleShot,
             interval=datetime.timedelta(seconds=delay),
             callback=timer_done_cb,
         )
@@ -237,7 +237,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             if not handle._cancelled:
                 handle._run()
 
-        native.invoke_from_event_loop(run_handle_cb)
+        core.invoke_from_event_loop(run_handle_cb)
         return handle
 
     def _write_to_self(self) -> None:

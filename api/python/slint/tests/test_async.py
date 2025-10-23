@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint
-from slint import slint as native
+from slint import core
 import asyncio
 import typing
 import aiohttp
@@ -166,11 +166,11 @@ def test_server_socket() -> None:
 
 def test_loop_close_while_main_future_runs() -> None:
     def q() -> None:
-        native.quit_event_loop()
+        core.quit_event_loop()
 
     async def never_quit() -> None:
         loop = asyncio.get_running_loop()
-        # Call native.quit_event_loop() directly as if the user closed the last window. We should gracefully
+        # Call core.quit_event_loop() directly as if the user closed the last window. We should gracefully
         # handle that the future that this function represents isn't terminated.
         loop.call_later(0.1, q)
         while True:

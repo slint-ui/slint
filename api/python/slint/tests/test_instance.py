@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import pytest
-from slint import slint as native
-from slint.slint import Image, Color, Brush
+from slint import core
+from slint.core import Image, Color, Brush
 import os
 from pathlib import Path
 
 
 def test_property_access() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -78,7 +78,7 @@ def test_property_access() -> None:
         instance.set_property("boolprop", 0)
 
     structval = instance.get_property("structprop")
-    assert isinstance(structval, native.PyStruct)
+    assert isinstance(structval, core.PyStruct)
     assert structval.title == "builtin"
     assert structval.finished
     assert structval.dash_prop
@@ -139,7 +139,7 @@ def test_property_access() -> None:
 
 
 def test_callbacks() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """

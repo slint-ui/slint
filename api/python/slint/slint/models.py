@@ -1,14 +1,14 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from . import slint as native
+from . import core
 from collections.abc import Iterable
 from abc import abstractmethod
 import typing
 from typing import Any, cast, Iterator
 
 
-class Model[T](native.PyModelBase, Iterable[T]):
+class Model[T](core.PyModelBase, Iterable[T]):
     """Model is the base class for feeding dynamic data into Slint views.
 
     Subclass Model to implement your own models, or use `ListModel` to wrap a list.

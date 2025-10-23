@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
-from .. import slint as native
+from .. import core
 from .. import _normalize_prop
 
 from .emitters import write_python_module, write_stub_module
@@ -25,7 +25,7 @@ from .models import (
 )
 
 if TYPE_CHECKING:
-    from slint.slint import CallbackInfo, FunctionInfo, PyDiagnostic
+    from slint.core import CallbackInfo, FunctionInfo, PyDiagnostic
 
 
 def generate_project(
@@ -42,7 +42,7 @@ def generate_project(
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    compiler = native.Compiler()
+    compiler = core.Compiler()
     if config.style:
         compiler.style = config.style
     if config.include_paths:
@@ -102,14 +102,14 @@ def _discover_slint_files(inputs: Iterable[Path]) -> Iterable[tuple[Path, Path]]
 
 
 def _compile_slint(
-    compiler: native.Compiler,
+    compiler: core.Compiler,
     source_path: Path,
     config: GenerationConfig,
-) -> native.CompilationResult | None:
+) -> core.CompilationResult | None:
     result = compiler.build_from_path(source_path)
 
     diagnostics = result.diagnostics
-    diagnostic_error = getattr(native, "DiagnosticLevel", None)
+    diagnostic_error = getattr(core, "DiagnosticLevel", None)
     error_enum = getattr(diagnostic_error, "Error", None)
 
     def is_error(diag: PyDiagnostic) -> bool:
@@ -133,7 +133,7 @@ def _compile_slint(
     return result
 
 
-def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
+def _collect_metadata(result: core.CompilationResult) -> ModuleArtifacts:
     components: list[ComponentMeta] = []
     for name in result.component_names:
         comp = result.component(name)
@@ -275,9 +275,9 @@ def _python_value_hint(value: object) -> str:
         return "float"
     if isinstance(value, str):
         return "str"
-    if isinstance(value, native.Image):
+    if isinstance(value, core.Image):
         return "slint.Image"
-    if isinstance(value, native.Brush):
+    if isinstance(value, core.Brush):
         return "slint.Brush"
     return "Any"
 

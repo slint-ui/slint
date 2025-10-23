@@ -51,6 +51,10 @@ dev = [
   "aiohttp>=3.12.15",
 ]
 
+[tool.maturin]
+module-name = "slint.core"
+python-packages = ["slint"]
+
 [tool.uv]
 # Rebuild package when any rust files change
 cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]

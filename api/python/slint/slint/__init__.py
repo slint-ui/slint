@@ -7,7 +7,7 @@ r"""
 
 import os
 import sys
-from . import slint as native
+from . import core
 import types
 import logging
 import copy
@@ -15,24 +15,24 @@ import typing
 from typing import Any, Callable, TypeVar, overload
 import pathlib
 from .models import ListModel, Model
-from .slint import Image, Color, Brush, Timer, TimerMode
+from .core import Image, Color, Brush, Timer, TimerMode
 from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
 import asyncio
 import gettext
 
-Struct = native.PyStruct
+Struct = core.PyStruct
 
 
 class CompileError(Exception):
     message: str
     """The error message that produced this compile error."""
 
-    diagnostics: list[native.PyDiagnostic]
+    diagnostics: list[core.PyDiagnostic]
     """A list of detailed diagnostics that were produced as part of the compilation."""
 
-    def __init__(self, message: str, diagnostics: list[native.PyDiagnostic]):
+    def __init__(self, message: str, diagnostics: list[core.PyDiagnostic]):
         """@private"""
         super().__init__(message)
         self.message = message
@@ -45,7 +45,7 @@ class Component:
     """Component is the base class for all instances of Slint components. Use the member functions to show or hide the
     window, or spin the event loop."""
 
-    __instance__: native.ComponentInstance
+    __instance__: core.ComponentInstance
 
     def show(self) -> None:
         """Shows the window on the screen."""
@@ -68,7 +68,7 @@ def _normalize_prop(name: str) -> str:
     return name.replace("-", "_")
 
 
-def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
+def _build_global_class(compdef: core.ComponentDefinition, global_name: str) -> Any:
     properties_and_callbacks = {}
 
     for prop_name in compdef.global_properties(global_name).keys():
@@ -139,7 +139,7 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
 
 
 def _build_class(
-    compdef: native.ComponentDefinition,
+    compdef: core.ComponentDefinition,
 ) -> typing.Callable[..., Component]:
     def cls_init(self: Component, **kwargs: Any) -> Any:
         self.__instance__ = compdef.create()
@@ -252,8 +252,8 @@ def _build_class(
     return type("SlintClassWrapper", (Component,), properties_and_callbacks)
 
 
-def _build_struct(name: str, struct_prototype: native.PyStruct) -> type:
-    def new_struct(cls: Any, *args: Any, **kwargs: Any) -> native.PyStruct:
+def _build_struct(name: str, struct_prototype: core.PyStruct) -> type:
+    def new_struct(cls: Any, *args: Any, **kwargs: Any) -> core.PyStruct:
         inst = copy.copy(struct_prototype)
 
         for prop, val in kwargs.items():
@@ -291,7 +291,7 @@ def load_file(
 
     """
 
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     if style is not None:
         compiler.style = style
@@ -308,11 +308,11 @@ def load_file(
     if diagnostics:
         if not quiet:
             for diag in diagnostics:
-                if diag.level == native.DiagnosticLevel.Warning:
+                if diag.level == core.DiagnosticLevel.Warning:
                     logging.warning(diag)
 
         errors = [
-            diag for diag in diagnostics if diag.level == native.DiagnosticLevel.Error
+            diag for diag in diagnostics if diag.level == core.DiagnosticLevel.Error
         ]
         if errors:
             raise CompileError(f"Could not compile {path}", diagnostics)
@@ -492,7 +492,7 @@ def set_xdg_app_id(app_id: str) -> None:
     """Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
     compliant window managers. This id must be set before the window is shown; it only applies to Wayland or X11."""
 
-    native.set_xdg_app_id(app_id)
+    core.set_xdg_app_id(app_id)
 
 
 quit_event = asyncio.Event()
@@ -573,7 +573,7 @@ def init_translations(translations: typing.Optional[gettext.GNUTranslations]) ->
         pass
     ```
     """
-    native.init_translations(translations)
+    core.init_translations(translations)
 
 
 __all__ = [
