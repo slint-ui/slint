@@ -22,7 +22,7 @@ from .models import (
     StructFieldMeta,
     StructMeta,
 )
-from .utils import normalize_identifier
+from .. import _normalize_prop
 
 if TYPE_CHECKING:
     from slint.slint import CallbackInfo, FunctionInfo, PyDiagnostic
@@ -149,7 +149,7 @@ def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
             properties.append(
                 PropertyMeta(
                     name=key,
-                    py_name=normalize_identifier(key),
+                    py_name=_normalize_prop(key),
                     type_hint=type_hint,
                 )
             )
@@ -171,7 +171,7 @@ def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
             properties_meta: list[PropertyMeta] = []
 
             for key in comp.global_properties(global_name):
-                py_key = normalize_identifier(key)
+                py_key = _normalize_prop(key)
                 info = global_property_info[key]
                 type_hint = info.python_type
                 properties_meta.append(
@@ -195,7 +195,7 @@ def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
             globals_meta.append(
                 GlobalMeta(
                     name=global_name,
-                    py_name=normalize_identifier(global_name),
+                    py_name=_normalize_prop(global_name),
                     properties=properties_meta,
                     callbacks=callbacks_meta,
                     functions=functions_meta,
@@ -205,7 +205,7 @@ def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
         components.append(
             ComponentMeta(
                 name=name,
-                py_name=normalize_identifier(name),
+                py_name=_normalize_prop(name),
                 properties=properties,
                 callbacks=callbacks,
                 functions=functions,
@@ -223,14 +223,14 @@ def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
             fields.append(
                 StructFieldMeta(
                     name=field_name,
-                    py_name=normalize_identifier(field_name),
+                    py_name=_normalize_prop(field_name),
                     type_hint=_python_value_hint(value),
                 )
             )
         structs_meta.append(
             StructMeta(
                 name=struct_name,
-                py_name=normalize_identifier(struct_name),
+                py_name=_normalize_prop(struct_name),
                 fields=fields,
             )
         )
@@ -241,14 +241,14 @@ def _collect_metadata(result: native.CompilationResult) -> ModuleArtifacts:
             values.append(
                 EnumValueMeta(
                     name=member,
-                    py_name=normalize_identifier(member),
+                    py_name=_normalize_prop(member),
                     value=enum_member.name,
                 )
             )
         enums_meta.append(
             EnumMeta(
                 name=enum_name,
-                py_name=normalize_identifier(enum_name),
+                py_name=_normalize_prop(enum_name),
                 values=values,
             )
         )
@@ -285,7 +285,7 @@ def _python_value_hint(value: object) -> str:
 def _callback_meta(name: str, info: CallbackInfo | FunctionInfo) -> CallbackMeta:
     return CallbackMeta(
         name=name,
-        py_name=normalize_identifier(name),
+        py_name=_normalize_prop(name),
         arg_types=[param.python_type for param in info.parameters],
         return_type=info.return_type,
     )

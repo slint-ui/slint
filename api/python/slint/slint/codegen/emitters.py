@@ -9,14 +9,14 @@ from pathlib import Path
 import libcst as cst
 
 from .models import GenerationConfig, ModuleArtifacts, CallbackMeta
-from .utils import normalize_identifier, path_literal
+from .. import _normalize_prop
 
 
 def module_relative_path_expr(module_dir: Path, target: Path) -> str:
     try:
         rel = os.path.relpath(target, module_dir)
     except ValueError:
-        return f"Path({path_literal(target)})"
+        return repr(target)
 
     if rel in (".", ""):
         return "_MODULE_DIR"
@@ -50,14 +50,14 @@ def write_python_module(
     include_expr_code = f"[{', '.join(include_exprs)}]" if include_exprs else "None"
 
     library_items = [
-        f"{path_literal(name)}: {module_relative_path_expr(module_dir, lib_path)}"
+        f"{repr(Path(name))}: {module_relative_path_expr(module_dir, lib_path)}"
         for name, lib_path in config.library_paths.items()
     ]
     library_expr_code = f"{{{', '.join(library_items)}}}" if library_items else "None"
 
-    style_expr = path_literal(config.style) if config.style else "None"
+    style_expr = repr(Path(config.style)) if config.style else "None"
     domain_expr = (
-        path_literal(config.translation_domain) if config.translation_domain else "None"
+        repr(Path(config.translation_domain)) if config.translation_domain else "None"
     )
 
     export_bindings: dict[str, str] = {}
@@ -69,7 +69,7 @@ def write_python_module(
         export_bindings[enum.name] = enum.py_name
 
     export_items = list(export_bindings.values()) + [
-        normalize_identifier(alias) for _, alias in artifacts.named_exports
+        _normalize_prop(alias) for _, alias in artifacts.named_exports
     ]
 
     header: list[cst.CSTNode] = [
@@ -152,8 +152,8 @@ def write_python_module(
     for original, binding in export_bindings.items():
         body.append(_stmt(f"{binding} = _module.{original}"))
     for orig, alias in artifacts.named_exports:
-        alias_name = normalize_identifier(alias)
-        target = export_bindings.get(orig, normalize_identifier(orig))
+        alias_name = _normalize_prop(alias)
+        target = export_bindings.get(orig, _normalize_prop(orig))
         body.append(_stmt(f"{alias_name} = {target}"))
 
     module = cst.Module(body=header + body)  # type: ignore[arg-type]
@@ -187,7 +187,7 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     export_names += [struct.py_name for struct in artifacts.structs]
     export_names += [enum.py_name for enum in artifacts.enums]
     export_names += [
-        normalize_identifier(alias) for _, alias in artifacts.named_exports
+        _normalize_prop(alias) for _, alias in artifacts.named_exports
     ]
     if export_names:
         all_list = cst.List(
@@ -354,8 +354,8 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
         bindings[enum_meta.name] = enum_meta.py_name
 
     for orig, alias in artifacts.named_exports:
-        alias_name = normalize_identifier(alias)
-        target = bindings.get(orig, normalize_identifier(orig))
+        alias_name = _normalize_prop(alias)
+        target = bindings.get(orig, _normalize_prop(orig))
         post_body.append(_stmt(f"{alias_name} = {target}"))
         post_body.append(cst.EmptyLine())
 
