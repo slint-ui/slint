@@ -213,15 +213,16 @@ impl ItemConsts for Flickable {
 
 impl Flickable {
     fn choose_min_move(
-        current_view_start: f32, // vx or vy
-        view_len: f32,           // w or h
-        content_len: f32,        // vw or vh
-        points: impl Iterator<Item = f32>,
-    ) -> f32 {
+        current_view_start: Coord, // vx or vy
+        view_len: Coord,           // w or h
+        content_len: Coord,        // vw or vh
+        points: impl Iterator<Item = Coord>,
+    ) -> Coord {
         // Feasible translations t such that for all p: vx+t <= p <= vx+t+w
         // -> t in [max_i(p_i - (vx + w)), min_i(p_i - vx)]
-        let mut lower = f32::NEG_INFINITY;
-        let mut upper = f32::INFINITY;
+        let zero = 0 as Coord;
+        let mut lower = Coord::MIN;
+        let mut upper = Coord::MAX;
 
         for p in points {
             lower = lower.max(p - (current_view_start + view_len));
@@ -231,31 +232,31 @@ impl Flickable {
         if lower > upper {
             // No translation can include all points simultaneously; pick nearest bound direction.
             // This happens only with NaNs; guard anyway.
-            (lower + upper) * 0.5
-        } else {
-            // Allowed translation interval due to scroll limits
-            let max_scroll = (content_len - view_len).max(0.0);
-            let tmin = -current_view_start; // cannot scroll before 0
-            let tmax = max_scroll - current_view_start; // cannot scroll past max
+            return zero;
+        }
 
-            let i_min = lower.max(tmin);
-            let i_max = upper.min(tmax);
-            if i_min <= i_max {
-                if 0.0 < i_min {
-                    i_min
-                } else if 0.0 > i_max {
-                    i_max
-                } else {
-                    0.0
-                }
+        // Allowed translation interval due to scroll limits
+        let max_scroll = (content_len - view_len).max(zero);
+        let tmin = -current_view_start; // cannot scroll before 0
+        let tmax = max_scroll - current_view_start; // cannot scroll past max
+
+        let i_min = lower.max(tmin);
+        let i_max = upper.min(tmax);
+
+        if i_min <= i_max {
+            if zero < i_min {
+                i_min
+            } else if zero > i_max {
+                i_max
             } else {
-                // Intervals disjoint: choose closest allowed translation to feasible interval
-                if tmax < lower {
-                    tmax
-                } else {
-                    tmin
-                } // either entirely left or right
+                zero
             }
+        // Intervals disjoint: choose closest allowed translation to feasible interval
+        // either entirely left or right
+        } else if tmax < lower {
+            tmax
+        } else {
+            tmin
         }
     }
 
