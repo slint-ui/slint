@@ -27,9 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
 ]
-dependencies = [
-    "libcst>=1.8.5",
-]
+dependencies = ["libcst>=1.8.5"]
 
 [project.urls]
 Homepage = "https://slint.dev"

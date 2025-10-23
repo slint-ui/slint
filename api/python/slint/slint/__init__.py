@@ -418,20 +418,32 @@ def _callback_decorator(
 
     return callable
 
+
 _T_Callback = TypeVar("_T_Callback", bound=Callable[..., Any])
+
 
 @overload
 def callback(__func: _T_Callback, /) -> _T_Callback: ...
 
-@overload
-def callback(*, global_name: str | None = ..., name: str | None = ...) -> Callable[[ _T_Callback ], _T_Callback]: ...
 
 @overload
-def callback(__func: _T_Callback, /, *, global_name: str | None = ..., name: str | None = ...) -> _T_Callback: ...
+def callback(
+    *, global_name: str | None = ..., name: str | None = ...
+) -> Callable[[_T_Callback], _T_Callback]: ...
+
+
+@overload
+def callback(
+    __func: _T_Callback, /, *, global_name: str | None = ..., name: str | None = ...
+) -> _T_Callback: ...
 
 
 def callback(
-    __func: _T_Callback | None = None, /, *, global_name: str | None = None, name: str | None = None
+    __func: _T_Callback | None = None,
+    /,
+    *,
+    global_name: str | None = None,
+    name: str | None = None,
 ) -> typing.Union[_T_Callback, typing.Callable[[_T_Callback], _T_Callback]]:
     """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
 

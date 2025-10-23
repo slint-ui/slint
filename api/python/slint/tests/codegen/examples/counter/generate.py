@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,7 +20,9 @@ def main() -> None:
         quiet=False,
     )
 
-    generate_project(inputs=[base_dir / "counter.slint"], output_dir=output, config=config)
+    generate_project(
+        inputs=[base_dir / "counter.slint"], output_dir=output, config=config
+    )
     print(f"Generated Python bindings into {output.relative_to(base_dir)}")
 
 

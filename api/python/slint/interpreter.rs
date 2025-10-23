@@ -566,11 +566,7 @@ impl PyCallbackInfo {
             let arg_name = function.arg_names.get(idx).cloned();
             parameters.push(PyCallbackParameter::new(arg_name, arg_ty));
         }
-        Self {
-            name,
-            parameters,
-            return_type: type_to_python_hint(&function.return_type),
-        }
+        Self { name, parameters, return_type: type_to_python_hint(&function.return_type) }
     }
 }
 
@@ -593,11 +589,7 @@ impl PyFunctionInfo {
             let arg_name = function.arg_names.get(idx).cloned();
             parameters.push(PyCallbackParameter::new(arg_name, arg_ty));
         }
-        Self {
-            name,
-            parameters,
-            return_type: type_to_python_hint(&function.return_type),
-        }
+        Self { name, parameters, return_type: type_to_python_hint(&function.return_type) }
     }
 }
 

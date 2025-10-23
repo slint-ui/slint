@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 from __future__ import annotations
 
 import importlib
@@ -197,11 +200,13 @@ def test_generate_optional_type_hints(tmp_path: Path) -> None:
 
 def test_cli_main_without_subcommand(tmp_path: Path) -> None:
     slint_file = _write_slint_fixture(tmp_path)
-    exit_code = cli_main([
-        "--input",
-        str(slint_file),
-        "--quiet",
-    ])
+    exit_code = cli_main(
+        [
+            "--input",
+            str(slint_file),
+            "--quiet",
+        ]
+    )
 
     assert exit_code == 0
     assert (slint_file.parent / "app.py").exists()
@@ -227,6 +232,7 @@ def test_counter_example_workflow(tmp_path: Path) -> None:
     assert app.counter == 0
     app.request_increase()
     assert app.counter == 1
+
 
 def test_parse_library_paths_and_error_handling() -> None:
     mapping = _parse_library_paths(["std=path/to/std"])
