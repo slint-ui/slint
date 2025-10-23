@@ -470,23 +470,7 @@ impl ItemRc {
     /// Returns an absolute position of `p` in the parent item coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
-        let mut current = self.clone();
-        let mut result = p;
-        let supports_transformations = self
-            .window_adapter()
-            .map(|adapter| adapter.renderer().supports_transformations())
-            .unwrap_or(true);
-        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            let geometry = parent.geometry();
-            if supports_transformations {
-                if let Some(transform) = parent.children_transform() {
-                    result = transform.transform_point(result.cast()).cast();
-                }
-            }
-            result += geometry.origin.to_vector();
-            current = parent.clone();
-        }
-        result
+        self.map_to_item_tree_impl(p, None)
     }
 
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
@@ -496,17 +480,24 @@ impl ItemRc {
         p: LogicalPoint,
         item_tree: &vtable::VRc<ItemTreeVTable>,
     ) -> LogicalPoint {
+        self.map_to_item_tree_impl(p, Some(item_tree))
+    }
+
+    fn map_to_item_tree_impl(
+        &self,
+        p: LogicalPoint,
+        item_tree: Option<&vtable::VRc<ItemTreeVTable>>,
+    ) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
-        if current.is_root_item_of(item_tree) {
+        if item_tree.is_some_and(|item_tree| current.is_root_item_of(item_tree)) {
             return result;
         }
         let supports_transformations = self
             .window_adapter()
-            .map(|adapter| adapter.renderer().supports_transformations())
-            .unwrap_or(true);
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            if parent.is_root_item_of(item_tree) {
+            if item_tree.is_some_and(|item_tree| current.is_root_item_of(item_tree)) {
                 break;
             }
             let geometry = parent.geometry();

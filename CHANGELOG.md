@@ -3,6 +3,14 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.14.1] - 2025-10-23
+
+ - Updated xkbcommon and fsdm dependencies
+ - Relicensed Zed editor extension to fullfill Zed's new license requirements
+ - Rust: Fixed incorrect conversion to and from premultiplied ARGB in `Image::to_rgba8` and `Image::to_rgba8_premultiplied` (#9810)
+ - winit: Fixed panic when accessing `Palette.color-scheme` during muda menubar build (#9792)
+ - Fixed docs.rs build by adjusting features metadata
+
 ## [1.14.0] - 2025-10-21
 
 ### General
