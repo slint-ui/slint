@@ -76,6 +76,7 @@ vsce:
  - 'api/rs/**'
  - 'editors/vscode/**'
  - 'tools/lsp/**'
+ - 'docs/common/src/utils/slint.tmLanguage.json'
 
 slintpad:
  - *internal
@@ -83,6 +84,7 @@ slintpad:
  - 'api/wasm-interpreter/**'
  - 'tools/lsp/**'
  - 'api/rs/**'
+ - 'docs/common/src/utils/slint.tmLanguage.json'
 
 updater_test:
  - *internal
