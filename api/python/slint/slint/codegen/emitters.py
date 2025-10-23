@@ -8,8 +8,8 @@ from pathlib import Path
 
 import libcst as cst
 
-from .models import GenerationConfig, ModuleArtifacts, CallbackMeta
 from .. import _normalize_prop
+from .models import CallbackMeta, GenerationConfig, ModuleArtifacts
 
 
 def module_relative_path_expr(module_dir: Path, target: Path) -> str:

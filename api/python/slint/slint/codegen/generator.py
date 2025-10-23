@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Iterable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
-from slint import slint as native
+from .. import slint as native
+from .. import _normalize_prop
 
 from .emitters import write_python_module, write_stub_module
 from .models import (
@@ -22,7 +23,6 @@ from .models import (
     StructFieldMeta,
     StructMeta,
 )
-from .. import _normalize_prop
 
 if TYPE_CHECKING:
     from slint.slint import CallbackInfo, FunctionInfo, PyDiagnostic

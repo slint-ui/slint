@@ -5,21 +5,21 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import inspect
+import shutil
 import subprocess
 import sys
-import textwrap
-import shutil
 from pathlib import Path
 
 import pytest
-
-from slint.codegen.cli import _parse_library_paths, main as cli_main
+from slint.codegen.cli import _parse_library_paths
+from slint.codegen.cli import main as cli_main
 from slint.codegen.generator import generate_project
 from slint.codegen.models import GenerationConfig
 
 
 def _write_slint_fixture(target_dir: Path) -> Path:
-    source = textwrap.dedent(
+    source = inspect.cleandoc(
         """
         export struct Config {
             value: int,
@@ -52,7 +52,7 @@ def _write_slint_fixture(target_dir: Path) -> Path:
             }
         }
         """
-    ).strip()
+    )
 
     slint_dir = target_dir / "ui"
     slint_dir.mkdir(parents=True, exist_ok=True)
