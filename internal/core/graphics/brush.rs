@@ -259,10 +259,80 @@ pub struct ConicGradientBrush(SharedVector<GradientStop>);
 
 impl ConicGradientBrush {
     /// Creates a new conic gradient with the provided color stops.
-    /// The stops should have angle positions in the range 0.0 to 1.0,
-    /// where 0.0 is 0 degrees (north) and 1.0 is 360 degrees.
+    ///
+    /// Positions can be any value (including negative or > 1.0) and will be automatically
+    /// normalized to the range [0.0, 1.0], where 0.0 represents 0° (north) and 1.0 represents 360°.
+    ///
+    /// If the provided stops don't span the full [0, 1] range, boundary stops at 0.0 and 1.0
+    /// will be automatically added with interpolated colors to create a seamless circular gradient.
     pub fn new(stops: impl IntoIterator<Item = GradientStop>) -> Self {
-        Self(stops.into_iter().collect())
+        const EPSILON: f32 = 0.0001;
+
+        /// Helper: Linearly interpolate between two colors
+        fn interpolate_color(c1: Color, c2: Color, t: f32) -> Color {
+            let argb1 = c1.to_argb_u8();
+            let argb2 = c2.to_argb_u8();
+            Color::from_argb_u8(
+                ((1.0 - t) * argb1.alpha as f32 + t * argb2.alpha as f32) as u8,
+                ((1.0 - t) * argb1.red as f32 + t * argb2.red as f32) as u8,
+                ((1.0 - t) * argb1.green as f32 + t * argb2.green as f32) as u8,
+                ((1.0 - t) * argb1.blue as f32 + t * argb2.blue as f32) as u8,
+            )
+        }
+
+        let mut stops: alloc::vec::Vec<_> = stops.into_iter().collect();
+
+        if !stops.is_empty() {
+            // All backends (Qt, Software, FemtoVG, Skia) require positions in [0, 1]
+
+            // Check if stops already span the full range [0, 1]
+            let min_pos = stops.iter().map(|s| s.position).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+            let max_pos = stops.iter().map(|s| s.position).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+
+            if min_pos >= 0.0 && max_pos <= 1.0 {
+                // Stops already span [0, 1], can be passed to backends as-is
+            } else {
+                // Need to normalize and add boundary stops
+
+                // 1. Normalize all positions to [0, 1) range by wrapping
+                for s in &mut stops {
+                    s.position = s.position - s.position.floor();
+                }
+
+                // 2. Separate duplicate positions with different colors to avoid flickering
+                // This prevents two different colors from rendering at the same position during rotation
+                // Check circularly to handle wrapping at 0/1 boundary
+                for i in 0..stops.len() {
+                    let j = (i + 1) % stops.len();
+                    if (stops[i].position - stops[j].position).abs() < EPSILON && stops[i].color != stops[j].color {
+                        stops[i].position = (stops[i].position - EPSILON).max(0.0);
+                        stops[j].position = (stops[j].position + EPSILON).min(1.0);
+                    }
+                }
+
+                // 3. Calculate color at 0/1 boundary by interpolating between min and max stops
+                // For seamless circular gradient, 0.0 and 1.0 must have the same color
+                let max_stop = stops.iter().max_by(|a, b| a.position.partial_cmp(&b.position).unwrap()).unwrap();
+                let min_stop = stops.iter().min_by(|a, b| a.position.partial_cmp(&b.position).unwrap()).unwrap();
+
+                let boundary_color = {
+                    let gap = 1.0 - max_stop.position + min_stop.position;
+                    if gap > EPSILON {
+                        let t = (1.0 - max_stop.position) / gap;
+                        interpolate_color(max_stop.color, min_stop.color, t)
+                    } else {
+                        max_stop.color
+                    }
+                };
+
+                // 4. Sort stops by position and add boundary stops at 0 and 1
+                stops.sort_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
+                stops.insert(0, GradientStop { position: 0.0, color: boundary_color });
+                stops.push(GradientStop { position: 1.0, color: boundary_color });
+            }
+        }
+
+        Self(SharedVector::from_iter(stops.into_iter()))
     }
 
     /// Returns the color stops of the conic gradient.
