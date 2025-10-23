@@ -148,7 +148,7 @@ impl LayoutOptions {
 
 enum Text<'a> {
     PlainText(&'a str),
-    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+    #[cfg(feature = "experimental-rich-text")]
     RichText(RichText<'a>),
 }
 
@@ -252,9 +252,7 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         let mut para_y = 0.0;
 
         let mut paragraph_from_text =
-            |text: &str,
-             range: std::ops::Range<usize>,
-             formatting: Option<std::vec::Vec<FormattedSpan>>| {
+            |text: &str, range: std::ops::Range<usize>, formatting: Vec<FormattedSpan>| {
                 let mut builder = contexts.layout.ranged_builder(
                     &mut contexts.font,
                     text,
@@ -281,58 +279,47 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                     }
                 }
 
-                if let Some(formatting) = formatting {
-                    for span in formatting {
-                        match span.style {
-                            Style::Emphasis => {
-                                builder.push(
-                                    parley::StyleProperty::FontStyle(
-                                        parley::style::FontStyle::Italic,
+                for span in formatting {
+                    match span.style {
+                        Style::Emphasis => {
+                            builder.push(
+                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
+                                span.range,
+                            );
+                        }
+                        Style::Strikethrough => {
+                            builder.push(parley::StyleProperty::Strikethrough(true), span.range);
+                        }
+                        Style::Strong => {
+                            builder.push(
+                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
+                                span.range,
+                            );
+                        }
+                        Style::Code => {
+                            builder.push(
+                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
+                                    parley::style::FontFamily::Generic(
+                                        parley::style::GenericFamily::Monospace,
                                     ),
-                                    span.range,
-                                );
-                            }
-                            Style::Strikethrough => {
-                                builder
-                                    .push(parley::StyleProperty::Strikethrough(true), span.range);
-                            }
-                            Style::Strong => {
-                                builder.push(
-                                    parley::StyleProperty::FontWeight(
-                                        parley::style::FontWeight::BOLD,
-                                    ),
-                                    span.range,
-                                );
-                            }
-                            Style::Code => {
-                                builder.push(
-                                    parley::StyleProperty::FontStack(
-                                        parley::style::FontStack::Single(
-                                            parley::style::FontFamily::Generic(
-                                                parley::style::GenericFamily::Monospace,
-                                            ),
-                                        ),
-                                    ),
-                                    span.range,
-                                );
-                            }
-                            Style::Underline => {
-                                builder.push(parley::StyleProperty::Underline(true), span.range);
-                            }
-                            Style::Link => {
-                                builder.push(
-                                    parley::StyleProperty::Underline(true),
-                                    span.range.clone(),
-                                );
-                                builder.push(
-                                    parley::StyleProperty::Brush(Brush {
-                                        selection_fill_color: None,
-                                        stroke: options.stroke,
-                                        link_color: Some(options.link_color),
-                                    }),
-                                    span.range,
-                                );
-                            }
+                                )),
+                                span.range,
+                            );
+                        }
+                        Style::Underline => {
+                            builder.push(parley::StyleProperty::Underline(true), span.range);
+                        }
+                        Style::Link => {
+                            builder
+                                .push(parley::StyleProperty::Underline(true), span.range.clone());
+                            builder.push(
+                                parley::StyleProperty::Brush(Brush {
+                                    selection_fill_color: None,
+                                    stroke: options.stroke,
+                                    link_color: Some(options.link_color),
+                                }),
+                                span.range,
+                            );
                         }
                     }
                 }
@@ -383,15 +370,20 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                 });
 
                 for range in paragraph_ranges {
-                    paragraphs.push(paragraph_from_text(&text[range.clone()], range, None));
+                    paragraphs.push(paragraph_from_text(
+                        &text[range.clone()],
+                        range,
+                        Default::default(),
+                    ));
                 }
             }
+            #[cfg(feature = "experimental-rich-text")]
             Text::RichText(rich_text) => {
                 for paragraph in rich_text.paragraphs {
                     paragraphs.push(paragraph_from_text(
                         &paragraph.text,
                         0..0,
-                        Some(paragraph.formatting),
+                        paragraph.formatting,
                     ));
                 }
             }
@@ -813,13 +805,14 @@ struct FormattedSpan {
     style: Style,
 }
 
-#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+#[cfg(feature = "experimental-rich-text")]
 #[derive(Debug)]
 enum ListItemType {
     Ordered(u64),
     Unordered,
 }
 
+#[cfg(feature = "experimental-rich-text")]
 #[derive(Debug, PartialEq)]
 struct RichTextParagraph<'a> {
     text: std::string::String,
@@ -830,6 +823,7 @@ struct RichTextParagraph<'a> {
     _phantom: std::marker::PhantomData<&'a ()>,
 }
 
+#[cfg(feature = "experimental-rich-text")]
 #[derive(Debug, Default)]
 struct RichText<'a> {
     paragraphs: Vec<RichTextParagraph<'a>>,
