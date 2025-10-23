@@ -507,7 +507,7 @@ impl ItemRc {
                 }
             }
             result += geometry.origin.to_vector();
-            current = parent.clone();
+            current = parent;
         }
         result
     }
