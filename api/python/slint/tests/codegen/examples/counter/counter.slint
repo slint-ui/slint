@@ -1,0 +1,26 @@
+export component CounterWindow inherits Window {
+    width: 240px;
+    height: 120px;
+
+    in-out property <int> counter: 0;
+    callback request_increase();
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: #2b2b2b;
+        border-radius: 12px;
+
+        Text {
+            text: "Count: " + root.counter;
+            color: white;
+            font-size: 24px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        TouchArea {
+            clicked => root.request_increase();
+        }
+    }
+}

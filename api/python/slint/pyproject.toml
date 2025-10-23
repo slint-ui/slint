@@ -24,9 +24,11 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Software Development :: User Interfaces",
   "Topic :: Software Development :: Widget Sets",
-  "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "libcst>=1.8.5",
 ]
 
 [project.urls]

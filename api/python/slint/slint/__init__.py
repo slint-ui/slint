@@ -12,7 +12,7 @@ import types
 import logging
 import copy
 import typing
-from typing import Any
+from typing import Any, Callable, TypeVar, overload
 import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Timer, TimerMode
@@ -418,10 +418,21 @@ def _callback_decorator(
 
     return callable
 
+_T_Callback = TypeVar("_T_Callback", bound=Callable[..., Any])
+
+@overload
+def callback(__func: _T_Callback, /) -> _T_Callback: ...
+
+@overload
+def callback(*, global_name: str | None = ..., name: str | None = ...) -> Callable[[ _T_Callback ], _T_Callback]: ...
+
+@overload
+def callback(__func: _T_Callback, /, *, global_name: str | None = ..., name: str | None = ...) -> _T_Callback: ...
+
 
 def callback(
-    global_name: str | None = None, name: str | None = None
-) -> typing.Callable[..., Any]:
+    __func: _T_Callback | None = None, /, *, global_name: str | None = None, name: str | None = None
+) -> typing.Union[_T_Callback, typing.Callable[[_T_Callback], _T_Callback]]:
     """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
 
     For the decorator to work, the method must be a member of a class that is Slint component.
@@ -449,16 +460,20 @@ def callback(
     This is only supported for callbacks that don't return any value, and requires Python >= 3.13.
     """
 
-    if callable(global_name):
-        callback = global_name
-        return _callback_decorator(callback, {})
-    else:
-        info = {}
-        if name:
-            info["name"] = name
-        if global_name:
-            info["global_name"] = global_name
-        return lambda callback: _callback_decorator(callback, info)
+    # If used as @callback without args: __func is the callable
+    if __func is not None and callable(__func):
+        return _callback_decorator(__func, {})
+
+    info: dict[str, str] = {}
+    if name:
+        info["name"] = name
+    if global_name:
+        info["global_name"] = global_name
+
+    def _wrapper(fn: _T_Callback) -> _T_Callback:
+        return typing.cast(_T_Callback, _callback_decorator(fn, info))
+
+    return _wrapper
 
 
 def set_xdg_app_id(app_id: str) -> None:
