@@ -159,6 +159,8 @@ pub enum Expression {
     },
 
     ConicGradient {
+        /// The starting angle (rotation) of the gradient, corresponding to CSS `from <angle>`
+        from_angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position (normalized angle 0-1)
         stops: Vec<(Expression, Expression)>,
     },
@@ -390,7 +392,8 @@ macro_rules! visit_impl {
                     $visitor(b);
                 }
             }
-            Expression::ConicGradient { stops } => {
+            Expression::ConicGradient { from_angle, stops } => {
+                $visitor(from_angle);
                 for (a, b) in stops {
                     $visitor(a);
                     $visitor(b);

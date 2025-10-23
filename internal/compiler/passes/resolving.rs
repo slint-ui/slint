@@ -511,27 +511,28 @@ impl Expression {
         enum GradKind {
             Linear { angle: Box<Expression> },
             Radial,
-            Conic,
+            Conic { from_angle: Box<Expression> },
         }
 
-        let mut subs = node
+        let all_subs: Vec<_> = node
             .children_with_tokens()
-            .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression));
+            .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression))
+            .collect();
 
         let grad_token = node.child_token(SyntaxKind::Identifier).unwrap();
         let grad_text = grad_token.text();
 
-        let grad_kind = if grad_text.starts_with("linear") {
-            let angle_expr = match subs.next() {
+        let (grad_kind, stops_start_idx) = if grad_text.starts_with("linear") {
+            let angle_expr = match all_subs.first() {
                 Some(e) if e.kind() == SyntaxKind::Expression => {
-                    syntax_nodes::Expression::from(e.into_node().unwrap())
+                    syntax_nodes::Expression::from(e.as_node().unwrap().clone())
                 }
                 _ => {
                     ctx.diag.push_error("Expected angle expression".into(), &node);
                     return Expression::Invalid;
                 }
             };
-            if subs.next().is_some_and(|s| s.kind() != SyntaxKind::Comma) {
+            if !all_subs.get(1).is_some_and(|s| s.kind() == SyntaxKind::Comma) {
                 ctx.diag.push_error(
                     "Angle expression must be an angle followed by a comma".into(),
                     &node,
@@ -545,28 +546,65 @@ impl Expression {
                     ctx.diag,
                 ),
             );
-            GradKind::Linear { angle }
+            (GradKind::Linear { angle }, 2)
         } else if grad_text.starts_with("radial") {
-            if !matches!(subs.next(), Some(NodeOrToken::Node(n)) if n.text().to_string().trim() == "circle")
-            {
+            if !all_subs.first().is_some_and(|n| {
+                matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "circle")
+            }) {
                 ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
                 return Expression::Invalid;
             }
-            let comma = subs.next();
+            let comma = all_subs.get(1);
             if matches!(&comma, Some(NodeOrToken::Node(n)) if n.text().to_string().trim() == "at") {
-                ctx.diag.push_error("'at' in @radial-gradient is not yet supported".into(), &comma);
-                return Expression::Invalid;
-            }
-            if comma.as_ref().is_some_and(|s| s.kind() != SyntaxKind::Comma) {
                 ctx.diag.push_error(
-                    "'circle' must be followed by a comma".into(),
-                    comma.as_ref().map_or(&node, |x| x as &dyn Spanned),
+                    "'at' in @radial-gradient is not yet supported".into(),
+                    comma.unwrap(),
                 );
                 return Expression::Invalid;
             }
-            GradKind::Radial
+            if !comma.is_some_and(|s| s.kind() == SyntaxKind::Comma) {
+                ctx.diag.push_error(
+                    "'circle' must be followed by a comma".into(),
+                    comma.map_or(&node as &dyn Spanned, |x| x as &dyn Spanned),
+                );
+                return Expression::Invalid;
+            }
+            (GradKind::Radial, 2)
         } else if grad_text.starts_with("conic") {
-            GradKind::Conic
+            // Check for optional "from <angle>" syntax
+            let (from_angle, start_idx) = if all_subs.first().is_some_and(|n| {
+                matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "from")
+            }) {
+                // Parse "from <angle>" syntax
+                let angle_expr = match all_subs.get(1) {
+                    Some(e) if e.kind() == SyntaxKind::Expression => {
+                        syntax_nodes::Expression::from(e.as_node().unwrap().clone())
+                    }
+                    _ => {
+                        ctx.diag.push_error("Expected angle expression after 'from'".into(), &node);
+                        return Expression::Invalid;
+                    }
+                };
+                if !all_subs.get(2).is_some_and(|s| s.kind() == SyntaxKind::Comma) {
+                    ctx.diag.push_error(
+                        "'from <angle>' must be followed by a comma".into(),
+                        &node,
+                    );
+                    return Expression::Invalid;
+                }
+                let angle = Box::new(
+                    Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
+                        Type::Angle,
+                        &angle_expr,
+                        ctx.diag,
+                    ),
+                );
+                (angle, 3)
+            } else {
+                // Default to 0deg when "from" is omitted
+                (Box::new(Expression::NumberLiteral(0., Unit::Deg)), 0)
+            };
+            (GradKind::Conic { from_angle }, start_idx)
         } else {
             // Parser should have ensured we have one of the linear, radial or conic gradient
             panic!("Not a gradient {grad_text:?}");
@@ -579,11 +617,11 @@ impl Expression {
             Finished,
         }
         let mut current_stop = Stop::Empty;
-        for n in subs {
+        for n in all_subs.iter().skip(stops_start_idx) {
             if n.kind() == SyntaxKind::Comma {
                 match std::mem::replace(&mut current_stop, Stop::Empty) {
                     Stop::Empty => {
-                        ctx.diag.push_error("Expected expression".into(), &n);
+                        ctx.diag.push_error("Expected expression".into(), n);
                         break;
                     }
                     Stop::Finished => {}
@@ -607,18 +645,18 @@ impl Expression {
                 };
                 match std::mem::replace(&mut current_stop, Stop::Finished) {
                     Stop::Empty => {
-                        current_stop = Stop::Color(e.maybe_convert_to(Type::Color, &n, ctx.diag))
+                        current_stop = Stop::Color(e.maybe_convert_to(Type::Color, n, ctx.diag))
                     }
                     Stop::Finished => {
-                        ctx.diag.push_error("Expected comma".into(), &n);
+                        ctx.diag.push_error("Expected comma".into(), n);
                         break;
                     }
                     Stop::Color(col) => {
                         let stop_type = match &grad_kind {
-                            GradKind::Conic => Type::Angle,
+                            GradKind::Conic { .. } => Type::Angle,
                             _ => Type::Float32,
                         };
-                        stops.push((col, e.maybe_convert_to(stop_type, &n, ctx.diag)))
+                        stops.push((col, e.maybe_convert_to(stop_type, n, ctx.diag)))
                     }
                 }
             }
@@ -678,19 +716,13 @@ impl Expression {
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
             GradKind::Radial => Expression::RadialGradient { stops },
-            GradKind::Conic => {
-                // For conic gradients, we need to:
-                // 1. Ensure angle expressions are converted to Type::Angle
-                // 2. Normalize to 0-1 range for internal representation
+            GradKind::Conic { from_angle } => {
+                // Normalize angles to 0-1 range by dividing by 360deg
                 let normalized_stops = stops
                     .into_iter()
                     .map(|(color, angle_expr)| {
-                        // First ensure the angle expression is properly typed as Angle
                         let angle_typed =
                             angle_expr.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
-
-                        // Convert angle to 0-1 range by dividing by 360deg
-                        // This ensures all angle units (deg, rad, turn) are normalized
                         let normalized_pos = Expression::BinaryExpression {
                             lhs: Box::new(angle_typed),
                             rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
@@ -699,7 +731,17 @@ impl Expression {
                         (color, normalized_pos)
                     })
                     .collect();
-                Expression::ConicGradient { stops: normalized_stops }
+
+                let normalized_from_angle = Box::new(Expression::BinaryExpression {
+                    lhs: from_angle,
+                    rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
+                    op: '/',
+                });
+
+                Expression::ConicGradient {
+                    from_angle: normalized_from_angle,
+                    stops: normalized_stops,
+                }
             }
         }
     }

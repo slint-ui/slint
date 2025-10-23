@@ -105,33 +105,37 @@ class ConicGradientBrush
 public:
     /// Constructs an empty conic gradient with no color stops.
     ConicGradientBrush() = default;
-    /// Constructs a new conic gradient. The color stops will be
+    /// Constructs a new conic gradient with the specified starting \a angle. The color stops will be
     /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
-    ConicGradientBrush(const GradientStop *firstStop, int stopCount)
-        : inner(make_conic_gradient(firstStop, stopCount))
+    ConicGradientBrush(float angle, const GradientStop *firstStop, int stopCount)
+        : inner(make_conic_gradient(angle, firstStop, stopCount))
     {
     }
 
+    /// Returns the conic gradient's starting angle (rotation) in degrees.
+    float angle() const { return inner.from_angle; }
+
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()); }
+    int stopCount() const { return int(inner.stops.size()); }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin(); }
+    const GradientStop *stopsBegin() const { return inner.stops.begin(); }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
-    const GradientStop *stopsEnd() const { return inner.end(); }
+    const GradientStop *stopsEnd() const { return inner.stops.end(); }
 
 private:
     cbindgen_private::types::ConicGradientBrush inner;
 
     friend class slint::Brush;
 
-    static SharedVector<private_api::GradientStop>
-    make_conic_gradient(const GradientStop *firstStop, int stopCount)
+    static cbindgen_private::types::ConicGradientBrush
+    make_conic_gradient(float angle, const GradientStop *firstStop, int stopCount)
     {
-        SharedVector<private_api::GradientStop> gradient;
+        cbindgen_private::types::ConicGradientBrush gradient;
+        gradient.from_angle = angle;
         for (int i = 0; i < stopCount; ++i, ++firstStop)
-            gradient.push_back(*firstStop);
+            gradient.stops.push_back(*firstStop);
         return gradient;
     }
 };
@@ -223,8 +227,8 @@ Color Brush::color() const
         }
         break;
     case Tag::ConicGradient:
-        if (data.conic_gradient._0.size() > 0) {
-            result.inner = data.conic_gradient._0[0].color;
+        if (data.conic_gradient._0.stops.size() > 0) {
+            result.inner = data.conic_gradient._0.stops[0].color;
         }
         break;
     }
@@ -252,9 +256,9 @@ inline Brush Brush::brighter(float factor) const
         }
         break;
     case Tag::ConicGradient:
-        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(&data.conic_gradient._0[i].color, factor,
-                                                          &result.data.conic_gradient._0[i].color);
+        for (std::size_t i = 0; i < data.conic_gradient._0.stops.size(); ++i) {
+            cbindgen_private::types::slint_color_brighter(&data.conic_gradient._0.stops[i].color, factor,
+                                                          &result.data.conic_gradient._0.stops[i].color);
         }
         break;
     }
@@ -282,9 +286,9 @@ inline Brush Brush::darker(float factor) const
         }
         break;
     case Tag::ConicGradient:
-        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(&data.conic_gradient._0[i].color, factor,
-                                                        &result.data.conic_gradient._0[i].color);
+        for (std::size_t i = 0; i < data.conic_gradient._0.stops.size(); ++i) {
+            cbindgen_private::types::slint_color_darker(&data.conic_gradient._0.stops[i].color, factor,
+                                                        &result.data.conic_gradient._0.stops[i].color);
         }
         break;
     }
@@ -314,10 +318,10 @@ inline Brush Brush::transparentize(float factor) const
         }
         break;
     case Tag::ConicGradient:
-        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.conic_gradient._0.stops.size(); ++i) {
             cbindgen_private::types::slint_color_transparentize(
-                    &data.conic_gradient._0[i].color, factor,
-                    &result.data.conic_gradient._0[i].color);
+                    &data.conic_gradient._0.stops[i].color, factor,
+                    &result.data.conic_gradient._0.stops[i].color);
         }
         break;
     }
@@ -347,10 +351,10 @@ inline Brush Brush::with_alpha(float alpha) const
         }
         break;
     case Tag::ConicGradient:
-        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.conic_gradient._0.stops.size(); ++i) {
             cbindgen_private::types::slint_color_with_alpha(
-                    &data.conic_gradient._0[i].color, alpha,
-                    &result.data.conic_gradient._0[i].color);
+                    &data.conic_gradient._0.stops[i].color, alpha,
+                    &result.data.conic_gradient._0.stops[i].color);
         }
         break;
     }

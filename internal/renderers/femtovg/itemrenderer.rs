@@ -1501,17 +1501,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
-                let mut stops: Vec<_> = gradient
-                    .stops()
+                let stops: Vec<_> = gradient
+                    .rotated_stops()
+                    .iter()
                     .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
                     .collect();
-
-                // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned() {
-                    if last_stop.0 != 1.0 {
-                        stops.push((1.0, last_stop.1));
-                    }
-                }
 
                 femtovg::Paint::conic_gradient_stops(path_width / 2., path_height / 2., stops)
             }

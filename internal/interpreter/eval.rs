@@ -371,12 +371,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 GradientStop{ color, position }
             }))))
         }
-        Expression::ConicGradient{stops} => {
-            Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(stops.iter().map(|(color, stop)| {
-                let color = eval_expression(color, local_context).try_into().unwrap();
-                let position = eval_expression(stop, local_context).try_into().unwrap();
-                GradientStop{ color, position }
-            }))))
+        Expression::ConicGradient{ from_angle, stops } => {
+            let from_angle: f32 = eval_expression(from_angle, local_context).try_into().unwrap();
+            Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(
+                from_angle,
+                stops.iter().map(|(color, stop)| {
+                    let color = eval_expression(color, local_context).try_into().unwrap();
+                    let position = eval_expression(stop, local_context).try_into().unwrap();
+                    GradientStop{ color, position }
+                })
+            )))
         }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())

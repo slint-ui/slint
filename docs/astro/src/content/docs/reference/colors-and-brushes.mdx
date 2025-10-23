@@ -167,11 +167,15 @@ export component Example inherits Window {
 Conic gradients are gradients where the color transitions rotate around a center point (like the angle on a color wheel).
 To describe a conic gradient, use the `@conic-gradient` macro with the following signature:
 
-### @conic-gradient(color angle, color angle, ...)
+### @conic-gradient([from angle,] color angle, color angle, ...)
 
 The conic gradient is described by a series of color stops, each consisting of a color and an angle.
 The angle specifies where the color is placed along the circular sweep (0deg to 360deg).
 Colors are interpolated between the stops along the circular path.
+
+The optional `from` parameter specifies the starting angle of the gradient rotation.
+If omitted, the gradient starts at 0deg (pointing upward). For example, `from 90deg` rotates
+the entire gradient 90 degrees clockwise.
 
 Example:
 
@@ -188,6 +192,20 @@ export component Example inherits Window {
 </CodeSnippetMD>
 
 This creates a color wheel effect with red at the top (0deg/360deg), green at 120 degrees, and blue at 240 degrees.
+
+You can also rotate the gradient using the `from` parameter:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+    Rectangle {
+        background: @conic-gradient(from 90deg, #f00 0deg, #0f0 120deg, #00f 240deg, #f00 360deg);
+    }
+}
+```
+
+This rotates the same color wheel 90 degrees clockwise, so red starts at the right (90deg) instead of the top.
 
 :::note[Known Limitation]
 Negative angles cannot be used directly in conic gradients (e.g., `#ff0000 -90deg`).

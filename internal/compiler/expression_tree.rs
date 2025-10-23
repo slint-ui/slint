@@ -733,6 +733,8 @@ pub enum Expression {
     },
 
     ConicGradient {
+        /// The starting angle (rotation) of the gradient, corresponding to CSS `from <angle>`
+        from_angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop angle
         stops: Vec<(Expression, Expression)>,
     },
@@ -968,7 +970,8 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { stops } => {
+            Expression::ConicGradient { from_angle, stops } => {
+                visitor(from_angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1071,7 +1074,8 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { stops } => {
+            Expression::ConicGradient { from_angle, stops } => {
+                visitor(from_angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1168,8 +1172,9 @@ impl Expression {
             Expression::RadialGradient { stops } => {
                 stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::ConicGradient { stops } => {
-                stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
+            Expression::ConicGradient { from_angle, stops } => {
+                from_angle.is_constant(ga)
+                    && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::EnumerationValue(_) => true,
             Expression::ReturnStatement(expr) => {
@@ -1792,14 +1797,11 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::ConicGradient { stops } => {
-            write!(f, "@conic-gradient(")?;
-            let mut first = true;
+        Expression::ConicGradient { from_angle, stops } => {
+            write!(f, "@conic-gradient(from ")?;
+            pretty_print(f, from_angle)?;
             for (c, s) in stops {
-                if !first {
-                    write!(f, ", ")?;
-                }
-                first = false;
+                write!(f, ", ")?;
                 pretty_print(f, c)?;
                 write!(f, " ")?;
                 pretty_print(f, s)?;

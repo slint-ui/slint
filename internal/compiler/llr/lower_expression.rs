@@ -233,7 +233,8 @@ pub fn lower_expression(
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
                 .collect::<_>(),
         },
-        tree_Expression::ConicGradient { stops } => llr_Expression::ConicGradient {
+        tree_Expression::ConicGradient { from_angle, stops } => llr_Expression::ConicGradient {
+            from_angle: Box::new(lower_expression(from_angle, ctx)),
             stops: stops
                 .iter()
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
