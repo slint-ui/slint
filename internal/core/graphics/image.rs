@@ -148,9 +148,11 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 
 /// Convenience alias for a pixel with three color channels (red, green and blue), each
 /// encoded as u8.
+#[deprecated]
 pub type Rgb8Pixel = rgb::RGB8;
 /// Convenience alias for a pixel with four color channels (red, green, blue and alpha), each
 /// encoded as u8.
+#[deprecated]
 pub type Rgba8Pixel = rgb::RGBA8;
 
 /// SharedImageBuffer is a container for images that are stored in CPU accessible memory.
@@ -468,7 +470,6 @@ impl ImageInner {
             ImageInner::StaticTextures(ts) => {
                 let mut buffer =
                     SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);
-                /*
                 let stride = buffer.width() as usize;
                 let slice = buffer.make_mut_slice();
                 for t in ts.textures.iter() {
@@ -525,8 +526,7 @@ impl ImageInner {
                             }
                         };
                     }
-
-                } */
+                }
                 Some(SharedImageBuffer::RGBA8Premultiplied(buffer))
             }
             ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None),

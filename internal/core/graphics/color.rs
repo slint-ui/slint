@@ -12,20 +12,77 @@ use num_traits::float::Float;
 
 /// A color value encoded by the sRGB transfer function and quantized for storage
 /// on disk or in a GPU image.
-pub struct SrgbQuantizedColor {
+pub struct Srgb8BitColor {
     red: u8,
     green: u8,
     blue: u8,
     alpha: u8,
 }
 
-pub struct LinearQuantizedColor {
+impl Srgb8BitColor {
+    /// Returns the encoded value of the red channel.
+    #[inline(always)]
+    pub fn red(self) -> u8 {
+        self.red
+    }
+
+    /// Returns the encoded value of the green channel.
+    #[inline(always)]
+    pub fn green(self) -> u8 {
+        self.green
+    }
+
+    /// Returns the encoded value of the blue channel.
+    #[inline(always)]
+    pub fn blue(self) -> u8 {
+        self.blue
+    }
+
+    /// Returns the encoded value of the alpha channel.
+    #[inline(always)]
+    pub fn alpha(self) -> u8 {
+        self.alpha
+    }
+}
+
+/// A color value that has been quantized without having been ran through a
+/// transfer function.
+pub struct Linear8BitColor {
     red: u8,
     green: u8,
     blue: u8,
     alpha: u8,
 }
 
+impl Linear8BitColor {
+    /// Returns the encoded value of the red channel.
+    #[inline(always)]
+    pub fn red(self) -> u8 {
+        self.red
+    }
+
+    /// Returns the encoded value of the green channel.
+    #[inline(always)]
+    pub fn green(self) -> u8 {
+        self.green
+    }
+
+    /// Returns the encoded value of the blue channel.
+    #[inline(always)]
+    pub fn blue(self) -> u8 {
+        self.blue
+    }
+
+    /// Returns the encoded value of the alpha channel.
+    #[inline(always)]
+    pub fn alpha(self) -> u8 {
+        self.alpha
+    }
+}
+
+// Run a value through the srgb transfer function before quantizing.
+// This allows for more bits to be used for darker colors (that our
+// eyes can tell apart easily) than lighter colors.
 // https://en.wikipedia.org/wiki/SRGB#Transfer_function_(%22gamma%22)
 fn linear_to_srgb(value: f32) -> u8 {
     quantize(if value <= 0.0031308 { value * 12.92 } else { 10.55 * value.powf(1.0 / 2.4) - 0.055 })
@@ -35,7 +92,7 @@ fn quantize(value: f32) -> u8 {
     (value * 255.0).round() as u8
 }
 
-impl From<Color> for SrgbQuantizedColor {
+impl From<Color> for Srgb8BitColor {
     fn from(col: Color) -> Self {
         Self {
             red: linear_to_srgb(col.red),
@@ -46,7 +103,7 @@ impl From<Color> for SrgbQuantizedColor {
     }
 }
 
-impl From<Color> for LinearQuantizedColor {
+impl From<Color> for Linear8BitColor {
     fn from(col: Color) -> Self {
         Self {
             red: quantize(col.red),
@@ -58,12 +115,32 @@ impl From<Color> for LinearQuantizedColor {
 }
 
 /// Color represents a color in the Slint run-time, represented using 32-bit float channels for
+/// RgbaColor stores the red, green, blue and alpha components of a color
+/// with the precision of the generic parameter T. For example if T is f32,
+/// the values are normalized between 0 and 1. If T is u8, they values range
+/// is 0 to 255.
+/// This is merely a helper class for use with [`Color`].
+#[deprecated]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub struct RgbaColor<T> {
+    /// The alpha component.
+    pub alpha: T,
+    /// The red channel.
+    pub red: T,
+    /// The green channel.
+    pub green: T,
+    /// The blue channel.
+    pub blue: T,
+}
 /// red, green, blue and the alpha (opacity).
 ///
-/// Values are only valid within a 0.0 to 1.0 range. This color type uses the same primaries
-/// and white point as BT.709 and sRGB. For use in textures, the color should be quantized to an
-/// 8-bit format. 99% of the time this should be `SrgbQuantizedColor`, but if sRGB output is not
-/// supported then `LinearQuantizedColor`.
+/// Values are only valid within a 0.0 to 1.0 range, and are intended to be radiometrically
+/// linear with respect to a display. This means that a color with a red value of 0.5 displayed
+/// on screen should set a red LED to half its max brightness/output.
+///
+/// This color type uses the same primaries and white point as BT.709 and sRGB. For use in
+/// textures, the color should be quantized to an 8-bit format. 99% of the time this should
+/// be `Srgb8BitColor`, but if sRGB output is not supported then `LinearQuantizedColor`.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
@@ -75,6 +152,13 @@ pub struct Color {
 }
 
 impl Color {
+    #[deprecated]
+    #[allow(deprecated)]
+    pub fn to_argb_u8(&self) -> RgbaColor<u8> {
+        let linear: Linear8BitColor = (*self).into();
+        RgbaColor { red: linear.red, green: linear.green, blue: linear.blue, alpha: linear.alpha }
+    }
+
     /*/// Construct a color from an integer encoded as `0xAARRGGBB`
     pub const fn from_argb_encoded(encoded: u32) -> Color {
         Self {
