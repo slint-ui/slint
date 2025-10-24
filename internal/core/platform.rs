@@ -382,6 +382,13 @@ pub enum WindowEvent {
         /// The new logical size of the window
         size: LogicalSize,
     },
+    /// The safe area of the window has changed.
+    #[doc(hidden)]
+    SafeAreaChanged {
+        /// The new logical rectangle of the window's safe area
+        inset: crate::lengths::LogicalInset,
+        token: crate::InternalToken,
+    },
     /// The user requested to close the window.
     ///
     /// The backend should send this event when the user tries to close the window,for example by pressing the close button.

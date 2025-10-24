@@ -649,6 +649,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("api.rs"))
         .with_src(crate_dir.join("model.rs"))
         .with_src(crate_dir.join("graphics/image.rs"))
+        .with_src(crate_dir.join("lengths.rs"))
         .with_include("slint_string.h")
         .with_after_include(format!(
             r#"

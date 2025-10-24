@@ -678,6 +678,14 @@ impl Window {
                     item_rc.try_scroll_into_visible();
                 }
             }
+            crate::platform::WindowEvent::SafeAreaChanged { inset, .. } => {
+                self.0.set_window_item_safe_area(
+                    inset.top(),
+                    inset.bottom(),
+                    inset.left(),
+                    inset.right(),
+                );
+            }
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
                     self.hide()?;
