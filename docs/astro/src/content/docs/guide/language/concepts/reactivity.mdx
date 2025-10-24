@@ -179,20 +179,28 @@ export component Example {
 Create two-way bindings between properties with the `<=>` syntax. These properties will be linked
 together and always contain the same value. Also known as bidirectional or bi-directional bindings.
 
-The right hand side of the `<=>` must be a reference to a property of the same type.
+The right hand side of the `<=>` must be a reference to a property of the same type,
+or a field of the same type within a property of struct type.
 The property type is optional with two-way bindings, it will be inferred if not specified.
 The initial value of a linked property will be the value of the right hand side of the binding.
 The two linked properties must be compatible in terms of input/output.
 
+The initial value of a linked property will be the value of the right hand side of the binding.
+
 ```slint
+struct Thing { name: string, price: int }
+
 export component Example  {
     in property<brush> rect-color <=> r.background;
     // It's allowed to omit the type to have it automatically inferred
     in property rect-color2 <=> r.background;
+    in-out property<Thing> thing;
     r:= Rectangle {
-        width: parent.width;
-        height: parent.height;
         background: blue;
+    }
+    input := TextInput {
+        // The `thing.name` field will be sync'ed with the text when the user edits
+        text <=> root.thing.name;
     }
 }
 ```
