@@ -1,11 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from . import core
-from collections.abc import Iterable
-from abc import abstractmethod
 import typing
-from typing import Any, cast, Iterator
+from abc import abstractmethod
+from collections.abc import Iterable
+from typing import Any, Iterator, cast
+
+from . import core
 
 
 class Model[T](core.PyModelBase, Iterable[T]):

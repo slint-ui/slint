@@ -7,9 +7,8 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
-from .. import core
-from .. import _normalize_prop
-
+from ..api import _normalize_prop
+from ..core import Brush, CompilationResult, Compiler, DiagnosticLevel, Image
 from .emitters import write_python_module, write_stub_module
 from .models import (
     CallbackMeta,
@@ -42,7 +41,8 @@ def generate_project(
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    compiler = core.Compiler()
+    compiler = Compiler()
+
     if config.style:
         compiler.style = config.style
     if config.include_paths:
@@ -102,23 +102,23 @@ def _discover_slint_files(inputs: Iterable[Path]) -> Iterable[tuple[Path, Path]]
 
 
 def _compile_slint(
-    compiler: core.Compiler,
+    compiler: Compiler,
     source_path: Path,
     config: GenerationConfig,
-) -> core.CompilationResult | None:
+) -> CompilationResult | None:
     result = compiler.build_from_path(source_path)
 
-    diagnostics = result.diagnostics
-    diagnostic_error = getattr(core, "DiagnosticLevel", None)
-    error_enum = getattr(diagnostic_error, "Error", None)
-
     def is_error(diag: PyDiagnostic) -> bool:
-        if error_enum is not None:
-            return diag.level == error_enum
-        return str(diag.level).lower().startswith("error")
+        return diag.level == DiagnosticLevel.Error
 
-    errors = [diag for diag in diagnostics if is_error(diag)]
-    warnings = [diag for diag in diagnostics if not is_error(diag)]
+    errors: list[PyDiagnostic] = []
+    warnings: list[PyDiagnostic] = []
+
+    for diag in result.diagnostics:
+        if is_error(diag):
+            errors.append(diag)
+        else:
+            warnings.append(diag)
 
     if warnings and not config.quiet:
         for diag in warnings:
@@ -133,8 +133,9 @@ def _compile_slint(
     return result
 
 
-def _collect_metadata(result: core.CompilationResult) -> ModuleArtifacts:
+def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
     components: list[ComponentMeta] = []
+
     for name in result.component_names:
         comp = result.component(name)
 
@@ -275,9 +276,9 @@ def _python_value_hint(value: object) -> str:
         return "float"
     if isinstance(value, str):
         return "str"
-    if isinstance(value, core.Image):
+    if isinstance(value, Image):
         return "slint.Image"
-    if isinstance(value, core.Brush):
+    if isinstance(value, Brush):
         return "slint.Brush"
     return "Any"
 

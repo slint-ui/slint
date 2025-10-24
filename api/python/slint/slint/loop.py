@@ -1,14 +1,15 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from . import core
-import asyncio.selector_events
 import asyncio
 import asyncio.events
+import asyncio.selector_events
+import datetime
 import selectors
 import typing
 from collections.abc import Mapping
-import datetime
+
+from . import core
 
 
 class HasFileno(typing.Protocol):

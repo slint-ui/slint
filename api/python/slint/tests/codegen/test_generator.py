@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from slint.codegen.cli import _parse_library_paths
@@ -100,12 +101,12 @@ def _write_optional_fixture(target_dir: Path) -> Path:
     return slint_file
 
 
-def _load_module(module_path: Path):
+def _load_module(module_path: Path) -> Any:
     spec = importlib.util.spec_from_file_location("generated_module", module_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules.pop("generated_module", None)
-    spec.loader.exec_module(module)  # type: ignore[assignment]
+    spec.loader.exec_module(module)
     return module
 
 

@@ -6,13 +6,13 @@
 
 import builtins
 import datetime
+import gettext
 import os
 import pathlib
 import typing
-from typing import Any, List
-from collections.abc import Callable, Buffer, Coroutine
+from collections.abc import Buffer, Callable, Coroutine
 from enum import Enum, auto
-import gettext
+from typing import Any, List
 
 class RgbColor:
     red: int

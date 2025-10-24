@@ -159,7 +159,7 @@ impl Translator for PyGettextTranslator {
 use pyo3::prelude::*;
 
 #[pymodule(name = "core")]
-fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn slint_core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())

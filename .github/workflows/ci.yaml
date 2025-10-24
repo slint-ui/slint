@@ -203,10 +203,11 @@ jobs:
                   python-version: "3.12"
             - name: Install uv
               uses: astral-sh/setup-uv@v7
-            - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
               working-directory: api/python/slint
-              run: nox --default-venv-backend uv
+              run: uv run pytest tests
+              env:
+                  MATURIN_PEP517_ARGS: --profile=dev
             - name: Run mypy
               working-directory: api/python/slint
               run: uv run mypy -p tests -p slint

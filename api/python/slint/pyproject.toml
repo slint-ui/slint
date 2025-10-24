@@ -36,9 +36,6 @@ Repository = "https://github.com/slint-ui/slint"
 Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
 Tracker = "https://github.com/slint-ui/slint/issues"
 
-[project.optional-dependencies]
-dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15"]
-
 [dependency-groups]
 dev = [
   "mypy>=1.15.0",
@@ -49,11 +46,13 @@ dev = [
   "pillow>=11.3.0",
   "numpy>=2.3.2",
   "aiohttp>=3.12.15",
+  "maturin>=1.9.6",
 ]
 
 [tool.maturin]
 module-name = "slint.core"
 python-packages = ["slint"]
+features = ["pyo3/extension-module"]
 
 [tool.uv]
 # Rebuild package when any rust files change

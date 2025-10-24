@@ -8,7 +8,7 @@ from pathlib import Path
 
 import libcst as cst
 
-from .. import _normalize_prop
+from ..api import _normalize_prop
 from .models import CallbackMeta, GenerationConfig, ModuleArtifacts
 
 
@@ -369,7 +369,7 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     path.write_text(module.code, encoding="utf-8")
 
 
-def format_callable_annotation(callback: "CallbackMeta") -> str:  # type: ignore[name-defined]
+def format_callable_annotation(callback: "CallbackMeta") -> str:
     args = callback.arg_types
     return_type = callback.return_type
 
