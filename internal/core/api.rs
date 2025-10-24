@@ -641,6 +641,25 @@ impl Window {
                     delta_y: delta_y as _,
                 });
             }
+            crate::platform::WindowEvent::TouchPressed { touch_id, position } => {
+                self.0.process_mouse_input(MouseEvent::Pressed {
+                    position: position.to_euclid().cast(),
+                    button: crate::input::PointerEventButton::Other,
+                    click_count: 0,
+                });
+            }
+            crate::platform::WindowEvent::TouchReleased { touch_id, position } => {
+                self.0.process_mouse_input(MouseEvent::Released {
+                    position: position.to_euclid().cast(),
+                    button: crate::input::PointerEventButton::Other,
+                    click_count: 0,
+                });
+            }
+            crate::platform::WindowEvent::TouchMoved { touch_id, position } => {
+                self.0.process_mouse_input(MouseEvent::Moved {
+                    position: position.to_euclid().cast(),
+                });
+            }
             crate::platform::WindowEvent::PointerExited => {
                 self.0.process_mouse_input(MouseEvent::Exit)
             }
