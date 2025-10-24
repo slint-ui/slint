@@ -3,7 +3,7 @@
 
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {
         background: blue;
     }
@@ -13,7 +13,7 @@ export X := Rectangle {
 
     Rectangle {
         background: not_a_color;
-//                  ^error{Unknown unqualified identifier 'not_a_color'}
+//                  >         <error{Unknown unqualified identifier 'not_a_color'}
     }
 
     Rectangle {
@@ -22,34 +22,34 @@ export X := Rectangle {
 
     Rectangle {
         background: #blue;
-//                  ^error{Invalid color literal}
+//                  >   <error{Invalid color literal}
         x: #0;
-//         ^error{Invalid color literal}
+//         ><error{Invalid color literal}
         y: #0000000000;
-//         ^error{Invalid color literal}
+//         >         <error{Invalid color literal}
         property<color> a: #abq;
-//                         ^error{Invalid color literal}
+//                         >  <error{Invalid color literal}
 
         property<color> b: 123;
-//                         ^error{Cannot convert float to color}
+//                         >  <error{Cannot convert float to color}
     }
 
     Rectangle {
         background: Colors;
-//                  ^error{Cannot take reference to a namespace}
+//                  >    <error{Cannot take reference to a namespace}
         property<color> xxx: Colors.xxx;
-//                                  ^error{'xxx' is not a member of the namespace Colors}
+//                                  > <error{'xxx' is not a member of the namespace Colors}
 
         property<color> c1: rgba();
-//                          ^error{This function needs 3 or 4 arguments, but 0 were provided}
+//                          >  <error{This function needs 3 or 4 arguments, but 0 were provided}
         property<color> c2: rgb(45);
-//                          ^error{This function needs 3 or 4 arguments, but 1 were provided}
+//                          > <error{This function needs 3 or 4 arguments, but 1 were provided}
         property<color> c3: Colors.rgb(45,45);
-//                                 ^error{This function needs 3 or 4 arguments, but 2 were provided}
+//                                 > <error{This function needs 3 or 4 arguments, but 2 were provided}
         property<color> c4: Colors.rgba(1,2,3,4,5);
-//                                 ^error{This function needs 3 or 4 arguments, but 5 were provided}
+//                                 >  <error{This function needs 3 or 4 arguments, but 5 were provided}
         property<color> c5: Colors.hsv(1,2,3,4,5);
-//                                 ^error{This function needs 3 or 4 arguments, but 5 were provided}
+//                                 > <error{This function needs 3 or 4 arguments, but 5 were provided}
 
 
     }

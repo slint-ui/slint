@@ -3,10 +3,10 @@
 
 
 @rust-attr(...) component Foo {}
-//              ^error{Expected enum or struct after @rust-attr}
+//              >       <error{Expected enum or struct after @rust-attr}
 
 @rust-attr(...) export component Foo {}
-//              ^error{Expected enum or struct after @rust-attr}
+//              >    <error{Expected enum or struct after @rust-attr}
 
 @rust-attr(...) struct {}
 //                     ^error{Syntax error: expected Identifier}
