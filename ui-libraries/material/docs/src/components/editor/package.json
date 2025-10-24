@@ -1,6 +1,6 @@
 {
     "name": "slint-docs",
-    "version": "1.14.1",
+    "version": "1.15.0",
     "type": "module",
     "scripts": {
         "build": "rollup -c",
