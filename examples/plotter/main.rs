@@ -34,14 +34,14 @@ fn render_plot(pitch: f32, yaw: f32, amplitude: f32, width: u32, height: u32) ->
         chart.with_projection(|mut p| {
             p.pitch = pitch as f64;
             p.yaw = yaw as f64;
-            p.scale = 0.7;
+            p.scale = 0.62;
             p.into_matrix()
         });
 
-        let gray = &plotters::style::RGBColor(46, 46, 46);
+        let gray = &plotters::style::RGBColor(64, 64, 64);
         chart
             .configure_axes()
-            .label_style(("sans-serif", 12).into_font().color(&WHITE))
+            .label_style(("sans-serif", 19).into_font().color(&WHITE))
             .light_grid_style(gray)
             .bold_grid_style(gray)
             .max_light_lines(4)
