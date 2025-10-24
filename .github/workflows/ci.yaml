@@ -4,11 +4,10 @@
 name: CI
 
 on:
-    push:
-        branches: [master, "feature/*"]
-    pull_request:
-        branches: [master, "feature/*"]
     workflow_dispatch:
+    workflow_run:
+        workflows: ["autofix.ci"]   # name of the first workflow
+        types: [completed]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
@@ -20,6 +19,7 @@ env:
 
 jobs:
     files-changed:
+      if: ${{ github.event.workflow_run.conclusion == 'success' }}
       runs-on: ubuntu-latest
       permissions:
         pull-requests: read
