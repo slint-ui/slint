@@ -958,11 +958,17 @@ impl WindowInner {
         match item {
             Some(item) => {
                 *self.focus_item.borrow_mut() = item.downgrade();
-                item.borrow().as_ref().focus_event(
+                let result = item.borrow().as_ref().focus_event(
                     &FocusEvent::FocusIn(reason),
                     &self.window_adapter(),
                     item,
-                )
+                );
+                // Reveal offscreen item when it gains focus
+                if result == crate::input::FocusEventResult::FocusAccepted {
+                    item.try_scroll_into_visible();
+                }
+
+                result
             }
             None => {
                 *self.focus_item.borrow_mut() = Default::default();

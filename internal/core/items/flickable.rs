@@ -211,6 +211,83 @@ impl ItemConsts for Flickable {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl Flickable {
+    fn choose_min_move(
+        current_view_start: Coord, // vx or vy
+        view_len: Coord,           // w or h
+        content_len: Coord,        // vw or vh
+        points: impl Iterator<Item = Coord>,
+    ) -> Coord {
+        // Feasible translations t such that for all p: vx+t <= p <= vx+t+w
+        // -> t in [max_i(p_i - (vx + w)), min_i(p_i - vx)]
+        let zero = 0 as Coord;
+        let mut lower = Coord::MIN;
+        let mut upper = Coord::MAX;
+
+        for p in points {
+            lower = lower.max(p - (current_view_start + view_len));
+            upper = upper.min(p - current_view_start);
+        }
+
+        if lower > upper {
+            // No translation can include all points simultaneously; pick nearest bound direction.
+            // This happens only with NaNs; guard anyway.
+            return zero;
+        }
+
+        // Allowed translation interval due to scroll limits
+        let max_scroll = (content_len - view_len).max(zero);
+        let tmin = -current_view_start; // cannot scroll before 0
+        let tmax = max_scroll - current_view_start; // cannot scroll past max
+
+        let i_min = lower.max(tmin);
+        let i_max = upper.min(tmax);
+
+        if i_min <= i_max {
+            if zero < i_min {
+                i_min
+            } else if zero > i_max {
+                i_max
+            } else {
+                zero
+            }
+        // Intervals disjoint: choose closest allowed translation to feasible interval
+        // either entirely left or right
+        } else if tmax < lower {
+            tmax
+        } else {
+            tmin
+        }
+    }
+
+    /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
+    /// The points have to be in the parent's coordinate space.
+    pub(crate) fn reveal_points(self: Pin<&Self>, self_rc: &ItemRc, pts: &[LogicalPoint]) {
+        if pts.is_empty() {
+            return;
+        }
+
+        // visible viewport size from base Item
+        let geo = self_rc.geometry();
+
+        // content extents and current viewport origin (content coords)
+        let vw = Self::FIELD_OFFSETS.viewport_width.apply_pin(self).get().0;
+        let vh = Self::FIELD_OFFSETS.viewport_height.apply_pin(self).get().0;
+        let vx = -Self::FIELD_OFFSETS.viewport_x.apply_pin(self).get().0;
+        let vy = -Self::FIELD_OFFSETS.viewport_y.apply_pin(self).get().0;
+
+        // choose minimal translation along each axis
+        let tx = Self::choose_min_move(vx, geo.width(), vw, pts.iter().map(|p| p.x));
+        let ty = Self::choose_min_move(vy, geo.height(), vh, pts.iter().map(|p| p.y));
+
+        let new_vx = vx + tx;
+        let new_vy = vy + ty;
+
+        Self::FIELD_OFFSETS.viewport_x.apply_pin(self).set(euclid::Length::new(-new_vx));
+        Self::FIELD_OFFSETS.viewport_y.apply_pin(self).set(euclid::Length::new(-new_vy));
+    }
+}
+
 #[repr(C)]
 /// Wraps the internal data structure for the Flickable
 pub struct FlickableDataBox(core::ptr::NonNull<FlickableData>);
