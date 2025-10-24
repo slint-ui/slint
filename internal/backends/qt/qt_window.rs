@@ -1119,21 +1119,21 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn fill_rectangle(
-        &mut self,
-        physical_rect: sharedparley::PhysicalRect,
-        color: i_slint_core::Color,
-    ) {
+    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, brush: GlyphBrush) {
+        let qt_brush = match brush {
+            GlyphBrush::Fill(qt_brush) => qt_brush,
+            _ => return,
+        };
+
         let rect = qttypes::QRectF {
             x: physical_rect.min_x() as _,
             y: physical_rect.min_y() as _,
             width: physical_rect.width() as _,
             height: physical_rect.height() as _,
         };
-        let color: u32 = color.as_argb_encoded();
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", color as "QRgb", rect as "QRectF"] {
-            (*painter)->fillRect(rect, QBrush(QColor::fromRgba(color)));
+        cpp! { unsafe [painter as "QPainterPtr*", qt_brush as "QBrush", rect as "QRectF"] {
+            (*painter)->fillRect(rect, qt_brush);
         }}
     }
 }

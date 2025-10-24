@@ -984,12 +984,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         }
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
-            return;
-        }
-
-        let paint = femtovg::Paint::color(to_femtovg_color(&color));
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        brush: Self::PlatformBrush,
+    ) {
+        let paint = match brush {
+            GlyphBrush::Fill(paint) => paint,
+            GlyphBrush::Stroke(paint) => paint,
+        };
 
         let mut path = femtovg::Path::new();
         path.rect(
