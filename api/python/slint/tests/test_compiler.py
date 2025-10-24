@@ -1,13 +1,13 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import slint as native
-from slint.slint import ValueType
+from slint import core
+from slint.core import ValueType
 from pathlib import Path
 
 
 def test_basic_compiler() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     assert compiler.include_paths == []
     compiler.include_paths = [Path("testing")]
@@ -79,7 +79,7 @@ def test_basic_compiler() -> None:
 
 
 def test_compiler_build_from_path() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     result = compiler.build_from_path(Path("Nonexistent.slint"))
     assert len(result.component_names) == 0
@@ -87,5 +87,5 @@ def test_compiler_build_from_path() -> None:
     diags = result.diagnostics
     assert len(diags) == 1
 
-    assert diags[0].level == native.DiagnosticLevel.Error
+    assert diags[0].level == core.DiagnosticLevel.Error
     assert diags[0].message.startswith("Could not load Nonexistent.slint:")

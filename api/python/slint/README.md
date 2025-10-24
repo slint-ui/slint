@@ -75,6 +75,33 @@ app.run()
 
 5. Run it with `uv run main.py`
 
+## Code Generation CLI
+
+Use the bundled code generator to derive Python bindings and type stubs from your `.slint` files. The generator lives in the `slint.codegen` module and exposes a CLI entry point.
+
+Run it with `uv`:
+
+```bash
+uv run -m slint.codegen generate --input path/to/app.slint --output generated
+```
+
+When `--output` is omitted the generated files are written next to each input source.
+
+You can also call the generator from Python:
+
+```python
+from pathlib import Path
+from slint.codegen.generator import generate_project
+from slint.codegen.models import GenerationConfig
+
+slint_file = Path("ui/app.slint")
+generate_project(
+    inputs=[slint_file],
+    output_dir=Path("generated"),
+    config=GenerationConfig(include_paths=[slint_file.parent], library_paths={}, style=None, translation_domain=None, quiet=True),
+)
+```
+
 ## API Overview
 
 ### Instantiating a Component

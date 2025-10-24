@@ -1,14 +1,14 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import slint as native
+from slint import core
 from slint import models as models
 import typing
 from pathlib import Path
 
 
 def test_model_notify() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -55,7 +55,7 @@ def test_model_notify() -> None:
 
 
 def test_model_from_list() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -103,7 +103,7 @@ def test_python_model_iterable() -> None:
 
 
 def test_rust_model_sequence() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -126,7 +126,7 @@ def test_rust_model_sequence() -> None:
 
 
 def test_model_writeback() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """

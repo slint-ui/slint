@@ -14,6 +14,7 @@ publish = false
 rust-version.workspace = true
 
 [lib]
+name = "core"
 path = "lib.rs"
 crate-type = ["cdylib", "rlib"]
 
@@ -53,6 +54,4 @@ spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 pyo3-stub-gen = { version = "0.9.0", default-features = false }
 smol = { version = "2.0.0" }
-
-[package.metadata.maturin]
-python-source = "slint"
+smol_str = { workspace = true }
