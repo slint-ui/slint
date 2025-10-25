@@ -148,9 +148,11 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 
 /// Convenience alias for a pixel with three color channels (red, green and blue), each
 /// encoded as u8.
+#[deprecated]
 pub type Rgb8Pixel = rgb::RGB8;
 /// Convenience alias for a pixel with four color channels (red, green, blue and alpha), each
 /// encoded as u8.
+#[deprecated]
 pub type Rgba8Pixel = rgb::RGBA8;
 
 /// SharedImageBuffer is a container for images that are stored in CPU accessible memory.

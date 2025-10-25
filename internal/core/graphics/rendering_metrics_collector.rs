@@ -177,7 +177,7 @@ impl RenderingMetricsCollector {
         if self.output_overlay {
             renderer.draw_string(
                 &format!("FPS: {}", self.collected_frame_data_since_second_ago.borrow().len()),
-                crate::Color::from_rgb_u8(0, 128, 128),
+                crate::Color::from_rgb_f32(0.0, 0.5, 0.5),
             );
         }
     }

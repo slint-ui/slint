@@ -64,12 +64,12 @@ impl Brush {
     /// ```
     /// # use i_slint_core::graphics::*;
     /// assert!(Brush::default().is_transparent());
-    /// assert!(Brush::SolidColor(Color::from_argb_u8(0, 255, 128, 140)).is_transparent());
-    /// assert!(!Brush::SolidColor(Color::from_argb_u8(25, 128, 140, 210)).is_transparent());
+    /// assert!(Brush::SolidColor(Color::from_argb_f32(0.0, 1.0, 0.9, 0.8)).is_transparent());
+    /// assert!(!Brush::SolidColor(Color::from_argb_f32(0.25, 1.0, 0.9, 0.8)).is_transparent());
     /// ```
     pub fn is_transparent(&self) -> bool {
         match self {
-            Brush::SolidColor(c) => c.alpha() == 0,
+            Brush::SolidColor(c) => c.alpha() == 0.0,
             Brush::LinearGradient(_) => false,
             Brush::RadialGradient(_) => false,
             Brush::ConicGradient(_) => false,
@@ -81,15 +81,15 @@ impl Brush {
     /// ```
     /// # use i_slint_core::graphics::*;
     /// assert!(!Brush::default().is_opaque());
-    /// assert!(!Brush::SolidColor(Color::from_argb_u8(25, 255, 128, 140)).is_opaque());
-    /// assert!(Brush::SolidColor(Color::from_rgb_u8(128, 140, 210)).is_opaque());
+    /// assert!(!Brush::SolidColor(Color::from_argb_f32(0.1, 1.0, 0.5, 0.6)).is_opaque());
+    /// assert!(Brush::SolidColor(Color::from_rgb_f32(0.5, 0.6, 0.7)).is_opaque());
     /// ```
     pub fn is_opaque(&self) -> bool {
         match self {
-            Brush::SolidColor(c) => c.alpha() == 255,
-            Brush::LinearGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
-            Brush::RadialGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
-            Brush::ConicGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
+            Brush::SolidColor(c) => c.alpha() == 1.0,
+            Brush::LinearGradient(g) => g.stops().all(|s| s.color.alpha() == 1.0),
+            Brush::RadialGradient(g) => g.stops().all(|s| s.color.alpha() == 1.0),
+            Brush::ConicGradient(g) => g.stops().all(|s| s.color.alpha() == 1.0),
         }
     }
 
@@ -429,9 +429,9 @@ impl InterpolatedPropertyValue for Brush {
 #[allow(clippy::float_cmp)] // We want bit-wise equality here
 fn test_linear_gradient_encoding() {
     let stops: SharedVector<GradientStop> = [
-        GradientStop { position: 0.0, color: Color::from_argb_u8(255, 255, 0, 0) },
-        GradientStop { position: 0.5, color: Color::from_argb_u8(255, 0, 255, 0) },
-        GradientStop { position: 1.0, color: Color::from_argb_u8(255, 0, 0, 255) },
+        GradientStop { position: 0.0, color: Color::from_argb_f32(1.0, 1.0, 0.0, 0.0) },
+        GradientStop { position: 0.5, color: Color::from_argb_f32(1.0, 0.0, 1.0, 0.0) },
+        GradientStop { position: 1.0, color: Color::from_argb_f32(1.0, 0.0, 0.0, 1.0) },
     ]
     .into();
     let grad = LinearGradientBrush::new(256., stops.clone());
