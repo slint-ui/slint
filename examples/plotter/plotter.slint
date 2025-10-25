@@ -4,55 +4,57 @@
 import { Slider, GroupBox, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
-    in-out property <float> pitch: 0.15;
-    in-out property <float> yaw: 0.5;
-
-    pure callback render_plot(/* pitch */ float, /* yaw */ float, /* amplitude */ float) -> image;
-
+    in property <image> texture <=> image.source;
+    out property <int> texture-width: image.width / 1phx;
+    out property <int> texture-height: image.height / 1phx;
+    out property <float> amplitude <=> amplitude.value;
+    out property <float> pitch: 0.15;
+    out property <float> yaw: 0.5;
     title: "Slint Plotter Integration Example";
-    preferred-width: 800px;
-    preferred-height: 600px;
-
+    preferred-width: 999px;
+    preferred-height: 720px;
     VerticalBox {
         Text {
             font-size: 20px;
-            text: "2D Gaussian PDF";
+            text: "2D Gaussian Probability Density Function";
             horizontal-alignment: center;
         }
 
-        Image {
-            source: root.render_plot(root.pitch, root.yaw, amplitude-slider.value / 10);
-            touch := TouchArea {
-                property <float> pressed-pitch;
-                property <float> pressed-yaw;
-
-                pointer-event(event) => {
-                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                        self.pressed-pitch = root.pitch;
-                        self.pressed-yaw = root.yaw;
-                    }
-                }
-                moved => {
-                    if (self.enabled && self.pressed) {
-                        root.pitch = self.pressed-pitch + (touch.mouse-y - touch.pressed-y) / self.height * 3.14;
-                        root.yaw = self.pressed-yaw - (touch.mouse-x - touch.pressed-x) / self.width * 3.14;
-                    }
-                }
-                mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
-            }
-        }
-
         HorizontalBox {
-            Text {
-                text: "Amplitude:";
-                font-weight: 600;
-                vertical-alignment: center;
+            image := Image {
+                touch := TouchArea {
+                    property <float> starting-drag-pitch;
+                    property <float> starting-drag-yaw;
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                            self.starting-drag-pitch = root.pitch;
+                            self.starting-drag-yaw = root.yaw;
+                        }
+                    }
+                    moved => {
+                        if (self.enabled && self.pressed) {
+                            root.pitch = self.starting-drag-pitch + (touch.mouse-y - touch.pressed-y) / self.height * 3.14;
+                            root.yaw = self.starting-drag-yaw - (touch.mouse-x - touch.pressed-x) / self.width * 3.14;
+                        }
+                    }
+                    mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+                }
             }
 
-            amplitude-slider := Slider {
-                minimum: 0;
-                maximum: 100;
-                value: 50;
+            VerticalBox {
+                amplitude := Slider {
+                    orientation: Orientation.vertical;
+                    transform-rotation: -180deg;
+                    minimum: 0;
+                    maximum: 1;
+                    value: 0.5;
+                }
+
+                Text {
+                    text: "Amplitude";
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
             }
         }
     }
