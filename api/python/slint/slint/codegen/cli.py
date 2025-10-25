@@ -108,8 +108,13 @@ def main(argv: list[str] | None = None) -> int:
     command = getattr(args, "command", None)
     if command not in (None, "generate"):
         parser.error(f"Unknown command: {command}")
+        return 1
+    
+    if not args.inputs:
+        print("error: At least one --input must be provided.")
+        return 1
 
-    inputs: list[Path] = args.inputs or [Path.cwd()]
+    inputs: list[Path] = args.inputs
     config = GenerationConfig(
         include_paths=args.include_paths or [],
         library_paths=_parse_library_paths(args.library_paths or []),
