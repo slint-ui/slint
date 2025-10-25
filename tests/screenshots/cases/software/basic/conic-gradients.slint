@@ -33,6 +33,14 @@ export component TestCase inherits Window {
             // Edge case: invisible stop at start
             Rectangle { background: @conic-gradient(transparent 0deg, red 3.6deg, white 180deg, transparent 360deg); }
         }
+        Row {
+            // Negative angle range (-90deg ~ 270deg)
+            Rectangle { background: @conic-gradient(red 90deg * -1, green 30deg, blue 150deg, red 270deg); }
+            // 360deg offset range (360deg ~ 720deg)
+            Rectangle { background: @conic-gradient(cyan 360deg, magenta 480deg, yellow 600deg, cyan 720deg); }
+            // 360deg range with different start/end colors (90deg ~ 450deg)
+            Rectangle { background: @conic-gradient(orange 90deg, pink 270deg, purple 450deg); }
+        }
     }
 
     init => {
