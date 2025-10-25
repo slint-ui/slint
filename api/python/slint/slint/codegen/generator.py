@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
 from ..api import _normalize_prop
-from ..core import Brush, CompilationResult, Compiler, DiagnosticLevel, Image
+from ..core import Brush, Color, CompilationResult, Compiler, DiagnosticLevel, Image
 from .emitters import write_python_module, write_stub_module
 from .models import (
     CallbackMeta,
@@ -280,6 +280,8 @@ def _python_value_hint(value: object) -> str:
         return "slint.Image"
     if isinstance(value, Brush):
         return "slint.Brush"
+    if isinstance(value, Color):
+        return "slint.Color"
     return "Any"
 
 
