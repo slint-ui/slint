@@ -4,62 +4,103 @@
 name: Upload slint-compiler to Python Package Index
 
 on:
-    workflow_dispatch:
-      inputs:
-        release:
-            type: boolean
-            default: false
-            required: false
-            description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+  workflow_dispatch:
+    inputs:
+      release:
+        type: boolean
+        default: false
+        required: false
+        description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
 
 jobs:
-    publish-to-test-pypi:
-        if: ${{ github.event.inputs.release != 'true' }}
-        name: >-
-            Publish Python 🐍 distribution 📦 to Test PyPI
-        runs-on: ubuntu-latest
-        environment:
-            name: testpypi
-            url: https://test.pypi.org/p/slint-compiler
-        permissions:
-            id-token: write  # IMPORTANT: mandatory for trusted publishing
-        steps:
-            - uses: actions/checkout@v5
-            - name: Install uv
-              uses: astral-sh/setup-uv@v7
-            - name: Build
-              run: uv build
-              working-directory: api/python/compiler
-            - uses: actions/upload-artifact@v4
-              with:
-                name: python-package-distributions
-                path: api/python/compiler/dist/*
-            - name: Publish
-              run: uv publish --publish-url https://test.pypi.org/legacy/
-              working-directory: api/python/compiler
+  build-wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          [
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            windows-latest,
+            windows-11-arm,
+            macos-15-intel,
+            macos-14,
+          ]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-rust
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.2.1
+        with:
+          package-dir: tools/compiler
+          output-dir: wheelhouse
+        env:
+          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
+          CIBW_BUILD_FRONTEND: "build"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
 
-    publish-to-pypi:
-      if: ${{ github.event.inputs.release == 'true' }}
-      name: >-
-          Publish Python 🐍 distribution 📦 to PyPI
-      runs-on: ubuntu-latest
-      environment:
-          name: pypi
-          url: https://test.pypi.org/p/slint-compiler
-      permissions:
-          id-token: write  # IMPORTANT: mandatory for trusted publishing
-      steps:
-          - uses: actions/checkout@v5
-          - name: Install uv
-            uses: astral-sh/setup-uv@v7
-          - name: Build
-            run: uv build
-            working-directory: api/python/compiler
-          - uses: actions/upload-artifact@v4
-            with:
-              name: python-package-distributions
-              path: api/python/compiler/dist/*
-          - name: Publish
-            run: uv publish
-            working-directory: api/python/compiler
+  build-sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - name: Build sdist
+        run: uv build --sdist -o dist tools/compiler
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
 
+  publish-to-test-pypi:
+    if: ${{ github.event.inputs.release != 'true' }}
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/slint-compiler
+    permissions:
+      id-token: write
+    steps:
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - name: Publish to Test PyPI
+        env:
+          UV_PUBLISH_URL: https://test.pypi.org/legacy/
+        run: uv publish dist/*
+
+  publish-to-pypi:
+    if: ${{ github.event.inputs.release == 'true' }}
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/slint-compiler
+    permissions:
+      id-token: write
+    steps:
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - name: Publish to PyPI
+        run: uv publish dist/*
