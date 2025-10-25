@@ -8,6 +8,7 @@ r"""
 import asyncio
 import copy
 import gettext
+import keyword
 import logging
 import os
 import pathlib
@@ -78,7 +79,12 @@ class Component:
 
 
 def _normalize_prop(name: str) -> str:
-    return name.replace("-", "_")
+    ident = name.replace("-", "_")
+    if ident and ident[0].isdigit():
+        ident = f"_{ident}"
+    if keyword.iskeyword(ident):
+        ident = f"{ident}_"
+    return ident
 
 
 def _build_global_class(compdef: ComponentDefinition, global_name: str) -> Any:
