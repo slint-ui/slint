@@ -18,7 +18,8 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
+use crate::items::MouseCursor;
+use crate::items::{ColorScheme, InputType, ItemRef, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -158,6 +159,11 @@ pub trait WindowAdapter {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    /// Sets the mouse cursor for this window.
+    ///
+    /// Default implementation does nothing.
+    fn set_mouse_cursor(&self, _cursor: crate::items::MouseCursor) {}
 }
 
 /// Implementation details behind [`WindowAdapter`], but since this
@@ -187,10 +193,6 @@ pub trait WindowAdapterInternal {
     fn create_popup(&self, _geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
-
-    /// Set the mouse cursor
-    // TODO: Make the enum public and make public
-    fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
 
     /// This method allow editable input field to communicate with the platform about input methods
     fn input_method_request(&self, _: InputMethodRequest) {}
@@ -604,17 +606,13 @@ impl WindowInner {
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::Default);
-                    }
+                    window_adapter.set_mouse_cursor(MouseCursor::Default);
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
                 }
                 MouseEvent::Moved { position } => {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
-                    }
+                    window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     event = MouseEvent::DragMove(drop_event);
                 }

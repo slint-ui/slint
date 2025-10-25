@@ -7,7 +7,6 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![deny(unsafe_code)]
 #![no_std]
-
 extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
