@@ -10,6 +10,7 @@ import libcst as cst
 
 from ..api import _normalize_prop
 from .models import CallbackMeta, GenerationConfig, ModuleArtifacts
+import inspect
 
 
 def module_relative_path_expr(module_dir: Path, target: Path) -> str:
