@@ -123,3 +123,29 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
 macro_rules! debug_log {
     ($($t:tt)*) => ($crate::tests::debug_log_impl(format_args!($($t)*)))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::items::MouseCursor;
+
+    #[test]
+    fn test_mouse_cursor_api() {
+        // Test that MouseCursor enum has the expected variants
+        let default_cursor = MouseCursor::Default;
+        let pointer_cursor = MouseCursor::Pointer;
+        let text_cursor = MouseCursor::Text;
+
+        // Test that Default trait works
+        let default = MouseCursor::default();
+        assert_eq!(default, MouseCursor::Default);
+
+        // Test that we can compare cursors
+        assert_eq!(default_cursor, MouseCursor::Default);
+        assert_ne!(default_cursor, pointer_cursor);
+        assert_ne!(pointer_cursor, text_cursor);
+
+        // Test that we can clone and copy
+        let cloned = default_cursor;
+        assert_eq!(cloned, default_cursor);
+    }
+}

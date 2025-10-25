@@ -1261,9 +1261,7 @@ impl WindowAdapter for WinitWindowAdapter {
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
-}
 
-impl WindowAdapterInternal for WinitWindowAdapter {
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let winit_cursor = match cursor {
             MouseCursor::Default => winit::window::CursorIcon::Default,
@@ -1295,13 +1293,16 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
             MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
             MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
+            _ => winit::window::CursorIcon::Default,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             winit_window.set_cursor_visible(cursor != MouseCursor::None);
             winit_window.set_cursor(winit_cursor);
         }
     }
+}
 
+impl WindowAdapterInternal for WinitWindowAdapter {
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
