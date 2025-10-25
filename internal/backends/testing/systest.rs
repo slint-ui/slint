@@ -466,27 +466,31 @@ async fn message_loop(
     stream.set_nodelay(true).ok();
     debug_log!("Connected to test server");
 
-    loop {
+    // Note: Handling communication errors gracefully (without panic) to avoid
+    // triggering any crash reporter from the OS.
+    let err_msg = loop {
         let mut message_size_buf = vec![0; 4];
-        stream
-            .read_exact(&mut message_size_buf)
-            .await
-            .expect("Unable to read request header from AUT connection");
+        if stream.read_exact(&mut message_size_buf).await.is_err() {
+            break "Unable to read request header from AUT connection";
+        }
 
         let message_size: usize =
             Cursor::new(message_size_buf).read_u32::<BigEndian>().unwrap() as usize;
         let mut message_buf = Vec::with_capacity(message_size);
         message_buf.resize(message_size, 0);
-        stream
-            .read_exact(&mut message_buf)
-            .await
-            .expect("Unable to read request data from AUT connection");
+        if stream.read_exact(&mut message_buf).await.is_err() {
+            break "Unable to read request data from AUT connection";
+        }
 
-        let message = proto::RequestToAUT::from_reader(
+        let message = match proto::RequestToAUT::from_reader(
             &mut quick_protobuf::reader::BytesReader::from_bytes(&message_buf),
             &mut message_buf,
-        )
-        .expect("Unable to de-serialize AUT request message");
+        ) {
+            Ok(msg) => msg,
+            Err(_) => {
+                break "Error de-serializing AUT request message";
+            }
+        };
         let response = message_callback(message.msg).await.unwrap_or_else(|message| {
             proto::mod_AUTResponse::OneOfmsg::error(proto::ErrorResponse { message })
         });
@@ -494,8 +498,14 @@ async fn message_loop(
         let mut binary_message = Vec::new();
         binary_message.write_u32::<BigEndian>(response.get_size() as u32).unwrap();
         response.write_message(&mut quick_protobuf::Writer::new(&mut binary_message)).unwrap();
-        stream.write_all(&binary_message).await.expect("Unable to write AUT response body");
-    }
+        if stream.write_all(&binary_message).await.is_err() {
+            break "Unable to write AUT response body";
+        }
+    };
+    eprintln!("{}, closing connection to test server", err_msg);
+
+    // Close connection explicitly to notify the server if it is still connected.
+    stream.shutdown(std::net::Shutdown::Both).ok();
 }
 
 fn index_to_handle(index: generational_arena::Index) -> proto::Handle {
