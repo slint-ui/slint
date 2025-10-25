@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::OnceLock;
 
 use pyo3::IntoPyObjectExt;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
@@ -424,15 +425,32 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
     }
 }
 
+fn is_python_keyword(name: &str) -> bool {
+    static PYTHON_KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    let keywords = PYTHON_KEYWORDS.get_or_init(|| {
+        let keywords: HashSet<&str> = HashSet::from([
+            "False", "await", "else", "import", "pass", "None", "break", "except", "in", "raise",
+            "True", "class", "finally", "is", "return", "and", "continue", "for", "lambda", "try",
+            "as", "def", "from", "nonlocal", "while", "assert", "del", "global", "not", "with",
+            "async", "elif", "if", "or", "yield",
+        ]);
+        keywords
+    });
+    keywords.contains(name)
+}
+
 fn python_identifier(name: &str) -> String {
     if name.is_empty() {
         return String::new();
     }
-    let mut result = name.replace('-', "_");
-    if result.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-        result.insert(0, '_');
+    let mut ident = name.replace('-', "_");
+    if ident.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        ident.insert(0, '_');
     }
-    result
+    if is_python_keyword(&ident) {
+        ident.push('_');
+    }
+    ident
 }
 
 fn type_to_python_hint(ty: &i_slint_compiler::langtype::Type) -> String {
