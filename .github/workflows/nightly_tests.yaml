@@ -149,7 +149,7 @@ jobs:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
-                  device: iPad Pro 13-inch (M4)
+                  device: iPad Pro 13-inch (M5)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
