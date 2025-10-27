@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
+    "$schema": "./node_modules/@biomejs/biome/schema.json",
     "formatter": {
         "enabled": true,
         "formatWithErrors": false,
@@ -60,6 +60,11 @@
             "bracketSameLine": false,
             "quoteStyle": "double",
             "attributePosition": "auto"
+        }
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
         }
     }
 }
