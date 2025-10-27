@@ -21,7 +21,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "1.118.0",
+    "@figma/plugin-typings": "1.119.0",
     "@types/jszip": "3.4.1",
     "@types/node": "catalog:",
     "@types/react": "19.2.2",
