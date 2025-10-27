@@ -8,7 +8,7 @@ use std::rc::Rc;
 use std::sync::OnceLock;
 
 use pyo3::IntoPyObjectExt;
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
+use pyo3_stub_gen::derive::*;
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::Type;
@@ -70,7 +70,6 @@ impl Compiler {
         self.compiler.set_library_paths(libraries)
     }
 
-    #[setter]
     fn set_translation_domain(&mut self, domain: String) {
         self.compiler.set_translation_domain(domain)
     }
@@ -227,6 +226,7 @@ pub struct ComponentDefinition {
     type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl ComponentDefinition {
     #[getter]
@@ -533,7 +533,7 @@ fn function_to_python_hint(function: &Rc<i_slint_compiler::langtype::Function>) 
 }
 
 #[gen_stub_pyclass]
-#[pyclass(module = "slint")]
+#[pyclass(module = "slint.core", name = "PropertyInfo")]
 #[derive(Clone)]
 pub struct PyPropertyInfo {
     #[pyo3(get)]
@@ -549,7 +549,7 @@ impl PyPropertyInfo {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(module = "slint")]
+#[pyclass(module = "slint.core", name = "CallbackParameter")]
 #[derive(Clone)]
 pub struct PyCallbackParameter {
     #[pyo3(get)]
@@ -566,7 +566,7 @@ impl PyCallbackParameter {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(module = "slint")]
+#[pyclass(module = "slint.core", name = "CallbackInfo")]
 #[derive(Clone)]
 pub struct PyCallbackInfo {
     #[pyo3(get)]
@@ -589,7 +589,7 @@ impl PyCallbackInfo {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(module = "slint")]
+#[pyclass(module = "slint.core", name = "FunctionInfo")]
 #[derive(Clone)]
 pub struct PyFunctionInfo {
     #[pyo3(get)]
@@ -620,6 +620,7 @@ pub struct ComponentInstance {
     type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl ComponentInstance {
     #[getter]

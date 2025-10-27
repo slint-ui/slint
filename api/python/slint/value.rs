@@ -113,6 +113,7 @@ pub struct PyStruct {
     pub type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyStruct {
     #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
@@ -149,6 +150,7 @@ impl PyStruct {
         self.clone()
     }
 
+    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         traverse_struct(&self.data, &visit)
     }
@@ -204,7 +206,7 @@ pub struct TypeCollection {
 
 impl TypeCollection {
     pub fn new(result: &slint_interpreter::CompilationResult, py: Python<'_>) -> Self {
-        let mut enum_classes = HashMap::new();
+        let mut enum_classes = crate::enums::built_in_enum_classes(py);
 
         let enum_ctor = crate::value::enum_class(py);
 

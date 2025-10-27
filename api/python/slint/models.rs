@@ -10,6 +10,7 @@ use pyo3::exceptions::PyIndexError;
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::PyTraverseError;
+use pyo3_stub_gen::derive::*;
 
 use crate::value::{SlintToPyValue, TypeCollection};
 
@@ -43,6 +44,7 @@ impl PyModelShared {
 }
 
 #[derive(Clone)]
+#[gen_stub_pyclass]
 #[pyclass(unsendable, weakref, subclass)]
 pub struct PyModelBase {
     inner: Rc<PyModelShared>,
@@ -54,8 +56,10 @@ impl PyModelBase {
     }
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyModelBase {
+    #[gen_stub(skip)]
     #[new]
     fn new() -> Self {
         Self {
@@ -83,6 +87,7 @@ impl PyModelBase {
         self.inner.notify.row_removed(index, count)
     }
 
+    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.inner.__traverse__(&visit)
     }
@@ -214,12 +219,14 @@ impl PyModelShared {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct ReadOnlyRustModel {
     pub model: ModelRc<slint_interpreter::Value>,
     pub type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl ReadOnlyRustModel {
     fn row_count(&self) -> usize {
@@ -249,6 +256,7 @@ impl ReadOnlyRustModel {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 struct ReadOnlyRustModelIterator {
     model: ModelRc<slint_interpreter::Value>,
@@ -256,6 +264,7 @@ struct ReadOnlyRustModelIterator {
     type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl ReadOnlyRustModelIterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
