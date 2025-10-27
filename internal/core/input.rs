@@ -57,6 +57,18 @@ pub enum MouseEvent {
 }
 
 impl MouseEvent {
+    /// The flag for when event generated from touch
+    pub fn is_touch(&self) -> Option<bool> {
+        match self {
+            MouseEvent::Pressed { is_touch, .. } => Some(*is_touch),
+            MouseEvent::Released { is_touch, .. } => Some(*is_touch),
+            MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
+            MouseEvent::Wheel { .. } => None,
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
+            MouseEvent::Exit => None,
+        }
+    }
+
     /// The position of the cursor for this event, if any
     pub fn position(&self) -> Option<LogicalPoint> {
         match self {
@@ -683,7 +695,7 @@ pub(crate) fn handle_mouse_grab(
             // Return a move event so that the new position can be registered properly
             Some(mouse_event.position().map_or(MouseEvent::Exit, |position| MouseEvent::Moved {
                 position,
-                is_touch: false,
+                is_touch: mouse_event.is_touch().unwrap_or(false),
             }))
         }
     }

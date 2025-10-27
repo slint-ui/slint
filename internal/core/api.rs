@@ -644,23 +644,23 @@ impl Window {
                     delta_y: delta_y as _,
                 });
             }
-            crate::platform::WindowEvent::TouchPressed { touch_id, position } => {
+            crate::platform::WindowEvent::TouchPressed { position, .. } => {
                 self.0.process_mouse_input(MouseEvent::Pressed {
                     position: position.to_euclid().cast(),
-                    button: crate::input::PointerEventButton::Other,
+                    button: crate::input::PointerEventButton::Left,
                     click_count: 0,
                     is_touch: true,
                 });
             }
-            crate::platform::WindowEvent::TouchReleased { touch_id, position } => {
+            crate::platform::WindowEvent::TouchReleased { position, .. } => {
                 self.0.process_mouse_input(MouseEvent::Released {
                     position: position.to_euclid().cast(),
-                    button: crate::input::PointerEventButton::Other,
+                    button: crate::input::PointerEventButton::Left,
                     click_count: 0,
                     is_touch: true,
                 });
             }
-            crate::platform::WindowEvent::TouchMoved { touch_id, position } => {
+            crate::platform::WindowEvent::TouchMoved { position, .. } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     is_touch: true,

@@ -324,14 +324,17 @@ pub enum WindowEvent {
     PointerMoved {
         position: LogicalPosition,
     },
+    /// A touch was pressed.
     TouchPressed {
         touch_id: i32,
         position: LogicalPosition,
     },
+    /// A touch was released.
     TouchReleased {
         touch_id: i32,
         position: LogicalPosition,
     },
+    /// The position of touch has changed.
     TouchMoved {
         touch_id: i32,
         position: LogicalPosition,

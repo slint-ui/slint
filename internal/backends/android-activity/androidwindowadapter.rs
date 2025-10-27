@@ -366,59 +366,33 @@ impl AndroidWindowAdapter {
                             long_press_timeout,
                         );
                         self.long_press.replace(Some(LongPressDetection { position, _timer }));
-                        // result = self.window.try_dispatch_event(WindowEvent::PointerPressed {
-                        //     position,
-                        //     button: PointerEventButton::Left,
-                        // });
 
                         let pointer_index = motion_event.pointer_index();
-
                         let pointer = motion_event.pointer_at_index(pointer_index);
-
                         let pointer_id = pointer.pointer_id();
-
                         let window_event =
                             WindowEvent::TouchPressed { touch_id: pointer_id, position };
-
                         result = self.window.try_dispatch_event(window_event);
-
                         InputStatus::Handled
                     }
 
                     MotionAction::Up => {
                         let position = position_for_event(motion_event, self.offset.get())
                             .to_logical(self.window.scale_factor());
-
                         self.long_press.take();
-                        // result = self
-                        //     .window
-                        //     .try_dispatch_event(WindowEvent::PointerReleased {
-                        //         position: position_for_event(motion_event, self.offset.get())
-                        //             .to_logical(self.window.scale_factor()),
-                        //         button: PointerEventButton::Left,
-                        //     })
-                        //     .and_then(|_| {
-                        //         // Also send exit to avoid remaining hover state
-                        //         self.window.try_dispatch_event(WindowEvent::PointerExited)
-                        //     });
 
                         let pointer_index = motion_event.pointer_index();
-
                         let pointer = motion_event.pointer_at_index(pointer_index);
-
                         let pointer_id = pointer.pointer_id();
-
                         let window_event =
                             WindowEvent::TouchReleased { touch_id: pointer_id, position };
-
                         result = self.window.try_dispatch_event(window_event).and_then(|_| {
                             // Also send exit to avoid remaining hover state
                             self.window.try_dispatch_event(WindowEvent::PointerExited)
                         });
-
                         InputStatus::Handled
                     }
-                    MotionAction::Move | MotionAction::HoverMove => {
+                    MotionAction::Move => {
                         let position = position_for_event(motion_event, self.offset.get())
                             .to_logical(self.window.scale_factor());
 
@@ -429,20 +403,20 @@ impl AndroidWindowAdapter {
                         }) {
                             *lp = None;
                         }
-                        // result =
-                        //     self.window.try_dispatch_event(WindowEvent::PointerMoved { position });
 
                         let pointer_index = motion_event.pointer_index();
-
                         let pointer = motion_event.pointer_at_index(pointer_index);
-
                         let pointer_id = pointer.pointer_id();
-
                         let window_event =
                             WindowEvent::TouchMoved { touch_id: pointer_id, position };
-
                         result = self.window.try_dispatch_event(window_event);
-
+                        InputStatus::Handled
+                    }
+                    MotionAction::HoverMove => {
+                        let position = position_for_event(motion_event, self.offset.get())
+                            .to_logical(self.window.scale_factor());
+                        WindowEvent::PointerMoved { position };
+                        result = self.window.try_dispatch_event(window_event);
                         InputStatus::Handled
                     }
                     MotionAction::Cancel | MotionAction::Outside => {
