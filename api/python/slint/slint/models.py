@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import typing
-from abc import abstractmethod
+from abc import ABC
 from collections.abc import Iterable
-from typing import Any, Iterator, cast
+from typing import Any, Iterator
 
 from . import core
 
 
-class Model[T](core.PyModelBase, Iterable[T]):
+class Model[T](core.PyModelBase, ABC, Iterable[T]):
     """Model is the base class for feeding dynamic data into Slint views.
 
     Subclass Model to implement your own models, or use `ListModel` to wrap a list.
@@ -33,32 +33,6 @@ class Model[T](core.PyModelBase, Iterable[T]):
 
     def __iter__(self) -> Iterator[T]:
         return ModelIterator(self)
-
-    def set_row_data(self, row: int, value: T) -> None:
-        """Call this method on mutable models to change the data for the given row.
-        The UI will also call this method when modifying a model's data.
-        Re-implement this method in a sub-class to handle the change."""
-        super().set_row_data(row, value)
-
-    @abstractmethod
-    def row_data(self, row: int) -> typing.Optional[T]:
-        """Returns the data for the given row.
-        Re-implement this method in a sub-class to provide the data."""
-        return cast(T, super().row_data(row))
-
-    def notify_row_changed(self, row: int) -> None:
-        """Call this method from a sub-class to notify the views that a row has changed."""
-        super().notify_row_changed(row)
-
-    def notify_row_removed(self, row: int, count: int) -> None:
-        """Call this method from a sub-class to notify the views that
-        `count` rows have been removed starting at `row`."""
-        super().notify_row_removed(row, count)
-
-    def notify_row_added(self, row: int, count: int) -> None:
-        """Call this method from a sub-class to notify the views that
-        `count` rows have been added starting at `row`."""
-        super().notify_row_added(row, count)
 
 
 class ListModel[T](Model[T]):

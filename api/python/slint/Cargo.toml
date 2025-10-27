@@ -54,6 +54,6 @@ indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
-pyo3-stub-gen = { version = "0.9.0", default-features = false }
+pyo3-stub-gen = { git = "https://github.com/GreyElaina/pyo3-stub-gen", branch = "main", default-features = false, features = ["infer_signature"] }
 smol = { version = "2.0.0" }
 smol_str = { workspace = true }

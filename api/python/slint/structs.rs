@@ -156,6 +156,7 @@ macro_rules! generate_struct_support {
                                     default: NO_DEFAULT,
                                     deprecated: NO_DEPRECATED,
                                     item: false,
+                                    is_abstract: false,
                                 },
                             )*
                         ],
@@ -168,6 +169,7 @@ macro_rules! generate_struct_support {
                                     default: NO_DEFAULT,
                                     deprecated: NO_DEPRECATED,
                                     item: false,
+                                    is_abstract: false,
                                 },
                             )*
                         ],
@@ -177,6 +179,7 @@ macro_rules! generate_struct_support {
                         has_hash: false,
                         has_str: false,
                         subclass: false,
+                        is_abstract: false,
                     }
                 }
 
@@ -202,6 +205,7 @@ macro_rules! generate_struct_support {
                             is_async: false,
                             deprecated: NO_DEPRECATED,
                             type_ignored: None,
+                            is_abstract: false,
                         }],
                     }
                 }

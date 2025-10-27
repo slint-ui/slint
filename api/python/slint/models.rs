@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
 
-use pyo3::exceptions::PyIndexError;
+use pyo3::exceptions::{PyIndexError, PyNotImplementedError};
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::PyTraverseError;
@@ -45,6 +45,7 @@ impl PyModelShared {
 
 #[derive(Clone)]
 #[gen_stub_pyclass]
+#[gen_stub(abstract_class)]
 #[pyclass(unsendable, weakref, subclass)]
 pub struct PyModelBase {
     inner: Rc<PyModelShared>,
@@ -75,16 +76,47 @@ impl PyModelBase {
         *self.inner.self_ref.borrow_mut() = Some(self_ref);
     }
 
+    /// Call this method from a sub-class to notify the views that
+    /// `count` rows have been added starting at `index`.
     fn notify_row_added(&self, index: usize, count: usize) {
         self.inner.notify.row_added(index, count)
     }
 
+    /// Call this method from a sub-class to notify the views that a row has changed.
     fn notify_row_changed(&self, index: usize) {
         self.inner.notify.row_changed(index)
     }
 
+    /// Call this method from a sub-class to notify the views that
+    /// `count` rows have been removed starting at `index`.
     fn notify_row_removed(&self, index: usize, count: usize) {
         self.inner.notify.row_removed(index, count)
+    }
+
+    /// Returns the number of rows available in the model.
+    #[gen_stub(abstractmethod)]
+    fn row_count(&self) -> PyResult<usize> {
+        Err(PyNotImplementedError::new_err(
+            "Model subclasses must override row_count()",
+        ))
+    }
+
+    /// Returns the data for the given row in the model.
+    #[gen_stub(abstractmethod)]
+    fn row_data(&self, _row: usize) -> PyResult<Option<Py<PyAny>>> {
+        Err(PyNotImplementedError::new_err(
+            "Model subclasses must override row_data()",
+        ))
+    }
+
+    /// Call this method on mutable models to change the data for the given row.
+    /// The UI will also call this method when modifying a model's data.
+    /// Re-implement this method in a sub-class to handle the change.
+    #[gen_stub(abstractmethod)]
+    fn set_row_data(&self, _row: usize, _value: Py<PyAny>) -> PyResult<()> {
+        Err(PyNotImplementedError::new_err(
+            "Model subclasses must override set_row_data() when mutation is required",
+        ))
     }
 
     #[gen_stub(skip)]
