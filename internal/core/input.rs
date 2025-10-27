@@ -548,7 +548,7 @@ impl ClickState {
     /// Check if the click is repeated.
     pub fn check_repeat(&self, mouse_event: MouseEvent, click_interval: Duration) -> MouseEvent {
         match mouse_event {
-            MouseEvent::Pressed { position, button, .. } => {
+            MouseEvent::Pressed { position, button, is_touch, .. } => {
                 let instant_now = crate::animations::Instant::now();
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
@@ -569,15 +569,15 @@ impl ClickState {
                     position,
                     button,
                     click_count: self.click_count.get(),
-                    is_touch: false,
+                    is_touch,
                 };
             }
-            MouseEvent::Released { position, button, .. } => {
+            MouseEvent::Released { position, button, is_touch, .. } => {
                 return MouseEvent::Released {
                     position,
                     button,
                     click_count: self.click_count.get(),
-                    is_touch: false,
+                    is_touch,
                 }
             }
             _ => {}

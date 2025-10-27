@@ -375,7 +375,6 @@ impl AndroidWindowAdapter {
                         result = self.window.try_dispatch_event(window_event);
                         InputStatus::Handled
                     }
-
                     MotionAction::Up => {
                         let position = position_for_event(motion_event, self.offset.get())
                             .to_logical(self.window.scale_factor());
