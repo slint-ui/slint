@@ -598,9 +598,10 @@ fn property_set_value_code(
         let mut animation = (*animation).clone();
         map.map_expression(&mut animation);
         let animation_code = compile_expression(&animation, ctx);
-        return format!("{prop}.set_animated_value({value_expr}, {animation_code})");
+        return prop
+            .then(|prop| format!("{prop}.set_animated_value({value_expr}, {animation_code})"));
     }
-    format!("{prop}.set({value_expr})")
+    prop.then(|prop| format!("{prop}.set({value_expr})"))
 }
 
 fn handle_property_init(
@@ -619,25 +620,27 @@ fn handle_property_init(
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });
 
-        init.push(format!(
-            "{prop_access}.set_handler(
+        init.push(prop_access.then(|prop_access| {
+            format!(
+                "{prop_access}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
                         {code};
                     }});",
-            prop_access = prop_access,
-            params = params.join(", "),
-            code = return_compile_expression(
-                &binding_expression.expression.borrow(),
-                &ctx2,
-                Some(&callback.return_type)
+                prop_access = prop_access,
+                params = params.join(", "),
+                code = return_compile_expression(
+                    &binding_expression.expression.borrow(),
+                    &ctx2,
+                    Some(&callback.return_type)
+                )
             )
-        ));
+        }));
     } else {
         let init_expr = compile_expression(&binding_expression.expression.borrow(), ctx);
 
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            format!("{prop_access}.set({init_expr});")
+            prop_access.then(|prop_access| format!("{prop_access}.set({init_expr});"))
         } else {
             let binding_code = format!(
                 "[this]() {{
@@ -647,18 +650,18 @@ fn handle_property_init(
             );
 
             if binding_expression.is_state_info {
-                format!("slint::private_api::set_state_binding({prop_access}, {binding_code});")
+                prop_access.then(|prop_access| format!("slint::private_api::set_state_binding({prop_access}, {binding_code});"))
             } else {
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
-                        format!("{prop_access}.set_animated_binding({binding_code}, {anim});")
+                        prop_access.then(|prop_access| format!("{prop_access}.set_animated_binding({binding_code}, {anim});"))
                     }
                     Some(llr::Animation::Transition (
                         anim
                     )) => {
                         let anim = compile_expression(anim, ctx);
-                        format!(
+                        prop_access.then(|prop_access| format!(
                             "{prop_access}.set_animated_binding_for_transition({binding_code},
                             [this](uint64_t *start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
@@ -666,9 +669,9 @@ fn handle_property_init(
                                 *start_time = time;
                                 return anim;
                             }});",
-                        )
+                        ))
                     }
-                    None => format!("{prop_access}.set_binding({binding_code});"),
+                    None => prop_access.then(|prop_access| format!("{prop_access}.set_binding({binding_code});")),
                 }
             }
         });
@@ -2095,12 +2098,14 @@ fn generate_sub_component(
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
         if fields.is_empty() {
-            init.push(format!(
-                "slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
-                ty = ctx.property_ty(prop1).cpp_type().unwrap(),
-                p1 = access_member(prop1, &ctx),
-                p2 = access_member(prop2, &ctx),
-            ));
+            let ty = ctx.property_ty(prop1).cpp_type().unwrap();
+            init.push(
+                access_member(prop1, &ctx).then(|p1| {
+                    access_member(prop2, &ctx).then(|p2| {
+                        format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
+                    })
+                }) + ";",
+            );
         } else {
             let mut access = "x".to_string();
             let mut ty = ctx.property_ty(prop2);
@@ -2111,10 +2116,12 @@ fn generate_sub_component(
                 access = struct_field_access(access, &s, f);
                 ty = s.fields.get(f).unwrap();
             }
-            let p1 = access_member(prop1, &ctx);
-            let p2 = access_member(prop2, &ctx);
             let ty = ctx.property_ty(prop2).cpp_type().unwrap();
-            init.push(format!("slint::private_api::Property<{ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }});"));
+            init.push(access_member(prop1, &ctx).then(|p1|
+                access_member(prop2, &ctx).then(|p2|
+                    format!("slint::private_api::Property<{ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
+                )
+            ) + ";");
         }
     }
 
@@ -2127,7 +2134,7 @@ fn generate_sub_component(
     for prop in &component.const_properties {
         if component.prop_used(prop, root) {
             let p = access_member(prop, &ctx);
-            properties_init_code.push(format!("{p}.set_constant();"));
+            properties_init_code.push(p.then(|p| format!("{p}.set_constant();")));
         }
     }
 
@@ -2167,11 +2174,11 @@ fn generate_sub_component(
         ));
 
         let ensure_updated = if let Some(listview) = &repeated.listview {
-            let vp_y = access_member(&listview.viewport_y, &ctx);
-            let vp_h = access_member(&listview.viewport_height, &ctx);
-            let lv_h = access_member(&listview.listview_height, &ctx);
-            let vp_w = access_member(&listview.viewport_width, &ctx);
-            let lv_w = access_member(&listview.listview_width, &ctx);
+            let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
+            let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
+            let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
+            let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
+            let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
             format!(
                 "self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
@@ -2535,8 +2542,10 @@ fn generate_repeated_component(
 
     if let Some(model_data_type) = model_data_type {
         let mut update_statements = vec!["[[maybe_unused]] auto self = this;".into()];
-        update_statements.extend(index_prop.map(|prop| format!("{prop}.set(i);")));
-        update_statements.extend(data_prop.map(|prop| format!("{prop}.set(data);")));
+        update_statements
+            .extend(index_prop.map(|prop| prop.then(|prop| format!("{prop}.set(i);"))));
+        update_statements
+            .extend(data_prop.map(|prop| prop.then(|prop| format!("{prop}.set(data);"))));
 
         repeater_struct.members.push((
             Access::Public, // Because Repeater accesses it
@@ -2563,8 +2572,8 @@ fn generate_repeated_component(
     ));
 
     if let Some(listview) = &repeated.listview {
-        let p_y = access_member(&listview.prop_y, &ctx);
-        let p_height = access_member(&listview.prop_height, &ctx);
+        let p_y = access_member(&listview.prop_y, &ctx).unwrap();
+        let p_height = access_member(&listview.prop_height, &ctx).unwrap();
 
         repeater_struct.members.push((
             Access::Public, // Because Repeater accesses it
@@ -2607,7 +2616,7 @@ fn generate_repeated_component(
                     "auto self = reinterpret_cast<const {}*>(component.instance);",
                     repeater_id
                 ),
-                format!("return {}.get();", index),
+                format!("return {};", index.get_property()),
             ]);
         }
     }
@@ -2684,7 +2693,9 @@ fn generate_global(
     init.extend(global.change_callbacks.iter().map(|(p, e)| {
         let code = compile_expression(&e.borrow(), &ctx);
         let prop = access_member(&llr::PropertyReference::Local { sub_component_path: vec![], property_index: *p }, &ctx);
-        format!("this->change_tracker{}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});", usize::from(*p))
+        prop.then(|prop| {
+            format!("this->change_tracker{}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});", usize::from(*p))
+        })
     }));
 
     global_struct.members.push((
@@ -2769,7 +2780,7 @@ fn generate_public_api_for_properties(
     for p in public_properties {
         let prop_ident = concatenate_ident(&p.name);
 
-        let access = access_member(&p.prop, ctx);
+        let access = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
             let param_types =
@@ -2963,13 +2974,12 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 /// let access = access_member(...);
 /// format!("{access}(...)")
 /// ```
-fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
+fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> MemberAccess {
     fn in_native_item(
         ctx: &EvaluationContext,
         sub_component_path: &[llr::SubComponentInstanceIdx],
         item_index: llr::ItemInstanceIdx,
         prop_name: &str,
-        path: &str,
     ) -> String {
         let (compo_path, sub_component) = follow_sub_component_path(
             ctx.compilation_unit,
@@ -2985,11 +2995,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         {
             // then this is actually a reference to the element itself
             // (or a call to a builtin member function)
-            format!("{path}->{compo_path}{item_name}")
+            format!("->{compo_path}{item_name}")
         } else {
             let property_name = ident(prop_name);
 
-            format!("{path}->{compo_path}{item_name}.{property_name}")
+            format!("->{compo_path}{item_name}.{property_name}")
         }
     }
 
@@ -3002,9 +3012,10 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     sub_component_path,
                 );
                 let property_name = ident(&sub_component.properties[*property_index].name);
-                format!("self->{compo_path}{property_name}")
+                MemberAccess::Direct(format!("self->{compo_path}{property_name}"))
             } else if let Some(current_global) = ctx.current_global() {
-                format!("this->{}", ident(&current_global.properties[*property_index].name))
+                let property_name = ident(&current_global.properties[*property_index].name);
+                MemberAccess::Direct(format!("this->{property_name}"))
             } else {
                 unreachable!()
             }
@@ -3017,21 +3028,23 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     sub_component_path,
                 );
                 let name = ident(&sub_component.functions[*function_index].name);
-                format!("self->{compo_path}fn_{name}")
+                MemberAccess::Direct(format!("self->{compo_path}fn_{name}"))
             } else if let Some(current_global) = ctx.current_global() {
-                format!("this->fn_{}", ident(&current_global.functions[*function_index].name))
+                let name = ident(&current_global.functions[*function_index].name);
+                MemberAccess::Direct(format!("this->fn_{name}",))
             } else {
                 unreachable!()
             }
         }
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            in_native_item(ctx, sub_component_path, *item_index, prop_name, "self")
+            let x = in_native_item(ctx, sub_component_path, *item_index, prop_name);
+            MemberAccess::Direct(format!("self{x}"))
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
             let mut ctx = ctx;
-            let mut path = "self".to_string();
+            let mut path = MemberAccess::Direct("self".to_string());
             for _ in 0..level.get() {
-                write!(path, "->parent.lock().value()").unwrap();
+                path = path.and_then(|x| format!("{x}->parent.lock()"));
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
 
@@ -3044,7 +3057,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                         sub_component_path,
                     );
                     let property_name = ident(&sub_component.properties[*property_index].name);
-                    format!("{path}->{compo_path}{property_name}")
+                    path.with_member(format!("->{compo_path}{property_name}"))
                 }
                 llr::PropertyReference::Function { sub_component_path, function_index } => {
                     let sub_component = ctx.current_sub_component.unwrap();
@@ -3054,13 +3067,16 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                         sub_component_path,
                     );
                     let name = ident(&sub_component.functions[*function_index].name);
-                    format!("{path}->{compo_path}fn_{name}")
+                    path.with_member(format!("->{compo_path}fn_{name}"))
                 }
                 llr::PropertyReference::InNativeItem {
                     sub_component_path,
                     item_index,
                     prop_name,
-                } => in_native_item(ctx, sub_component_path, *item_index, prop_name, &path),
+                } => {
+                    let x = in_native_item(ctx, sub_component_path, *item_index, prop_name);
+                    path.with_member(x)
+                }
                 llr::PropertyReference::InParent { .. }
                 | llr::PropertyReference::Global { .. }
                 | llr::PropertyReference::GlobalFunction { .. } => {
@@ -3075,7 +3091,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let property_name = ident(
                 &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
             );
-            format!("{global_access}->{global_id}->{property_name}")
+            MemberAccess::Direct(format!("{global_access}->{global_id}->{property_name}"))
         }
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
             let global_access = &ctx.generator_state.global_access;
@@ -3084,7 +3100,92 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let name = concatenate_ident(
                 &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
             );
-            format!("{global_access}->{global_id}->fn_{name}")
+            MemberAccess::Direct(format!("{global_access}->{global_id}->fn_{name}"))
+        }
+    }
+}
+
+/// Helper to access a member property/callback of a component.
+///
+/// Because the parent can be deleted (issue #3464), this might be an option when accessing the parent
+#[derive(Clone)]
+enum MemberAccess {
+    /// The string is just an expression
+    Direct(String),
+    /// The string is a an expression to an `std::optional`
+    Option(String),
+    /// The first string is an expression to an `std::optional`,
+    /// the second is a string to be appended after dereferncing the optional
+    /// like so: `<1>.transform([](auto &&x) { return x<2>; })`
+    OptionWithMember(String, String),
+}
+
+impl MemberAccess {
+    /// Used for code that is meant to return `()`
+    fn then(&self, f: impl FnOnce(&str) -> String) -> String {
+        match self {
+            MemberAccess::Direct(t) => f(&t),
+            MemberAccess::Option(t) => {
+                format!("slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})", f("x"))
+            }
+            MemberAccess::OptionWithMember(t, m) => {
+                format!(
+                    "slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})",
+                    f(&format!("x{}", m))
+                )
+            }
+        }
+    }
+
+    fn map_or_default(&self, f: impl FnOnce(&str) -> String) -> String {
+        match self {
+            MemberAccess::Direct(t) => f(&t),
+            MemberAccess::Option(t) => {
+                format!("slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))", f("x"))
+            }
+            MemberAccess::OptionWithMember(t, m) => {
+                format!(
+                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
+                    f(&format!("x{}", m))
+                )
+            }
+        }
+    }
+
+    fn and_then(&self, f: impl Fn(&str) -> String) -> MemberAccess {
+        match self {
+            MemberAccess::Direct(t) => MemberAccess::Option(f(&t)),
+            MemberAccess::Option(t) => MemberAccess::Option(format!(
+                "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
+                f("x")
+            )),
+            MemberAccess::OptionWithMember(t, m) => MemberAccess::Option(format!(
+                "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
+                f(&format!("x{}", m))
+            )),
+        }
+    }
+
+    fn get_property(self) -> String {
+        self.map_or_default(|x| format!("{x}.get()"))
+    }
+
+    /// To be used when we know that the reference was local
+    #[track_caller]
+    fn unwrap(self) -> String {
+        match self {
+            MemberAccess::Direct(t) => t,
+            _ => panic!("not a local property?"),
+        }
+    }
+
+    fn with_member(self, member: String) -> MemberAccess {
+        match self {
+            MemberAccess::Direct(t) => MemberAccess::Direct(format!("{t}{member}")),
+            MemberAccess::Option(t) => MemberAccess::OptionWithMember(t, member),
+            MemberAccess::OptionWithMember(t, m) => {
+                MemberAccess::OptionWithMember(t, format!("{m}{member}"))
+            }
         }
     }
 }
@@ -3135,8 +3236,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::PropertyReference(nr) => {
-            let access = access_member(nr, ctx);
-            format!(r#"{access}.get()"#)
+            access_member(nr, ctx).get_property()
         }
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
@@ -3144,12 +3244,20 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::CallBackCall{ callback, arguments } => {
             let f = access_member(callback, ctx);
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            format!("{}.call({})", f, a.join(","))
+            if expr.ty(ctx) == Type::Void {
+                f.then(|f| format!("{f}.call({})", a.join(",")))
+            } else {
+                f.map_or_default(|f| format!("{f}.call({})", a.join(",")))
+            }
         }
         Expression::FunctionCall{ function, arguments } => {
             let f = access_member(function, ctx);
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            format!("{}({})", f, a.join(","))
+            if expr.ty(ctx) == Type::Void {
+                f.then(|f| format!("{}({})", f, a.join(",")))
+            } else {
+                f.map_or_default(|f| format!("{}({})", f, a.join(",")))
+            }
         }
         Expression::ItemMemberFunctionCall { function } => {
             let item = access_member(function, ctx);
@@ -3157,7 +3265,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let window = access_window_field(ctx);
             let (native, name) = native_prop_info(function, ctx);
             let function_name = format!("slint_{}_{}", native.class_name.to_lowercase(), ident(&name).to_lowercase());
-            format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+            if expr.ty(ctx) == Type::Void {
+                item.then(|item| format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})"))
+            } else {
+                item.map_or_default(|item| format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})"))
+            }
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
@@ -3334,9 +3446,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 index_prop =
                     llr::PropertyReference::InParent { level, parent_reference: index_prop.into() };
             }
-            let index_access = access_member(&index_prop, ctx);
+            let index_access = access_member(&index_prop, ctx).get_property();
             write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
-            format!("{path}.model_set_row_data({index_access}.get(), {value})")
+            format!("{path}.model_set_row_data({index_access}, {value})")
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
             debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
@@ -3504,11 +3616,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } =>  {
             let cache = access_member(layout_cache_prop, ctx);
-            if let Some(ri) = repeater_index {
-                format!("slint::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, ctx))
-            } else {
-                format!("{cache}.get()[{index}]")
-            }
+            cache.map_or_default(|cache| {
+                if let Some(ri) = repeater_index {
+                    format!("slint::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, ctx))
+                } else {
+                    format!("{cache}.get()[{index}]")
+                }
+            })
         }
         Expression::BoxLayoutFunction {
             cells_variable,
@@ -3787,9 +3901,9 @@ fn compile_builtin_function_call(
 
             let current_sub_component = ctx.current_sub_component().unwrap();
             let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
-            let access_entries = access_member(entries_r, ctx);
-            let access_sub_menu = access_member(sub_menu_r, ctx);
-            let access_activated = access_member(activated_r, ctx);
+            let access_entries = access_member(entries_r, ctx).unwrap();
+            let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
+            let access_activated = access_member(activated_r, ctx).unwrap();
             if *no_native {
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
@@ -3931,10 +4045,17 @@ fn compile_builtin_function_call(
                 CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
                 None,
             );
-            let access_entries = access_member(&popup.entries, &popup_ctx);
-            let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx);
-            let access_activated = access_member(&popup.activated, &popup_ctx);
-            let access_close = access_member(&popup.close, &popup_ctx);
+            let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
+            let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx).unwrap();
+            let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
+            let access_close = access_member(&popup.close, &popup_ctx).unwrap();
+
+            let close_popup = context_menu.then(|context_menu| {
+                format!("{window}.close_popup({context_menu}.popup_id)")
+            });
+            let set_id = context_menu
+                .then(|context_menu| format!("{context_menu}.popup_id = id"));
+
             if let llr::Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
@@ -3943,22 +4064,24 @@ fn compile_builtin_function_call(
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
                     auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn);
-                    {window}.close_popup({context_menu}.popup_id);
-                    {context_menu}.popup_id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self, &menu_wrapper](auto popup_menu) {{
+                    {close_popup};
+                    auto id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self, &menu_wrapper](auto popup_menu) {{
                         auto parent_weak = self->self_weak;
                         auto self_ = self;
                         auto self = popup_menu;
                         slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
-                        {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {window}.close_popup({context_menu}.popup_id); }} }});
+                        {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {close_popup}; }} }});
                     }}, menu_wrapper);
+                    {set_id};
                 }}", globals = ctx.generator_state.global_access)
             } else {
                 // ShowPopupMenuInternal
                 let forward_callback = |access, cb, default| {
+                    let call = context_menu.map_or_default(|context_menu| format!("{context_menu}.{cb}.call(entry)"));
                     format!("{access}.set_handler(
-                        [context_menu, parent_weak](const auto &entry) {{
+                        [parent_weak,self = self_](const auto &entry) {{
                             if(auto lock = parent_weak.lock()) {{
-                                return context_menu->{cb}.call(entry);
+                                return {call};
                             }} else {{
                                 return {default};
                             }}
@@ -3968,18 +4091,19 @@ fn compile_builtin_function_call(
                 let fw_activated = forward_callback(access_activated, "activated", "");
                 let entries = compile_expression(entries, ctx);
                 format!(r"
-                    {window}.close_popup({context_menu}.popup_id);
-                    {context_menu}.popup_id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
+                    {close_popup};
+                    auto id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
                         auto parent_weak = self->self_weak;
                         auto self_ = self;
                         auto entries = {entries};
-                        const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
                         auto self = popup_menu;
                         {access_entries}.set(std::move(entries));
                         {fw_sub_menu}
                         {fw_activated}
-                        {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {window}.close_popup({context_menu}.popup_id); }} }});
-                    }});", globals = ctx.generator_state.global_access)
+                        {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {close_popup}; }} }});
+                    }});
+                    {set_id};
+                ", globals = ctx.generator_state.global_access)
             }
         }
         BuiltinFunction::SetSelectionOffsets => {
@@ -3989,8 +4113,9 @@ fn compile_builtin_function_call(
                 let window = access_window_field(ctx);
                 let start = compile_expression(from, ctx);
                 let end = compile_expression(to, ctx);
-
-                format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({start}), static_cast<int>({end}))")
+                item.then(|item| {
+                    format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({start}), static_cast<int>({end}))")
+                })
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
             }
@@ -4046,15 +4171,14 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let native = native_prop_info(pr, ctx).0;
                 let item_rc = access_item_rc(pr, ctx);
+                access_member(pr, ctx).then(|item|
                 format!(
-                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{i}), {o}, &{window}, {item_rc})",
+                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, &{window}, {item_rc})",
                     vt = native.cpp_vtable_getter,
                     ty = native.class_name,
                     o = to_cpp_orientation(orient),
-                    i = access_member(pr, ctx),
                     window = access_window_field(ctx),
-                    item_rc = item_rc
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
             }
