@@ -438,7 +438,8 @@ impl AndroidWindowAdapter {
 
                         let pointer_id = pointer.pointer_id();
 
-                        let window_event = WindowEvent::TouchMoved { touch_id: pointer_id, position };
+                        let window_event =
+                            WindowEvent::TouchMoved { touch_id: pointer_id, position };
 
                         result = self.window.try_dispatch_event(window_event);
 

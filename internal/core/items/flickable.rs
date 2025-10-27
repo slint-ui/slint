@@ -433,7 +433,7 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Moved { position , ..} => {
+            MouseEvent::Moved { position, .. } => {
                 if inner.pressed_time.is_some() {
                     let current_viewport_size = LogicalSize::from_lengths(
                         (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
