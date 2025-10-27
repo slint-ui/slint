@@ -161,7 +161,7 @@ cpp! {{
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, .. })
+                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, is_touch: false })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
