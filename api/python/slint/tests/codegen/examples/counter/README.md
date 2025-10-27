@@ -16,8 +16,8 @@ Instead of relying on the runtime auto-loader, it uses the experimental
    uv run python examples/counter/generate.py
    ```
 
-   This produces `examples/counter/generated/counter.py` and
-   `examples/counter/generated/counter.pyi` alongside a copy of the
+   This produces `examples/counter/counter.py` and
+   `examples/counter/counter.pyi` next to the
    source `.slint` file, all ready for import.
 
 2. Run the app:

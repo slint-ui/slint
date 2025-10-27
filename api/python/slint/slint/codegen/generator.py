@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
+from .. import core as _core
 from ..api import _normalize_prop
 from ..core import Brush, Color, CompilationResult, Compiler, DiagnosticLevel, Image
 from .emitters import write_python_module, write_stub_module
@@ -87,6 +88,7 @@ def generate_project(
         else:
             module_dir = output_dir / relative.parent
             module_dir.mkdir(parents=True, exist_ok=True)
+            _ensure_package_marker(module_dir)
             target_stem = module_dir / sanitized_stem
             copy_slint = True
             slint_destination = module_dir / relative.name
@@ -327,11 +329,14 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
                     value=enum_member.name,
                 )
             )
+        core_enum = getattr(_core, enum_name, None)
+        is_builtin = core_enum is enum_cls
         enums_meta.append(
             EnumMeta(
                 name=enum_name,
                 py_name=_normalize_prop(enum_name),
                 values=values,
+                is_builtin=is_builtin,
             )
         )
 
@@ -345,6 +350,21 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
         named_exports=named_exports,
         resource_paths=resource_paths,
     )
+
+
+def _ensure_package_marker(module_dir: Path) -> None:
+    """Ensure the generated directory is recognised as a regular Python package."""
+
+    try:
+        module_dir.mkdir(parents=True, exist_ok=True)
+        init_file = module_dir / "__init__.py"
+        if not init_file.exists():
+            init_file.touch()
+    except PermissionError:
+        # If we cannot create the file, leave the namespace untouched. The
+        # generated module can still be imported in environments that support
+        # namespace packages.
+        pass
 
 
 __all__ = ["generate_project"]

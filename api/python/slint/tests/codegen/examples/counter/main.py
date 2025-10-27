@@ -6,7 +6,7 @@ from __future__ import annotations
 import slint
 
 try:
-    from .generated.counter import CounterWindow
+    from .counter import CounterWindow
 except ImportError as exc:  # pragma: no cover - user-facing guidance
     raise SystemExit(
         "Generated bindings not found. Run `python generate.py` in the "

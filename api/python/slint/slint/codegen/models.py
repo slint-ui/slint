@@ -77,6 +77,7 @@ class EnumMeta:
     name: str
     py_name: str
     values: List[EnumValueMeta]
+    is_builtin: bool
 
 
 @dataclass(slots=True)

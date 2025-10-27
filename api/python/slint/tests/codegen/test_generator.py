@@ -220,7 +220,7 @@ def test_counter_example_workflow(tmp_path: Path) -> None:
     shutil.copytree(example_src, example_copy)
 
     subprocess.run([sys.executable, "generate.py"], cwd=example_copy, check=True)
-    generated_py = example_copy / "generated" / "counter.py"
+    generated_py = example_copy / "counter.py"
     assert generated_py.exists()
 
     sys.path.insert(0, str(tmp_path))

@@ -107,6 +107,8 @@ def _write_struct_python_module(
 
     enum_lines: list[str] = []
     for enum in artifacts.enums:
+        if enum.is_builtin:
+            continue
         enum_lines.append(
             f"    if {enum.name!r} in enums:\n"
             f"        module.{enum.py_name} = enums[{enum.name!r}]"
@@ -233,6 +235,8 @@ def write_python_module(
     for struct in artifacts.structs:
         export_bindings[struct.name] = struct.py_name
     for enum in artifacts.enums:
+        if enum.is_builtin:
+            continue
         export_bindings[enum.name] = enum.py_name
 
     export_items = list(export_bindings.values()) + [
@@ -370,7 +374,7 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
 
     export_names = [component.py_name for component in artifacts.components]
     export_names += [struct.py_name for struct in artifacts.structs]
-    export_names += [enum.py_name for enum in artifacts.enums]
+    export_names += [enum.py_name for enum in artifacts.enums if not enum.is_builtin]
     export_names += [_normalize_prop(alias) for _, alias in artifacts.named_exports]
     if export_names:
         all_list = cst.List(
@@ -437,6 +441,8 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
         post_body.append(cst.EmptyLine())
 
     for enum_meta in artifacts.enums:
+        if enum_meta.is_builtin:
+            continue
         enum_body: list[cst.BaseStatement] = []
         if enum_meta.values:
             for value in enum_meta.values:
@@ -527,6 +533,8 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     for struct in artifacts.structs:
         bindings[struct.name] = struct.py_name
     for enum_meta in artifacts.enums:
+        if enum_meta.is_builtin:
+            continue
         bindings[enum_meta.name] = enum_meta.py_name
 
     for orig, alias in artifacts.named_exports:
