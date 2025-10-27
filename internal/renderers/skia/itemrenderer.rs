@@ -982,14 +982,11 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         );
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
-            return;
-        }
-
-        let mut paint = self.default_paint().unwrap_or_default();
-        paint.set_shader(skia_safe::shaders::color(to_skia_color(&color)));
-
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        paint: Self::PlatformBrush,
+    ) {
         self.canvas.draw_rect(
             skia_safe::Rect::from_xywh(
                 physical_rect.min_x(),
