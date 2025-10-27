@@ -415,7 +415,7 @@ impl AndroidWindowAdapter {
                     MotionAction::HoverMove => {
                         let position = position_for_event(motion_event, self.offset.get())
                             .to_logical(self.window.scale_factor());
-                        WindowEvent::PointerMoved { position };
+                        let window_event = WindowEvent::PointerMoved { position };
                         result = self.window.try_dispatch_event(window_event);
                         InputStatus::Handled
                     }
