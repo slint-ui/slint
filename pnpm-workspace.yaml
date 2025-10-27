@@ -17,7 +17,7 @@ packages:
 
 catalog:
   "@biomejs/biome": 2.2.6
-  "cspell": 9.2.1
+  "cspell": 9.2.2
   "typescript": 5.9.3
   "vite": 7.1.12
   "@types/node": 20.16.10
