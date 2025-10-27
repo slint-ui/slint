@@ -630,6 +630,7 @@ impl ComponentInstance {
         }
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn get_property(&self, name: &str) -> Result<SlintToPyValue, PyGetPropertyError> {
         Ok(self.type_collection.to_py_value(self.instance.get_property(name)?))
     }
@@ -640,6 +641,7 @@ impl ComponentInstance {
         Ok(self.instance.set_property(name, pv).map_err(|e| PySetPropertyError(e))?)
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn get_global_property(
         &self,
         global_name: &str,
@@ -665,6 +667,7 @@ impl ComponentInstance {
     }
 
     #[pyo3(signature = (callback_name, *args))]
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
@@ -678,6 +681,7 @@ impl ComponentInstance {
     }
 
     #[pyo3(signature = (global_name, callback_name, *args))]
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn invoke_global(
         &self,
         global_name: &str,

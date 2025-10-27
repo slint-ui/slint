@@ -226,6 +226,7 @@ impl ReadOnlyRustModel {
         self.model.row_count()
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn row_data(&self, row: usize) -> Option<SlintToPyValue> {
         self.model.row_data(row).map(|value| self.type_collection.to_py_value(value))
     }
@@ -242,6 +243,7 @@ impl ReadOnlyRustModel {
         }
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn __getitem__(&self, index: usize) -> Option<SlintToPyValue> {
         self.row_data(index)
     }
@@ -260,6 +262,7 @@ impl ReadOnlyRustModelIterator {
         slf
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn __next__(&mut self) -> Option<SlintToPyValue> {
         if self.row >= self.model.row_count() {
             return None;

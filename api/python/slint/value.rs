@@ -115,6 +115,7 @@ pub struct PyStruct {
 
 #[pymethods]
 impl PyStruct {
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn __getattr__(&self, key: &str) -> PyResult<SlintToPyValue> {
         self.data.get_field(key).map_or_else(
             || {
@@ -173,6 +174,7 @@ impl PyStructFieldIterator {
         slf
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, SlintToPyValue)> {
         slf.inner.next().map(|(name, val)| (name, slf.type_collection.to_py_value(val)))
     }
