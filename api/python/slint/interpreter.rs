@@ -7,6 +7,9 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::OnceLock;
 
+use i_slint_core::api::CloseRequestResponse;
+use i_slint_core::platform::WindowEvent;
+
 use pyo3::IntoPyObjectExt;
 use pyo3_stub_gen::derive::*;
 use slint_interpreter::{ComponentHandle, Value};
@@ -217,6 +220,11 @@ impl CompilationResult {
     fn named_exports(&self) -> Vec<(String, String)> {
         self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
     }
+
+    #[getter]
+    fn resource_paths(&self) -> Vec<PathBuf> {
+        self.result.dependencies().cloned().collect()
+    }
 }
 
 #[gen_stub_pyclass]
@@ -290,20 +298,20 @@ impl ComponentDefinition {
             .collect()
     }
 
-    fn global_properties(&self, name: &str) -> Option<IndexMap<String, PyValueType>> {
+    fn global_properties(&self, name: &str) -> IndexMap<String, PyValueType> {
         self.definition.global_properties_and_callbacks(name).map(|propiter| {
             propiter
                 .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| (name, ty.into())))
                 .collect()
-        })
+        }).unwrap_or_default()
     }
 
-    fn global_callbacks(&self, name: &str) -> Option<Vec<String>> {
-        self.definition.global_callbacks(name).map(|callbackiter| callbackiter.collect())
+    fn global_callbacks(&self, name: &str) -> Vec<String> {
+        self.definition.global_callbacks(name).map(|callbackiter| callbackiter.collect()).unwrap_or_default()
     }
 
-    fn global_functions(&self, name: &str) -> Option<Vec<String>> {
-        self.definition.global_functions(name).map(|functioniter| functioniter.collect())
+    fn global_functions(&self, name: &str) -> Vec<String> {
+        self.definition.global_functions(name).map(|functioniter| functioniter.collect()).unwrap_or_default()
     }
 
     fn global_property_infos(&self, global_name: &str) -> Option<Vec<PyPropertyInfo>> {
@@ -732,6 +740,7 @@ impl ComponentInstance {
         Ok(self.instance.hide()?)
     }
 
+    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.callbacks.__traverse__(&visit)?;
         for global_callbacks in self.global_callbacks.values() {

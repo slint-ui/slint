@@ -85,6 +85,7 @@ class ModuleArtifacts:
     structs: List[StructMeta]
     enums: List[EnumMeta]
     named_exports: List[tuple[str, str]]
+    resource_paths: List[Path]
 
 
 __all__ = [

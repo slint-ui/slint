@@ -826,6 +826,7 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
+                    dependencies: Vec::new(),
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                     #[cfg(feature = "internal")]
@@ -864,6 +865,7 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) dependencies: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
@@ -876,6 +878,7 @@ impl core::fmt::Debug for CompilationResult {
         f.debug_struct("CompilationResult")
             .field("components", &self.components.keys())
             .field("diagnostics", &self.diagnostics)
+            .field("dependencies", &self.dependencies)
             .finish()
     }
 }
@@ -918,6 +921,11 @@ impl CompilationResult {
     /// If the component does not exist, then `None` is returned.
     pub fn component(&self, name: &str) -> Option<ComponentDefinition> {
         self.components.get(name).cloned()
+    }
+
+    /// Returns an iterator over the file dependencies that were used during compilation.
+    pub fn dependencies(&self) -> impl Iterator<Item = &PathBuf> {
+        self.dependencies.iter()
     }
 
     /// This is an internal function without API stability guarantees.

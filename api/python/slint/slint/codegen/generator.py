@@ -38,6 +38,19 @@ def generate_project(
     if not files:
         raise SystemExit("No .slint files found in the supplied inputs")
 
+    copied_slint: set[Path] = set()
+    generated_modules = 0
+    struct_only_modules = 0
+    failed_files: list[Path] = []
+
+    def copy_slint_file(source: Path, destination: Path) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        resolved = destination.resolve()
+        if resolved in copied_slint:
+            return
+        shutil.copy2(source, destination)
+        copied_slint.add(resolved)
+
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -50,19 +63,23 @@ def generate_project(
     if config.library_paths:
         compiler.library_paths = config.library_paths.copy()  # type: ignore[assignment]
     if config.translation_domain:
-        compiler.translation_domain = config.translation_domain
+        compiler.set_translation_domain(config.translation_domain)
 
     for source_path, root in files:
-        compilation = _compile_slint(compiler, source_path, config)
+        source_resolved = source_path.resolve()
+        relative = source_path.relative_to(root)
+        compilation = _compile_slint(compiler, root, source_path, config)
         if compilation is None:
+            failed_files.append(relative)
             continue
 
         artifacts = _collect_metadata(compilation)
-        relative = source_path.relative_to(root)
+
+        sanitized_stem = _normalize_prop(source_path.stem)
 
         if output_dir is None:
             module_dir = source_path.parent
-            target_stem = module_dir / source_path.stem
+            target_stem = module_dir / sanitized_stem
             copy_slint = False
             slint_destination = source_path
             resource_name = source_path.name
@@ -70,9 +87,9 @@ def generate_project(
         else:
             module_dir = output_dir / relative.parent
             module_dir.mkdir(parents=True, exist_ok=True)
-            target_stem = module_dir / relative.stem
+            target_stem = module_dir / sanitized_stem
             copy_slint = True
-            slint_destination = target_stem.with_suffix(".slint")
+            slint_destination = module_dir / relative.name
             resource_name = relative.name
             source_descriptor = str(relative)
 
@@ -86,7 +103,51 @@ def generate_project(
         write_stub_module(target_stem.with_suffix(".pyi"), artifacts=artifacts)
 
         if copy_slint and slint_destination != source_path:
-            shutil.copy2(source_path, slint_destination)
+            copy_slint_file(source_path, slint_destination)
+
+        if output_dir is not None:
+            for dependency in artifacts.resource_paths:
+                dep_path = Path(dependency)
+                if not dep_path.exists():
+                    continue
+                dep_resolved = dep_path.resolve()
+                if dep_resolved == source_resolved:
+                    continue
+                relative_dep: Path | None = None
+                for source_root in source_roots:
+                    try:
+                        relative_dep = dep_resolved.relative_to(source_root)
+                        break
+                    except ValueError:
+                        continue
+                if relative_dep is None:
+                    continue
+                destination = output_dir / relative_dep
+                copy_slint_file(dep_resolved, destination)
+
+        generated_modules += 1
+        if not artifacts.components:
+            struct_only_modules += 1
+
+    summary_lines: list[str] = []
+    struct_note = f" ({struct_only_modules} struct-only)" if struct_only_modules else ""
+    summary_lines.append(f"info: Generated {generated_modules} Python module(s){struct_note}")
+
+    if output_dir is not None:
+        summary_lines.append(
+            f"info: Copied {len(copied_slint)} .slint file(s) into {output_dir}"
+        )
+
+    if failed_files:
+        sample = ", ".join(str(path) for path in failed_files[:3])
+        if len(failed_files) > 3:
+            sample += ", ..."
+        summary_lines.append(
+            f"info: Skipped {len(failed_files)} file(s) due to errors ({sample})"
+        )
+
+    for line in summary_lines:
+        print(line)
 
 
 def _discover_slint_files(inputs: Iterable[Path]) -> Iterable[tuple[Path, Path]]:
@@ -103,6 +164,7 @@ def _discover_slint_files(inputs: Iterable[Path]) -> Iterable[tuple[Path, Path]]
 
 def _compile_slint(
     compiler: Compiler,
+    root: Path,
     source_path: Path,
     config: GenerationConfig,
 ) -> CompilationResult | None:
@@ -120,15 +182,31 @@ def _compile_slint(
         else:
             warnings.append(diag)
 
-    if warnings and not config.quiet:
-        for diag in warnings:
-            print(f"warning: {diag}")
+    non_fatal_errors: list[PyDiagnostic] = []
+    fatal_errors: list[PyDiagnostic] = []
 
-    if errors:
-        for diag in errors:
-            print(f"error: {diag}")
-        print(f"Skipping generation for {source_path}")
-        return None
+    for err in errors:
+        # Files that only export structs/globals yield this diagnostic. We can still collect
+        # metadata for them, so treat it as a warning for generation purposes.
+        if err.message == "No component found":
+            non_fatal_errors.append(err)
+        else:
+            fatal_errors.append(err)
+
+    warnings.extend(non_fatal_errors)
+
+    source_relative = str(source_path.relative_to(root))
+
+    if warnings and not config.quiet:
+        print(f"info: Compilation of {source_relative} completed with warnings:")
+        for warn in warnings:
+            print(f"   warning: {warn}")
+
+    if fatal_errors:
+        print(f"error: Compilation of {source_relative} failed & skiped with errors:")
+        for fatal in fatal_errors:
+            print(f"   error: {fatal}")
+        return
 
     return result
 
@@ -138,6 +216,9 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
 
     for name in result.component_names:
         comp = result.component(name)
+
+        if comp is None:
+            continue
 
         property_info = {info.name: info for info in comp.property_infos()}
         callback_info = {info.name: info for info in comp.callback_infos()}
@@ -161,17 +242,17 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
         globals_meta: list[GlobalMeta] = []
         for global_name in comp.globals:
             global_property_info = {
-                info.name: info for info in comp.global_property_infos(global_name)
+                info.name: info for info in comp.global_property_infos(global_name) or []
             }
             global_callback_info = {
-                info.name: info for info in comp.global_callback_infos(global_name)
+                info.name: info for info in comp.global_callback_infos(global_name) or []
             }
             global_function_info = {
-                info.name: info for info in comp.global_function_infos(global_name)
+                info.name: info for info in comp.global_function_infos(global_name) or []
             }
             properties_meta: list[PropertyMeta] = []
 
-            for key in comp.global_properties(global_name):
+            for key in comp.global_properties(global_name) or []:
                 py_key = _normalize_prop(key)
                 info = global_property_info[key]
                 type_hint = info.python_type
@@ -185,12 +266,12 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
 
             callbacks_meta = [
                 _callback_meta(cb, global_callback_info[cb])
-                for cb in comp.global_callbacks(global_name)
+                for cb in comp.global_callbacks(global_name) or []
             ]
 
             functions_meta = [
                 _callback_meta(fn, global_function_info[fn])
-                for fn in comp.global_functions(global_name)
+                for fn in comp.global_functions(global_name) or []
             ]
 
             globals_meta.append(
@@ -255,12 +336,14 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
         )
 
     named_exports = [(orig, alias) for orig, alias in result.named_exports]
+    resource_paths = [Path(path) for path in result.resource_paths]
 
     return ModuleArtifacts(
         components=components,
         structs=structs_meta,
         enums=enums_meta,
         named_exports=named_exports,
+        resource_paths=resource_paths,
     )
 
 
