@@ -464,7 +464,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0));
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, false));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -477,7 +477,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0));
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, false));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -500,7 +500,7 @@ public:
     void dispatch_pointer_move_event(LogicalPosition pos)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }));
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, false));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.
