@@ -51,7 +51,7 @@ def write_python_module(
     include_expr_code = f"[{', '.join(include_exprs)}]" if include_exprs else "None"
 
     library_items = [
-        f"{repr(Path(name))}: {module_relative_path_expr(module_dir, lib_path)}"
+        f"{repr(name)}: {module_relative_path_expr(module_dir, lib_path)}"
         for name, lib_path in config.library_paths.items()
     ]
     library_expr_code = f"{{{', '.join(library_items)}}}" if library_items else "None"
@@ -122,25 +122,27 @@ def write_python_module(
     )
     body.append(cst.EmptyLine())
 
-    load_source = (
-        "def _load() -> types.SimpleNamespace:\n"
-        '    """Load the compiled Slint module for this package."""\n'
-        "    package = __package__ or (__spec__.parent if __spec__ else None)\n"
-        "    if package:\n"
-        "        ctx = _resources.as_file(_resources.files(package).joinpath(_SLINT_RESOURCE))\n"
-        "    else:\n"
-        "        ctx = _nullcontext(Path(__file__).with_name(_SLINT_RESOURCE))\n"
-        "    with ctx as slint_path:\n"
-        f"        include_paths: list[os.PathLike[Any] | Path] = {include_expr_code}\n"
-        f"        library_paths: dict[str, os.PathLike[Any] | Path] | None = {library_expr_code}\n"
-        "        return slint.load_file(\n"
-        "            path=slint_path,\n"
-        "            quiet=True,\n"
-        f"            style={style_expr},\n"
-        "            include_paths=include_paths,\n"
-        "            library_paths=library_paths,\n"
-        f"            translation_domain={domain_expr},\n"
-        "        )\n"
+    load_source = inspect.cleandoc(
+        f'''
+        def _load() -> types.SimpleNamespace:
+            """Load the compiled Slint module for this package."""
+            package = __package__ or (__spec__.parent if __spec__ else None)
+            if package:
+                ctx = _resources.as_file(_resources.files(package).joinpath(_SLINT_RESOURCE))
+            else:
+                ctx = _nullcontext(Path(__file__).with_name(_SLINT_RESOURCE))
+            with ctx as slint_path:
+                include_paths: list[os.PathLike[Any] | Path] | None = {include_expr_code}
+                library_paths: dict[str, os.PathLike[Any] | Path] | None = {library_expr_code}
+                return slint.load_file(
+                    path=slint_path,
+                    quiet=True,
+                    style={style_expr},
+                    include_paths=include_paths,
+                    library_paths=library_paths,
+                    translation_domain={domain_expr},
+                )
+        '''
     )
 
     load_func = cst.parse_module(load_source).body[0]
@@ -151,7 +153,8 @@ def write_python_module(
     body.append(cst.EmptyLine())
 
     for original, binding in export_bindings.items():
-        body.append(_stmt(f"{binding} = _module.{original}"))
+        module_attr = _normalize_prop(original)
+        body.append(_stmt(f"{binding} = _module.{module_attr}"))
     for orig, alias in artifacts.named_exports:
         alias_name = _normalize_prop(alias)
         target = export_bindings.get(orig, _normalize_prop(orig))
@@ -296,13 +299,6 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
             annotation = format_callable_annotation(fn)
             register_type(annotation)
             component_body.append(ann_assign(fn.py_name, annotation))
-        for global_meta in component.globals:
-            component_body.append(
-                ann_assign(
-                    global_meta.py_name, f"{component.py_name}.{global_meta.py_name}"
-                )
-            )
-
         for global_meta in component.globals:
             inner_body: list[cst.BaseStatement] = []
             if not (
