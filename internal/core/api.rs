@@ -620,6 +620,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
+                    is_touch: false,
                 });
             }
             crate::platform::WindowEvent::PointerReleased { position, button } => {
@@ -627,11 +628,13 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
+                    is_touch: false,
                 });
             }
             crate::platform::WindowEvent::PointerMoved { position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
+                    is_touch: false,
                 });
             }
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
@@ -646,6 +649,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button: crate::input::PointerEventButton::Other,
                     click_count: 0,
+                    is_touch: true,
                 });
             }
             crate::platform::WindowEvent::TouchReleased { touch_id, position } => {
@@ -653,11 +657,13 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button: crate::input::PointerEventButton::Other,
                     click_count: 0,
+                    is_touch: true,
                 });
             }
             crate::platform::WindowEvent::TouchMoved { touch_id, position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
+                    is_touch: true,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {

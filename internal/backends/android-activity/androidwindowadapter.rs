@@ -375,7 +375,7 @@ impl AndroidWindowAdapter {
 
                         let pointer = motion_event.pointer_at_index(pointer_index);
 
-                        let pointer_id = pointer.pointer_id() as u32;
+                        let pointer_id = pointer.pointer_id();
 
                         let window_event =
                             WindowEvent::TouchPressed { touch_id: pointer_id, position };
@@ -389,7 +389,7 @@ impl AndroidWindowAdapter {
                         let position = position_for_event(motion_event, self.offset.get())
                             .to_logical(self.window.scale_factor());
 
-                        // self.long_press.take();
+                        self.long_press.take();
                         // result = self
                         //     .window
                         //     .try_dispatch_event(WindowEvent::PointerReleased {
@@ -406,12 +406,15 @@ impl AndroidWindowAdapter {
 
                         let pointer = motion_event.pointer_at_index(pointer_index);
 
-                        let pointer_id = pointer.pointer_id() as u32;
+                        let pointer_id = pointer.pointer_id();
 
                         let window_event =
                             WindowEvent::TouchReleased { touch_id: pointer_id, position };
 
-                        result = self.window.try_dispatch_event(window_event);
+                        result = self.window.try_dispatch_event(window_event).and_then(|_| {
+                            // Also send exit to avoid remaining hover state
+                            self.window.try_dispatch_event(WindowEvent::PointerExited)
+                        });
 
                         InputStatus::Handled
                     }
@@ -433,10 +436,9 @@ impl AndroidWindowAdapter {
 
                         let pointer = motion_event.pointer_at_index(pointer_index);
 
-                        let pointer_id = pointer.pointer_id() as u32;
+                        let pointer_id = pointer.pointer_id();
 
-                        let window_event =
-                            WindowEvent::TouchReleased { touch_id: pointer_id, position };
+                        let window_event = WindowEvent::TouchMoved { touch_id: pointer_id, position };
 
                         result = self.window.try_dispatch_event(window_event);
 

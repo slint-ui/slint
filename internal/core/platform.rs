@@ -325,15 +325,15 @@ pub enum WindowEvent {
         position: LogicalPosition,
     },
     TouchPressed {
-        touch_id: u32,
+        touch_id: i32,
         position: LogicalPosition,
     },
     TouchReleased {
-        touch_id: u32,
+        touch_id: i32,
         position: LogicalPosition,
     },
     TouchMoved {
-        touch_id: u32,
+        touch_id: i32,
         position: LogicalPosition,
     },
     /// The wheel button of a mouse was rotated to initiate scrolling.

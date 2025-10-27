@@ -33,14 +33,14 @@ pub enum MouseEvent {
     /// `position` is the position of the mouse when the event happens.
     /// `button` describes the button that is pressed when the event happens.
     /// `click_count` represents the current number of clicks.
-    Pressed { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
+    Pressed { position: LogicalPoint, button: PointerEventButton, click_count: u8, is_touch: bool },
     /// The mouse or finger was released
     /// `position` is the position of the mouse when the event happens.
     /// `button` describes the button that is pressed when the event happens.
     /// `click_count` represents the current number of clicks.
-    Released { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
+    Released { position: LogicalPoint, button: PointerEventButton, click_count: u8, is_touch: bool },
     /// The position of the pointer has changed
-    Moved { position: LogicalPoint },
+    Moved { position: LogicalPoint, is_touch: bool },
     /// Wheel was operated.
     /// `pos` is the position of the mouse when the event happens.
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
@@ -62,7 +62,7 @@ impl MouseEvent {
         match self {
             MouseEvent::Pressed { position, .. } => Some(*position),
             MouseEvent::Released { position, .. } => Some(*position),
-            MouseEvent::Moved { position } => Some(*position),
+            MouseEvent::Moved { position, .. } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 Some(crate::lengths::logical_point_from_api(e.position))
@@ -76,7 +76,7 @@ impl MouseEvent {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
-            MouseEvent::Moved { position } => Some(position),
+            MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
@@ -96,7 +96,7 @@ impl MouseEvent {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
-            MouseEvent::Moved { position } => Some(position),
+            MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
@@ -557,6 +557,7 @@ impl ClickState {
                     position,
                     button,
                     click_count: self.click_count.get(),
+                    is_touch: false,
                 };
             }
             MouseEvent::Released { position, button, .. } => {
@@ -564,6 +565,7 @@ impl ClickState {
                     position,
                     button,
                     click_count: self.click_count.get(),
+                    is_touch: false,
                 }
             }
             _ => {}
@@ -679,11 +681,10 @@ pub(crate) fn handle_mouse_grab(
         _ => {
             mouse_input_state.grabbed = false;
             // Return a move event so that the new position can be registered properly
-            Some(
-                mouse_event
-                    .position()
-                    .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
-            )
+            Some(mouse_event.position().map_or(MouseEvent::Exit, |position| MouseEvent::Moved {
+                position,
+                is_touch: false,
+            }))
         }
     }
 }
@@ -762,7 +763,7 @@ pub fn process_mouse_input(
             // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
             return process_mouse_input(
                 root,
-                &MouseEvent::Moved { position: *position },
+                &MouseEvent::Moved { position: *position, is_touch: false },
                 window_adapter,
                 result,
             );
