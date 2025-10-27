@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// FIXME: Skip test on C++ and NodeJS since this was only fixed in rust so far
-//ignore: cpp,js
+// FIXME: Skip test on NodeJS since this not fixed for the interpreter
+//ignore: js
 
 export component TestCase inherits Window {
     property <bool> condition: true;

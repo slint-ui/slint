@@ -3974,11 +3974,10 @@ fn compile_builtin_function_call(
                 arguments
             {
                 let mut parent_ctx = ctx;
-                let mut component_access = "self".into();
-
+                let mut component_access = MemberAccess::Direct("self".into());
                 if let llr::PropertyReference::InParent { level, .. } = parent_ref {
                     for _ in 0..level.get() {
-                        component_access = format!("{component_access}->parent.lock().value()");
+                        component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 };
@@ -3997,9 +3996,9 @@ fn compile_builtin_function_call(
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
-                format!(
+                component_access.then(|component_access| format!(
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.template show_popup<{popup_window_id}>(&*({component_access}), [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
@@ -4007,16 +4006,16 @@ fn compile_builtin_function_call(
         BuiltinFunction::ClosePopupWindow => {
             if let [llr::Expression::NumberLiteral(popup_index), llr::Expression::PropertyReference(parent_ref)] = arguments {
                 let mut parent_ctx = ctx;
-                let mut component_access = "self".into();
-
+                let mut component_access = MemberAccess::Direct("self".into());
                 if let llr::PropertyReference::InParent { level, .. } = parent_ref {
                     for _ in 0..level.get() {
-                        component_access = format!("{component_access}->parent.lock().value()");
+                        component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 };
+
                 let window = access_window_field(ctx);
-                format!("{window}.close_popup({component_access}->popup_id_{popup_index})")
+                component_access.then(|component_access| format!("{window}.close_popup({component_access}->popup_id_{popup_index})"))
             } else {
                 panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
             }
