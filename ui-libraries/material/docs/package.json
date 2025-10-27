@@ -42,7 +42,7 @@
         "@playwright/test": "catalog:",
         "cspell": "catalog:",
         "@astrojs/markdown-remark": "6.3.8",
-        "@astrojs/mdx": "4.3.7",
+        "@astrojs/mdx": "4.3.8",
         "@astrojs/partytown": "2.1.4",
         "@astrojs/tailwind": "6.0.2",
         "@iconify-json/flat-color-icons": "1.2.3",
