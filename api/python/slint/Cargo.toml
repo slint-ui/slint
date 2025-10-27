@@ -40,11 +40,13 @@ renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]
 renderer-software = ["slint-interpreter/renderer-software"]
 accessibility = ["slint-interpreter/accessibility"]
+stubgen = []
 
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
 i-slint-core = { workspace = true, features = ["tr"] }
+i-slint-common = { workspace = true }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
 i-slint-compiler = { workspace = true }
 pyo3 = { version = "0.26", features = ["extension-module", "indexmap", "chrono", "abi3-py311"] }

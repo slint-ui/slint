@@ -240,6 +240,11 @@ impl TypeCollection {
         Self { enum_classes }
     }
 
+    pub fn with_builtin(py: Python<'_>) -> Self {
+        let enum_classes = Rc::new(crate::enums::built_in_enum_classes(py));
+        Self { enum_classes }
+    }
+
     pub fn to_py_value(&self, value: slint_interpreter::Value) -> SlintToPyValue {
         SlintToPyValue { slint_value: value, type_collection: self.clone() }
     }

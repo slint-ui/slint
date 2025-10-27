@@ -315,11 +315,11 @@ def load_file(
     if style is not None:
         compiler.style = style
     if include_paths is not None:
-        compiler.include_paths = include_paths
+        compiler.include_paths = include_paths  # type: ignore[assignment]
     if library_paths is not None:
-        compiler.library_paths = library_paths
+        compiler.library_paths = library_paths  # type: ignore[assignment]
     if translation_domain is not None:
-        compiler.translation_domain = translation_domain
+        compiler.set_translation_domain(translation_domain)
 
     result = compiler.build_from_path(Path(path))
 
@@ -336,7 +336,12 @@ def load_file(
 
     module = types.SimpleNamespace()
     for comp_name in result.component_names:
-        wrapper_class = _build_class(result.component(comp_name))
+        comp = result.component(comp_name)
+
+        if comp is None:
+            continue
+
+        wrapper_class = _build_class(comp)
 
         setattr(module, comp_name, wrapper_class)
 

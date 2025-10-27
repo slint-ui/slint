@@ -13,8 +13,10 @@ use interpreter::{
 };
 mod async_adapter;
 mod brush;
+mod enums;
 mod errors;
 mod models;
+mod structs;
 mod timer;
 mod value;
 use i_slint_core::translations::Translator;
@@ -190,6 +192,9 @@ fn slint_core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
+
+    enums::register_enums(_py, m)?;
+    structs::register_structs(_py, m)?;
 
     Ok(())
 }
