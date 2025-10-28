@@ -481,7 +481,7 @@ impl TypeRegister {
         }
 
         match &mut register.elements.get_mut("PopupWindow").unwrap() {
-            ElementType::Builtin(ref mut b) => {
+            ElementType::Builtin(b) => {
                 let popup = Rc::get_mut(b).unwrap();
                 popup.properties.insert(
                     "show".into(),
@@ -503,7 +503,7 @@ impl TypeRegister {
         };
 
         match &mut register.elements.get_mut("Timer").unwrap() {
-            ElementType::Builtin(ref mut b) => {
+            ElementType::Builtin(b) => {
                 let timer = Rc::get_mut(b).unwrap();
                 timer
                     .properties
@@ -534,7 +534,7 @@ impl TypeRegister {
         };
 
         match &mut register.elements.get_mut("TextInput").unwrap() {
-            ElementType::Builtin(ref mut b) => {
+            ElementType::Builtin(b) => {
                 let text_input = Rc::get_mut(b).unwrap();
                 text_input.properties.insert(
                     "set-selection-offsets".into(),
@@ -547,7 +547,7 @@ impl TypeRegister {
         };
 
         match &mut register.elements.get_mut("Text").unwrap() {
-            ElementType::Builtin(ref mut b) => {
+            ElementType::Builtin(b) => {
                 let text = Rc::get_mut(b).unwrap();
                 text.properties.insert("font-metrics".into(), font_metrics_prop);
             }
@@ -556,7 +556,7 @@ impl TypeRegister {
         };
 
         match &mut register.elements.get_mut("Path").unwrap() {
-            ElementType::Builtin(ref mut b) => {
+            ElementType::Builtin(b) => {
                 let path = Rc::get_mut(b).unwrap();
                 path.properties.get_mut("commands").unwrap().property_visibility =
                     PropertyVisibility::Fake;

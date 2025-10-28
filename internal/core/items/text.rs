@@ -2205,7 +2205,7 @@ fn next_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .iter()
         .enumerate()
         .skip(last_cursor_pos)
-        .find(|(_, &c)| c == b'\n')
+        .find(|(_, c)| **c == b'\n')
         .map(|(new_pos, _)| new_pos)
         .unwrap_or(text.len())
 }
@@ -2216,7 +2216,7 @@ fn prev_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .enumerate()
         .rev()
         .skip(text.len() - last_cursor_pos)
-        .find(|(_, &c)| c == b'\n')
+        .find(|(_, c)| **c == b'\n')
         .map(|(new_pos, _)| new_pos + 1)
         .unwrap_or(0)
 }
