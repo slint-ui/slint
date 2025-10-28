@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 [build-system]
 requires = ["maturin>=1.9,<2.0"]
 build-backend = "maturin"
@@ -5,10 +8,7 @@ build-backend = "maturin"
 [project]
 name = "slint-compiler"
 requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-]
+classifiers = ["Programming Language :: Rust", "Programming Language :: Python :: Implementation :: CPython"]
 dynamic = ["version"]
 
 [project.urls]
