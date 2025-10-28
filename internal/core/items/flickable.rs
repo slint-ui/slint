@@ -372,7 +372,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 let do_intercept = inner.capture_events
                     || inner.pressed_time.is_some_and(|pressed_time| {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
@@ -433,7 +433,7 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if inner.pressed_time.is_some() {
                     let current_viewport_size = LogicalSize::from_lengths(
                         (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),

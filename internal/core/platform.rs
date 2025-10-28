@@ -322,6 +322,12 @@ pub enum WindowEvent {
     },
     /// The position of the pointer has changed.
     PointerMoved { position: LogicalPosition },
+    /// A touch was pressed.
+    TouchPressed { touch_id: i32, position: LogicalPosition },
+    /// A touch was released.
+    TouchReleased { touch_id: i32, position: LogicalPosition },
+    /// The position of touch has changed.
+    TouchMoved { touch_id: i32, position: LogicalPosition },
     /// The wheel button of a mouse was rotated to initiate scrolling.
     PointerScrolled {
         position: LogicalPosition,
