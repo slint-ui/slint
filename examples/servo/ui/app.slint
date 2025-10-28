@@ -1,0 +1,75 @@
+import {
+    VerticalBox,
+    HorizontalBox,
+    Button,
+    LineEdit,
+} from "std-widgets.slint";
+import { Webview } from "webview.slint";
+
+export { WebviewLogic } from "webview.slint";
+
+export component MyApp inherits Window {
+    preferred-width: 1224px;
+    preferred-height: 768px;
+
+    out property <string> url: "https://slint.dev";
+
+    callback back();
+    callback forward();
+    callback reload();
+    callback go(url: string);
+
+    VerticalBox {
+        padding: 0px;
+        spacing: 0px;
+
+        HorizontalBox {
+            height: 50px;
+            padding: 8px;
+            spacing: 8px;
+
+            Button {
+                text: "Back";
+                clicked => {
+                    back();
+                }
+            }
+
+            Button {
+                text: "Forward";
+                clicked => {
+                    forward();
+                }
+            }
+
+            Button {
+                text: "Reload";
+                clicked => {
+                    reload();
+                }
+            }
+
+            LineEdit {
+                text: url;
+                horizontal-stretch: 1;
+                accepted(url) => {
+                    go(url);
+                }
+            }
+
+            Button {
+                text: "Go";
+                clicked => {
+                    go(url);
+                }
+            }
+        }
+
+        Rectangle {
+            Webview {
+                width: 100%;
+                height: 100%;
+            }
+        }
+    }
+}

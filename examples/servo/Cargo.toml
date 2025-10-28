@@ -1,0 +1,82 @@
+[workspace]
+
+[package]
+name = "servo-example"
+version = "1.15.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2024"
+publish = false
+license = "MIT"
+build = "build.rs"
+description = "Slint Servo Integration Example"
+
+[lib]
+name = "servo_example_lib"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "servo_example"
+path = "src/main.rs"
+
+[dependencies]
+gl = "0.14.0"
+url = "2.5.7"
+log = "0.4.28"
+smol = "2.0.2"
+glow = "0.16.0"
+gleam = "0.15.1"
+image = "0.25.8"
+winit = "0.30.12"
+rustls = "0.23.34"
+euclid = "0.22.11"
+surfman = "0.10.0"
+time-now = "0.1.2"
+termcolor = "1.4.1"
+thiserror = "2.0.17"
+foreign-types-shared = "0.3.1"
+
+wgpu-hal = "27.0.2"
+wgpu-core = "27.0.1"
+wgpu = { version = "27.0.1", features = ["metal"] }
+
+libservo = { git = "https://github.com/servo/servo", rev = "6357fc8" }
+embedder_traits = { git = "https://github.com/servo/servo", rev = "6357fc8", features = [
+    "baked-default-resources",
+] }
+
+i-slint-core = { path = "../../internal/core" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ash = "0.38.0"
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+slint = { path = "../../api/rs/slint", features = [
+    "unstable-winit-030",
+    "unstable-wgpu-27",
+] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+metal = "0.32.0"
+objc2 = "0.6.3"
+objc2-io-surface = "0.3.2"
+objc2-foundation = "0.3.2"
+objc2-metal = { version = "0.3.2", features = [
+    "MTLDevice",
+    "MTLAllocation",
+    "MTLResource",
+    "MTLTexture",
+    "objc2-io-surface",
+] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+[target.'cfg(target_os = "linux")'.build-dependencies]
+gl_generator = "0.14.0"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"

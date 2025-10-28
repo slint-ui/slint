@@ -1,0 +1,41 @@
+export global WebviewLogic {
+
+    callback resize(width: length, height: length);
+    callback pointer(event: PointerEvent, x: length, y: length);
+    callback scroll(initital_x: length, initital_y: length, delta_x: length, delta_y: length);
+
+    in property <image> web_content;
+
+    out property <length> viewport_width: 800px;
+    out property <length> viewport_height: 400px;
+
+    out property <length> mouse_x;
+    out property <length> mouse_y;
+}
+
+export component Webview {
+
+    touch_area := TouchArea {
+
+        image := Image {
+            source: WebviewLogic.web_content;
+            width: 100%;
+            height: 100%;
+        }
+
+        changed width => {
+            WebviewLogic.resize(self.width, self.height);
+        }
+        changed height => {
+            WebviewLogic.resize(self.width, self.height);
+        }
+
+        pointer-event(event) => {
+            WebviewLogic.pointer(event, self.mouse-x, self.mouse-y);
+        }
+        scroll-event(event) => {
+            WebviewLogic.scroll(self.mouse-x, self.mouse-y, event.delta-x, event.delta-y);
+            return accept;
+        }
+    }
+}

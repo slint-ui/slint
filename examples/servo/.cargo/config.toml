@@ -1,0 +1,2 @@
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android30-clang"
