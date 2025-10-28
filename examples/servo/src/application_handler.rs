@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use std::{cell::RefCell, rc::Rc};
 
 use slint::winit_030::{CustomApplicationHandler, EventResult};

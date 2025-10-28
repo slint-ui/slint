@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use std::rc::Rc;
 
 use euclid::{Box2D, Point2D, Size2D, Vector2D};

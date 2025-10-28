@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use servo::EventLoopWaker;
 use smol::channel::Sender;
 

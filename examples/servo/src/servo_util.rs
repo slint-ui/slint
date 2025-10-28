@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use std::rc::Rc;
 
 use euclid::{Scale, Size2D};

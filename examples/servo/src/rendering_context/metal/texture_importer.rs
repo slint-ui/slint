@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 /// Servo texture importer that manages WGPU resources for Metal IOSurface textures.
 ///
 /// This struct holds all the necessary WGPU rendering resources (shaders, pipeline, sampler, etc.)
@@ -17,7 +20,7 @@ impl ServoTextureImporter {
                 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<f32> {
                     let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
                     return vec4<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0), 0.0, 1.0);
-                    
+
                 }
             "#.into()),
         });

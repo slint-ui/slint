@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 [workspace]
 
 [package]
@@ -41,9 +44,7 @@ wgpu-core = "27.0.1"
 wgpu = { version = "27.0.1", features = ["metal"] }
 
 libservo = { git = "https://github.com/servo/servo", rev = "6357fc8" }
-embedder_traits = { git = "https://github.com/servo/servo", rev = "6357fc8", features = [
-    "baked-default-resources",
-] }
+embedder_traits = { git = "https://github.com/servo/servo", rev = "6357fc8", features = ["baked-default-resources"] }
 
 i-slint-core = { path = "../../internal/core" }
 
@@ -54,23 +55,14 @@ ash = "0.38.0"
 slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = [
-    "unstable-winit-030",
-    "unstable-wgpu-27",
-] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 metal = "0.32.0"
 objc2 = "0.6.3"
 objc2-io-surface = "0.3.2"
 objc2-foundation = "0.3.2"
-objc2-metal = { version = "0.3.2", features = [
-    "MTLDevice",
-    "MTLAllocation",
-    "MTLResource",
-    "MTLTexture",
-    "objc2-io-surface",
-] }
+objc2-metal = { version = "0.3.2", features = ["MTLDevice", "MTLAllocation", "MTLResource", "MTLTexture", "objc2-io-surface"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

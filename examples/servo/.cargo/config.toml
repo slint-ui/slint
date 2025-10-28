@@ -1,2 +1,5 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 [target.aarch64-linux-android]
 linker = "aarch64-linux-android30-clang"

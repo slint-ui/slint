@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 mod gpu_rendering_context;
 
 mod servo_rendering_adapter;

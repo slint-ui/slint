@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
