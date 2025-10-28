@@ -371,14 +371,16 @@ fn analyze_binding(
 
     let b = binding.borrow();
     for twb in &b.two_way_bindings {
-        if twb.property != current.prop {
-            depends_on_external |= process_property(
-                &current.relative(&twb.property.clone().into()),
-                ReadType::PropertyRead,
-                context,
-                reverse_aliases,
-                diag,
-            );
+        if let Some(p) = twb.property() {
+            if p != &current.prop {
+                depends_on_external |= process_property(
+                    &current.relative(&p.clone().into()),
+                    ReadType::PropertyRead,
+                    context,
+                    reverse_aliases,
+                    diag,
+                );
+            }
         }
     }
 
@@ -403,7 +405,7 @@ fn analyze_binding(
     });
 
     let mut is_const = b.expression.is_constant(Some(context.global_analysis))
-        && b.two_way_bindings.iter().all(|n| n.property.is_constant());
+        && b.two_way_bindings.iter().all(|n| n.is_constant());
 
     if is_const && matches!(b.expression, Expression::Invalid) {
         // check the base
@@ -838,17 +840,18 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
 
                 let nr = NamedReference::new(e, name.clone());
                 for a in &binding.borrow().two_way_bindings {
-                    if a.property != nr
-                        && !a
-                            .property
-                            .element()
-                            .borrow()
-                            .enclosing_component
-                            .upgrade()
-                            .unwrap()
-                            .is_global()
-                    {
-                        reverse_aliases.entry(a.property.clone()).or_default().push(nr.clone())
+                    if let Some(a) = a.property() {
+                        if a != &nr
+                            && !a
+                                .element()
+                                .borrow()
+                                .enclosing_component
+                                .upgrade()
+                                .unwrap()
+                                .is_global()
+                        {
+                            reverse_aliases.entry(a.clone()).or_default().push(nr.clone())
+                        }
                     }
                 }
             }
@@ -862,13 +865,13 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
 
     fn check_alias(e: &ElementRc, name: &SmolStr, binding: &BindingExpression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
-        let is_binding_constant = binding.is_constant(None)
-            && binding.two_way_bindings.iter().all(|n| n.property.is_constant());
+        let is_binding_constant =
+            binding.is_constant(None) && binding.two_way_bindings.iter().all(|n| n.is_constant());
         if is_binding_constant && !NamedReference::new(e, name.clone()).is_externally_modified() {
-            for alias in &binding.two_way_bindings {
+            for alias in binding.two_way_bindings.iter().filter_map(|x| x.property()) {
                 crate::namedreference::mark_property_set_derived_in_base(
-                    alias.property.element(),
-                    alias.property.name(),
+                    alias.element(),
+                    alias.name(),
                 );
             }
             return;
@@ -878,8 +881,8 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     }
 
     fn propagate_alias(binding: &BindingExpression) {
-        for alias in &binding.two_way_bindings {
-            mark_alias(&alias.property);
+        for alias in binding.two_way_bindings.iter().filter_map(|x| x.property()) {
+            mark_alias(&alias);
         }
     }
 

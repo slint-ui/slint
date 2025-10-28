@@ -4,7 +4,7 @@
 //! This pass removes the property used in a two ways bindings
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference, TwoWayBinding};
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, btree_map::Entry};
@@ -72,16 +72,21 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in &e.borrow().bindings {
             for twb in &binding.borrow().two_way_bindings {
-                if !twb.field_access.is_empty() {
-                    // Don't optimize two way bindings to fields for now
-                    continue;
+                if let TwoWayBinding::Property { property, field_access } = twb {
+                    if !field_access.is_empty() {
+                        // Don't optimize two way bindings to fields for now
+                        continue;
+                    }
+                    let other_e = property.element();
+                    if name == property.name() && Rc::ptr_eq(e, &other_e) {
+                        diag.push_error(
+                            "Property cannot alias to itself".into(),
+                            &*binding.borrow(),
+                        );
+                        continue 'bindings;
+                    }
+                    property_sets.add_link(NamedReference::new(e, name.clone()), property.clone());
                 }
-                let other_e = twb.property.element();
-                if name == twb.property.name() && Rc::ptr_eq(e, &other_e) {
-                    diag.push_error("Property cannot alias to itself".into(), &*binding.borrow());
-                    continue 'bindings;
-                }
-                property_sets.add_link(NamedReference::new(e, name.clone()), twb.property.clone());
             }
         }
     };
@@ -244,5 +249,5 @@ fn best_property(p1: NamedReference, p2: NamedReference) -> NamedReference {
 
 /// Remove the `to` from the two_way_bindings
 fn remove_from_binding_expression(expression: &mut BindingExpression, to: &NamedReference) {
-    expression.two_way_bindings.retain(|x| &x.property != to);
+    expression.two_way_bindings.retain(|x| x.property() != Some(to));
 }

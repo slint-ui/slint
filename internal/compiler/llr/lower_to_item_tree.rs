@@ -437,11 +437,22 @@ fn lower_sub_component(
         }
 
         for tw in &binding.two_way_bindings {
-            sub_component.two_way_bindings.push((
-                prop.local(),
-                ctx.map_property_reference(&tw.property),
-                tw.field_access.clone(),
-            ));
+            sub_component.two_way_bindings.push(match tw {
+                crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                    (prop.local(), ctx.map_property_reference(property), field_access.clone())
+                }
+                crate::expression_tree::TwoWayBinding::Model { repeated_element, field_access } => {
+                    (
+                        prop.local(),
+                        super::lower_expression::repeater_special_property(
+                            repeated_element,
+                            component,
+                            PropertyIdx::REPEATER_DATA,
+                        ),
+                        field_access.clone(),
+                    )
+                }
+            });
         }
         if !matches!(binding.expression, tree_Expression::Invalid) {
             let expression =

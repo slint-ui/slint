@@ -6,7 +6,7 @@ global G := {
     property <int> alala <=> alala;
 //                       >        <error{Property cannot alias to itself}
     property <string> yoyo <=> alala;
-//                         >        <error{The property does not have the same type as the bound property}
+//                         >        <error{The property 'yoyo' does not have the same type as the bound expression: string != int}
 }
 
 export X := Rectangle {
@@ -27,7 +27,7 @@ export X := Rectangle {
         width <=> parent.width;
         height <=> x;
         background <=> root.x;
-//      >                    <error{The property does not have the same type as the bound property}
+//      >                    <error{The property 'background' does not have the same type as the bound expression: brush != length}
         y <=> y;
 //      >      <error{Property cannot alias to itself}
     }

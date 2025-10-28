@@ -2865,8 +2865,10 @@ pub fn visit_all_named_references_in_element(
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {
-        for nr in &mut expr.borrow_mut().two_way_bindings {
-            vis(&mut nr.property);
+        for twb in &mut expr.borrow_mut().two_way_bindings {
+            if let expression_tree::TwoWayBinding::Property { property, .. } = twb {
+                vis(property);
+            }
         }
     }
 

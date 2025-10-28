@@ -360,11 +360,9 @@ impl Expression {
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
-                    SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
-                        node.clone().into(),
-                        ctx,
-                        LookupPhase::default(),
-                    )),
+                    SyntaxKind::QualifiedName => {
+                        Some(Self::from_qualified_name_node(node.clone().into(), ctx))
+                    }
                     SyntaxKind::FunctionCallExpression => {
                         Some(Self::from_function_call_node(node.into(), ctx))
                     }
@@ -1061,12 +1059,12 @@ impl Expression {
     }
 
     /// Perform the lookup
-    fn from_qualified_name_node(
-        node: syntax_nodes::QualifiedName,
-        ctx: &mut LookupCtx,
-        phase: LookupPhase,
-    ) -> Self {
-        Self::from_lookup_result(lookup_qualified_name_node(node.clone(), ctx, phase), ctx, &node)
+    fn from_qualified_name_node(node: syntax_nodes::QualifiedName, ctx: &mut LookupCtx) -> Self {
+        Self::from_lookup_result(
+            lookup_qualified_name_node(node.clone(), ctx, LookupPhase::default()),
+            ctx,
+            &node,
+        )
     }
 
     fn from_lookup_result(
@@ -1717,13 +1715,15 @@ fn lookup_qualified_name_node(
             continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx)
         }
         LookupResult::Expression {
-            expression: Expression::RepeaterModelReference { .. }, ..
+            expression: mut e @ Expression::RepeaterModelReference { .. },
+            ..
         } if matches!(phase, LookupPhase::ResolvingTwoWayBindings) => {
-            ctx.diag.push_error(
-                "Two-way bindings to model data is not supported yet".to_string(),
-                &node,
-            );
-            None
+            // At this point (LookupPhase::ResolvingTwoWayBindings), we don't know the type of the model yet,
+            // so we'll just create struct field access without typechecking, the typechecking will happen later
+            for n in it {
+                e = Expression::StructFieldAccess { base: e.into(), name: n.text().into() };
+            }
+            Some(e.into())
         }
         result => maybe_lookup_object(result, it, ctx),
     }
@@ -2004,9 +2004,10 @@ fn resolve_two_way_bindings(
                         binding.expression = Expression::Invalid;
 
                         if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
-                            let nr = twb.property.clone();
+                            let nr = twb.property().cloned();
                             binding.two_way_bindings.push(twb);
 
+                                let Some(nr) = nr else { continue };
                             nr.element()
                                 .borrow()
                                 .property_analysis
@@ -2143,16 +2144,29 @@ pub fn resolve_two_way_binding(
                     Expression::PropertyReference(nr) => Some(nr.clone().into()),
                     Expression::StructFieldAccess { base, name } => {
                         let mut prop = unwrap_fields(base)?;
-                        prop.field_access.push(name.clone());
+                        let field_access = match &mut prop {
+                            TwoWayBinding::Property { field_access, .. } => field_access,
+                            TwoWayBinding::Model { field_access, .. } => field_access,
+                        };
+                        field_access.push(name.clone());
                         Some(prop)
                     }
+                    Expression::RepeaterModelReference { element } => Some(TwoWayBinding::Model {
+                        repeated_element: element.clone(),
+                        field_access: vec![],
+                    }),
                     _ => None,
                 }
             }
             if let Some(result) = unwrap_fields(&expression) {
-                if report_error && expression.ty() != ctx.property_type {
+                let expr_ty = expression.ty();
+                if report_error && expr_ty != ctx.property_type {
                     ctx.diag.push_error(
-                        "The property does not have the same type as the bound property".into(),
+                        format!(
+                            "The property '{}' does not have the same type as the bound expression: {} != {expr_ty}",
+                            ctx.property_name.unwrap_or(""),
+                            ctx.property_type,
+                        ),
                         &node,
                     );
                 }
@@ -2199,11 +2213,15 @@ fn check_callback_alias_validity(
     };
     let Some(b) = elem_borrow.bindings.get(name) else { return };
     // `try_borrow` because we might be called for the current binding
-    let Some(alias) = b.try_borrow().ok().and_then(|b| b.two_way_bindings.first().cloned()) else {
+    let Some(alias) = b
+        .try_borrow()
+        .ok()
+        .and_then(|b| b.two_way_bindings.first().and_then(|x| x.property()).cloned())
+    else {
         return;
     };
 
-    if alias.property.element().borrow().base_type == ElementType::Global {
+    if alias.element().borrow().base_type == ElementType::Global {
         diag.push_error(
             "Can't assign a local callback handler to an alias to a global callback".into(),
             &node.child_token(SyntaxKind::Identifier).unwrap(),
