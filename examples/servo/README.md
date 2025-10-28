@@ -1,6 +1,8 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-# Slint Servo Integration
+# Slint Servo Example
+
+Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using handrware rendring on desktop platforms and software rendring on android for now.
 
 ## For Android build on Mac
 

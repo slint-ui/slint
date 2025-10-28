@@ -65,7 +65,7 @@ fn main() {
         println!("cargo:rustc-link-search=native={}", out.display());
     }
 
-    println!("cargo:rerun-if-changed=/src/build.rs");
+    println!("cargo:rerun-if-changed=build.rs");
 
     slint_build::compile("ui/app.slint").unwrap();
 }
