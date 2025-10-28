@@ -24,7 +24,7 @@ use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
 
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
-use input::event::touch::TouchEventPosition;
+use input::event::touch::{TouchEventPosition, TouchEventSlot};
 use xkbcommon::*;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
@@ -245,21 +245,26 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 touch_down_event.x_transformed(screen_size.width as u32) as _,
                                 touch_down_event.y_transformed(screen_size.height as u32) as _,
                             );
-                            Some(WindowEvent::PointerPressed {
+                            Some(WindowEvent::TouchPressed {
                                 position: self.last_touch_pos,
-                                button: PointerEventButton::Left,
+                                touch_id: touch_down_event.slot().unwrap_or(0) as _,
                             })
                         }
-                        input::event::TouchEvent::Up(..) => Some(WindowEvent::PointerReleased {
-                            position: self.last_touch_pos,
-                            button: PointerEventButton::Left,
-                        }),
+                        input::event::TouchEvent::Up(touch_up_event) => {
+                            Some(WindowEvent::TouchReleased {
+                                position: self.last_touch_pos,
+                                touch_id: touch_up_event.slot().unwrap_or(0) as _,
+                            })
+                        }
                         input::event::TouchEvent::Motion(touch_motion_event) => {
                             self.last_touch_pos = LogicalPosition::new(
                                 touch_motion_event.x_transformed(screen_size.width as u32) as _,
                                 touch_motion_event.y_transformed(screen_size.height as u32) as _,
                             );
-                            Some(WindowEvent::PointerMoved { position: self.last_touch_pos })
+                            Some(WindowEvent::TouchMoved {
+                                position: self.last_touch_pos,
+                                touch_id: touch_motion_event.slot().unwrap_or(0) as _,
+                            })
                         }
                         _ => None,
                     } {
