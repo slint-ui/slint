@@ -4,6 +4,8 @@
 
 Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using handrware rendring on desktop platforms and software rendring on android for now.
 
+<img width="2900" height="2052" alt="CleanShot 2025-10-28 at 12 58 30@2x" src="https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be" />
+
 ## For Android build on Mac
 
 ### Install Android Studio and JDK
