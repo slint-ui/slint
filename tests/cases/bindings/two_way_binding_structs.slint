@@ -1,0 +1,106 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct MyStruct {
+    value: int,
+    name: string,
+    xyz: string,
+}
+
+component MyLineEdit {
+    in-out property <string> text <=> tx.text;
+    tx := TextInput {
+        text: "to be overridden";
+    }
+}
+
+component MyStructViewer {
+    in property <MyStruct> value: {name: "Olivier", value: 3, xyz: "xyz"};
+    HorizontalLayout {
+        Text {
+            text <=> value.name;
+        }
+        Text {
+            text <=> value.xyz;
+        }
+        Text {
+            text: value.value;
+        }
+    }
+
+}
+
+component WithinComp {
+    out property <MyStruct> my_struct: { name: "S", value: 7, xyz: "xxx" };
+    in property <int> val <=> my_struct.value;
+}
+
+
+export component TestCase {
+
+    VerticalLayout {
+        if true : MyLineEdit {
+            text <=> v.value.name;
+
+        }
+        v := MyStructViewer {
+        }
+        spinbox := Rectangle {
+            property <int> val <=> v.value.value;
+            init => {
+                val += 10;
+            }
+        }
+        w := WithinComp {
+            val: root.value.value + 100;
+        }
+    }
+
+    in-out property xyz <=> v.value.xyz;
+    in-out property value <=> v.value;
+    in-out property <{inner: MyStruct, z: int}> inner: {inner: value, z: v.value.value };
+    in-out property <string> inner_xyz <=> inner.inner.xyz;
+
+    out property <bool> test: v.value.name == "Olivier" && v.value.value == 13 && spinbox.val == 13 && xyz == "xyz" && value.value == 13
+        && inner.inner == v.value && inner.z == 13
+        && w.my_struct.value == 113;
+
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "xyz".into() });
+instance.set_xyz("abc".into());
+assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "abc".into() });
+
+assert_eq!(instance.get_inner_xyz(), "abc");
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert(instance.get_value() == (MyStruct { .value = 13, .name = "Olivier", .xyz = "xyz" }));
+instance.set_xyz("abc");
+assert(instance.get_value() == (MyStruct { .value = 13, .name = "Olivier", .xyz = "abc" }));
+assert_eq(instance.get_inner_xyz(), "abc");
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.deepEqual(instance.value, { name: "Olivier", value: 13, xyz: "xyz" });
+instance.xyz = "abc";
+assert.deepEqual(instance.value, { name: "Olivier", value: 13, xyz: "abc" });
+assert.equal(instance.inner_xyz, "abc");
+```
+
+*/

@@ -149,7 +149,7 @@ jobs:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
-                  device: iPad Pro 13-inch (M4)
+                  device: iPad Pro 13-inch (M5)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
@@ -229,8 +229,8 @@ jobs:
             - name: Install uv
               uses: astral-sh/setup-uv@v7
             - name: Run slint compiler via uxv
-              working-directory: api/python/compiler
+              working-directory: api/python/
               env:
                 SLINT_COMPILER_VERSION: nightly
               # TODO: generate python code when the python generator lands
-              run: uvx --with-editable=. slint-compiler ../../../demos/printerdemo/ui/printerdemo.slint
+              run: uvx --with-editable=. slint-compiler ../../demos/printerdemo/ui/printerdemo.slint

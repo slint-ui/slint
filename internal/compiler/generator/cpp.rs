@@ -2093,13 +2093,29 @@ fn generate_sub_component(
         ));
     }
 
-    for (prop1, prop2) in &component.two_way_bindings {
-        init.push(format!(
-            "slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
-            ty = ctx.property_ty(prop1).cpp_type().unwrap(),
-            p1 = access_member(prop1, &ctx),
-            p2 = access_member(prop2, &ctx),
-        ));
+    for (prop1, prop2, fields) in &component.two_way_bindings {
+        if fields.is_empty() {
+            init.push(format!(
+                "slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
+                ty = ctx.property_ty(prop1).cpp_type().unwrap(),
+                p1 = access_member(prop1, &ctx),
+                p2 = access_member(prop2, &ctx),
+            ));
+        } else {
+            let mut access = "x".to_string();
+            let mut ty = ctx.property_ty(prop2);
+            for f in fields {
+                let Type::Struct(s) = &ty else {
+                    panic!("Field of two way binding on a non-struct type")
+                };
+                access = struct_field_access(access, &s, f);
+                ty = s.fields.get(f).unwrap();
+            }
+            let p1 = access_member(prop1, &ctx);
+            let p2 = access_member(prop2, &ctx);
+            let ty = ctx.property_ty(prop2).cpp_type().unwrap();
+            init.push(format!("slint::private_api::Property<{ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }});"));
+        }
     }
 
     let mut properties_init_code = Vec::new();
@@ -3154,15 +3170,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
             Type::Struct(s)=> {
-                if s.name.is_none() {
-                    let index = s.fields
-                        .keys()
-                        .position(|k| k == name)
-                        .expect("Expression::ObjectAccess: Cannot find a key in an object");
-                    format!("std::get<{}>({})", index, compile_expression(base, ctx))
-                } else {
-                    format!("{}.{}", compile_expression(base, ctx), ident(name))
-                }
+                struct_field_access(compile_expression(base, ctx), &s, name)
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
@@ -3559,6 +3567,19 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 None => format!("slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"),
             }
         },
+    }
+}
+
+fn struct_field_access(base: String, s: &crate::langtype::Struct, name: &str) -> String {
+    if s.name.is_none() {
+        let index = s
+            .fields
+            .keys()
+            .position(|k| k == name)
+            .expect("Expression::ObjectAccess: Cannot find a key in an object");
+        format!("std::get<{}>({})", index, base)
+    } else {
+        format!("{}.{}", base, ident(name))
     }
 }
 

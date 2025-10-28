@@ -286,7 +286,14 @@ impl<'a> SkiaItemRenderer<'a> {
                     ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
                 if let Some(shader) = skia_image
-                    .make_subset(None, &src, skia_safe::image::RequiredProperties::default())
+                    .make_subset(
+                        self.canvas
+                            .recording_context()
+                            .as_mut()
+                            .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
+                        &src,
+                        skia_safe::image::RequiredProperties::default(),
+                    )
                     .and_then(|i| {
                         i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
                     })
@@ -982,14 +989,11 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         );
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
-            return;
-        }
-
-        let mut paint = self.default_paint().unwrap_or_default();
-        paint.set_shader(skia_safe::shaders::color(to_skia_color(&color)));
-
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        paint: Self::PlatformBrush,
+    ) {
         self.canvas.draw_rect(
             skia_safe::Rect::from_xywh(
                 physical_rect.min_x(),

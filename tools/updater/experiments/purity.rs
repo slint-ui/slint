@@ -20,14 +20,14 @@ pub(crate) fn fold_node(
             if s.ReturnType().is_some() {
                 write!(file, "pure ")?;
             } else if let Some(twb) = s.TwoWayBinding() {
-                let nr = super::lookup_changes::with_lookup_ctx(state, |lookup_ctx| {
+                let twb = super::lookup_changes::with_lookup_ctx(state, |lookup_ctx| {
                     lookup_ctx.property_type = Type::InferredCallback;
                     i_slint_compiler::passes::resolving::resolve_two_way_binding(twb, lookup_ctx)
                 })
                 .flatten();
 
-                if let Some(nr) = nr {
-                    let lk = nr.element().borrow().lookup_property(nr.name());
+                if let Some(twb) = twb {
+                    let lk = twb.property.element().borrow().lookup_property(twb.property.name());
                     if lk.declared_pure == Some(true) {
                         write!(file, "pure ")?;
                     } else if let Type::Callback(callback) = lk.property_type {

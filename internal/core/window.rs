@@ -251,6 +251,12 @@ pub trait WindowAdapterInternal {
     fn bring_to_front(&self) -> Result<(), PlatformError> {
         Ok(())
     }
+
+    /// Return the inset of the safe area of the Window in physical pixels.
+    /// This is necessary to avoid overlapping system UI such as notches or system bars.
+    fn safe_area_inset(&self) -> crate::lengths::PhysicalInset {
+        Default::default()
+    }
 }
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
@@ -548,8 +554,17 @@ impl WindowInner {
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
         window_adapter.renderer().set_window_adapter(&window_adapter);
-        self.set_window_item_geometry(
-            window_adapter.size().to_logical(self.scale_factor()).to_euclid(),
+        let scale_factor = self.scale_factor();
+        self.set_window_item_geometry(window_adapter.size().to_logical(scale_factor).to_euclid());
+        let inset = window_adapter
+            .internal(crate::InternalToken)
+            .map(|internal| internal.safe_area_inset())
+            .unwrap_or_default();
+        self.set_window_item_safe_area(
+            inset.top_to_logical(scale_factor),
+            inset.bottom_to_logical(scale_factor),
+            inset.left_to_logical(scale_factor),
+            inset.right_to_logical(scale_factor),
         );
         window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
@@ -596,7 +611,7 @@ impl WindowInner {
                     event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
                 }
-                MouseEvent::Moved { position } => {
+                MouseEvent::Moved { position, .. } => {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
                     }
@@ -958,11 +973,17 @@ impl WindowInner {
         match item {
             Some(item) => {
                 *self.focus_item.borrow_mut() = item.downgrade();
-                item.borrow().as_ref().focus_event(
+                let result = item.borrow().as_ref().focus_event(
                     &FocusEvent::FocusIn(reason),
                     &self.window_adapter(),
                     item,
-                )
+                );
+                // Reveal offscreen item when it gains focus
+                if result == crate::input::FocusEventResult::FocusAccepted {
+                    item.try_scroll_into_visible();
+                }
+
+                result
             }
             None => {
                 *self.focus_item.borrow_mut() = Default::default();
@@ -1136,7 +1157,19 @@ impl WindowInner {
         // Make sure that the window's inner size is in sync with the root window item's
         // width/height.
         let size = self.window_adapter().size();
-        self.set_window_item_geometry(size.to_logical(self.scale_factor()).to_euclid());
+        let scale_factor = self.scale_factor();
+        self.set_window_item_geometry(size.to_logical(scale_factor).to_euclid());
+        let inset = self
+            .window_adapter()
+            .internal(crate::InternalToken)
+            .map(|internal| internal.safe_area_inset())
+            .unwrap_or_default();
+        self.set_window_item_safe_area(
+            inset.top_to_logical(scale_factor),
+            inset.bottom_to_logical(scale_factor),
+            inset.left_to_logical(scale_factor),
+            inset.right_to_logical(scale_factor),
+        );
         self.window_adapter().renderer().resize(size).unwrap();
         if let Some(hook) = self.ctx.0.window_shown_hook.borrow_mut().as_mut() {
             hook(&self.window_adapter());
@@ -1450,6 +1483,26 @@ impl WindowInner {
             {
                 window_item.width.set(size.width_length());
                 window_item.height.set(size.height_length());
+            }
+        }
+    }
+
+    pub(crate) fn set_window_item_safe_area(
+        &self,
+        top: crate::lengths::LogicalLength,
+        bottom: crate::lengths::LogicalLength,
+        left: crate::lengths::LogicalLength,
+        right: crate::lengths::LogicalLength,
+    ) {
+        if let Some(component_rc) = self.try_component() {
+            let component = ItemTreeRc::borrow_pin(&component_rc);
+            let root_item = component.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+            {
+                window_item.safe_area_inset_top.set(top);
+                window_item.safe_area_inset_bottom.set(bottom);
+                window_item.safe_area_inset_left.set(left);
+                window_item.safe_area_inset_right.set(right);
             }
         }
     }

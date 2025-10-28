@@ -1507,6 +1507,35 @@ fn model_inner_type(model: &Expression) -> Type {
     }
 }
 
+/// The right hand side of a two way binding
+#[derive(Clone, Debug)]
+pub struct TwoWayBinding {
+    /// The property being linked
+    pub property: NamedReference,
+    /// If property is a struct, this is the fields.
+    /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
+    pub field_access: Vec<SmolStr>,
+}
+impl TwoWayBinding {
+    pub fn ty(&self) -> Type {
+        let mut ty = self.property.ty();
+        for x in &self.field_access {
+            ty = match ty {
+                Type::InferredProperty | Type::InferredCallback => return ty,
+                Type::Struct(s) => s.fields.get(x).cloned().unwrap_or_default(),
+                _ => return Type::Invalid,
+            };
+        }
+        ty
+    }
+}
+
+impl From<NamedReference> for TwoWayBinding {
+    fn from(nr: NamedReference) -> Self {
+        Self { property: nr, field_access: vec![] }
+    }
+}
+
 /// The expression in the Element::binding hash table
 #[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
 pub struct BindingExpression {
@@ -1527,7 +1556,7 @@ pub struct BindingExpression {
     pub analysis: Option<BindingAnalysis>,
 
     /// The properties this expression is aliased with using two way bindings
-    pub two_way_bindings: Vec<NamedReference>,
+    pub two_way_bindings: Vec<TwoWayBinding>,
 }
 
 impl std::convert::From<Expression> for BindingExpression {
@@ -1566,7 +1595,7 @@ impl BindingExpression {
     }
 
     /// Create an expression binding that simply is a two way binding to the other
-    pub fn new_two_way(other: NamedReference) -> Self {
+    pub fn new_two_way(other: TwoWayBinding) -> Self {
         Self {
             expression: Expression::Invalid,
             span: None,

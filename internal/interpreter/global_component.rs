@@ -12,7 +12,7 @@ use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::{Component, Document, PropertyDeclaration};
 use i_slint_core::item_tree::ItemTreeVTable;
-use i_slint_core::rtti;
+use i_slint_core::{rtti, Property};
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -162,6 +162,11 @@ pub trait GlobalComponent {
     fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const ();
 
     fn eval_function(self: Pin<&Self>, fn_name: &str, args: Vec<Value>) -> Result<Value, ()>;
+
+    fn prepare_for_two_way_binding(
+        self: Pin<&Self>,
+        prop_name: &str,
+    ) -> Result<Pin<Rc<Property<Value>>>, ()>;
 }
 
 /// Instantiate the global singleton and store it in `globals`
@@ -288,6 +293,18 @@ impl GlobalComponent for GlobalComponentInstance {
         );
         Ok(result)
     }
+
+    fn prepare_for_two_way_binding(
+        self: Pin<&Self>,
+        prop_name: &str,
+    ) -> Result<Pin<Rc<Property<Value>>>, ()> {
+        generativity::make_guard!(guard);
+        let comp = self.0.unerase(guard);
+        let description = comp.description();
+        let x = description.custom_properties.get(prop_name).ok_or(())?;
+        let item = unsafe { Pin::new_unchecked(&*comp.borrow_instance().as_ptr().add(x.offset)) };
+        Ok(x.prop.prepare_for_two_way_binding(item))
+    }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
@@ -335,6 +352,18 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
 
     fn eval_function(self: Pin<&Self>, _fn_name: &str, _args: Vec<Value>) -> Result<Value, ()> {
         Err(())
+    }
+
+    fn prepare_for_two_way_binding(
+        self: Pin<&Self>,
+        prop_name: &str,
+    ) -> Result<Pin<Rc<Property<Value>>>, ()> {
+        Ok(Self::properties()
+            .into_iter()
+            .find(|(k, _)| *k == prop_name)
+            .ok_or(())?
+            .1
+            .prepare_for_two_way_binding(self))
     }
 }
 

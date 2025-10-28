@@ -161,7 +161,7 @@ cpp! {{
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0 })
+                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, is_touch: false })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -191,7 +191,7 @@ cpp! {{
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0 })
+                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0, is_touch: false })
             });
         }
         void mouseMoveEvent(QMouseEvent *event) override {
@@ -200,7 +200,7 @@ cpp! {{
                 return;
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::Moved{position})
+                rust_window.mouse_event(MouseEvent::Moved{position, is_touch: false})
             });
         }
         void wheelEvent(QWheelEvent *event) override {
@@ -1119,21 +1119,21 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn fill_rectangle(
-        &mut self,
-        physical_rect: sharedparley::PhysicalRect,
-        color: i_slint_core::Color,
-    ) {
+    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, brush: GlyphBrush) {
+        let qt_brush = match brush {
+            GlyphBrush::Fill(qt_brush) => qt_brush,
+            _ => return,
+        };
+
         let rect = qttypes::QRectF {
             x: physical_rect.min_x() as _,
             y: physical_rect.min_y() as _,
             width: physical_rect.width() as _,
             height: physical_rect.height() as _,
         };
-        let color: u32 = color.as_argb_encoded();
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", color as "QRgb", rect as "QRectF"] {
-            (*painter)->fillRect(rect, QBrush(QColor::fromRgba(color)));
+        cpp! { unsafe [painter as "QPainterPtr*", qt_brush as "QBrush", rect as "QRectF"] {
+            (*painter)->fillRect(rect, qt_brush);
         }}
     }
 }

@@ -10,6 +10,8 @@
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
 use crate::items::PropertyAnimation;
+use crate::properties::InterpolatedPropertyValue;
+use crate::Property;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -18,7 +20,7 @@ use core::pin::Pin;
 
 macro_rules! declare_ValueType {
     ($($ty:ty,)*) => {
-        pub trait ValueType: 'static + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
+        pub trait ValueType: 'static + PartialEq + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
     };
 }
 
@@ -80,6 +82,23 @@ impl AnimatedBindingKind {
     }
 }
 
+pub trait TwoWayBindingMapping<Value> {
+    fn map_to(&self, value: &Value) -> Value;
+    fn map_from(&self, value: &mut Value, from: &Value);
+}
+
+impl<Value, F1: Fn(&Value) -> Value, F2: Fn(&mut Value, &Value)> TwoWayBindingMapping<Value>
+    for (F1, F2)
+{
+    fn map_to(&self, value: &Value) -> Value {
+        (self.0)(value)
+    }
+
+    fn map_from(&self, value: &mut Value, from: &Value) {
+        (self.1)(value, from)
+    }
+}
+
 pub trait PropertyInfo<Item, Value> {
     fn get(&self, item: Pin<&Item>) -> Result<Value, ()>;
     fn set(
@@ -114,13 +133,25 @@ pub trait PropertyInfo<Item, Value> {
     /// the property2 must be a pinned pointer to a Property of the same type
     #[allow(unsafe_code)]
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
+
+    /// Prepare the property for two way binding and return the "common" shared property in the TwoWayBinding
+    fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>>;
+
+    /// Link another property to this property with a mapping function
+    ///
+    /// if the mapper is None, it uses the identity mapping
+    fn link_two_way_with_map(
+        &self,
+        item: Pin<&Item>,
+        property2: Pin<Rc<Property<Value>>>,
+        mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
+    );
 }
 
-impl<Item, T: PartialEq + Clone + 'static, Value: 'static> PropertyInfo<Item, Value>
-    for FieldOffset<Item, crate::Property<T>>
+impl<Item: 'static, T, Value> PropertyInfo<Item, Value> for FieldOffset<Item, Property<T>>
 where
-    Value: TryInto<T>,
-    T: TryInto<Value>,
+    Value: TryInto<T> + Clone + PartialEq + Default + 'static,
+    T: TryInto<Value> + Clone + PartialEq + Default + 'static,
 {
     fn get(&self, item: Pin<&Item>) -> Result<Value, ()> {
         self.apply_pin(item).get().try_into().map_err(|_| ())
@@ -161,8 +192,58 @@ where
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
-        let p2 = Pin::new_unchecked((property2 as *const crate::Property<T>).as_ref().unwrap());
-        crate::Property::link_two_way(p1, p2);
+        let p2 = Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap());
+        Property::link_two_way(p1, p2);
+    }
+
+    fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
+        if let Some(self_) =
+            (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>()
+        {
+            if let Some(p) = Property::check_common_property(self_.apply_pin(item)) {
+                return p;
+            }
+        }
+
+        let p1 = self.apply_pin(item);
+        let value: Value = p1.get_internal().try_into().unwrap_or_default();
+        let shared_property = Rc::pin(Property::new(value));
+        Property::link_two_way_with_map_to_common_property(
+            shared_property.clone(),
+            p1,
+            |v| v.clone().try_into().unwrap_or_default(),
+            |v, v2| *v = v2.clone().try_into().unwrap_or_default(),
+        );
+        shared_property
+    }
+
+    fn link_two_way_with_map(
+        &self,
+        item: Pin<&Item>,
+        prop2: Pin<Rc<Property<Value>>>,
+        mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
+    ) {
+        let prop1 = self.prepare_for_two_way_binding(item);
+
+        match mapper {
+            Some(m1) => {
+                let m2 = m1.clone();
+                Property::link_two_way_with_map_to_common_property(
+                    prop2,
+                    prop1.as_ref(),
+                    move |value| m1.map_to(value),
+                    move |value, value2| m2.map_from(value, value2),
+                );
+            }
+            None => {
+                Property::link_two_way_with_map_to_common_property(
+                    prop2,
+                    prop1.as_ref(),
+                    |value| value.clone(),
+                    |value, value2| *value = value2.clone(),
+                );
+            }
+        }
     }
 }
 
@@ -171,12 +252,12 @@ where
 #[derive(derive_more::Deref)]
 pub struct MaybeAnimatedPropertyInfoWrapper<T, U>(pub FieldOffset<T, U>);
 
-impl<Item, T: Clone + 'static, Value: 'static> PropertyInfo<Item, Value>
-    for MaybeAnimatedPropertyInfoWrapper<Item, crate::Property<T>>
+impl<Item: 'static, T, Value> PropertyInfo<Item, Value>
+    for MaybeAnimatedPropertyInfoWrapper<Item, Property<T>>
 where
-    Value: TryInto<T>,
-    T: TryInto<Value>,
-    T: crate::properties::InterpolatedPropertyValue,
+    Value: TryInto<T> + Clone + PartialEq + Default + 'static,
+    T: TryInto<Value> + Clone + PartialEq + Default + 'static,
+    T: InterpolatedPropertyValue,
 {
     fn get(&self, item: Pin<&Item>) -> Result<Value, ()> {
         self.0.get(item)
@@ -202,12 +283,12 @@ where
     ) -> Result<(), ()> {
         // Put in a function that does not depends on Item to avoid code bloat
         fn set_binding_impl<T, Value>(
-            p: Pin<&crate::Property<T>>,
+            p: Pin<&Property<T>>,
             binding: Box<dyn Fn() -> Value>,
             animation: AnimatedBindingKind,
         ) -> Result<(), ()>
         where
-            T: Clone + TryInto<Value> + crate::properties::InterpolatedPropertyValue + 'static,
+            T: Clone + TryInto<Value> + InterpolatedPropertyValue + 'static,
             Value: TryInto<T> + 'static,
         {
             match animation {
@@ -253,8 +334,21 @@ where
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
-        let p2 = Pin::new_unchecked((property2 as *const crate::Property<T>).as_ref().unwrap());
-        crate::Property::link_two_way(p1, p2);
+        let p2 = Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap());
+        Property::link_two_way(p1, p2);
+    }
+
+    fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
+        self.0.prepare_for_two_way_binding(item)
+    }
+
+    fn link_two_way_with_map(
+        &self,
+        item: Pin<&Item>,
+        property2: Pin<Rc<Property<Value>>>,
+        mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
+    ) {
+        self.0.link_two_way_with_map(item, property2, mapper)
     }
 }
 

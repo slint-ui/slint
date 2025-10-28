@@ -27,6 +27,16 @@ jobs:
         slint: ${{ steps.filter.outputs.slint }}
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
+        internal : ${{ steps.filter.outputs.internal }}
+        api_cpp : ${{ steps.filter.outputs.api_cpp }}
+        api_python : ${{ steps.filter.outputs.api_python }}
+        api_node : ${{ steps.filter.outputs.api_node }}
+        api_rs : ${{ steps.filter.outputs.api_rs }}
+        tests : ${{ steps.filter.outputs.tests }}
+        examples : ${{ steps.filter.outputs.examples }}
+        vsce : ${{ steps.filter.outputs.vsce }}
+        slintpad : ${{ steps.filter.outputs.slintpad }}
+        updater_test : ${{ steps.filter.outputs.updater_test }}
       steps:
         - uses: actions/checkout@v5
         - uses: dorny/paths-filter@v3
@@ -120,7 +130,7 @@ jobs:
 
     node_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
         env:
             RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
@@ -168,7 +178,7 @@ jobs:
 
     python_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -211,9 +221,6 @@ jobs:
             - name: Run mypy
               working-directory: api/python/slint
               run: uv run mypy -p tests -p slint
-            - name: Run mypy on slint-compiler
-              working-directory: api/python/compiler
-              run: uv run mypy slint_compiler
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check
@@ -223,7 +230,7 @@ jobs:
 
     cpp_test_driver:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -261,7 +268,7 @@ jobs:
 
     cpp_cmake:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -358,7 +365,7 @@ jobs:
 
     vsce_build_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.vsce == 'true'
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v5
@@ -398,7 +405,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true'
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -425,7 +432,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std) using embassy
     mcu-embassy:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true'
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -461,7 +468,7 @@ jobs:
 
     ffi_32bit_build:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true'
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v5
@@ -483,14 +490,14 @@ jobs:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
 
-    wasm:
+    slintpad:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.slintpad == 'true'
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
 
     wasm_demo:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true'
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
@@ -507,7 +514,7 @@ jobs:
     # and check that it worked with the interpreter test.
     updater_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.updater_test == 'true'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -578,7 +585,7 @@ jobs:
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -611,7 +618,7 @@ jobs:
 
     esp-idf-quick:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true'
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
@@ -637,7 +644,7 @@ jobs:
 
     android:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
@@ -674,7 +681,7 @@ jobs:
 
     miri:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.internal == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5

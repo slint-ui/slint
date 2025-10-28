@@ -42,3 +42,51 @@ material_components:
  - 'ui-libraries/material/**'
  - *files_in_root
  - *ci_config
+
+internal: &internal
+ - 'internal/**'
+ - 'helper_crates/**'
+ - *files_in_root
+ - *ci_config
+
+api_cpp:
+ - 'api/cpp/**'
+ - 'tools/compiler/**'
+
+api_python:
+ - 'api/python/**'
+
+api_node:
+ - 'api/node/**'
+
+api_rs:
+ - 'api/rs/**'
+
+tests:
+ - 'tests/**'
+
+examples:
+ - 'examples/**'
+ - 'demos/**'
+
+vsce:
+ - *files_in_root
+ - *ci_config
+ - *internal
+ - 'api/rs/**'
+ - 'editors/vscode/**'
+ - 'tools/lsp/**'
+ - 'docs/common/src/utils/slint.tmLanguage.json'
+
+slintpad:
+ - *internal
+ - 'tools/slintpad/**'
+ - 'api/wasm-interpreter/**'
+ - 'tools/lsp/**'
+ - 'api/rs/**'
+ - 'docs/common/src/utils/slint.tmLanguage.json'
+
+updater_test:
+ - *internal
+ - 'tests/cases/**'
+ - 'tools/updater/**'

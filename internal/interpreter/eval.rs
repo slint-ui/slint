@@ -7,7 +7,8 @@ use core::pin::Pin;
 use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
 };
-use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
+use corelib::input::FocusReason;
+use corelib::items::{ColorScheme, ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
@@ -21,8 +22,6 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
-use i_slint_core::input::FocusReason;
-use i_slint_core::items::{ItemRc, WindowItem};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -46,6 +45,15 @@ pub trait ErasedPropertyInfo {
     /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
     /// where T is the same T as the one represented by this property.
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
+
+    fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>>;
+
+    fn link_two_way_with_map(
+        &self,
+        item: Pin<ItemRef>,
+        property2: Pin<Rc<corelib::Property<Value>>>,
+        map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
+    );
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyInfo
@@ -76,6 +84,19 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2)
+    }
+
+    fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>> {
+        (*self).prepare_for_two_way_binding(ItemRef::downcast_pin(item).unwrap())
+    }
+
+    fn link_two_way_with_map(
+        &self,
+        item: Pin<ItemRef>,
+        property2: Pin<Rc<corelib::Property<Value>>>,
+        map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
+    ) {
+        (*self).link_two_way_with_map(ItemRef::downcast_pin(item).unwrap(), property2, map)
     }
 }
 

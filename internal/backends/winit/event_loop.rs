@@ -296,7 +296,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 );
                 let position = position.to_logical(runtime_window.scale_factor() as f64);
                 self.cursor_pos = euclid::point2(position.x, position.y);
-                runtime_window.process_mouse_input(MouseEvent::Moved { position: self.cursor_pos });
+                runtime_window.process_mouse_input(MouseEvent::Moved {
+                    position: self.cursor_pos,
+                    is_touch: false,
+                });
             }
             WindowEvent::CursorLeft { .. } => {
                 // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
@@ -341,11 +344,21 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         }
 
                         self.pressed = true;
-                        MouseEvent::Pressed { position: self.cursor_pos, button, click_count: 0 }
+                        MouseEvent::Pressed {
+                            position: self.cursor_pos,
+                            button,
+                            click_count: 0,
+                            is_touch: false,
+                        }
                     }
                     winit::event::ElementState::Released => {
                         self.pressed = false;
-                        MouseEvent::Released { position: self.cursor_pos, button, click_count: 0 }
+                        MouseEvent::Released {
+                            position: self.cursor_pos,
+                            button,
+                            click_count: 0,
+                            is_touch: false,
+                        }
                     }
                 };
                 runtime_window.process_mouse_input(ev);
@@ -364,6 +377,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                                 position,
                                 button: PointerEventButton::Left,
                                 click_count: 0,
+                                is_touch: true,
                             }
                         }
                         winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
@@ -373,9 +387,12 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                                 position,
                                 button: PointerEventButton::Left,
                                 click_count: 0,
+                                is_touch: true,
                             }
                         }
-                        winit::event::TouchPhase::Moved => MouseEvent::Moved { position },
+                        winit::event::TouchPhase::Moved => {
+                            MouseEvent::Moved { position, is_touch: true }
+                        }
                     };
                     runtime_window.process_mouse_input(ev);
                 }

@@ -92,7 +92,7 @@ impl NamedReference {
                 if check_binding && !b.borrow().analysis.as_ref().is_some_and(|a| a.is_const) {
                     return false;
                 }
-                if !b.borrow().two_way_bindings.iter().all(|n| n.is_constant()) {
+                if !b.borrow().two_way_bindings.iter().all(|n| n.property.is_constant()) {
                     return false;
                 }
                 check_binding = false;

@@ -1660,7 +1660,7 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 description.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let is_state_info = matches!(property_type, Type::Struct (s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")));
+                let is_state_info = matches!(&property_type, Type::Struct (s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)
@@ -1695,9 +1695,18 @@ pub fn instantiate(
                             .unwrap();
                     }
                 }
-                for nr in &binding.two_way_bindings {
-                    // Safety: The compiler must have ensured that the properties exist and are of the same type
-                    prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
+                for twb in &binding.two_way_bindings {
+                    if twb.field_access.is_empty()
+                        && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
+                    {
+                        // Safety: The compiler must have ensured that the properties exist and are of the same type
+                        // (Except for struct and array, which may map to a Value)
+                        prop_info
+                            .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
+                    } else {
+                        let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
+                        prop_info.link_two_way_with_map(item, common, map);
+                    }
                 }
             } else {
                 let item_within_component = &description.items[&elem.id];
@@ -1706,9 +1715,18 @@ pub fn instantiate(
                     item_within_component.rtti.properties.get(prop_name.as_str())
                 {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
-                    for nr in &binding.two_way_bindings {
-                        // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        prop_rtti.link_two_ways(item, get_property_ptr(nr, instance_ref));
+
+                    for twb in &binding.two_way_bindings {
+                        if twb.field_access.is_empty()
+                            && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
+                        {
+                            // Safety: The compiler must have ensured that the properties exist and are of the same type
+                            prop_rtti
+                                .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
+                        } else {
+                            let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
+                            prop_rtti.link_two_way_with_map(item, common, map);
+                        }
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
                         if is_const {
@@ -1766,6 +1784,80 @@ pub fn instantiate(
         }
     }
     self_rc
+}
+
+fn prepare_for_two_way_binding(
+    instance_ref: InstanceRef,
+    twb: &i_slint_compiler::expression_tree::TwoWayBinding,
+) -> (Pin<Rc<Property<Value>>>, Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>>) {
+    let element = twb.property.element();
+    let name = twb.property.name();
+    generativity::make_guard!(guard);
+    let enclosing_component = eval::enclosing_component_instance_for_element(
+        &element,
+        &eval::ComponentInstance::InstanceRef(instance_ref),
+        guard,
+    );
+    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if twb.field_access.is_empty() {
+        None
+    } else {
+        struct FieldAccess(Vec<SmolStr>);
+        impl rtti::TwoWayBindingMapping<Value> for FieldAccess {
+            fn map_to(&self, value: &Value) -> Value {
+                let mut value = value.clone();
+                for f in &self.0 {
+                    match value {
+                        Value::Struct(o) => value = o.get_field(f).cloned().unwrap_or_default(),
+                        Value::Void => return Value::Void,
+                        _ => panic!("Cannot map to a field of a non-struct {value:?}  - {f}"),
+                    }
+                }
+                value
+            }
+            fn map_from(&self, mut value: &mut Value, from: &Value) {
+                for f in &self.0 {
+                    match value {
+                        Value::Struct(o) => {
+                            value = o.0.get_mut(f).expect("field not found while mapping")
+                        }
+                        _ => panic!("Cannot map to a field of a non-struct {value:?}"),
+                    }
+                }
+                *value = from.clone();
+            }
+        }
+        Some(Rc::new(FieldAccess(twb.field_access.clone())))
+    };
+    let common = match enclosing_component {
+        eval::ComponentInstance::InstanceRef(enclosing_component) => {
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
+                if let Some(x) = enclosing_component.description.custom_properties.get(name) {
+                    let item = unsafe { Pin::new_unchecked(&*instance_ref.as_ptr().add(x.offset)) };
+                    let common = x.prop.prepare_for_two_way_binding(item);
+                    return (common, map);
+                };
+            };
+            let item_info = enclosing_component
+                .description
+                .items
+                .get(element.id.as_str())
+                .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, name));
+            let prop_info = item_info
+                .rtti
+                .properties
+                .get(name.as_str())
+                .unwrap_or_else(|| panic!("Property {} not in {}", name, element.id));
+            core::mem::drop(element);
+            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+            prop_info.prepare_for_two_way_binding(item)
+        }
+        eval::ComponentInstance::GlobalComponent(glob) => {
+            glob.as_ref().prepare_for_two_way_binding(name).unwrap()
+        }
+    };
+    (common, map)
 }
 
 pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {

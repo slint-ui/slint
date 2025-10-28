@@ -151,31 +151,84 @@ struct Property
             std::swap(handle, const_cast<Property<T> *>(p2)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
-        struct TwoWayBinding
+        cbindgen_private::slint_property_set_binding(
+                &p1->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
+                TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
+                TwoWayBinding::intercept_binding_fn);
+        cbindgen_private::slint_property_set_binding(
+                &p2->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
+                TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
+                TwoWayBinding::intercept_binding_fn);
+    }
+
+    template<typename T2, typename M1, typename M2>
+    static void link_two_way_with_map(const Property<T> *prop1, const Property<T2> *prop2, M1 map1,
+                                      M2 map2)
+    {
+        // TODO: neither this nor link_two_way manages to re-use a common_property like the Rust
+        // equivalent does.
+
+        auto value = prop1->get();
+        cbindgen_private::PropertyHandleOpaque handle {};
+        if ((prop1->inner._0 & 0b10) == 0b10) {
+            std::swap(handle, const_cast<Property<T> *>(prop1)->inner);
+        }
+        auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
+
+        struct TwoWayBindingWithMap
         {
             std::shared_ptr<Property<T>> common_property;
+            M1 map_to;
+            M2 map_from;
         };
-        auto del_fn = [](void *user_data) { delete reinterpret_cast<TwoWayBinding *>(user_data); };
+        auto del_fn = [](void *user_data) {
+            delete reinterpret_cast<TwoWayBindingWithMap *>(user_data);
+        };
         auto call_fn = [](void *user_data, void *value) {
-            *reinterpret_cast<T *>(value) =
-                    reinterpret_cast<TwoWayBinding *>(user_data)->common_property->get();
+            auto self = reinterpret_cast<TwoWayBindingWithMap *>(user_data);
+            *reinterpret_cast<T2 *>(value) = self->map_to(self->common_property->get());
         };
         auto intercept_fn = [](void *user_data, const void *value) {
-            reinterpret_cast<TwoWayBinding *>(user_data)->common_property->set(
-                    *reinterpret_cast<const T *>(value));
+            auto self = reinterpret_cast<TwoWayBindingWithMap *>(user_data);
+            T old = self->common_property->get();
+            self->map_from(old, *reinterpret_cast<const T2 *>(value));
+            self->common_property->set(old);
             return true;
         };
-        auto intercept_binding_fn = [](void *user_data, void *value) {
-            cbindgen_private::slint_property_set_binding_internal(
-                    &reinterpret_cast<TwoWayBinding *>(user_data)->common_property->inner, value);
+        auto intercept_binding_fn = [](void *user_data, void *t2_binding) {
+            struct BindingMapper
+            {
+                void *t2_binding;
+                M1 map_to;
+                M2 map_from;
+                ~BindingMapper() { cbindgen_private::slint_property_delete_binding(t2_binding); }
+                const BindingMapper &operator=(const BindingMapper &) = delete;
+            };
+            auto self = reinterpret_cast<TwoWayBindingWithMap *>(user_data);
+            cbindgen_private::slint_property_set_binding(
+                    &self->common_property->inner,
+                    [](void *user_data, void *value) {
+                        auto self = reinterpret_cast<BindingMapper *>(user_data);
+                        T &v = *reinterpret_cast<T *>(value);
+                        T2 sub_value = self->map_to(v);
+                        cbindgen_private::slint_property_evaluate_binding(self->t2_binding,
+                                                                          &sub_value);
+                        self->map_from(v, sub_value);
+                    },
+                    new BindingMapper { t2_binding, self->map_to, self->map_from },
+                    [](void *user_data) { delete reinterpret_cast<BindingMapper *>(user_data); },
+                    nullptr, nullptr);
             return true;
         };
-        cbindgen_private::slint_property_set_binding(&p1->inner, call_fn,
-                                                     new TwoWayBinding { common_property }, del_fn,
-                                                     intercept_fn, intercept_binding_fn);
-        cbindgen_private::slint_property_set_binding(&p2->inner, call_fn,
-                                                     new TwoWayBinding { common_property }, del_fn,
-                                                     intercept_fn, intercept_binding_fn);
+
+        cbindgen_private::slint_property_set_binding(
+                &prop1->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
+                TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
+                TwoWayBinding::intercept_binding_fn);
+
+        cbindgen_private::slint_property_set_binding(
+                &prop2->inner, call_fn, new TwoWayBindingWithMap { common_property, map1, map2 },
+                del_fn, intercept_fn, intercept_binding_fn);
     }
 
     /// Internal (private) constructor used by link_two_way
@@ -193,6 +246,36 @@ private:
     mutable T value {};
     template<typename F>
     friend void set_state_binding(const Property<StateInfo> &property, F binding);
+
+    template<typename T2>
+    friend struct Property;
+
+    struct TwoWayBinding
+    {
+        std::shared_ptr<Property<T>> common_property;
+
+        static void del_fn(void *user_data)
+        {
+            delete reinterpret_cast<TwoWayBinding *>(user_data);
+        };
+        static void call_fn(void *user_data, void *value)
+        {
+            *reinterpret_cast<T *>(value) =
+                    reinterpret_cast<TwoWayBinding *>(user_data)->common_property->get();
+        };
+        static bool intercept_fn(void *user_data, const void *value)
+        {
+            reinterpret_cast<TwoWayBinding *>(user_data)->common_property->set(
+                    *reinterpret_cast<const T *>(value));
+            return true;
+        };
+        static bool intercept_binding_fn(void *user_data, void *value)
+        {
+            cbindgen_private::slint_property_set_binding_internal(
+                    &reinterpret_cast<TwoWayBinding *>(user_data)->common_property->inner, value);
+            return true;
+        };
+    };
 };
 
 template<>

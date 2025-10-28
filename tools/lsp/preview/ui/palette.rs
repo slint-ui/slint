@@ -104,21 +104,29 @@ fn collect_colors_palette() -> Vec<ui::PaletteEntry> {
 fn find_binding_expression(
     element: &object_tree::ElementRc,
     property_name: &str,
-) -> Option<expression_tree::BindingExpression> {
+) -> Option<expression_tree::Expression> {
     let property_name = smol_str::SmolStr::from(property_name);
 
     let elem = element.borrow();
     let be = elem.bindings.get(&property_name).map(|be| be.borrow().clone())?;
     if matches!(be.expression, expression_tree::Expression::Invalid) {
-        for nr in &be.two_way_bindings {
-            if let Some(be) = find_binding_expression(&nr.element(), nr.name().as_str()) {
-                return Some(be);
+        for twb in &be.two_way_bindings {
+            if let Some(mut e) =
+                find_binding_expression(&twb.property.element(), twb.property.name().as_str())
+            {
+                for f in &twb.field_access {
+                    e = expression_tree::Expression::StructFieldAccess {
+                        base: e.into(),
+                        name: f.clone(),
+                    };
+                }
+                return Some(e);
             }
         }
 
         None
     } else {
-        Some(be)
+        Some(be.expression)
     }
 }
 
@@ -173,7 +181,6 @@ pub fn evaluate_property(
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> ui::PropertyValue {
     let value = find_binding_expression(element, property_name)
-        .map(|be| be.expression)
         .or(default_value.clone())
         .as_ref()
         .and_then(|element| {
@@ -193,12 +200,9 @@ fn handle_type(
 ) {
     let full_accessor = format!("{global_name}.{property_name}");
 
-    let value = find_binding_expression(element, property_name)
-        .map(|be| be.expression)
-        .as_ref()
-        .and_then(|element| {
-            crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
-        });
+    let value = find_binding_expression(element, property_name).as_ref().and_then(|element| {
+        crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
+    });
 
     handle_type_impl(&full_accessor, value, ty, values);
 }
@@ -366,13 +370,16 @@ global Test {
     out property <color> color3 <=> Other.color3;
     in property <color> color4;
     out property <color> color5: index == 0 ? Other.color1 : Other.color2;
+
+    in-out property <{x: int, y: color}> struct: { x: 0, y: #789 };
+    in-out property color6 <=> struct.y;
 }
 
 export component Main { }
             "#,
         );
         let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
-        assert_eq!(result.len(), 7);
+        assert_eq!(result.len(), 10);
 
         compare(&result[0], "Other.color1", 0x11, 0xff, 0xff);
         compare(&result[1], "Other.color2", 0x22, 0xff, 0xff);
@@ -382,6 +389,9 @@ export component Main { }
         compare(&result[4], "Test.color2", 0x22, 0xff, 0xff);
         compare(&result[5], "Test.color3", 0x33, 0xff, 0xff);
         compare(&result[6], "Test.color5", 0x11, 0xff, 0xff);
+        compare(&result[7], "Test.color6", 0x77, 0x88, 0x99);
+        assert_eq!(result[8].name, "Test.struct.x"); // not a color
+        compare(&result[9], "Test.struct.y", 0x77, 0x88, 0x99);
     }
 
     #[test]
