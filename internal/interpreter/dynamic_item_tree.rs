@@ -1460,9 +1460,8 @@ pub fn animation_for_property(
 
 fn make_callback_eval_closure(
     expr: Expression,
-    self_weak: &ErasedItemTreeBoxWeak,
+    self_weak: ErasedItemTreeBoxWeak,
 ) -> impl Fn(&[Value]) -> Value {
-    let self_weak = self_weak.clone();
     move |args| {
         let self_rc = self_weak.upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -1476,9 +1475,8 @@ fn make_callback_eval_closure(
 
 fn make_binding_eval_closure(
     expr: Expression,
-    self_weak: &ErasedItemTreeBoxWeak,
+    self_weak: ErasedItemTreeBoxWeak,
 ) -> impl Fn() -> Value {
-    let self_weak = self_weak.clone();
     move || {
         let self_rc = self_weak.upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -1608,7 +1606,7 @@ pub fn instantiate(
                         description.custom_callbacks.get(prop_name).filter(|_| is_root)
                     {
                         let callback = callback_offset.apply(instance_ref.as_ref());
-                        callback.set_handler(make_callback_eval_closure(expr, &self_weak));
+                        callback.set_handler(make_callback_eval_closure(expr, self_weak.clone()));
                     } else {
                         let item_within_component = &description.items[&elem.id];
                         let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
@@ -1617,7 +1615,7 @@ pub fn instantiate(
                         {
                             callback.set_handler(
                                 item,
-                                Box::new(make_callback_eval_closure(expr, &self_weak)),
+                                Box::new(make_callback_eval_closure(expr, self_weak.clone())),
                             );
                         } else {
                             panic!("unknown callback {prop_name}")
@@ -1634,7 +1632,7 @@ pub fn instantiate(
                             as *const Property<i_slint_core::properties::StateInfo>),
                     );
                     let e = binding.expression.clone();
-                    let state_binding = make_binding_eval_closure(e, &self_weak);
+                    let state_binding = make_binding_eval_closure(e, self_weak.clone());
                     i_slint_core::properties::set_state_binding(prop, move || {
                         state_binding().try_into().unwrap()
                     });
@@ -1656,7 +1654,7 @@ pub fn instantiate(
                         prop_info
                             .set_binding(
                                 item,
-                                Box::new(make_binding_eval_closure(e, &self_weak)),
+                                Box::new(make_binding_eval_closure(e, self_weak.clone())),
                                 maybe_animation,
                             )
                             .unwrap();
@@ -1713,7 +1711,7 @@ pub fn instantiate(
                             let e = binding.expression.clone();
                             prop_rtti.set_binding(
                                 item,
-                                Box::new(make_binding_eval_closure(e, &self_weak)),
+                                Box::new(make_binding_eval_closure(e, self_weak.clone())),
                                 maybe_animation,
                             );
                         }
@@ -1731,7 +1729,7 @@ pub fn instantiate(
 
         let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
         let expr = rep_in_comp.model.clone();
-        let model_binding_closure = make_binding_eval_closure(expr, &self_weak);
+        let model_binding_closure = make_binding_eval_closure(expr, self_weak.clone());
         if rep_in_comp.is_conditional {
             let bool_model = Rc::new(crate::value_model::BoolModel::default());
             repeater.set_model_binding(move || {
@@ -2582,7 +2580,8 @@ pub fn make_menu_item_tree(
     let item_tree = vtable::VRc::into_dyn(mit_inst);
     let menu = match condition {
         Some(condition) => {
-            let binding = make_binding_eval_closure(condition.clone(), enclosing_component_weak);
+            let binding =
+                make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
             MenuFromItemTree::new_with_condition(item_tree, move || binding().try_into().unwrap())
         }
         None => MenuFromItemTree::new(item_tree),

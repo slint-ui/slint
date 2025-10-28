@@ -488,7 +488,7 @@ impl<T> Drop for IntoIterInner<T> {
     fn drop(&mut self) {
         match self {
             IntoIterInner::Shared(..) => { /* drop of SharedVector takes care of it */ }
-            IntoIterInner::UnShared(mut inner, begin) => unsafe {
+            IntoIterInner::UnShared(inner, begin) => unsafe {
                 debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
                 let data_ptr = inner.as_mut().data.as_mut_ptr();
                 for x in (*begin)..inner.as_ref().header.size {
