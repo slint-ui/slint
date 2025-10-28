@@ -27,15 +27,16 @@ export PATH=$ANDROID_HOME/platform-tools:$PATH
 export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
 ```
 
-### Install platofrm-tools, build-tools
+### Install platofrm-tools, build-tools and ndk
 
 ```bash
 sdkmanager platform-tools "platforms;android-30" "build-tools;34.0.0" "ndk;28.2.13676358"
 ```
 
-### Install cargo apk
+### Add rust target anf install cargo apk
 
-```
+```bash
+rustup target add aarch64-linux-android
 cargo install cargo-apk
 ```
 
