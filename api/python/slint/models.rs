@@ -96,17 +96,13 @@ impl PyModelBase {
     /// Returns the number of rows available in the model.
     #[gen_stub(abstractmethod)]
     fn row_count(&self) -> PyResult<usize> {
-        Err(PyNotImplementedError::new_err(
-            "Model subclasses must override row_count()",
-        ))
+        Err(PyNotImplementedError::new_err("Model subclasses must override row_count()"))
     }
 
     /// Returns the data for the given row in the model.
     #[gen_stub(abstractmethod)]
     fn row_data(&self, _row: usize) -> PyResult<Option<Py<PyAny>>> {
-        Err(PyNotImplementedError::new_err(
-            "Model subclasses must override row_data()",
-        ))
+        Err(PyNotImplementedError::new_err("Model subclasses must override row_data()"))
     }
 
     /// Call this method on mutable models to change the data for the given row.

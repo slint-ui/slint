@@ -133,7 +133,9 @@ def generate_project(
 
     summary_lines: list[str] = []
     struct_note = f" ({struct_only_modules} struct-only)" if struct_only_modules else ""
-    summary_lines.append(f"info: Generated {generated_modules} Python module(s){struct_note}")
+    summary_lines.append(
+        f"info: Generated {generated_modules} Python module(s){struct_note}"
+    )
 
     if output_dir is not None:
         summary_lines.append(
@@ -244,13 +246,16 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
         globals_meta: list[GlobalMeta] = []
         for global_name in comp.globals:
             global_property_info = {
-                info.name: info for info in comp.global_property_infos(global_name) or []
+                info.name: info
+                for info in comp.global_property_infos(global_name) or []
             }
             global_callback_info = {
-                info.name: info for info in comp.global_callback_infos(global_name) or []
+                info.name: info
+                for info in comp.global_callback_infos(global_name) or []
             }
             global_function_info = {
-                info.name: info for info in comp.global_function_infos(global_name) or []
+                info.name: info
+                for info in comp.global_function_infos(global_name) or []
             }
             properties_meta: list[PropertyMeta] = []
 

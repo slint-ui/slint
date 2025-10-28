@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 from __future__ import annotations
 
 import enum
@@ -6,253 +9,288 @@ from typing import Any, Callable
 
 import slint
 
-__all__ = ['Diag', 'App', 'Secret_Struct', 'MyData', 'ImageFit', 'TextHorizontalAlignment', 'SortOrder', 'PointerEventKind', 'ImageRendering', 'ImageTiling', 'OperatingSystemType', 'InputType', 'Orientation', 'TextWrap', 'ScrollBarPolicy', 'ImageVerticalAlignment', 'PointerEventButton', 'TextOverflow', 'LayoutAlignment', 'StandardButtonKind', 'AccessibleRole', 'EventResult', 'MouseCursor', 'AnimationDirection', 'TextVerticalAlignment', 'TextStrokeStyle', 'LineCap', 'ImageHorizontalAlignment', 'FocusReason', 'FillRule', 'ColorScheme', 'PathEvent', 'TestEnum', 'DialogButtonRole', 'PopupClosePolicy', 'MyDiag', 'Public_Struct']
+__all__ = [
+    "Diag",
+    "App",
+    "Secret_Struct",
+    "MyData",
+    "ImageFit",
+    "TextHorizontalAlignment",
+    "SortOrder",
+    "PointerEventKind",
+    "ImageRendering",
+    "ImageTiling",
+    "OperatingSystemType",
+    "InputType",
+    "Orientation",
+    "TextWrap",
+    "ScrollBarPolicy",
+    "ImageVerticalAlignment",
+    "PointerEventButton",
+    "TextOverflow",
+    "LayoutAlignment",
+    "StandardButtonKind",
+    "AccessibleRole",
+    "EventResult",
+    "MouseCursor",
+    "AnimationDirection",
+    "TextVerticalAlignment",
+    "TextStrokeStyle",
+    "LineCap",
+    "ImageHorizontalAlignment",
+    "FocusReason",
+    "FillRule",
+    "ColorScheme",
+    "PathEvent",
+    "TestEnum",
+    "DialogButtonRole",
+    "PopupClosePolicy",
+    "MyDiag",
+    "Public_Struct",
+]
 
 class Secret_Struct:
-    def __init__(self, **kwargs: Any) -> None:
-        ...
+    def __init__(self, **kwargs: Any) -> None: ...
     balance: float
 
 class MyData:
-    def __init__(self, **kwargs: Any) -> None:
-        ...
+    def __init__(self, **kwargs: Any) -> None: ...
     age: float
     name: str
 
 class ImageFit(enum.Enum):
-    fill = 'fill'
-    contain = 'contain'
-    cover = 'cover'
-    preserve = 'preserve'
+    fill = "fill"
+    contain = "contain"
+    cover = "cover"
+    preserve = "preserve"
 
 class TextHorizontalAlignment(enum.Enum):
-    left = 'left'
-    center = 'center'
-    right = 'right'
+    left = "left"
+    center = "center"
+    right = "right"
 
 class SortOrder(enum.Enum):
-    unsorted = 'unsorted'
-    ascending = 'ascending'
-    descending = 'descending'
+    unsorted = "unsorted"
+    ascending = "ascending"
+    descending = "descending"
 
 class PointerEventKind(enum.Enum):
-    cancel = 'cancel'
-    down = 'down'
-    up = 'up'
-    move = 'move'
+    cancel = "cancel"
+    down = "down"
+    up = "up"
+    move = "move"
 
 class ImageRendering(enum.Enum):
-    smooth = 'smooth'
-    pixelated = 'pixelated'
+    smooth = "smooth"
+    pixelated = "pixelated"
 
 class ImageTiling(enum.Enum):
-    none = 'none'
-    repeat = 'repeat'
-    round = 'round'
+    none = "none"
+    repeat = "repeat"
+    round = "round"
 
 class OperatingSystemType(enum.Enum):
-    android = 'android'
-    ios = 'ios'
-    macos = 'macos'
-    linux = 'linux'
-    windows = 'windows'
-    other = 'other'
+    android = "android"
+    ios = "ios"
+    macos = "macos"
+    linux = "linux"
+    windows = "windows"
+    other = "other"
 
 class InputType(enum.Enum):
-    text = 'text'
-    password = 'password'
-    number = 'number'
-    decimal = 'decimal'
+    text = "text"
+    password = "password"
+    number = "number"
+    decimal = "decimal"
 
 class Orientation(enum.Enum):
-    horizontal = 'horizontal'
-    vertical = 'vertical'
+    horizontal = "horizontal"
+    vertical = "vertical"
 
 class TextWrap(enum.Enum):
-    nowrap = 'nowrap'
-    wordwrap = 'wordwrap'
-    charwrap = 'charwrap'
+    nowrap = "nowrap"
+    wordwrap = "wordwrap"
+    charwrap = "charwrap"
 
 class ScrollBarPolicy(enum.Enum):
-    asneeded = 'asneeded'
-    alwaysoff = 'alwaysoff'
-    alwayson = 'alwayson'
+    asneeded = "asneeded"
+    alwaysoff = "alwaysoff"
+    alwayson = "alwayson"
 
 class ImageVerticalAlignment(enum.Enum):
-    center = 'center'
-    top = 'top'
-    bottom = 'bottom'
+    center = "center"
+    top = "top"
+    bottom = "bottom"
 
 class PointerEventButton(enum.Enum):
-    other = 'other'
-    left = 'left'
-    right = 'right'
-    middle = 'middle'
-    back = 'back'
-    forward = 'forward'
+    other = "other"
+    left = "left"
+    right = "right"
+    middle = "middle"
+    back = "back"
+    forward = "forward"
 
 class TextOverflow(enum.Enum):
-    clip = 'clip'
-    elide = 'elide'
+    clip = "clip"
+    elide = "elide"
 
 class LayoutAlignment(enum.Enum):
-    stretch = 'stretch'
-    center = 'center'
-    start = 'start'
-    end = 'end'
-    spacebetween = 'spacebetween'
-    spacearound = 'spacearound'
-    spaceevenly = 'spaceevenly'
+    stretch = "stretch"
+    center = "center"
+    start = "start"
+    end = "end"
+    spacebetween = "spacebetween"
+    spacearound = "spacearound"
+    spaceevenly = "spaceevenly"
 
 class StandardButtonKind(enum.Enum):
-    ok = 'ok'
-    cancel = 'cancel'
-    apply = 'apply'
-    close = 'close'
-    reset = 'reset'
-    help = 'help'
-    yes = 'yes'
-    no = 'no'
-    abort = 'abort'
-    retry = 'retry'
-    ignore = 'ignore'
+    ok = "ok"
+    cancel = "cancel"
+    apply = "apply"
+    close = "close"
+    reset = "reset"
+    help = "help"
+    yes = "yes"
+    no = "no"
+    abort = "abort"
+    retry = "retry"
+    ignore = "ignore"
 
 class AccessibleRole(enum.Enum):
-    none = 'none'
-    button = 'button'
-    checkbox = 'checkbox'
-    combobox = 'combobox'
-    groupbox = 'groupbox'
-    image = 'image'
-    list = 'list'
-    slider = 'slider'
-    spinbox = 'spinbox'
-    tab = 'tab'
-    tablist = 'tablist'
-    tabpanel = 'tabpanel'
-    text = 'text'
-    table = 'table'
-    tree = 'tree'
-    progressindicator = 'progressindicator'
-    textinput = 'textinput'
-    switch = 'switch'
-    listitem = 'listitem'
+    none = "none"
+    button = "button"
+    checkbox = "checkbox"
+    combobox = "combobox"
+    groupbox = "groupbox"
+    image = "image"
+    list = "list"
+    slider = "slider"
+    spinbox = "spinbox"
+    tab = "tab"
+    tablist = "tablist"
+    tabpanel = "tabpanel"
+    text = "text"
+    table = "table"
+    tree = "tree"
+    progressindicator = "progressindicator"
+    textinput = "textinput"
+    switch = "switch"
+    listitem = "listitem"
 
 class EventResult(enum.Enum):
-    reject = 'reject'
-    accept = 'accept'
+    reject = "reject"
+    accept = "accept"
 
 class MouseCursor(enum.Enum):
-    default = 'default'
-    none = 'none'
-    help = 'help'
-    pointer = 'pointer'
-    progress = 'progress'
-    wait = 'wait'
-    crosshair = 'crosshair'
-    text = 'text'
-    alias = 'alias'
-    copy = 'copy'
-    move = 'move'
-    nodrop = 'nodrop'
-    notallowed = 'notallowed'
-    grab = 'grab'
-    grabbing = 'grabbing'
-    colresize = 'colresize'
-    rowresize = 'rowresize'
-    nresize = 'nresize'
-    eresize = 'eresize'
-    sresize = 'sresize'
-    wresize = 'wresize'
-    neresize = 'neresize'
-    nwresize = 'nwresize'
-    seresize = 'seresize'
-    swresize = 'swresize'
-    ewresize = 'ewresize'
-    nsresize = 'nsresize'
-    neswresize = 'neswresize'
-    nwseresize = 'nwseresize'
+    default = "default"
+    none = "none"
+    help = "help"
+    pointer = "pointer"
+    progress = "progress"
+    wait = "wait"
+    crosshair = "crosshair"
+    text = "text"
+    alias = "alias"
+    copy = "copy"
+    move = "move"
+    nodrop = "nodrop"
+    notallowed = "notallowed"
+    grab = "grab"
+    grabbing = "grabbing"
+    colresize = "colresize"
+    rowresize = "rowresize"
+    nresize = "nresize"
+    eresize = "eresize"
+    sresize = "sresize"
+    wresize = "wresize"
+    neresize = "neresize"
+    nwresize = "nwresize"
+    seresize = "seresize"
+    swresize = "swresize"
+    ewresize = "ewresize"
+    nsresize = "nsresize"
+    neswresize = "neswresize"
+    nwseresize = "nwseresize"
 
 class AnimationDirection(enum.Enum):
-    normal = 'normal'
-    reverse = 'reverse'
-    alternate = 'alternate'
-    alternatereverse = 'alternatereverse'
+    normal = "normal"
+    reverse = "reverse"
+    alternate = "alternate"
+    alternatereverse = "alternatereverse"
 
 class TextVerticalAlignment(enum.Enum):
-    top = 'top'
-    center = 'center'
-    bottom = 'bottom'
+    top = "top"
+    center = "center"
+    bottom = "bottom"
 
 class TextStrokeStyle(enum.Enum):
-    outside = 'outside'
-    center = 'center'
+    outside = "outside"
+    center = "center"
 
 class LineCap(enum.Enum):
-    butt = 'butt'
-    round = 'round'
-    square = 'square'
+    butt = "butt"
+    round = "round"
+    square = "square"
 
 class ImageHorizontalAlignment(enum.Enum):
-    center = 'center'
-    left = 'left'
-    right = 'right'
+    center = "center"
+    left = "left"
+    right = "right"
 
 class FocusReason(enum.Enum):
-    programmatic = 'programmatic'
-    tabnavigation = 'tabnavigation'
-    pointerclick = 'pointerclick'
-    popupactivation = 'popupactivation'
-    windowactivation = 'windowactivation'
+    programmatic = "programmatic"
+    tabnavigation = "tabnavigation"
+    pointerclick = "pointerclick"
+    popupactivation = "popupactivation"
+    windowactivation = "windowactivation"
 
 class FillRule(enum.Enum):
-    nonzero = 'nonzero'
-    evenodd = 'evenodd'
+    nonzero = "nonzero"
+    evenodd = "evenodd"
 
 class ColorScheme(enum.Enum):
-    unknown = 'unknown'
-    dark = 'dark'
-    light = 'light'
+    unknown = "unknown"
+    dark = "dark"
+    light = "light"
 
 class PathEvent(enum.Enum):
-    begin = 'begin'
-    line = 'line'
-    quadratic = 'quadratic'
-    cubic = 'cubic'
-    endopen = 'endopen'
-    endclosed = 'endclosed'
+    begin = "begin"
+    line = "line"
+    quadratic = "quadratic"
+    cubic = "cubic"
+    endopen = "endopen"
+    endclosed = "endclosed"
 
 class TestEnum(enum.Enum):
-    Variant1 = 'Variant1'
-    Variant2 = 'Variant2'
+    Variant1 = "Variant1"
+    Variant2 = "Variant2"
 
 class DialogButtonRole(enum.Enum):
-    none = 'none'
-    accept = 'accept'
-    reject = 'reject'
-    apply = 'apply'
-    reset = 'reset'
-    help = 'help'
-    action = 'action'
+    none = "none"
+    accept = "accept"
+    reject = "reject"
+    apply = "apply"
+    reset = "reset"
+    help = "help"
+    action = "action"
 
 class PopupClosePolicy(enum.Enum):
-    closeonclick = 'closeonclick'
-    closeonclickoutside = 'closeonclickoutside'
-    noautoclose = 'noautoclose'
+    closeonclick = "closeonclick"
+    closeonclickoutside = "closeonclickoutside"
+    noautoclose = "noautoclose"
 
 class Diag(slint.Component):
-    def __init__(self, **kwargs: Any) -> None:
-        ...
+    def __init__(self, **kwargs: Any) -> None: ...
     class MyGlobal:
         global_prop: str
         global_callback: Callable[[str], str]
         minus_one: Callable[[int], None]
+
     class SecondGlobal:
         second: str
 
 class App(slint.Component):
-    def __init__(self, **kwargs: Any) -> None:
-        ...
+    def __init__(self, **kwargs: Any) -> None: ...
     builtin_enum: Any
     enum_property: Any
     hello: str
@@ -270,10 +308,10 @@ class App(slint.Component):
         global_prop: str
         global_callback: Callable[[str], str]
         minus_one: Callable[[int], None]
+
     class SecondGlobal:
         second: str
 
 MyDiag = Diag
 
 Public_Struct = Secret_Struct
-

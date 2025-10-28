@@ -35,7 +35,9 @@ def generated_module(tmp_path: Path) -> Any:
     module_path = output_dir / "test_load_file_source.py"
     assert module_path.exists()
 
-    spec = importlib.util.spec_from_file_location("generated_test_load_file", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "generated_test_load_file", module_path
+    )
     assert spec and spec.loader
 
     sys.modules.pop(spec.name, None)

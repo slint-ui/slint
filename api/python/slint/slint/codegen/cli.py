@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     if command not in (None, "generate"):
         parser.error(f"Unknown command: {command}")
         return 1
-    
+
     if not args.inputs:
         print("error: At least one --input must be provided.")
         return 1
