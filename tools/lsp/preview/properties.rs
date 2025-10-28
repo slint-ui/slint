@@ -329,7 +329,7 @@ fn insert_property_definitions(
                 return e;
             }
             for twb in &binding.borrow().two_way_bindings {
-                let mut e = binding_value(&twb.property.element(), twb.property.name(), count);
+                let mut e = binding_value(&twb.base.element(), twb.base.name(), count);
                 if !matches!(e, Expression::Invalid) {
                     for f in &twb.field_access {
                         e = Expression::StructFieldAccess { base: e.into(), name: f.clone() }

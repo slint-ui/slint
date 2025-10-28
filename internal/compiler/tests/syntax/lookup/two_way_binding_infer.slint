@@ -22,7 +22,7 @@ export X := Rectangle {
 
     property auto_background <=> background;
     property <string> alias_to_background <=> auto_background;
-//                                        >                  <error{The property does not have the same type as the bound property}
+//                                        >                  <error{The property 'alias-to-background' does not have the same type as the bound expression: string != brush}
 
 
     property abc <=> self.opacity;

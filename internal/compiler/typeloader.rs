@@ -599,9 +599,20 @@ impl Snapshotter {
             two_way_bindings: binding_expression
                 .two_way_bindings
                 .iter()
-                .map(|twb| crate::expression_tree::TwoWayBinding {
-                    property: twb.property.snapshot(self),
-                    field_access: twb.field_access.clone(),
+                .map(|twb| match twb {
+                    crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                        crate::expression_tree::TwoWayBinding::Property {
+                            property: property.snapshot(self),
+                            field_access: field_access.clone(),
+                        }
+                    }
+                    crate::expression_tree::TwoWayBinding::Model {
+                        repeated_element,
+                        field_access,
+                    } => crate::expression_tree::TwoWayBinding::Model {
+                        repeated_element: repeated_element.clone(),
+                        field_access: field_access.clone(),
+                    },
                 })
                 .collect(),
         }

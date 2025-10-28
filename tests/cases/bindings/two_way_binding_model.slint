@@ -1,0 +1,111 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { ListView } from "std-widgets.slint";
+struct ModelItem {
+    name: string,
+    checked: bool,
+    value: int,
+}
+
+
+component CheckBox {
+    width: 50px;
+    in-out property <bool> checked;
+    callback toggled(bool);
+    Rectangle {
+        background: checked ? green : red;
+    }
+
+    TouchArea {
+        clicked => {
+            checked = !checked;
+            toggled(checked);
+        }
+    }
+}
+
+component ItemViewer {
+    in-out property <ModelItem> item;
+    callback toggled <=> chk.toggled;
+    HorizontalLayout {
+        TextInput {
+            text <=> item.name;
+        }
+
+        chk := CheckBox { checked <=> item.checked; }
+    }
+}
+
+component ItemListView {
+    callback action(string);
+    in-out property <[ModelItem]> model;
+    VerticalLayout {
+        for itm[idx] in model : HorizontalLayout {
+            CheckBox {
+                checked <=> itm.checked;
+                toggled(checked) => {
+                    action("ChkA:" + idx + ":" + (checked ? "on" : "off"));
+                }
+            }
+            ItemViewer {
+                item <=> itm;
+            }
+        }
+
+    }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+
+    in-out property <[ModelItem]> model;
+    in-out property <string> result;
+
+    ItemListView {
+        model <=> model;
+        action(s) => {
+            result += s + "\n";
+        }
+    }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "xyz".into() });
+instance.set_xyz("abc".into());
+assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "abc".into() });
+
+assert_eq!(instance.get_inner_xyz(), "abc");
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert(instance.get_value() == (MyStruct { .value = 13, .name = "Olivier", .xyz = "xyz" }));
+instance.set_xyz("abc");
+assert(instance.get_value() == (MyStruct { .value = 13, .name = "Olivier", .xyz = "abc" }));
+assert_eq(instance.get_inner_xyz(), "abc");
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.deepEqual(instance.value, { name: "Olivier", value: 13, xyz: "xyz" });
+instance.xyz = "abc";
+assert.deepEqual(instance.value, { name: "Olivier", value: 13, xyz: "abc" });
+assert.equal(instance.inner_xyz, "abc");
+```
+
+*/

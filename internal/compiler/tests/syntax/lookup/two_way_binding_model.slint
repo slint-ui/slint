@@ -7,8 +7,54 @@ struct Foo {
 
 export component Testcase  {
     property <[Foo]> model;
-    for item in model: Text {
+    for item[idx] in model: Text {
         text <=> item.field;
-//               >        <error{Two-way bindings to model data is not supported yet}
+//      >                  <error{The property 'text' does not have the same type as the bound expression: string != <error>}
+
+        property <Foo> p1 <=> item;
+//                        >       <error{The property 'p1' does not have the same type as the bound expression: Foo != <error>}
+        property <string> p2 <=> item;
+//                           >       <error{The property 'p2' does not have the same type as the bound expression: string != <error>}
+        property <int> p3 <=> idx;
+//                        >      <error{The expression in a two way binding must be a property reference}
+
+        property p4 <=> item;
+//      >                   <error{Could not infer type of property 'p4'}
+
+        property p5 <=> item.field;
+//      >                         <error{Could not infer type of property 'p5'}
+        property <int> p6: p5;
+
+        property <int> p7 <=> item.nope;
+//                        >            <error{The property 'p7' does not have the same type as the bound expression: int != <error>}
+        property <int> p8: item.nope;
+//                              >  <error{Cannot access the field 'nope'}
+
+        property p10 <=> item.field.is-empty;
+//      >                                   <error{Could not infer type of property 'p10'}
+        property p11 <=> item.field.nope;
+//      >                               <error{Could not infer type of property 'p11'}
+
+        inner := Rectangle {
+            property i1 <=> item.field;
+//          >                         <error{Could not infer type of property 'i1'}
+            property i2 <=> item;
+//          >                   <error{Could not infer type of property 'i2'}
+        }
+
+        callback cb1 <=> item;
+        callback cb2 <=> item.field;
+        init => { cb1(); }
+//                >   <error{The expression is not a function}
     }
+
+    property err1 <=> inner.i1;
+//                    >      <error{Cannot access id 'inner'}
+//  >                         <^error{Could not infer type of property 'err1'}
+    property err2 <=> inner.i2;
+//                    >      <error{Cannot access id 'inner'}
+//  >                         <^error{Could not infer type of property 'err2'}
+    property <int> err3: err1;
+    property <int> err4: err2.field;
+//                            >   <error{Cannot access the field 'field' of <error>}
 }
