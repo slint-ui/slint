@@ -20,6 +20,7 @@ export component TextField {
     in property <bool> read_only <=> input.read_only;
     out property <bool> has_focus: input.has_focus;
     in_out property <string> text <=> input.text;
+    in property <InputType> input-type;
 
     callback leading_icon_clicked();
     callback trailing_icon_clicked();
@@ -88,6 +89,7 @@ export component TextField {
                             enabled: root.enabled;
                              // Disable TextInput's built-in accessibility support as the component takes care of that.
                             accessible-role: none;
+                            input-type: root.input-type;
 
                             cursor_position_changed(cursor_position) => {
                                 if cursor_position.x + root.computed_x < 0 {
