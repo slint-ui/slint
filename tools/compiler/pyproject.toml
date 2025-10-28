@@ -11,6 +11,13 @@ classifiers = [
 ]
 dynamic = ["version"]
 
+[project.urls]
+Homepage = "https://slint.dev"
+Documentation = "https://slint.dev/docs"
+Repository = "https://github.com/slint-ui/slint"
+Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
+Tracker = "https://github.com/slint-ui/slint/issues"
+
 [tool.maturin]
 bindings = "bin"
 manifest-path = "Cargo.toml"
