@@ -63,7 +63,7 @@ def test_basic_compiler() -> None:
 
     assert compdef.globals == ["TestGlobal"]
 
-    assert compdef.global_properties("Garbage") is None
+    assert compdef.global_properties("Garbage") == {}
     assert [
         (name, type) for name, type in compdef.global_properties("TestGlobal").items()
     ] == [("theglobalprop", ValueType.String)]

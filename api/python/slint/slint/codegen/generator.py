@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+import enum
 import shutil
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
-from .. import core as _core
 from ..api import _normalize_prop
 from ..core import Brush, Color, CompilationResult, Compiler, DiagnosticLevel, Image
 from .emitters import write_python_module, write_stub_module
@@ -74,27 +75,27 @@ def generate_project(
             failed_files.append(relative)
             continue
 
-        artifacts = _collect_metadata(compilation)
+        source_descriptor = str(relative)
+        artifacts = _collect_metadata(compilation, source_descriptor)
 
         sanitized_stem = _normalize_prop(source_path.stem)
 
         if output_dir is None:
-            module_dir = source_path.parent
-            target_stem = module_dir / sanitized_stem
-            copy_slint = False
+            base_dir = source_path.parent
             slint_destination = source_path
             resource_name = source_path.name
             source_descriptor = source_path.name
+            copy_slint = False
         else:
-            module_dir = output_dir / relative.parent
-            module_dir.mkdir(parents=True, exist_ok=True)
-            _ensure_package_marker(module_dir)
-            target_stem = module_dir / sanitized_stem
-            copy_slint = True
-            slint_destination = module_dir / relative.name
+            base_dir = output_dir / relative.parent
+            base_dir.mkdir(parents=True, exist_ok=True)
+            _ensure_package_marker(base_dir)
+            slint_destination = base_dir / relative.name
             resource_name = relative.name
             source_descriptor = str(relative)
+            copy_slint = True
 
+        target_stem = base_dir / sanitized_stem
         write_python_module(
             target_stem.with_suffix(".py"),
             source_relative=source_descriptor,
@@ -215,8 +216,13 @@ def _compile_slint(
     return result
 
 
-def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
+def _collect_metadata(result: CompilationResult, source_descriptor: str) -> ModuleArtifacts:
     components: list[ComponentMeta] = []
+    used_enum_class_names: set[str] = set()
+    component_enum_props: dict[str, dict[str, str]] = defaultdict(dict)
+    global_enum_props: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
+    struct_enum_fields: dict[str, dict[str, str]] = defaultdict(dict)
+    used_enum_class_names: set[str] = set()
 
     for name in result.component_names:
         comp = result.component(name)
@@ -302,6 +308,31 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
             )
         )
 
+        try:
+            instance = comp.create()
+        except Exception:
+            instance = None
+
+        if instance is not None:
+            for prop_name in comp.properties.keys():
+                try:
+                    value = instance.get_property(prop_name)
+                except Exception:
+                    continue
+                if isinstance(value, enum.Enum):
+                    used_enum_class_names.add(value.__class__.__name__)
+                    component_enum_props[name][prop_name] = value.__class__.__name__
+
+            for global_meta in globals_meta:
+                for prop in global_meta.properties:
+                    try:
+                        value = instance.get_global_property(global_meta.name, prop.name)
+                    except Exception:
+                        continue
+                    if isinstance(value, enum.Enum):
+                        used_enum_class_names.add(value.__class__.__name__)
+                        global_enum_props[(name, global_meta.name)][prop.name] = value.__class__.__name__
+
     structs_meta: list[StructMeta] = []
     enums_meta: list[EnumMeta] = []
     structs, enums = result.structs_and_enums
@@ -309,6 +340,9 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
     for struct_name, struct_prototype in structs.items():
         fields: list[StructFieldMeta] = []
         for field_name, value in struct_prototype:
+            if isinstance(value, enum.Enum):
+                used_enum_class_names.add(value.__class__.__name__)
+                struct_enum_fields[struct_name][field_name] = value.__class__.__name__
             fields.append(
                 StructFieldMeta(
                     name=field_name,
@@ -321,6 +355,7 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
                 name=struct_name,
                 py_name=_normalize_prop(struct_name),
                 fields=fields,
+                is_builtin=False,
             )
         )
 
@@ -332,18 +367,64 @@ def _collect_metadata(result: CompilationResult) -> ModuleArtifacts:
                     name=member,
                     py_name=_normalize_prop(member),
                     value=enum_member.name,
-                )
             )
-        core_enum = getattr(_core, enum_name, None)
-        is_builtin = core_enum is enum_cls
+        )
+
+        is_used = enum_name in used_enum_class_names
+
         enums_meta.append(
             EnumMeta(
                 name=enum_name,
                 py_name=_normalize_prop(enum_name),
                 values=values,
-                is_builtin=is_builtin,
+                is_builtin=False,
+                is_used=is_used,
             )
         )
+
+    enum_py_name_map = {enum.name: enum.py_name for enum in enums_meta if not enum.is_builtin}
+
+    for component_meta in components:
+        overrides = component_enum_props.get(component_meta.name, {})
+        for prop in component_meta.properties:
+            class_name = overrides.get(prop.name)
+            if class_name:
+                if class_name in enum_py_name_map:
+                    prop.type_hint = enum_py_name_map[class_name]
+                else:
+                    print(
+                        f"warning: {source_descriptor}: property '{prop.name}' of component '{component_meta.name}' "
+                        f"relies on enum '{class_name}' that is not declared in this module; falling back to Any",
+                    )
+                    prop.type_hint = "Any"
+
+        for global_meta in component_meta.globals:
+            overrides = global_enum_props.get((component_meta.name, global_meta.name), {})
+            for prop in global_meta.properties:
+                class_name = overrides.get(prop.name)
+                if class_name:
+                    if class_name in enum_py_name_map:
+                        prop.type_hint = enum_py_name_map[class_name]
+                    else:
+                        print(
+                        f"warning: {source_descriptor}: global '{global_meta.name}.{prop.name}' relies on enum '{class_name}' "
+                        "that is not declared in this module; falling back to Any",
+                    )
+                        prop.type_hint = "Any"
+
+    for struct_meta in structs_meta:
+        overrides = struct_enum_fields.get(struct_meta.name, {})
+        for field in struct_meta.fields:
+            class_name = overrides.get(field.name)
+            if class_name:
+                if class_name in enum_py_name_map:
+                    field.type_hint = enum_py_name_map[class_name]
+                else:
+                    print(
+                        f"warning: {source_descriptor}: struct '{struct_meta.name}.{field.name}' relies on enum '{class_name}' "
+                        "that is not declared in this module; falling back to Any",
+                    )
+                    field.type_hint = "Any"
 
     named_exports = [(orig, alias) for orig, alias in result.named_exports]
     resource_paths = [Path(path) for path in result.resource_paths]

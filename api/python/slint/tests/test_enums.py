@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import inspect
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,6 @@ import pytest
 from slint import ListModel, core
 from slint.codegen.generator import generate_project
 from slint.codegen.models import GenerationConfig
-from slint.core import TextHorizontalAlignment, TextVerticalAlignment
 
 
 def _slint_source() -> Path:
@@ -83,15 +83,9 @@ def test_enums(generated_module: Any) -> None:
     del instance
 
 
-def test_builtin_enums_exposed() -> None:
-    assert TextHorizontalAlignment.left.name == "left"
-    assert TextVerticalAlignment.top.name == "top"
-    assert TextHorizontalAlignment.left != TextHorizontalAlignment.right
-
-
 def test_builtin_enum_property_roundtrip() -> None:
     compiler = core.Compiler()
-    comp = compiler.build_from_source(
+    result = compiler.build_from_source(
         """
         export component Test {
             in-out property <TextHorizontalAlignment> horizontal: TextHorizontalAlignment.left;
@@ -103,29 +97,104 @@ def test_builtin_enum_property_roundtrip() -> None:
         }
         """,
         Path(""),
-    ).component("Test")
+    )
 
+    comp = result.component("Test")
+    assert comp is not None
+
+    _, enums = result.structs_and_enums
+    assert "TextHorizontalAlignment" not in enums
+    assert "TextVerticalAlignment" not in enums
+
+    instance = comp.create()
+    assert instance is not None
+
+    horizontal = instance.get_property("horizontal")
+    vertical = instance.get_property("vertical")
+
+    horizontal_cls = horizontal.__class__
+    vertical_cls = vertical.__class__
+
+    assert horizontal_cls.__name__ == "TextHorizontalAlignment"
+    assert vertical_cls.__name__ == "TextVerticalAlignment"
+    assert horizontal == horizontal_cls.left
+    assert vertical == vertical_cls.top
+
+    instance.set_property("horizontal", horizontal_cls.right)
+    instance.set_property("vertical", vertical_cls.bottom)
+
+    assert instance.get_property("horizontal") == horizontal_cls.right
+    assert instance.get_property("vertical") == vertical_cls.bottom
+
+
+def test_builtin_enum_keyword_variants_have_safe_names() -> None:
+    compiler = core.Compiler()
+    result = compiler.build_from_source(
+        """
+        export component Test {
+            in-out property <AccessibleRole> role: AccessibleRole.none;
+            in-out property <DialogButtonRole> button_role: DialogButtonRole.none;
+        }
+        """,
+        Path(""),
+    )
+
+    _, enums = result.structs_and_enums
+    assert "AccessibleRole" not in enums
+    assert "DialogButtonRole" not in enums
+
+    comp = result.component("Test")
     assert comp is not None
     instance = comp.create()
     assert instance is not None
 
-    assert instance.get_property("horizontal") == TextHorizontalAlignment.left
-    assert instance.get_property("vertical") == TextVerticalAlignment.top
-
-    instance.set_property("horizontal", TextHorizontalAlignment.right)
-    instance.set_property("vertical", TextVerticalAlignment.bottom)
-
-    assert instance.get_property("horizontal") == TextHorizontalAlignment.right
-    assert instance.get_property("vertical") == TextVerticalAlignment.bottom
-
-
-def test_builtin_enum_keyword_variants_have_safe_names() -> None:
-    keyword_enums = (
-        core.AccessibleRole,
-        core.DialogButtonRole,
-    )
-
-    for enum_cls in keyword_enums:
+    for prop_name in ("role", "button_role"):
+        enum_value = instance.get_property(prop_name)
+        enum_cls = enum_value.__class__
         members = enum_cls.__members__
         assert "none" in members
         assert members["none"].value == "none"
+
+
+def test_user_enum_exported_and_builtin_hidden() -> None:
+    source = inspect.cleandoc(
+        """
+        export struct Custom {
+            value: int,
+        }
+
+        export enum CustomEnum {
+            first,
+            second,
+        }
+
+        export global Data {
+            in-out property <Custom> custom;
+        }
+
+        export component Test inherits Window {
+            in-out property <Custom> data <=> Data.custom;
+            in-out property <CustomEnum> mode;
+            callback pointer_event(event: PointerEvent);
+            width: 100px;
+            height: 100px;
+            TouchArea { }
+        }
+        """
+    )
+
+    compiler = core.Compiler()
+    result = compiler.build_from_source(source, Path(""))
+
+    structs, enums = result.structs_and_enums
+    assert "CustomEnum" in enums
+    assert "PointerEventButton" not in enums
+
+    component = result.component("Test")
+    assert component is not None
+    instance = component.create()
+    assert instance is not None
+
+    CustomEnum = enums["CustomEnum"]
+    instance.set_property("mode", CustomEnum.second)
+    assert instance.get_property("mode") == CustomEnum.second

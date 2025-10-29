@@ -1,0 +1,32 @@
+export struct OptionalInt {
+    maybe_value: int,
+}
+
+export struct OptionalFloat {
+    maybe_value: float,
+}
+
+export struct OptionalString {
+    maybe_value: string,
+}
+
+export struct OptionalBool {
+    maybe_value: bool,
+}
+
+export enum OptionalEnum {
+    OptionA,
+    OptionB,
+    OptionC,
+}
+
+
+
+export component OptionalDemo {
+    in-out property <OptionalInt> maybe_count;
+    callback on_action(value: OptionalFloat) -> OptionalInt;
+
+    public function compute(input: OptionalString) -> OptionalBool {
+        return { maybe_value: true };
+    }
+}

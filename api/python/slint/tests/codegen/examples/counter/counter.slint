@@ -6,6 +6,8 @@ export component CounterWindow inherits Window {
     height: 120px;
 
     in-out property <int> counter: 0;
+    // text alignment
+    in-out property <TextHorizontalAlignment> alignment: TextHorizontalAlignment.center;
     callback request_increase();
 
     Rectangle {

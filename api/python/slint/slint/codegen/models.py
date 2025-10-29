@@ -63,6 +63,7 @@ class StructMeta:
     name: str
     py_name: str
     fields: List[StructFieldMeta]
+    is_builtin: bool
 
 
 @dataclass(slots=True)
@@ -78,6 +79,7 @@ class EnumMeta:
     py_name: str
     values: List[EnumValueMeta]
     is_builtin: bool
+    is_used: bool
 
 
 @dataclass(slots=True)

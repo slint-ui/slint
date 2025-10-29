@@ -20,11 +20,8 @@ class CounterApp(CounterWindow):
         self.counter += 1
 
 
-def main() -> None:
+if __name__ == "__main__":
     app = CounterApp()
     app.show()
+    # slint.run_event_loop_blocking()
     app.run()
-
-
-if __name__ == "__main__":
-    main()

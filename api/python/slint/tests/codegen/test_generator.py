@@ -41,6 +41,7 @@ def _write_slint_fixture(target_dir: Path) -> Path:
             width: 160px;
             height: 80px;
             in-out property <int> counter: SharedLogic.total;
+            in-out property <TextHorizontalAlignment> alignment: TextHorizontalAlignment.center;
             callback activated(int);
 
             public function reset() -> int {
@@ -50,6 +51,7 @@ def _write_slint_fixture(target_dir: Path) -> Path:
 
             Text {
                 text: counter;
+                horizontal-alignment: alignment;
             }
         }
         """
@@ -143,16 +145,27 @@ def test_generate_project_creates_runtime_and_stub(tmp_path: Path) -> None:
     assert "class Choice" in stub_src
     assert "class SharedLogic" in stub_src
     assert "counter: int" in stub_src
+    assert "TextHorizontalAlignment" not in stub_src
+    assert "alignment: Any" in stub_src
     assert "activated: Callable[[int], None]" in stub_src
     assert "reset: Callable[[], int]" in stub_src
     assert "notify: Callable[[int], None]" in stub_src
-    assert "from typing import Any, Callable" in stub_src
+    assert "from typing import" in stub_src
+    assert "Any" in stub_src
+    assert "Callable" in stub_src
+    assert "def __init__(self, *, " in stub_src
+    assert "value:" in stub_src
+    assert "label:" in stub_src
 
     module = _load_module(py_file)
     assert hasattr(module, "AppWindow")
     instance = module.AppWindow()
     assert hasattr(instance, "show")
     assert instance.reset() == 0
+    alignment = instance.alignment
+    alignment_type = alignment.__class__
+    assert alignment_type.__name__ == "TextHorizontalAlignment"
+    assert alignment == alignment_type.center
 
     config_struct = module.Config(value=5, label="demo")
     assert config_struct.value == 5
@@ -196,7 +209,10 @@ def test_generate_optional_type_hints(tmp_path: Path) -> None:
     assert "maybe_count: Optional[int]" in stub_src
     assert "on_action: Callable[[Optional[float]], Optional[int]]" in stub_src
     assert "compute: Callable[[Optional[str]], Optional[bool]]" in stub_src
-    assert "from typing import Any, Callable, Optional" in stub_src
+    assert "from typing import" in stub_src
+    assert "Any" in stub_src
+    assert "Callable" in stub_src
+    assert "Optional" in stub_src
 
 
 def test_cli_main_without_subcommand(tmp_path: Path) -> None:
@@ -222,9 +238,20 @@ def test_counter_example_workflow(tmp_path: Path) -> None:
     subprocess.run([sys.executable, "generate.py"], cwd=example_copy, check=True)
     generated_py = example_copy / "counter.py"
     assert generated_py.exists()
+    package_init = tmp_path / "examples" / "__init__.py"
+    package_init.parent.mkdir(parents=True, exist_ok=True)
+    package_init.touch()
 
     sys.path.insert(0, str(tmp_path))
     try:
+        for name in [
+            "examples.counter.main",
+            "examples.counter.counter",
+            "examples.counter",
+            "examples",
+        ]:
+            sys.modules.pop(name, None)
+        assert importlib.util.find_spec("examples.counter.counter") is not None
         module = importlib.import_module("examples.counter.main")
     finally:
         sys.path.pop(0)

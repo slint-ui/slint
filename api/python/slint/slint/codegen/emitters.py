@@ -3,14 +3,15 @@
 
 from __future__ import annotations
 
+import inspect
 import os
+import re
 from pathlib import Path
 
 import libcst as cst
 
 from ..api import _normalize_prop
-from .models import CallbackMeta, GenerationConfig, ModuleArtifacts
-import inspect
+from .models import CallbackMeta, GenerationConfig, ModuleArtifacts, StructMeta
 
 
 def module_relative_path_expr(module_dir: Path, target: Path) -> str:
@@ -29,6 +30,70 @@ def module_relative_path_expr(module_dir: Path, target: Path) -> str:
             continue
         expr += f" / {repr(part)}"
     return expr
+
+
+def _collect_export_bindings(
+    artifacts: ModuleArtifacts, *, include_builtin_enums: bool
+) -> dict[str, str]:
+    bindings: dict[str, str] = {}
+
+    for component in artifacts.components:
+        bindings[component.name] = component.py_name
+
+    for struct in artifacts.structs:
+        bindings[struct.name] = struct.py_name
+
+    for enum in artifacts.enums:
+        if enum.is_builtin and not include_builtin_enums:
+            continue
+        if not enum.is_builtin:
+            bindings[enum.name] = enum.py_name
+        elif include_builtin_enums:
+            bindings[enum.name] = enum.py_name
+
+    return bindings
+
+
+def _format_import(module: str, names: list[str]) -> str:
+    if not names:
+        raise ValueError("Expected at least one name to import")
+
+    if len(names) == 1:
+        return f"from {module} import {names[0]}"
+
+    joined = ",\n    ".join(names)
+    return f"from {module} import (\n    {joined},\n)"
+
+
+def _unique_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _collect_named_aliases(
+    artifacts: ModuleArtifacts,
+    export_bindings: dict[str, str],
+    *,
+    allowed_originals: set[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    alias_names: list[str] = []
+    alias_statements: list[str] = []
+
+    for original, alias in artifacts.named_exports:
+        if allowed_originals is not None and original not in allowed_originals:
+            continue
+        alias_name = _normalize_prop(alias)
+        target = export_bindings.get(original, _normalize_prop(original))
+        alias_names.append(alias_name)
+        alias_statements.append(f"{alias_name} = {target}")
+
+    return alias_names, alias_statements
 
 
 def _write_struct_python_module(
@@ -229,15 +294,7 @@ def write_python_module(
         repr(Path(config.translation_domain)) if config.translation_domain else "None"
     )
 
-    export_bindings: dict[str, str] = {}
-    for component in artifacts.components:
-        export_bindings[component.name] = component.py_name
-    for struct in artifacts.structs:
-        export_bindings[struct.name] = struct.py_name
-    for enum in artifacts.enums:
-        if enum.is_builtin:
-            continue
-        export_bindings[enum.name] = enum.py_name
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
 
     export_items = list(export_bindings.values()) + [
         _normalize_prop(alias) for _, alias in artifacts.named_exports
@@ -353,24 +410,20 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     def _stmt(code: str) -> cst.BaseStatement:
         return cst.parse_statement(code)
 
-    typing_imports = {"Any", "Callable"}
+    typing_imports: set[str] = set()
 
     def register_type(type_str: str) -> None:
-        if "Optional[" in type_str:
-            typing_imports.add("Optional")
-        if "Literal[" in type_str:
-            typing_imports.add("Literal")
-        if "Union[" in type_str:
-            typing_imports.add("Union")
-
-    preamble: list[cst.CSTNode] = [
-        _stmt("from __future__ import annotations"),
-        cst.EmptyLine(),
-        _stmt("import enum"),
-        cst.EmptyLine(),
-    ]
+        if not type_str:
+            return
+        normalized = type_str.replace("typing.", "")
+        tokens = set(token for token in re.split(r"[^A-Za-z_]+", normalized) if token)
+        for token in ("Any", "Callable", "Literal", "Optional", "Union"):
+            if token in tokens:
+                typing_imports.add(token)
 
     post_body: list[cst.CSTNode] = []
+
+    needs_enum_import = any(not enum.is_builtin for enum in artifacts.enums)
 
     export_names = [component.py_name for component in artifacts.components]
     export_names += [struct.py_name for struct in artifacts.structs]
@@ -409,7 +462,39 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     def ellipsis_line() -> cst.BaseStatement:
         return cst.SimpleStatementLine([cst.Expr(value=cst.Ellipsis())])
 
-    def init_stub() -> cst.FunctionDef:
+    def ellipsis_suite() -> cst.BaseSuite:
+        return cst.SimpleStatementSuite([cst.Expr(value=cst.Ellipsis())])
+
+    def struct_init_stub(struct: StructMeta) -> cst.FunctionDef:
+        params = [cst.Param(name=cst.Name("self"))]
+        kwonly_params: list[cst.Param] = []
+
+        for field in struct.fields:
+            register_type(field.type_hint)
+            kwonly_params.append(
+                cst.Param(
+                    name=cst.Name(field.py_name),
+                    annotation=cst.Annotation(
+                        annotation=cst.parse_expression(field.type_hint)
+                    ),
+                    default=cst.Ellipsis(),
+                )
+            )
+
+        parameters = cst.Parameters(params=params, kwonly_params=kwonly_params)
+
+        if not struct.fields:
+            parameters = cst.Parameters(params=params)
+
+        return cst.FunctionDef(
+            name=cst.Name("__init__"),
+            params=parameters,
+            returns=cst.Annotation(annotation=cst.Name("None")),
+            body=ellipsis_suite(),
+        )
+
+    def component_init_stub() -> cst.FunctionDef:
+        typing_imports.add("Any")
         return cst.FunctionDef(
             name=cst.Name("__init__"),
             params=cst.Parameters(
@@ -420,11 +505,11 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
                 ),
             ),
             returns=cst.Annotation(annotation=cst.Name("None")),
-            body=cst.IndentedBlock(body=[ellipsis_line()]),
+            body=ellipsis_suite(),
         )
 
     for struct in artifacts.structs:
-        struct_body: list[cst.BaseStatement] = [init_stub()]
+        struct_body: list[cst.BaseStatement] = [struct_init_stub(struct)]
         if struct.fields:
             for field in struct.fields:
                 register_type(field.type_hint)
@@ -474,7 +559,7 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
         post_body.append(cst.EmptyLine())
 
     for component in artifacts.components:
-        component_body: list[cst.BaseStatement] = [init_stub()]
+        component_body: list[cst.BaseStatement] = [component_init_stub()]
         for prop in component.properties:
             register_type(prop.type_hint)
             component_body.append(ann_assign(prop.py_name, prop.type_hint))
@@ -533,9 +618,8 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
     for struct in artifacts.structs:
         bindings[struct.name] = struct.py_name
     for enum_meta in artifacts.enums:
-        if enum_meta.is_builtin:
-            continue
-        bindings[enum_meta.name] = enum_meta.py_name
+        if not enum_meta.is_builtin:
+            bindings[enum_meta.name] = enum_meta.py_name
 
     for orig, alias in artifacts.named_exports:
         alias_name = _normalize_prop(alias)
@@ -543,13 +627,339 @@ def write_stub_module(path: Path, *, artifacts: ModuleArtifacts) -> None:
         post_body.append(_stmt(f"{alias_name} = {target}"))
         post_body.append(cst.EmptyLine())
 
-    typing_alias = ", ".join(sorted(typing_imports))
-    preamble.append(_stmt(f"from typing import {typing_alias}"))
-    preamble.append(cst.EmptyLine())
-    preamble.append(_stmt("import slint"))
-    preamble.append(cst.EmptyLine())
+    module_body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+        cst.EmptyLine(),
+    ]
 
-    body = preamble + post_body
+    import_statements: list[cst.CSTNode] = []
+
+    if needs_enum_import:
+        import_statements.append(_stmt("import enum"))
+
+    typing_names = sorted(typing_imports)
+    if typing_names:
+        import_statements.append(_stmt(_format_import("typing", typing_names)))
+
+    if artifacts.components:
+        import_statements.append(_stmt("import slint"))
+
+    if import_statements:
+        module_body.extend(import_statements)
+        module_body.append(cst.EmptyLine())
+
+    module_body.extend(post_body)
+
+    module = cst.Module(body=module_body)  # type: ignore[arg-type]
+    path.write_text(module.code, encoding="utf-8")
+
+
+def write_package_init(
+    path: Path,
+    *,
+    source_relative: str,
+    artifacts: ModuleArtifacts,
+) -> None:
+    def _stmt(code: str) -> cst.BaseStatement:
+        return cst.parse_statement(code)
+
+    header: list[cst.CSTNode] = [
+        cst.EmptyLine(comment=cst.Comment(f"# Generated by slint.codegen from {source_relative}"))
+    ]
+
+    body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+        cst.EmptyLine(),
+        _stmt("from . import enums, structs"),
+    ]
+
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
+    symbol_names = list(export_bindings.values())
+
+    if symbol_names:
+        body.append(cst.EmptyLine())
+        body.append(_stmt(_format_import("._generated", symbol_names)))
+
+    enum_names = {enum.name for enum in artifacts.enums if not enum.is_builtin}
+    struct_names = {struct.name for struct in artifacts.structs}
+    component_names = {component.name for component in artifacts.components}
+    allowed_for_init = enum_names | struct_names | component_names
+
+    alias_names, alias_statements = _collect_named_aliases(
+        artifacts,
+        export_bindings,
+        allowed_originals=allowed_for_init,
+    )
+
+    if alias_statements:
+        body.append(cst.EmptyLine())
+        for stmt in alias_statements:
+            body.append(_stmt(stmt))
+
+    export_names = _unique_preserve_order(symbol_names + alias_names + ["enums", "structs"])
+    body.append(cst.EmptyLine())
+    all_list = cst.List(
+        elements=[cst.Element(cst.SimpleString(repr(name))) for name in export_names]
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(cst.Name("__all__"))],
+                    value=all_list,
+                )
+            ]
+        )
+    )
+
+    module = cst.Module(body=header + body)  # type: ignore[arg-type]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(module.code, encoding="utf-8")
+
+
+def write_package_init_stub(path: Path, *, artifacts: ModuleArtifacts) -> None:
+    def _stmt(code: str) -> cst.BaseStatement:
+        return cst.parse_statement(code)
+
+    body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+        cst.EmptyLine(),
+        _stmt("from . import enums, structs"),
+    ]
+
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
+    symbol_names = list(export_bindings.values())
+
+    if symbol_names:
+        body.append(cst.EmptyLine())
+        body.append(_stmt(_format_import("._generated", symbol_names)))
+
+    enum_original = {enum.name for enum in artifacts.enums if not enum.is_builtin}
+    struct_original = {struct.name for struct in artifacts.structs}
+    component_original = {component.name for component in artifacts.components}
+    allowed_for_init = enum_original | struct_original | component_original
+    alias_names, alias_statements = _collect_named_aliases(
+        artifacts,
+        export_bindings,
+        allowed_originals=set(allowed_for_init),
+    )
+
+    if alias_statements:
+        body.append(cst.EmptyLine())
+        for stmt in alias_statements:
+            body.append(_stmt(stmt))
+
+    export_names = _unique_preserve_order(symbol_names + alias_names + ["enums", "structs"])
+    body.append(cst.EmptyLine())
+    all_list = cst.List(
+        elements=[cst.Element(cst.SimpleString(repr(name))) for name in export_names]
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(cst.Name("__all__"))],
+                    value=all_list,
+                )
+            ]
+        )
+    )
+
+    module = cst.Module(body=body)  # type: ignore[arg-type]
+    path.write_text(module.code, encoding="utf-8")
+
+
+def write_package_enums(path: Path, *, source_relative: str, artifacts: ModuleArtifacts) -> None:
+    def _stmt(code: str) -> cst.BaseStatement:
+        return cst.parse_statement(code)
+
+    header: list[cst.CSTNode] = [
+        cst.EmptyLine(comment=cst.Comment(f"# Generated by slint.codegen from {source_relative}"))
+    ]
+
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
+    user_enum_names = [enum.py_name for enum in artifacts.enums if not enum.is_builtin]
+
+    body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+    ]
+
+    if user_enum_names:
+        body.append(cst.EmptyLine())
+        body.append(_stmt(_format_import("._generated", user_enum_names)))
+
+    enum_originals = {enum.name for enum in artifacts.enums if not enum.is_builtin}
+    alias_names, alias_statements = _collect_named_aliases(
+        artifacts,
+        export_bindings,
+        allowed_originals=enum_originals,
+    )
+
+    if alias_statements:
+        body.append(cst.EmptyLine())
+        for stmt in alias_statements:
+            body.append(_stmt(stmt))
+
+    export_names = _unique_preserve_order(user_enum_names + alias_names)
+    body.append(cst.EmptyLine())
+    all_list = cst.List(
+        elements=[cst.Element(cst.SimpleString(repr(name))) for name in export_names]
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(cst.Name("__all__"))],
+                    value=all_list,
+                )
+            ]
+        )
+    )
+
+    module = cst.Module(body=header + body)  # type: ignore[arg-type]
+    path.write_text(module.code, encoding="utf-8")
+
+
+def write_package_enums_stub(path: Path, *, artifacts: ModuleArtifacts) -> None:
+    def _stmt(code: str) -> cst.BaseStatement:
+        return cst.parse_statement(code)
+
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
+    user_enum_names = [enum.py_name for enum in artifacts.enums if not enum.is_builtin]
+
+    body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+    ]
+
+    if user_enum_names:
+        body.append(cst.EmptyLine())
+        body.append(_stmt(_format_import("._generated", user_enum_names)))
+
+    enum_originals = {enum.name for enum in artifacts.enums if not enum.is_builtin}
+    alias_names, alias_statements = _collect_named_aliases(
+        artifacts,
+        export_bindings,
+        allowed_originals=enum_originals,
+    )
+
+    if alias_statements:
+        body.append(cst.EmptyLine())
+        for stmt in alias_statements:
+            body.append(_stmt(stmt))
+
+    export_names = _unique_preserve_order(user_enum_names + alias_names)
+    body.append(cst.EmptyLine())
+    all_list = cst.List(
+        elements=[cst.Element(cst.SimpleString(repr(name))) for name in export_names]
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(cst.Name("__all__"))],
+                    value=all_list,
+                )
+            ]
+        )
+    )
+
+    module = cst.Module(body=body)  # type: ignore[arg-type]
+    path.write_text(module.code, encoding="utf-8")
+
+
+def write_package_structs(path: Path, *, source_relative: str, artifacts: ModuleArtifacts) -> None:
+    def _stmt(code: str) -> cst.BaseStatement:
+        return cst.parse_statement(code)
+
+    header: list[cst.CSTNode] = [
+        cst.EmptyLine(comment=cst.Comment(f"# Generated by slint.codegen from {source_relative}"))
+    ]
+
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
+    struct_names = [struct.py_name for struct in artifacts.structs]
+
+    body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+    ]
+
+    if struct_names:
+        body.append(cst.EmptyLine())
+        body.append(_stmt(_format_import("._generated", struct_names)))
+
+    struct_originals = {struct.name for struct in artifacts.structs}
+    alias_names, alias_statements = _collect_named_aliases(
+        artifacts,
+        export_bindings,
+        allowed_originals=struct_originals,
+    )
+
+    if alias_statements:
+        body.append(cst.EmptyLine())
+        for stmt in alias_statements:
+            body.append(_stmt(stmt))
+
+    export_names = _unique_preserve_order(struct_names + alias_names)
+    body.append(cst.EmptyLine())
+    all_list = cst.List(
+        elements=[cst.Element(cst.SimpleString(repr(name))) for name in export_names]
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(cst.Name("__all__"))],
+                    value=all_list,
+                )
+            ]
+        )
+    )
+
+    module = cst.Module(body=header + body)  # type: ignore[arg-type]
+    path.write_text(module.code, encoding="utf-8")
+
+
+def write_package_structs_stub(path: Path, *, artifacts: ModuleArtifacts) -> None:
+    def _stmt(code: str) -> cst.BaseStatement:
+        return cst.parse_statement(code)
+
+    export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
+    struct_names = [struct.py_name for struct in artifacts.structs]
+
+    body: list[cst.CSTNode] = [
+        _stmt("from __future__ import annotations"),
+    ]
+
+    if struct_names:
+        body.append(cst.EmptyLine())
+        body.append(_stmt(_format_import("._generated", struct_names)))
+
+    struct_originals = {struct.name for struct in artifacts.structs}
+    alias_names, alias_statements = _collect_named_aliases(
+        artifacts,
+        export_bindings,
+        allowed_originals=struct_originals,
+    )
+
+    if alias_statements:
+        body.append(cst.EmptyLine())
+        for stmt in alias_statements:
+            body.append(_stmt(stmt))
+
+    export_names = _unique_preserve_order(struct_names + alias_names)
+    body.append(cst.EmptyLine())
+    all_list = cst.List(
+        elements=[cst.Element(cst.SimpleString(repr(name))) for name in export_names]
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(cst.Name("__all__"))],
+                    value=all_list,
+                )
+            ]
+        )
+    )
 
     module = cst.Module(body=body)  # type: ignore[arg-type]
     path.write_text(module.code, encoding="utf-8")
@@ -568,4 +978,10 @@ __all__ = [
     "module_relative_path_expr",
     "write_python_module",
     "write_stub_module",
+    "write_package_init",
+    "write_package_init_stub",
+    "write_package_enums",
+    "write_package_enums_stub",
+    "write_package_structs",
+    "write_package_structs_stub",
 ]
