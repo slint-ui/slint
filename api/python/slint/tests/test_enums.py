@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import importlib.abc
 import importlib.util
 import sys
 import inspect
+import typing
 from pathlib import Path
-from typing import Any
+from types import ModuleType
 
 import pytest
 from slint import ListModel, core
@@ -20,7 +22,7 @@ def _slint_source() -> Path:
 
 
 @pytest.fixture
-def generated_module(tmp_path: Path) -> Any:
+def generated_module(tmp_path: Path) -> ModuleType:
     slint_file = _slint_source()
     output_dir = tmp_path / "generated"
     config = GenerationConfig(
@@ -43,11 +45,12 @@ def generated_module(tmp_path: Path) -> Any:
     sys.modules.pop(spec.name, None)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)  # type: ignore[arg-type]
-    return module
+    loader = typing.cast(importlib.abc.Loader, spec.loader)
+    loader.exec_module(module)
+    return typing.cast(ModuleType, module)
 
 
-def test_enums(generated_module: Any) -> None:
+def test_enums(generated_module: ModuleType) -> None:
     module = generated_module
 
     TestEnum = module.TestEnum

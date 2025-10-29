@@ -3,23 +3,23 @@
 
 from __future__ import annotations
 
-import importlib
+from importlib import import_module, reload
 from types import ModuleType
-from typing import TYPE_CHECKING
-
-import test_load_file_source as generated_module
 
 
-def _module():
-    if TYPE_CHECKING:
-        return generated_module
+def _module() -> ModuleType:
+    """
+    Return a fresh instance of the generated module for each call.
 
-    # Reload to ensure a fresh module for each call
-    return importlib.reload(generated_module)
+    Using a dynamic import keeps mypy from requiring type information for the
+    generated module, while runtime callers still get the reloaded module.
+    """
+    module = import_module("test_load_file_source")
+    return reload(module)
 
 
 def test_codegen_module_exports() -> None:
-    module = _module()
+    module: ModuleType = _module()
 
     expected_exports = {
         "App",
@@ -50,7 +50,7 @@ def test_codegen_module_exports() -> None:
 
 
 def test_generated_module_wrapper() -> None:
-    module = _module()
+    module: ModuleType = _module()
 
     instance = module.App()
 
@@ -71,7 +71,7 @@ def test_generated_module_wrapper() -> None:
 
 
 def test_constructor_kwargs() -> None:
-    module = _module()
+    module: ModuleType = _module()
 
     def early_say_hello(arg: str) -> str:
         return "early:" + arg

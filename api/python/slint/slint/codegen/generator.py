@@ -61,9 +61,9 @@ def generate_project(
     if config.style:
         compiler.style = config.style
     if config.include_paths:
-        compiler.include_paths = config.include_paths.copy()  # type: ignore[assignment]
+        compiler.include_paths = config.include_paths.copy()
     if config.library_paths:
-        compiler.library_paths = config.library_paths.copy()  # type: ignore[assignment]
+        compiler.library_paths = config.library_paths.copy()
     if config.translation_domain:
         compiler.set_translation_domain(config.translation_domain)
 
@@ -208,10 +208,10 @@ def _compile_slint(
             print(f"   warning: {warn}")
 
     if fatal_errors:
-        print(f"error: Compilation of {source_relative} failed & skiped with errors:")
+        print(f"error: Compilation of {source_relative} failed & skipped with errors:")
         for fatal in fatal_errors:
             print(f"   error: {fatal}")
-        return
+        return None
 
     return result
 
@@ -220,7 +220,6 @@ def _collect_metadata(
     result: CompilationResult, source_descriptor: str
 ) -> ModuleArtifacts:
     components: list[ComponentMeta] = []
-    used_enum_class_names: set[str] = set()
     component_enum_props: dict[str, dict[str, str]] = defaultdict(dict)
     global_enum_props: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
     struct_enum_fields: dict[str, dict[str, str]] = defaultdict(dict)
@@ -367,7 +366,7 @@ def _collect_metadata(
 
     for enum_name, enum_cls in enums.items():
         values: list[EnumValueMeta] = []
-        for member, enum_member in enum_cls.__members__.items():  # type: ignore
+        for member, enum_member in enum_cls.__members__.items():
             values.append(
                 EnumValueMeta(
                     name=member,

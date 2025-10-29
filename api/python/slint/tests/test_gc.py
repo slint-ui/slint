@@ -66,7 +66,7 @@ def test_struct_gc() -> None:
     instance: core.ComponentInstance | None = compdef.create()
     assert instance is not None
 
-    model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3])
+    model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3]) # type: ignore
     assert model
     assert model.row_count() == 3
 
@@ -94,7 +94,7 @@ def test_properties_gc() -> None:
     instance: core.ComponentInstance | None = compdef.create()
     assert instance is not None
 
-    model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3])
+    model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3]) # type: ignore
     assert model
     assert model.row_count() == 3
 

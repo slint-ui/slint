@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import importlib.util
+import importlib.abc
 import inspect
 import sys
+import typing
+from types import ModuleType
 from pathlib import Path
 
 import pytest
@@ -81,7 +84,7 @@ def test_user_structs_exported_and_builtin_hidden() -> None:
 
 
 @pytest.fixture
-def generated_struct_module(tmp_path: Path):
+def generated_struct_module(tmp_path: Path) -> ModuleType:
     slint_file = Path(__file__).with_name("test-load-file-source.slint")
     output_dir = tmp_path / "generated"
     config = GenerationConfig(
@@ -100,11 +103,14 @@ def generated_struct_module(tmp_path: Path):
     module = importlib.util.module_from_spec(spec)
     sys.modules.pop(spec.name, None)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)  # type: ignore[arg-type]
-    return module
+    loader = typing.cast(importlib.abc.Loader, spec.loader)
+    loader.exec_module(module)
+    return typing.cast(ModuleType, module)
 
 
-def test_struct_accepts_keywords_only(generated_struct_module) -> None:
+def test_struct_accepts_keywords_only(
+    generated_struct_module: ModuleType,
+) -> None:
     MyData = generated_struct_module.MyData
 
     with pytest.raises(TypeError, match="keyword arguments only"):
@@ -115,7 +121,9 @@ def test_struct_accepts_keywords_only(generated_struct_module) -> None:
     assert instance.age == 42
 
 
-def test_struct_rejects_unknown_keywords(generated_struct_module) -> None:
+def test_struct_rejects_unknown_keywords(
+    generated_struct_module: ModuleType,
+) -> None:
     MyData = generated_struct_module.MyData
 
     with pytest.raises(TypeError, match="unexpected keyword"):  # noqa: PT012

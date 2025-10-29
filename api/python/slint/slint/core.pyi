@@ -68,7 +68,7 @@ class Brush:
         Returns a new version of this brush with the related color's opacities
         set to `alpha`.
         """
-    def __eq__(self, other: Brush) -> builtins.bool: ...
+    def __eq__(self, other: object) -> builtins.bool: ...
 
 @typing.final
 class CallbackInfo:
@@ -145,7 +145,7 @@ class Color:
         Returns a new version of this color with the opacity set to `alpha`.
         """
     def __str__(self) -> builtins.str: ...
-    def __eq__(self, other: Color) -> builtins.bool: ...
+    def __eq__(self, other: object) -> builtins.bool: ...
 
 @typing.final
 class CompilationResult:
@@ -184,10 +184,10 @@ class Compiler:
     def __new__(cls) -> Self: ...
     def set_translation_domain(self, domain: builtins.str) -> None: ...
     def build_from_path(
-        self, path: builtins.str | os.PathLike | pathlib.Path
+        self, path: builtins.str | os.PathLike[builtins.str] | pathlib.Path
     ) -> CompilationResult: ...
     def build_from_source(
-        self, source_code: builtins.str, path: builtins.str | os.PathLike | pathlib.Path
+        self, source_code: builtins.str, path: builtins.str | os.PathLike[builtins.str] | pathlib.Path
     ) -> CompilationResult: ...
 
 @typing.final
@@ -293,7 +293,7 @@ class Image:
         """
     def __new__(cls) -> Self: ...
     @staticmethod
-    def load_from_path(path: builtins.str | os.PathLike | pathlib.Path) -> Image:
+    def load_from_path(path: builtins.str | os.PathLike[builtins.str] | pathlib.Path) -> Image:
         r"""
         Loads the image from the specified path. Returns None if the image can't be loaded.
         """

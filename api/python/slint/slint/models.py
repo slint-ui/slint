@@ -16,7 +16,7 @@ class Model[T](core.PyModelBase, ABC, Iterable[T]):
 
     Models are iterable and can be used in for loops."""
 
-    def __new__(cls, *args: Any):
+    def __new__(cls, *args: Any) -> "Model[T]":
         return super().__new__(cls)
 
     def __init__(self) -> None:
@@ -46,20 +46,18 @@ class ListModel[T](Model[T]):
     in UI they're used with.
     """
 
-    def __init__(self, iterable: typing.Optional[Iterable[T]] = None):
+    def __init__(self, iterable: typing.Optional[Iterable[T]] = None) -> None:
         """Constructs a new ListModel from the give iterable. All the values
         the iterable produces are stored in a list."""
 
         super().__init__()
-        if iterable is not None:
-            self.list = list(iterable)
-        else:
-            self.list = []
+        items = list(iterable) if iterable is not None else []
+        self.list = typing.cast(list[T], items)
 
     def row_count(self) -> int:
         return len(self.list)
 
-    def row_data(self, row: int) -> typing.Optional[T]:
+    def row_data(self, row: int) -> T:
         return self.list[row]
 
     def set_row_data(self, row: int, data: T) -> None:
@@ -84,7 +82,7 @@ class ListModel[T](Model[T]):
 
 
 class ModelIterator[T](Iterator[T]):
-    def __init__(self, model: Model[T]):
+    def __init__(self, model: Model[T]) -> None:
         self.model = model
         self.index = 0
 
@@ -98,4 +96,4 @@ class ModelIterator[T](Iterator[T]):
         self.index += 1
         data = self.model.row_data(index)
         assert data is not None
-        return data
+        return typing.cast(T, data)

@@ -10,7 +10,7 @@ import pytest
 import slint
 
 
-def test_run_event_loop_handles_sigint():
+def test_run_event_loop_handles_sigint() -> None:
     def trigger_sigint() -> None:
         # Allow the event loop to start before raising the signal.
         time.sleep(0.1)

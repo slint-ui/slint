@@ -198,11 +198,11 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             self._stopping = False
             asyncio.events._set_running_loop(None)
 
-    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:  # type: ignore[override]
+    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:
         if self._core_loop_started and not self._core_loop_running:
             return asyncio.selector_events.BaseSelectorEventLoop.run_until_complete(
                 self, future
-            )  # type: ignore[misc]
+            )
 
         def stop_loop(future: typing.Any) -> None:
             self.stop()
@@ -300,7 +300,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             when=self.time(), callback=callback, args=args, loop=self, context=context
         )
         self._soon_tasks.append(handle)
-        self.call_later(0, self._flush_soon_tasks)  # type: ignore
+        self.call_later(0, self._flush_soon_tasks) # type: ignore
         return handle
 
     def _flush_soon_tasks(self) -> None:
@@ -333,4 +333,4 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         if isinstance(selector, _SlintSelector):
             selector._wakeup()
         else:
-            super()._write_to_self()  # type: ignore[attr-defined]
+            asyncio.SelectorEventLoop._write_to_self(self) # type: ignore

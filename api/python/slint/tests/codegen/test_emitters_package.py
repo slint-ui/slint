@@ -6,6 +6,8 @@ import importlib
 import keyword
 import sys
 import types
+import typing
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -17,7 +19,7 @@ def _read_all_symbols(path: Path) -> list[str]:
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id == "__all__":
-                    return ast.literal_eval(node.value)
+                    return typing.cast(list[str], ast.literal_eval(node.value))
     raise AssertionError(f"Missing __all__ in {path}")
 
 
@@ -34,7 +36,9 @@ def _collect_generated_imports(path: Path) -> list[str]:
 
 
 @pytest.fixture()
-def emitters_modules(monkeypatch: pytest.MonkeyPatch):
+def emitters_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[tuple[types.ModuleType, types.ModuleType]]:
     root = Path(__file__).resolve().parents[2]
 
     slint_pkg = types.ModuleType("slint")
