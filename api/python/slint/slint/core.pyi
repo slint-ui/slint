@@ -187,7 +187,9 @@ class Compiler:
         self, path: builtins.str | os.PathLike[builtins.str] | pathlib.Path
     ) -> CompilationResult: ...
     def build_from_source(
-        self, source_code: builtins.str, path: builtins.str | os.PathLike[builtins.str] | pathlib.Path
+        self,
+        source_code: builtins.str,
+        path: builtins.str | os.PathLike[builtins.str] | pathlib.Path,
     ) -> CompilationResult: ...
 
 @typing.final
@@ -293,7 +295,9 @@ class Image:
         """
     def __new__(cls) -> Self: ...
     @staticmethod
-    def load_from_path(path: builtins.str | os.PathLike[builtins.str] | pathlib.Path) -> Image:
+    def load_from_path(
+        path: builtins.str | os.PathLike[builtins.str] | pathlib.Path,
+    ) -> Image:
         r"""
         Loads the image from the specified path. Returns None if the image can't be loaded.
         """

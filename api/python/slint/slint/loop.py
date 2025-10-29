@@ -300,7 +300,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             when=self.time(), callback=callback, args=args, loop=self, context=context
         )
         self._soon_tasks.append(handle)
-        self.call_later(0, self._flush_soon_tasks) # type: ignore
+        self.call_later(0, self._flush_soon_tasks)  # type: ignore
         return handle
 
     def _flush_soon_tasks(self) -> None:
@@ -333,4 +333,4 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         if isinstance(selector, _SlintSelector):
             selector._wakeup()
         else:
-            asyncio.SelectorEventLoop._write_to_self(self) # type: ignore
+            asyncio.SelectorEventLoop._write_to_self(self)  # type: ignore
