@@ -120,7 +120,7 @@ fn resolve_alias(
                 ty = twb.ty();
             }
         }
-        Some(twb @ TwoWayBinding::Model { .. }) => {
+        Some(twb @ TwoWayBinding::ModelData { .. }) => {
             ty = twb.ty();
         }
         None => (),

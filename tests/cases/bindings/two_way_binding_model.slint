@@ -12,6 +12,7 @@ struct ModelItem {
 
 component CheckBox {
     width: 50px;
+    height: 50px;
     in-out property <bool> checked;
     callback toggled(bool);
     Rectangle {
@@ -29,6 +30,7 @@ component CheckBox {
 component ItemViewer {
     in-out property <ModelItem> item;
     callback toggled <=> chk.toggled;
+    height: 50px;
     HorizontalLayout {
         TextInput {
             text <=> item.name;
@@ -36,6 +38,7 @@ component ItemViewer {
 
         chk := CheckBox { checked <=> item.checked; }
     }
+
 }
 
 component ItemListView {
@@ -46,11 +49,14 @@ component ItemListView {
             CheckBox {
                 checked <=> itm.checked;
                 toggled(checked) => {
-                    action("ChkA:" + idx + ":" + (checked ? "on" : "off"));
+                    action("ChkA:" + idx + ":" + (checked ? "on" : "off") + ":" + itm.name);
                 }
             }
-            ItemViewer {
+            iv := ItemViewer {
                 item <=> itm;
+                toggled(checked) => {
+                    action("ChkB:" + idx + ":" + (checked ? "on" : "off") + ":" + itm.name);
+                }
             }
         }
 
@@ -61,14 +67,25 @@ export component TestCase inherits Window {
     width: 500px;
     height: 500px;
 
-    in-out property <[ModelItem]> model;
+    in-out property <[ModelItem]> model: [
+        { name: "Olivier", checked: true, value: 1 },
+        { name: "Simon", checked: true, value: 2 },
+        { name: "Auri", checked: false, value: 3 },
+    ];
     in-out property <string> result;
 
     ItemListView {
         model <=> model;
         action(s) => {
+            debug(s);
             result += s + "\n";
         }
+    }
+
+    Text {
+        text: result;
+        x: 0px;
+        y: 0px;
     }
 }
 

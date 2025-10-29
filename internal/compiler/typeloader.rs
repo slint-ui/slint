@@ -606,10 +606,10 @@ impl Snapshotter {
                             field_access: field_access.clone(),
                         }
                     }
-                    crate::expression_tree::TwoWayBinding::Model {
+                    crate::expression_tree::TwoWayBinding::ModelData {
                         repeated_element,
                         field_access,
-                    } => crate::expression_tree::TwoWayBinding::Model {
+                    } => crate::expression_tree::TwoWayBinding::ModelData {
                         repeated_element: repeated_element.clone(),
                         field_access: field_access.clone(),
                     },

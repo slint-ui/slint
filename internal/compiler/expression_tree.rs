@@ -1579,7 +1579,7 @@ pub enum TwoWayBinding {
         /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
         field_access: Vec<SmolStr>,
     },
-    Model {
+    ModelData {
         /// The model being linked
         repeated_element: ElementWeak,
         /// same as `Self::Property::field_access`
@@ -1590,7 +1590,7 @@ impl TwoWayBinding {
     pub fn ty(&self) -> Type {
         let (mut ty, field_access) = match self {
             Self::Property { property, field_access } => (property.ty(), field_access),
-            Self::Model { repeated_element, field_access } => {
+            Self::ModelData { repeated_element, field_access } => {
                 let ty =
                     Expression::RepeaterModelReference { element: repeated_element.clone() }.ty();
                 (ty, field_access)
@@ -1609,14 +1609,14 @@ impl TwoWayBinding {
     pub fn is_constant(&self) -> bool {
         match self {
             Self::Property { property, .. } => property.is_constant(),
-            Self::Model { .. } => false,
+            Self::ModelData { .. } => false,
         }
     }
 
     pub fn property(&self) -> Option<&NamedReference> {
         match self {
             Self::Property { property, .. } => Some(property),
-            Self::Model { .. } => None,
+            Self::ModelData { .. } => None,
         }
     }
 }

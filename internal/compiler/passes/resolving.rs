@@ -2146,19 +2146,25 @@ pub fn resolve_two_way_binding(
                         let mut prop = unwrap_fields(base)?;
                         let field_access = match &mut prop {
                             TwoWayBinding::Property { field_access, .. } => field_access,
-                            TwoWayBinding::Model { field_access, .. } => field_access,
+                            TwoWayBinding::ModelData { field_access, .. } => field_access,
                         };
                         field_access.push(name.clone());
                         Some(prop)
                     }
-                    Expression::RepeaterModelReference { element } => Some(TwoWayBinding::Model {
-                        repeated_element: element.clone(),
-                        field_access: vec![],
-                    }),
+                    Expression::RepeaterModelReference { element } => {
+                        Some(TwoWayBinding::ModelData {
+                            repeated_element: element.clone(),
+                            field_access: vec![],
+                        })
+                    }
                     _ => None,
                 }
             }
             if let Some(result) = unwrap_fields(&expression) {
+                if result.property().is_none() {
+                    ctx.diag.push_warning("TODO: type checking".into(), &node);
+                    return Some(result);
+                }
                 let expr_ty = expression.ty();
                 if report_error && expr_ty != ctx.property_type {
                     ctx.diag.push_error(
