@@ -60,7 +60,6 @@ impl PyModelBase {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyModelBase {
-    #[gen_stub(skip)]
     #[new]
     fn new() -> Self {
         Self {

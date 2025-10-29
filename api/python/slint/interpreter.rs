@@ -242,6 +242,7 @@ impl ComponentDefinition {
         self.definition.name()
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Dict[str, typing.Any]", imports = ("typing",)))]
     #[getter]
     fn properties(&self) -> IndexMap<String, PyValueType> {
         self.definition
@@ -298,6 +299,7 @@ impl ComponentDefinition {
             .collect()
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Dict[str, typing.Any]", imports = ("typing",)))]
     fn global_properties(&self, name: &str) -> IndexMap<String, PyValueType> {
         self.definition
             .global_properties_and_callbacks(name)
@@ -402,7 +404,6 @@ impl ComponentDefinition {
     }
 }
 
-#[gen_stub_pyclass_enum]
 #[pyclass(name = "ValueType", eq, eq_int)]
 #[derive(PartialEq)]
 pub enum PyValueType {

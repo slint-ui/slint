@@ -272,7 +272,19 @@ def _build_class(
 
 
 def _build_struct(name: str, struct_prototype: PyStruct) -> type:
+    field_names = {field_name for field_name, _ in struct_prototype}
+
     def new_struct(cls: Any, *args: Any, **kwargs: Any) -> PyStruct:
+        if args:
+            raise TypeError(f"{name}() accepts keyword arguments only")
+
+        unexpected = set(kwargs) - field_names
+        if unexpected:
+            formatted = ", ".join(sorted(unexpected))
+            raise TypeError(
+                f"{name}() got unexpected keyword argument(s): {formatted}"
+            )
+
         inst = copy.copy(struct_prototype)
 
         for prop, val in kwargs.items():
