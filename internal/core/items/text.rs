@@ -294,7 +294,7 @@ impl Item for MarkdownText {
             _ => InputEventResult::EventIgnored,
         }
     }
-    
+
     #[cfg(not(feature = "experimental-rich-text"))]
     fn input_event(
         self: Pin<&Self>,
