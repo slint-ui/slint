@@ -7,9 +7,6 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::OnceLock;
 
-use i_slint_core::api::CloseRequestResponse;
-use i_slint_core::platform::WindowEvent;
-
 use pyo3::IntoPyObjectExt;
 use pyo3_stub_gen::derive::*;
 use slint_interpreter::{ComponentHandle, Value};
