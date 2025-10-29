@@ -6,6 +6,7 @@ import asyncio.events
 import asyncio.selector_events
 import datetime
 import selectors
+import socket
 import typing
 from collections.abc import Mapping
 
@@ -46,6 +47,11 @@ class _SlintSelector(selectors.BaseSelector):
         self.fd_to_selector_key: typing.Dict[typing.Any, selectors.SelectorKey] = {}
         self.mapping = _SlintSelectorMapping(self)
         self.adapters: typing.Dict[int, core.AsyncAdapter] = {}
+        self._base_selector = selectors.DefaultSelector()
+        self._wakeup_reader, self._wakeup_writer = socket.socketpair()
+        self._wakeup_reader.setblocking(False)
+        self._wakeup_writer.setblocking(False)
+        self._base_selector.register(self._wakeup_reader, selectors.EVENT_READ)
 
     def register(
         self, fileobj: typing.Any, events: typing.Any, data: typing.Any = None
@@ -62,6 +68,11 @@ class _SlintSelector(selectors.BaseSelector):
         if events & selectors.EVENT_WRITE:
             adapter.wait_for_writable(self.write_notify)
 
+        try:
+            self._base_selector.register(fileobj, events, data)
+        except KeyError:
+            self._base_selector.modify(fileobj, events, data)
+
         return key
 
     def unregister(self, fileobj: typing.Any) -> selectors.SelectorKey:
@@ -70,6 +81,11 @@ class _SlintSelector(selectors.BaseSelector):
 
         try:
             del self.adapters[fd]
+        except KeyError:
+            pass
+
+        try:
+            self._base_selector.unregister(fileobj)
         except KeyError:
             pass
 
@@ -88,15 +104,38 @@ class _SlintSelector(selectors.BaseSelector):
             key._replace(data=data)
             self.fd_to_selector_key[fd] = key
 
+            try:
+                self._base_selector.modify(fileobj, events, data)
+            except KeyError:
+                self._base_selector.register(fileobj, events, data)
+
         return key
 
     def select(
         self, timeout: float | None = None
     ) -> typing.List[typing.Tuple[selectors.SelectorKey, int]]:
-        raise NotImplementedError
+        events = self._base_selector.select(timeout)
+        ready: typing.List[typing.Tuple[selectors.SelectorKey, int]] = []
+        for key, mask in events:
+            if key.fileobj is self._wakeup_reader:
+                self._drain_wakeup()
+                continue
+
+            fd = fd_for_fileobj(key.fileobj)
+            slint_key = self.fd_to_selector_key.get(fd)
+            if slint_key is not None:
+                ready.append((slint_key, mask))
+
+        return ready
 
     def close(self) -> None:
-        pass
+        try:
+            self._base_selector.unregister(self._wakeup_reader)
+        except Exception:
+            pass
+        self._base_selector.close()
+        self._wakeup_reader.close()
+        self._wakeup_writer.close()
 
     def get_map(self) -> Mapping[int | HasFileno, selectors.SelectorKey]:
         return self.mapping
@@ -105,11 +144,26 @@ class _SlintSelector(selectors.BaseSelector):
         key = self.fd_to_selector_key[fd]
         (reader, writer) = key.data
         reader._run()
+        self._wakeup()
 
     def write_notify(self, fd: int) -> None:
         key = self.fd_to_selector_key[fd]
         (reader, writer) = key.data
         writer._run()
+        self._wakeup()
+
+    def _wakeup(self) -> None:
+        try:
+            self._wakeup_writer.send(b"\0")
+        except BlockingIOError:
+            pass
+
+    def _drain_wakeup(self) -> None:
+        try:
+            while self._wakeup_reader.recv(1024):
+                pass
+        except BlockingIOError:
+            pass
 
 
 class SlintEventLoop(asyncio.SelectorEventLoop):
@@ -118,24 +172,38 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         self._timers: typing.Set[core.Timer] = set()
         self.stop_run_forever_event = asyncio.Event()
         self._soon_tasks: typing.List[asyncio.TimerHandle] = []
+        self._core_loop_started = False
+        self._core_loop_running = False
         super().__init__(_SlintSelector())
 
     def run_forever(self) -> None:
+        if self._core_loop_started:
+            return asyncio.selector_events.BaseSelectorEventLoop.run_forever(self)
+
         async def loop_stopper(event: asyncio.Event) -> None:
             await event.wait()
             core.quit_event_loop()
 
         asyncio.events._set_running_loop(self)
         self._is_running = True
+        self._core_loop_started = True
+        self._core_loop_running = True
         try:
             self.stop_run_forever_event = asyncio.Event()
             self.create_task(loop_stopper(self.stop_run_forever_event))
             core.run_event_loop()
         finally:
+            self._core_loop_running = False
             self._is_running = False
+            self._stopping = False
             asyncio.events._set_running_loop(None)
 
     def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:  # type: ignore[override]
+        if self._core_loop_started and not self._core_loop_running:
+            return asyncio.selector_events.BaseSelectorEventLoop.run_until_complete(
+                self, future
+            )  # type: ignore[misc]
+
         def stop_loop(future: typing.Any) -> None:
             self.stop()
 
@@ -167,7 +235,17 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         pass
 
     def stop(self) -> None:
-        self.stop_run_forever_event.set()
+        if (
+            self._core_loop_started
+            and self._core_loop_running
+            and self.stop_run_forever_event is not None
+        ):
+            self.stop_run_forever_event.set()
+
+        super().stop()
+        selector = self._selector
+        if isinstance(selector, _SlintSelector):
+            selector._wakeup()
 
     def is_running(self) -> bool:
         return self._is_running
@@ -179,6 +257,9 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         return False
 
     def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:  # type: ignore
+        if self._core_loop_started and not self._core_loop_running:
+            return super().call_later(delay, callback, *args, context=context)
+
         timer = core.Timer()
 
         handle = asyncio.TimerHandle(
@@ -210,6 +291,9 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         return self.call_later(when - self.time(), callback, *args, context=context)
 
     def call_soon(self, callback, *args, context=None) -> asyncio.TimerHandle:  # type: ignore
+        if self._core_loop_started and not self._core_loop_running:
+            return super().call_soon(callback, *args, context=context)  # type: ignore
+
         # Collect call-soon tasks in a separate list to ensure FIFO order, as there's no guarantee
         # that multiple single-shot timers in Slint are run in order.
         handle = asyncio.TimerHandle(
@@ -227,6 +311,9 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
                 handle._run()
 
     def call_soon_threadsafe(self, callback, *args, context=None) -> asyncio.Handle:  # type: ignore
+        if self._core_loop_started and not self._core_loop_running:
+            return super().call_soon_threadsafe(callback, *args, context=context)
+
         handle = asyncio.Handle(
             callback=callback,
             args=args,
@@ -242,4 +329,8 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         return handle
 
     def _write_to_self(self) -> None:
-        raise NotImplementedError
+        selector = self._selector
+        if isinstance(selector, _SlintSelector):
+            selector._wakeup()
+        else:
+            super()._write_to_self()
