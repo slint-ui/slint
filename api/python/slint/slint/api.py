@@ -90,7 +90,15 @@ def _normalize_prop(name: str) -> str:
 def _build_global_class(compdef: ComponentDefinition, global_name: str) -> Any:
     properties_and_callbacks = {}
 
-    for prop_name in compdef.global_properties(global_name).keys():
+    global_props = compdef.global_properties(global_name)
+    global_callbacks = compdef.global_callbacks(global_name)
+    global_functions = compdef.global_functions(global_name)
+
+    assert global_props is not None
+    assert global_callbacks is not None
+    assert global_functions is not None
+
+    for prop_name in global_props.keys():
         python_prop = _normalize_prop(prop_name)
         if python_prop in properties_and_callbacks:
             logging.warning(f"Duplicated property {prop_name}")
@@ -111,7 +119,7 @@ def _build_global_class(compdef: ComponentDefinition, global_name: str) -> Any:
 
         properties_and_callbacks[python_prop] = mk_setter_getter(prop_name)
 
-    for callback_name in compdef.global_callbacks(global_name):
+    for callback_name in global_callbacks:
         python_prop = _normalize_prop(callback_name)
         if python_prop in properties_and_callbacks:
             logging.warning(f"Duplicated property {prop_name}")
@@ -135,7 +143,7 @@ def _build_global_class(compdef: ComponentDefinition, global_name: str) -> Any:
 
         properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
 
-    for function_name in compdef.global_functions(global_name):
+    for function_name in global_functions:
         python_prop = _normalize_prop(function_name)
         if python_prop in properties_and_callbacks:
             logging.warning(f"Duplicated function {prop_name}")
@@ -281,9 +289,7 @@ def _build_struct(name: str, struct_prototype: PyStruct) -> type:
         unexpected = set(kwargs) - field_names
         if unexpected:
             formatted = ", ".join(sorted(unexpected))
-            raise TypeError(
-                f"{name}() got unexpected keyword argument(s): {formatted}"
-            )
+            raise TypeError(f"{name}() got unexpected keyword argument(s): {formatted}")
 
         inst = copy.copy(struct_prototype)
 
@@ -581,7 +587,9 @@ def run_event_loop(
 
     global quit_event
     quit_event = asyncio.Event()
-    asyncio.run(run_inner(), debug=False, loop_factory=SlintEventLoop)
+
+    with asyncio.Runner(loop_factory=SlintEventLoop) as runner:
+        runner.run(run_inner())
 
 
 def quit_event_loop() -> None:

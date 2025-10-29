@@ -242,7 +242,6 @@ impl ComponentDefinition {
         self.definition.name()
     }
 
-    #[gen_stub(override_return_type(type_repr = "typing.Dict[str, typing.Any]", imports = ("typing",)))]
     #[getter]
     fn properties(&self) -> IndexMap<String, PyValueType> {
         self.definition
@@ -299,8 +298,7 @@ impl ComponentDefinition {
             .collect()
     }
 
-    #[gen_stub(override_return_type(type_repr = "typing.Dict[str, typing.Any]", imports = ("typing",)))]
-    fn global_properties(&self, name: &str) -> IndexMap<String, PyValueType> {
+    fn global_properties(&self, name: &str) -> Option<IndexMap<String, PyValueType>> {
         self.definition
             .global_properties_and_callbacks(name)
             .map(|propiter| {
@@ -308,21 +306,18 @@ impl ComponentDefinition {
                     .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| (name, ty.into())))
                     .collect()
             })
-            .unwrap_or_default()
     }
 
-    fn global_callbacks(&self, name: &str) -> Vec<String> {
+    fn global_callbacks(&self, name: &str) -> Option<Vec<String>> {
         self.definition
             .global_callbacks(name)
             .map(|callbackiter| callbackiter.collect())
-            .unwrap_or_default()
     }
 
-    fn global_functions(&self, name: &str) -> Vec<String> {
+    fn global_functions(&self, name: &str) -> Option<Vec<String>> {
         self.definition
             .global_functions(name)
             .map(|functioniter| functioniter.collect())
-            .unwrap_or_default()
     }
 
     fn global_property_infos(&self, global_name: &str) -> Option<Vec<PyPropertyInfo>> {
@@ -404,6 +399,7 @@ impl ComponentDefinition {
     }
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(name = "ValueType", eq, eq_int)]
 #[derive(PartialEq)]
 pub enum PyValueType {
