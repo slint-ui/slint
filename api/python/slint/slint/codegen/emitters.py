@@ -18,7 +18,7 @@ def module_relative_path_expr(module_dir: Path, target: Path) -> str:
     try:
         rel = os.path.relpath(target, module_dir)
     except ValueError:
-        return repr(target)
+        return f"Path({repr(str(target))})"
 
     if rel in (".", ""):
         return "_MODULE_DIR"
@@ -289,9 +289,11 @@ def write_python_module(
     ]
     library_expr_code = f"{{{', '.join(library_items)}}}" if library_items else "None"
 
-    style_expr = repr(Path(config.style)) if config.style else "None"
+    style_expr = repr(config.style) if config.style is not None else "None"
     domain_expr = (
-        repr(Path(config.translation_domain)) if config.translation_domain else "None"
+        repr(config.translation_domain)
+        if config.translation_domain is not None
+        else "None"
     )
 
     export_bindings = _collect_export_bindings(artifacts, include_builtin_enums=False)
