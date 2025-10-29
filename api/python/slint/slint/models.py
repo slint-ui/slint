@@ -52,7 +52,7 @@ class ListModel[T](Model[T]):
 
         super().__init__()
         items = list(iterable) if iterable is not None else []
-        self.list = typing.cast(list[T], items)
+        self.list: list[T] = items
 
     def row_count(self) -> int:
         return len(self.list)
@@ -94,6 +94,4 @@ class ModelIterator[T](Iterator[T]):
             raise StopIteration()
         index = self.index
         self.index += 1
-        data = self.model.row_data(index)
-        assert data is not None
-        return typing.cast(T, data)
+        return self.model.row_data(index)  # type: ignore

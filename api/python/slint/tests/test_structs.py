@@ -7,7 +7,6 @@ import importlib.util
 import importlib.abc
 import inspect
 import sys
-import typing
 from types import ModuleType
 from pathlib import Path
 
@@ -103,9 +102,10 @@ def generated_struct_module(tmp_path: Path) -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     sys.modules.pop(spec.name, None)
     sys.modules[spec.name] = module
-    loader = typing.cast(importlib.abc.Loader, spec.loader)
+    loader = spec.loader
+    assert isinstance(loader, importlib.abc.Loader)
     loader.exec_module(module)
-    return typing.cast(ModuleType, module)
+    return module
 
 
 def test_struct_accepts_keywords_only(

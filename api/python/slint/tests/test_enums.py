@@ -7,7 +7,6 @@ import importlib.abc
 import importlib.util
 import sys
 import inspect
-import typing
 from pathlib import Path
 from types import ModuleType
 
@@ -45,9 +44,10 @@ def generated_module(tmp_path: Path) -> ModuleType:
     sys.modules.pop(spec.name, None)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    loader = typing.cast(importlib.abc.Loader, spec.loader)
+    loader = spec.loader
+    assert isinstance(loader, importlib.abc.Loader)
     loader.exec_module(module)
-    return typing.cast(ModuleType, module)
+    return module
 
 
 def test_enums(generated_module: ModuleType) -> None:

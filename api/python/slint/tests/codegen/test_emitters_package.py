@@ -74,7 +74,9 @@ def emitters_modules(
             sys.modules.pop(name, None)
 
 
-def test_write_package_emitters(tmp_path: Path, emitters_modules) -> None:
+def test_write_package_emitters(
+    tmp_path: Path, emitters_modules: tuple[types.ModuleType, types.ModuleType]
+) -> None:
     emitters, models = emitters_modules
 
     artifacts = models.ModuleArtifacts(

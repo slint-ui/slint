@@ -198,7 +198,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             self._stopping = False
             asyncio.events._set_running_loop(None)
 
-    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:
+    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T:
         if self._core_loop_started and not self._core_loop_running:
             return asyncio.selector_events.BaseSelectorEventLoop.run_until_complete(
                 self, future
@@ -217,16 +217,13 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
 
         if future.done():
             return future.result()
-        else:
-            if self.stop_run_forever_event.is_set():
-                raise RuntimeError("run_until_complete's future isn't done", future)
-            else:
-                # If the loop was quit for example because the user closed the last window, then
-                # don't thrown an error but return a None sentinel. The return value of asyncio.run()
-                # isn't used by slint.run_event_loop() anyway
-                # TODO: see if we can properly cancel the future by calling cancel() and throwing
-                # the task cancellation exception.
-                return None
+        if self.stop_run_forever_event.is_set():
+            raise RuntimeError("run_until_complete's future isn't done", future)
+
+        future.cancel()
+        raise RuntimeError(
+            "run_until_complete future was cancelled before completion", future
+        )
 
     def _run_forever_setup(self) -> None:
         pass
@@ -300,7 +297,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             when=self.time(), callback=callback, args=args, loop=self, context=context
         )
         self._soon_tasks.append(handle)
-        self.call_later(0, self._flush_soon_tasks)  # type: ignore
+        self.call_later(0, self._flush_soon_tasks)
         return handle
 
     def _flush_soon_tasks(self) -> None:
@@ -333,4 +330,4 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         if isinstance(selector, _SlintSelector):
             selector._wakeup()
         else:
-            asyncio.SelectorEventLoop._write_to_self(self)  # type: ignore
+            asyncio.SelectorEventLoop._write_to_self(self)  # type: ignore[attr-defined]
