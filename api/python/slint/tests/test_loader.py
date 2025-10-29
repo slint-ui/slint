@@ -7,7 +7,7 @@ import os
 
 
 def test_magic_import() -> None:
-    instance = loader.test_load_file.App()
+    instance = loader.test_load_file_source.App()
     del instance
 
 
