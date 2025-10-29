@@ -611,7 +611,7 @@ impl WindowInner {
                     event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
                 }
-                MouseEvent::Moved { position } => {
+                MouseEvent::Moved { position, .. } => {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
                     }

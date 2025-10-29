@@ -17,6 +17,43 @@ namespace private_api {
 using ItemTreeRc = vtable::VRc<cbindgen_private::ItemTreeVTable>;
 using slint::LogicalPosition;
 
+/// Looking forward for C++23 std::optional::transform
+template<typename T, typename F>
+auto optional_transform(const std::optional<T> &o, F &&f) -> decltype(std::optional(f(*o)))
+{
+    if (o) {
+        return std::optional(f(*o));
+    }
+    return std::nullopt;
+}
+
+template<typename T, typename F>
+void optional_then(const std::optional<T> &o, F &&f)
+{
+    if (o) {
+        f(*o);
+    }
+}
+
+/// Waiting for C++23 std::optional::and_then
+template<typename T, typename F>
+auto optional_and_then(const std::optional<T> &o, F &&f) -> decltype(f(*o))
+{
+    if (o) {
+        return f(*o);
+    }
+    return std::nullopt;
+}
+
+template<typename T>
+T optional_or_default(const std::optional<T> &o)
+{
+    if (o) {
+        return *o;
+    }
+    return {};
+}
+
 class WindowAdapterRc
 {
 public:
@@ -464,7 +501,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0));
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, false));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -477,7 +514,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0));
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, false));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -500,7 +537,8 @@ public:
     void dispatch_pointer_move_event(LogicalPosition pos)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }));
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, false));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.

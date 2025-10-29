@@ -11,7 +11,6 @@ export global Glob {
         return true; // 3464 is not fixed in the interpreter
     }
     in-out property <string> value;
-    in-out property <bool> issue-3464-not-fixed;
     in-out property <string> value_after: "XXXXX";
 }
 
@@ -118,7 +117,7 @@ instance.global<Glob>().set_model(model);
 instance.global<Glob>().on_clicked([=](slint::SharedString val){
     assert_eq(val, "world");
     model->erase(1);
-    return true; // issue 3464 not fixed in c++ generated code
+    return false;
 });
 slint_testing::send_mouse_click(&instance, 150., 150.);
 assert_eq(instance.global<Glob>().get_value(), "world");
@@ -136,7 +135,7 @@ instance.global<Glob>().set_model(model);
 instance.global<Glob>().on_clicked([=](slint::SharedString val){
     assert_eq(val, "world");
     model->erase(1);
-    return true; // issue 3464 not fixed in c++ generated code
+    return false;
 });
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");

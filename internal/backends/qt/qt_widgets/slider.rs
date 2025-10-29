@@ -204,11 +204,7 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventIgnored
             }
-            MouseEvent::Pressed {
-                position: pos,
-                button: PointerEventButton::Left,
-                click_count: _,
-            } => {
+            MouseEvent::Pressed { position: pos, button: PointerEventButton::Left, .. } => {
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(
                         self_rc,
@@ -228,7 +224,7 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventAccepted
             }
-            MouseEvent::Moved { position: pos } => {
+            MouseEvent::Moved { position: pos, .. } => {
                 let (coord, size) =
                     if vertical { (pos.y, size.height) } else { (pos.x, size.width) };
                 if data.pressed != 0 {

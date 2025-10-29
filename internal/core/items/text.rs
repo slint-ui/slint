@@ -798,7 +798,9 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
+            MouseEvent::Pressed {
+                position, button: PointerEventButton::Left, click_count, ..
+            } => {
                 let clicked_offset =
                     self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
@@ -855,7 +857,7 @@ impl Item for TextInput {
                 }
                 self.as_ref().pressed.set(0)
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if let Some(x) = window_adapter.internal(crate::InternalToken) {
                     x.set_mouse_cursor(super::MouseCursor::Text);
                 }

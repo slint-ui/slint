@@ -79,6 +79,7 @@ impl Item for TouchArea {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
                     modifiers: window_adapter.window().0.modifiers.get().into(),
+                    is_touch: false,
                 },));
             }
             return InputEventFilterResult::ForwardAndIgnore;
@@ -118,7 +119,7 @@ impl Item for TouchArea {
         }
 
         match event {
-            MouseEvent::Pressed { position, button, .. } => {
+            MouseEvent::Pressed { position, button, is_touch, .. } => {
                 self.grabbed.set(true);
                 if *button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());
@@ -129,6 +130,7 @@ impl Item for TouchArea {
                     button: *button,
                     kind: PointerEventKind::Down,
                     modifiers: window_adapter.window().0.modifiers.get().into(),
+                    is_touch: *is_touch,
                 },));
 
                 InputEventResult::GrabMouse
@@ -140,13 +142,14 @@ impl Item for TouchArea {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
                         modifiers: window_adapter.window().0.modifiers.get().into(),
+                        is_touch: false,
                     },));
                 }
 
                 InputEventResult::EventAccepted
             }
 
-            MouseEvent::Released { button, position, click_count } => {
+            MouseEvent::Released { button, position, click_count, is_touch } => {
                 let geometry = self_rc.geometry();
                 if *button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(*position)
@@ -166,15 +169,17 @@ impl Item for TouchArea {
                     button: *button,
                     kind: PointerEventKind::Up,
                     modifiers: window_adapter.window().0.modifiers.get().into(),
+                    is_touch: *is_touch,
                 },));
 
                 InputEventResult::EventAccepted
             }
-            MouseEvent::Moved { .. } => {
+            MouseEvent::Moved { is_touch, .. } => {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
                     modifiers: window_adapter.window().0.modifiers.get().into(),
+                    is_touch: *is_touch,
                 },));
                 if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
@@ -516,7 +521,7 @@ impl Item for SwipeGestureHandler {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if self.swiping() {
                     InputEventFilterResult::Intercept
                 } else if !self.pressed.get() {
@@ -564,7 +569,7 @@ impl Item for SwipeGestureHandler {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if !self.pressed.get() {
                     return InputEventResult::EventAccepted;
                 }
