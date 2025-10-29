@@ -11,7 +11,7 @@ use super::{
     EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
     KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg, WindowItem,
+    VoidArg, WindowItem, StringArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -232,6 +232,7 @@ pub struct MarkdownText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub click_link: Callback<StringArg>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -268,7 +269,7 @@ impl Item for MarkdownText {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardAndIgnore
+        InputEventFilterResult::ForwardEvent
     }
 
     #[cfg(feature = "experimental-rich-text")]
@@ -282,13 +283,16 @@ impl Item for MarkdownText {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count: _ } => {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 let scale_factor = ScaleFactor::new(window_inner.scale_factor());
-                crate::textlayout::sharedparley::handle_links(
+                if let Some(link) = crate::textlayout::sharedparley::handle_links(
                     scale_factor,
                     self,
                     Some(self.font_request(self_rc)),
-                    Default::default(),
+                    LogicalSize::from_lengths(self.width(), self.height()),
                     *position * scale_factor,
-                );
+                ) {
+                    Self::FIELD_OFFSETS.click_link.apply_pin(self).call(&(link.into(),));
+                }    
+                    
                 InputEventResult::EventAccepted
             }
             _ => InputEventResult::EventIgnored,

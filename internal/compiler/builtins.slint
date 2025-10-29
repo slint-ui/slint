@@ -129,6 +129,7 @@ export component MarkdownText inherits Empty {
     in property <brush> color;
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
+    callback click_link(link: string);
 
     in property <string> font-family;
     in property <bool> font-italic;
