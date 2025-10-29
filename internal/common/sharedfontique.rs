@@ -158,3 +158,9 @@ impl DesignFontMetrics {
         }
     }
 }
+
+pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] = [
+    // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
+    fontique::GenericFamily::SansSerif,
+    fontique::GenericFamily::SystemUi,
+];
