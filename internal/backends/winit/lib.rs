@@ -27,6 +27,8 @@ mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
 mod frame_throttle;
+#[cfg(target_os = "ios")]
+mod virtual_keyboard;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -522,7 +524,7 @@ pub(crate) struct SharedBackendData {
     _requested_graphics_api: Option<RequestedGraphicsAPI>,
     #[cfg(enable_skia_renderer)]
     skia_context: i_slint_renderer_skia::SkiaSharedContext,
-    active_windows: RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>,
+    active_windows: Rc<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>,
     /// List of visible windows that have been created when without the event loop and
     /// need to be mapped to a winit Window as soon as the event loop becomes active.
     inactive_windows: RefCell<Vec<Weak<WinitWindowAdapter>>>,
@@ -531,6 +533,9 @@ pub(crate) struct SharedBackendData {
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
     is_wayland: bool,
+    #[cfg(target_os = "ios")]
+    #[allow(unused)]
+    keyboard_notifications: virtual_keyboard::KeyboardNotifications,
 }
 
 impl SharedBackendData {
@@ -582,6 +587,11 @@ impl SharedBackendData {
             }
         }
 
+        let active_windows = Rc::<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>::default();
+
+        #[cfg(target_os = "ios")]
+        let keyboard_notifications = virtual_keyboard::register_keyboard_notifications(Rc::downgrade(&active_windows));
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
@@ -593,13 +603,15 @@ impl SharedBackendData {
             _requested_graphics_api: requested_graphics_api,
             #[cfg(enable_skia_renderer)]
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
-            active_windows: Default::default(),
+            active_windows,
             inactive_windows: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             is_wayland,
+            #[cfg(target_os = "ios")]
+            keyboard_notifications,
         })
     }
 
