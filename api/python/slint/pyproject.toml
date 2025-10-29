@@ -47,6 +47,7 @@ dev = [
   "numpy>=2.3.2",
   "aiohttp>=3.12.15",
   "maturin>=1.9.6",
+  "pytest-cov>=7.0.0",
 ]
 
 [tool.maturin]
