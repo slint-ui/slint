@@ -1220,8 +1220,9 @@ pub fn draw_text(
     }
 }
 
+#[cfg(feature = "experimental-rich-text")]
 pub fn handle_links(
-    item_renderer: &mut impl GlyphRenderer,
+    scale_factor: ScaleFactor,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     font_request: Option<FontRequest>,
     size: LogicalSize,
@@ -1229,21 +1230,13 @@ pub fn handle_links(
 ) -> Option<std::string::String> {
     let str = text.text();
 
-    #[cfg(feature = "experimental-rich-text")]
-    let layout_text = if text.is_markdown() {
-        Text::RichText(parse_markdown(&str))
-    } else {
-        Text::PlainText(&str)
-    };
-
-    #[cfg(not(feature = "experimental-rich-text"))]
-    let layout_text = Text::PlainText(&str);
+    let layout_text = Text::RichText(parse_markdown(&str));
 
     let (horizontal_align, vertical_align) = text.alignment();
 
     let layout = layout(
         layout_text,
-        ScaleFactor::new(item_renderer.scale_factor()),
+        scale_factor,
         LayoutOptions {
             horizontal_align,
             vertical_align,

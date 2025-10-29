@@ -273,11 +273,26 @@ impl Item for MarkdownText {
 
     fn input_event(
         self: Pin<&Self>,
-        _: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> InputEventResult {
-        InputEventResult::EventIgnored
+        
+        
+        match event {
+            MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count: _ } => {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+                crate::textlayout::sharedparley::handle_links(
+                    scale_factor,
+                    self,
+                    Some(self.font_request(self_rc)),
+                    *position * scale_factor
+                );
+                InputEventResult::EventAccepted
+            }
+            _ => InputEventResult::EventIgnored,
+        }
     }
 
     fn capture_key_event(
