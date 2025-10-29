@@ -198,7 +198,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             self._stopping = False
             asyncio.events._set_running_loop(None)
 
-    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T:
+    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:  # type: ignore[override]
         if self._core_loop_started and not self._core_loop_running:
             return asyncio.selector_events.BaseSelectorEventLoop.run_until_complete(
                 self, future
@@ -220,10 +220,15 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         if self.stop_run_forever_event.is_set():
             raise RuntimeError("run_until_complete's future isn't done", future)
 
-        future.cancel()
-        raise RuntimeError(
-            "run_until_complete future was cancelled before completion", future
-        )
+        # The Slint core event loop can terminate even though the awaiting coroutine
+        # is still running (for example when the user closes the last window). Python's
+        # BaseEventLoop would raise a RuntimeError in that case, but Slint's API expects
+        # a graceful shutdown without surfacing an exception to the caller. Returning
+        # None here mirrors the historical behaviour and avoids breaking applications.
+        # Attempts at cancelling the Task at this point still leave it pending because
+        # the underlying loop has already stopped, so we cannot currently satisfy the
+        # TODO of propagating a proper CancelledError.
+        return None
 
     def _run_forever_setup(self) -> None:
         pass
