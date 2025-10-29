@@ -168,32 +168,23 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
     let push_to_builder = |builder: &mut parley::RangedBuilder<_>| {
         if let Some(ref font_request) = options.font_request {
-            if let Some(family) = &font_request.family {
-                builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
-                    &[
-                        parley::style::FontFamily::Named(family.as_str().into()),
-                        // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
-                        parley::style::FontFamily::Generic(
-                            parley::fontique::GenericFamily::SansSerif,
-                        ),
-                        parley::style::FontFamily::Generic(
-                            parley::fontique::GenericFamily::SystemUi,
-                        ),
-                    ],
+            let mut iter = font_request
+                .family
+                .as_ref()
+                .map(|family| parley::style::FontFamily::Named(family.as_str().into()))
+                .into_iter()
+                .chain(sharedfontique::FALLBACK_FAMILIES.map(parley::style::FontFamily::Generic))
+                .chain(core::iter::repeat(parley::style::FontFamily::Generic(
+                    sharedfontique::fontique::GenericFamily::SystemUi,
                 )));
-            } else {
-                builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
-                    &[
-                        // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
-                        parley::style::FontFamily::Generic(
-                            parley::fontique::GenericFamily::SansSerif,
-                        ),
-                        parley::style::FontFamily::Generic(
-                            parley::fontique::GenericFamily::SystemUi,
-                        ),
-                    ],
-                )));
-            }
+            let font_stack: [parley::style::FontFamily; {
+                sharedfontique::FALLBACK_FAMILIES.as_slice().len() + 1
+            }] = core::array::from_fn(|_| iter.next().unwrap());
+
+            builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
+                &font_stack,
+            )));
+
             if let Some(weight) = font_request.weight {
                 builder.push_default(parley::StyleProperty::FontWeight(
                     parley::style::FontWeight::new(weight as f32),
