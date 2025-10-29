@@ -1714,16 +1714,21 @@ pub fn instantiate(
                     }
                 }
                 for twb in &binding.two_way_bindings {
-                    if twb.field_access.is_empty()
-                        && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
-                    {
-                        // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        // (Except for struct and array, which may map to a Value)
-                        prop_info
-                            .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
-                    } else {
-                        let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
-                        prop_info.link_two_way_with_map(item, common, map);
+                    match twb {
+                        i_slint_compiler::expression_tree::TwoWayBinding::Property {
+                            property,
+                            field_access,
+                        } if field_access.is_empty()
+                            && !matches!(&property_type, Type::Struct(..) | Type::Array(..)) =>
+                        {
+                            // Safety: The compiler must have ensured that the properties exist and are of the same type
+                            // (Except for struct and array, which may map to a Value)
+                            prop_info.link_two_ways(item, get_property_ptr(property, instance_ref));
+                        }
+                        _ => {
+                            let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
+                            prop_info.link_two_way_with_map(item, common, map);
+                        }
                     }
                 }
             } else {
@@ -1735,15 +1740,24 @@ pub fn instantiate(
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
 
                     for twb in &binding.two_way_bindings {
-                        if twb.field_access.is_empty()
-                            && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
-                        {
-                            // Safety: The compiler must have ensured that the properties exist and are of the same type
-                            prop_rtti
-                                .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
-                        } else {
-                            let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
-                            prop_rtti.link_two_way_with_map(item, common, map);
+                        match twb {
+                            i_slint_compiler::expression_tree::TwoWayBinding::Property {
+                                property,
+                                field_access,
+                            } if field_access.is_empty()
+                                && !matches!(
+                                    &property_type,
+                                    Type::Struct(..) | Type::Array(..)
+                                ) =>
+                            {
+                                // Safety: The compiler must have ensured that the properties exist and are of the same type
+                                prop_rtti
+                                    .link_two_ways(item, get_property_ptr(property, instance_ref));
+                            }
+                            _ => {
+                                let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
+                                prop_rtti.link_two_way_with_map(item, common, map);
+                            }
                         }
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
@@ -1808,15 +1822,34 @@ fn prepare_for_two_way_binding(
     instance_ref: InstanceRef,
     twb: &i_slint_compiler::expression_tree::TwoWayBinding,
 ) -> (Pin<Rc<Property<Value>>>, Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>>) {
-    let element = twb.property.element();
-    let name = twb.property.name();
+    let (element, name, field_access) = match twb {
+        i_slint_compiler::expression_tree::TwoWayBinding::Property { property, field_access } => {
+            (property.element(), property.name().as_str(), field_access)
+        }
+        i_slint_compiler::expression_tree::TwoWayBinding::ModelData {
+            repeated_element,
+            field_access,
+        } => (
+            repeated_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .base_type
+                .as_component()
+                .root_element
+                .clone(),
+            crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
+            field_access,
+        ),
+    };
+
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_instance_for_element(
         &element,
         &eval::ComponentInstance::InstanceRef(instance_ref),
         guard,
     );
-    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if twb.field_access.is_empty() {
+    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if field_access.is_empty() {
         None
     } else {
         struct FieldAccess(Vec<SmolStr>);
@@ -1844,7 +1877,7 @@ fn prepare_for_two_way_binding(
                 *value = from.clone();
             }
         }
-        Some(Rc::new(FieldAccess(twb.field_access.clone())))
+        Some(Rc::new(FieldAccess(field_access.clone())))
     };
     let common = match enclosing_component {
         eval::ComponentInstance::InstanceRef(enclosing_component) => {
@@ -1865,7 +1898,7 @@ fn prepare_for_two_way_binding(
             let prop_info = item_info
                 .rtti
                 .properties
-                .get(name.as_str())
+                .get(name)
                 .unwrap_or_else(|| panic!("Property {} not in {}", name, element.id));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };

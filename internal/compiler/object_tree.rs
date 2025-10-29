@@ -2708,6 +2708,17 @@ pub fn visit_element_expressions(
                 elem.borrow().lookup_property(name).property_type
             });
 
+            for twb in &mut expr.borrow_mut().two_way_bindings {
+                if let expression_tree::TwoWayBinding::ModelData { repeated_element, .. } = twb {
+                    let mut e =
+                        Expression::RepeaterModelReference { element: repeated_element.clone() };
+                    vis(&mut e, None, &|| Type::Invalid);
+                    if let Expression::RepeaterModelReference { element } = e {
+                        *repeated_element = element;
+                    }
+                }
+            }
+
             match &mut expr.borrow_mut().animation {
                 Some(PropertyAnimation::Static(e)) => visit_element_expressions_simple(e, vis),
                 Some(PropertyAnimation::Transition { animations, state_ref }) => {
