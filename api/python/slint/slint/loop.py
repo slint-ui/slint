@@ -333,4 +333,4 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         if isinstance(selector, _SlintSelector):
             selector._wakeup()
         else:
-            super()._write_to_self()   # type: ignore[attr-defined]
+            super()._write_to_self()  # type: ignore[attr-defined]

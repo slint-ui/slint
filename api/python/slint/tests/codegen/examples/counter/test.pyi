@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 from __future__ import annotations
 
 import enum
@@ -9,7 +12,14 @@ from typing import (
 
 import slint
 
-__all__ = ['OptionalDemo', 'OptionalFloat', 'OptionalBool', 'OptionalInt', 'OptionalString', 'OptionalEnum']
+__all__ = [
+    "OptionalDemo",
+    "OptionalFloat",
+    "OptionalBool",
+    "OptionalInt",
+    "OptionalString",
+    "OptionalEnum",
+]
 
 class OptionalFloat:
     def __init__(self, *, maybe_value: float = ...) -> None: ...
@@ -28,13 +38,12 @@ class OptionalString:
     maybe_value: str
 
 class OptionalEnum(enum.Enum):
-    OptionA = 'OptionA'
-    OptionB = 'OptionB'
-    OptionC = 'OptionC'
+    OptionA = "OptionA"
+    OptionB = "OptionB"
+    OptionC = "OptionC"
 
 class OptionalDemo(slint.Component):
     def __init__(self, **kwargs: Any) -> None: ...
     maybe_count: Optional[int]
     on_action: Callable[[Optional[float]], Optional[int]]
     compute: Callable[[Optional[str]], Optional[bool]]
-

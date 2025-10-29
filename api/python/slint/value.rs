@@ -344,9 +344,9 @@ impl TypeCollection {
     }
 
     pub fn enums(&self) -> impl Iterator<Item = (&String, &Py<PyAny>)> + '_ {
-        self.enum_classes.iter().filter_map(|(name, info)| {
-            (!info.is_builtin).then_some((name, &info.class))
-        })
+        self.enum_classes
+            .iter()
+            .filter_map(|(name, info)| (!info.is_builtin).then_some((name, &info.class)))
     }
 
     pub fn slint_value_from_py_value(

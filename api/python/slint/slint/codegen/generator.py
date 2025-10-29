@@ -216,7 +216,9 @@ def _compile_slint(
     return result
 
 
-def _collect_metadata(result: CompilationResult, source_descriptor: str) -> ModuleArtifacts:
+def _collect_metadata(
+    result: CompilationResult, source_descriptor: str
+) -> ModuleArtifacts:
     components: list[ComponentMeta] = []
     used_enum_class_names: set[str] = set()
     component_enum_props: dict[str, dict[str, str]] = defaultdict(dict)
@@ -326,12 +328,16 @@ def _collect_metadata(result: CompilationResult, source_descriptor: str) -> Modu
             for global_meta in globals_meta:
                 for prop in global_meta.properties:
                     try:
-                        value = instance.get_global_property(global_meta.name, prop.name)
+                        value = instance.get_global_property(
+                            global_meta.name, prop.name
+                        )
                     except Exception:
                         continue
                     if isinstance(value, enum.Enum):
                         used_enum_class_names.add(value.__class__.__name__)
-                        global_enum_props[(name, global_meta.name)][prop.name] = value.__class__.__name__
+                        global_enum_props[(name, global_meta.name)][prop.name] = (
+                            value.__class__.__name__
+                        )
 
     structs_meta: list[StructMeta] = []
     enums_meta: list[EnumMeta] = []
@@ -367,8 +373,8 @@ def _collect_metadata(result: CompilationResult, source_descriptor: str) -> Modu
                     name=member,
                     py_name=_normalize_prop(member),
                     value=enum_member.name,
+                )
             )
-        )
 
         is_used = enum_name in used_enum_class_names
 
@@ -382,7 +388,9 @@ def _collect_metadata(result: CompilationResult, source_descriptor: str) -> Modu
             )
         )
 
-    enum_py_name_map = {enum.name: enum.py_name for enum in enums_meta if not enum.is_builtin}
+    enum_py_name_map = {
+        enum.name: enum.py_name for enum in enums_meta if not enum.is_builtin
+    }
 
     for component_meta in components:
         overrides = component_enum_props.get(component_meta.name, {})
@@ -399,7 +407,9 @@ def _collect_metadata(result: CompilationResult, source_descriptor: str) -> Modu
                     prop.type_hint = "Any"
 
         for global_meta in component_meta.globals:
-            overrides = global_enum_props.get((component_meta.name, global_meta.name), {})
+            overrides = global_enum_props.get(
+                (component_meta.name, global_meta.name), {}
+            )
             for prop in global_meta.properties:
                 class_name = overrides.get(prop.name)
                 if class_name:
@@ -407,9 +417,9 @@ def _collect_metadata(result: CompilationResult, source_descriptor: str) -> Modu
                         prop.type_hint = enum_py_name_map[class_name]
                     else:
                         print(
-                        f"warning: {source_descriptor}: global '{global_meta.name}.{prop.name}' relies on enum '{class_name}' "
-                        "that is not declared in this module; falling back to Any",
-                    )
+                            f"warning: {source_descriptor}: global '{global_meta.name}.{prop.name}' relies on enum '{class_name}' "
+                            "that is not declared in this module; falling back to Any",
+                        )
                         prop.type_hint = "Any"
 
     for struct_meta in structs_meta:

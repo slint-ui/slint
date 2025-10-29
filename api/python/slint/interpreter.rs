@@ -299,25 +299,19 @@ impl ComponentDefinition {
     }
 
     fn global_properties(&self, name: &str) -> Option<IndexMap<String, PyValueType>> {
-        self.definition
-            .global_properties_and_callbacks(name)
-            .map(|propiter| {
-                propiter
-                    .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| (name, ty.into())))
-                    .collect()
-            })
+        self.definition.global_properties_and_callbacks(name).map(|propiter| {
+            propiter
+                .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| (name, ty.into())))
+                .collect()
+        })
     }
 
     fn global_callbacks(&self, name: &str) -> Option<Vec<String>> {
-        self.definition
-            .global_callbacks(name)
-            .map(|callbackiter| callbackiter.collect())
+        self.definition.global_callbacks(name).map(|callbackiter| callbackiter.collect())
     }
 
     fn global_functions(&self, name: &str) -> Option<Vec<String>> {
-        self.definition
-            .global_functions(name)
-            .map(|functioniter| functioniter.collect())
+        self.definition.global_functions(name).map(|functioniter| functioniter.collect())
     }
 
     fn global_property_infos(&self, global_name: &str) -> Option<Vec<PyPropertyInfo>> {
