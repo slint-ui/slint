@@ -243,7 +243,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             self.stop_run_forever_event.set()
 
         super().stop()
-        selector = self._selector
+        selector = self._selector  # type: ignore[attr-defined]
         if isinstance(selector, _SlintSelector):
             selector._wakeup()
 
@@ -329,8 +329,8 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         return handle
 
     def _write_to_self(self) -> None:
-        selector = self._selector
+        selector = self._selector  # type: ignore[attr-defined]
         if isinstance(selector, _SlintSelector):
             selector._wakeup()
         else:
-            super()._write_to_self()
+            super()._write_to_self()   # type: ignore[attr-defined]
