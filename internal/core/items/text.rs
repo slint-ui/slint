@@ -271,14 +271,13 @@ impl Item for MarkdownText {
         InputEventFilterResult::ForwardAndIgnore
     }
 
+    #[cfg(feature = "experimental-rich-text")]
     fn input_event(
         self: Pin<&Self>,
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
-        
-        
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count: _ } => {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
@@ -287,12 +286,23 @@ impl Item for MarkdownText {
                     scale_factor,
                     self,
                     Some(self.font_request(self_rc)),
-                    *position * scale_factor
+                    Default::default(),
+                    *position * scale_factor,
                 );
                 InputEventResult::EventAccepted
             }
             _ => InputEventResult::EventIgnored,
         }
+    }
+    
+    #[cfg(not(feature = "experimental-rich-text"))]
+    fn input_event(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
     }
 
     fn capture_key_event(

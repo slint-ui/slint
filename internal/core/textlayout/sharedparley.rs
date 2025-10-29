@@ -430,6 +430,7 @@ struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
     layout: parley::Layout<Brush>,
+    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     links: std::vec::Vec<(Range<usize>, std::string::String)>,
 }
 
