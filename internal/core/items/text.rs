@@ -232,7 +232,7 @@ pub struct MarkdownText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
-    pub click_link: Callback<StringArg>,
+    pub link_clicked: Callback<StringArg>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -290,7 +290,7 @@ impl Item for MarkdownText {
                     LogicalSize::from_lengths(self.width(), self.height()),
                     *position * scale_factor,
                 ) {
-                    Self::FIELD_OFFSETS.click_link.apply_pin(self).call(&(link.into(),));
+                    Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
                 }
 
                 InputEventResult::EventAccepted
