@@ -13,11 +13,11 @@ from collections.abc import Mapping
 from . import core
 
 
-class HasFileno(typing.Protocol):
+class _HasFileno(typing.Protocol):
     def fileno(self) -> int: ...
 
 
-def fd_for_fileobj(fileobj: int | HasFileno) -> int:
+def _fd_for_fileobj(fileobj: int | _HasFileno) -> int:
     if isinstance(fileobj, int):
         return fileobj
     return int(fileobj.fileno())
@@ -31,11 +31,11 @@ class _SlintSelectorMapping(Mapping[typing.Any, selectors.SelectorKey]):
         return len(self.slint_selector.fd_to_selector_key)
 
     def get(self, fileobj, default=None):  # type: ignore
-        fd = fd_for_fileobj(fileobj)
+        fd = _fd_for_fileobj(fileobj)
         return self.slint_selector.fd_to_selector_key.get(fd, default)
 
     def __getitem__(self, fileobj: typing.Any) -> selectors.SelectorKey:
-        fd = fd_for_fileobj(fileobj)
+        fd = _fd_for_fileobj(fileobj)
         return self.slint_selector.fd_to_selector_key[fd]
 
     def __iter__(self):  # type: ignore
@@ -56,7 +56,7 @@ class _SlintSelector(selectors.BaseSelector):
     def register(
         self, fileobj: typing.Any, events: typing.Any, data: typing.Any = None
     ) -> selectors.SelectorKey:
-        fd = fd_for_fileobj(fileobj)
+        fd = _fd_for_fileobj(fileobj)
         key = selectors.SelectorKey(fileobj, fd, events, data)
         self.fd_to_selector_key[fd] = key
 
@@ -76,7 +76,7 @@ class _SlintSelector(selectors.BaseSelector):
         return key
 
     def unregister(self, fileobj: typing.Any) -> selectors.SelectorKey:
-        fd = fd_for_fileobj(fileobj)
+        fd = _fd_for_fileobj(fileobj)
         key = self.fd_to_selector_key.pop(fd)
 
         try:
@@ -94,7 +94,7 @@ class _SlintSelector(selectors.BaseSelector):
     def modify(
         self, fileobj: typing.Any, events: int, data: typing.Any = None
     ) -> selectors.SelectorKey:
-        fd = fd_for_fileobj(fileobj)
+        fd = _fd_for_fileobj(fileobj)
         key = self.fd_to_selector_key[fd]
 
         if key.events != events:
@@ -121,7 +121,7 @@ class _SlintSelector(selectors.BaseSelector):
                 self._drain_wakeup()
                 continue
 
-            fd = fd_for_fileobj(key.fileobj)
+            fd = _fd_for_fileobj(key.fileobj)
             slint_key = self.fd_to_selector_key.get(fd)
             if slint_key is not None:
                 ready.append((slint_key, mask))
@@ -137,7 +137,7 @@ class _SlintSelector(selectors.BaseSelector):
         self._wakeup_reader.close()
         self._wakeup_writer.close()
 
-    def get_map(self) -> Mapping[int | HasFileno, selectors.SelectorKey]:
+    def get_map(self) -> Mapping[int | _HasFileno, selectors.SelectorKey]:
         return self.mapping
 
     def read_notify(self, fd: int) -> None:
