@@ -9,9 +9,9 @@ Lookup the [`crate::items`] module documentation.
 */
 use super::{
     EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
-    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg, WindowItem, StringArg,
+    VoidArg, WindowItem,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -291,8 +291,8 @@ impl Item for MarkdownText {
                     *position * scale_factor,
                 ) {
                     Self::FIELD_OFFSETS.click_link.apply_pin(self).call(&(link.into(),));
-                }    
-                    
+                }
+
                 InputEventResult::EventAccepted
             }
             _ => InputEventResult::EventIgnored,
