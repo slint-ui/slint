@@ -17,6 +17,7 @@ pub(super) struct NativeSliderData {
     pub pressed: u8,
     pub pressed_x: f32,
     pub pressed_val: f32,
+    pub pressed_max: f32,
 }
 
 type FloatArg = (f32,);
