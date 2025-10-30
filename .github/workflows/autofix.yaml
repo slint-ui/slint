@@ -57,4 +57,5 @@ jobs:
         permissions:
             contents: read
             deployments: write
+            pull-requests: read
         uses: ./.github/workflows/ci.yaml
