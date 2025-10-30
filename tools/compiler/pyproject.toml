@@ -7,9 +7,11 @@ build-backend = "maturin"
 
 [project]
 name = "slint-compiler"
-requires-python = ">=3.10"
+version = "1.15.0b1"
+description = "Slint Compiler"
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 classifiers = ["Programming Language :: Rust", "Programming Language :: Python :: Implementation :: CPython"]
-dynamic = ["version"]
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://slint.dev"

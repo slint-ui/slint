@@ -23,7 +23,7 @@ jobs:
           [
             ubuntu-22.04,
             ubuntu-22.04-arm,
-            windows-latest,
+            windows-2022,
             windows-11-arm,
             macos-14,
           ]
@@ -31,17 +31,14 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: PyO3/maturin-action@v1
         with:
-          package-dir: tools/compiler
-          output-dir: wheelhouse
-        env:
-          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
-          CIBW_BUILD_FRONTEND: "build"
+          working-directory: tools/compiler
+          args: --release --out wheelhouse --find-interpreter
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
-          path: wheelhouse/*.whl
+          path: tools/compiler/wheelhouse/*.whl
 
   build-sdist:
     name: Build source distribution

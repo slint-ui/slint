@@ -12,6 +12,9 @@ component MyLineEdit {
     tx := TextInput {
         text: "to be overridden";
     }
+    public function edit() {
+        tx.text += " edited";
+    }
 }
 
 component MyStructViewer {
@@ -35,6 +38,23 @@ component WithinComp {
     in property <int> val <=> my_struct.value;
 }
 
+component Assignments {
+    in-out property <MyStruct> v;
+
+    le := MyLineEdit {
+        text <=> v.name;
+    }
+
+    out property <int> value <=> v.value;
+
+    init => {
+        v = { name: "Hello", value: -8, xyz: "x" };
+        value += 4;
+        le.edit();
+    }
+
+}
+
 
 export component TestCase {
 
@@ -54,6 +74,8 @@ export component TestCase {
         w := WithinComp {
             val: root.value.value + 100;
         }
+
+        a := Assignments {}
     }
 
     in-out property xyz <=> v.value.xyz;
@@ -63,7 +85,8 @@ export component TestCase {
 
     out property <bool> test: v.value.name == "Olivier" && v.value.value == 13 && spinbox.val == 13 && xyz == "xyz" && value.value == 13
         && inner.inner == v.value && inner.z == 13
-        && w.my_struct.value == 113;
+        && w.my_struct.value == 113
+        && a.v == { name: "Hello edited", value: -4, xyz: "x" };
 
 }
 

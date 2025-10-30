@@ -175,9 +175,7 @@ pub fn instantiate(
     globals: &mut GlobalStorage,
     root: vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
 ) {
-    let GlobalStorage::Strong(ref mut globals) = globals else {
-        panic!("Global storage is not strong")
-    };
+    let GlobalStorage::Strong(globals) = globals else { panic!("Global storage is not strong") };
 
     let instance = match description {
         CompiledGlobal::Builtin { element, .. } => {
