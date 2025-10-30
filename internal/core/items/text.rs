@@ -283,7 +283,7 @@ impl Item for MarkdownText {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count: _ } => {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 let scale_factor = ScaleFactor::new(window_inner.scale_factor());
-                if let Some(link) = crate::textlayout::sharedparley::handle_links(
+                if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
                     scale_factor,
                     self,
                     Some(self.font_request(self_rc)),

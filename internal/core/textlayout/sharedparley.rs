@@ -1222,7 +1222,7 @@ pub fn draw_text(
 }
 
 #[cfg(feature = "experimental-rich-text")]
-pub fn handle_links(
+pub fn link_under_cursor(
     scale_factor: ScaleFactor,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     font_request: Option<FontRequest>,
