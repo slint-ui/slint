@@ -22,7 +22,7 @@ pub fn generate(
     let type_value_conversions =
         generate_value_conversions(&doc.used_types.borrow().structs_and_enums);
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());

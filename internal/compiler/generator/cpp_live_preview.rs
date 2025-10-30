@@ -21,7 +21,7 @@ pub fn generate(
 
     generate_value_conversions(&mut file, &doc.used_types.borrow().structs_and_enums);
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     let main_file = doc
         .node
