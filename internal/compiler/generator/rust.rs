@@ -197,7 +197,7 @@ pub fn generate(
     let (structs_and_enums_ids, inner_module) =
         generate_types(&doc.used_types.borrow().structs_and_enums);
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());

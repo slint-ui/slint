@@ -18,7 +18,7 @@ use typed_index_collections::TiVec;
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
-) -> std::io::Result<CompilationUnit> {
+) -> CompilationUnit {
     let mut state = LoweringState::default();
 
     #[cfg(feature = "bundle-translations")]
@@ -105,7 +105,7 @@ pub fn lower_to_item_tree(
         translations: state.translation_builder.map(|x| x.result()),
     };
     super::optim_passes::run_passes(&root);
-    Ok(root)
+    root
 }
 
 #[derive(Debug, Clone)]

@@ -93,7 +93,7 @@ pub fn generate(
             )); // Perhaps byte code in the future?
         }
         OutputFormat::Llr => {
-            let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
+            let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
             let mut output = String::new();
             crate::llr::pretty_print::pretty_print(&root, &mut output).unwrap();
             write!(destination, "{output}")?;
