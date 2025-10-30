@@ -3,13 +3,16 @@
 
 use std::rc::Rc;
 
-use euclid::{Scale, Size2D};
-use slint::ComponentHandle;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
+use euclid::{Scale, Size2D};
+
+use i_slint_core::items::ColorScheme;
+use slint::ComponentHandle;
+
 use servo::{
-    RenderingContext, Servo, ServoBuilder, WebViewBuilder, webrender_api::units::DevicePixel,
+    RenderingContext, Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel,
 };
 
 use crate::{
@@ -87,9 +90,7 @@ fn intit_servo(state: Rc<SlintServoAdapter>, rendering_context: Rc<dyn Rendering
 
     let event_loop_waker = Box::new(waker);
 
-    ServoBuilder::new(rendering_context)
-        .event_loop_waker(event_loop_waker)
-        .build()
+    ServoBuilder::new(rendering_context).event_loop_waker(event_loop_waker).build()
 }
 
 fn init_webview(
@@ -115,6 +116,12 @@ fn init_webview(
         .build();
 
     webview.show(true);
+
+    let color_scheme = ColorScheme::Dark; // Hard coded for now
+
+    let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
+
+    webview.notify_theme_change(theme);
 
     state.set_inner(servo, webview, scale_factor, rendering_adapter);
 }
