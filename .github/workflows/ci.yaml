@@ -4,11 +4,8 @@
 name: CI
 
 on:
-    push:
-        branches: [master, "feature/*"]
-    pull_request:
-        branches: [master, "feature/*"]
     workflow_dispatch:
+    workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
