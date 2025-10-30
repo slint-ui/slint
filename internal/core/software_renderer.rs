@@ -1716,7 +1716,14 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         color: PremultipliedRgbaColor,
         stroke_width: f32,
     ) {
-        path::render_stroked_path(&commands, &path_geometry, &clip_geometry, color, stroke_width, self.buffer);
+        path::render_stroked_path(
+            &commands,
+            &path_geometry,
+            &clip_geometry,
+            color,
+            stroke_width,
+            self.buffer,
+        );
     }
 }
 

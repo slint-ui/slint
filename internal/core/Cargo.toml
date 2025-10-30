@@ -19,7 +19,7 @@ categories = ["gui", "development-tools", "no-std"]
 path = "lib.rs"
 
 [features]
-ffi = ["dep:static_assertions"]           # Expose C ABI
+ffi = ["dep:static_assertions"]                         # Expose C ABI
 libm = ["num-traits/libm", "euclid/libm", "zeno?/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []

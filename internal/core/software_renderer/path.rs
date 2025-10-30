@@ -8,8 +8,8 @@ use super::PhysicalRect;
 #[cfg(any(feature = "std"))]
 use crate::graphics::PathDataIterator;
 use alloc::vec::Vec;
-use zeno::{Fill, Mask, Stroke, Point};
 pub use zeno::Command;
+use zeno::{Fill, Mask, Point, Stroke};
 
 /// Convert Slint's PathDataIterator to zeno's Command format
 #[cfg(any(feature = "std"))]
@@ -26,10 +26,7 @@ pub fn convert_path_data_to_zeno(path_data: PathDataIterator) -> Vec<Command> {
                 commands.push(Command::LineTo(Point::new(to.x, to.y)));
             }
             Event::Quadratic { ctrl, to, .. } => {
-                commands.push(Command::QuadTo(
-                    Point::new(ctrl.x, ctrl.y),
-                    Point::new(to.x, to.y),
-                ));
+                commands.push(Command::QuadTo(Point::new(ctrl.x, ctrl.y), Point::new(to.x, to.y)));
             }
             Event::Cubic { ctrl1, ctrl2, to, .. } => {
                 commands.push(Command::CurveTo(
@@ -89,7 +86,7 @@ fn render_path_with_style<T: TargetPixel>(
     // Apply the mask only within the clipped region
     for screen_y in clip_y_start..clip_y_end {
         let line = buffer.line_slice(screen_y);
-        
+
         // Calculate the y coordinate in the mask buffer
         let mask_y = screen_y as isize - path_y_start;
         if mask_y < 0 || mask_y >= path_height as isize {
@@ -122,7 +119,7 @@ fn render_path_with_style<T: TargetPixel>(
 }
 
 /// Render a filled path
-/// 
+///
 /// * `commands` - The path commands to render
 /// * `path_geometry` - The full bounding box of the path in screen coordinates
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
@@ -135,11 +132,18 @@ pub fn render_filled_path<T: TargetPixel>(
     color: PremultipliedRgbaColor,
     buffer: &mut impl crate::software_renderer::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    render_path_with_style(commands, path_geometry, clip_geometry, color, zeno::Style::Fill(Fill::NonZero), buffer);
+    render_path_with_style(
+        commands,
+        path_geometry,
+        clip_geometry,
+        color,
+        zeno::Style::Fill(Fill::NonZero),
+        buffer,
+    );
 }
 
 /// Render a stroked path
-/// 
+///
 /// * `commands` - The path commands to render
 /// * `path_geometry` - The full bounding box of the path in screen coordinates
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
