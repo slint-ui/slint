@@ -5,16 +5,18 @@
 
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use super::PhysicalRect;
-#[cfg(any(feature = "std"))]
+#[cfg(feature = "std")]
 use crate::graphics::PathDataIterator;
 use alloc::vec::Vec;
+use zeno::{Fill, Mask, Stroke};
+
 pub use zeno::Command;
-use zeno::{Fill, Mask, Point, Stroke};
 
 /// Convert Slint's PathDataIterator to zeno's Command format
-#[cfg(any(feature = "std"))]
+#[cfg(feature = "std")]
 pub fn convert_path_data_to_zeno(path_data: PathDataIterator) -> Vec<Command> {
     use lyon_path::Event;
+    use zeno::Point;
     let mut commands = Vec::new();
 
     for event in path_data.iter() {

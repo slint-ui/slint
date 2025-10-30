@@ -11,6 +11,7 @@ mod draw_functions;
 mod fixed;
 mod fonts;
 mod minimal_software_window;
+#[cfg(feature = "software-renderer-path")]
 mod path;
 mod scene;
 
@@ -1302,6 +1303,7 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    #[cfg(feature = "software-renderer-path")]
     fn process_filled_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1309,6 +1311,7 @@ trait ProcessScene {
         commands: alloc::vec::Vec<path::Command>,
         color: PremultipliedRgbaColor,
     );
+    #[cfg(feature = "software-renderer-path")]
     fn process_stroked_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1698,6 +1701,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         });
     }
 
+    #[cfg(feature = "software-renderer-path")]
     fn process_filled_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1708,6 +1712,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         path::render_filled_path(&commands, &path_geometry, &clip_geometry, color, self.buffer);
     }
 
+    #[cfg(feature = "software-renderer-path")]
     fn process_stroked_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1859,6 +1864,7 @@ impl ProcessScene for PrepareScene {
         }
     }
 
+    #[cfg(feature = "software-renderer-path")]
     fn process_filled_path(
         &mut self,
         _path_geometry: PhysicalRect,
@@ -1870,6 +1876,7 @@ impl ProcessScene for PrepareScene {
         // Only works with buffer-based rendering (RenderToBuffer)
     }
 
+    #[cfg(feature = "software-renderer-path")]
     fn process_stroked_path(
         &mut self,
         _path_geometry: PhysicalRect,
@@ -2745,7 +2752,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         }
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", feature = "software-renderer-path"))]
     fn draw_path(&mut self, path: Pin<&crate::items::Path>, self_rc: &ItemRc, size: LogicalSize) {
         let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
