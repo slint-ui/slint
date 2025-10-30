@@ -2753,7 +2753,12 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     }
 
     #[cfg(all(feature = "std", not(feature = "software-renderer-path")))]
-    fn draw_path(&mut self, _path: Pin<&crate::items::Path>, _self_rc: &ItemRc, _size: LogicalSize) {
+    fn draw_path(
+        &mut self,
+        _path: Pin<&crate::items::Path>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
         // Path rendering is disabled without the software-renderer-path feature
     }
 
