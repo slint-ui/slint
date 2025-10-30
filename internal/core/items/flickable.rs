@@ -442,7 +442,7 @@ impl FlickableData {
 
                     // Update reference points when the size of the viewport changes to
                     // avoid 'jumping' during scrolling.
-                    // This happens when height estimate of a ListView changes after
+                    // This happens when the height estimate of a ListView changes after
                     // new items are loaded.
                     if current_viewport_size != inner.pressed_viewport_size {
                         inner.pressed_viewport_size = current_viewport_size;
