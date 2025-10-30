@@ -45,7 +45,7 @@ jobs:
               working-directory: tools/slintpad
 
             - name: "Upload wasm Artifacts"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: wasm
                   path: |
@@ -65,7 +65,7 @@ jobs:
               with:
                 version: 10.18.2
             - name: Download wasm_lsp Artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: wasm
             - name: Install NPM dependencies
@@ -85,7 +85,7 @@ jobs:
               working-directory: tools/slintpad
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
             - name: "Upload slintpad Artifacts"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slintpad
                   path: tools/slintpad/dist/

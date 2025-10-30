@@ -111,7 +111,7 @@ jobs:
                   mkdir bin
                   cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
             - name: "Upload LSP Artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: vscode-lsp-binary-${{ matrix.toolchain }}
                   path: |
@@ -143,7 +143,7 @@ jobs:
                   keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
                   developer_id: ${{ secrets.APPLE_DEV_ID }}
             - name: "Upload LSP macOS bundle Artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: vscode-lsp-binary-darwin
                   path: bin
@@ -172,7 +172,7 @@ jobs:
                   mkdir bin
                   cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
             - name: "Upload LSP Artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: vscode-lsp-binary-${{ matrix.target }}
                   path: |
@@ -199,27 +199,27 @@ jobs:
               with:
                   node-version: 20
                   package-manager-cache: false
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-x86_64-unknown-linux-gnu
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-x86_64-pc-windows-msvc
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-aarch64-pc-windows-msvc
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-darwin
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-aarch64-unknown-linux-gnu
                   path: editors/vscode/bin
@@ -263,7 +263,7 @@ jobs:
                   extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
                   packagePath: ""
             - name: "Upload extension artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slint-vscode.zip
                   path: |
@@ -294,7 +294,7 @@ jobs:
               run: mv *.zip figma-plugin.zip
               working-directory: tools/figma-inspector/zip
             - name: Archive zip
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: figma-plugin
                   path: tools/figma-inspector/zip
@@ -305,7 +305,7 @@ jobs:
     #    steps:
     #      - uses: actions/checkout@v5
     #      - name: Upload artifact
-    #        uses: actions/upload-artifact@v4
+    #        uses: actions/upload-artifact@v5
     #        with:
     #            name: tree-sitter-slint
     #            path: editors/tree-sitter-slint
@@ -315,20 +315,20 @@ jobs:
         needs: [docs, wasm_demo, wasm, check-for-secrets, android]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: docs
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: slintpad
                   path: slintpad
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: wasm
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: wasm_demo
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: android-demo
                   path: android
@@ -510,27 +510,27 @@ jobs:
         permissions:
             contents: write
         steps:
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   pattern: cpp_bin-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   pattern: cpp_mcu_bin-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   pattern: slint-compiler-bin-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   pattern: slint-viewer-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   pattern: slint-lsp-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: figma-plugin
             - name: Extract files
@@ -677,7 +677,7 @@ jobs:
             - name: Build home automation demo
               run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
             - name: "upload APK artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: android-demo
                   path: |

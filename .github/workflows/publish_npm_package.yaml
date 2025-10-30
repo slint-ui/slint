@@ -137,7 +137,7 @@ jobs:
                   fi
                   pnpm pack
             - name: Upload artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: binaries-${{ matrix.rust-target }}
                   path: "api/node/npm/${{ matrix.napi-rs-target }}/*.tgz"
@@ -183,27 +183,27 @@ jobs:
               run: |
                   npx napi create-npm-dir -t . -c ./binaries.json
             - name: Download artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: binaries-x86_64-unknown-linux-gnu
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: binaries-aarch64-unknown-linux-gnu
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: binaries-aarch64-apple-darwin
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: binaries-x86_64-pc-windows-msvc
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: binaries-aarch64-pc-windows-msvc
                   path: api/node/
@@ -218,7 +218,7 @@ jobs:
               run: |
                   cargo xtask node_package $PKG_EXTRA_ARGS
             - name: "Upload npm package Artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slint-ui-node-package
                   path: |
