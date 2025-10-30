@@ -154,6 +154,7 @@ raw-window-handle-06 = { workspace = true, optional = true }
 itertools = { workspace = true }
 smol_str = { workspace = true }
 unicode-segmentation = { workspace = true }
+typed-index-collections = { workspace = true }
 
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
 

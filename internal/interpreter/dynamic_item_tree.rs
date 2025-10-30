@@ -1,6 +1,1034 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::{CompilationResult, Value};
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::{llr, CompilerConfiguration};
+use i_slint_core::item_tree::ItemTreeWeak;
+use i_slint_core::window::WindowAdapterRc;
+use std::rc::Rc;
+use i_slint_core::Property;
+use core::pin::Pin;
+use i_slint_core::items::ItemVTable;
+use typed_index_collections::TiVec;
+
+struct DynamicItemTree {
+    llr: Rc<llr::CompilationUnit>,
+    public_component_index: usize,
+}
+
+type DynamicItemTreeRc = vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, DynamicItemTree>;
+
+struct SubComponentInstance {
+    properties: Pin<Box<[Property<Value>]>>,
+    items: TiVec<llr::ItemInstanceIdx, Pin<Box<dyn ItemInstance>>>,
+    sub_components: TiVec<llr::SubComponentInstanceIdx, SubComponentInstance>
+}
+
+#[derive(Default)]
+pub enum WindowOptions {
+    #[default]
+    CreateNewWindow,
+    UseExistingWindow(WindowAdapterRc),
+    Embed {
+        parent_item_tree: ItemTreeWeak,
+        parent_item_tree_index: u32,
+    },
+}
+
+/// Compile a file to LLR
+pub async fn load(
+    source: String,
+    path: std::path::PathBuf,
+    mut compiler_config: CompilerConfiguration,
+) -> CompilationResult {
+    // If the native style should be Qt, resolve it here as we know that we have it
+    let is_native = match &compiler_config.style {
+        Some(s) => s == "native",
+        None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
+    };
+    if is_native {
+        // On wasm, look at the browser user agent
+        #[cfg(target_arch = "wasm32")]
+        let target = web_sys::window()
+            .and_then(|window| window.navigator().platform().ok())
+            .map_or("wasm", |platform| {
+                let platform = platform.to_ascii_lowercase();
+                if platform.contains("mac")
+                    || platform.contains("iphone")
+                    || platform.contains("ipad")
+                {
+                    "apple"
+                } else if platform.contains("android") {
+                    "android"
+                } else if platform.contains("win") {
+                    "windows"
+                } else if platform.contains("linux") {
+                    "linux"
+                } else {
+                    "wasm"
+                }
+            });
+        #[cfg(not(target_arch = "wasm32"))]
+        let target = "";
+        compiler_config.style = Some(
+            i_slint_common::get_native_style(i_slint_backend_selector::HAS_NATIVE_STYLE, target)
+                .to_string(),
+        );
+    }
+
+    let diag = BuildDiagnostics::default();
+    /*#[cfg(feature = "internal-highlight")]
+    let (path, mut diag, loader, raw_type_loader) =
+        i_slint_compiler::load_root_file_with_raw_type_loader(
+            &path,
+            &path,
+            source,
+            diag,
+            compiler_config,
+        )
+        .await;
+    #[cfg(not(feature = "internal-highlight"))]*/
+    let (path, mut diag, loader) =
+        i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
+    if diag.has_errors() {
+        return CompilationResult {
+            llr: None,
+            diagnostics: diag.into_iter().collect(),
+            #[cfg(feature = "internal")]
+            structs_and_enums: Vec::new(),
+            #[cfg(feature = "internal")]
+            named_exports: Vec::new(),
+        };
+    }
+
+    let doc = loader.get_document(&path).unwrap();
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, &loader.compiler_config);
+
+    if llr.public_components.is_empty() {
+        diag.push_error_with_span("No component found".into(), Default::default());
+    };
+
+    #[cfg(feature = "internal")]
+    let structs_and_enums = doc.used_types.borrow().structs_and_enums.clone();
+
+    #[cfg(feature = "internal")]
+    let named_exports = doc
+        .exports
+        .iter()
+        .filter_map(|export| match &export.1 {
+            Either::Left(component) if !component.is_global() => {
+                Some((&export.0.name, &component.id))
+            }
+            Either::Right(ty) => match &ty {
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    Some((&export.0.name, s.name.as_ref().unwrap()))
+                }
+                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
+                _ => None,
+            },
+            _ => None,
+        })
+        .filter(|(export_name, type_name)| *export_name != *type_name)
+        .map(|(export_name, type_name)| (type_name.to_string(), export_name.to_string()))
+        .collect::<Vec<_>>();
+
+    CompilationResult {
+        diagnostics: diag.into_iter().collect(),
+        llr: Some(llr.into()),
+        #[cfg(feature = "internal")]
+        structs_and_enums,
+        #[cfg(feature = "internal")]
+        named_exports,
+    }
+}
+
+/// Generate the rust code for the given component.
+fn instantiate_sub_component(
+    component_idx: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<ParentCtx>,
+    index_property: Option<llr::PropertyIdx>,
+    pinned_drop: bool,
+) -> SubComponentInstance {
+    let component = &root.sub_components[component_idx];
+
+    let ctx = EvaluationContext::new_sub_component(
+        root,
+        component_idx,
+        InterpreterContext::default(),
+        parent_ctx,
+    );
+
+
+    for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
+        let prop_ident = ident(&property.name);
+        if let Type::Callback(callback) = &property.ty {
+            let callback_args =
+                callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(&callback.return_type).unwrap();
+            declared_callbacks.push(prop_ident.clone());
+            declared_callbacks_types.push(callback_args);
+            declared_callbacks_ret.push(return_type);
+        } else {
+            let rust_property_type = rust_property_type(&property.ty).unwrap();
+            declared_property_vars.push(prop_ident.clone());
+            declared_property_types.push(rust_property_type.clone());
+        }
+    }
+
+    let change_tracker_names = component
+        .change_callbacks
+        .iter()
+        .enumerate()
+        .map(|(idx, _)| format_ident!("change_tracker{idx}"));
+
+    let declared_functions = generate_functions(component.functions.as_ref(), &ctx);
+
+    let mut init = vec![];
+    let mut item_names = vec![];
+    let mut item_types = vec![];
+
+    #[cfg(slint_debug_property)]
+    init.push(quote!(
+        #(self_rc.#declared_property_vars.debug_name.replace(
+            concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
+    ));
+
+    for item in &component.items {
+        item_names.push(ident(&item.name));
+        item_types.push(ident(&item.ty.class_name));
+        #[cfg(slint_debug_property)]
+        {
+            let mut it = Some(&item.ty);
+            let elem_name = ident(&item.name);
+            while let Some(ty) = it {
+                for (prop, info) in &ty.properties {
+                    if info.ty.is_property_type() && prop != "commands" {
+                        let name = format!("{}::{}.{}", component.name, item.name, prop);
+                        let prop = ident(&prop);
+                        init.push(
+                            quote!(self_rc.#elem_name.#prop.debug_name.replace(#name.into());),
+                        );
+                    }
+                }
+                it = ty.parent.as_ref();
+            }
+        }
+    }
+
+    let mut repeated_visit_branch: Vec<TokenStream> = vec![];
+    let mut repeated_element_components: Vec<TokenStream> = vec![];
+    let mut repeated_subtree_ranges: Vec<TokenStream> = vec![];
+    let mut repeated_subtree_components: Vec<TokenStream> = vec![];
+
+    for (idx, repeated) in component.repeated.iter_enumerated() {
+        extra_components.push(generate_repeated_component(
+            repeated,
+            root,
+            ParentCtx::new(&ctx, Some(idx)),
+        ));
+
+        let idx = usize::from(idx) as u32;
+
+        if let Some(item_index) = repeated.container_item_index {
+            let embed_item = access_member(
+                &llr::PropertyReference::InNativeItem {
+                    sub_component_path: vec![],
+                    item_index,
+                    prop_name: String::new(),
+                },
+                &ctx,
+            )
+            .unwrap();
+
+            let ensure_updated = {
+                quote! {
+                    #embed_item.ensure_updated();
+                }
+            };
+
+            repeated_visit_branch.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    #embed_item.visit_children_item(-1, order, visitor)
+                }
+            ));
+            repeated_subtree_ranges.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    #embed_item.subtree_range()
+                }
+            ));
+            repeated_subtree_components.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    if subtree_index == 0 {
+                        *result = #embed_item.subtree_component()
+                    }
+                }
+            ));
+        } else {
+            let repeater_id = format_ident!("repeater{}", idx);
+            let rep_inner_component_id =
+                self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
+
+            let model = compile_expression(&repeated.model.borrow(), &ctx);
+            init.push(quote! {
+                _self.#repeater_id.set_model_binding({
+                    let self_weak = sp::VRcMapped::downgrade(&self_rc);
+                    move || {
+                        let self_rc = self_weak.upgrade().unwrap();
+                        let _self = self_rc.as_pin_ref();
+                        (#model) as _
+                    }
+                });
+            });
+            let ensure_updated = if let Some(listview) = &repeated.listview {
+                let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
+                let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
+                let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
+                let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
+                let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+
+                quote! {
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
+                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
+                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                    );
+                }
+            } else {
+                quote! {
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                        || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
+                    );
+                }
+            };
+            repeated_visit_branch.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    _self.#repeater_id.visit(order, visitor)
+                }
+            ));
+            repeated_subtree_ranges.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    sp::IndexRange::from(_self.#repeater_id.range())
+                }
+            ));
+            repeated_subtree_components.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
+                        *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
+                    }
+                }
+            ));
+            repeated_element_components.push(if repeated.index_prop.is_some() {
+                quote!(#repeater_id: sp::Repeater<#rep_inner_component_id>)
+            } else {
+                quote!(#repeater_id: sp::Conditional<#rep_inner_component_id>)
+            });
+        }
+    }
+
+    let mut accessible_role_branch = vec![];
+    let mut accessible_string_property_branch = vec![];
+    let mut accessibility_action_branch = vec![];
+    let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
+    for ((index, what), expr) in &component.accessible_prop {
+        let e = compile_expression(&expr.borrow(), &ctx);
+        if what == "Role" {
+            accessible_role_branch.push(quote!(#index => #e,));
+        } else if let Some(what) = what.strip_prefix("Action") {
+            let what = ident(what);
+            let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
+            accessibility_action_branch.push(if has_args {
+                quote!((#index, sp::AccessibilityAction::#what(args)) => { let args = (args,); #e })
+            } else {
+                quote!((#index, sp::AccessibilityAction::#what) => { #e })
+            });
+            supported_accessibility_actions.entry(*index).or_default().insert(what);
+        } else {
+            let what = ident(what);
+            accessible_string_property_branch
+                .push(quote!((#index, sp::AccessibleStringProperty::#what) => sp::Some(#e),));
+        }
+    }
+    let mut supported_accessibility_actions_branch = supported_accessibility_actions
+        .into_iter()
+        .map(|(index, values)| quote!(#index => #(sp::SupportedAccessibilityAction::#values)|*,))
+        .collect::<Vec<_>>();
+
+    let mut item_geometry_branch = component
+        .geometries
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .map(|(index, expr)| {
+            let expr = compile_expression(&expr.borrow(), &ctx);
+            let index = index as u32;
+            quote!(#index => #expr,)
+        })
+        .collect::<Vec<_>>();
+
+    let mut item_element_infos_branch = component
+        .element_infos
+        .iter()
+        .map(|(item_index, ids)| quote!(#item_index => { return sp::Some(#ids.into()); }))
+        .collect::<Vec<_>>();
+
+    let mut user_init_code: Vec<TokenStream> = Vec::new();
+
+    let mut sub_component_names: Vec<Ident> = vec![];
+    let mut sub_component_types: Vec<Ident> = vec![];
+
+    for sub in &component.sub_components {
+        let field_name = ident(&sub.name);
+        let sc = &root.sub_components[sub.ty];
+        let sub_component_id = self::inner_component_id(sc);
+        let local_tree_index: u32 = sub.index_in_tree as _;
+        let local_index_of_first_child: u32 = sub.index_of_first_child_in_tree as _;
+        let global_access = &ctx.generator_state.global_access;
+
+        // For children of sub-components, the item index generated by the generate_item_indices pass
+        // starts at 1 (0 is the root element).
+        let global_index = if local_tree_index == 0 {
+            quote!(tree_index)
+        } else {
+            quote!(tree_index_of_first_child + #local_tree_index - 1)
+        };
+        let global_children = if local_index_of_first_child == 0 {
+            quote!(0)
+        } else {
+            quote!(tree_index_of_first_child + #local_index_of_first_child - 1)
+        };
+
+        let sub_compo_field = access_component_field_offset(&format_ident!("Self"), &field_name);
+
+        init.push(quote!(#sub_component_id::init(
+            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            #global_access.clone(), #global_index, #global_children
+        );));
+        user_init_code.push(quote!(#sub_component_id::user_init(
+            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+        );));
+
+        let sub_component_repeater_count = sc.repeater_count(root);
+        if sub_component_repeater_count > 0 {
+            let repeater_offset = sub.repeater_offset;
+            let last_repeater = repeater_offset + sub_component_repeater_count - 1;
+            repeated_visit_branch.push(quote!(
+                #repeater_offset..=#last_repeater => {
+                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
+                }
+            ));
+            repeated_subtree_ranges.push(quote!(
+                #repeater_offset..=#last_repeater => {
+                    #sub_compo_field.apply_pin(_self).subtree_range(dyn_index - #repeater_offset)
+                }
+            ));
+            repeated_subtree_components.push(quote!(
+                #repeater_offset..=#last_repeater => {
+                    #sub_compo_field.apply_pin(_self).subtree_component(dyn_index - #repeater_offset, subtree_index, result)
+                }
+            ));
+        }
+
+        let sub_items_count = sc.child_item_count(root);
+        accessible_role_branch.push(quote!(
+            #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
+        ));
+        accessible_string_property_branch.push(quote!(
+            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
+        ));
+        accessibility_action_branch.push(quote!(
+            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
+        ));
+        supported_accessibility_actions_branch.push(quote!(
+            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
+        ));
+        if sub_items_count > 1 {
+            let range_begin = local_index_of_first_child;
+            let range_end = range_begin + sub_items_count - 2 + sc.repeater_count(root);
+            accessible_role_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
+            ));
+            accessible_string_property_branch.push(quote!(
+                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
+            ));
+            item_geometry_branch.push(quote!(
+                #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
+            ));
+            accessibility_action_branch.push(quote!(
+                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
+            ));
+            supported_accessibility_actions_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
+            ));
+            item_element_infos_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
+            ));
+        }
+
+        sub_component_names.push(field_name);
+        sub_component_types.push(sub_component_id);
+    }
+
+    let popup_id_names =
+        component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
+
+    for (prop1, prop2, fields) in &component.two_way_bindings {
+        let p1 = access_member(prop1, &ctx);
+        let p2 = access_member(prop2, &ctx);
+        let r = p1.then(|p1| {
+            p2.then(|p2| {
+                if fields.is_empty() {
+                    quote!(sp::Property::link_two_way(#p1, #p2))
+                } else {
+                    let mut access = quote!();
+                    let mut ty = ctx.property_ty(prop2);
+                    for f in fields {
+                        let Type::Struct (s) = &ty else { panic!("Field of two way binding on a non-struct type") };
+                        let a = struct_field_access(s, f);
+                        access.extend(quote!(.#a));
+                        ty = s.fields.get(f).unwrap();
+                    }
+                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| s #access .clone(), |s, v| s #access = v.clone()))
+                }
+            })
+        });
+        init.push(quote!(#r;))
+    }
+
+    for (prop, expression) in &component.property_init {
+        if expression.use_count.get() > 0 && component.prop_used(prop, root) {
+            handle_property_init(prop, expression, &mut init, &ctx)
+        }
+    }
+    for prop in &component.const_properties {
+        if component.prop_used(prop, root) {
+            let rust_property = access_member(prop, &ctx).unwrap();
+            init.push(quote!(#rust_property.set_constant();))
+        }
+    }
+
+    let parent_component_type = parent_ctx.iter().map(|parent| {
+        let parent_component_id =
+            self::inner_component_id(parent.ctx.current_sub_component().unwrap());
+        quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
+    });
+
+    user_init_code.extend(component.init_code.iter().map(|e| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        quote!(#code;)
+    }));
+
+    user_init_code.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
+        let change_tracker = format_ident!("change_tracker{idx}");
+        quote! {
+            let self_weak = sp::VRcMapped::downgrade(&self_rc);
+            #[allow(dead_code, unused)]
+            _self.#change_tracker.init(
+                self_weak,
+                move |self_weak| {
+                    let self_rc = self_weak.upgrade().unwrap();
+                    let _self = self_rc.as_pin_ref();
+                    #prop
+                },
+                move |self_weak, _| {
+                    let self_rc = self_weak.upgrade().unwrap();
+                    let _self = self_rc.as_pin_ref();
+                    #code;
+                }
+            );
+        }
+    }));
+
+    let layout_info_h = compile_expression_no_parenthesis(&component.layout_info_h.borrow(), &ctx);
+    let layout_info_v = compile_expression_no_parenthesis(&component.layout_info_v.borrow(), &ctx);
+
+    // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
+    let visibility = parent_ctx.is_none().then(|| quote!(pub));
+
+    let subtree_index_function = if let Some(property_index) = index_property {
+        let prop = access_member(
+            &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
+            &ctx,
+        )
+        .unwrap();
+        quote!(#prop.get() as usize)
+    } else {
+        quote!(usize::MAX)
+    };
+
+    let timer_names =
+        component.timers.iter().enumerate().map(|(idx, _)| format_ident!("timer{idx}"));
+    let update_timers = (!component.timers.is_empty()).then(|| {
+        let updt = component.timers.iter().enumerate().map(|(idx, tmr)| {
+            let ident = format_ident!("timer{idx}");
+            let interval = compile_expression(&tmr.interval.borrow(), &ctx);
+            let running = compile_expression(&tmr.running.borrow(), &ctx);
+            let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            quote!(
+                if #running {
+                    let interval = ::core::time::Duration::from_millis(#interval as u64);
+                    if !self.#ident.running() || interval != self.#ident.interval() {
+                        let self_weak = self.self_weak.get().unwrap().clone();
+                        self.#ident.start(sp::TimerMode::Repeated, interval, move || {
+                            if let Some(self_rc) = self_weak.upgrade() {
+                                let _self = self_rc.as_pin_ref();
+                                #callback
+                            }
+                        });
+                    }
+                } else {
+                    self.#ident.stop();
+                }
+            )
+        });
+        user_init_code.push(quote!(_self.update_timers();));
+        quote!(
+            fn update_timers(self: ::core::pin::Pin<&Self>) {
+                let _self = self;
+                #(#updt)*
+            }
+        )
+    });
+
+    let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
+
+    quote!(
+        #[derive(sp::FieldOffsets, Default)]
+        #[const_field_offset(sp::const_field_offset)]
+        #[repr(C)]
+        #pin_macro
+        #visibility
+        struct #inner_component_id {
+            #(#item_names : sp::#item_types,)*
+            #(#sub_component_names : #sub_component_types,)*
+            #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
+            #(#declared_property_vars : sp::Property<#declared_property_types>,)*
+            #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#repeated_element_components,)*
+            #(#change_tracker_names : sp::ChangeTracker,)*
+            #(#timer_names : sp::Timer,)*
+            self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
+            #(parent : #parent_component_type,)*
+            globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
+            tree_index: ::core::cell::Cell<u32>,
+            tree_index_of_first_child: ::core::cell::Cell<u32>,
+        }
+
+        impl #inner_component_id {
+            fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
+                    globals : sp::Rc<SharedGlobals>,
+                    tree_index: u32, tree_index_of_first_child: u32) {
+                #![allow(unused)]
+                let _self = self_rc.as_pin_ref();
+                let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
+                let _ = _self.globals.set(globals);
+                _self.tree_index.set(tree_index);
+                _self.tree_index_of_first_child.set(tree_index_of_first_child);
+                #(#init)*
+            }
+
+            fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+                #![allow(unused)]
+                let _self = self_rc.as_pin_ref();
+                #(#user_init_code)*
+            }
+
+            fn visit_dynamic_children(
+                self: ::core::pin::Pin<&Self>,
+                dyn_index: u32,
+                order: sp::TraversalOrder,
+                visitor: sp::ItemVisitorRefMut<'_>
+            ) -> sp::VisitChildrenResult {
+                #![allow(unused)]
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_visit_branch)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                }
+            }
+
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
+                #![allow(unused)]
+                let _self = self;
+                match orientation {
+                    sp::Orientation::Horizontal => #layout_info_h,
+                    sp::Orientation::Vertical => #layout_info_v,
+                }
+            }
+
+            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
+                #![allow(unused)]
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_subtree_ranges)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                }
+            }
+
+            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
+                #![allow(unused)]
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_subtree_components)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                };
+            }
+
+            fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
+                #![allow(unused)]
+                let _self = self;
+                #subtree_index_function
+            }
+
+            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
+                #![allow(unused)]
+                let _self = self;
+                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
+                // fields are in alphabetical order
+                let (h, w, x, y) = match index {
+                    #(#item_geometry_branch)*
+                    _ => return ::core::default::Default::default()
+                };
+                sp::euclid::rect(x, y, w, h)
+            }
+
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#accessible_role_branch)*
+                    //#(#forward_sub_ranges => #forward_sub_field.apply_pin(_self).accessible_role())*
+                    _ => sp::AccessibleRole::default(),
+                }
+            }
+
+            fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                what: sp::AccessibleStringProperty,
+            ) -> sp::Option<sp::SharedString> {
+                #![allow(unused)]
+                let _self = self;
+                match (index, what) {
+                    #(#accessible_string_property_branch)*
+                    _ => sp::None,
+                }
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                #![allow(unused)]
+                let _self = self;
+                match (index, action) {
+                    #(#accessibility_action_branch)*
+                    _ => (),
+                }
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#supported_accessibility_actions_branch)*
+                    _ => ::core::default::Default::default(),
+                }
+            }
+
+            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#item_element_infos_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+
+            #update_timers
+
+            #(#declared_functions)*
+        }
+
+        #(#extra_components)*
+    )
+}
+
+fn instantiate_item_tree(
+    sub_tree: &llr::ItemTree,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<ParentCtx>,
+    index_property: Option<llr::PropertyIdx>,
+    is_popup_menu: bool,
+) -> DynamicItemTreeRc {
+    let sub_comp = instentiate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
+    let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
+    let parent_component_type = parent_ctx
+        .iter()
+        .map(|parent| {
+            let parent_component_id =
+                self::inner_component_id(parent.ctx.current_sub_component().unwrap());
+            quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
+        })
+        .collect::<Vec<_>>();
+
+    let globals = if is_popup_menu {
+        quote!(globals)
+    } else if parent_ctx.is_some() {
+        quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
+    } else {
+        quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
+    };
+    let globals_arg = is_popup_menu.then(|| quote!(globals: sp::Rc<SharedGlobals>));
+
+    let embedding_function = if parent_ctx.is_some() {
+        quote!(todo!("Components written in Rust can not get embedded yet."))
+    } else {
+        quote!(false)
+    };
+
+    let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
+            // No repeater index, this could be a PopupWindow
+            quote!(if let Some(parent_rc) = self.parent.clone().upgrade() {
+                       let parent_origin = sp::VRcMapped::origin(&parent_rc);
+                       // TODO: store popup index in ctx and set it here instead of 0?
+                       *_result = sp::ItemRc::new(parent_origin, 0).downgrade();
+                   })
+        }, |idx| {
+            let current_sub_component = parent.ctx.current_sub_component().unwrap();
+            let sub_component_offset = current_sub_component.repeated[idx].index_in_tree;
+
+            quote!(if let Some((parent_component, parent_index)) = self
+                .parent
+                .clone()
+                .upgrade()
+                .map(|sc| (sp::VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
+            {
+                *_result = sp::ItemRc::new(parent_component, parent_index + #sub_component_offset - 1)
+                    .downgrade();
+            })
+        }));
+    let mut item_tree_array = vec![];
+    let mut item_array = vec![];
+    sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
+        let parent_index = parent_index as u32;
+        let (path, component) =
+            follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
+        match node.item_index {
+            Either::Right(mut repeater_index) => {
+                assert_eq!(node.children.len(), 0);
+                let mut sub_component = &root.sub_components[sub_tree.root];
+                for i in &node.sub_component_path {
+                    repeater_index += sub_component.sub_components[*i].repeater_offset;
+                    sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+                }
+                item_tree_array.push(quote!(
+                    sp::ItemTreeNode::DynamicTree {
+                        index: #repeater_index,
+                        parent_index: #parent_index,
+                    }
+                ));
+            }
+            Either::Left(item_index) => {
+                let item = &component.items[item_index];
+                let field = access_component_field_offset(
+                    &self::inner_component_id(component),
+                    &ident(&item.name),
+                );
+
+                let children_count = node.children.len() as u32;
+                let children_index = children_offset as u32;
+                let item_array_len = item_array.len() as u32;
+                let is_accessible = node.is_accessible;
+                item_tree_array.push(quote!(
+                    sp::ItemTreeNode::Item {
+                        is_accessible: #is_accessible,
+                        children_count: #children_count,
+                        children_index: #children_index,
+                        parent_index: #parent_index,
+                        item_array_index: #item_array_len,
+                    }
+                ));
+                item_array.push(quote!(sp::VOffset::new(#path #field)));
+            }
+        }
+    });
+
+    let item_tree_array_len = item_tree_array.len();
+    let item_array_len = item_array.len();
+
+    let element_info_body = if root.has_debug_info {
+        quote!(
+            *_result = self.item_element_infos(_index).unwrap_or_default();
+            true
+        )
+    } else {
+        quote!(false)
+    };
+
+    quote!(
+        #sub_comp
+
+        impl #inner_component_id {
+            fn new(#(parent: #parent_component_type,)* #globals_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+                #![allow(unused)]
+                slint::private_unstable_api::ensure_backend()?;
+                let mut _self = Self::default();
+                #(_self.parent = parent.clone() as #parent_component_type;)*
+                let self_rc = sp::VRc::new(_self);
+                let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
+                let globals = #globals;
+                sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
+                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
+                ::core::result::Result::Ok(self_rc)
+            }
+
+            fn item_tree() -> &'static [sp::ItemTreeNode] {
+                const ITEM_TREE : [sp::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+                &ITEM_TREE
+            }
+
+            fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
+                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
+                static ITEM_ARRAY : sp::OnceBox<
+                    [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
+                > = sp::OnceBox::new();
+                &*ITEM_ARRAY.get_or_init(|| sp::vec![#(#item_array),*].into_boxed_slice().try_into().unwrap())
+            }
+        }
+
+        const _ : () = {
+            use slint::private_unstable_api::re_exports::*;
+            ItemTreeVTable_static!(static VT for self::#inner_component_id);
+        };
+
+        impl sp::PinnedDrop for #inner_component_id {
+            fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
+                sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
+                if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
+                    sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
+                }
+            }
+        }
+
+        impl sp::ItemTree for #inner_component_id {
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
+                -> sp::VisitChildrenResult
+            {
+                return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
+                #[allow(unused)]
+                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>, dyn_index: u32) -> sp::VisitChildrenResult  {
+                    _self.visit_dynamic_children(dyn_index, order, visitor)
+                }
+            }
+
+            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
+                match &self.get_item_tree().as_slice()[index as usize] {
+                    sp::ItemTreeNode::Item { item_array_index, .. } => {
+                        Self::item_array()[*item_array_index as usize].apply_pin(self)
+                    }
+                    sp::ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+
+                }
+            }
+
+            fn get_item_tree(
+                self: ::core::pin::Pin<&Self>) -> sp::Slice<'_, sp::ItemTreeNode>
+            {
+                Self::item_tree().into()
+            }
+
+            fn get_subtree_range(
+                self: ::core::pin::Pin<&Self>, index: u32) -> sp::IndexRange
+            {
+                self.subtree_range(index)
+            }
+
+            fn get_subtree(
+                self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak)
+            {
+                self.subtree_component(index, subtree_index, result);
+            }
+
+            fn subtree_index(
+                self: ::core::pin::Pin<&Self>) -> usize
+            {
+                self.index_property()
+            }
+
+            fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
+                #parent_item_expression
+            }
+
+            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
+                #embedding_function
+            }
+
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
+                self.layout_info(orientation)
+            }
+
+            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
+                self.item_geometry(index)
+            }
+
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
+                self.accessible_role(index)
+            }
+
+            fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                what: sp::AccessibleStringProperty,
+                result: &mut sp::SharedString,
+            ) -> bool {
+                if let Some(r) = self.accessible_string_property(index, what) {
+                    *result = r;
+                    true
+                } else {
+                    false
+                }
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                self.accessibility_action(index, action);
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                self.supported_accessibility_actions(index)
+            }
+
+            fn item_element_infos(
+                self: ::core::pin::Pin<&Self>,
+                _index: u32,
+                _result: &mut sp::SharedString,
+            ) -> bool {
+                #element_info_body
+            }
+
+            fn window_adapter(
+                self: ::core::pin::Pin<&Self>,
+                do_create: bool,
+                result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
+            ) {
+                if do_create {
+                    *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
+                } else {
+                    *result = self.globals.get().unwrap().maybe_window_adapter_impl();
+                }
+            }
+        }
+
+
+    )
+}
+
+/*
 use crate::api::{CompilationResult, ComponentDefinition, Value};
 use crate::global_component::CompiledGlobalCollection;
 use crate::{dynamic_type, eval};
@@ -458,16 +1486,7 @@ fn internal_properties_to_public<'a>(
     })
 }
 
-#[derive(Default)]
-pub enum WindowOptions {
-    #[default]
-    CreateNewWindow,
-    UseExistingWindow(WindowAdapterRc),
-    Embed {
-        parent_item_tree: ItemTreeWeak,
-        parent_item_tree_index: u32,
-    },
-}
+<removed WindowOption>
 
 impl ItemTreeDescription<'_> {
     /// The name of this Component as written in the .slint file
@@ -520,24 +1539,7 @@ impl ItemTreeDescription<'_> {
             .map(|global| internal_properties_to_public(global.public_properties()))
     }
 
-    /// Instantiate a runtime ItemTree from this ItemTreeDescription
-    pub fn create(
-        self: Rc<Self>,
-        options: WindowOptions,
-    ) -> Result<DynamicComponentVRc, PlatformError> {
-        i_slint_backend_selector::with_platform(|_b| {
-            // Nothing to do, just make sure a backend was created
-            Ok(())
-        })?;
-
-        let instance = instantiate(self, None, None, Some(&options), Default::default());
-        if let WindowOptions::UseExistingWindow(existing_adapter) = options {
-            WindowInner::from_pub(existing_adapter.window())
-                .set_component(&vtable::VRc::into_dyn(instance.clone()));
-        }
-        instance.run_setup_code();
-        Ok(instance)
-    }
+    <removed fn create>
 
     /// Set a value to property.
     ///
@@ -823,158 +1825,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
     (T::name(), Rc::new(rtti))
 }
 
-/// Create a ItemTreeDescription from a source.
-/// The path corresponding to the source need to be passed as well (path is used for diagnostics
-/// and loading relative assets)
-pub async fn load(
-    source: String,
-    path: std::path::PathBuf,
-    mut compiler_config: CompilerConfiguration,
-) -> CompilationResult {
-    // If the native style should be Qt, resolve it here as we know that we have it
-    let is_native = match &compiler_config.style {
-        Some(s) => s == "native",
-        None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
-    };
-    if is_native {
-        // On wasm, look at the browser user agent
-        #[cfg(target_arch = "wasm32")]
-        let target = web_sys::window()
-            .and_then(|window| window.navigator().platform().ok())
-            .map_or("wasm", |platform| {
-                let platform = platform.to_ascii_lowercase();
-                if platform.contains("mac")
-                    || platform.contains("iphone")
-                    || platform.contains("ipad")
-                {
-                    "apple"
-                } else if platform.contains("android") {
-                    "android"
-                } else if platform.contains("win") {
-                    "windows"
-                } else if platform.contains("linux") {
-                    "linux"
-                } else {
-                    "wasm"
-                }
-            });
-        #[cfg(not(target_arch = "wasm32"))]
-        let target = "";
-        compiler_config.style = Some(
-            i_slint_common::get_native_style(i_slint_backend_selector::HAS_NATIVE_STYLE, target)
-                .to_string(),
-        );
-    }
-
-    let diag = BuildDiagnostics::default();
-    #[cfg(feature = "internal-highlight")]
-    let (path, mut diag, loader, raw_type_loader) =
-        i_slint_compiler::load_root_file_with_raw_type_loader(
-            &path,
-            &path,
-            source,
-            diag,
-            compiler_config,
-        )
-        .await;
-    #[cfg(not(feature = "internal-highlight"))]
-    let (path, mut diag, loader) =
-        i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
-    if diag.has_errors() {
-        return CompilationResult {
-            components: HashMap::new(),
-            diagnostics: diag.into_iter().collect(),
-            #[cfg(feature = "internal")]
-            structs_and_enums: Vec::new(),
-            #[cfg(feature = "internal")]
-            named_exports: Vec::new(),
-        };
-    }
-
-    #[cfg(feature = "internal-highlight")]
-    let loader = Rc::new(loader);
-    #[cfg(feature = "internal-highlight")]
-    let raw_type_loader = raw_type_loader.map(Rc::new);
-
-    let doc = loader.get_document(&path).unwrap();
-
-    let compiled_globals = Rc::new(CompiledGlobalCollection::compile(doc));
-    let mut components = HashMap::new();
-
-    let popup_menu_description = if let Some(popup_menu_impl) = &doc.popup_menu_impl {
-        PopupMenuDescription::Rc(Rc::new_cyclic(|weak| {
-            generativity::make_guard!(guard);
-            ErasedItemTreeDescription::from(generate_item_tree(
-                popup_menu_impl,
-                Some(compiled_globals.clone()),
-                PopupMenuDescription::Weak(weak.clone()),
-                true,
-                guard,
-            ))
-        }))
-    } else {
-        PopupMenuDescription::Weak(Default::default())
-    };
-
-    for c in doc.exported_roots() {
-        generativity::make_guard!(guard);
-        #[allow(unused_mut)]
-        let mut it = generate_item_tree(
-            &c,
-            Some(compiled_globals.clone()),
-            popup_menu_description.clone(),
-            false,
-            guard,
-        );
-        #[cfg(feature = "internal-highlight")]
-        {
-            let _ = it.type_loader.set(loader.clone());
-            let _ = it.raw_type_loader.set(raw_type_loader.clone());
-        }
-        components.insert(c.id.to_string(), ComponentDefinition { inner: it.into() });
-    }
-
-    if components.is_empty() {
-        diag.push_error_with_span("No component found".into(), Default::default());
-    };
-
-    #[cfg(feature = "internal")]
-    let structs_and_enums = doc.used_types.borrow().structs_and_enums.clone();
-
-    #[cfg(feature = "internal")]
-    let named_exports = doc
-        .exports
-        .iter()
-        .filter_map(|export| match &export.1 {
-            Either::Left(component) if !component.is_global() => {
-                Some((&export.0.name, &component.id))
-            }
-            Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.node().is_some() => {
-                    if let StructName::User { name, .. } = &s.name {
-                        Some((&export.0.name, name))
-                    } else {
-                        None
-                    }
-                }
-                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
-                _ => None,
-            },
-            _ => None,
-        })
-        .filter(|(export_name, type_name)| *export_name != *type_name)
-        .map(|(export_name, type_name)| (type_name.to_string(), export_name.to_string()))
-        .collect::<Vec<_>>();
-
-    CompilationResult {
-        diagnostics: diag.into_iter().collect(),
-        components,
-        #[cfg(feature = "internal")]
-        structs_and_enums,
-        #[cfg(feature = "internal")]
-        named_exports,
-    }
-}
+<removed fn load>
 
 fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
     let mut rtti = HashMap::new();
@@ -2648,3 +3499,14 @@ pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {
         timer.restart();
     }
 }
+*/
+
+
+
+#[derive(Clone)]
+struct InterpreterContext {
+
+}
+
+type EvaluationContext<'a> = llr::EvaluationContext<'a, InterpreterContext>;
+type ParentCtx<'a> = llr::ParentCtx<'a, InterpreterContext>;
