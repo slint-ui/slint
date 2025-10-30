@@ -1,8 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Palette } from "std-widgets.slint";
+
 export global WebviewLogic {
 
+    callback theme(scheme: ColorScheme);
     callback resize(width: length, height: length);
     callback pointer(event: PointerEvent, x: length, y: length);
     callback scroll(initital_x: length, initital_y: length, delta_x: length, delta_y: length);
@@ -17,6 +20,11 @@ export global WebviewLogic {
 }
 
 export component Webview {
+
+    property <ColorScheme> scheme: Palette.color-scheme;
+    changed scheme => {
+        WebviewLogic.theme(scheme);
+    }
 
     touch_area := TouchArea {
 
