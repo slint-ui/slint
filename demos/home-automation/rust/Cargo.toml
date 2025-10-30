@@ -19,7 +19,7 @@ path = "lib.rs"
 name = "home_automation_lib"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint" }
+slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06"] }
 chrono = "0.4"
 
 [features]
