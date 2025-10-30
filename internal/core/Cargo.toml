@@ -66,8 +66,10 @@ experimental = []
 
 experimental-rich-text = ["dep:pulldown-cmark"]
 
+wgpu-27 = ["dep:wgpu-27"]
+
 unstable-wgpu-26 = ["dep:wgpu-26"]
-unstable-wgpu-27 = ["dep:wgpu-27"]
+unstable-wgpu-27 = ["wgpu-27"]
 
 tr = ["dep:tr"]
 

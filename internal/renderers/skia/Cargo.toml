@@ -35,8 +35,8 @@ unstable-wgpu-26 = [
   "dep:windows-core",
   "dep:windows-core_58",
 ]
-unstable-wgpu-27 = [
-  "i-slint-core/unstable-wgpu-27",
+wgpu-27 = [
+  "i-slint-core/wgpu-27",
   "dep:wgpu-27",
   "dep:spin_on",
   "dep:metal",
@@ -45,6 +45,10 @@ unstable-wgpu-27 = [
   "dep:windows_58",
   "dep:windows-core",
   "dep:windows-core_58",
+]
+unstable-wgpu-27 = [
+  "i-slint-core/unstable-wgpu-27",
+  "wgpu-27",
 ]
 default = []
 

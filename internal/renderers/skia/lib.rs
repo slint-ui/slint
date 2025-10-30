@@ -57,8 +57,8 @@ pub mod opengl_surface;
 
 #[cfg(feature = "unstable-wgpu-26")]
 mod wgpu_26_surface;
-#[cfg(feature = "unstable-wgpu-27")]
-mod wgpu_27_surface;
+#[cfg(feature = "wgpu-27")]
+pub mod wgpu_27_surface;
 
 use i_slint_core::items::TextWrap;
 use itemrenderer::to_skia_rect;

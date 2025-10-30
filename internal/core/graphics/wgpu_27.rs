@@ -12,6 +12,7 @@ use alloc::boxed::Box;
 
 pub use wgpu_27 as wgpu;
 
+#[cfg(feature = "unstable-wgpu-27")]
 pub mod api {
     /*!
     This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
@@ -163,6 +164,7 @@ use super::RequestedGraphicsAPI;
 /// Internal helper function see if there are any GPU adapters for hardware accelerated rendering.
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter)
+#[cfg(feature = "unstable-wgpu-27")]
 pub fn any_wgpu27_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
     let (instance, backends) = match requested_graphics_api {
         Some(RequestedGraphicsAPI::WGPU27(api::WGPUConfiguration::Manual { instance, .. })) => {
@@ -224,32 +226,57 @@ pub fn any_wgpu27_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
 }
 
+pub enum SurfaceTarget {
+    WindowHandle(Box<dyn wgpu::WindowHandle + 'static>),
+    Drm(wgpu::SurfaceTargetUnsafe),
+}
+
+impl From<Box<dyn wgpu::WindowHandle + 'static>> for SurfaceTarget {
+    fn from(handle: Box<dyn wgpu::WindowHandle + 'static>) -> Self {
+        Self::WindowHandle(handle)
+    }
+}
+
 /// Internal helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub fn init_instance_adapter_device_queue_surface(
-    window_handle: Box<dyn wgpu::WindowHandle + 'static>,
+    surface_target: impl Into<SurfaceTarget>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     backends_to_avoid: wgpu::Backends,
 ) -> Result<
-    (
-        wgpu_27::Instance,
-        wgpu_27::Adapter,
-        wgpu_27::Device,
-        wgpu_27::Queue,
-        wgpu_27::Surface<'static>,
-    ),
+    (wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue, wgpu::Surface<'static>),
     Box<dyn std::error::Error + Send + Sync + 'static>,
 > {
+    #![allow(unsafe_code)]
+
+    let surface_target = surface_target.into();
+
+    let create_surface = |instance: &wgpu::Instance| {
+        match surface_target {
+            SurfaceTarget::WindowHandle(window_handle) => instance.create_surface(window_handle),
+            SurfaceTarget::Drm(surface_target_unsafe) => unsafe {
+                instance.create_surface_unsafe(surface_target_unsafe)
+            },
+        }
+        .map_err(|e| {
+            crate::api::PlatformError::from(alloc::format!(
+                "Error creating wgpu window surface: {e}"
+            ))
+        })
+    };
+
     let (instance, adapter, device, queue, surface) = match requested_graphics_api {
+        #[cfg(feature = "unstable-wgpu-27")]
         Some(RequestedGraphicsAPI::WGPU27(api::WGPUConfiguration::Manual {
             instance,
             adapter,
             device,
             queue,
         })) => {
-            let surface = instance.create_surface(window_handle).unwrap();
+            let surface = create_surface(&instance)?;
             (instance, adapter, device, queue, surface)
         }
+        #[cfg(feature = "unstable-wgpu-27")]
         Some(RequestedGraphicsAPI::WGPU27(api::WGPUConfiguration::Automatic(wgpu27_settings))) => {
             // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
             // which we don't support right now.
@@ -264,7 +291,7 @@ pub fn init_instance_adapter_device_queue_surface(
             })
             .expect("internal error: wgpu instance creation is not expected to be async");
 
-            let surface = instance.create_surface(window_handle).unwrap();
+            let surface = create_surface(&instance)?;
 
             // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
             // which we don't support right now.
@@ -338,7 +365,7 @@ pub fn init_instance_adapter_device_queue_surface(
             })
             .expect("internal error: wgpu instance creation is not expected to be async");
 
-            let surface = instance.create_surface(window_handle).unwrap();
+            let surface = create_surface(&instance)?;
 
             // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
             // which we don't support right now.

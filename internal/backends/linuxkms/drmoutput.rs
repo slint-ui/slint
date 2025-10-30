@@ -37,7 +37,7 @@ enum PageFlipState {
 
 pub struct DrmOutput {
     pub drm_device: SharedFd,
-    connector: drm::control::connector::Info,
+    pub connector: drm::control::connector::Info,
     mode: drm::control::Mode,
     crtc: drm::control::crtc::Handle,
     last_buffer: Cell<Option<Box<dyn Buffer>>>,
@@ -287,5 +287,37 @@ impl DrmOutput {
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)
+    }
+
+    pub fn refresh_rate(&self) -> u32 {
+        self.mode.vrefresh()
+    }
+
+    pub fn primary_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
+        // Iterate through all planes and collect formats from compatible ones
+        let plane_handles = self
+            .drm_device
+            .plane_handles()
+            .map_err(|e| format!("Error obtaining drm plane handles: {e}"))?
+            .into_iter()
+            .filter(|plane_handle| {
+                let Ok(plane_info) = self.drm_device.get_plane(*plane_handle) else {
+                    return false;
+                };
+                self.drm_device
+                    .resource_handles()
+                    .unwrap()
+                    .filter_crtcs(plane_info.possible_crtcs())
+                    .contains(&self.crtc)
+            });
+
+        for plane_handle in plane_handles {
+            // TODO: find primary plane
+            if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
+                return Ok(plane);
+            }
+        }
+
+        Err(PlatformError::Other("Could not find plane matching crtc".into()))
     }
 }

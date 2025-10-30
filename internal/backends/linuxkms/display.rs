@@ -17,8 +17,6 @@ pub mod gbmdisplay;
     feature = "renderer-software"
 ))]
 pub mod swdisplay;
-#[cfg(feature = "renderer-skia-vulkan")]
-pub mod vulkandisplay;
 
 /// This enum describes the way the output is supposed to be rotated to simulate
 /// a screen rotation. This is implemented entirely inside the actual renderer.
