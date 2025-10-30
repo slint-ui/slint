@@ -168,18 +168,26 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
     let push_to_builder = |builder: &mut parley::RangedBuilder<_>| {
         if let Some(ref font_request) = options.font_request {
-            let mut iter = font_request
-                .family
-                .as_ref()
-                .map(|family| parley::style::FontFamily::Named(family.as_str().into()))
+            let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
                 .into_iter()
-                .chain(sharedfontique::FALLBACK_FAMILIES.map(parley::style::FontFamily::Generic))
-                .chain(core::iter::repeat(parley::style::FontFamily::Generic(
-                    sharedfontique::fontique::GenericFamily::SystemUi,
-                )));
-            let font_stack: [parley::style::FontFamily; {
-                sharedfontique::FALLBACK_FAMILIES.as_slice().len() + 1
-            }] = core::array::from_fn(|_| iter.next().unwrap());
+                .map(parley::style::FontFamily::Generic);
+
+            let font_stack: &[parley::style::FontFamily] = if let Some(family) =
+                &font_request.family
+            {
+                let mut iter =
+                    core::iter::once(parley::style::FontFamily::Named(family.as_str().into()))
+                        .chain(fallback_family_iter);
+                &core::array::from_fn::<
+                    _,
+                    { sharedfontique::FALLBACK_FAMILIES.as_slice().len() + 1 },
+                    _,
+                >(|_| iter.next().unwrap())
+            } else {
+                &core::array::from_fn::<_, { sharedfontique::FALLBACK_FAMILIES.as_slice().len() }, _>(
+                    |_| fallback_family_iter.next().unwrap(),
+                )
+            };
 
             builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
                 &font_stack,
