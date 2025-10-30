@@ -5,8 +5,9 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
 use servo::{Servo, WebView};
-use slint::ComponentHandle;
 use smol::channel::{Receiver, Sender};
+
+use slint::ComponentHandle;
 
 #[cfg(not(target_os = "android"))]
 use slint::wgpu_27::wgpu;
@@ -14,9 +15,7 @@ use slint::wgpu_27::wgpu;
 use crate::{MyApp, WebviewLogic, rendering_context::ServoRenderingAdapter};
 
 pub fn upgrade_adapter(weak_ref: &Weak<SlintServoAdapter>) -> Rc<SlintServoAdapter> {
-    weak_ref
-        .upgrade()
-        .expect("Failed to upgrade SlintServoAdapter")
+    weak_ref.upgrade().expect("Failed to upgrade SlintServoAdapter")
 }
 
 pub struct SlintServoAdapter {
@@ -86,28 +85,16 @@ impl SlintServoAdapter {
 
     #[cfg(not(target_os = "android"))]
     pub fn wgpu_device(&self) -> wgpu::Device {
-        self.inner()
-            .device
-            .as_ref()
-            .expect("Device not initialized yet")
-            .clone()
+        self.inner().device.as_ref().expect("Device not initialized yet").clone()
     }
 
     #[cfg(not(target_os = "android"))]
     pub fn wgpu_queue(&self) -> wgpu::Queue {
-        self.inner()
-            .queue
-            .as_ref()
-            .expect("Queue not initialized yet")
-            .clone()
+        self.inner().queue.as_ref().expect("Queue not initialized yet").clone()
     }
 
     pub fn webview(&self) -> WebView {
-        self.inner()
-            .webview
-            .as_ref()
-            .expect("Webview not initialized yet")
-            .clone()
+        self.inner().webview.as_ref().expect("Webview not initialized yet").clone()
     }
 
     pub fn set_inner(

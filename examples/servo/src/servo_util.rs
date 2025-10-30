@@ -47,8 +47,8 @@ pub fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
     .expect("Failed to spawn servo event loop task");
 }
 
-pub fn init_servo_webview(state: Rc<SlintServoAdapter>) {
-    let state_weak = Rc::downgrade(&state);
+pub fn init_servo_webview(adapter: Rc<SlintServoAdapter>) {
+    let state_weak = Rc::downgrade(&adapter);
 
     slint::spawn_local({
         async move {
@@ -96,17 +96,17 @@ fn intit_servo(state: Rc<SlintServoAdapter>, rendering_context: Rc<dyn Rendering
 fn init_webview(
     scale_factor: f32,
     physical_size: PhysicalSize<u32>,
-    state: Rc<SlintServoAdapter>,
+    adapter: Rc<SlintServoAdapter>,
     servo: Servo,
     rendering_adapter: Box<dyn ServoRenderingAdapter>,
 ) {
     let scale = Scale::new(scale_factor);
 
-    let url = state.app().get_url();
+    let url = adapter.app().get_url();
 
     let url = Url::parse(url.as_str()).expect("Failed to parse url");
 
-    let delegate = Rc::new(AppDelegate::new(state.clone()));
+    let delegate = Rc::new(AppDelegate::new(adapter.clone()));
 
     let webview = WebViewBuilder::new(&servo)
         .url(url)
@@ -123,5 +123,5 @@ fn init_webview(
 
     webview.notify_theme_change(theme);
 
-    state.set_inner(servo, webview, scale_factor, rendering_adapter);
+    adapter.set_inner(servo, webview, scale_factor, rendering_adapter);
 }
