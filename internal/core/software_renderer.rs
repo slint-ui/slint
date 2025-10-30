@@ -11,6 +11,7 @@ mod draw_functions;
 mod fixed;
 mod fonts;
 mod minimal_software_window;
+mod path;
 mod scene;
 
 use self::fonts::GlyphRenderer;
@@ -1301,6 +1302,21 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    fn process_filled_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+    );
+    fn process_stroked_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+        stroke_width: f32,
+    );
 }
 
 fn process_rectangle_impl(
@@ -1681,6 +1697,27 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
+
+    fn process_filled_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+    ) {
+        path::render_filled_path(&commands, &path_geometry, &clip_geometry, color, self.buffer);
+    }
+
+    fn process_stroked_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+        stroke_width: f32,
+    ) {
+        path::render_stroked_path(&commands, &path_geometry, &clip_geometry, color, stroke_width, self.buffer);
+    }
 }
 
 #[derive(Default)]
@@ -1813,6 +1850,29 @@ impl ProcessScene for PrepareScene {
                 command: SceneCommand::ConicGradient { conic_gradient_index },
             });
         }
+    }
+
+    fn process_filled_path(
+        &mut self,
+        _path_geometry: PhysicalRect,
+        _clip_geometry: PhysicalRect,
+        _commands: alloc::vec::Vec<path::Command>,
+        _color: PremultipliedRgbaColor,
+    ) {
+        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
+        // Only works with buffer-based rendering (RenderToBuffer)
+    }
+
+    fn process_stroked_path(
+        &mut self,
+        _path_geometry: PhysicalRect,
+        _clip_geometry: PhysicalRect,
+        _commands: alloc::vec::Vec<path::Command>,
+        _color: PremultipliedRgbaColor,
+        _stroke_width: f32,
+    ) {
+        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
+        // Only works with buffer-based rendering (RenderToBuffer)
     }
 }
 
@@ -2679,8 +2739,73 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, _path: Pin<&crate::items::Path>, _: &ItemRc, _size: LogicalSize) {
-        // TODO
+    fn draw_path(&mut self, path: Pin<&crate::items::Path>, self_rc: &ItemRc, size: LogicalSize) {
+        let geom = LogicalRect::from(size);
+        if !self.should_draw(&geom) {
+            return;
+        }
+
+        // Get the fitted path events from the Path item
+        let Some((offset, path_iterator)) = path.fitted_path_events(self_rc) else {
+            return;
+        };
+
+        // Convert to zeno commands
+        let zeno_commands = path::convert_path_data_to_zeno(path_iterator);
+
+        // Calculate the physical geometry
+        let physical_geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+            * self.scale_factor)
+            .round()
+            .cast()
+            .transformed(self.rotation);
+
+        let physical_clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast::<i16>()
+                .transformed(self.rotation);
+
+        // Apply the offset from fitted path
+        let physical_offset = (offset.cast::<f32>() * self.scale_factor).cast::<i16>();
+        let adjusted_geom = physical_geom.translate(physical_offset);
+
+        // Clip the geometry - early return if nothing to draw
+        let Some(clipped_geom) = adjusted_geom.intersection(&physical_clip) else {
+            return;
+        };
+
+        // Draw fill if specified
+        let fill_brush = path.fill();
+        if !fill_brush.is_transparent() {
+            let fill_color = self.alpha_color(fill_brush.color());
+            if fill_color.alpha() > 0 {
+                self.processor.process_filled_path(
+                    adjusted_geom,
+                    clipped_geom,
+                    zeno_commands.clone(),
+                    fill_color.into(),
+                );
+            }
+        }
+
+        // Draw stroke if specified
+        let stroke_brush = path.stroke();
+        let stroke_width = path.stroke_width();
+        if !stroke_brush.is_transparent() && stroke_width.get() > 0.0 {
+            let stroke_color = self.alpha_color(stroke_brush.color());
+            if stroke_color.alpha() > 0 {
+                let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
+                self.processor.process_stroked_path(
+                    adjusted_geom,
+                    clipped_geom,
+                    zeno_commands,
+                    stroke_color.into(),
+                    physical_stroke_width,
+                );
+            }
+        }
     }
 
     fn draw_box_shadow(
