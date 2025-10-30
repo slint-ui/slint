@@ -280,7 +280,12 @@ impl Item for MarkdownText {
         self_rc: &ItemRc,
     ) -> InputEventResult {
         match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count: _ } => {
+            MouseEvent::Pressed {
+                position,
+                button: PointerEventButton::Left,
+                click_count: _,
+                is_touch: _,
+            } => {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 let scale_factor = ScaleFactor::new(window_inner.scale_factor());
                 if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
