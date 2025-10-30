@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
+use crate::dynamic_item_tree::WindowOptions;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
@@ -11,8 +11,8 @@ use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
-#[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
+use itertools::Itertools as _;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::future::Future;
@@ -805,7 +805,8 @@ impl ComponentCompiler {
 
         let r = crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
-        r.components.into_values().next()
+        let llr = r.llr.filter(|llr| llr.public_components.is_empty()).clone()?;
+        Some(ComponentDefinition { llr, public_component_index: 0 })
     }
 
     /// Compile some .slint code into a ComponentDefinition
@@ -831,7 +832,8 @@ impl ComponentCompiler {
     ) -> Option<ComponentDefinition> {
         let r = crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
-        r.components.into_values().next()
+        let llr = r.llr.filter(|llr| llr.public_components.is_empty()).clone()?;
+        Some(ComponentDefinition { llr, public_component_index: 0 })
     }
 }
 
@@ -969,7 +971,7 @@ impl Compiler {
                 let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
                 diagnostics.push_compiler_error(d);
                 return CompilationResult {
-                    components: HashMap::new(),
+                    llr: None,
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
@@ -1007,7 +1009,7 @@ impl Compiler {
 /// The components can be retrieved using [`Self::components()`]
 #[derive(Clone)]
 pub struct CompilationResult {
-    pub(crate) components: HashMap<String, ComponentDefinition>,
+    pub(crate) llr: Option<Rc<i_slint_compiler::llr::CompilationUnit>>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
@@ -1019,7 +1021,17 @@ pub struct CompilationResult {
 impl core::fmt::Debug for CompilationResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CompilationResult")
-            .field("components", &self.components.keys())
+            .field(
+                "components",
+                &self
+                    .llr
+                    .as_ref()
+                    .map(|llr| llr.public_components.as_slice())
+                    .unwrap_or([].as_slice())
+                    .iter()
+                    .map(|c| &c.name)
+                    .join(", "),
+            )
             .field("diagnostics", &self.diagnostics)
             .finish()
     }
@@ -1051,18 +1063,26 @@ impl CompilationResult {
 
     /// Returns an iterator over the compiled components.
     pub fn components(&self) -> impl Iterator<Item = ComponentDefinition> + '_ {
-        self.components.values().cloned()
+        self.llr.as_ref().into_iter().flat_map(|llr| {
+            (0..llr.public_components.len())
+                .map(|i| ComponentDefinition { llr: llr.clone(), public_component_index: i })
+        })
     }
 
     /// Returns the names of the components that were compiled.
     pub fn component_names(&self) -> impl Iterator<Item = &str> + '_ {
-        self.components.keys().map(|s| s.as_str())
+        self.llr
+            .as_ref()
+            .into_iter()
+            .flat_map(|llr| llr.public_components.iter().map(|c| c.name.as_str()))
     }
 
     /// Return the component definition for the given name.
     /// If the component does not exist, then `None` is returned.
     pub fn component(&self, name: &str) -> Option<ComponentDefinition> {
-        self.components.get(name).cloned()
+        let llr = self.llr.as_ref()?;
+        let public_component_index = llr.public_components.iter().position(|c| c.name == name)?;
+        Some(ComponentDefinition { llr: llr.clone(), public_component_index })
     }
 
     /// This is an internal function without API stability guarantees.
@@ -1096,7 +1116,8 @@ impl CompilationResult {
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
-    pub(crate) inner: crate::dynamic_item_tree::ErasedItemTreeDescription,
+    llr: Rc<i_slint_compiler::llr::CompilationUnit>,
+    public_component_index: usize,
 }
 
 impl ComponentDefinition {
@@ -1148,8 +1169,19 @@ impl ComponentDefinition {
         &self,
         options: WindowOptions,
     ) -> Result<ComponentInstance, PlatformError> {
-        generativity::make_guard!(guard);
-        Ok(ComponentInstance { inner: self.inner.unerase(guard).clone().create(options)? })
+        // Make sure a backend was created
+        i_slint_backend_selector::with_platform(|_| Ok(()))?;
+        let instance = crate::dynamic_item_tree::instantiate(
+            &self.llr,
+            self.public_component_index
+            Some(&options),
+        );
+        if let WindowOptions::UseExistingWindow(existing_adapter) = options {
+            WindowInner::from_pub(existing_adapter.window())
+                .set_component(&vtable::VRc::into_dyn(instance.clone()));
+        }
+        instance.run_setup_code();
+        Ok(ComponentInstance { inner: instance })
     }
 
     /// List of publicly declared properties or callback.
@@ -1174,43 +1206,31 @@ impl ComponentDefinition {
     /// Returns an iterator over all publicly declared properties. Each iterator item is a tuple of property name
     /// and property type for each of them.
     pub fn properties(&self) -> impl Iterator<Item = (String, ValueType)> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
-            if prop_type.is_property_type() {
-                Some((prop_name.to_string(), prop_type.into()))
-            } else {
-                None
-            }
+        self.llr.public_components.get(self.public_component_index).into_iter().flat_map(|pc| {
+            pc.public_properties
+                .iter()
+                .filter(|prop| prop.ty.is_property_type())
+                .map(|prop| (prop.name.to_string(), prop.ty.clone().into()))
         })
     }
 
     /// Returns the names of all publicly declared callbacks.
     pub fn callbacks(&self) -> impl Iterator<Item = String> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
-            if matches!(prop_type, LangType::Callback { .. }) {
-                Some(prop_name.to_string())
-            } else {
-                None
-            }
+        self.llr.public_components.get(self.public_component_index).into_iter().flat_map(|pc| {
+            pc.public_properties
+                .iter()
+                .filter(|prop| matches!(prop.ty, LangType::Callback { .. }))
+                .map(|prop| prop.name.to_string())
         })
     }
 
     /// Returns the names of all publicly declared functions.
     pub fn functions(&self) -> impl Iterator<Item = String> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
-            if matches!(prop_type, LangType::Function { .. }) {
-                Some(prop_name.to_string())
-            } else {
-                None
-            }
+        self.llr.public_components.get(self.public_component_index).into_iter().flat_map(|pc| {
+            pc.public_properties
+                .iter()
+                .filter(|prop| matches!(prop.ty, LangType::Function { .. }))
+                .map(|prop| prop.name.to_string())
         })
     }
 
@@ -1219,10 +1239,9 @@ impl ComponentDefinition {
     /// **Note:** Only globals that are exported or re-exported from the main .slint file will
     /// be exposed in the API
     pub fn globals(&self) -> impl Iterator<Item = String> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_names().map(|s| s.to_string())
+        self.llr.globals.iter().flat_map(|g| {
+            g.exported.then_some(&g.name).into_iter().chain(g.aliases.iter()).map(|x| x.to_string())
+        })
     }
 
     /// List of publicly declared properties or callback in the exported global singleton specified by its name.
@@ -1258,58 +1277,49 @@ impl ComponentDefinition {
         &self,
         global_name: &str,
     ) -> Option<impl Iterator<Item = (String, ValueType)> + '_> {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type, _)| {
-                if prop_type.is_property_type() {
-                    Some((prop_name.to_string(), prop_type.into()))
-                } else {
-                    None
-                }
-            })
-        })
+        let g = self.llr.globals.iter().find(|g| {
+            g.exported && (g.name == global_name || g.aliases.iter().any(|a| a == global_name))
+        })?;
+
+        Some(
+            g.public_properties
+                .iter()
+                .filter(|prop| prop.ty.is_property_type())
+                .map(|prop| (prop.name.to_string(), prop.ty.clone().into())),
+        )
     }
 
     /// List of publicly declared callbacks in the exported global singleton specified by its name.
     pub fn global_callbacks(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type, _)| {
-                if matches!(prop_type, LangType::Callback { .. }) {
-                    Some(prop_name.to_string())
-                } else {
-                    None
-                }
-            })
-        })
+        let g = self.llr.globals.iter().find(|g| {
+            g.exported && (g.name == global_name || g.aliases.iter().any(|a| a == global_name))
+        })?;
+
+        Some(
+            g.public_properties
+                .iter()
+                .filter(|prop| matches!(prop.ty, LangType::Callback { .. }))
+                .map(|prop| prop.name.to_string()),
+        )
     }
 
     /// List of publicly declared functions in the exported global singleton specified by its name.
     pub fn global_functions(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type, _)| {
-                if matches!(prop_type, LangType::Function { .. }) {
-                    Some(prop_name.to_string())
-                } else {
-                    None
-                }
-            })
-        })
+        let g = self.llr.globals.iter().find(|g| {
+            g.exported && (g.name == global_name || g.aliases.iter().any(|a| a == global_name))
+        })?;
+
+        Some(
+            g.public_properties
+                .iter()
+                .filter(|prop| matches!(prop.ty, LangType::Function { .. }))
+                .map(|prop| prop.name.to_string()),
+        )
     }
 
     /// The name of this Component as written in the .slint file
     pub fn name(&self) -> &str {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).id()
+        &self.llr.public_components[self.public_component_index].name
     }
 
     /// This gives access to the tree of Elements.
@@ -1372,14 +1382,13 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
 #[repr(C)]
 pub struct ComponentInstance {
-    pub(crate) inner: crate::dynamic_item_tree::DynamicComponentVRc,
+    pub(crate) inner: vtable::VRc<ItemTreeVTable, crate::dynamic_item_tree::DynamicItemTree>,
 }
 
 impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
-        generativity::make_guard!(guard);
-        ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
+        ComponentDefinition { llr: self.inner.llr.clone(), public_component_index: self.inner.public_component_index }
     }
 
     /// Return the value for a public property of this component.
@@ -1681,7 +1690,7 @@ impl ComponentInstance {
 }
 
 impl ComponentHandle for ComponentInstance {
-    type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::ErasedItemTreeBox>;
+    type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::DynamicItemTree>;
 
     fn as_weak(&self) -> Weak<Self>
     where

@@ -9259,6 +9259,7 @@ dependencies = [
  "serde_json",
  "smol_str 0.3.2",
  "spin_on",
+ "typed-index-collections",
  "unicode-segmentation",
  "vtable",
  "web-sys",
