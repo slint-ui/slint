@@ -1253,33 +1253,32 @@ pub fn link_under_cursor(
         },
     );
 
-    let Some(paragraph) = layout.paragraph_by_y(cursor.y_length()) else {
-        return None;
-    };
-
-    let cursor = parley::layout::cursor::Cursor::from_point(
-        &paragraph.layout,
-        cursor.x,
-        (cursor.y_length() - layout.y_offset - paragraph.y).get(),
-    );
-
-    let link_index =
-        match paragraph.links.binary_search_by_key(&cursor.index(), |(range, _)| range.end) {
-            Ok(index) => index,
-            Err(index) => index,
-        };
-
-    if link_index >= paragraph.links.len() {
-        return None;
+    for paragraph in layout.paragraphs {
+        for (range, link) in paragraph.links {
+            let start =
+                parley::Cursor::from_byte_index(&paragraph.layout, range.start, Default::default());
+            let end =
+                parley::Cursor::from_byte_index(&paragraph.layout, range.end, Default::default());
+            let mut clicked = false;
+            let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+            let link_range = parley::Selection::new(start, end);
+            link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
+                bounding_box.y0 += paragraph_y;
+                bounding_box.y1 += paragraph_y;
+                clicked = bounding_box.union(parley::BoundingBox::new(
+                    cursor.x.into(),
+                    cursor.y.into(),
+                    cursor.x.into(),
+                    cursor.y.into(),
+                )) == bounding_box;
+            });
+            if clicked {
+                return Some(link);
+            }
+        }
     }
 
-    let Some((range, link)) = paragraph.links.get(link_index) else { return None };
-
-    if range.start > cursor.index() {
-        return None;
-    }
-
-    Some(link.clone())
+    None
 }
 
 pub fn draw_text_input(
