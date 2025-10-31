@@ -287,7 +287,7 @@ pub fn mark_all_translations_dirty() {
         // If in the worst case it won't invalidate, then old translations are shown.
         #[allow(unsafe_code)]
         unsafe {
-            extern "C" {
+            unsafe extern "C" {
                 static mut _nl_msg_cat_cntr: std::ffi::c_int;
             }
             _nl_msg_cat_cntr += 1;

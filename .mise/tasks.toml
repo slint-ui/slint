@@ -50,8 +50,8 @@ depends = ["prepare:pnpm-install"]
 
 ["lint:ts:typecheck"]
 description = "Run pnpm format:fix"
-run = "pnpm type-check"
-depends = ["prepare:pnpm-install", "build:lsp:wasm", "build:interpreter:wasm"]
+run = "pnpm type-check:ci"
+depends = ["prepare:pnpm-install"]
 
 ### Build
 

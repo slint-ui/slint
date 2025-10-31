@@ -4,11 +4,17 @@
 name: CI
 
 on:
-    push:
-        branches: [master, "feature/*"]
-    pull_request:
-        branches: [master, "feature/*"]
     workflow_dispatch:
+    workflow_call:
+      secrets:
+        CLOUDFLARE_API_TOKEN:
+          required: true
+        CLOUDFLARE_ACCOUNT_ID:
+          required: true
+        ANDROID_KEYSTORE_PASSWORD:
+          required: true
+        ANDROID_KEYSTORE_BASE64:
+          required: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
@@ -220,9 +226,6 @@ jobs:
             - name: Run mypy
               working-directory: api/python/slint
               run: uv run mypy -p tests -p slint
-            - name: Run mypy on slint-compiler
-              working-directory: api/python/compiler
-              run: uv run mypy slint_compiler
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check

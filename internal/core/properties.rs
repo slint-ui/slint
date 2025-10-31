@@ -1249,6 +1249,12 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 (self.map_from)(value, &sub_value);
                 BindingResult::KeepBinding
             }
+
+            unsafe fn intercept_set(self: Pin<&Self>, value: *const ()) -> bool {
+                let value = &mut *(value as *mut T);
+                let sub_value = (self.map_to)(value);
+                ((*self.b).vtable.intercept_set)(self.b, &sub_value as *const T2 as *const ())
+            }
         }
         impl<T, T2, M1, M2> Drop for BindingMapper<T, T2, M1, M2> {
             fn drop(&mut self) {

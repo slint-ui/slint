@@ -413,17 +413,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             |component, item, index, state| {
                 let mut new_state = *state;
                 let item_rc = ItemRc::new(component.clone(), index);
+                let new_geom =
+                    CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, &self.window_adapter);
+
                 let rendering_data = item.cached_rendering_data_offset();
                 let mut cache = self.cache.borrow_mut();
-
                 match rendering_data.get_entry(&mut cache) {
                     Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
                         let old_geom = cached_geom.clone();
-                        let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
-                            &item_rc,
-                            &self.window_adapter,
-                        );
 
                         let geometry_changed = old_geom != new_geom;
                         if ItemRef::downcast_pin::<Clip>(item).is_some()
@@ -519,17 +517,16 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
                     }
                     None => {
-                        let geom = CachedItemBoundingBoxAndTransform::new::<T>(
-                            &item_rc,
-                            &self.window_adapter,
-                        );
-                        let cache_entry = PartialRenderingCachedData::new(geom.clone());
+                        let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
                         rendering_data.cache_index.set(cache.insert(cache_entry));
                         rendering_data.cache_generation.set(cache.generation());
 
-                        new_state.adjust_transforms_for_child(&geom.transform(), &geom.transform());
+                        new_state.adjust_transforms_for_child(
+                            &new_geom.transform(),
+                            &new_geom.transform(),
+                        );
 
-                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } = geom {
+                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } = new_geom {
                             new_state.clipped = new_state
                                 .clipped
                                 .intersection(
@@ -542,7 +539,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
 
                         self.mark_dirty_rect(
-                            geom.bounding_rect(),
+                            new_geom.bounding_rect(),
                             state.transform_to_screen,
                             &state.clipped,
                         );

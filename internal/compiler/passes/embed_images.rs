@@ -71,7 +71,7 @@ fn collect_image_urls_from_expression(
     e: &Expression,
     urls: &mut HashMap<SmolStr, Option<SmolStr>>,
 ) {
-    if let Expression::ImageReference { ref resource_ref, .. } = e {
+    if let Expression::ImageReference { resource_ref, .. } = e {
         if let ImageReference::AbsolutePath(path) = resource_ref {
             urls.insert(path.clone(), None);
         }
@@ -88,7 +88,7 @@ fn embed_images_from_expression(
     scale_factor: f64,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Expression::ImageReference { ref mut resource_ref, source_location, nine_slice: _ } = e {
+    if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e {
         if let ImageReference::AbsolutePath(path) = resource_ref {
             // used mapped path:
             let mapped_path =
