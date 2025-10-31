@@ -6,8 +6,8 @@
 //! It assumes that use_count of all properties is zero initially
 
 use crate::llr::{
-    Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression, ParentCtx,
-    PropertyReference,
+    Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression,
+    LocalPropertyReference, ParentCtx, PropertyReference,
 };
 
 pub fn count_property_use(root: &CompilationUnit) {
@@ -15,23 +15,13 @@ pub fn count_property_use(root: &CompilationUnit) {
     // 1. the public properties
     for c in &root.public_components {
         let root_ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
-        for p in c.public_properties.iter().filter(|p| {
-            !matches!(
-                p.prop,
-                PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. }
-            )
-        }) {
+        for p in c.public_properties.iter().filter(|p| !p.prop.is_function()) {
             visit_property(&p.prop, &root_ctx);
         }
     }
     for (idx, g) in root.globals.iter_enumerated().filter(|(_, g)| g.exported) {
         let ctx = EvaluationContext::new_global(root, idx, ());
-        for p in g.public_properties.iter().filter(|p| {
-            !matches!(
-                p.prop,
-                PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. }
-            )
-        }) {
+        for p in g.public_properties.iter().filter(|p| !p.prop.is_function()) {
             visit_property(&p.prop, &ctx);
         }
     }
@@ -53,11 +43,11 @@ pub fn count_property_use(root: &CompilationUnit) {
         for (idx, r) in sc.repeated.iter_enumerated() {
             r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
-                visit_property(&lv.viewport_y, ctx);
-                visit_property(&lv.viewport_width, ctx);
-                visit_property(&lv.viewport_height, ctx);
-                visit_property(&lv.listview_width, ctx);
-                visit_property(&lv.listview_height, ctx);
+                visit_property(&lv.viewport_y.clone().into(), ctx);
+                visit_property(&lv.viewport_width.clone().into(), ctx);
+                visit_property(&lv.viewport_height.clone().into(), ctx);
+                visit_property(&lv.listview_width.clone().into(), ctx);
+                visit_property(&lv.listview_height.clone().into(), ctx);
 
                 let rep_ctx = EvaluationContext::new_sub_component(
                     root,
@@ -89,8 +79,8 @@ pub fn count_property_use(root: &CompilationUnit) {
 
         // 7. aliases (if they were not optimize, they are probably used)
         for (a, b, _) in &sc.two_way_bindings {
-            visit_property(a, ctx);
-            visit_property(b, ctx);
+            visit_property(&a.clone().into(), ctx);
+            visit_property(&b.clone().into(), ctx);
         }
 
         // 8.functions (TODO: only visit used function)
@@ -100,7 +90,7 @@ pub fn count_property_use(root: &CompilationUnit) {
 
         // 9. change callbacks
         for (p, e) in &sc.change_callbacks {
-            visit_property(p, ctx);
+            visit_property(&p.clone().into(), ctx);
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
 
@@ -130,10 +120,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
 
         for (p, e) in &g.change_callbacks {
-            visit_property(
-                &PropertyReference::Local { sub_component_path: vec![], property_index: *p },
-                &ctx,
-            );
+            visit_property(&LocalPropertyReference::from(*p).into(), &ctx);
             e.borrow().visit_property_references(&ctx, &mut visit_property);
         }
     }
