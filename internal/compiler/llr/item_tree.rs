@@ -6,7 +6,6 @@ use crate::langtype::{NativeClass, Type};
 use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
-use std::num::NonZeroUsize;
 use std::rc::Rc;
 use typed_index_collections::TiVec;
 
@@ -104,26 +103,82 @@ impl GlobalComponent {
     }
 }
 
-/// a Reference to a property, in the context of a SubComponent
+#[derive(Clone, Debug, Hash, PartialEq, Eq, derive_more::From)]
+pub enum LocalPropertyIndex {
+    #[from]
+    Property(PropertyIdx),
+    #[from]
+    Function(FunctionIdx),
+    Native {
+        item_index: ItemInstanceIdx,
+        prop_name: SmolStr,
+    },
+}
+impl LocalPropertyIndex {
+    pub fn property(&self) -> Option<PropertyIdx> {
+        if let LocalPropertyIndex::Property(p) = self {
+            Some(*p)
+        } else {
+            None
+        }
+    }
+}
+
+/// A reference to a property, callback, or function, in the context of a SubComponent
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PropertyReference {
-    /// A property relative to this SubComponent
-    Local { sub_component_path: Vec<SubComponentInstanceIdx>, property_index: PropertyIdx },
-    /// A property in a Native item
-    InNativeItem {
-        sub_component_path: Vec<SubComponentInstanceIdx>,
-        item_index: ItemInstanceIdx,
-        prop_name: String,
-    },
-    /// The properties is a property relative to a parent ItemTree (`level` level deep)
-    InParent { level: NonZeroUsize, parent_reference: Box<PropertyReference> },
-    /// The property within a GlobalComponent
-    Global { global_index: GlobalIdx, property_index: PropertyIdx },
+    /// The property or callback is withing a global
+    Global { global_index: GlobalIdx, property: LocalPropertyIndex },
 
-    /// A function in a sub component.
-    Function { sub_component_path: Vec<SubComponentInstanceIdx>, function_index: FunctionIdx },
-    /// A function in a global.
-    GlobalFunction { global_index: GlobalIdx, function_index: FunctionIdx },
+    /// The reference is relative to the current SubComponent
+    Relative {
+        /// Go up so many level to reach the parent
+        parent_level: usize,
+        local_reference: LocalPropertyReference,
+    },
+}
+impl PropertyReference {
+    /// this is only valid for relative local reference
+    #[track_caller]
+    pub fn local(&self) -> LocalPropertyReference {
+        match self {
+            PropertyReference::Relative { parent_level: 0, local_reference, .. } => {
+                local_reference.clone()
+            }
+            _ => panic!("not a local reference"),
+        }
+    }
+
+    pub fn is_function(&self) -> bool {
+        match self {
+            PropertyReference::Global { property: LocalPropertyIndex::Function(..), .. }
+            | PropertyReference::Relative {
+                local_reference:
+                    LocalPropertyReference { reference: LocalPropertyIndex::Function(..), .. },
+                ..
+            } => true,
+            _ => false,
+        }
+    }
+}
+
+impl From<LocalPropertyReference> for PropertyReference {
+    fn from(local_reference: LocalPropertyReference) -> Self {
+        PropertyReference::Relative { parent_level: 0, local_reference }
+    }
+}
+
+/// A reference to something within an ItemTree
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LocalPropertyReference {
+    pub sub_component_path: Vec<SubComponentInstanceIdx>,
+    pub reference: LocalPropertyIndex,
+}
+
+impl<T: Into<LocalPropertyIndex>> From<T> for LocalPropertyReference {
+    fn from(reference: T) -> Self {
+        Self { sub_component_path: vec![], reference: reference.into() }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -147,13 +202,13 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
-    pub viewport_y: PropertyReference,
-    pub viewport_height: PropertyReference,
-    pub viewport_width: PropertyReference,
+    pub viewport_y: LocalPropertyReference,
+    pub viewport_height: LocalPropertyReference,
+    pub viewport_width: LocalPropertyReference,
     /// The ListView's inner visible height (not counting eventual scrollbar)
-    pub listview_height: PropertyReference,
+    pub listview_height: LocalPropertyReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
-    pub listview_width: PropertyReference,
+    pub listview_width: LocalPropertyReference,
 
     // In the repeated component context
     pub prop_y: PropertyReference,
@@ -272,13 +327,13 @@ pub struct SubComponent {
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
-    pub property_init: Vec<(PropertyReference, BindingExpression)>,
-    pub change_callbacks: Vec<(PropertyReference, MutExpression)>,
+    pub property_init: Vec<(LocalPropertyReference, BindingExpression)>,
+    pub change_callbacks: Vec<(LocalPropertyReference, MutExpression)>,
     /// The animation for properties which are animated
-    pub animations: HashMap<PropertyReference, Expression>,
+    pub animations: HashMap<LocalPropertyReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
-    pub two_way_bindings: Vec<(PropertyReference, PropertyReference, Vec<SmolStr>)>,
-    pub const_properties: Vec<PropertyReference>,
+    pub two_way_bindings: Vec<(LocalPropertyReference, PropertyReference, Vec<SmolStr>)>,
+    pub const_properties: Vec<LocalPropertyReference>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
@@ -294,7 +349,7 @@ pub struct SubComponent {
     /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
     pub element_infos: BTreeMap<u32, String>,
 
-    pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
+    pub prop_analysis: HashMap<LocalPropertyReference, PropAnalysis>,
 }
 
 #[derive(Debug)]
@@ -346,10 +401,10 @@ impl SubComponent {
     }
 
     /// Return if a local property is used. (unused property shouldn't be generated)
-    pub fn prop_used(&self, prop: &PropertyReference, cu: &CompilationUnit) -> bool {
-        if let PropertyReference::Local { property_index, sub_component_path } = prop {
+    pub fn prop_used(&self, prop: &LocalPropertyReference, cu: &CompilationUnit) -> bool {
+        if let LocalPropertyIndex::Property(property_index) = &prop.reference {
             let mut sc = self;
-            for i in sub_component_path {
+            for i in &prop.sub_component_path {
                 sc = &cu.sub_components[sc.sub_components[*i].ty];
             }
             if sc.properties[*property_index].use_count.get() == 0 {
@@ -481,6 +536,7 @@ impl CompilationUnit {
     }
 }
 
+/// Depending on the type, this can also be a Callback or a Function
 #[derive(Debug, Clone)]
 pub struct PublicProperty {
     pub name: SmolStr,

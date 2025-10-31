@@ -148,20 +148,29 @@ impl LoweredSubComponentMapping {
         match self.element_mapping.get(&element.clone().into()).unwrap() {
             LoweredElement::SubComponent { sub_component_index } => {
                 if let ElementType::Component(base) = &element.borrow().base_type {
-                    return property_reference_within_sub_component(
-                        state.map_property_reference(&NamedReference::new(
-                            &base.root_element,
-                            from.name().clone(),
-                        )),
-                        *sub_component_index,
-                    );
+                    let mut prop_ref = state.map_property_reference(&NamedReference::new(
+                        &base.root_element,
+                        from.name().clone(),
+                    ));
+                    if let PropertyReference::Relative { parent_level, local_reference } =
+                        &mut prop_ref
+                    {
+                        assert_eq!(*parent_level, 0, "the sub-component had no parents");
+                        local_reference.sub_component_path.insert(0, *sub_component_index);
+                    }
+                    return prop_ref;
                 }
                 unreachable!()
             }
-            LoweredElement::NativeItem { item_index } => PropertyReference::InNativeItem {
-                sub_component_path: vec![],
-                item_index: *item_index,
-                prop_name: from.name().to_string(),
+            LoweredElement::NativeItem { item_index } => PropertyReference::Relative {
+                parent_level: 0,
+                local_reference: LocalPropertyReference {
+                    sub_component_path: vec![],
+                    reference: LocalPropertyIndex::Native {
+                        item_index: *item_index,
+                        prop_name: from.name().clone(),
+                    },
+                },
             },
             LoweredElement::Repeated { .. } => unreachable!(),
             LoweredElement::ComponentPlaceholder { .. } => unreachable!(),
@@ -205,23 +214,6 @@ impl LoweringState {
     fn push_sub_component(&mut self, sc: LoweredSubComponent) -> SubComponentIdx {
         self.sub_components.push_and_get_key(sc)
     }
-}
-
-// Map a PropertyReference within a `sub_component` to a PropertyReference to the component containing it
-fn property_reference_within_sub_component(
-    mut prop_ref: PropertyReference,
-    sub_component: SubComponentInstanceIdx,
-) -> PropertyReference {
-    match &mut prop_ref {
-        PropertyReference::Local { sub_component_path, .. }
-        | PropertyReference::InNativeItem { sub_component_path, .. }
-        | PropertyReference::Function { sub_component_path, .. } => {
-            sub_component_path.insert(0, sub_component);
-        }
-        PropertyReference::InParent { .. } => panic!("the sub-component had no parents"),
-        PropertyReference::Global { .. } | PropertyReference::GlobalFunction { .. } => (),
-    }
-    prop_ref
 }
 
 fn component_id(component: &Rc<Component>) -> SmolStr {
@@ -299,30 +291,34 @@ fn lower_sub_component(
             if x.is_alias.is_some() {
                 continue;
             }
-            if let Type::Function(function) = &x.property_type {
+            let reference = if let Type::Function(function) = &x.property_type {
                 // TODO: Function could wrap the Rc<langtype::Function>
                 //       instead of cloning the return type and args?
-                let function_index = sub_component.functions.push_and_get_key(Function {
+                let index = sub_component.functions.push_and_get_key(Function {
                     name: p.clone(),
                     ret_ty: function.return_type.clone(),
                     args: function.args.clone(),
                     // will be replaced later
                     code: super::Expression::CodeBlock(vec![]),
                 });
-                mapping.property_mapping.insert(
-                    NamedReference::new(element, p.clone()),
-                    PropertyReference::Function { sub_component_path: vec![], function_index },
-                );
-                continue;
-            }
-            let property_index = sub_component.properties.push_and_get_key(Property {
-                name: format_smolstr!("{}_{}", elem.id, p),
-                ty: x.property_type.clone(),
-                ..Property::default()
-            });
+                index.into()
+            } else {
+                let index = sub_component.properties.push_and_get_key(Property {
+                    name: format_smolstr!("{}_{}", elem.id, p),
+                    ty: x.property_type.clone(),
+                    ..Property::default()
+                });
+                index.into()
+            };
             mapping.property_mapping.insert(
                 NamedReference::new(element, p.clone()),
-                PropertyReference::Local { sub_component_path: vec![], property_index },
+                PropertyReference::Relative {
+                    parent_level: 0,
+                    local_reference: LocalPropertyReference {
+                        sub_component_path: vec![],
+                        reference,
+                    },
+                },
             );
         }
         if elem.repeated.is_some() {
@@ -397,16 +393,17 @@ fn lower_sub_component(
 
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
         let nr = NamedReference::new(e, p.clone());
-        let prop = ctx.map_property_reference(&nr);
+        let prop = ctx.map_property_reference(&nr).local();
 
         if let Type::Function { .. } = nr.ty() {
-            if let PropertyReference::Function { sub_component_path, function_index } = prop {
-                assert!(sub_component_path.is_empty());
-                sub_component.functions[function_index].code =
-                    super::lower_expression::lower_expression(&binding.expression, &mut ctx);
-            } else {
+            assert!(prop.sub_component_path.is_empty());
+            let LocalPropertyIndex::Function(function_index) = prop.reference else {
                 unreachable!()
-            }
+            };
+
+            sub_component.functions[function_index].code =
+                super::lower_expression::lower_expression(&binding.expression, &mut ctx);
+
             return;
         }
 
@@ -507,6 +504,7 @@ fn lower_sub_component(
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
+        let x = x.local();
         // ensure that all const properties have analysis
         sub_component.prop_analysis.entry(x.clone()).or_insert_with(|| PropAnalysis {
             property_init: None,
@@ -576,7 +574,7 @@ fn lower_sub_component(
                 &tree_Expression::CodeBlock(exprs),
                 &mut ctx,
             );
-            (prop, expr.into())
+            (prop.local(), expr.into())
         })
         .collect();
 
@@ -660,11 +658,11 @@ fn lower_repeated_component(
     let listview = repeated.is_listview.as_ref().map(|lv| {
         let geom = component.root_element.borrow().geometry_props.clone().unwrap();
         ListViewInfo {
-            viewport_y: ctx.map_property_reference(&lv.viewport_y),
-            viewport_height: ctx.map_property_reference(&lv.viewport_height),
-            viewport_width: ctx.map_property_reference(&lv.viewport_width),
-            listview_height: ctx.map_property_reference(&lv.listview_height),
-            listview_width: ctx.map_property_reference(&lv.listview_width),
+            viewport_y: ctx.map_property_reference(&lv.viewport_y).local().clone(),
+            viewport_height: ctx.map_property_reference(&lv.viewport_height).local().clone(),
+            viewport_width: ctx.map_property_reference(&lv.viewport_width).local().clone(),
+            listview_height: ctx.map_property_reference(&lv.listview_height).local().clone(),
+            listview_width: ctx.map_property_reference(&lv.listview_width).local().clone(),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
             prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
         }
@@ -681,8 +679,8 @@ fn lower_repeated_component(
             root: ctx.state.push_sub_component(sc),
             parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
         },
-        index_prop: (!repeated.is_conditional_element).then_some(1usize.into()),
-        data_prop: (!repeated.is_conditional_element).then_some(0usize.into()),
+        index_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_INDEX),
+        data_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_DATA),
         index_in_tree: *e.item_index.get().unwrap(),
         listview,
         container_item_index,
@@ -758,7 +756,7 @@ fn lower_global(
 
         if let Type::Function(function) = &x.property_type {
             // TODO: wrap the Rc<langtype::Function> instead of cloning
-            let function_index = functions.push_and_get_key(Function {
+            let function_index: FunctionIdx = functions.push_and_get_key(Function {
                 name: p.clone(),
                 ret_ty: function.return_type.clone(),
                 args: function.args.clone(),
@@ -767,12 +765,12 @@ fn lower_global(
             });
             state.global_properties.insert(
                 nr.clone(),
-                PropertyReference::GlobalFunction { global_index, function_index },
+                PropertyReference::Global { global_index, property: function_index.into() },
             );
             continue;
         }
 
-        let property_index = properties.push_and_get_key(Property {
+        let property_index: PropertyIdx = properties.push_and_get_key(Property {
             name: p.clone(),
             ty: x.property_type.clone(),
             ..Property::default()
@@ -792,9 +790,10 @@ fn lower_global(
                 .cloned()
                 .unwrap_or_default(),
         );
-        state
-            .global_properties
-            .insert(nr.clone(), PropertyReference::Global { global_index, property_index });
+        state.global_properties.insert(
+            nr.clone(),
+            PropertyReference::Global { global_index, property: property_index.into() },
+        );
     }
 
     let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
@@ -806,9 +805,10 @@ fn lower_global(
                 ..Property::default()
             });
             let nr = NamedReference::new(&global.root_element, p.clone());
-            state
-                .global_properties
-                .insert(nr, PropertyReference::Global { global_index, property_index });
+            state.global_properties.insert(
+                nr,
+                PropertyReference::Global { global_index, property: property_index.into() },
+            );
             prop_analysis.push(PropertyAnalysis {
                 // Assume that a builtin global property can always be set from the builtin code
                 is_set_externally: true,
@@ -862,8 +862,14 @@ fn lower_global_expressions(
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
         let property_index = match ctx.state.global_properties[&nr] {
-            PropertyReference::Global { property_index, .. } => property_index,
-            PropertyReference::GlobalFunction { function_index, .. } => {
+            PropertyReference::Global {
+                property: LocalPropertyIndex::Property(property_index),
+                ..
+            } => property_index,
+            PropertyReference::Global {
+                property: LocalPropertyIndex::Function(function_index),
+                ..
+            } => {
                 lowered.functions[function_index].code = expression;
                 continue;
             }
@@ -881,9 +887,12 @@ fn lower_global_expressions(
 
     for (prop, expr) in &global.root_element.borrow().change_callbacks {
         let nr = NamedReference::new(&global.root_element, prop.clone());
-        let property_index = match ctx.state.global_properties[&nr] {
-            PropertyReference::Global { property_index, .. } => property_index,
-            _ => unreachable!(),
+        let PropertyReference::Global {
+            property: LocalPropertyIndex::Property(property_index),
+            ..
+        } = ctx.state.global_properties[&nr]
+        else {
+            unreachable!()
         };
         let expression = super::lower_expression::lower_expression(
             &tree_Expression::CodeBlock(expr.borrow().clone()),
