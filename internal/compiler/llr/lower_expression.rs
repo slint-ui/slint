@@ -100,12 +100,12 @@ pub fn lower_expression(
                 ctx.map_property_reference(&NamedReference::new(&elem, SmolStr::default())),
             )
         }
-        tree_Expression::RepeaterIndexReference { element } => {
-            repeater_special_property(element, ctx.component, 1usize.into())
-        }
-        tree_Expression::RepeaterModelReference { element } => {
-            repeater_special_property(element, ctx.component, 0usize.into())
-        }
+        tree_Expression::RepeaterIndexReference { element } => llr_Expression::PropertyReference(
+            repeater_special_property(element, ctx.component, PropertyIdx::REPEATER_INDEX),
+        ),
+        tree_Expression::RepeaterModelReference { element } => llr_Expression::PropertyReference(
+            repeater_special_property(element, ctx.component, PropertyIdx::REPEATER_DATA),
+        ),
         tree_Expression::FunctionParameterReference { index, .. } => {
             llr_Expression::FunctionParameterReference { index: *index }
         }
@@ -330,19 +330,22 @@ fn lower_assignment(
         }
         tree_Expression::RepeaterModelReference { element } => {
             let rhs = lower_expression(rhs, ctx);
-            let prop = repeater_special_property(element, ctx.component, 0usize.into());
+            let prop =
+                repeater_special_property(element, ctx.component, PropertyIdx::REPEATER_DATA);
 
             let level = match &prop {
-                llr_Expression::PropertyReference(PropertyReference::InParent {
-                    level, ..
-                }) => (*level).into(),
+                PropertyReference::InParent { level, .. } => (*level).into(),
                 _ => 0,
             };
 
             let value = Box::new(if op == '=' {
                 rhs
             } else {
-                llr_Expression::BinaryExpression { lhs: prop.into(), rhs: rhs.into(), op }
+                llr_Expression::BinaryExpression {
+                    lhs: llr_Expression::PropertyReference(prop).into(),
+                    rhs: rhs.into(),
+                    op,
+                }
             });
 
             llr_Expression::ModelDataAssignment { level, value }
@@ -370,11 +373,11 @@ fn lower_assignment(
     }
 }
 
-fn repeater_special_property(
+pub fn repeater_special_property(
     element: &Weak<RefCell<Element>>,
     component: &Rc<crate::object_tree::Component>,
     property_index: PropertyIdx,
-) -> llr_Expression {
+) -> PropertyReference {
     let mut r = PropertyReference::Local { sub_component_path: vec![], property_index };
     let enclosing = element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
     let mut level = 0;
@@ -393,7 +396,7 @@ fn repeater_special_property(
     if let Some(level) = NonZeroUsize::new(level - 1) {
         r = PropertyReference::InParent { level, parent_reference: Box::new(r) };
     }
-    llr_Expression::PropertyReference(r)
+    r
 }
 
 fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {

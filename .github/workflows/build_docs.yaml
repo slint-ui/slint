@@ -6,6 +6,9 @@ name: Build docs
 
 on:
     workflow_call:
+      secrets:
+        READ_WRITE_PRIVATE_KEY:
+          required: true
       inputs:
         release:
           type: string

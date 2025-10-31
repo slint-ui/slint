@@ -27,6 +27,11 @@ pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
 
+impl PropertyIdx {
+    pub const REPEATER_DATA: Self = Self(0);
+    pub const REPEATER_INDEX: Self = Self(1);
+}
+
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct MutExpression(RefCell<Expression>);
 
