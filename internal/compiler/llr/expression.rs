@@ -730,7 +730,10 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
                         &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
                 }
 
-                sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
+                sub_component.items[*item_index]
+                    .ty
+                    .lookup_property(prop_name)
+                    .unwrap_or_else(|| panic!("property not found: {}", prop_name))
             }
             PropertyReference::InParent { level, parent_reference } => {
                 let mut ctx = self;
