@@ -8,7 +8,8 @@ use itertools::Itertools;
 use crate::expression_tree::MinMaxOp;
 
 use super::{
-    CompilationUnit, EvaluationContext, Expression, ParentCtx, PropertyReference, SubComponentIdx,
+    CompilationUnit, EvaluationContext, Expression, LocalPropertyIndex, LocalPropertyReference,
+    ParentCtx, PropertyReference, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -64,7 +65,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "{} <=> {}{}{};",
-                DisplayPropertyRef(p1, &ctx),
+                DisplayLocalRef(p1, &ctx),
                 DisplayPropertyRef(p2, &ctx),
                 if fields.is_empty() { "" } else { "." },
                 fields.join(".")
@@ -75,7 +76,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "{}: {};{}",
-                DisplayPropertyRef(p, &ctx),
+                DisplayLocalRef(p, &ctx),
                 DisplayExpression(&init.expression.borrow(), &ctx),
                 if init.is_constant { " /*const*/" } else { "" }
             )?
@@ -85,7 +86,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "changed {} => {};",
-                DisplayPropertyRef(p, &ctx),
+                DisplayLocalRef(p, &ctx),
                 DisplayExpression(&e.borrow(), &ctx),
             )?
         }
@@ -190,55 +191,63 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let mut ctx = self.1;
         match &self.0 {
-            PropertyReference::Local { sub_component_path, property_index } => {
-                if let Some(g) = ctx.current_global() {
-                    write!(f, "{}.{}", g.name, g.properties[*property_index].name)
-                } else {
-                    let mut sc = ctx.current_sub_component().unwrap();
-                    for i in sub_component_path {
-                        write!(f, "{}.", sc.sub_components[*i].name)?;
-                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
-                    }
-                    write!(f, "{}", sc.properties[*property_index].name)
-                }
-            }
-            PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-                let mut sc = ctx.current_sub_component().unwrap();
-                for i in sub_component_path {
-                    write!(f, "{}.", sc.sub_components[*i].name)?;
-                    sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
-                }
-                let i = &sc.items[*item_index];
-                write!(f, "{}.{}", i.name, prop_name)
-            }
-            PropertyReference::InParent { level, parent_reference } => {
-                for _ in 0..level.get() {
+            PropertyReference::Relative { parent_level, local_reference } => {
+                for _ in 0..*parent_level {
                     if ctx.parent.is_none() {
                         return write!(f, "<invalid parent reference>");
                     }
                     ctx = ctx.parent.unwrap().ctx;
                 }
-                write!(f, "{}", Self(parent_reference, ctx))
+                write!(f, "{}", DisplayLocalRef(local_reference, ctx))
             }
-            PropertyReference::Global { global_index, property_index } => {
+            PropertyReference::Global { global_index, property } => {
                 let g = &ctx.compilation_unit.globals[*global_index];
-                write!(f, "{}.{}", g.name, g.properties[*property_index].name)
-            }
-            PropertyReference::Function { sub_component_path, function_index } => {
-                if let Some(g) = ctx.current_global() {
-                    write!(f, "{}.{}", g.name, g.functions[*function_index].name)
-                } else {
-                    let mut sc = ctx.current_sub_component().unwrap();
-                    for i in sub_component_path {
-                        write!(f, "{}.", sc.sub_components[*i].name)?;
-                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
+                match property {
+                    LocalPropertyIndex::Property(property_index) => {
+                        write!(f, "{}.{}", g.name, g.properties[*property_index].name)
                     }
-                    write!(f, "{}", sc.functions[*function_index].name)
+                    LocalPropertyIndex::Function(function_index) => {
+                        write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+                    }
+                    _ => write!(f, "<invalid reference in global>"),
                 }
             }
-            PropertyReference::GlobalFunction { global_index, function_index } => {
-                let g = &ctx.compilation_unit.globals[*global_index];
-                write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+        }
+    }
+}
+
+pub struct DisplayLocalRef<'a, T>(pub &'a LocalPropertyReference, pub &'a EvaluationContext<'a, T>);
+impl<T> Display for DisplayLocalRef<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        let ctx = self.1;
+
+        if let Some(g) = ctx.current_global() {
+            match &self.0.reference {
+                LocalPropertyIndex::Property(property_index) => {
+                    write!(f, "{}.{}", g.name, g.properties[*property_index].name)
+                }
+                LocalPropertyIndex::Function(function_index) => {
+                    write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+                }
+                _ => write!(f, "<invalid reference in global>"),
+            }
+        } else {
+            let mut sc = ctx.current_sub_component().unwrap();
+            for i in &self.0.sub_component_path {
+                write!(f, "{}.", sc.sub_components[*i].name)?;
+                sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
+            }
+            match &self.0.reference {
+                LocalPropertyIndex::Property(property_index) => {
+                    write!(f, "{}", sc.properties[*property_index].name)
+                }
+                LocalPropertyIndex::Function(function_index) => {
+                    write!(f, "{}", sc.functions[*function_index].name)
+                }
+                LocalPropertyIndex::Native { item_index, prop_name } => {
+                    let i = &sc.items[*item_index];
+                    write!(f, "{}.{}", i.name, prop_name)
+                }
             }
         }
     }

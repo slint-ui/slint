@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    GlobalIdx, PropertyReference, RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
+    GlobalIdx, LocalPropertyIndex, LocalPropertyReference, PropertyReference, RepeatedElementIdx,
+    SubComponentIdx, SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
-use core::num::NonZeroUsize;
 use itertools::Either;
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
@@ -473,6 +473,7 @@ pub trait TypeResolutionContext {
     ///
     /// For reference to function, this is the return type
     fn property_ty(&self, _: &PropertyReference) -> &Type;
+
     // The type of the specified argument when evaluating a callback
     fn arg_type(&self, _index: usize) -> &Type {
         unimplemented!()
@@ -550,20 +551,19 @@ impl<'a, T> EvaluationContext<'a, T> {
         fn match_in_sub_component<'b>(
             cu: &'b super::CompilationUnit,
             sc: &'b super::SubComponent,
-            prop: &PropertyReference,
+            prop: &LocalPropertyReference,
             map: ContextMap,
         ) -> PropertyInfoResult<'b> {
             let property_decl = || {
-                if let PropertyReference::Local { property_index, sub_component_path } = &prop {
+                prop.reference.property().map(|property_index| {
                     let mut sc = sc;
-                    for i in sub_component_path {
+                    for i in &prop.sub_component_path {
                         sc = &cu.sub_components[sc.sub_components[*i].ty];
                     }
-                    Some(&sc.properties[*property_index])
-                } else {
-                    None
-                }
+                    &sc.properties[property_index]
+                })
             };
+
             let animation = sc.animations.get(prop).map(|a| (a, map.clone()));
             let analysis = sc.prop_analysis.get(prop);
             if let Some(a) = &analysis {
@@ -576,119 +576,66 @@ impl<'a, T> EvaluationContext<'a, T> {
                     };
                 }
             }
-            let apply_analysis = |mut r: PropertyInfoResult<'b>| -> PropertyInfoResult<'b> {
-                if animation.is_some() {
-                    r.animation = animation
+            let mut r = if let &[idx, ref rest @ ..] = prop.sub_component_path.as_slice() {
+                let prop2 = LocalPropertyReference {
+                    sub_component_path: rest.to_vec(),
+                    reference: prop.reference.clone(),
                 };
-                if let Some(a) = analysis {
-                    r.analysis = Some(&a.analysis);
-                }
-                r
+                match_in_sub_component(
+                    cu,
+                    &cu.sub_components[sc.sub_components[idx].ty],
+                    &prop2,
+                    map.deeper_in_sub_component(idx),
+                )
+            } else {
+                PropertyInfoResult { property_decl: property_decl(), ..Default::default() }
             };
-            match prop {
-                PropertyReference::Local { sub_component_path, property_index } => {
-                    if !sub_component_path.is_empty() {
-                        let prop2 = PropertyReference::Local {
-                            sub_component_path: sub_component_path[1..].to_vec(),
-                            property_index: *property_index,
-                        };
-                        let idx = sub_component_path[0];
-                        return apply_analysis(match_in_sub_component(
-                            cu,
-                            &cu.sub_components[sc.sub_components[idx].ty],
-                            &prop2,
-                            map.deeper_in_sub_component(idx),
-                        ));
-                    }
-                }
-                PropertyReference::InNativeItem { item_index, sub_component_path, prop_name } => {
-                    if !sub_component_path.is_empty() {
-                        let prop2 = PropertyReference::InNativeItem {
-                            sub_component_path: sub_component_path[1..].to_vec(),
-                            prop_name: prop_name.clone(),
-                            item_index: *item_index,
-                        };
-                        let idx = sub_component_path[0];
-                        return apply_analysis(match_in_sub_component(
-                            cu,
-                            &cu.sub_components[sc.sub_components[idx].ty],
-                            &prop2,
-                            map.deeper_in_sub_component(idx),
-                        ));
-                    }
-                }
-                _ => unreachable!(),
+
+            if animation.is_some() {
+                r.animation = animation
+            };
+            if let Some(a) = analysis {
+                r.analysis = Some(&a.analysis);
             }
-            apply_analysis(PropertyInfoResult {
-                property_decl: property_decl(),
-                ..Default::default()
-            })
+            r
         }
 
         match prop {
-            PropertyReference::Local { property_index, .. } => {
+            PropertyReference::Relative { parent_level, local_reference } => {
                 if let Some(g) = self.current_global() {
-                    PropertyInfoResult {
-                        analysis: Some(&g.prop_analysis[*property_index]),
-                        binding: g.init_values[*property_index]
-                            .as_ref()
-                            .map(|b| (b, ContextMap::Identity)),
+                    let index = local_reference.reference.property().unwrap();
+                    return PropertyInfoResult {
+                        analysis: Some(&g.prop_analysis[index]),
+                        binding: g.init_values[index].as_ref().map(|b| (b, ContextMap::Identity)),
                         animation: None,
-                        property_decl: Some(&g.properties[*property_index]),
-                    }
-                } else if let Some(sc) = self.current_sub_component() {
-                    match_in_sub_component(self.compilation_unit, sc, prop, ContextMap::Identity)
-                } else {
-                    unreachable!()
+                        property_decl: Some(&g.properties[index]),
+                    };
                 }
+                let mut ctx = self;
+                for _ in 0..*parent_level {
+                    ctx = ctx.parent.as_ref().unwrap().ctx;
+                }
+                let sc = ctx.current_sub_component().unwrap();
+                match_in_sub_component(
+                    ctx.compilation_unit,
+                    sc,
+                    local_reference,
+                    ContextMap::from_parent_level(*parent_level),
+                )
             }
-            PropertyReference::InNativeItem { .. } => match_in_sub_component(
-                self.compilation_unit,
-                self.current_sub_component().unwrap(),
-                prop,
-                ContextMap::Identity,
-            ),
-            PropertyReference::Global { global_index, property_index } => {
+            PropertyReference::Global { global_index, property } => {
                 let g = &self.compilation_unit.globals[*global_index];
+                let index = property.property().unwrap();
                 PropertyInfoResult {
-                    analysis: Some(&g.prop_analysis[*property_index]),
+                    analysis: Some(&g.prop_analysis[index]),
                     animation: None,
                     binding: g
                         .init_values
-                        .get(*property_index)
+                        .get(index)
                         .and_then(Option::as_ref)
                         .map(|b| (b, ContextMap::InGlobal(*global_index))),
-                    property_decl: Some(&g.properties[*property_index]),
+                    property_decl: Some(&g.properties[index]),
                 }
-            }
-            PropertyReference::InParent { level, parent_reference } => {
-                let mut ctx = self;
-                for _ in 0..level.get() {
-                    ctx = ctx.parent.as_ref().unwrap().ctx;
-                }
-                let mut ret = ctx.property_info(parent_reference);
-                let map_mapping = |m: &mut ContextMap| match m {
-                    ContextMap::Identity => {
-                        *m = ContextMap::InSubElement {
-                            path: Default::default(),
-                            parent: level.get(),
-                        }
-                    }
-                    ContextMap::InSubElement { parent, .. } => {
-                        *parent += level.get();
-                    }
-                    _ => (),
-                };
-                if let Some(b) = &mut ret.binding {
-                    map_mapping(&mut b.1);
-                }
-                if let Some(a) = &mut ret.animation {
-                    map_mapping(&mut a.1);
-                }
-                ret
-            }
-            PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. } => {
-                unreachable!()
             }
         }
     }
@@ -700,63 +647,54 @@ impl<'a, T> EvaluationContext<'a, T> {
     pub fn current_global(&self) -> Option<&super::GlobalComponent> {
         self.current_global.and_then(|i| self.compilation_unit.globals.get(i))
     }
+
+    pub fn local_property_ty(&self, local_reference: &LocalPropertyReference) -> &Type {
+        if let Some(current_global) = self.current_global() {
+            return &current_global.properties[local_reference.reference.property().unwrap()].ty;
+        }
+
+        let mut sub_component = self.current_sub_component().unwrap();
+        for i in &local_reference.sub_component_path {
+            sub_component =
+                &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
+        }
+        match &local_reference.reference {
+            LocalPropertyIndex::Property(property_index) => {
+                &sub_component.properties[*property_index].ty
+            }
+            LocalPropertyIndex::Function(function_index) => {
+                &sub_component.functions[*function_index].ret_ty
+            }
+            LocalPropertyIndex::Native { item_index, prop_name } => {
+                if prop_name == "elements" {
+                    // The `Path::elements` property is not in the NativeClass
+                    return &Type::PathData;
+                }
+                &sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
+            }
+        }
+    }
 }
 
 impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
     fn property_ty(&self, prop: &PropertyReference) -> &Type {
         match prop {
-            PropertyReference::Local { sub_component_path, property_index } => {
-                if let Some(mut sub_component) = self.current_sub_component() {
-                    for i in sub_component_path {
-                        sub_component = &self.compilation_unit.sub_components
-                            [sub_component.sub_components[*i].ty];
-                    }
-                    &sub_component.properties[*property_index].ty
-                } else if let Some(current_global) = self.current_global() {
-                    &current_global.properties[*property_index].ty
-                } else {
-                    unreachable!()
-                }
-            }
-            PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-                if prop_name == "elements" {
-                    // The `Path::elements` property is not in the NativeClass
-                    return &Type::PathData;
-                }
-
-                let mut sub_component = self.current_sub_component().unwrap();
-                for i in sub_component_path {
-                    sub_component =
-                        &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
-                }
-
-                sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
-            }
-            PropertyReference::InParent { level, parent_reference } => {
+            PropertyReference::Relative { parent_level, local_reference } => {
                 let mut ctx = self;
-                for _ in 0..level.get() {
+                for _ in 0..*parent_level {
                     ctx = ctx.parent.as_ref().unwrap().ctx;
                 }
-                ctx.property_ty(parent_reference)
+                ctx.local_property_ty(local_reference)
             }
-            PropertyReference::Global { global_index, property_index } => {
-                &self.compilation_unit.globals[*global_index].properties[*property_index].ty
-            }
-            PropertyReference::Function { sub_component_path, function_index } => {
-                if let Some(mut sub_component) = self.current_sub_component() {
-                    for i in sub_component_path {
-                        sub_component = &self.compilation_unit.sub_components
-                            [sub_component.sub_components[*i].ty];
+            PropertyReference::Global { global_index, property } => {
+                let g = &self.compilation_unit.globals[*global_index];
+                match property {
+                    LocalPropertyIndex::Property(property_idx) => &g.properties[*property_idx].ty,
+                    LocalPropertyIndex::Function(function_idx) => {
+                        &g.functions[*function_idx].ret_ty
                     }
-                    &sub_component.functions[*function_index].ret_ty
-                } else if let Some(current_global) = self.current_global() {
-                    &current_global.functions[*function_index].ret_ty
-                } else {
-                    unreachable!()
+                    LocalPropertyIndex::Native { .. } => unreachable!(),
                 }
-            }
-            PropertyReference::GlobalFunction { global_index, function_index } => {
-                &self.compilation_unit.globals[*global_index].functions[*function_index].ret_ty
             }
         }
     }
@@ -785,6 +723,14 @@ pub(crate) enum ContextMap {
 }
 
 impl ContextMap {
+    fn from_parent_level(parent_level: usize) -> Self {
+        if parent_level == 0 {
+            ContextMap::Identity
+        } else {
+            ContextMap::InSubElement { parent: parent_level, path: vec![] }
+        }
+    }
+
     fn deeper_in_sub_component(self, sub: SubComponentInstanceIdx) -> Self {
         match self {
             ContextMap::Identity => ContextMap::InSubElement { parent: 0, path: vec![sub] },
@@ -799,59 +745,32 @@ impl ContextMap {
     pub fn map_property_reference(&self, p: &PropertyReference) -> PropertyReference {
         match self {
             ContextMap::Identity => p.clone(),
-            ContextMap::InSubElement { path, parent } => {
-                let map_sub_path = |sub_component_path: &[SubComponentInstanceIdx]| -> Vec<SubComponentInstanceIdx> {
-                    path.iter().chain(sub_component_path.iter()).copied().collect()
-                };
-
-                let p2 = match p {
-                    PropertyReference::Local { sub_component_path, property_index } => {
-                        PropertyReference::Local {
-                            sub_component_path: map_sub_path(sub_component_path),
-                            property_index: *property_index,
-                        }
+            ContextMap::InSubElement { path, parent } => match p {
+                PropertyReference::Relative { parent_level, local_reference } => {
+                    PropertyReference::Relative {
+                        parent_level: *parent_level + *parent,
+                        local_reference: LocalPropertyReference {
+                            sub_component_path: path
+                                .iter()
+                                .chain(local_reference.sub_component_path.iter())
+                                .copied()
+                                .collect(),
+                            reference: local_reference.reference.clone(),
+                        },
                     }
-                    PropertyReference::Function { sub_component_path, function_index } => {
-                        PropertyReference::Function {
-                            sub_component_path: map_sub_path(sub_component_path),
-                            function_index: *function_index,
-                        }
-                    }
-                    PropertyReference::InNativeItem {
-                        sub_component_path,
-                        item_index,
-                        prop_name,
-                    } => PropertyReference::InNativeItem {
-                        item_index: *item_index,
-                        prop_name: prop_name.clone(),
-                        sub_component_path: map_sub_path(sub_component_path),
-                    },
-                    PropertyReference::InParent { level, parent_reference } => {
-                        return PropertyReference::InParent {
-                            level: (parent + level.get()).try_into().unwrap(),
-                            parent_reference: parent_reference.clone(),
-                        }
-                    }
-                    PropertyReference::Global { .. } | PropertyReference::GlobalFunction { .. } => {
-                        return p.clone()
-                    }
-                };
-                if let Some(level) = NonZeroUsize::new(*parent) {
-                    PropertyReference::InParent { level, parent_reference: p2.into() }
-                } else {
-                    p2
                 }
-            }
+                PropertyReference::Global { .. } => return p.clone(),
+            },
             ContextMap::InGlobal(global_index) => match p {
-                PropertyReference::Local { sub_component_path, property_index } => {
-                    assert!(sub_component_path.is_empty());
+                PropertyReference::Relative { parent_level, local_reference } => {
+                    assert!(local_reference.sub_component_path.is_empty());
+                    assert_eq!(*parent_level, 0);
                     PropertyReference::Global {
                         global_index: *global_index,
-                        property_index: *property_index,
+                        property: local_reference.reference.clone(),
                     }
                 }
                 g @ PropertyReference::Global { .. } => g.clone(),
-                _ => unreachable!(),
             },
         }
     }

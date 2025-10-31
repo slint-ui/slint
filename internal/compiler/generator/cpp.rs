@@ -71,39 +71,36 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
     let mut ctx = ctx;
     let mut component_access = "self->".into();
 
-    let pr = match pr {
-        llr::PropertyReference::InParent { level, parent_reference } => {
-            for _ in 0..level.get() {
-                component_access = format!("{component_access}parent.lock().value()->");
-                ctx = ctx.parent.as_ref().unwrap().ctx;
-            }
-            parent_reference
-        }
-        other => other,
+    let llr::PropertyReference::Relative { parent_level, local_reference } = pr else {
+        unreachable!()
+    };
+    let llr::LocalPropertyIndex::Native { item_index, prop_name: _ } = &local_reference.reference
+    else {
+        unreachable!()
     };
 
-    match pr {
-        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name: _ } => {
-            let (sub_compo_path, sub_component) = follow_sub_component_path(
-                ctx.compilation_unit,
-                ctx.current_sub_component.unwrap(),
-                sub_component_path,
-            );
-            if !sub_component_path.is_empty() {
-                component_access += &sub_compo_path;
-            }
-            let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
-            let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
-            let item_index = if item_index_in_tree == 0 {
-                format!("{component_access}tree_index")
-            } else {
-                format!("{component_access}tree_index_of_first_child + {item_index_in_tree} - 1")
-            };
-
-            format!("{}, {}", &component_rc, item_index)
-        }
-        _ => unreachable!(),
+    for _ in 0..*parent_level {
+        component_access = format!("{component_access}parent.lock().value()->");
+        ctx = ctx.parent.as_ref().unwrap().ctx;
     }
+
+    let (sub_compo_path, sub_component) = follow_sub_component_path(
+        ctx.compilation_unit,
+        ctx.current_sub_component.unwrap(),
+        &local_reference.sub_component_path,
+    );
+    if !local_reference.sub_component_path.is_empty() {
+        component_access += &sub_compo_path;
+    }
+    let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
+    let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
+    let item_index = if item_index_in_tree == 0 {
+        format!("{component_access}tree_index")
+    } else {
+        format!("{component_access}tree_index_of_first_child + {item_index_in_tree} - 1")
+    };
+
+    format!("{}, {}", &component_rc, item_index)
 }
 
 /// This module contains some data structure that helps represent a C++ code.
@@ -479,7 +476,6 @@ use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::num::NonZeroUsize;
 
 const SHARED_GLOBAL_CLASS: &str = "SharedGlobals";
 
@@ -604,13 +600,13 @@ fn property_set_value_code(
 }
 
 fn handle_property_init(
-    prop: &llr::PropertyReference,
+    prop: &llr::LocalPropertyReference,
     binding_expression: &llr::BindingExpression,
     init: &mut Vec<String>,
     ctx: &EvaluationContext,
 ) {
-    let prop_access = access_member(prop, ctx);
-    let prop_type = ctx.property_ty(prop);
+    let prop_access = access_local_member(prop, ctx);
+    let prop_type = ctx.local_property_ty(prop);
     if let Type::Callback(callback) = &prop_type {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = &callback.args;
@@ -619,27 +615,25 @@ fn handle_property_init(
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });
 
-        init.push(prop_access.then(|prop_access| {
-            format!(
-                "{prop_access}.set_handler(
-                    [this]({params}) {{
-                        [[maybe_unused]] auto self = this;
-                        {code};
-                    }});",
-                prop_access = prop_access,
-                params = params.join(", "),
-                code = return_compile_expression(
-                    &binding_expression.expression.borrow(),
-                    &ctx2,
-                    Some(&callback.return_type)
-                )
+        init.push(format!(
+            "{prop_access}.set_handler(
+                [this]({params}) {{
+                    [[maybe_unused]] auto self = this;
+                    {code};
+                }});",
+            prop_access = prop_access,
+            params = params.join(", "),
+            code = return_compile_expression(
+                &binding_expression.expression.borrow(),
+                &ctx2,
+                Some(&callback.return_type)
             )
-        }));
+        ));
     } else {
         let init_expr = compile_expression(&binding_expression.expression.borrow(), ctx);
 
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            prop_access.then(|prop_access| format!("{prop_access}.set({init_expr});"))
+            format!("{prop_access}.set({init_expr});")
         } else {
             let binding_code = format!(
                 "[this]() {{
@@ -649,18 +643,18 @@ fn handle_property_init(
             );
 
             if binding_expression.is_state_info {
-                prop_access.then(|prop_access| format!("slint::private_api::set_state_binding({prop_access}, {binding_code});"))
+                format!("slint::private_api::set_state_binding({prop_access}, {binding_code});")
             } else {
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
-                        prop_access.then(|prop_access| format!("{prop_access}.set_animated_binding({binding_code}, {anim});"))
+                        format!("{prop_access}.set_animated_binding({binding_code}, {anim});")
                     }
                     Some(llr::Animation::Transition (
                         anim
                     )) => {
                         let anim = compile_expression(anim, ctx);
-                        prop_access.then(|prop_access| format!(
+                        format!(
                             "{prop_access}.set_animated_binding_for_transition({binding_code},
                             [this](uint64_t *start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
@@ -668,9 +662,9 @@ fn handle_property_init(
                                 *start_time = time;
                                 return anim;
                             }});",
-                        ))
+                        )
                     }
-                    None => prop_access.then(|prop_access| format!("{prop_access}.set_binding({binding_code});")),
+                    None => format!("{prop_access}.set_binding({binding_code});"),
                 }
             }
         });
@@ -2095,17 +2089,17 @@ fn generate_sub_component(
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
         if fields.is_empty() {
-            let ty = ctx.property_ty(prop1).cpp_type().unwrap();
+            let ty = ctx.local_property_ty(&prop1).cpp_type().unwrap();
+            let p1 = access_local_member(prop1, &ctx);
             init.push(
-                access_member(prop1, &ctx).then(|p1| {
-                    access_member(prop2, &ctx).then(|p2| {
-                        format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
-                    })
+                access_member(prop2, &ctx).then(|p2| {
+                    format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
                 }) + ";",
             );
         } else {
             let mut access = "x".to_string();
-            let mut ty = ctx.property_ty(prop2);
+            let mut ty = ctx.property_ty(&prop2);
+            let cpp_ty = ty.cpp_type().unwrap();
             for f in fields {
                 let Type::Struct(s) = &ty else {
                     panic!("Field of two way binding on a non-struct type")
@@ -2113,12 +2107,13 @@ fn generate_sub_component(
                 access = struct_field_access(access, &s, f);
                 ty = s.fields.get(f).unwrap();
             }
-            let ty = ctx.property_ty(prop2).cpp_type().unwrap();
-            init.push(access_member(prop1, &ctx).then(|p1|
+
+            let p1 = access_local_member(prop1, &ctx);
+            init.push(
                 access_member(prop2, &ctx).then(|p2|
-                    format!("slint::private_api::Property<{ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
-                )
-            ) + ";");
+                    format!("slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
+                ) + ";",
+            );
         }
     }
 
@@ -2130,8 +2125,8 @@ fn generate_sub_component(
     }
     for prop in &component.const_properties {
         if component.prop_used(prop, root) {
-            let p = access_member(prop, &ctx);
-            properties_init_code.push(p.then(|p| format!("{p}.set_constant();")));
+            let p = access_local_member(prop, &ctx);
+            properties_init_code.push(format!("{p}.set_constant();"));
         }
     }
 
@@ -2171,11 +2166,11 @@ fn generate_sub_component(
         ));
 
         let ensure_updated = if let Some(listview) = &repeated.listview {
-            let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
-            let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
-            let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
-            let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
-            let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+            let vp_y = access_local_member(&listview.viewport_y, &ctx);
+            let vp_h = access_local_member(&listview.viewport_height, &ctx);
+            let lv_h = access_local_member(&listview.listview_height, &ctx);
+            let vp_w = access_local_member(&listview.viewport_width, &ctx);
+            let lv_w = access_local_member(&listview.listview_width, &ctx);
 
             format!(
                 "self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
@@ -2230,7 +2225,7 @@ fn generate_sub_component(
 
     user_init.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
         let code = compile_expression(&e.borrow(), &ctx);
-        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
+        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone().into()), &ctx);
         format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
     }));
 
@@ -2528,21 +2523,21 @@ fn generate_repeated_component(
         argument_types: &[],
     };
 
-    let access_prop = |&property_index| {
+    let access_prop = |idx: &llr::PropertyIdx| {
         access_member(
-            &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
+            &llr::LocalPropertyReference { sub_component_path: vec![], reference: (*idx).into() }
+                .into(),
             &ctx,
         )
+        .unwrap()
     };
     let index_prop = repeated.index_prop.iter().map(access_prop);
     let data_prop = repeated.data_prop.iter().map(access_prop);
 
     if let Some(model_data_type) = model_data_type {
         let mut update_statements = vec!["[[maybe_unused]] auto self = this;".into()];
-        update_statements
-            .extend(index_prop.map(|prop| prop.then(|prop| format!("{prop}.set(i);"))));
-        update_statements
-            .extend(data_prop.map(|prop| prop.then(|prop| format!("{prop}.set(data);"))));
+        update_statements.extend(index_prop.map(|prop| format!("{prop}.set(i);")));
+        update_statements.extend(data_prop.map(|prop| format!("{prop}.set(data);")));
 
         repeater_struct.members.push((
             Access::Public, // Because Repeater accesses it
@@ -2613,7 +2608,7 @@ fn generate_repeated_component(
                     "auto self = reinterpret_cast<const {}*>(component.instance);",
                     repeater_id
                 ),
-                format!("return {};", index.get_property()),
+                format!("return {index}.get();"),
             ]);
         }
     }
@@ -2669,7 +2664,10 @@ fn generate_global(
 
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
-                &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
+                &llr::LocalPropertyReference {
+                    sub_component_path: vec![],
+                    reference: property_index.into(),
+                },
                 expression,
                 &mut init,
                 &ctx,
@@ -2687,9 +2685,10 @@ fn generate_global(
             }),
         ));
     }
+
     init.extend(global.change_callbacks.iter().map(|(p, e)| {
         let code = compile_expression(&e.borrow(), &ctx);
-        let prop = access_member(&llr::PropertyReference::Local { sub_component_path: vec![], property_index: *p }, &ctx);
+        let prop = access_member(&llr::LocalPropertyReference::from(*p).into(), &ctx);
         prop.then(|prop| {
             format!("this->change_tracker{}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});", usize::from(*p))
         })
@@ -2960,146 +2959,84 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 }
 
 /// Returns the code that can access the given property (but without the set or get)
-///
-/// to be used like:
-/// ```ignore
-/// let access = access_member(...);
-/// format!("{}.get()", access)
-/// ```
-/// or for a function
-/// ```ignore
-/// let access = access_member(...);
-/// format!("{access}(...)")
-/// ```
 fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> MemberAccess {
-    fn in_native_item(
-        ctx: &EvaluationContext,
-        sub_component_path: &[llr::SubComponentInstanceIdx],
-        item_index: llr::ItemInstanceIdx,
-        prop_name: &str,
-    ) -> String {
-        let (compo_path, sub_component) = follow_sub_component_path(
-            ctx.compilation_unit,
-            ctx.current_sub_component.unwrap(),
-            sub_component_path,
-        );
-        let item_name = ident(&sub_component.items[item_index].name);
-        if prop_name.is_empty()
-            || matches!(
-                sub_component.items[item_index].ty.lookup_property(prop_name),
-                Some(Type::Function { .. })
-            )
-        {
-            // then this is actually a reference to the element itself
-            // (or a call to a builtin member function)
-            format!("->{compo_path}{item_name}")
-        } else {
-            let property_name = ident(prop_name);
-
-            format!("->{compo_path}{item_name}.{property_name}")
-        }
-    }
-
     match reference {
-        llr::PropertyReference::Local { sub_component_path, property_index } => {
-            if let Some(sub_component) = ctx.current_sub_component {
-                let (compo_path, sub_component) = follow_sub_component_path(
-                    ctx.compilation_unit,
-                    sub_component,
-                    sub_component_path,
-                );
-                let property_name = ident(&sub_component.properties[*property_index].name);
-                MemberAccess::Direct(format!("self->{compo_path}{property_name}"))
-            } else if let Some(current_global) = ctx.current_global() {
-                let property_name = ident(&current_global.properties[*property_index].name);
-                MemberAccess::Direct(format!("this->{property_name}"))
-            } else {
-                unreachable!()
-            }
-        }
-        llr::PropertyReference::Function { sub_component_path, function_index } => {
-            if let Some(sub_component) = ctx.current_sub_component {
-                let (compo_path, sub_component) = follow_sub_component_path(
-                    ctx.compilation_unit,
-                    sub_component,
-                    sub_component_path,
-                );
-                let name = ident(&sub_component.functions[*function_index].name);
-                MemberAccess::Direct(format!("self->{compo_path}fn_{name}"))
-            } else if let Some(current_global) = ctx.current_global() {
-                let name = ident(&current_global.functions[*function_index].name);
-                MemberAccess::Direct(format!("this->fn_{name}",))
-            } else {
-                unreachable!()
-            }
-        }
-        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            let x = in_native_item(ctx, sub_component_path, *item_index, prop_name);
-            MemberAccess::Direct(format!("self{x}"))
-        }
-        llr::PropertyReference::InParent { level, parent_reference } => {
+        llr::PropertyReference::Relative { parent_level, local_reference } => {
             let mut ctx = ctx;
             let mut path = MemberAccess::Direct("self".to_string());
-            for _ in 0..level.get() {
+            for _ in 0..*parent_level {
                 path = path.and_then(|x| format!("{x}->parent.lock()"));
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
-
-            match &**parent_reference {
-                llr::PropertyReference::Local { sub_component_path, property_index } => {
-                    let sub_component = ctx.current_sub_component.unwrap();
-                    let (compo_path, sub_component) = follow_sub_component_path(
-                        ctx.compilation_unit,
-                        sub_component,
-                        sub_component_path,
-                    );
-                    let property_name = ident(&sub_component.properties[*property_index].name);
-                    path.with_member(format!("->{compo_path}{property_name}"))
+            if let Some(sub_component) = ctx.current_sub_component {
+                let (compo_path, sub_component) = follow_sub_component_path(
+                    ctx.compilation_unit,
+                    sub_component,
+                    &local_reference.sub_component_path,
+                );
+                match &local_reference.reference {
+                    llr::LocalPropertyIndex::Property(property_index) => {
+                        let property_name = ident(&sub_component.properties[*property_index].name);
+                        path.with_member(format!("->{compo_path}{property_name}"))
+                    }
+                    llr::LocalPropertyIndex::Function(function_index) => {
+                        let function_name = ident(&sub_component.functions[*function_index].name);
+                        path.with_member(format!("->{compo_path}fn_{function_name}"))
+                    }
+                    llr::LocalPropertyIndex::Native { item_index, prop_name } => {
+                        let item_name = ident(&sub_component.items[*item_index].name);
+                        if prop_name.is_empty()
+                            || matches!(
+                                sub_component.items[*item_index].ty.lookup_property(prop_name),
+                                Some(Type::Function { .. })
+                            )
+                        {
+                            // then this is actually a reference to the element itself
+                            // (or a call to a builtin member function)
+                            path.with_member(format!("->{compo_path}{item_name}"))
+                        } else {
+                            let property_name = ident(prop_name);
+                            path.with_member(format!("->{compo_path}{item_name}.{property_name}"))
+                        }
+                    }
                 }
-                llr::PropertyReference::Function { sub_component_path, function_index } => {
-                    let sub_component = ctx.current_sub_component.unwrap();
-                    let (compo_path, sub_component) = follow_sub_component_path(
-                        ctx.compilation_unit,
-                        sub_component,
-                        sub_component_path,
-                    );
-                    let name = ident(&sub_component.functions[*function_index].name);
-                    path.with_member(format!("->{compo_path}fn_{name}"))
+            } else if let Some(current_global) = ctx.current_global() {
+                match &local_reference.reference {
+                    llr::LocalPropertyIndex::Property(property_index) => {
+                        let property_name = ident(&current_global.properties[*property_index].name);
+                        MemberAccess::Direct(format!("this->{property_name}"))
+                    }
+                    llr::LocalPropertyIndex::Function(function_index) => {
+                        let function_name = ident(&current_global.functions[*function_index].name);
+                        MemberAccess::Direct(format!("this->fn_{function_name}"))
+                    }
+                    _ => unreachable!(),
                 }
-                llr::PropertyReference::InNativeItem {
-                    sub_component_path,
-                    item_index,
-                    prop_name,
-                } => {
-                    let x = in_native_item(ctx, sub_component_path, *item_index, prop_name);
-                    path.with_member(x)
-                }
-                llr::PropertyReference::InParent { .. }
-                | llr::PropertyReference::Global { .. }
-                | llr::PropertyReference::GlobalFunction { .. } => {
-                    unreachable!()
-                }
+            } else {
+                unreachable!()
             }
         }
-        llr::PropertyReference::Global { global_index, property_index } => {
+        llr::PropertyReference::Global { global_index, property } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format!("global_{}", concatenate_ident(&global.name));
-            let property_name = ident(
-                &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
-            );
-            MemberAccess::Direct(format!("{global_access}->{global_id}->{property_name}"))
-        }
-        llr::PropertyReference::GlobalFunction { global_index, function_index } => {
-            let global_access = &ctx.generator_state.global_access;
-            let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format!("global_{}", concatenate_ident(&global.name));
-            let name = concatenate_ident(
-                &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
-            );
-            MemberAccess::Direct(format!("{global_access}->{global_id}->fn_{name}"))
+            let name = match property {
+                llr::LocalPropertyIndex::Property(property_index) => ident(
+                    &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
+                ),
+                llr::LocalPropertyIndex::Function(function_index) => ident(&format!(
+                    "fn_{}",
+                    &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
+                )),
+                _ => unreachable!(),
+            };
+            MemberAccess::Direct(format!("{global_access}->{global_id}->{name}"))
         }
     }
+}
+
+fn access_local_member(reference: &llr::LocalPropertyReference, ctx: &EvaluationContext) -> String {
+    access_member(&reference.clone().into(), ctx).unwrap()
 }
 
 /// Helper to access a member property/callback of a component.
@@ -3194,24 +3131,25 @@ fn native_prop_info<'a, 'b>(
     item_ref: &'b llr::PropertyReference,
     ctx: &'a EvaluationContext,
 ) -> (&'a NativeClass, &'b str) {
-    match item_ref {
-        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            let (_, sub_component) = follow_sub_component_path(
-                ctx.compilation_unit,
-                ctx.current_sub_component.unwrap(),
-                sub_component_path,
-            );
-            (&sub_component.items[*item_index].ty, prop_name)
-        }
-        llr::PropertyReference::InParent { level, parent_reference } => {
-            let mut ctx = ctx;
-            for _ in 0..level.get() {
-                ctx = ctx.parent.as_ref().unwrap().ctx;
-            }
-            native_prop_info(parent_reference, ctx)
-        }
-        _ => unreachable!(),
+    let llr::PropertyReference::Relative { parent_level, local_reference } = item_ref else {
+        unreachable!()
+    };
+    let llr::LocalPropertyIndex::Native { item_index, prop_name } = &local_reference.reference
+    else {
+        unreachable!()
+    };
+
+    let mut ctx = ctx;
+    for _ in 0..*parent_level {
+        ctx = ctx.parent.as_ref().unwrap().ctx;
     }
+
+    let (_, sub_component) = follow_sub_component_path(
+        ctx.compilation_unit,
+        ctx.current_sub_component.unwrap(),
+        &local_reference.sub_component_path,
+    );
+    (&sub_component.items[*item_index].ty, prop_name)
 }
 
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
@@ -3440,16 +3378,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 write!(path, "->parent.lock().value()").unwrap();
             }
             let repeater_index = repeater_index.unwrap();
-            let mut index_prop = llr::PropertyReference::Local {
-                sub_component_path: vec![],
-                property_index: ctx2.current_sub_component().unwrap().repeated[repeater_index]
-                    .index_prop
-                    .unwrap(),
-            };
-            if let Some(level) = NonZeroUsize::new(*level) {
-                index_prop =
-                    llr::PropertyReference::InParent { level, parent_reference: index_prop.into() };
-            }
+            let local_reference = ctx2.current_sub_component().unwrap().repeated[repeater_index].index_prop.unwrap().into();
+            let index_prop = llr::PropertyReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
             write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
             format!("{path}.model_set_row_data({index_access}, {value})")
@@ -3977,8 +3907,8 @@ fn compile_builtin_function_call(
             {
                 let mut parent_ctx = ctx;
                 let mut component_access = MemberAccess::Direct("self".into());
-                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
-                    for _ in 0..level.get() {
+                if let llr::PropertyReference::Relative { parent_level, .. } = parent_ref {
+                    for _ in 0..*parent_level {
                         component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
@@ -4009,8 +3939,8 @@ fn compile_builtin_function_call(
             if let [llr::Expression::NumberLiteral(popup_index), llr::Expression::PropertyReference(parent_ref)] = arguments {
                 let mut parent_ctx = ctx;
                 let mut component_access = MemberAccess::Direct("self".into());
-                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
-                    for _ in 0..level.get() {
+                if let llr::PropertyReference::Relative { parent_level, .. } = parent_ref {
+                    for _ in 0..*parent_level {
                         component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
