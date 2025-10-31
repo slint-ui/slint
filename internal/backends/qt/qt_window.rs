@@ -565,8 +565,9 @@ fn into_qbrush(
                     return qcg;
                 }
             };
-            let count = g.stops().count();
-            for (idx, s) in g.stops().enumerate() {
+            let rotated = g.rotated_stops();
+            let count = rotated.len();
+            for (idx, s) in rotated.iter().enumerate() {
                 // Qt's conical gradient goes counter-clockwise, but Slint expects clockwise
                 // So we need to invert the positions: Qt position = 1.0 - Slint position
                 let pos: f32 = 1.0 - mangle_position(s.position, idx, count);

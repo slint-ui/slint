@@ -836,7 +836,8 @@ impl Snapshotter {
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::ConicGradient { stops } => Expression::ConicGradient {
+            Expression::ConicGradient { from_angle, stops } => Expression::ConicGradient {
+                from_angle: Box::new(self.snapshot_expression(from_angle)),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
