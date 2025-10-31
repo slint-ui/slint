@@ -263,9 +263,9 @@ impl RadialGradientBrush {
 #[repr(C)]
 pub struct ConicGradientBrush {
     /// The starting angle (rotation) of the gradient in normalized form (0.0 = 0°, 1.0 = 360°)
-    pub from_angle: f32,
+    from_angle: f32,
     /// The color stops of the gradient
-    pub stops: SharedVector<GradientStop>,
+    stops: SharedVector<GradientStop>,
 }
 
 impl ConicGradientBrush {
