@@ -105,8 +105,9 @@ class ConicGradientBrush
 public:
     /// Constructs an empty conic gradient with no color stops.
     ConicGradientBrush() = default;
-    /// Constructs a new conic gradient with the specified starting \a angle. The color stops will be
-    /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
+    /// Constructs a new conic gradient with the specified starting \a angle. The color stops will
+    /// be constructed from the stops array pointed to be \a firstStop, with the length \a
+    /// stopCount.
     ConicGradientBrush(float angle, const GradientStop *firstStop, int stopCount)
         : inner(make_conic_gradient(angle, firstStop, stopCount))
     {
@@ -257,8 +258,9 @@ inline Brush Brush::brighter(float factor) const
         break;
     case Tag::ConicGradient:
         for (std::size_t i = 0; i < data.conic_gradient._0.stops.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(&data.conic_gradient._0.stops[i].color, factor,
-                                                          &result.data.conic_gradient._0.stops[i].color);
+            cbindgen_private::types::slint_color_brighter(
+                    &data.conic_gradient._0.stops[i].color, factor,
+                    &result.data.conic_gradient._0.stops[i].color);
         }
         break;
     }
@@ -287,8 +289,9 @@ inline Brush Brush::darker(float factor) const
         break;
     case Tag::ConicGradient:
         for (std::size_t i = 0; i < data.conic_gradient._0.stops.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(&data.conic_gradient._0.stops[i].color, factor,
-                                                        &result.data.conic_gradient._0.stops[i].color);
+            cbindgen_private::types::slint_color_darker(
+                    &data.conic_gradient._0.stops[i].color, factor,
+                    &result.data.conic_gradient._0.stops[i].color);
         }
         break;
     }

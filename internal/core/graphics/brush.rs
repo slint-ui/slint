@@ -281,8 +281,12 @@ impl ConicGradientBrush {
         if !has_stop_at_0 {
             // Find stops closest to boundaries for interpolation
             // For 0.0: find the stop just below 0 and just at/above 0
-            let stop_below_0 = stops.iter().filter(|s| s.position < 0.0).max_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
-            let stop_above_0 = stops.iter().filter(|s| s.position > 0.0).min_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
+            let stop_below_0 = stops.iter().filter(|s| s.position < 0.0).max_by(|a, b| {
+                a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+            });
+            let stop_above_0 = stops.iter().filter(|s| s.position > 0.0).min_by(|a, b| {
+                a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+            });
             if let (Some(below), Some(above)) = (stop_below_0, stop_above_0) {
                 // Interpolate between the stop below 0 and the stop above 0
                 // Example: -10deg and 10deg → interpolate at 0deg
@@ -299,8 +303,12 @@ impl ConicGradientBrush {
         let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
         if !has_stop_at_1 {
             // For 1.0: find the stop just at/below 1 and just above 1
-            let stop_below_1 = stops.iter().filter(|s| s.position < 1.0).max_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
-            let stop_above_1 = stops.iter().filter(|s| s.position > 1.0).min_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
+            let stop_below_1 = stops.iter().filter(|s| s.position < 1.0).max_by(|a, b| {
+                a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+            });
+            let stop_above_1 = stops.iter().filter(|s| s.position > 1.0).min_by(|a, b| {
+                a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+            });
 
             if let (Some(below), Some(above)) = (stop_below_1, stop_above_1) {
                 // Interpolate between the stop below 1 and the stop above 1
