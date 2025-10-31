@@ -24,6 +24,10 @@ inputs:
         description: "Extra cache keying information"
         required: false
         default: ""
+    cache:
+        description: "Enable Rust caching (default: false)"
+        required: false
+        default: "false"
 
 runs:
     using: composite
@@ -52,5 +56,6 @@ runs:
               components: ${{ inputs.components }}
               target: ${{ inputs.target }}
         - uses: Swatinem/rust-cache@v2
+          if: inputs.cache == 'true'
           with:
               key: ${{ inputs.key }}-1
