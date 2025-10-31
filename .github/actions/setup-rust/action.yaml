@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore debuginfo rustflags swatinem
+# cSpell: ignore debuginfo rustflags swatinem sccache
 
 ---
 name: Setup Rust support
@@ -28,6 +28,26 @@ inputs:
         description: "Enable Rust caching (default: true)"
         required: false
         default: "true"
+    sccache:
+        description: "Enable sccache with Cloudflare R2 (default: false)"
+        required: false
+        default: "false"
+    SCCACHE_R2_BUCKET:
+        description: "Cloudflare R2 bucket name for sccache"
+        required: false
+        default: ""
+    SCCACHE_R2_ENDPOINT:
+        description: "Cloudflare R2 endpoint URL"
+        required: false
+        default: ""
+    SCCACHE_R2_ACCESS_KEY:
+        description: "Cloudflare R2 access key ID"
+        required: false
+        default: ""
+    SCCACHE_R2_SECRET_KEY:
+        description: "Cloudflare R2 secret access key"
+        required: false
+        default: ""
 
 runs:
     using: composite
@@ -55,8 +75,20 @@ runs:
               toolchain: ${{ inputs.toolchain }}
               components: ${{ inputs.components }}
               target: ${{ inputs.target }}
+        - name: Configure sccache environment for Cloudflare R2
+          if: inputs.sccache == 'true'
+          run: |
+              echo "SCCACHE_BUCKET=${{ secrets.SCCACHE_R2_BUCKET }}" >> $GITHUB_ENV
+              echo "SCCACHE_ENDPOINT=${{ secrets.SCCACHE_R2_ENDPOINT }}" >> $GITHUB_ENV
+              echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
+              echo "AWS_ACCESS_KEY_ID=${{ secrets.SCCACHE_R2_ACCESS_KEY }}" >> $GITHUB_ENV
+              echo "AWS_SECRET_ACCESS_KEY=${{ secrets.SCCACHE_R2_SECRET_KEY }}" >> $GITHUB_ENV
+          shell: bash
+        - name: Run sccache-cache
+          if: inputs.sccache == 'true'
+          uses: mozilla-actions/sccache-action@v0.0.9
         - uses: Swatinem/rust-cache@v2
           if: inputs.cache == 'true'
           with:
-              key: ${{ inputs.key }}-1
+              key: ${{ inputs.key }}-${{ inputs.sccache }}-1
               save-if: ${{ github.ref == 'refs/heads/master' }}
