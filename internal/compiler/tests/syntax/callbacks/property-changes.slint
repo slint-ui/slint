@@ -9,38 +9,38 @@ export component Sub {
     public function hello() {}
 
     out property <invalid> invalid;
-    //            ^error{Unknown type 'invalid'}
+//                >     <error{Unknown type 'invalid'}
 }
 
 export component Test {
     Sub {
         changed zoo => { }
         changed clou => { }
-        //      ^error{Change callback on a private property 'clou'}
+//              >  <error{Change callback on a private property 'clou'}
         changed zoo => { }
-        //      ^error{Duplicated change callback on 'zoo'}
+//              > <error{Duplicated change callback on 'zoo'}
 
         changed not-exist => {}
-        //      ^error{Property 'not-exist' does not exist}
+//              >       <error{Property 'not-exist' does not exist}
 
         changed clicked => { }
-        //      ^error{Change callback can only be set on properties, and 'clicked' is a callback}
+//              >     <error{Change callback can only be set on properties, and 'clicked' is a callback}
 
         changed hello => { }
-        //      ^error{Change callback can only be set on properties, and 'hello' is a function}
+//              >   <error{Change callback can only be set on properties, and 'hello' is a function}
 
         changed invalid => { }
-        //      ^error{Property 'invalid' does not exist}
+//              >     <error{Property 'invalid' does not exist}
 
         property <invalid2> invalid2;
-        //        ^error{Unknown type 'invalid2'}
+//                >      <error{Unknown type 'invalid2'}
         changed invalid2 => { }
-        //      ^error{Property 'invalid2' does not exist}
+//              >      <error{Property 'invalid2' does not exist}
 
         property <Sub> invalid3;
-        //        ^error{'Sub' is not a valid type}
+//                > <error{'Sub' is not a valid type}
         changed invalid3 => { }
-        //      ^error{Property 'invalid3' does not exist}
+//              >      <error{Property 'invalid3' does not exist}
 
     }
 

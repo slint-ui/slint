@@ -371,7 +371,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
 
 pub fn to_lsp_diag(d: &i_slint_compiler::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic::new(
-        to_range(d.line_column()),
+        to_range(d.line_column(), d.end_line_column()),
         Some(to_lsp_diag_level(d.level())),
         None,
         None,
@@ -381,12 +381,16 @@ pub fn to_lsp_diag(d: &i_slint_compiler::diagnostics::Diagnostic) -> lsp_types::
     )
 }
 
-fn to_range(span: (usize, usize)) -> lsp_types::Range {
-    let pos = lsp_types::Position::new(
-        (span.0 as u32).saturating_sub(1),
-        (span.1 as u32).saturating_sub(1),
+fn to_range(start: (usize, usize), end: (usize, usize)) -> lsp_types::Range {
+    let start = lsp_types::Position::new(
+        (start.0 as u32).saturating_sub(1),
+        (start.1 as u32).saturating_sub(1),
     );
-    lsp_types::Range::new(pos, pos)
+    let end = lsp_types::Position::new(
+        (end.0 as u32).saturating_sub(1),
+        (end.1 as u32).saturating_sub(1),
+    );
+    lsp_types::Range::new(start, end)
 }
 
 fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
