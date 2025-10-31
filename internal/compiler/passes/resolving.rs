@@ -15,6 +15,7 @@ use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable}
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
+use base64::Engine;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
@@ -447,7 +448,9 @@ impl Expression {
             };
         }
 
-        let absolute_source_path = {
+        let absolute_source_path = if s.starts_with("data:") {
+            Self::process_data_uri(&s, &node, ctx)
+        } else {
             let path = std::path::Path::new(&s);
             if crate::pathutils::is_absolute(path) {
                 s
@@ -468,6 +471,82 @@ impl Expression {
             }
         };
 
+        let nine_slice = Self::parse_nine_slice(&node, ctx);
+
+        Expression::ImageReference {
+            resource_ref: ImageReference::AbsolutePath(absolute_source_path),
+            source_location: Some(node.to_source_location()),
+            nine_slice,
+        }
+    }
+
+    fn process_data_uri(
+        data_uri: &str,
+        node: &syntax_nodes::AtImageUrl,
+        ctx: &mut LookupCtx,
+    ) -> SmolStr {
+        let data_uri = data_uri.strip_prefix("data:").unwrap();
+
+        let (media_info, data) = if let Some(comma_pos) = data_uri.find(',') {
+            (&data_uri[..comma_pos], &data_uri[comma_pos + 1..])
+        } else {
+            ctx.diag.push_error("Invalid data URI format: missing comma".into(), node);
+            return "".into();
+        };
+
+        let (media_type, is_base64) = if media_info.ends_with(";base64") {
+            (media_info.strip_suffix(";base64").unwrap_or(""), true)
+        } else {
+            let media_type = if let Some(semicolon_pos) = media_info.find(';') {
+                &media_info[..semicolon_pos]
+            } else {
+                media_info
+            };
+            (media_type, false)
+        };
+
+        let extension = match media_type {
+            "image/png" | "" => "png",
+            "image/jpeg" | "image/jpg" => "jpg",
+            "image/gif" => "gif",
+            "image/svg+xml" => "svg",
+            "image/webp" => "webp",
+            "image/bmp" => "bmp",
+            _ => {
+                if let Some(subtype) = media_type.strip_prefix("image/") {
+                    subtype
+                } else {
+                    ctx.diag.push_error(
+                        format!("Unsupported media type in data URI: {}", media_type).into(),
+                        node,
+                    );
+                    return "".into();
+                }
+            }
+        };
+
+        let decoded_data = if is_base64 {
+            match base64::engine::general_purpose::STANDARD.decode(data) {
+                Ok(decoded) => decoded,
+                Err(err) => {
+                    ctx.diag.push_error(format!("Cannot decode base64 data: {}", err).into(), node);
+                    return "".into();
+                }
+            }
+        } else {
+            match urlencoding::decode(data) {
+                Ok(decoded) => decoded.into_owned().into_bytes(),
+                Err(err) => {
+                    ctx.diag.push_error(format!("Cannot decode URL data: {}", err).into(), node);
+                    return "".into();
+                }
+            }
+        };
+
+        Self::store_data_to_temp_file(decoded_data, extension)
+    }
+
+    fn parse_nine_slice(node: &syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Option<[u16; 4]> {
         let nine_slice = node
             .children_with_tokens()
             .filter_map(|n| n.into_token())
@@ -489,7 +568,7 @@ impl Expression {
             })
             .collect::<Vec<u16>>();
 
-        let nine_slice = match nine_slice.as_slice() {
+        match nine_slice.as_slice() {
             [x] => Some([*x, *x, *x, *x]),
             [x, y] => Some([*x, *y, *x, *y]),
             [x, y, z, w] => Some([*x, *y, *z, *w]),
@@ -498,13 +577,28 @@ impl Expression {
                 assert!(ctx.diag.has_errors());
                 None
             }
-        };
-
-        Expression::ImageReference {
-            resource_ref: ImageReference::AbsolutePath(absolute_source_path),
-            source_location: Some(node.to_source_location()),
-            nine_slice,
         }
+    }
+
+    fn store_data_to_temp_file(data: Vec<u8>, extension: &str) -> SmolStr {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        use std::io::Write;
+
+        let mut hasher = DefaultHasher::new();
+        data.hash(&mut hasher);
+        extension.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        let temp_dir = std::env::temp_dir();
+        let temp_file_name = format!("slint_data_uri_{}_{}.{}", hash, data.len(), extension);
+        let temp_path = temp_dir.join(temp_file_name);
+
+        if let Ok(mut file) = std::fs::File::create(&temp_path) {
+            let _ = file.write_all(&data);
+        }
+
+        temp_path.to_string_lossy().into()
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
