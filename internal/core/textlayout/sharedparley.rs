@@ -250,100 +250,100 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         let mut paragraphs = Vec::with_capacity(1);
         let mut para_y = 0.0;
 
-        let mut paragraph_from_text =
-            |text: &str, range: std::ops::Range<usize>, formatting: Vec<FormattedSpan>| {
-                let mut builder = contexts.layout.ranged_builder(
-                    &mut contexts.font,
-                    text,
-                    scale_factor.get(),
-                    true,
-                );
-                push_to_builder(&mut builder);
+        let mut paragraph_from_text = |text: &str,
+                                       range: std::ops::Range<usize>,
+                                       formatting: Vec<FormattedSpan>,
+                                       links: Vec<(
+            std::ops::Range<usize>,
+            std::string::String,
+        )>| {
+            let mut builder =
+                contexts.layout.ranged_builder(&mut contexts.font, text, scale_factor.get(), true);
+            push_to_builder(&mut builder);
 
-                if let Some((selection, selection_color)) =
-                    options.selection.as_ref().zip(options.selection_foreground_color)
-                {
-                    let sel_start = selection.start.max(range.start);
-                    let sel_end = selection.end.min(range.end);
-                    if sel_start < sel_end {
-                        let local_selection = (sel_start - range.start)..(sel_end - range.start);
+            if let Some((selection, selection_color)) =
+                options.selection.as_ref().zip(options.selection_foreground_color)
+            {
+                let sel_start = selection.start.max(range.start);
+                let sel_end = selection.end.min(range.end);
+                if sel_start < sel_end {
+                    let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                    builder.push(
+                        parley::StyleProperty::Brush(Brush {
+                            selection_fill_color: Some(selection_color),
+                            stroke: options.stroke,
+                            link_color: None,
+                        }),
+                        local_selection,
+                    );
+                }
+            }
+
+            for span in formatting {
+                match span.style {
+                    Style::Emphasis => {
+                        builder.push(
+                            parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
+                            span.range,
+                        );
+                    }
+                    Style::Strikethrough => {
+                        builder.push(parley::StyleProperty::Strikethrough(true), span.range);
+                    }
+                    Style::Strong => {
+                        builder.push(
+                            parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
+                            span.range,
+                        );
+                    }
+                    Style::Code => {
+                        builder.push(
+                            parley::StyleProperty::FontStack(parley::style::FontStack::Single(
+                                parley::style::FontFamily::Generic(
+                                    parley::style::GenericFamily::Monospace,
+                                ),
+                            )),
+                            span.range,
+                        );
+                    }
+                    Style::Underline => {
+                        builder.push(parley::StyleProperty::Underline(true), span.range);
+                    }
+                    Style::Link => {
+                        builder.push(parley::StyleProperty::Underline(true), span.range.clone());
                         builder.push(
                             parley::StyleProperty::Brush(Brush {
-                                selection_fill_color: Some(selection_color),
+                                selection_fill_color: None,
                                 stroke: options.stroke,
-                                link_color: None,
+                                link_color: Some(options.link_color),
                             }),
-                            local_selection,
+                            span.range,
                         );
                     }
                 }
+            }
 
-                for span in formatting {
-                    match span.style {
-                        Style::Emphasis => {
-                            builder.push(
-                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
-                                span.range,
-                            );
-                        }
-                        Style::Strikethrough => {
-                            builder.push(parley::StyleProperty::Strikethrough(true), span.range);
-                        }
-                        Style::Strong => {
-                            builder.push(
-                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
-                                span.range,
-                            );
-                        }
-                        Style::Code => {
-                            builder.push(
-                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
-                                    parley::style::FontFamily::Generic(
-                                        parley::style::GenericFamily::Monospace,
-                                    ),
-                                )),
-                                span.range,
-                            );
-                        }
-                        Style::Underline => {
-                            builder.push(parley::StyleProperty::Underline(true), span.range);
-                        }
-                        Style::Link => {
-                            builder
-                                .push(parley::StyleProperty::Underline(true), span.range.clone());
-                            builder.push(
-                                parley::StyleProperty::Brush(Brush {
-                                    selection_fill_color: None,
-                                    stroke: options.stroke,
-                                    link_color: Some(options.link_color),
-                                }),
-                                span.range,
-                            );
-                        }
-                    }
-                }
+            let mut layout = builder.build(text);
 
-                let mut layout = builder.build(text);
+            layout.break_all_lines(
+                max_physical_width
+                    .filter(|_| options.text_wrap != TextWrap::NoWrap)
+                    .map(|width| width.get()),
+            );
+            layout.align(
+                max_physical_width.map(|width| width.get()),
+                match options.horizontal_align {
+                    TextHorizontalAlignment::Left => parley::Alignment::Left,
+                    TextHorizontalAlignment::Center => parley::Alignment::Center,
+                    TextHorizontalAlignment::Right => parley::Alignment::Right,
+                },
+                parley::AlignmentOptions::default(),
+            );
 
-                layout.break_all_lines(
-                    max_physical_width
-                        .filter(|_| options.text_wrap != TextWrap::NoWrap)
-                        .map(|width| width.get()),
-                );
-                layout.align(
-                    max_physical_width.map(|width| width.get()),
-                    match options.horizontal_align {
-                        TextHorizontalAlignment::Left => parley::Alignment::Left,
-                        TextHorizontalAlignment::Center => parley::Alignment::Center,
-                        TextHorizontalAlignment::Right => parley::Alignment::Right,
-                    },
-                    parley::AlignmentOptions::default(),
-                );
-
-                let y = PhysicalLength::new(para_y);
-                para_y += layout.height();
-                TextParagraph { range, y, layout }
-            };
+            let y = PhysicalLength::new(para_y);
+            para_y += layout.height();
+            TextParagraph { range, y, layout, links }
+        };
 
         match text {
             Text::PlainText(text) => {
@@ -373,6 +373,7 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                         &text[range.clone()],
                         range,
                         Default::default(),
+                        Default::default(),
                     ));
                 }
             }
@@ -383,6 +384,11 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                         &paragraph.text,
                         0..0,
                         paragraph.formatting,
+                        paragraph
+                            .links
+                            .into_iter()
+                            .map(|(range, link)| (range, link.into_string()))
+                            .collect(),
                     ));
                 }
             }
@@ -423,6 +429,8 @@ struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
     layout: parley::Layout<Brush>,
+    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+    links: std::vec::Vec<(Range<usize>, std::string::String)>,
 }
 
 impl TextParagraph {
@@ -1210,6 +1218,66 @@ pub fn draw_text(
     if text_overflow == TextOverflow::Clip {
         item_renderer.restore_state();
     }
+}
+
+#[cfg(feature = "experimental-rich-text")]
+pub fn link_under_cursor(
+    scale_factor: ScaleFactor,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    font_request: Option<FontRequest>,
+    size: LogicalSize,
+    cursor: PhysicalPoint,
+) -> Option<std::string::String> {
+    let str = text.text();
+
+    let layout_text = Text::RichText(parse_markdown(&str));
+
+    let (horizontal_align, vertical_align) = text.alignment();
+
+    let layout = layout(
+        layout_text,
+        scale_factor,
+        LayoutOptions {
+            horizontal_align,
+            vertical_align,
+            max_height: Some(size.height_length()),
+            max_width: Some(size.width_length()),
+            stroke: None,
+            font_request,
+            text_wrap: text.wrap(),
+            text_overflow: text.overflow(),
+            selection: None,
+            selection_foreground_color: None,
+            link_color: crate::Color::from_rgb_u8(64, 64, 255),
+        },
+    );
+
+    let Some(paragraph) = layout.paragraph_by_y(cursor.y_length()) else {
+        return None;
+    };
+
+    let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+
+    let (_, link) = paragraph.links.iter().find(|(range, _)| {
+        let start =
+            parley::Cursor::from_byte_index(&paragraph.layout, range.start, Default::default());
+        let end = parley::Cursor::from_byte_index(&paragraph.layout, range.end, Default::default());
+        let mut clicked = false;
+        let link_range = parley::Selection::new(start, end);
+        link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
+            bounding_box.y0 += paragraph_y;
+            bounding_box.y1 += paragraph_y;
+            clicked = bounding_box.union(parley::BoundingBox::new(
+                cursor.x.into(),
+                cursor.y.into(),
+                cursor.x.into(),
+                cursor.y.into(),
+            )) == bounding_box;
+        });
+        clicked
+    })?;
+
+    Some(link.clone())
 }
 
 pub fn draw_text_input(

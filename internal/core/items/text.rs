@@ -9,7 +9,7 @@ Lookup the [`crate::items`] module documentation.
 */
 use super::{
     EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
-    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
     VoidArg, WindowItem,
 };
@@ -232,6 +232,7 @@ pub struct MarkdownText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub link_clicked: Callback<StringArg>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -268,9 +269,42 @@ impl Item for MarkdownText {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardAndIgnore
+        InputEventFilterResult::ForwardEvent
     }
 
+    #[cfg(feature = "experimental-rich-text")]
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> InputEventResult {
+        match event {
+            MouseEvent::Pressed {
+                position,
+                button: PointerEventButton::Left,
+                click_count: _,
+                is_touch: _,
+            } => {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+                if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
+                    scale_factor,
+                    self,
+                    Some(self.font_request(self_rc)),
+                    LogicalSize::from_lengths(self.width(), self.height()),
+                    *position * scale_factor,
+                ) {
+                    Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
+                }
+
+                InputEventResult::EventAccepted
+            }
+            _ => InputEventResult::EventIgnored,
+        }
+    }
+
+    #[cfg(not(feature = "experimental-rich-text"))]
     fn input_event(
         self: Pin<&Self>,
         _: &MouseEvent,
