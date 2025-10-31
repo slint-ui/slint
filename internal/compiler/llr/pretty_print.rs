@@ -8,8 +8,8 @@ use itertools::Itertools;
 use crate::expression_tree::MinMaxOp;
 
 use super::{
-    CompilationUnit, EvaluationContext, Expression, LocalPropertyIndex, LocalPropertyReference,
-    ParentCtx, PropertyReference, SubComponentIdx,
+    CompilationUnit, EvaluationContext, Expression, LocalMemberIndex, LocalMemberReference,
+    MemberReference, ParentCtx, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -186,12 +186,12 @@ impl PrettyPrinter<'_> {
     }
 }
 
-pub struct DisplayPropertyRef<'a, T>(pub &'a PropertyReference, pub &'a EvaluationContext<'a, T>);
+pub struct DisplayPropertyRef<'a, T>(pub &'a MemberReference, pub &'a EvaluationContext<'a, T>);
 impl<T> Display for DisplayPropertyRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let mut ctx = self.1;
         match &self.0 {
-            PropertyReference::Relative { parent_level, local_reference } => {
+            MemberReference::Relative { parent_level, local_reference } => {
                 for _ in 0..*parent_level {
                     if ctx.parent.is_none() {
                         return write!(f, "<invalid parent reference>");
@@ -200,13 +200,13 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 }
                 write!(f, "{}", DisplayLocalRef(local_reference, ctx))
             }
-            PropertyReference::Global { global_index, property } => {
+            MemberReference::Global { global_index, member } => {
                 let g = &ctx.compilation_unit.globals[*global_index];
-                match property {
-                    LocalPropertyIndex::Property(property_index) => {
+                match member {
+                    LocalMemberIndex::Property(property_index) => {
                         write!(f, "{}.{}", g.name, g.properties[*property_index].name)
                     }
-                    LocalPropertyIndex::Function(function_index) => {
+                    LocalMemberIndex::Function(function_index) => {
                         write!(f, "{}.{}", g.name, g.functions[*function_index].name)
                     }
                     _ => write!(f, "<invalid reference in global>"),
@@ -216,17 +216,17 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
     }
 }
 
-pub struct DisplayLocalRef<'a, T>(pub &'a LocalPropertyReference, pub &'a EvaluationContext<'a, T>);
+pub struct DisplayLocalRef<'a, T>(pub &'a LocalMemberReference, pub &'a EvaluationContext<'a, T>);
 impl<T> Display for DisplayLocalRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let ctx = self.1;
 
         if let Some(g) = ctx.current_global() {
             match &self.0.reference {
-                LocalPropertyIndex::Property(property_index) => {
+                LocalMemberIndex::Property(property_index) => {
                     write!(f, "{}.{}", g.name, g.properties[*property_index].name)
                 }
-                LocalPropertyIndex::Function(function_index) => {
+                LocalMemberIndex::Function(function_index) => {
                     write!(f, "{}.{}", g.name, g.functions[*function_index].name)
                 }
                 _ => write!(f, "<invalid reference in global>"),
@@ -238,13 +238,13 @@ impl<T> Display for DisplayLocalRef<'_, T> {
                 sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
             }
             match &self.0.reference {
-                LocalPropertyIndex::Property(property_index) => {
+                LocalMemberIndex::Property(property_index) => {
                     write!(f, "{}", sc.properties[*property_index].name)
                 }
-                LocalPropertyIndex::Function(function_index) => {
+                LocalMemberIndex::Function(function_index) => {
                     write!(f, "{}", sc.functions[*function_index].name)
                 }
-                LocalPropertyIndex::Native { item_index, prop_name } => {
+                LocalMemberIndex::Native { item_index, prop_name } => {
                     let i = &sc.items[*item_index];
                     write!(f, "{}.{}", i.name, prop_name)
                 }

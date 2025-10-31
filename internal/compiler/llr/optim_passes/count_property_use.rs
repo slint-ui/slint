@@ -7,7 +7,7 @@
 
 use crate::llr::{
     Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression,
-    LocalPropertyReference, ParentCtx, PropertyReference,
+    LocalMemberReference, MemberReference, ParentCtx,
 };
 
 pub fn count_property_use(root: &CompilationUnit) {
@@ -120,7 +120,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
 
         for (p, e) in &g.change_callbacks {
-            visit_property(&LocalPropertyReference::from(*p).into(), &ctx);
+            visit_property(&LocalMemberReference::from(*p).into(), &ctx);
             e.borrow().visit_property_references(&ctx, &mut visit_property);
         }
     }
@@ -135,7 +135,7 @@ pub fn count_property_use(root: &CompilationUnit) {
     clean_unused_bindings(root);
 }
 
-fn visit_property(pr: &PropertyReference, ctx: &EvaluationContext) {
+fn visit_property(pr: &MemberReference, ctx: &EvaluationContext) {
     let p_info = ctx.property_info(pr);
     if let Some(p) = &p_info.property_decl {
         p.use_count.set(p.use_count.get() + 1);
