@@ -337,74 +337,79 @@ impl ConicGradientBrush {
 
     /// Returns the color stops with the `from_angle` rotation applied.
     ///
-    /// This method returns a new vector of stops where:
-    /// 1. Stops outside [0.0, 1.0] range are removed
-    /// 2. Boundary stops at 0.0 and 1.0 are added if missing (with interpolated colors)
-    /// 3. Each stop's position is adjusted by adding `from_angle` and wrapping to [0.0, 1.0]
-    /// 4. The stops are sorted by their rotated positions
+    /// This method returns a SharedVector of stops where:
+    /// 1. Each stop's position is adjusted by adding `from_angle` and wrapping to [0.0, 1.0]
+    /// 2. Duplicate positions with different colors are separated to avoid flickering
+    /// 3. The stops are sorted by their rotated positions
+    /// 4. Boundary stops at 0.0 and 1.0 are added if missing (with interpolated colors)
+    ///
+    /// If `from_angle` is effectively zero, this returns a clone of the internal stops
+    /// without allocating a new vector.
     ///
     /// This is useful when you need to work with the actual visual positions of the stops
     /// after the gradient has been rotated.
-    pub fn rotated_stops(&self) -> alloc::vec::Vec<GradientStop> {
+    pub fn rotated_stops(&self) -> SharedVector<GradientStop> {
+        let from_angle = self.from_angle - self.from_angle.floor();
+
+        if from_angle.abs() <= f32::EPSILON {
+            return self.stops.clone();
+        }
+
         let mut stops: alloc::vec::Vec<_> = self.stops.iter().copied().collect();
 
-        let from_angle = self.from_angle - self.from_angle.floor();
-        if from_angle.abs() > f32::EPSILON {
-            // Step 2: Apply rotation by adding stops and wrapping to [0, 1) range
-            stops = stops
-                .iter()
-                .map(|stop| {
-                    #[cfg(feature = "std")]
-                    let rotated_position = (stop.position + from_angle).rem_euclid(1.0);
-                    #[cfg(not(feature = "std"))]
-                    let rotated_position = (stop.position + from_angle).rem_euclid(&1.0);
-                    GradientStop { position: rotated_position, color: stop.color }
-                })
-                .collect();
+        // Step 1: Apply rotation by adding from_angle and wrapping to [0, 1) range
+        stops = stops
+            .iter()
+            .map(|stop| {
+                #[cfg(feature = "std")]
+                let rotated_position = (stop.position + from_angle).rem_euclid(1.0);
+                #[cfg(not(feature = "std"))]
+                let rotated_position = (stop.position + from_angle).rem_euclid(&1.0);
+                GradientStop { position: rotated_position, color: stop.color }
+            })
+            .collect();
 
-            // Step 3: Separate duplicate positions with different colors to avoid flickering
-            for i in 0..stops.len() {
-                let j = (i + 1) % stops.len();
-                if (stops[i].position - stops[j].position).abs() < f32::EPSILON
-                    && stops[i].color != stops[j].color
-                {
-                    stops[i].position = (stops[i].position - f32::EPSILON).max(0.0);
-                    stops[j].position = (stops[j].position + f32::EPSILON).min(1.0);
-                    break;
-                }
-            }
-
-            // Step 4: Sort by rotated position
-            stops.sort_by(|a, b| {
-                a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
-            });
-
-            // Step 5: Add boundary stops at 0.0 and 1.0 if missing
-            let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
-            if !has_stop_at_0 {
-                // Find the color at position 0.0 by interpolating from the last and first stops
-                if let (Some(last), Some(first)) = (stops.last(), stops.first()) {
-                    let gap = 1.0 - last.position + first.position;
-                    let color_at_0 = if gap > f32::EPSILON {
-                        let t = (1.0 - last.position) / gap;
-                        Self::interpolate_color(last.color, first.color, t)
-                    } else {
-                        last.color
-                    };
-                    stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
-                }
-            }
-
-            let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
-            if !has_stop_at_1 {
-                // Add stop at 1.0 with same color as stop at 0.0
-                if let Some(first) = stops.first() {
-                    stops.push(GradientStop { position: 1.0, color: first.color });
-                }
+        // Step 2: Separate duplicate positions with different colors to avoid flickering
+        for i in 0..stops.len() {
+            let j = (i + 1) % stops.len();
+            if (stops[i].position - stops[j].position).abs() < f32::EPSILON
+                && stops[i].color != stops[j].color
+            {
+                stops[i].position = (stops[i].position - f32::EPSILON).max(0.0);
+                stops[j].position = (stops[j].position + f32::EPSILON).min(1.0);
             }
         }
 
-        stops
+        // Step 3: Sort by rotated position
+        stops.sort_by(|a, b| {
+            a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+        });
+
+        // Step 4: Add boundary stops at 0.0 and 1.0 if missing
+        let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
+        if !has_stop_at_0 {
+            // Find the color at position 0.0 by interpolating from the last and first stops
+            if let (Some(last), Some(first)) = (stops.last(), stops.first()) {
+                let gap = 1.0 - last.position + first.position;
+                let color_at_0 = if gap > f32::EPSILON {
+                    let t = (1.0 - last.position) / gap;
+                    Self::interpolate_color(last.color, first.color, t)
+                } else {
+                    last.color
+                };
+                stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
+            }
+        }
+
+        let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
+        if !has_stop_at_1 {
+            // Add stop at 1.0 with same color as stop at 0.0
+            if let Some(first) = stops.first() {
+                stops.push(GradientStop { position: 1.0, color: first.color });
+            }
+        }
+
+        SharedVector::from_iter(stops.into_iter())
     }
 
     /// Helper: Linearly interpolate between two colors
