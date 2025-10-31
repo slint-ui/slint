@@ -26,7 +26,7 @@ class DummyTranslation:
 
 
 def test_load_file() -> None:
-    module = load_file(base_dir() / "test-load-file.slint")
+    module = load_file(base_dir() / "test-load-file-source.slint")
 
     testcase = module.App()
 

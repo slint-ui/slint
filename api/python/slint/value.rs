@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use pyo3::sync::PyOnceLock;
 use pyo3::types::PyDict;
 use pyo3::{prelude::*, PyVisit};
 use pyo3::{IntoPyObjectExt, PyTraverseError};
@@ -113,8 +114,10 @@ pub struct PyStruct {
     pub type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyStruct {
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn __getattr__(&self, key: &str) -> PyResult<SlintToPyValue> {
         self.data.get_field(key).map_or_else(
             || {
@@ -148,6 +151,7 @@ impl PyStruct {
         self.clone()
     }
 
+    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         traverse_struct(&self.data, &visit)
     }
@@ -173,6 +177,7 @@ impl PyStructFieldIterator {
         slf
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, SlintToPyValue)> {
         slf.inner.next().map(|(name, val)| (name, slf.type_collection.to_py_value(val)))
     }
@@ -180,6 +185,73 @@ impl PyStructFieldIterator {
 
 thread_local! {
     static ENUM_CLASS: OnceCell<Py<PyAny>> = OnceCell::new();
+}
+
+struct EnumClassInfo {
+    class: Py<PyAny>,
+    is_builtin: bool,
+}
+
+static BUILTIN_ENUM_CLASSES: PyOnceLock<HashMap<String, Py<PyAny>>> = PyOnceLock::new();
+
+macro_rules! generate_enum_support {
+    ($(
+        $(#[$enum_attr:meta])*
+        enum $Name:ident {
+            $(
+                $(#[$value_attr:meta])*
+                $Value:ident,
+            )*
+        }
+    )*) => {
+        fn build_built_in_enums(
+            enum_base: &Bound<'_, PyAny>,
+        ) -> PyResult<HashMap<String, Py<PyAny>>> {
+            let mut enum_classes = HashMap::new();
+
+            $(
+                {
+                    let name = stringify!($Name);
+                    let variants = vec![
+                        $(
+                            {
+                                let value = i_slint_core::items::$Name::$Value.to_string();
+                                (stringify!($Value).to_ascii_lowercase(), value)
+                            },
+                        )*
+                    ];
+
+                    let cls = enum_base.call((name, variants), None)?;
+                    enum_classes.insert(name.to_string(), cls.unbind());
+                }
+            )*
+
+            Ok(enum_classes)
+        }
+    };
+}
+
+i_slint_common::for_each_enums!(generate_enum_support);
+
+fn ensure_builtin_enums_initialized(py: Python<'_>) -> PyResult<()> {
+    if BUILTIN_ENUM_CLASSES.get(py).is_some() {
+        return Ok(());
+    }
+
+    let enum_base = enum_class(py).into_bound(py);
+    let classes = build_built_in_enums(&enum_base)?;
+
+    let _ = BUILTIN_ENUM_CLASSES.set(py, classes);
+    Ok(())
+}
+
+fn built_in_enum_classes(py: Python<'_>) -> HashMap<String, Py<PyAny>> {
+    ensure_builtin_enums_initialized(py).expect("failed to initialize built-in enums");
+
+    BUILTIN_ENUM_CLASSES
+        .get(py)
+        .map(|map| map.iter().map(|(name, class)| (name.clone(), class.clone_ref(py))).collect())
+        .unwrap_or_default()
 }
 
 pub fn enum_class(py: Python) -> Py<PyAny> {
@@ -197,14 +269,17 @@ pub fn enum_class(py: Python) -> Py<PyAny> {
 /// a `.slint` file loaded with load_file. This is used to map enums
 /// provided by Slint to the correct python enum classes.
 pub struct TypeCollection {
-    enum_classes: Rc<HashMap<String, Py<PyAny>>>,
+    enum_classes: Rc<HashMap<String, EnumClassInfo>>,
 }
 
 impl TypeCollection {
     pub fn new(result: &slint_interpreter::CompilationResult, py: Python<'_>) -> Self {
-        let mut enum_classes = HashMap::new();
-
         let enum_ctor = crate::value::enum_class(py);
+
+        let mut enum_classes: HashMap<String, EnumClassInfo> = built_in_enum_classes(py)
+            .into_iter()
+            .map(|(name, class)| (name, EnumClassInfo { class, is_builtin: true }))
+            .collect();
 
         for struct_or_enum in result.structs_and_enums(i_slint_core::InternalToken {}) {
             match struct_or_enum {
@@ -226,7 +301,10 @@ impl TypeCollection {
                         )
                         .unwrap();
 
-                    enum_classes.insert(en.name.to_string(), enum_type);
+                    enum_classes.insert(
+                        en.name.to_string(),
+                        EnumClassInfo { class: enum_type, is_builtin: en.node.is_none() },
+                    );
                 }
                 _ => {}
             }
@@ -255,7 +333,7 @@ impl TypeCollection {
                 "Slint provided enum {enum_name} is unknown"
             ))
         })?;
-        enum_cls.getattr(py, enum_value)
+        enum_cls.class.getattr(py, enum_value)
     }
 
     pub fn model_to_py(
@@ -265,8 +343,10 @@ impl TypeCollection {
         crate::models::ReadOnlyRustModel { model: model.clone(), type_collection: self.clone() }
     }
 
-    pub fn enums(&self) -> impl Iterator<Item = (&String, &Py<PyAny>)> {
-        self.enum_classes.iter()
+    pub fn enums(&self) -> impl Iterator<Item = (&String, &Py<PyAny>)> + '_ {
+        self.enum_classes
+            .iter()
+            .filter_map(|(name, info)| (!info.is_builtin).then_some((name, &info.class)))
     }
 
     pub fn slint_value_from_py_value(

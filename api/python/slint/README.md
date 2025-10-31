@@ -75,6 +75,84 @@ app.run()
 
 5. Run it with `uv run main.py`
 
+## Code Generation CLI
+
+Use the bundled code generator to derive Python bindings and type stubs from your `.slint` files. The generator lives in the `slint.codegen` module and exposes a CLI entry point.
+
+Run it with `uv`:
+
+```bash
+uv run -m slint.codegen generate --input path/to/app.slint --output generated
+```
+
+When `--output` is omitted the generated files are written next to each input source.
+
+You can also call the generator from Python:
+
+```python
+from pathlib import Path
+from slint.codegen.generator import generate_project
+from slint.codegen.models import GenerationConfig
+
+slint_file = Path("ui/app.slint")
+generate_project(
+    inputs=[slint_file],
+    output_dir=Path("generated"),
+    config=GenerationConfig(
+        include_paths=[slint_file.parent],
+        library_paths={},
+        style=None,
+        translation_domain=None,
+        quiet=True,
+    ),
+)
+```
+
+It's strongly recommended to run the code generator as part of your build process (e.g., `hatch` build hooks), so that the generated bindings are always in sync with your `.slint` files.
+
+## Component Libraries and `library_paths`
+
+Slint supports importing third-party component libraries such as the Material 3 component set under the `@material` namespace. Follow the instructions on [material.slint.dev/getting-started](https://material.slint.dev/getting-started/) to download the library bundle into your project (for example into `material-1.0/`).
+
+When you load a `.slint` file from Python, pass a `library_paths` dictionary that maps the library name to the `.slint` entry file in that bundle:
+
+```python
+from pathlib import Path
+import slint
+
+root = Path(__file__).parent
+ui = slint.load_file(
+    root / "ui" / "main.slint",
+    library_paths={
+        "material": root / "material-1.0" / "material.slint",
+    },
+)
+```
+
+The same mapping can be supplied to the code generator via `GenerationConfig` so the generated bindings reference the library correctly:
+
+```python
+from pathlib import Path
+from slint.codegen.generator import generate_project
+from slint.codegen.models import GenerationConfig
+
+slint_file = Path("ui/app.slint")
+
+generate_project(
+    inputs=[slint_file],
+    output_dir=Path("generated"),
+    config=GenerationConfig(
+        include_paths=[slint_file.parent],
+        library_paths={"material": Path("material-1.0/material.slint")},
+        style=None,
+        translation_domain=None,
+        quiet=True,
+    ),
+)
+```
+
+Any library referenced with `import { ... } from "@library-name"` must appear in `library_paths`, and the value should point to the `.slint` file that serves as the library's root entry point.
+
 ## API Overview
 
 ### Instantiating a Component

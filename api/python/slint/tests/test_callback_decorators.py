@@ -17,7 +17,7 @@ def base_dir() -> Path:
 
 
 def test_callback_decorators(caplog: pytest.LogCaptureFixture) -> None:
-    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+    module = load_file(base_dir() / "test-load-file-source.slint", quiet=False)
 
     class SubClass(module.App):  # type: ignore
         @slint.callback()
@@ -40,7 +40,7 @@ def test_callback_decorators(caplog: pytest.LogCaptureFixture) -> None:
 
 
 def test_callback_decorators_async() -> None:
-    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+    module = load_file(base_dir() / "test-load-file-source.slint", quiet=False)
 
     class SubClass(module.App):  # type: ignore
         def __init__(self, in_queue: asyncio.Queue[int], out_queue: asyncio.Queue[int]):
@@ -68,7 +68,7 @@ def test_callback_decorators_async() -> None:
 
 
 def test_callback_decorators_async_err() -> None:
-    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+    module = load_file(base_dir() / "test-load-file-source.slint", quiet=False)
 
     class SubClass(module.App):  # type: ignore
         def __init__(self) -> None:

@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import slint as native
+from slint import core
 import slint
 import weakref
 import gc
@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def test_callback_gc() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -23,11 +23,11 @@ def test_callback_gc() -> None:
     ).component("Test")
     assert compdef is not None
 
-    instance: native.ComponentInstance | None = compdef.create()
+    instance: core.ComponentInstance | None = compdef.create()
     assert instance is not None
 
     class Handler:
-        def __init__(self, instance: native.ComponentInstance) -> None:
+        def __init__(self, instance: core.ComponentInstance) -> None:
             self.instance = instance
 
         def python_callback(self, input: str) -> str:
@@ -48,7 +48,7 @@ def test_callback_gc() -> None:
 
 
 def test_struct_gc() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -63,7 +63,7 @@ def test_struct_gc() -> None:
     ).component("Test")
     assert compdef is not None
 
-    instance: native.ComponentInstance | None = compdef.create()
+    instance: core.ComponentInstance | None = compdef.create()
     assert instance is not None
 
     model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3])
@@ -79,7 +79,7 @@ def test_struct_gc() -> None:
 
 
 def test_properties_gc() -> None:
-    compiler = native.Compiler()
+    compiler = core.Compiler()
 
     compdef = compiler.build_from_source(
         """
@@ -91,7 +91,7 @@ def test_properties_gc() -> None:
     ).component("Test")
     assert compdef is not None
 
-    instance: native.ComponentInstance | None = compdef.create()
+    instance: core.ComponentInstance | None = compdef.create()
     assert instance is not None
 
     model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3])

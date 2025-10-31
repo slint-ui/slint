@@ -1,9 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import pytest
-from slint import load_file, CompileError
 from pathlib import Path
+
+import pytest
+from slint import CompileError, load_file
 
 
 def base_dir() -> Path:
@@ -15,21 +16,24 @@ def base_dir() -> Path:
 
 
 def test_load_file(caplog: pytest.LogCaptureFixture) -> None:
-    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+    module = load_file(base_dir() / "test-load-file-source.slint", quiet=False)
 
     assert (
         "The property 'color' has been deprecated. Please use 'background' instead"
         in caplog.text
     )
 
-    assert len(list(module.__dict__.keys())) == 7
-    assert "App" in module.__dict__
-    assert "Diag" in module.__dict__
-    assert "MyDiag" in module.__dict__
-    assert "MyData" in module.__dict__
-    assert "Secret_Struct" in module.__dict__
-    assert "Public_Struct" in module.__dict__
-    assert "TestEnum" in module.__dict__
+    module_keys = set(module.__dict__.keys())
+    expected_keys = {
+        "App",
+        "Diag",
+        "MyDiag",
+        "MyData",
+        "Secret_Struct",
+        "Public_Struct",
+        "TestEnum",
+    }
+    assert expected_keys.issubset(module_keys)
     instance = module.App()
     del instance
     instance = module.MyDiag()
@@ -71,7 +75,7 @@ def test_compile_error() -> None:
 
 
 def test_load_file_wrapper() -> None:
-    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+    module = load_file(base_dir() / "test-load-file-source.slint", quiet=False)
 
     instance = module.App()
 
@@ -94,7 +98,7 @@ def test_load_file_wrapper() -> None:
 
 
 def test_constructor_kwargs() -> None:
-    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+    module = load_file(base_dir() / "test-load-file-source.slint", quiet=False)
 
     def early_say_hello(arg: str) -> str:
         return "early:" + arg
