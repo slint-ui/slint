@@ -77,13 +77,14 @@ runs:
               target: ${{ inputs.target }}
         - name: Configure sccache environment for Cloudflare R2
           if: inputs.sccache == 'true'
-          run: |
-              echo "SCCACHE_BUCKET=${{ secrets.SCCACHE_R2_BUCKET }}" >> $GITHUB_ENV
-              echo "SCCACHE_ENDPOINT=${{ secrets.SCCACHE_R2_ENDPOINT }}" >> $GITHUB_ENV
-              echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
-              echo "AWS_ACCESS_KEY_ID=${{ secrets.SCCACHE_R2_ACCESS_KEY }}" >> $GITHUB_ENV
-              echo "AWS_SECRET_ACCESS_KEY=${{ secrets.SCCACHE_R2_SECRET_KEY }}" >> $GITHUB_ENV
           shell: bash
+          run: |
+              echo "SCCACHE_BUCKET=${{ inputs.SCCACHE_R2_BUCKET }}" >> $GITHUB_ENV
+              echo "SCCACHE_ENDPOINT=${{ inputs.SCCACHE_R2_ENDPOINT }}" >> $GITHUB_ENV
+              echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
+              echo "SCCACHE_CACHE_SIZE=10G" >> $GITHUB_ENV
+              echo "AWS_ACCESS_KEY_ID=${{ inputs.SCCACHE_R2_ACCESS_KEY }}" >> $GITHUB_ENV
+              echo "AWS_SECRET_ACCESS_KEY=${{ inputs.SCCACHE_R2_SECRET_KEY }}" >> $GITHUB_ENV
         - name: Run sccache-cache
           if: inputs.sccache == 'true'
           uses: mozilla-actions/sccache-action@v0.0.9
