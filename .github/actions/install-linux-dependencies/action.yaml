@@ -26,14 +26,15 @@ runs:
         - name: Install Linux dependencies
           if: runner.os == 'Linux'
           run: |
+              # Disable initramfs generation in CI (saves ~10s) - not needed for CI runners
+              echo 'update_initramfs=no' | sudo tee /etc/initramfs-tools/update-initramfs.conf
               sudo apt-get update
-              # Skip initramfs generation 'INITRD=No' (saves ~10s) - not needed in ephemeral CI runners
-              sudo INITRD=No apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev ${{ inputs.extra-packages }}
+              sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev ${{ inputs.extra-packages }}
           shell: bash
         - name: Install Linux dependencies
           if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
           run: |
-              sudo INITRD=No apt-get install libseat-dev libsystemd-dev
+              sudo apt-get install -y libseat-dev libsystemd-dev
           shell: bash
         - name: Install C++ compiler
           if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
