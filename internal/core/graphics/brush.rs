@@ -275,17 +275,14 @@ impl ConicGradientBrush {
     /// to CSS's `from <angle>` syntax. It rotates the entire gradient clockwise.
     pub fn new(from_angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let mut stops: alloc::vec::Vec<_> = stops.into_iter().collect();
-        stops.sort_by(|a, b| {
-            a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
-        });
 
         // Add interpolated boundary stop at 0.0 if needed
         let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
         if !has_stop_at_0 {
             // Find stops closest to boundaries for interpolation
             // For 0.0: find the stop just below 0 and just at/above 0
-            let stop_below_0 = stops.iter().filter(|s| s.position < 0.0).last(); // closest to 0 from below
-            let stop_above_0 = stops.iter().filter(|s| s.position >= 0.0).next(); // closest to 0 from above
+            let stop_below_0 = stops.iter().filter(|s| s.position < 0.0).max_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
+            let stop_above_0 = stops.iter().filter(|s| s.position > 0.0).min_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
             if let (Some(below), Some(above)) = (stop_below_0, stop_above_0) {
                 // Interpolate between the stop below 0 and the stop above 0
                 // Example: -10deg and 10deg → interpolate at 0deg
@@ -302,8 +299,8 @@ impl ConicGradientBrush {
         let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
         if !has_stop_at_1 {
             // For 1.0: find the stop just at/below 1 and just above 1
-            let stop_below_1 = stops.iter().filter(|s| s.position <= 1.0).last(); // closest to 1 from below
-            let stop_above_1 = stops.iter().filter(|s| s.position > 1.0).next(); // closest to 1 from above
+            let stop_below_1 = stops.iter().filter(|s| s.position < 1.0).max_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
+            let stop_above_1 = stops.iter().filter(|s| s.position > 1.0).min_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal));
 
             if let (Some(below), Some(above)) = (stop_below_1, stop_above_1) {
                 // Interpolate between the stop below 1 and the stop above 1
