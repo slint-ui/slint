@@ -65,7 +65,7 @@ jobs:
               working-directory: demos/weather-demo
             - name: "Upload Demo Artifacts"
               if: ${{ inputs.build_artifacts }}
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: wasm_demo
                   path: |

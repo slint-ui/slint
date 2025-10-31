@@ -82,7 +82,7 @@ jobs:
               working-directory: ${{ runner.workspace }}/cppbuild
               run: cmake --build . --config Release --target package
             - name: "Upload C++ packages"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: cpp_bin-${{ matrix.package_suffix }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -126,7 +126,7 @@ jobs:
               working-directory: ${{ runner.workspace }}/cppbuild
               run: cpack -G TGZ
             - name: "Upload C++ packages"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: cpp_mcu_bin-${{ matrix.target }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -187,7 +187,7 @@ jobs:
               working-directory: ${{ runner.workspace }}/cppbuild
               run: cpack -G TGZ
             - name: "Upload C++ packages"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: cpp_mcu_bin-${{ matrix.idf_target }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -225,7 +225,7 @@ jobs:
               working-directory: build
               run: cpack -G TGZ
             - name: "Upload C++ packages"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: cpp_bin-${{ matrix.rust_target }}
                   path: build/Slint-cpp-*
@@ -294,7 +294,7 @@ jobs:
                   cd Slint-cpp-*/bin
                   cmake -E tar czf ../../slint-compiler-${{ matrix.package_suffix }}.tar.gz slint-compiler*
             - name: "Upload Slint compiler package"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slint-compiler-bin-${{ matrix.package_suffix }}
                   path: ${{ runner.workspace }}/cppbuild/slint-compiler-*.tar.gz
