@@ -490,7 +490,8 @@ jobs:
         needs: files-changed
         if: needs.files-changed.outputs.slint == 'true'
         uses: ./.github/workflows/build_docs.yaml
-        secrets: inherit
+        secrets:
+          READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
         with:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
