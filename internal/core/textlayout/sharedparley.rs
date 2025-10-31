@@ -1253,32 +1253,32 @@ pub fn link_under_cursor(
         },
     );
 
-    for paragraph in layout.paragraphs {
-        for (range, link) in paragraph.links {
-            let start =
-                parley::Cursor::from_byte_index(&paragraph.layout, range.start, Default::default());
-            let end =
-                parley::Cursor::from_byte_index(&paragraph.layout, range.end, Default::default());
-            let mut clicked = false;
-            let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
-            let link_range = parley::Selection::new(start, end);
-            link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
-                bounding_box.y0 += paragraph_y;
-                bounding_box.y1 += paragraph_y;
-                clicked = bounding_box.union(parley::BoundingBox::new(
-                    cursor.x.into(),
-                    cursor.y.into(),
-                    cursor.x.into(),
-                    cursor.y.into(),
-                )) == bounding_box;
-            });
-            if clicked {
-                return Some(link);
-            }
-        }
-    }
+    let Some(paragraph) = layout.paragraph_by_y(cursor.y_length()) else {
+        return None;
+    };
 
-    None
+    let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+
+    let (_, link) = paragraph.links.iter().find(|(range, _)| {
+        let start =
+            parley::Cursor::from_byte_index(&paragraph.layout, range.start, Default::default());
+        let end = parley::Cursor::from_byte_index(&paragraph.layout, range.end, Default::default());
+        let mut clicked = false;
+        let link_range = parley::Selection::new(start, end);
+        link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
+            bounding_box.y0 += paragraph_y;
+            bounding_box.y1 += paragraph_y;
+            clicked = bounding_box.union(parley::BoundingBox::new(
+                cursor.x.into(),
+                cursor.y.into(),
+                cursor.x.into(),
+                cursor.y.into(),
+            )) == bounding_box;
+        });
+        clicked
+    })?;
+
+    Some(link.clone())
 }
 
 pub fn draw_text_input(
