@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    GlobalIdx, LocalPropertyIndex, LocalPropertyReference, PropertyReference, RepeatedElementIdx,
+    GlobalIdx, LocalMemberIndex, LocalMemberReference, MemberReference, RepeatedElementIdx,
     SubComponentIdx, SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
@@ -23,7 +23,7 @@ pub enum Expression {
     BoolLiteral(bool),
 
     /// Reference to a property (which can also be a callback) or an element (property name is empty then).
-    PropertyReference(PropertyReference),
+    PropertyReference(MemberReference),
 
     /// Reference the parameter at the given index of the current function.
     FunctionParameterReference {
@@ -73,15 +73,15 @@ pub enum Expression {
         arguments: Vec<Expression>,
     },
     CallBackCall {
-        callback: PropertyReference,
+        callback: MemberReference,
         arguments: Vec<Expression>,
     },
     FunctionCall {
-        function: PropertyReference,
+        function: MemberReference,
         arguments: Vec<Expression>,
     },
     ItemMemberFunctionCall {
-        function: PropertyReference,
+        function: MemberReference,
     },
 
     /// A BuiltinFunctionCall, but the function is not yet in the `BuiltinFunction` enum
@@ -94,7 +94,7 @@ pub enum Expression {
 
     /// An assignment of a value to a property
     PropertyAssignment {
-        property: PropertyReference,
+        property: MemberReference,
         value: Box<Expression>,
     },
     /// an assignment of a value to the model data
@@ -166,7 +166,7 @@ pub enum Expression {
     EnumerationValue(crate::langtype::EnumerationValue),
 
     LayoutCacheAccess {
-        layout_cache_prop: PropertyReference,
+        layout_cache_prop: MemberReference,
         index: usize,
         /// When set, this is the index within a repeater, and the index is then the location of another offset.
         /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
@@ -445,7 +445,7 @@ impl Expression {
     pub fn visit_property_references(
         &self,
         ctx: &EvaluationContext,
-        visitor: &mut dyn FnMut(&PropertyReference, &EvaluationContext),
+        visitor: &mut dyn FnMut(&MemberReference, &EvaluationContext),
     ) {
         self.visit_recursive(&mut |expr| {
             let p = match expr {
@@ -472,7 +472,7 @@ pub trait TypeResolutionContext {
     /// The type of the property.
     ///
     /// For reference to function, this is the return type
-    fn property_ty(&self, _: &PropertyReference) -> &Type;
+    fn property_ty(&self, _: &MemberReference) -> &Type;
 
     // The type of the specified argument when evaluating a callback
     fn arg_type(&self, _index: usize) -> &Type {
@@ -547,11 +547,11 @@ impl<'a, T> EvaluationContext<'a, T> {
         }
     }
 
-    pub(crate) fn property_info<'b>(&'b self, prop: &PropertyReference) -> PropertyInfoResult<'b> {
+    pub(crate) fn property_info<'b>(&'b self, prop: &MemberReference) -> PropertyInfoResult<'b> {
         fn match_in_sub_component<'b>(
             cu: &'b super::CompilationUnit,
             sc: &'b super::SubComponent,
-            prop: &LocalPropertyReference,
+            prop: &LocalMemberReference,
             map: ContextMap,
         ) -> PropertyInfoResult<'b> {
             let property_decl = || {
@@ -577,7 +577,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                 }
             }
             let mut r = if let &[idx, ref rest @ ..] = prop.sub_component_path.as_slice() {
-                let prop2 = LocalPropertyReference {
+                let prop2 = LocalMemberReference {
                     sub_component_path: rest.to_vec(),
                     reference: prop.reference.clone(),
                 };
@@ -601,7 +601,7 @@ impl<'a, T> EvaluationContext<'a, T> {
         }
 
         match prop {
-            PropertyReference::Relative { parent_level, local_reference } => {
+            MemberReference::Relative { parent_level, local_reference } => {
                 if let Some(g) = self.current_global() {
                     let index = local_reference.reference.property().unwrap();
                     return PropertyInfoResult {
@@ -623,9 +623,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                     ContextMap::from_parent_level(*parent_level),
                 )
             }
-            PropertyReference::Global { global_index, property } => {
+            MemberReference::Global { global_index, member } => {
                 let g = &self.compilation_unit.globals[*global_index];
-                let index = property.property().unwrap();
+                let index = member.property().unwrap();
                 PropertyInfoResult {
                     analysis: Some(&g.prop_analysis[index]),
                     animation: None,
@@ -648,7 +648,7 @@ impl<'a, T> EvaluationContext<'a, T> {
         self.current_global.and_then(|i| self.compilation_unit.globals.get(i))
     }
 
-    pub fn local_property_ty(&self, local_reference: &LocalPropertyReference) -> &Type {
+    pub fn local_property_ty(&self, local_reference: &LocalMemberReference) -> &Type {
         if let Some(current_global) = self.current_global() {
             return &current_global.properties[local_reference.reference.property().unwrap()].ty;
         }
@@ -659,13 +659,13 @@ impl<'a, T> EvaluationContext<'a, T> {
                 &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
         }
         match &local_reference.reference {
-            LocalPropertyIndex::Property(property_index) => {
+            LocalMemberIndex::Property(property_index) => {
                 &sub_component.properties[*property_index].ty
             }
-            LocalPropertyIndex::Function(function_index) => {
+            LocalMemberIndex::Function(function_index) => {
                 &sub_component.functions[*function_index].ret_ty
             }
-            LocalPropertyIndex::Native { item_index, prop_name } => {
+            LocalMemberIndex::Native { item_index, prop_name } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
@@ -677,23 +677,21 @@ impl<'a, T> EvaluationContext<'a, T> {
 }
 
 impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
-    fn property_ty(&self, prop: &PropertyReference) -> &Type {
+    fn property_ty(&self, prop: &MemberReference) -> &Type {
         match prop {
-            PropertyReference::Relative { parent_level, local_reference } => {
+            MemberReference::Relative { parent_level, local_reference } => {
                 let mut ctx = self;
                 for _ in 0..*parent_level {
                     ctx = ctx.parent.as_ref().unwrap().ctx;
                 }
                 ctx.local_property_ty(local_reference)
             }
-            PropertyReference::Global { global_index, property } => {
+            MemberReference::Global { global_index, member } => {
                 let g = &self.compilation_unit.globals[*global_index];
-                match property {
-                    LocalPropertyIndex::Property(property_idx) => &g.properties[*property_idx].ty,
-                    LocalPropertyIndex::Function(function_idx) => {
-                        &g.functions[*function_idx].ret_ty
-                    }
-                    LocalPropertyIndex::Native { .. } => unreachable!(),
+                match member {
+                    LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
+                    LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
+                    LocalMemberIndex::Native { .. } => unreachable!(),
                 }
             }
         }
@@ -742,14 +740,14 @@ impl ContextMap {
         }
     }
 
-    pub fn map_property_reference(&self, p: &PropertyReference) -> PropertyReference {
+    pub fn map_property_reference(&self, p: &MemberReference) -> MemberReference {
         match self {
             ContextMap::Identity => p.clone(),
             ContextMap::InSubElement { path, parent } => match p {
-                PropertyReference::Relative { parent_level, local_reference } => {
-                    PropertyReference::Relative {
+                MemberReference::Relative { parent_level, local_reference } => {
+                    MemberReference::Relative {
                         parent_level: *parent_level + *parent,
-                        local_reference: LocalPropertyReference {
+                        local_reference: LocalMemberReference {
                             sub_component_path: path
                                 .iter()
                                 .chain(local_reference.sub_component_path.iter())
@@ -759,18 +757,18 @@ impl ContextMap {
                         },
                     }
                 }
-                PropertyReference::Global { .. } => return p.clone(),
+                MemberReference::Global { .. } => return p.clone(),
             },
             ContextMap::InGlobal(global_index) => match p {
-                PropertyReference::Relative { parent_level, local_reference } => {
+                MemberReference::Relative { parent_level, local_reference } => {
                     assert!(local_reference.sub_component_path.is_empty());
                     assert_eq!(*parent_level, 0);
-                    PropertyReference::Global {
+                    MemberReference::Global {
                         global_index: *global_index,
-                        property: local_reference.reference.clone(),
+                        member: local_reference.reference.clone(),
                     }
                 }
-                g @ PropertyReference::Global { .. } => g.clone(),
+                g @ MemberReference::Global { .. } => g.clone(),
             },
         }
     }

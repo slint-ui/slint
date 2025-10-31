@@ -78,7 +78,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
     cost
 }
 
-fn callback_cost(_callback: &crate::llr::PropertyReference, _ctx: &EvaluationContext) -> isize {
+fn callback_cost(_callback: &crate::llr::MemberReference, _ctx: &EvaluationContext) -> isize {
     // TODO: lookup the callback and find out what it does
     isize::MAX
 }

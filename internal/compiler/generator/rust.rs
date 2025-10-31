@@ -580,7 +580,7 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
 }
 
 fn handle_property_init(
-    prop: &llr::LocalPropertyReference,
+    prop: &llr::LocalMemberReference,
     binding_expression: &llr::BindingExpression,
     init: &mut Vec<TokenStream>,
     ctx: &EvaluationContext,
@@ -887,8 +887,7 @@ fn generate_sub_component(
 
         if let Some(item_index) = repeated.container_item_index {
             let embed_item = access_local_member(
-                &llr::LocalPropertyIndex::Native { item_index, prop_name: Default::default() }
-                    .into(),
+                &llr::LocalMemberIndex::Native { item_index, prop_name: Default::default() }.into(),
                 &ctx,
             );
 
@@ -1990,7 +1989,7 @@ fn global_inner_name(g: &llr::GlobalComponent) -> TokenStream {
 }
 
 fn property_set_value_tokens(
-    property: &llr::PropertyReference,
+    property: &llr::MemberReference,
     value_tokens: TokenStream,
     ctx: &EvaluationContext,
 ) -> TokenStream {
@@ -2008,29 +2007,29 @@ fn property_set_value_tokens(
 }
 
 /// Returns the code that can access the given property or callback
-fn access_member(reference: &llr::PropertyReference, mut ctx: &EvaluationContext) -> MemberAccess {
+fn access_member(reference: &llr::MemberReference, mut ctx: &EvaluationContext) -> MemberAccess {
     fn in_global(
         g: &llr::GlobalComponent,
-        index: &llr::LocalPropertyIndex,
+        index: &llr::LocalMemberIndex,
         _self: TokenStream,
     ) -> MemberAccess {
         let global_name = global_inner_name(g);
         match index {
-            llr::LocalPropertyIndex::Property(property_idx) => {
+            llr::LocalMemberIndex::Property(property_idx) => {
                 let property_name = ident(&g.properties[*property_idx].name);
                 let property_field = quote!({ *&#global_name::FIELD_OFFSETS.#property_name });
                 MemberAccess::Direct(quote!(#property_field.apply_pin(#_self)))
             }
-            llr::LocalPropertyIndex::Function(function_idx) => {
+            llr::LocalMemberIndex::Function(function_idx) => {
                 let fn_id = ident(&format!("fn_{}", g.functions[*function_idx].name));
                 MemberAccess::Direct(quote!(#_self.#fn_id))
             }
-            llr::LocalPropertyIndex::Native { .. } => unreachable!(),
+            llr::LocalMemberIndex::Native { .. } => unreachable!(),
         }
     }
 
     match reference {
-        llr::PropertyReference::Relative { parent_level, local_reference } => {
+        llr::MemberReference::Relative { parent_level, local_reference } => {
             if let Some(current_global) = ctx.current_global() {
                 return in_global(current_global, &local_reference.reference, quote!(_self));
             }
@@ -2046,7 +2045,7 @@ fn access_member(reference: &llr::PropertyReference, mut ctx: &EvaluationContext
             });
 
             match &local_reference.reference {
-                llr::LocalPropertyIndex::Property(property_index) => {
+                llr::LocalMemberIndex::Property(property_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
                         ctx.compilation_unit,
                         ctx.current_sub_component.unwrap(),
@@ -2063,7 +2062,7 @@ fn access_member(reference: &llr::PropertyReference, mut ctx: &EvaluationContext
                         },
                     )
                 }
-                llr::LocalPropertyIndex::Function(function_index) => {
+                llr::LocalMemberIndex::Function(function_index) => {
                     let mut sub_component = ctx.current_sub_component().unwrap();
                     let mut compo_path = parent_path
                         .as_ref()
@@ -2084,7 +2083,7 @@ fn access_member(reference: &llr::PropertyReference, mut ctx: &EvaluationContext
                         },
                     )
                 }
-                llr::LocalPropertyIndex::Native { item_index, prop_name } => {
+                llr::LocalMemberIndex::Native { item_index, prop_name } => {
                     let (compo_path, sub_component) = follow_sub_component_path(
                         ctx.compilation_unit,
                         ctx.current_sub_component.unwrap(),
@@ -2126,17 +2125,17 @@ fn access_member(reference: &llr::PropertyReference, mut ctx: &EvaluationContext
                 }
             }
         }
-        llr::PropertyReference::Global { global_index, property } => {
+        llr::MemberReference::Global { global_index, member } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format_ident!("global_{}", ident(&global.name));
-            in_global(global, property, quote!(#global_access.#global_id.as_ref()))
+            in_global(global, member, quote!(#global_access.#global_id.as_ref()))
         }
     }
 }
 
 fn access_local_member(
-    reference: &llr::LocalPropertyReference,
+    reference: &llr::LocalMemberReference,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     access_member(&reference.clone().into(), ctx).unwrap()
@@ -2228,14 +2227,14 @@ fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
 
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
-fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> TokenStream {
+fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenStream {
     let mut ctx = ctx;
     let mut component_access_tokens = quote!(_self);
 
-    let llr::PropertyReference::Relative { parent_level, local_reference } = pr else {
+    let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalPropertyIndex::Native { item_index, prop_name: _ } = &local_reference.reference
+    let llr::LocalMemberIndex::Native { item_index, prop_name: _ } = &local_reference.reference
     else {
         unreachable!()
     };
@@ -2459,7 +2458,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             let repeater_index = repeater_index.unwrap();
             let local_reference = ctx2.current_sub_component().unwrap().repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop = llr::PropertyReference::Relative { parent_level: *level, local_reference };
+            let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
             let repeater = access_component_field_offset(
                 &inner_component_id(ctx2.current_sub_component().unwrap()),
@@ -2817,7 +2816,7 @@ fn compile_builtin_function_call(
             {
                 let mut parent_ctx = ctx;
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                if let llr::PropertyReference::Relative { parent_level, .. } = parent_ref {
+                if let llr::MemberReference::Relative { parent_level, .. } = parent_ref {
                     for _ in 0..*parent_level {
                         component_access_tokens = match component_access_tokens {
                             MemberAccess::Option(token_stream) => MemberAccess::Option(
@@ -2876,7 +2875,7 @@ fn compile_builtin_function_call(
             {
                 let mut parent_ctx = ctx;
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                if let llr::PropertyReference::Relative { parent_level, .. } = parent_ref {
+                if let llr::MemberReference::Relative { parent_level, .. } = parent_ref {
                     for _ in 0..*parent_level {
                         component_access_tokens = match component_access_tokens {
                             MemberAccess::Option(token_stream) => MemberAccess::Option(
