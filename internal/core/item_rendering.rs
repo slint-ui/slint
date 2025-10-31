@@ -5,7 +5,7 @@
 //! module for rendering the tree of items
 
 use super::items::*;
-use crate::graphics::{FontRequest, Image, IntRect};
+use crate::graphics::{Color, FontRequest, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
@@ -299,6 +299,7 @@ pub trait RenderText {
     fn letter_spacing(self: Pin<&Self>) -> LogicalLength;
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
     fn is_markdown(self: Pin<&Self>) -> bool;
+    fn link_color(self: Pin<&Self>) -> Color;
 }
 
 impl RenderText for (SharedString, Brush) {
@@ -316,6 +317,10 @@ impl RenderText for (SharedString, Brush) {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.1.clone()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
     }
 
     fn alignment(

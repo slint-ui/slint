@@ -179,6 +179,10 @@ impl RenderText for ComplexText {
         self.color()
     }
 
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
+    }
+
     fn alignment(
         self: Pin<&Self>,
     ) -> (super::TextHorizontalAlignment, super::TextVerticalAlignment) {
@@ -242,6 +246,7 @@ pub struct MarkdownText {
     pub stroke: Property<Brush>,
     pub stroke_width: Property<LogicalLength>,
     pub stroke_style: Property<TextStrokeStyle>,
+    pub link_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -394,6 +399,10 @@ impl RenderText for MarkdownText {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        self.link_color()
     }
 
     fn alignment(
@@ -569,6 +578,10 @@ impl RenderText for SimpleText {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
     }
 
     fn alignment(
