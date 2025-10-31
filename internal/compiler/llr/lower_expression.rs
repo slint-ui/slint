@@ -9,9 +9,7 @@ use itertools::Either;
 use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
-use super::{
-    Animation, LocalPropertyReference, PropertyIdx, PropertyReference, RepeatedElementIdx,
-};
+use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
@@ -34,7 +32,7 @@ pub struct ExpressionLoweringCtx<'a> {
 }
 
 impl ExpressionLoweringCtx<'_> {
-    pub fn map_property_reference(&self, from: &NamedReference) -> PropertyReference {
+    pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         let element = from.element();
         let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
         let mut level = 0;
@@ -46,7 +44,7 @@ impl ExpressionLoweringCtx<'_> {
             }
         }
         let mut r = map.mapping.map_property_reference(from, self.state);
-        if let PropertyReference::Relative { parent_level, .. } = &mut r {
+        if let MemberReference::Relative { parent_level, .. } = &mut r {
             *parent_level += level;
         }
         r
@@ -54,7 +52,7 @@ impl ExpressionLoweringCtx<'_> {
 }
 
 impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
-    fn property_ty(&self, _: &PropertyReference) -> &Type {
+    fn property_ty(&self, _: &MemberReference) -> &Type {
         unimplemented!()
     }
 }
@@ -331,7 +329,7 @@ fn lower_assignment(
                 repeater_special_property(element, ctx.component, PropertyIdx::REPEATER_DATA);
 
             let level = match &prop {
-                PropertyReference::Relative { parent_level, .. } => *parent_level,
+                MemberReference::Relative { parent_level, .. } => *parent_level,
                 _ => 0,
             };
 
@@ -374,7 +372,7 @@ pub fn repeater_special_property(
     element: &Weak<RefCell<Element>>,
     component: &Rc<crate::object_tree::Component>,
     property_index: PropertyIdx,
-) -> PropertyReference {
+) -> MemberReference {
     let enclosing = element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
     let mut parent_level = 0;
     let mut component = component.clone();
@@ -389,9 +387,9 @@ pub fn repeater_special_property(
             .unwrap();
         parent_level += 1;
     }
-    PropertyReference::Relative {
+    MemberReference::Relative {
         parent_level: parent_level - 1,
-        local_reference: LocalPropertyReference {
+        local_reference: LocalMemberReference {
             sub_component_path: vec![],
             reference: property_index.into(),
         },

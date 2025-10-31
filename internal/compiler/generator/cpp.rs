@@ -67,14 +67,14 @@ pub fn concatenate_ident(ident: &str) -> SmolStr {
 
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
-fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
+fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String {
     let mut ctx = ctx;
     let mut component_access = "self->".into();
 
-    let llr::PropertyReference::Relative { parent_level, local_reference } = pr else {
+    let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalPropertyIndex::Native { item_index, prop_name: _ } = &local_reference.reference
+    let llr::LocalMemberIndex::Native { item_index, prop_name: _ } = &local_reference.reference
     else {
         unreachable!()
     };
@@ -584,7 +584,7 @@ fn remove_parentheses_test() {
 }
 
 fn property_set_value_code(
-    property: &llr::PropertyReference,
+    property: &llr::MemberReference,
     value_expr: &str,
     ctx: &EvaluationContext,
 ) -> String {
@@ -600,7 +600,7 @@ fn property_set_value_code(
 }
 
 fn handle_property_init(
-    prop: &llr::LocalPropertyReference,
+    prop: &llr::LocalMemberReference,
     binding_expression: &llr::BindingExpression,
     init: &mut Vec<String>,
     ctx: &EvaluationContext,
@@ -2525,7 +2525,7 @@ fn generate_repeated_component(
 
     let access_prop = |idx: &llr::PropertyIdx| {
         access_member(
-            &llr::LocalPropertyReference { sub_component_path: vec![], reference: (*idx).into() }
+            &llr::LocalMemberReference { sub_component_path: vec![], reference: (*idx).into() }
                 .into(),
             &ctx,
         )
@@ -2664,7 +2664,7 @@ fn generate_global(
 
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
-                &llr::LocalPropertyReference {
+                &llr::LocalMemberReference {
                     sub_component_path: vec![],
                     reference: property_index.into(),
                 },
@@ -2688,7 +2688,7 @@ fn generate_global(
 
     init.extend(global.change_callbacks.iter().map(|(p, e)| {
         let code = compile_expression(&e.borrow(), &ctx);
-        let prop = access_member(&llr::LocalPropertyReference::from(*p).into(), &ctx);
+        let prop = access_member(&llr::LocalMemberReference::from(*p).into(), &ctx);
         prop.then(|prop| {
             format!("this->change_tracker{}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});", usize::from(*p))
         })
@@ -2959,9 +2959,9 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 }
 
 /// Returns the code that can access the given property (but without the set or get)
-fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> MemberAccess {
+fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> MemberAccess {
     match reference {
-        llr::PropertyReference::Relative { parent_level, local_reference } => {
+        llr::MemberReference::Relative { parent_level, local_reference } => {
             let mut ctx = ctx;
             let mut path = MemberAccess::Direct("self".to_string());
             for _ in 0..*parent_level {
@@ -2975,15 +2975,15 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     &local_reference.sub_component_path,
                 );
                 match &local_reference.reference {
-                    llr::LocalPropertyIndex::Property(property_index) => {
+                    llr::LocalMemberIndex::Property(property_index) => {
                         let property_name = ident(&sub_component.properties[*property_index].name);
                         path.with_member(format!("->{compo_path}{property_name}"))
                     }
-                    llr::LocalPropertyIndex::Function(function_index) => {
+                    llr::LocalMemberIndex::Function(function_index) => {
                         let function_name = ident(&sub_component.functions[*function_index].name);
                         path.with_member(format!("->{compo_path}fn_{function_name}"))
                     }
-                    llr::LocalPropertyIndex::Native { item_index, prop_name } => {
+                    llr::LocalMemberIndex::Native { item_index, prop_name } => {
                         let item_name = ident(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
                             || matches!(
@@ -3002,11 +3002,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 }
             } else if let Some(current_global) = ctx.current_global() {
                 match &local_reference.reference {
-                    llr::LocalPropertyIndex::Property(property_index) => {
+                    llr::LocalMemberIndex::Property(property_index) => {
                         let property_name = ident(&current_global.properties[*property_index].name);
                         MemberAccess::Direct(format!("this->{property_name}"))
                     }
-                    llr::LocalPropertyIndex::Function(function_index) => {
+                    llr::LocalMemberIndex::Function(function_index) => {
                         let function_name = ident(&current_global.functions[*function_index].name);
                         MemberAccess::Direct(format!("this->fn_{function_name}"))
                     }
@@ -3016,15 +3016,15 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 unreachable!()
             }
         }
-        llr::PropertyReference::Global { global_index, property } => {
+        llr::MemberReference::Global { global_index, member } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format!("global_{}", concatenate_ident(&global.name));
-            let name = match property {
-                llr::LocalPropertyIndex::Property(property_index) => ident(
+            let name = match member {
+                llr::LocalMemberIndex::Property(property_index) => ident(
                     &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
                 ),
-                llr::LocalPropertyIndex::Function(function_index) => ident(&format!(
+                llr::LocalMemberIndex::Function(function_index) => ident(&format!(
                     "fn_{}",
                     &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
                 )),
@@ -3035,7 +3035,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
     }
 }
 
-fn access_local_member(reference: &llr::LocalPropertyReference, ctx: &EvaluationContext) -> String {
+fn access_local_member(reference: &llr::LocalMemberReference, ctx: &EvaluationContext) -> String {
     access_member(&reference.clone().into(), ctx).unwrap()
 }
 
@@ -3128,14 +3128,13 @@ impl MemberAccess {
 /// (or a InParent of InNativeItem )
 /// As well as the property name
 fn native_prop_info<'a, 'b>(
-    item_ref: &'b llr::PropertyReference,
+    item_ref: &'b llr::MemberReference,
     ctx: &'a EvaluationContext,
 ) -> (&'a NativeClass, &'b str) {
-    let llr::PropertyReference::Relative { parent_level, local_reference } = item_ref else {
+    let llr::MemberReference::Relative { parent_level, local_reference } = item_ref else {
         unreachable!()
     };
-    let llr::LocalPropertyIndex::Native { item_index, prop_name } = &local_reference.reference
-    else {
+    let llr::LocalMemberIndex::Native { item_index, prop_name } = &local_reference.reference else {
         unreachable!()
     };
 
@@ -3379,7 +3378,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
             let repeater_index = repeater_index.unwrap();
             let local_reference = ctx2.current_sub_component().unwrap().repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop = llr::PropertyReference::Relative { parent_level: *level, local_reference };
+            let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
             write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
             format!("{path}.model_set_row_data({index_access}, {value})")
@@ -3907,7 +3906,7 @@ fn compile_builtin_function_call(
             {
                 let mut parent_ctx = ctx;
                 let mut component_access = MemberAccess::Direct("self".into());
-                if let llr::PropertyReference::Relative { parent_level, .. } = parent_ref {
+                if let llr::MemberReference::Relative { parent_level, .. } = parent_ref {
                     for _ in 0..*parent_level {
                         component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
@@ -3939,7 +3938,7 @@ fn compile_builtin_function_call(
             if let [llr::Expression::NumberLiteral(popup_index), llr::Expression::PropertyReference(parent_ref)] = arguments {
                 let mut parent_ctx = ctx;
                 let mut component_access = MemberAccess::Direct("self".into());
-                if let llr::PropertyReference::Relative { parent_level, .. } = parent_ref {
+                if let llr::MemberReference::Relative { parent_level, .. } = parent_ref {
                     for _ in 0..*parent_level {
                         component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;

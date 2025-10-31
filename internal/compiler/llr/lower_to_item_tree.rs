@@ -119,7 +119,7 @@ pub enum LoweredElement {
 #[derive(Default, Debug, Clone)]
 pub struct LoweredSubComponentMapping {
     pub element_mapping: HashMap<ByAddress<ElementRc>, LoweredElement>,
-    pub property_mapping: HashMap<NamedReference, PropertyReference>,
+    pub property_mapping: HashMap<NamedReference, MemberReference>,
     pub repeater_count: u32,
     pub container_count: u32,
 }
@@ -129,7 +129,7 @@ impl LoweredSubComponentMapping {
         &self,
         from: &NamedReference,
         state: &LoweringState,
-    ) -> PropertyReference {
+    ) -> MemberReference {
         if let Some(x) = self.property_mapping.get(from) {
             return x.clone();
         }
@@ -152,7 +152,7 @@ impl LoweredSubComponentMapping {
                         &base.root_element,
                         from.name().clone(),
                     ));
-                    if let PropertyReference::Relative { parent_level, local_reference } =
+                    if let MemberReference::Relative { parent_level, local_reference } =
                         &mut prop_ref
                     {
                         assert_eq!(*parent_level, 0, "the sub-component had no parents");
@@ -162,11 +162,11 @@ impl LoweredSubComponentMapping {
                 }
                 unreachable!()
             }
-            LoweredElement::NativeItem { item_index } => PropertyReference::Relative {
+            LoweredElement::NativeItem { item_index } => MemberReference::Relative {
                 parent_level: 0,
-                local_reference: LocalPropertyReference {
+                local_reference: LocalMemberReference {
                     sub_component_path: vec![],
-                    reference: LocalPropertyIndex::Native {
+                    reference: LocalMemberIndex::Native {
                         item_index: *item_index,
                         prop_name: from.name().clone(),
                     },
@@ -185,7 +185,7 @@ pub struct LoweredSubComponent {
 
 #[derive(Default)]
 pub struct LoweringState {
-    global_properties: HashMap<NamedReference, PropertyReference>,
+    global_properties: HashMap<NamedReference, MemberReference>,
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
     pub sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
@@ -193,7 +193,7 @@ pub struct LoweringState {
 }
 
 impl LoweringState {
-    pub fn map_property_reference(&self, from: &NamedReference) -> PropertyReference {
+    pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         if let Some(x) = self.global_properties.get(from) {
             return x.clone();
         }
@@ -312,12 +312,9 @@ fn lower_sub_component(
             };
             mapping.property_mapping.insert(
                 NamedReference::new(element, p.clone()),
-                PropertyReference::Relative {
+                MemberReference::Relative {
                     parent_level: 0,
-                    local_reference: LocalPropertyReference {
-                        sub_component_path: vec![],
-                        reference,
-                    },
+                    local_reference: LocalMemberReference { sub_component_path: vec![], reference },
                 },
             );
         }
@@ -397,9 +394,7 @@ fn lower_sub_component(
 
         if let Type::Function { .. } = nr.ty() {
             assert!(prop.sub_component_path.is_empty());
-            let LocalPropertyIndex::Function(function_index) = prop.reference else {
-                unreachable!()
-            };
+            let LocalMemberIndex::Function(function_index) = prop.reference else { unreachable!() };
 
             sub_component.functions[function_index].code =
                 super::lower_expression::lower_expression(&binding.expression, &mut ctx);
@@ -765,7 +760,7 @@ fn lower_global(
             });
             state.global_properties.insert(
                 nr.clone(),
-                PropertyReference::Global { global_index, property: function_index.into() },
+                MemberReference::Global { global_index, member: function_index.into() },
             );
             continue;
         }
@@ -792,7 +787,7 @@ fn lower_global(
         );
         state.global_properties.insert(
             nr.clone(),
-            PropertyReference::Global { global_index, property: property_index.into() },
+            MemberReference::Global { global_index, member: property_index.into() },
         );
     }
 
@@ -807,7 +802,7 @@ fn lower_global(
             let nr = NamedReference::new(&global.root_element, p.clone());
             state.global_properties.insert(
                 nr,
-                PropertyReference::Global { global_index, property: property_index.into() },
+                MemberReference::Global { global_index, member: property_index.into() },
             );
             prop_analysis.push(PropertyAnalysis {
                 // Assume that a builtin global property can always be set from the builtin code
@@ -862,13 +857,11 @@ fn lower_global_expressions(
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
         let property_index = match ctx.state.global_properties[&nr] {
-            PropertyReference::Global {
-                property: LocalPropertyIndex::Property(property_index),
-                ..
+            MemberReference::Global {
+                member: LocalMemberIndex::Property(property_index), ..
             } => property_index,
-            PropertyReference::Global {
-                property: LocalPropertyIndex::Function(function_index),
-                ..
+            MemberReference::Global {
+                member: LocalMemberIndex::Function(function_index), ..
             } => {
                 lowered.functions[function_index].code = expression;
                 continue;
@@ -887,10 +880,8 @@ fn lower_global_expressions(
 
     for (prop, expr) in &global.root_element.borrow().change_callbacks {
         let nr = NamedReference::new(&global.root_element, prop.clone());
-        let PropertyReference::Global {
-            property: LocalPropertyIndex::Property(property_index),
-            ..
-        } = ctx.state.global_properties[&nr]
+        let MemberReference::Global { member: LocalMemberIndex::Property(property_index), .. } =
+            ctx.state.global_properties[&nr]
         else {
             unreachable!()
         };
