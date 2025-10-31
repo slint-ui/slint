@@ -119,13 +119,13 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v3
-                  sccache: ${{ (matrix.os == 'macos-14' || matrix.os == 'windows-2022') && 'true' || 'false' }}
+                  sccache: "true"
                   SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
                   SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
                   SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
                   SCCACHE_R2_SECRET_KEY: ${{ secrets.SCCACHE_R2_SECRET_KEY }}
             - name: Run tests
-              run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run:  cargo test --verbose --all-features --workspace --timings=html,json ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
@@ -141,6 +141,15 @@ jobs:
               if: (matrix.os == 'macos-14' || matrix.os == 'windows-2022') && always()
               run: sccache --show-stats
               shell: bash
+            - name: Upload build timing report
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cargo-timings-${{ matrix.os }}-${{ matrix.rust_version }}
+                  path: |
+                    target/cargo-timings/cargo-timing.html
+                    target/cargo-timings/cargo-timing.json
+                  if-no-files-found: ignore
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
               uses: actions/upload-artifact@v4
