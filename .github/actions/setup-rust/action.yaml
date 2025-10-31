@@ -83,8 +83,7 @@ runs:
             echo "SCCACHE_BUCKET=${{ inputs.SCCACHE_R2_BUCKET }}" >> $GITHUB_ENV
             echo "SCCACHE_ENDPOINT=${{ inputs.SCCACHE_R2_ENDPOINT }}" >> $GITHUB_ENV
             echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
-            echo "SCCACHE_CACHE_SIZE=10G" >> $GITHUB_ENV
-            echo "SCCACHE_REQUEST_TIMEOUT=20" >> $GITHUB_ENV
+            echo "SCCACHE_REQUEST_TIMEOUT=30" >> $GITHUB_ENV
             echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> $GITHUB_ENV
             echo "AWS_ACCESS_KEY_ID=${{ inputs.SCCACHE_R2_ACCESS_KEY }}" >> $GITHUB_ENV
             echo "AWS_SECRET_ACCESS_KEY=${{ inputs.SCCACHE_R2_SECRET_KEY }}" >> $GITHUB_ENV

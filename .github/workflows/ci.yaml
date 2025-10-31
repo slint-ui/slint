@@ -119,7 +119,7 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v3
-                  sccache: ${{ matrix.os == 'macos-14' && 'true' || 'false' }}
+                  sccache: ${{ (matrix.os == 'macos-14' || matrix.os == 'windows-2022') && 'true' || 'false' }}
                   SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
                   SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
                   SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
@@ -138,7 +138,7 @@ jobs:
               run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
             - name: Show sccache statistics
-              if: matrix.os == 'macos-14' && always()
+              if: (matrix.os == 'macos-14' || matrix.os == 'windows-2022') && always()
               run: sccache --show-stats
               shell: bash
             - name: Archive screenshots after failed tests
