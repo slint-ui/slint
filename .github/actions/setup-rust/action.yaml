@@ -25,9 +25,9 @@ inputs:
         required: false
         default: ""
     cache:
-        description: "Enable Rust caching (default: false)"
+        description: "Enable Rust caching (default: true)"
         required: false
-        default: "false"
+        default: "true"
 
 runs:
     using: composite
