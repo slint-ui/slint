@@ -20,8 +20,8 @@ env:
     SLINT_EMIT_DEBUG_INFO: 1
 
 jobs:
-    macos_experiment:
-        runs-on: macos-15
+    build_and_test:
+        runs-on: macos-14
         timeout-minutes: 60
 
         steps:
