@@ -129,6 +129,7 @@ pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Argument
 }
 
 #[macro_export]
+#[clippy::format_args]
 macro_rules! console_err {
     ($env:expr, $($t:tt)*) => ($crate::print_to_console($env, "error", format_args!($($t)*)))
 }
