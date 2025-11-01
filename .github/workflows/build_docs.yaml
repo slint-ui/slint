@@ -53,6 +53,7 @@ jobs:
                   toolchain: nightly
                   components: rustfmt
                   target: aarch64-linux-android
+                  cache: false
             - name: Install apt dependencies
               run: sudo apt-get install doxygen
             - uses: baptiste0928/cargo-install@v3
