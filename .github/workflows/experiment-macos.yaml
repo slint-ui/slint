@@ -21,7 +21,7 @@ env:
 
 jobs:
     macos_experiment:
-        runs-on: macos-14
+        runs-on: macos-15
         timeout-minutes: 60
 
         steps:
@@ -68,7 +68,7 @@ jobs:
               if: always()
               uses: actions/upload-artifact@v4
               with:
-                  name: cargo-timings-macos-14-experiment
+                  name: cargo-timings-macos-15-experiment
                   path: target/cargo-timings/cargo-timing.html
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
