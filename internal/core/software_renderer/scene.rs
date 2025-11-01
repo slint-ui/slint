@@ -289,6 +289,19 @@ pub enum SceneCommand {
     ConicGradient {
         conic_gradient_index: u16,
     },
+    /// Clipped gradient variants - combine gradient with border radius clipping
+    LinearGradientClipped {
+        linear_gradient_index: u16,
+        rectangle_index: u16,
+    },
+    RadialGradientClipped {
+        radial_gradient_index: u16,
+        rectangle_index: u16,
+    },
+    ConicGradientClipped {
+        conic_gradient_index: u16,
+        rectangle_index: u16,
+    },
 }
 
 pub struct SceneTexture<'a> {
@@ -489,7 +502,7 @@ pub fn compute_range_in_buffer(
     start..end
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RoundedRectangle {
     pub radius: PhysicalBorderRadius,
     /// the border's width

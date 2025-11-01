@@ -1,0 +1,151 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=450  - gradients with border radius can be imprecise in rotation (increased due to coordinate transformation limitations)
+// BASE_THRESHOLD=2  - allow small differences due to anti-aliasing in border radius clipping
+
+export component TestCase inherits Window {
+    width: 128px;
+    height: 128px;
+
+    background: black;
+
+    GridLayout {
+        // Row 1: Solid colors with border radius (baseline for comparison)
+        Row {
+            // Uniform border radius with solid color
+            Rectangle {
+                background: red;
+                border-radius: 8px;
+            }
+            // Non-uniform border radius with solid color
+            Rectangle {
+                background: green;
+                border-top-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+            }
+            // Large border radius with solid color
+            Rectangle {
+                background: blue;
+                border-radius: 16px;
+            }
+            // Asymmetric border radius with solid color
+            Rectangle {
+                background: orange;
+                border-top-right-radius: 4px;
+                border-bottom-left-radius: 8px;
+                border-bottom-right-radius: 12px;
+            }
+        }
+
+        // Row 2: Linear gradients with different border radius configurations
+        Row {
+            // Uniform border radius with linear gradient
+            Rectangle {
+                background: @linear-gradient(90deg, red, blue);
+                border-radius: 8px;
+            }
+            // Non-uniform border radius with linear gradient
+            Rectangle {
+                background: @linear-gradient(45deg, green, yellow);
+                border-top-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+            }
+            // Large border radius with multi-stop linear gradient
+            Rectangle {
+                background: @linear-gradient(0deg, purple 20%, orange 50%, cyan 80%);
+                border-radius: 16px;
+            }
+            // Diagonal gradient with asymmetric border radius
+            Rectangle {
+                background: @linear-gradient(135deg, pink, lightblue);
+                border-top-right-radius: 4px;
+                border-bottom-left-radius: 8px;
+                border-bottom-right-radius: 12px;
+            }
+        }
+
+        // Row 3: Radial gradients with border radius
+        Row {
+            // Simple radial gradient with uniform border radius
+            Rectangle {
+                background: @radial-gradient(circle, white, red);
+                border-radius: 10px;
+            }
+            // Radial gradient with transparency and border radius
+            Rectangle {
+                background: @radial-gradient(circle, transparent 30%, blue 70%);
+                border-radius: 6px;
+            }
+            // Multi-stop radial gradient with large border radius
+            Rectangle {
+                background: @radial-gradient(circle, yellow 0%, orange 40%, red 80%, darkred 100%);
+                border-radius: 14px;
+            }
+            // Radial gradient with non-uniform border radius
+            Rectangle {
+                background: @radial-gradient(circle, lightgreen 20%, darkgreen 80%);
+                border-top-left-radius: 2px;
+                border-top-right-radius: 6px;
+                border-bottom-left-radius: 10px;
+                border-bottom-right-radius: 14px;
+            }
+        }
+
+        // Row 4: Conic gradients with border radius
+        Row {
+            // Basic conic gradient with uniform border radius
+            Rectangle {
+                background: @conic-gradient(red 0deg, yellow 120deg, blue 240deg, red 360deg);
+                border-radius: 12px;
+            }
+            // Conic gradient with transparency and border radius
+            Rectangle {
+                background: @conic-gradient(magenta 0deg, transparent 90deg, cyan 180deg, transparent 270deg, magenta 360deg);
+                border-radius: 8px;
+            }
+            // Complex conic gradient with large border radius
+            Rectangle {
+                background: @conic-gradient(white 0deg, red 60deg, orange 120deg, yellow 180deg, green 240deg, blue 300deg, purple 360deg);
+                border-radius: 16px;
+            }
+            // Conic gradient with mixed border radius
+            Rectangle {
+                background: @conic-gradient(black 0deg, white 180deg, black 360deg);
+                border-top-left-radius: 16px;
+                border-bottom-right-radius: 16px;
+            }
+        }
+
+        // Row 5: Edge cases and complex scenarios
+        Row {
+            // Very small border radius with gradient
+            Rectangle {
+                background: @linear-gradient(90deg, lime, navy);
+                border-radius: 2px;
+            }
+            // Maximum border radius (should create circle/ellipse)
+            Rectangle {
+                background: @radial-gradient(circle, gold, maroon);
+                border-radius: 32px; // Half of the rectangle size for circular effect
+            }
+            // Overlapping gradients with border radius
+            Rectangle {
+                background: @linear-gradient(0deg, lightcoral, darkslateblue);
+                border-radius: 10px;
+                Rectangle {
+                    background: @radial-gradient(circle, transparent 40%, rgba(255, 255, 255, 0.3) 60%);
+                    border-radius: 8px;
+                }
+            }
+            // Gradient with individual corner radii
+            Rectangle {
+                background: @conic-gradient(violet 0deg, indigo 72deg, blue 144deg, green 216deg, yellow 288deg, violet 360deg);
+                border-top-left-radius: 4px;
+                border-top-right-radius: 8px;
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 16px;
+            }
+        }
+    }
+}
