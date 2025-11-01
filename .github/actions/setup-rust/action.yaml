@@ -80,6 +80,7 @@ runs:
           shell: bash
           run: |
             echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+            echo "SCCACHE_DIRECT=true" >> $GITHUB_ENV
             echo "SCCACHE_BUCKET=${{ inputs.SCCACHE_R2_BUCKET }}" >> $GITHUB_ENV
             echo "SCCACHE_ENDPOINT=${{ inputs.SCCACHE_R2_ENDPOINT }}" >> $GITHUB_ENV
             echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
