@@ -93,5 +93,5 @@ runs:
         - uses: Swatinem/rust-cache@v2
           if: inputs.cache == 'true'
           with:
-              key: ${{ inputs.key }}-${{ inputs.sccache }}-1
+              key: ${{ inputs.key }}-1
               save-if: ${{ github.ref == 'refs/heads/master' }}

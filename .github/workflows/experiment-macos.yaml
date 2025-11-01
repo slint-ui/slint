@@ -1,0 +1,81 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Experiment - macOS Only
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master, "feature/*"]
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_COMPILER_DENY_WARNINGS: 1
+    DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
+    QT_QPA_PLATFORM: offscreen
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: 1
+    SLINT_EMIT_DEBUG_INFO: 1
+
+jobs:
+    macos_experiment:
+        runs-on: macos-14
+        timeout-minutes: 60
+
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: actions/setup-python@v6
+              with:
+                python-version: '3.10'
+            - name: Install Qt
+              uses: jurplel/install-qt-action@v4
+              with:
+                  version: "6.2.2"
+                  setup-python: false
+                  cache: true
+            - name: Setup headless display
+              uses: pyvista/setup-headless-display-action@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  key: x-v3
+                  sccache: "true"
+                  SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
+                  SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
+                  SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
+                  SCCACHE_R2_SECRET_KEY: ${{ secrets.SCCACHE_R2_SECRET_KEY }}
+            - name: Run tests
+              run:  cargo test --verbose --all-features --workspace --timings --exclude ffmpeg --exclude gstreamer-player --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              env:
+                  SLINT_CREATE_SCREENSHOTS: 1
+              shell: bash
+            - name: Run tests (qt)
+              run: cargo test --verbose --all-features --workspace --exclude ffmpeg --exclude gstreamer-player --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              shell: bash
+            - name: live-preview for rust test
+              env:
+                SLINT_LIVE_PREVIEW: 1
+              run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
+              shell: bash
+            - name: Show sccache statistics
+              if: always()
+              run: sccache --show-stats
+              shell: bash
+            - name: Upload build timing report
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cargo-timings-macos-14-experiment
+                  path: target/cargo-timings/cargo-timing.html
+                  if-no-files-found: ignore
+            - name: Archive screenshots after failed tests
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: screenshots-macos-experiment
+                  path: |
+                      tests/screenshots/references
+

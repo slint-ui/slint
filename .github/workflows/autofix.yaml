@@ -52,20 +52,21 @@ jobs:
             - name: Run lints
               run: mise run --force --jobs=1 'ci:autofix:lint'
 
-    ci:
-        needs: [format_fix, lint_typecheck]
-        permissions:
-            contents: read
-            deployments: write
-            pull-requests: read
-        uses: ./.github/workflows/ci.yaml
-        secrets:
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-            SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
-            SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
-            SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
-            SCCACHE_R2_SECRET_KEY: ${{ secrets.SCCACHE_R2_SECRET_KEY }}
+    # Temporarily disabled for experimentation
+    # ci:
+    #     needs: [format_fix, lint_typecheck]
+    #     permissions:
+    #         contents: read
+    #         deployments: write
+    #         pull-requests: read
+    #     uses: ./.github/workflows/ci.yaml
+    #     secrets:
+    #         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+    #         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+    #         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    #         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    #         READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+    #         SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
+    #         SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
+    #         SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
+    #         SCCACHE_R2_SECRET_KEY: ${{ secrets.SCCACHE_R2_SECRET_KEY }}
