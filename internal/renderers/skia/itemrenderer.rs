@@ -656,6 +656,11 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 i_slint_core::items::LineCap::Round => skia_safe::PaintCap::Round,
                 i_slint_core::items::LineCap::Square => skia_safe::PaintCap::Square,
             });
+            border_paint.set_stroke_join(match path.stroke_line_join() {
+                i_slint_core::items::LineJoin::Miter => skia_safe::PaintJoin::Miter,
+                i_slint_core::items::LineJoin::Round => skia_safe::PaintJoin::Round,
+                i_slint_core::items::LineJoin::Bevel => skia_safe::PaintJoin::Bevel,
+            });
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
         }

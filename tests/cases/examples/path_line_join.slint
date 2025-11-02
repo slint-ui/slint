@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+PathLineJoin := Window {
+    GridLayout {
+        Row {
+            Text {
+                text: "The path to the right should have rounded corners (line-join: round)";
+            }
+            Path {
+                commands: "M10.5 15.5 9 17l-1.5-1.5";
+                fill: transparent;
+                stroke: white;
+                stroke-width: 10px;
+                stroke-line-join: round;
+            }
+        }
+        Row {
+            Text {
+                text: "The path to the right should have sharp pointed corners (line-join: miter)";
+            }
+            Path {
+                commands: "M10.5 15.5 9 17l-1.5-1.5";
+                fill: transparent;
+                stroke: white;
+                stroke-width: 10px;
+                stroke-line-join: miter;
+            }
+        }
+        Row {
+            Text {
+                text: "The path to the right should have beveled/flat corners (line-join: bevel)";
+            }
+            Path {
+                commands: "M10.5 15.5 9 17l-1.5-1.5";
+                fill: transparent;
+                stroke: white;
+                stroke-width: 10px;
+                stroke-line-join: bevel;
+            }
+        }
+        Row {
+            Text {
+                text: "Zigzag pattern with round joins - should show smooth rounded corners";
+            }
+            Path {
+                commands: "m15 17-1.5-1.5L12 17l-1.5-1.5L9 17l-1.5-1.5";
+                fill: transparent;
+                stroke: white;
+                stroke-width: 10px;
+                stroke-line-join: round;
+            }
+        }
+    }
+}

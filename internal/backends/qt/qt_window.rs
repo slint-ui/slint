@@ -20,8 +20,8 @@ use i_slint_core::item_rendering::{
 use i_slint_core::item_tree::ParentItemTraversalMode;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{
-    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, MouseCursor,
-    Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin,
+    MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -716,6 +716,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
             LineCap::Round => 0x20,
             LineCap::Square => 0x10,
         };
+        let stroke_pen_join_style: i32 = match path.stroke_line_join() {
+            LineJoin::Miter => 0x00,
+            LineJoin::Round => 0x80,
+            LineJoin::Bevel => 0x40,
+        };
+
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
 
@@ -762,11 +768,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 stroke_brush as "QBrush",
                 stroke_width as "float",
                 stroke_pen_cap_style as "int",
+                stroke_pen_join_style as "int",
                 anti_alias as "bool"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
-            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style)) : Qt::NoPen);
+            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style)) : Qt::NoPen);
             (*painter)->setBrush(fill_brush);
             (*painter)->setRenderHint(QPainter::Antialiasing, anti_alias);
             (*painter)->drawPath(painter_path);
