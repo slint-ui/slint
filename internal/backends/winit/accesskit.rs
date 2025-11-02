@@ -401,6 +401,13 @@ impl NodeCollection {
         id
     }
 
+    fn tree_info(&self, root: NodeId) -> Tree {
+        let mut tree = Tree::new(root);
+        tree.toolkit_name = Some("Slint".into());
+        tree.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
+        tree
+    }
+
     fn build_new_tree(
         &mut self,
         window_adapter_weak: &Weak<WinitWindowAdapter>,
@@ -453,7 +460,7 @@ impl NodeCollection {
 
         TreeUpdate {
             nodes,
-            tree: Some(Tree::new(root_id)),
+            tree: Some(self.tree_info(root_id)),
             focus: self.focus_node(window_adapter_weak),
         }
     }
