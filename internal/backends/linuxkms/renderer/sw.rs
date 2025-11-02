@@ -22,6 +22,7 @@ const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = 
     // Preferred formats
     drm::buffer::DrmFourcc::Xrgb8888,
     drm::buffer::DrmFourcc::Argb8888,
+    drm::buffer::DrmFourcc::BA24, // new
     // drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Rgba8888,
 
@@ -61,6 +62,10 @@ const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = 
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct DumbBufferPixelXrgb888(pub u32);
 
+#[repr(transparent)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct DumbBufferPixelBa24(pub u32);
+
 impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
     #[inline]
     fn from(pixel: DumbBufferPixelXrgb888) -> Self {
@@ -86,6 +91,31 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelXrgb888 {
     }
 }
 
+impl From<DumbBufferPixelBa24> for PremultipliedRgbaColor {
+    #[inline]
+    fn from(pixel: DumbBufferPixelBa24) -> Self {
+        let v = pixel.0;
+        PremultipliedRgbaColor {
+            red: (v >> 0) as u8,
+            green: (v >> 8) as u8,
+            blue: (v >> 16) as u8,
+            alpha: (v >> 24) as u8,
+        }
+    }
+}
+
+impl From<PremultipliedRgbaColor> for DumbBufferPixelBa24 {
+    #[inline]
+    fn from(pixel: PremultipliedRgbaColor) -> Self {
+        Self(
+            (pixel.alpha as u32) << 24
+                | ((pixel.blue as u32) << 16) // B and R swapped
+                | ((pixel.green as u32) << 8)
+                | (pixel.red as u32),
+        )
+    }
+}
+
 impl TargetPixel for DumbBufferPixelXrgb888 {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let mut x = PremultipliedRgbaColor::from(*self);
@@ -97,6 +127,20 @@ impl TargetPixel for DumbBufferPixelXrgb888 {
         Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
     }
 
+    fn background() -> Self {
+        Self(0)
+    }
+}
+
+impl TargetPixel for DumbBufferPixelBa24 {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        let mut x = PremultipliedRgbaColor::from(*self);
+        x.blend(color);
+        *self = x.into();
+    }
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self(0xff000000 | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32))
+    }
     fn background() -> Self {
         Self(0)
     }
@@ -162,6 +206,12 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
             match format {
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
                     let buffer: &mut [DumbBufferPixelXrgb888] =
+                        bytemuck::cast_slice_mut(pixels.as_mut());
+                    self.renderer.render(buffer, self.size.width as usize);
+                }
+
+                drm::buffer::DrmFourcc::BA24 => {
+                    let buffer: &mut [DumbBufferPixelBa24] =
                         bytemuck::cast_slice_mut(pixels.as_mut());
                     self.renderer.render(buffer, self.size.width as usize);
                 }
