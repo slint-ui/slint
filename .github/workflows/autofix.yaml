@@ -65,7 +65,3 @@ jobs:
             CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
             CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
             READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-            SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
-            SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
-            SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
-            SCCACHE_R2_SECRET_KEY: ${{ secrets.SCCACHE_R2_SECRET_KEY }}

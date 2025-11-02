@@ -17,14 +17,6 @@ on:
           required: true
         READ_WRITE_PRIVATE_KEY:
           required: true
-        SCCACHE_R2_BUCKET:
-          required: true
-        SCCACHE_R2_ENDPOINT:
-          required: true
-        SCCACHE_R2_ACCESS_KEY:
-          required: true
-        SCCACHE_R2_SECRET_KEY:
-          required: true
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -119,11 +111,6 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v3
-                  sccache: "true"
-                  SCCACHE_R2_BUCKET: ${{ secrets.SCCACHE_R2_BUCKET }}
-                  SCCACHE_R2_ENDPOINT: ${{ secrets.SCCACHE_R2_ENDPOINT }}
-                  SCCACHE_R2_ACCESS_KEY: ${{ secrets.SCCACHE_R2_ACCESS_KEY }}
-                  SCCACHE_R2_SECRET_KEY: ${{ secrets.SCCACHE_R2_SECRET_KEY }}
             - name: Run tests
               run:  cargo test --verbose --all-features --workspace --timings ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
@@ -136,10 +123,6 @@ jobs:
               env:
                 SLINT_LIVE_PREVIEW: 1
               run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
-              shell: bash
-            - name: Show sccache statistics
-              if: (matrix.os == 'macos-14' || matrix.os == 'windows-2022') && always()
-              run: sccache --show-stats
               shell: bash
             - name: Upload build timing report
               if: always()
