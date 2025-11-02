@@ -8,6 +8,10 @@ export component LinearProgressIndicator {
     in property <float> progress;
     in property <bool> indeterminate;
 
+    accessible-role: progress-indicator;
+    accessible-value: !root.indeterminate ? root.progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
     height: MaterialStyleMetrics.size_4;
 
     Rectangle {
@@ -34,6 +38,10 @@ export component CircularProgressIndicator {
 
     property <length> bar_height: MaterialStyleMetrics.size_4;
 
+    accessible-role: progress-indicator;
+    accessible-value: !root.indeterminate ? root.progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
     width: self.height;
     min_height: MaterialStyleMetrics.size_40;
 
