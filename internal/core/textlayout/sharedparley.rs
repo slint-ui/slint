@@ -1438,14 +1438,15 @@ pub fn text_input_byte_offset_for_position(
 pub fn text_input_cursor_rect_for_byte_offset(
     renderer: &dyn RendererSealed,
     text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
-    font_request: FontRequest,
 ) -> LogicalRect {
     let Some(scale_factor) = renderer.scale_factor() else {
         return LogicalRect::default();
     };
     let text = text_input.text();
 
+    let font_request = text_input.font_request(item_rc);
     let font_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
 
     let width = text_input.width();

@@ -884,12 +884,13 @@ impl RendererSealed for SoftwareRenderer {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         byte_offset: usize,
-        font_request: crate::graphics::FontRequest,
     ) -> LogicalRect {
         let Some(scale_factor) = self.scale_factor() else {
             return LogicalRect::default();
         };
+        let font_request = text_input.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
@@ -898,8 +899,8 @@ impl RendererSealed for SoftwareRenderer {
                 sharedparley::text_input_cursor_rect_for_byte_offset(
                     self,
                     text_input,
+                    item_rc,
                     byte_offset,
-                    font_request,
                 )
             }
             #[cfg(feature = "software-renderer-systemfonts")]

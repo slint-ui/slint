@@ -2125,15 +2125,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
-        font_request: FontRequest,
     ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(
-            self,
-            text_input,
-            byte_offset,
-            font_request,
-        )
+        sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
     }
 
     fn register_font_from_memory(

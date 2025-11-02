@@ -18,7 +18,7 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::RequestedGraphicsAPI;
-use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, SharedPixelBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::{
@@ -850,15 +850,10 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
-        font_request: FontRequest,
     ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(
-            self,
-            text_input,
-            byte_offset,
-            font_request,
-        )
+        sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
     }
 
     fn register_font_from_memory(

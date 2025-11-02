@@ -3,7 +3,6 @@
 
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
-use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
@@ -208,8 +207,8 @@ impl RendererSealed for TestingWindow {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
+        _item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
-        _font_request: FontRequest,
     ) -> LogicalRect {
         let text = text_input.text();
         let line = text[..byte_offset].chars().filter(|c| *c == '\n').count();
