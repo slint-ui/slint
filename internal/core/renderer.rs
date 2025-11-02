@@ -57,8 +57,8 @@ pub trait RendererSealed {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         byte_offset: usize,
-        font_request: crate::graphics::FontRequest,
     ) -> LogicalRect;
 
     /// Clear the caches for the items that are being removed

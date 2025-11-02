@@ -11,9 +11,9 @@ use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontique;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+use i_slint_core::graphics::SharedPixelBuffer;
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
-use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::TextWrap;
@@ -311,15 +311,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
-        font_request: FontRequest,
     ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(
-            self,
-            text_input,
-            byte_offset,
-            font_request,
-        )
+        sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
     }
 
     fn register_font_from_memory(

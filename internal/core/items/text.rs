@@ -2030,11 +2030,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LogicalRect {
-        window_adapter.renderer().text_input_cursor_rect_for_byte_offset(
-            self,
-            byte_offset,
-            self.font_request(self_rc),
-        )
+        window_adapter.renderer().text_input_cursor_rect_for_byte_offset(self, self_rc, byte_offset)
     }
 
     pub fn byte_offset_for_position(
