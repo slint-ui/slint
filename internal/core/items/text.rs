@@ -2043,11 +2043,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> usize {
-        window_adapter.renderer().text_input_byte_offset_for_position(
-            self,
-            pos,
-            self.font_request(self_rc),
-        )
+        window_adapter.renderer().text_input_byte_offset_for_position(self, self_rc, pos)
     }
 
     /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already.

@@ -807,23 +807,19 @@ impl RendererSealed for SoftwareRenderer {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         pos: LogicalPoint,
-        font_request: crate::graphics::FontRequest,
     ) -> usize {
         let Some(scale_factor) = self.scale_factor() else {
             return 0;
         };
+        let font_request = text_input.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::text_input_byte_offset_for_position(
-                    self,
-                    text_input,
-                    pos,
-                    font_request,
-                )
+                sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {

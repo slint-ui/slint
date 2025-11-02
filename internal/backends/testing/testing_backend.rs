@@ -188,8 +188,8 @@ impl RendererSealed for TestingWindow {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
+        _item_rc: &i_slint_core::item_tree::ItemRc,
         pos: LogicalPoint,
-        _font_request: FontRequest,
     ) -> usize {
         let text = text_input.text();
         if pos.y < 0. {

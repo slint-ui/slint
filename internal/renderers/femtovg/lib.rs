@@ -302,10 +302,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
         pos: LogicalPoint,
-        font_request: FontRequest,
     ) -> usize {
-        sharedparley::text_input_byte_offset_for_position(self, text_input, pos, font_request)
+        sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
     }
 
     fn text_input_cursor_rect_for_byte_offset(

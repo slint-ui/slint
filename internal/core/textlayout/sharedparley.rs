@@ -1403,12 +1403,13 @@ pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
 pub fn text_input_byte_offset_for_position(
     renderer: &dyn RendererSealed,
     text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
-    font_request: FontRequest,
 ) -> usize {
     let Some(scale_factor) = renderer.scale_factor() else {
         return 0;
     };
+    let font_request = text_input.font_request(item_rc);
     let pos: PhysicalPoint = pos * scale_factor;
     let text = text_input.text();
 
