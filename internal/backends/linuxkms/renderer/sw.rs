@@ -22,7 +22,7 @@ const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = 
     // Preferred formats
     drm::buffer::DrmFourcc::Xrgb8888,
     drm::buffer::DrmFourcc::Argb8888,
-    drm::buffer::DrmFourcc::BA24, // new
+    drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Rgba8888,
 
