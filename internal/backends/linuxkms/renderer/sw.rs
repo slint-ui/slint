@@ -23,7 +23,6 @@ const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = 
     drm::buffer::DrmFourcc::Xrgb8888,
     drm::buffer::DrmFourcc::Argb8888,
     drm::buffer::DrmFourcc::Bgra8888,
-    // drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Rgba8888,
 
     // 16-bit formats
@@ -64,7 +63,7 @@ struct DumbBufferPixelXrgb888(pub u32);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct DumbBufferPixelBa24(pub u32);
+struct DumbBufferPixelBgra888(pub u32);
 
 impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
     #[inline]
@@ -91,9 +90,9 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelXrgb888 {
     }
 }
 
-impl From<DumbBufferPixelBa24> for PremultipliedRgbaColor {
+impl From<DumbBufferPixelBgra888> for PremultipliedRgbaColor {
     #[inline]
-    fn from(pixel: DumbBufferPixelBa24) -> Self {
+    fn from(pixel: DumbBufferPixelBgra888) -> Self {
         let v = pixel.0;
         PremultipliedRgbaColor {
             red: (v >> 0) as u8,
@@ -104,7 +103,7 @@ impl From<DumbBufferPixelBa24> for PremultipliedRgbaColor {
     }
 }
 
-impl From<PremultipliedRgbaColor> for DumbBufferPixelBa24 {
+impl From<PremultipliedRgbaColor> for DumbBufferPixelBgra888 {
     #[inline]
     fn from(pixel: PremultipliedRgbaColor) -> Self {
         Self(
@@ -132,7 +131,7 @@ impl TargetPixel for DumbBufferPixelXrgb888 {
     }
 }
 
-impl TargetPixel for DumbBufferPixelBa24 {
+impl TargetPixel for DumbBufferPixelBgra888 {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let mut x = PremultipliedRgbaColor::from(*self);
         x.blend(color);
@@ -210,8 +209,8 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                     self.renderer.render(buffer, self.size.width as usize);
                 }
 
-                drm::buffer::DrmFourcc::BA24 => {
-                    let buffer: &mut [DumbBufferPixelBa24] =
+                drm::buffer::DrmFourcc::Bgra8888 => {
+                    let buffer: &mut [DumbBufferPixelBgra888] =
                         bytemuck::cast_slice_mut(pixels.as_mut());
                     self.renderer.render(buffer, self.size.width as usize);
                 }
