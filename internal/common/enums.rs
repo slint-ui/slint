@@ -399,6 +399,8 @@ macro_rules! for_each_enums {
                 Switch,
                 /// The element is an item in a `ListView`.
                 ListItem,
+                /// The element is a `RadioButton` or behaves like one.
+                RadioButton,
             }
 
             /// This enum represents the different values of the `sort-order` property.
