@@ -8,7 +8,7 @@ use core::pin::Pin;
 use crate::api::PlatformError;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::item_tree::ItemTreeRef;
-use crate::items::TextWrap;
+use crate::items::{ItemRc, TextWrap};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
@@ -47,8 +47,8 @@ pub trait RendererSealed {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         pos: LogicalPoint,
-        font_request: crate::graphics::FontRequest,
     ) -> usize;
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
