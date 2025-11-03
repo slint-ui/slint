@@ -51,6 +51,8 @@ jobs:
     # Job 1: Build Rust and C++ documentation
     rust-cpp-docs:
         runs-on: ubuntu-24.04
+        concurrency:
+          group: docs
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
@@ -68,7 +70,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: stable
+                  toolchain: nightly
                   target: aarch64-linux-android
                   cache: false
             - name: Install apt dependencies
