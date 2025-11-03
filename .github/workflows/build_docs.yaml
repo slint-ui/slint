@@ -198,6 +198,10 @@ jobs:
                   components: rustfmt
                   target: aarch64-linux-android
                   cache: false
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+                  version: "=0.6.6"
             - name: Install uv
               uses: astral-sh/setup-uv@v7
             - name: "Install Node dependencies"
