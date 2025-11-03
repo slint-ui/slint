@@ -1319,7 +1319,7 @@ pub fn draw_text_input(
     let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
 
     let text: SharedString = visual_representation.text.into();
-    let font_request = FontRequest::new(text_input, item_rc);
+    let font_request = text_input.font_request(item_rc);
 
     let layout = layout(
         Text::PlainText(&text),
@@ -1356,7 +1356,8 @@ pub fn draw_text_input(
 
 pub fn text_size(
     renderer: &dyn RendererSealed,
-    font_request: FontRequest,
+    text_item: Pin<&dyn crate::item_rendering::HasFont>,
+    item_rc: &crate::item_tree::ItemRc,
     text: &str,
     max_width: Option<LogicalLength>,
     text_wrap: TextWrap,
@@ -1364,6 +1365,7 @@ pub fn text_size(
     let Some(scale_factor) = renderer.scale_factor() else {
         return LogicalSize::default();
     };
+    let font_request = text_item.font_request(item_rc);
     let layout = layout(
         Text::PlainText(text),
         scale_factor,

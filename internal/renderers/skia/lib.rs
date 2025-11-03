@@ -7,6 +7,7 @@
 #[cfg(any(target_vendor = "apple", skia_backend_vulkan))]
 use std::cell::OnceCell;
 use std::cell::{Cell, RefCell};
+use std::pin::Pin;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -60,7 +61,7 @@ mod wgpu_26_surface;
 #[cfg(feature = "unstable-wgpu-27")]
 mod wgpu_27_surface;
 
-use i_slint_core::items::TextWrap;
+use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
 
@@ -823,12 +824,13 @@ impl SkiaRenderer {
 impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &ItemRc,
         text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, font_request, text, max_width, text_wrap)
+        sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
     }
 
     fn font_metrics(

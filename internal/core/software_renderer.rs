@@ -723,7 +723,8 @@ impl SoftwareRenderer {
 impl RendererSealed for SoftwareRenderer {
     fn text_size(
         &self,
-        font_request: crate::graphics::FontRequest,
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
         text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
@@ -731,12 +732,13 @@ impl RendererSealed for SoftwareRenderer {
         let Some(scale_factor) = self.scale_factor() else {
             return LogicalSize::default();
         };
+        let font_request = text_item.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::text_size(self, font_request, text, max_width, text_wrap)
+                sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {

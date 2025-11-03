@@ -30,7 +30,8 @@ pub trait RendererSealed {
     /// using the wrapping type passed by `text_wrap`.
     fn text_size(
         &self,
-        font_request: crate::graphics::FontRequest,
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
         text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,

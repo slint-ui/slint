@@ -619,10 +619,10 @@ fn text_layout_info(
     width: Pin<&Property<LogicalLength>>,
 ) -> LayoutInfo {
     let text_string = text.text();
-    let font_request = text.font_request(self_rc);
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(
-            font_request.clone(),
+            text,
+            self_rc,
             text_string.as_str(),
             max_width,
             text_wrap,
@@ -639,7 +639,7 @@ fn text_layout_info(
                 TextOverflow::Elide => implicit_size.width.min(
                     window_adapter
                         .renderer()
-                        .text_size(font_request, "…", None, TextWrap::NoWrap)
+                        .text_size(text, self_rc, "…", None, TextWrap::NoWrap)
                         .width,
                 ),
                 TextOverflow::Clip => match text.wrap() {
@@ -764,7 +764,8 @@ impl Item for TextInput {
         let text = self.text();
         let implicit_size = |max_width, text_wrap| {
             window_adapter.renderer().text_size(
-                self.font_request(&self_rc),
+                self,
+                self_rc,
                 {
                     if text.is_empty() {
                         "*"
@@ -1271,24 +1272,15 @@ impl ItemConsts for TextInput {
 }
 
 impl HasFont for TextInput {
-    fn font_family(self: Pin<&Self>) -> SharedString {
-        self.as_ref().font_family()
-    }
-
-    fn font_weight(self: Pin<&Self>) -> i32 {
-        self.as_ref().font_weight()
-    }
-
-    fn font_size(self: Pin<&Self>) -> LogicalLength {
-        self.as_ref().font_size()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        self.as_ref().letter_spacing()
-    }
-
-    fn font_italic(self: Pin<&Self>) -> bool {
-        self.as_ref().font_italic()
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
+            self_rc,
+            self.font_family(),
+            self.font_weight(),
+            self.font_size(),
+            self.letter_spacing(),
+            self.font_italic(),
+        )
     }
 }
 
@@ -1480,10 +1472,8 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window_adapter
-            .renderer()
-            .text_size(self.font_request(self_rc), " ", None, TextWrap::NoWrap)
-            .height;
+        let font_height =
+            window_adapter.renderer().text_size(self, self_rc, " ", None, TextWrap::NoWrap).height;
 
         let mut reset_preferred_x_pos = true;
 
