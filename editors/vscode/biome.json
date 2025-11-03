@@ -1,6 +1,6 @@
 {
-    "root": false,
-    "extends": "//",
+    "root": true,
+    "extends": ["../../biome.json"],
     "files": {
         "includes": [
             "**",

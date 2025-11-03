@@ -1,5 +1,6 @@
 {
-    "root": false,
+    "root": true,
+    "extends": ["../../../biome.json"],
     "formatter": {
         "includes": [
             "**",
@@ -53,6 +54,11 @@
             "bracketSameLine": false,
             "quoteStyle": "double",
             "attributePosition": "auto"
+        }
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
         }
     },
     "overrides": [
