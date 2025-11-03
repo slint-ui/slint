@@ -764,6 +764,43 @@ impl RendererSealed for SoftwareRenderer {
         }
     }
 
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalSize::default();
+        };
+        let font_request = FontRequest::new(text_item, item_rc);
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "software-renderer-systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+            }
+            #[cfg(feature = "software-renderer-systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let mut buf = [0u8, 0u8, 0u8, 0u8];
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+                let (longest_line_width, height) =
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let mut buf = [0u8, 0u8, 0u8, 0u8];
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+                let (longest_line_width, height) =
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
+            }
+        }
+    }
+
     fn font_metrics(
         &self,
         font_request: crate::graphics::FontRequest,

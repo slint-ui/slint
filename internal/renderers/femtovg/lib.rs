@@ -293,6 +293,15 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
     }
 
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize {
+        sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+    }
+
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,

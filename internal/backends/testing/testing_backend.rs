@@ -172,6 +172,15 @@ impl RendererSealed for TestingWindow {
         LogicalSize::new(text.len() as f32 * 10., 10.)
     }
 
+    fn char_size(
+        &self,
+        _text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        _item_rc: &i_slint_core::item_tree::ItemRc,
+        _ch: char,
+    ) -> LogicalSize {
+        LogicalSize::new(10., 10.)
+    }
+
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,

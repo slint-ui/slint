@@ -37,6 +37,14 @@ pub trait RendererSealed {
         text_wrap: TextWrap,
     ) -> LogicalSize;
 
+    /// Returns the size of the individual character in logical pixels.
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize;
+
     /// Returns the metrics of the given font.
     fn font_metrics(&self, font_request: crate::graphics::FontRequest)
         -> crate::items::FontMetrics;

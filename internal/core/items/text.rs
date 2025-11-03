@@ -636,12 +636,9 @@ fn text_layout_info(
         Orientation::Horizontal => {
             let implicit_size = implicit_size(None, TextWrap::NoWrap);
             let min = match text.overflow() {
-                TextOverflow::Elide => implicit_size.width.min(
-                    window_adapter
-                        .renderer()
-                        .text_size(text, self_rc, "…", None, TextWrap::NoWrap)
-                        .width,
-                ),
+                TextOverflow::Elide => implicit_size
+                    .width
+                    .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
                 TextOverflow::Clip => match text.wrap() {
                     TextWrap::NoWrap => implicit_size.width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
@@ -763,19 +760,10 @@ impl Item for TextInput {
     ) -> LayoutInfo {
         let text = self.text();
         let implicit_size = |max_width, text_wrap| {
-            window_adapter.renderer().text_size(
-                self,
-                self_rc,
-                {
-                    if text.is_empty() {
-                        "*"
-                    } else {
-                        text.as_str()
-                    }
-                },
-                max_width,
-                text_wrap,
-            )
+            if text.is_empty() {
+                return window_adapter.renderer().char_size(self, self_rc, '*');
+            }
+            window_adapter.renderer().text_size(self, self_rc, text.as_str(), max_width, text_wrap)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -1472,8 +1460,7 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height =
-            window_adapter.renderer().text_size(self, self_rc, " ", None, TextWrap::NoWrap).height;
+        let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
 
         let mut reset_preferred_x_pos = true;
 

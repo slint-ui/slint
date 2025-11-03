@@ -1388,6 +1388,42 @@ pub fn text_size(
     PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
 }
 
+pub fn char_size(
+    text_item: Pin<&dyn crate::item_rendering::HasFont>,
+    item_rc: &crate::item_tree::ItemRc,
+    ch: char,
+) -> Option<LogicalSize> {
+    let font_request = FontRequest::new(text_item, item_rc);
+    let font = font_request.query_fontique()?;
+
+    let char_map = font.charmap()?;
+
+    let face = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
+
+    let glyph_index = char_map.map(ch)?;
+
+    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
+
+    let glyph_metrics = skrifa::metrics::GlyphMetrics::new(
+        &face,
+        skrifa::instance::Size::new(pixel_size.get()),
+        skrifa::instance::LocationRef::new(&[]),
+    );
+
+    let advance_width = LogicalLength::new(glyph_metrics.advance_width(glyph_index.into())?);
+
+    let font_metrics = skrifa::metrics::Metrics::new(
+        &face,
+        skrifa::instance::Size::new(pixel_size.get()),
+        skrifa::instance::LocationRef::new(&[]),
+    );
+
+    Some(LogicalSize::from_lengths(
+        advance_width,
+        LogicalLength::new(font_metrics.ascent - font_metrics.descent),
+    ))
+}
+
 pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
     let logical_pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).get();
 
