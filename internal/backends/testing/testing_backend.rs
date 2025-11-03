@@ -163,13 +163,12 @@ impl WindowAdapter for TestingWindow {
 impl RendererSealed for TestingWindow {
     fn text_size(
         &self,
-        _text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
         _item_rc: &i_slint_core::item_tree::ItemRc,
-        text: &str,
         _max_width: Option<LogicalLength>,
         _text_wrap: TextWrap,
     ) -> LogicalSize {
-        LogicalSize::new(text.len() as f32 * 10., 10.)
+        LogicalSize::new(text_item.text().len() as f32 * 10., 10.)
     }
 
     fn char_size(

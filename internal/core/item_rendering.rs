@@ -292,11 +292,16 @@ pub trait HasFont {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest;
 }
 
+/// Trait for an item that represents an string towards the renderer
+#[allow(missing_docs)]
+pub trait RenderString: HasFont {
+    fn text(self: Pin<&Self>) -> SharedString;
+}
+
 /// Trait for an item that represents an Text towards the renderer
 #[allow(missing_docs)]
-pub trait RenderText: HasFont {
+pub trait RenderText: RenderString {
     fn target_size(self: Pin<&Self>) -> LogicalSize;
-    fn text(self: Pin<&Self>) -> SharedString;
     fn color(self: Pin<&Self>) -> Brush;
     fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
     fn wrap(self: Pin<&Self>) -> TextWrap;
@@ -319,13 +324,15 @@ impl HasFont for (SharedString, Brush) {
     }
 }
 
+impl RenderString for (SharedString, Brush) {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.0.clone()
+    }
+}
+
 impl RenderText for (SharedString, Brush) {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::default()
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.0.clone()
     }
 
     fn color(self: Pin<&Self>) -> Brush {

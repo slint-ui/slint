@@ -1358,9 +1358,8 @@ pub fn draw_text_input(
 
 pub fn text_size(
     renderer: &dyn RendererSealed,
-    text_item: Pin<&dyn crate::item_rendering::HasFont>,
+    text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
-    text: &str,
     max_width: Option<LogicalLength>,
     text_wrap: TextWrap,
 ) -> LogicalSize {
@@ -1368,8 +1367,9 @@ pub fn text_size(
         return LogicalSize::default();
     };
     let font_request = text_item.font_request(item_rc);
+    let text = text_item.text();
     let layout = layout(
-        Text::PlainText(text),
+        Text::PlainText(text.as_str()),
         scale_factor,
         LayoutOptions {
             max_width,
@@ -1393,7 +1393,7 @@ pub fn char_size(
     item_rc: &crate::item_tree::ItemRc,
     ch: char,
 ) -> Option<LogicalSize> {
-    let font_request = FontRequest::new(text_item, item_rc);
+    let font_request = text_item.font_request(item_rc);
     let font = font_request.query_fontique()?;
 
     let char_map = font.charmap()?;
