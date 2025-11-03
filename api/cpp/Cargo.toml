@@ -64,8 +64,6 @@ esp-backtrace = { version = "0.17.0", features = ["panic-handler", "println"], o
 esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
 unicode-segmentation = { workspace = true }
 
-webbrowser = { workspace = true }
-
 [build-dependencies]
 anyhow = "1.0"
 cbindgen = { workspace = true }

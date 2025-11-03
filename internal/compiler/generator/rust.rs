@@ -3456,7 +3456,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
-            quote!(sp::webbrowser::open(&#url))
+            quote!(sp::open_url(&#url))
         }
     }
 }

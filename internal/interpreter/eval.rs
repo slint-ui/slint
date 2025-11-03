@@ -1392,7 +1392,7 @@ fn call_builtin_function(
         BuiltinFunction::OpenUrl => {
             let url: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            webbrowser::open(&url).unwrap();
+            corelib::open_url(&url);
             Value::Void
         }
     }

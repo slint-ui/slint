@@ -148,3 +148,9 @@ pub fn detect_operating_system() -> OperatingSystemType {
 pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
+
+pub fn open_url(url: &str) {
+    if let Err(err) = webbrowser::open(url) {
+        debug_log!("Error opening url {}: {}", url, err);
+    }
+}

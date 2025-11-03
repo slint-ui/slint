@@ -231,6 +231,7 @@ pub unsafe extern "C" fn slint_detect_operating_system() -> OperatingSystemType 
     i_slint_core::detect_operating_system()
 }
 
-pub unsafe extern "C" fn open_url(url: &SharedString) {
-    webbrowser::open(url).unwrap()
+#[unsafe(no_mangle)]
+pub extern "C" fn open_url(url: &SharedString) {
+    i_slint_core::open_url(url)
 }
