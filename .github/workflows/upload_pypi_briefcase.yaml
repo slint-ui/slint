@@ -24,7 +24,7 @@ jobs:
             - name: Build source package
               working-directory: api/python/briefcase
               run: uv build --sdist
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v5
               with:
                 name: python-package-distributions-source
                 path: api/python/briefcase/dist/*.tar.gz
@@ -41,7 +41,7 @@ jobs:
         permissions:
             id-token: write  # IMPORTANT: mandatory for trusted publishing
         steps:
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                 pattern: python-package-distributions-*
                 path: dist
@@ -63,7 +63,7 @@ jobs:
       permissions:
           id-token: write  # IMPORTANT: mandatory for trusted publishing
       steps:
-          - uses: actions/download-artifact@v5
+          - uses: actions/download-artifact@v6
             with:
               pattern: python-package-distributions-*
               path: dist

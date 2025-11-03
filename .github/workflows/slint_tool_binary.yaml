@@ -95,7 +95,7 @@ jobs:
                   cd pkg
                   Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
             - name: Upload artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
                   path: |
@@ -126,7 +126,7 @@ jobs:
             - name: Tar artifacts to preserve permissions
               run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-linux
                   path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
@@ -161,7 +161,7 @@ jobs:
           - name: Tar artifacts to preserve permissions
             run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
           - name: Upload artifact
-            uses: actions/upload-artifact@v4
+            uses: actions/upload-artifact@v5
             with:
                 name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
                 path: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz
@@ -199,7 +199,7 @@ jobs:
             - name: Tar artifacts to preserve permissions
               run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-macos
                   path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz

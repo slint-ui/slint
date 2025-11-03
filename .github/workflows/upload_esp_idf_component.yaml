@@ -68,7 +68,7 @@ jobs:
                   compote component pack --name ${{ steps.version.outputs.PKG_NAME }}
             - name: Archive component
               if: github.event.inputs.release != 'true'
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   path: "api/cpp/esp-idf/slint/dist/*"
 
