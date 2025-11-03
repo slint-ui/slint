@@ -8,7 +8,7 @@ import {
 import type { ImageMetadata } from "astro";
 import type { OpenGraph } from "@astrolib/seo";
 
-const load = async function () {
+const load = function () {
     let images: Record<string, () => Promise<unknown>> | undefined = undefined;
     try {
         images = import.meta.glob(
