@@ -5,7 +5,12 @@ import type { ItemGrid as Props } from "~/types";
 import { twMerge } from "tailwind-merge";
 import Button from "./Button.astro";
 
-const { items = [], columns, defaultIcon = "", classes = {} } = Astro.props;
+const {
+    items = [],
+    columns,
+    defaultIcon: _defaultIcon = "",
+    classes = {},
+} = Astro.props;
 
 const {
     container: containerClass = "",
@@ -13,7 +18,7 @@ const {
     panel: panelClass = "",
     title: titleClass = "",
     description: descriptionClass = "",
-    icon: defaultIconClass = "text-primary",
+    icon: _defaultIconClass = "text-primary",
 } = classes;
 
 import handClickIcon from "~/assets/images/icons/hand-click.svg?url";

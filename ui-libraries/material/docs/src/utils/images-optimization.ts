@@ -265,7 +265,7 @@ export const astroAssetsOptimizer: ImagesOptimizer = (
     format = undefined,
 ) => {
     if (!image) {
-        return [];
+        return Promise.resolve([]);
     }
 
     return Promise.all(
@@ -299,12 +299,12 @@ export const unpicOptimizer: ImagesOptimizer = (
     format = undefined,
 ) => {
     if (!image || typeof image !== "string") {
-        return [];
+        return Promise.resolve([]);
     }
 
     const urlParsed = parseUrl(image);
     if (!urlParsed) {
-        return [];
+        return Promise.resolve([]);
     }
 
     return Promise.all(
