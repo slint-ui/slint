@@ -9,28 +9,26 @@
 # └──────────┬────────────────────┬──────────────────┬───────────┘
 #            │                    │                  │
 #       ┌────▼────┐               │             ┌────▼────┐
-#       │  Job 2  │               │             │  Job 1  │
+#       │  Job 1  │               │             │  Job 2  │
 #       └────┬────┘               │             └────┬────┘
 #            │                    │                  │
-#       ┌────▼────────┐           │          ┌───────▼─────────┐
-#       │   Job 4     │           │          │     Job 5       │
-#       │ (Astro +    │           │          │ (Check warnings)│
-#       │  Tests)     │           │          └─────────────────┘
-#       └────┬────────┘           │
-#            │                    │
-#            └────────┬───────────┴──────────┐
-#                     │                      │
-#                ┌────▼──────────────────────▼─┐
-#                │         Job 6              │
-#                │    (Combine & Deploy)      │
-#                └────────────────────────────┘
+#       ┌────▼─────────┐          │                  │
+#       │   Job 4      │          │                  │
+#       │ (Check warns)│          │                  │
+#       └──────────────┘          │                  │
+#                                 │                  │
+#            └────────────────────┴──────────────────┘
+#                                 │
+#                            ┌────▼──────────────┐
+#                            │      Job 5        │
+#                            │ (Combine & Deploy)│
+#                            └───────────────────┘
 #
 # Job 1 (rust-cpp-docs): Build Rust and C++ documentation
-# Job 2 (screenshots-prereqs): Generate screenshots and extract version
+# Job 2 (astro-docs-tests): Generate screenshots, build Astro docs and run tests
 # Job 3 (node-python-docs): Build Node and Python documentation
-# Job 4 (astro-docs-tests): Build Astro docs and run tests (needs Job 2)
-# Job 5 (check-warnings): Validate docs for warnings (needs Job 1)
-# Job 6 (combine-deploy): Combine all artifacts and deploy (needs Jobs 1-4)
+# Job 4 (check-warnings): Validate docs for warnings (needs Job 1)
+# Job 5 (combine-deploy): Combine all artifacts and deploy (needs Jobs 1-3)
 #
 name: Build docs
 
@@ -98,18 +96,24 @@ jobs:
                       target/doc
                       target/cppdocs/html
 
-    # Job 2: Generate screenshots and extract version info
-    screenshots-prereqs:
+    # Job 2: Build Astro docs and run tests
+    astro-docs-tests:
         runs-on: ubuntu-24.04
-        outputs:
-            version: ${{ steps.version.outputs.VERSION }}
         env:
             RUSTFLAGS: -D warnings -W deprecated
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v5
+            - uses: pnpm/action-setup@v4.2.0
+              with:
+                version: 10.18.2
+            - uses: actions/setup-node@v6
+              with:
+                node-version: 20
+                package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
               run: |
@@ -121,7 +125,9 @@ jobs:
                   target: aarch64-linux-android
                   cache: false
             - name: "Generate Screenshots for Example Snippets"
-              run: cargo run -p slint-docsnapper -- docs/astro/src/content --overwrite
+              run: cargo run --release -p slint-docsnapper -- docs/astro/src/content --overwrite
+            - name: "Install Node dependencies"
+              run: pnpm i --frozen-lockfile
             - name: Extract Version from Cargo.toml
               id: version
               run: |
@@ -131,13 +137,48 @@ jobs:
                   exit 1
                 fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
-            - name: "Upload Screenshots and Version Artifacts"
+            - name: Update URL for sitemap in site-config.ts
+              run: |
+                version="${{ steps.version.outputs.VERSION }}"
+                if [ "$RELEASE_INPUT" != "true" ]; then
+                    base_url="https://snapshots.slint.dev"
+                    base_path="/master/docs/slint/"
+                    slint_download_version=nightly
+                else
+                    base_url="https://releases.slint.dev"
+                    base_path="/$version/docs/slint/"
+                    slint_download_version=v$version
+                fi
+                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
+            - name: "Slint Language Documentation"
+              run: cargo xtask slintdocs
+            - name: Spellcheck
+              working-directory: docs/astro
+              run: pnpm spellcheck
+            - name: Install Playwright
+              working-directory: docs/astro
+              run: pnpm exec playwright install --with-deps
+            - name: Run Playwright tests
+              working-directory: docs/astro
+              run: pnpm exec playwright test
+            - name: Publish Test Summary Results
+              working-directory: docs/astro
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+            - name: Upload test results
+              if: always()
               uses: actions/upload-artifact@v5
               with:
-                  name: screenshots-version
+                name: playwright-test-report
+                path: docs/astro/playwright-report/
+                retention-days: 30
+            - name: "Upload Astro Docs Artifacts"
+              uses: actions/upload-artifact@v5
+              with:
+                  name: astro-docs
                   path: |
-                      docs/astro/src/content
-                      docs/astro/src/assets/generated
+                      docs/astro/dist
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
@@ -183,82 +224,7 @@ jobs:
                       api/node/docs
                       api/python/slint/docs
 
-    # Job 4: Build Astro docs and run tests (depends on screenshots-prereqs)
-    astro-docs-tests:
-        runs-on: ubuntu-24.04
-        needs: screenshots-prereqs
-        env:
-            RUSTFLAGS: -D warnings -W deprecated
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
-            SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-            RELEASE_INPUT: ${{ inputs.release }}
-        steps:
-            - uses: actions/checkout@v5
-            - uses: pnpm/action-setup@v4.2.0
-              with:
-                version: 10.18.2
-            - uses: actions/setup-node@v6
-              with:
-                node-version: 20
-                package-manager-cache: false
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
-              with:
-                  toolchain: stable
-                  target: aarch64-linux-android
-                  cache: false
-            - name: Download screenshots and version
-              uses: actions/download-artifact@v5
-              with:
-                  name: screenshots-version
-                  path: .
-            - name: "Install Node dependencies"
-              run: pnpm i --frozen-lockfile
-            - name: Update URL for sitemap in site-config.ts
-              run: |
-                version="${{ needs.screenshots-prereqs.outputs.version }}"
-                if [ "$RELEASE_INPUT" != "true" ]; then
-                    base_url="https://snapshots.slint.dev"
-                    base_path="/master/docs/slint/"
-                    slint_download_version=nightly
-                else
-                    base_url="https://releases.slint.dev"
-                    base_path="/$version/docs/slint/"
-                    slint_download_version=v$version
-                fi
-                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
-                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
-                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
-            - name: "Slint Language Documentation"
-              run: cargo xtask slintdocs
-            - name: Spellcheck
-              working-directory: docs/astro
-              run: pnpm spellcheck
-            - name: Install Playwright
-              working-directory: docs/astro
-              run: pnpm exec playwright install --with-deps
-            - name: Run Playwright tests
-              working-directory: docs/astro
-              run: pnpm exec playwright test
-            - name: Publish Test Summary Results
-              working-directory: docs/astro
-              run: npx github-actions-ctrf playwright-report/ctrf-report.json
-            - name: Upload test results
-              if: always()
-              uses: actions/upload-artifact@v5
-              with:
-                name: playwright-test-report
-                path: docs/astro/playwright-report/
-                retention-days: 30
-            - name: "Upload Astro Docs Artifacts"
-              uses: actions/upload-artifact@v5
-              with:
-                  name: astro-docs
-                  path: |
-                      docs/astro/dist
-
-    # Job 5: Check for docs warnings (depends on rust-cpp-docs)
+    # Job 4: Check for docs warnings (depends on rust-cpp-docs)
     check-warnings:
         runs-on: ubuntu-24.04
         needs: rust-cpp-docs
@@ -277,10 +243,10 @@ jobs:
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
 
-    # Job 6: Combine all artifacts and deploy (depends on all doc generation jobs)
+    # Job 5: Combine all artifacts and deploy (depends on all doc generation jobs)
     combine-deploy:
         runs-on: ubuntu-24.04
-        needs: [rust-cpp-docs, screenshots-prereqs, node-python-docs, astro-docs-tests]
+        needs: [rust-cpp-docs, node-python-docs, astro-docs-tests]
         steps:
             - uses: actions/checkout@v5
             - name: Download Rust/C++ docs
