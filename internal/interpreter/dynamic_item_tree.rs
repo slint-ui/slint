@@ -1822,25 +1822,54 @@ fn prepare_for_two_way_binding(
     instance_ref: InstanceRef,
     twb: &i_slint_compiler::expression_tree::TwoWayBinding,
 ) -> (Pin<Rc<Property<Value>>>, Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>>) {
-    let (element, name, field_access) = match twb {
+    let (element, name, field_access, set_model_data) = match twb {
         i_slint_compiler::expression_tree::TwoWayBinding::Property { property, field_access } => {
-            (property.element(), property.name().as_str(), field_access)
+            (property.element(), property.name().as_str(), field_access, None)
         }
         i_slint_compiler::expression_tree::TwoWayBinding::ModelData {
             repeated_element,
             field_access,
-        } => (
-            repeated_element
-                .upgrade()
-                .unwrap()
-                .borrow()
-                .base_type
-                .as_component()
-                .root_element
-                .clone(),
-            crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
-            field_access,
-        ),
+        } => {
+            let repeated_element_clone = repeated_element.clone();
+            let self_weak = instance_ref.self_weak().get().unwrap().clone();
+            let set_model_data = move |value: Value| -> Option<()> {
+                generativity::make_guard!(guard);
+                let self_rc = self_weak.upgrade()?;
+                let self_ = self_rc.unerase(guard);
+                let self_instance = self_.borrow_instance();
+                let element = repeated_element_clone.upgrade()?;
+
+                let index = crate::eval::load_property(
+                    self_instance,
+                    &element.borrow().base_type.as_component().root_element,
+                    crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
+                )
+                .ok()?;
+
+                generativity::make_guard!(guard);
+                let enclosing_component =
+                    crate::eval::enclosing_component_for_element(&element, self_instance, guard);
+                generativity::make_guard!(guard);
+                let repeater =
+                    get_repeater_by_name(enclosing_component, element.borrow().id.as_str(), guard);
+                repeater.0.model_set_row_data(index.try_into().ok()?, value);
+
+                Some(())
+            };
+            (
+                repeated_element
+                    .upgrade()
+                    .unwrap()
+                    .borrow()
+                    .base_type
+                    .as_component()
+                    .root_element
+                    .clone(),
+                crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
+                field_access,
+                Some(set_model_data),
+            )
+        }
     };
 
     generativity::make_guard!(guard);
@@ -1849,36 +1878,42 @@ fn prepare_for_two_way_binding(
         &eval::ComponentInstance::InstanceRef(instance_ref),
         guard,
     );
-    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if field_access.is_empty() {
-        None
-    } else {
-        struct FieldAccess(Vec<SmolStr>);
-        impl rtti::TwoWayBindingMapping<Value> for FieldAccess {
-            fn map_to(&self, value: &Value) -> Value {
-                let mut value = value.clone();
-                for f in &self.0 {
-                    match value {
-                        Value::Struct(o) => value = o.get_field(f).cloned().unwrap_or_default(),
-                        Value::Void => return Value::Void,
-                        _ => panic!("Cannot map to a field of a non-struct {value:?}  - {f}"),
-                    }
-                }
-                value
-            }
-            fn map_from(&self, mut value: &mut Value, from: &Value) {
-                for f in &self.0 {
-                    match value {
-                        Value::Struct(o) => {
-                            value = o.0.get_mut(f).expect("field not found while mapping")
+    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> =
+        if set_model_data.is_none() && field_access.is_empty() {
+            None
+        } else {
+            struct FieldAccess<UpdateModel>(Vec<SmolStr>, Option<UpdateModel>);
+            impl<UpdateModel: Fn(Value) -> Option<()> + 'static> rtti::TwoWayBindingMapping<Value>
+                for FieldAccess<UpdateModel>
+            {
+                fn map_to(&self, value: &Value) -> Value {
+                    let mut value = value.clone();
+                    for f in &self.0 {
+                        match value {
+                            Value::Struct(o) => value = o.get_field(f).cloned().unwrap_or_default(),
+                            Value::Void => return Value::Void,
+                            _ => panic!("Cannot map to a field of a non-struct {value:?}  - {f}"),
                         }
-                        _ => panic!("Cannot map to a field of a non-struct {value:?}"),
+                    }
+                    value
+                }
+                fn map_from(&self, mut value: &mut Value, from: &Value) {
+                    for f in &self.0 {
+                        match value {
+                            Value::Struct(o) => {
+                                value = o.0.get_mut(f).expect("field not found while mapping")
+                            }
+                            _ => panic!("Cannot map to a field of a non-struct {value:?}"),
+                        }
+                    }
+                    *value = from.clone();
+                    if let Some(set_model_data) = &self.1 {
+                        set_model_data(value.clone());
                     }
                 }
-                *value = from.clone();
             }
-        }
-        Some(Rc::new(FieldAccess(field_access.clone())))
-    };
+            Some(Rc::new(FieldAccess(field_access.clone(), set_model_data)))
+        };
     let common = match enclosing_component {
         eval::ComponentInstance::InstanceRef(enclosing_component) => {
             let element = element.borrow();
