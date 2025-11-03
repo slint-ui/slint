@@ -292,7 +292,7 @@ impl Item for MarkdownText {
                 if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
                     scale_factor,
                     self,
-                    Some(self.font_request(self_rc)),
+                    self_rc,
                     LogicalSize::from_lengths(self.width(), self.height()),
                     *position * scale_factor,
                 ) {

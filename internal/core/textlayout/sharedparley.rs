@@ -1226,7 +1226,7 @@ pub fn draw_text(
 pub fn link_under_cursor(
     scale_factor: ScaleFactor,
     text: Pin<&dyn crate::item_rendering::RenderText>,
-    font_request: Option<FontRequest>,
+    item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     cursor: PhysicalPoint,
 ) -> Option<std::string::String> {
@@ -1235,6 +1235,8 @@ pub fn link_under_cursor(
     let layout_text = Text::RichText(parse_markdown(&str));
 
     let (horizontal_align, vertical_align) = text.alignment();
+
+    let font_request = text.font_request(item_rc);
 
     let layout = layout(
         layout_text,
@@ -1245,7 +1247,7 @@ pub fn link_under_cursor(
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
             stroke: None,
-            font_request,
+            font_request: Some(font_request),
             text_wrap: text.wrap(),
             text_overflow: text.overflow(),
             selection: None,
