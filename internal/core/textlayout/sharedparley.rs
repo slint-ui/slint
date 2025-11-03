@@ -1248,7 +1248,7 @@ pub fn link_under_cursor(
             text_overflow: text.overflow(),
             selection: None,
             selection_foreground_color: None,
-            link_color: crate::Color::from_rgb_u8(64, 64, 255),
+            link_color: text.link_color(),
         },
     );
 
