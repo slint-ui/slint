@@ -9,8 +9,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    euclid, Brush, Color, FontRequest, IntRect, Point, Rgba8Pixel, SharedImageBuffer,
-    SharedPixelBuffer,
+    euclid, Brush, Color, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
@@ -2092,12 +2091,13 @@ impl WindowAdapterInternal for QtWindow {
 impl i_slint_core::renderer::RendererSealed for QtWindow {
     fn text_size(
         &self,
-        font_request: FontRequest,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &ItemRc,
         text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, font_request, text, max_width, text_wrap)
+        sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
     }
 
     fn font_metrics(

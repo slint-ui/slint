@@ -16,7 +16,7 @@ use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetri
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::item_tree::ItemTreeWeak;
-use i_slint_core::items::TextWrap;
+use i_slint_core::items::{ItemRc, TextWrap};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
@@ -284,12 +284,13 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &ItemRc,
         text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, font_request, text, max_width, text_wrap)
+        sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
     }
 
     fn font_metrics(

@@ -163,7 +163,8 @@ impl WindowAdapter for TestingWindow {
 impl RendererSealed for TestingWindow {
     fn text_size(
         &self,
-        _font_request: i_slint_core::graphics::FontRequest,
+        _text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        _item_rc: &i_slint_core::item_tree::ItemRc,
         text: &str,
         _max_width: Option<LogicalLength>,
         _text_wrap: TextWrap,
