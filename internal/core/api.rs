@@ -590,6 +590,27 @@ impl Window {
         self.0.set_minimized(minimized);
     }
 
+    /// The area of the window covered by the software keyboard is changing (animated).
+    #[doc(hidden)]
+    pub fn set_keyboard_area_animation(&self,
+        easing: crate::animations::EasingCurve,
+        animation_duration: i32,
+        begin_origin: LogicalPosition,
+        begin_size: LogicalSize,
+        end_origin: LogicalPosition,
+        end_size: LogicalSize,
+        _: crate::InternalToken,
+    ) {
+        self.0.set_window_item_keyboard_area_animation(
+            animation_duration,
+            easing,
+            begin_origin.to_euclid(),
+            begin_size.to_euclid(),
+            end_origin.to_euclid(),
+            end_size.to_euclid(),
+        );
+    }
+
     /// Dispatch a window event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.

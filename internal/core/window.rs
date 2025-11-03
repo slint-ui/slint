@@ -1518,6 +1518,35 @@ impl WindowInner {
         }
     }
 
+    pub(crate) fn set_window_item_keyboard_area_animation(
+        &self,
+        duration: i32,
+        easing: crate::animations::EasingCurve,
+        begin_origin: crate::lengths::LogicalPoint,
+        begin_size: crate::lengths::LogicalSize,
+        end_origin: crate::lengths::LogicalPoint,
+        end_size: crate::lengths::LogicalSize,
+    ) {
+        let Some(component_rc) = self.try_component() else {
+            return;
+        };
+        let component = ItemTreeRc::borrow_pin(&component_rc);
+        let root_item = component.as_ref().get_item_ref(0);
+        let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item) else {
+            return;
+        };
+        let animation_data = crate::items::PropertyAnimation { duration, easing, ..Default::default() };
+        for (property, from, to) in [
+            (&window_item.keyboard_area_x, begin_origin.x, end_origin.x),
+            (&window_item.keyboard_area_y, begin_origin.y, end_origin.y),
+            (&window_item.keyboard_area_width, begin_size.width, end_size.width),
+            (&window_item.keyboard_area_height, begin_size.height, end_size.height),
+        ] {
+            property.set(LogicalLength::new(from));
+            property.set_animated_value(LogicalLength::new(to), animation_data.clone());
+        }
+    }
+
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
     pub fn on_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.close_requested.set_handler(move |()| callback());

@@ -1,21 +1,15 @@
 use std::{cell::RefCell, collections::HashMap, ptr::NonNull, rc::Weak};
 
 use block2::RcBlock;
+use i_slint_core::{
+    animations::EasingCurve, api::{LogicalPosition, LogicalSize, PhysicalSize}, lengths::LogicalInset, platform::WindowEvent, window::WindowAdapter as _
+};
 use objc2_foundation::{NSNotificationCenter, NSOperationQueue, NSNotification, NSNumber, NSValue};
 use objc2_ui_kit::{UICoordinateSpace, UIScreen, UIViewAnimationCurve};
 use raw_window_handle::{HasWindowHandle};
-use i_slint_core::{animations::EasingCurve, api::{LogicalPosition, LogicalSize}};
 use winit::window::WindowId;
 
 use crate::winitwindowadapter::WinitWindowAdapter;
-
-#[derive(Debug, Clone)]
-struct FrameTransition {
-    pub begin_origin: LogicalPosition,
-    pub begin_size: LogicalSize,
-    pub end_origin: LogicalPosition,
-    pub end_size: LogicalSize,
-}
 
 pub(crate) struct KeyboardNotifications([objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2_foundation::NSObjectProtocol>>; 3]);
 
@@ -54,24 +48,36 @@ pub(crate) fn register_keyboard_notifications(active_windows: Weak<RefCell<HashM
 }
 
 pub(crate) fn handle_keyboard_notification<'a>(notification: &NSNotification, windows: impl IntoIterator<Item = &'a Weak<WinitWindowAdapter>>) -> Option<()> {
+    let user_info = notification.userInfo()?;
+    let is_local = user_info.objectForKey(unsafe { objc2_ui_kit::UIKeyboardIsLocalUserInfoKey })?.downcast::<NSNumber>().ok()?.as_bool();
+    if !is_local {
+        return Some(());
+    }
     let screen = notification.object()?.downcast::<UIScreen>().ok()?;
     let coordinate_space = screen.coordinateSpace();
-    let user_info = notification.userInfo()?;
 
     let frame_begin = unsafe { user_info.objectForKey(objc2_ui_kit::UIKeyboardFrameBeginUserInfoKey)?.downcast::<NSValue>().ok()?.rectValue() };
     let frame_end = unsafe { user_info.objectForKey(objc2_ui_kit::UIKeyboardFrameEndUserInfoKey)?.downcast::<NSValue>().ok()?.rectValue() };
 
-    let animation_curve = match UIViewAnimationCurve(user_info.objectForKey(unsafe { objc2_ui_kit::UIKeyboardAnimationCurveUserInfoKey })?.downcast::<NSNumber>().ok()?.as_isize()) {
+    // These values are hardcoded for now due to https://github.com/madsmtm/objc2/issues/798
+    // When this ticket is fixed, we should switch to reading the values from the framework, so
+    // in case Apple changes them in a future OS update, we adapt automatically.
+    let easing = match UIViewAnimationCurve(user_info.objectForKey(unsafe { objc2_ui_kit::UIKeyboardAnimationCurveUserInfoKey })?.downcast::<NSNumber>().ok()?.as_isize()) {
+        // reference for these values: https://gist.github.com/raphaelschaad/6739676
         UIViewAnimationCurve::EaseInOut => EasingCurve::CubicBezier([0.42, 0.0, 0.58, 1.0]),
         UIViewAnimationCurve::EaseIn => EasingCurve::CubicBezier([0.42, 0.0, 1.0, 1.0]),
         UIViewAnimationCurve::EaseOut => EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
+        UIViewAnimationCurve::Linear => EasingCurve::Linear,
         _ => return None,
     };
 
-    let animation_duration = user_info.objectForKey(unsafe { objc2_ui_kit::UIKeyboardAnimationDurationUserInfoKey })?.downcast::<NSNumber>().ok()?.as_f64();
-    let is_local = user_info.objectForKey(unsafe { objc2_ui_kit::UIKeyboardIsLocalUserInfoKey })?.downcast::<NSNumber>().ok()?.as_bool();
+    let animation_duration = (user_info.objectForKey(unsafe { objc2_ui_kit::UIKeyboardAnimationDurationUserInfoKey })?.downcast::<NSNumber>().ok()?.as_f64() * 100.0) as i32;
 
-    let adapter_frames = windows.into_iter().filter_map(|adapter| {
+    let name = notification.name();
+    if name.isEqualToString(unsafe { objc2_ui_kit::UIKeyboardWillShowNotification }) ||
+        name.isEqualToString(unsafe { objc2_ui_kit::UIKeyboardWillHideNotification }) ||
+        name.isEqualToString(unsafe { objc2_ui_kit::UIKeyboardWillChangeFrameNotification }) {
+        for adapter in windows.into_iter() {
             let adapter = adapter.upgrade()?;
             let raw_window_handle::RawWindowHandle::UiKit(window_handle) = adapter.winit_window()?.window_handle().ok()?.as_raw() else {
                 return None;
@@ -85,62 +91,15 @@ pub(crate) fn handle_keyboard_notification<'a>(notification: &NSNotification, wi
             let end_origin = LogicalPosition::new(frame_end.origin.x as _, frame_end.origin.y as _);
             let end_size = LogicalSize::new(frame_end.size.width as _, frame_end.size.height as _);
 
-            Some((adapter, FrameTransition { begin_origin, begin_size, end_origin, end_size }))
-        });
-
-    let name = notification.name();
-    if name.isEqualToString(unsafe { objc2_ui_kit::UIKeyboardWillShowNotification }) {
-        for (adapter, frame_transition) in adapter_frames {
-            adapter.ios_keyboard_will_show(animation_curve, animation_duration, frame_transition, is_local);
-        }
-    } else if name.isEqualToString(unsafe { objc2_ui_kit::UIKeyboardWillHideNotification }) {
-        for (adapter, frame_transition) in adapter_frames {
-            adapter.ios_keyboard_will_hide(animation_curve, animation_duration, frame_transition, is_local);
-        }
-    } else if name.isEqualToString(unsafe { objc2_ui_kit::UIKeyboardWillChangeFrameNotification }) {
-        for (adapter, frame_transition) in adapter_frames {
-            adapter.ios_keyboard_will_change_frame(animation_curve, animation_duration, frame_transition, is_local);
+            adapter.window().set_keyboard_area_animation(
+                easing,
+                animation_duration,
+                begin_origin, begin_size,
+                end_origin, end_size,
+                i_slint_core::InternalToken,
+            );
         }
     }
 
     Some(())
-}
-
-impl crate::winitwindowadapter::WinitWindowAdapter {
-    #[cfg(target_os = "ios")]
-    fn ios_keyboard_will_show(&self,
-        animation_curve: i_slint_core::animations::EasingCurve,
-        animation_duration: f64,
-        frame_transition: crate::virtual_keyboard::FrameTransition,
-        is_local: bool,
-    ) {
-        if !is_local {
-            return;
-        }
-        todo!()
-    }
-    #[cfg(target_os = "ios")]
-    fn ios_keyboard_will_hide(&self,
-        animation_curve: i_slint_core::animations::EasingCurve,
-        animation_duration: f64,
-        frame_transition: crate::virtual_keyboard::FrameTransition,
-        is_local: bool,
-    ) {
-        if !is_local {
-            return;
-        }
-        todo!()
-    }
-    #[cfg(target_os = "ios")]
-    fn ios_keyboard_will_change_frame(&self,
-        animation_curve: i_slint_core::animations::EasingCurve,
-        animation_duration: f64,
-        frame_transition: crate::virtual_keyboard::FrameTransition,
-        is_local: bool,
-    ) {
-        if !is_local {
-            return;
-        }
-        todo!()
-    }
 }
