@@ -230,3 +230,7 @@ pub unsafe extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
 pub unsafe extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
     i_slint_core::detect_operating_system()
 }
+
+pub unsafe extern "C" fn open_url(url: &SharedString) {
+    webbrowser::open(url).unwrap()
+}
