@@ -207,6 +207,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-enabled", Type::Bool),
         ("accessible-expandable", Type::Bool),
         ("accessible-expanded", Type::Bool),
+        ("accessible-id", Type::String),
         ("accessible-label", Type::String),
         ("accessible-value", Type::String),
         ("accessible-value-maximum", Type::Float32),

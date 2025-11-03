@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test the accessible-id property for uniquely identifying widgets for automation
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    VerticalLayout {
+        button1 := Rectangle {
+            accessible-role: button;
+            accessible-label: "Click Me";
+            accessible-id: "my-unique-button";
+        }
+
+        button2 := Rectangle {
+            accessible-role: button;
+            accessible-label: "Another Button";
+        }
+    }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+let buttons = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Click Me").collect::<Vec<_>>();
+assert_eq!(buttons.len(), 1);
+assert_eq!(buttons[0].accessible_id(), Some("my-unique-button".into()));
+
+let buttons = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Another Button").collect::<Vec<_>>();
+assert_eq!(buttons.len(), 1);
+assert!(buttons[0].accessible_id().is_none());
+```
+
+```cpp
+auto handle = TestCase::create();
+
+auto button_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Click Me");
+assert(button_search.size() == 1);
+auto button_with_id = button_search[0];
+auto accessible_id = button_with_id.accessible_id();
+assert(accessible_id.has_value());
+assert(*accessible_id == "my-unique-button");
+
+button_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Another Button");
+assert(button_search.size() == 1);
+auto button_without_id = button_search[0];
+accessible_id = button_without_id.accessible_id();
+assert(!accessible_id.has_value());
+```
+
+*/

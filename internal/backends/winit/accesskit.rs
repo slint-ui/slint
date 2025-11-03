@@ -577,6 +577,10 @@ impl NodeCollection {
             node.set_description(description.to_string());
         }
 
+        if let Some(id) = item.accessible_string_property(AccessibleStringProperty::Id) {
+            node.set_author_id(id.to_string());
+        }
+
         if item
             .accessible_string_property(AccessibleStringProperty::Expandable)
             .is_some_and(|x| x == "true")
