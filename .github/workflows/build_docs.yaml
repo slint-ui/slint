@@ -73,6 +73,10 @@ jobs:
                   cache: false
             - name: Install apt dependencies
               run: sudo apt-get install doxygen
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+                  version: "=0.6.6"
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS=""
