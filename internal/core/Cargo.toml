@@ -41,7 +41,7 @@ std = [
   "chrono/wasmbind",
   "chrono/clock",
   "dep:sys-locale",
-  "dep:webbrowser"
+  "dep:webbrowser",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
