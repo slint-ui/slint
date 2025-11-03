@@ -14,13 +14,19 @@ use slint::wgpu_27::wgpu;
 
 use crate::{MyApp, WebviewLogic, rendering_context::ServoRenderingAdapter};
 
+/// Upgrades a weak reference to SlintServoAdapter to a strong reference.
+/// Panics if the adapter has been dropped.
 pub fn upgrade_adapter(weak_ref: &Weak<SlintServoAdapter>) -> Rc<SlintServoAdapter> {
     weak_ref.upgrade().expect("Failed to upgrade SlintServoAdapter")
 }
 
+/// Bridge between Slint UI and Servo browser engine.
+/// Manages the lifecycle and communication between the UI and browser components.
 pub struct SlintServoAdapter {
     app: slint::Weak<MyApp>,
+    /// Channel sender to wake the event loop
     waker_sender: Sender<()>,
+    /// Channel receiver for event loop wake signals
     waker_receiver: Receiver<()>,
     pub servo: RefCell<Option<Servo>>,
     inner: RefCell<SlintServoAdapterInner>,
@@ -118,10 +124,13 @@ impl SlintServoAdapter {
         inner.queue = Some(queue.clone());
     }
 
+    /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.
+    /// This bridges the rendering output from Servo to the Slint display surface.
     pub fn update_web_content_with_latest_frame(&self) {
         let inner = self.inner();
         let rendering_adapter = inner.rendering_adapter.as_ref().unwrap();
 
+        // Convert framebuffer to Slint image format
         let slint_image = rendering_adapter.current_framebuffer_as_image();
 
         let app = self

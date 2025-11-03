@@ -89,6 +89,7 @@ fn on_scroll(adapter: Rc<SlintServoAdapter>) {
         let point = DevicePoint::new(initial_x * scale_factor, initial_y * scale_factor);
 
         let moved_by = Vector2D::new(delta_x, delta_y);
+        // Invert delta to match Servo's coordinate system
         let servo_delta = -moved_by;
 
         webview.notify_scroll_event(ScrollLocation::Delta(servo_delta), point.to_i32());
@@ -153,6 +154,8 @@ fn on_pointer(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
+/// Converts Slint pointer events to Servo input events.
+/// Distinguishes between touch and mouse events for proper handling.
 fn convert_slint_pointer_event_to_servo_input_event(
     pointer_event: &PointerEvent,
     point: DevicePoint,

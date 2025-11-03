@@ -176,6 +176,8 @@ impl SurfmanRenderingContext {
         Some(self.device.borrow().connection())
     }
 
+    /// Reads pixel data from the framebuffer into an RGBA image.
+    /// Flips the image vertically since OpenGL's origin is bottom-left.
     fn read_framebuffer_to_image(
         gl: &Rc<dyn Gl>,
         framebuffer_id: u32,
@@ -204,10 +206,10 @@ impl SurfmanRenderingContext {
             // warn!("GL error code 0x{gl_error:x} set after read_pixels");
         }
 
-        // flip image vertically (texture is upside down)
+        // Flip image vertically (OpenGL textures are upside down)
         let source_rectangle = source_rectangle.to_usize();
         let orig_pixels = pixels.clone();
-        let stride = source_rectangle.width() * 4;
+        let stride = source_rectangle.width() * 4; // 4 bytes per RGBA pixel
         for y in 0..source_rectangle.height() {
             let dst_start = y * stride;
             let src_start = (source_rectangle.height() - y - 1) * stride;
