@@ -1190,7 +1190,6 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             }
             common_property
         };
-        prop2.handle.remove_binding();
         Self::link_two_way_with_map_to_common_property(common_property, prop2, map_to, map_from);
     }
 
