@@ -141,7 +141,7 @@ impl LayoutOptions {
             stroke: None,
             text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
-            link_color: crate::Color::from_rgb_u8(64, 64, 255),
+            link_color: Default::default(),
         }
     }
 }
@@ -1188,7 +1188,7 @@ pub fn draw_text(
             text_overflow,
             selection: None,
             selection_foreground_color: None,
-            link_color: crate::Color::from_rgb_u8(64, 64, 255),
+            link_color: text.link_color(),
         },
     );
 
@@ -1248,7 +1248,7 @@ pub fn link_under_cursor(
             text_overflow: text.overflow(),
             selection: None,
             selection_foreground_color: None,
-            link_color: crate::Color::from_rgb_u8(64, 64, 255),
+            link_color: text.link_color(),
         },
     );
 
@@ -1372,7 +1372,7 @@ pub fn text_size(
             text_overflow: TextOverflow::Clip,
             selection: None,
             selection_foreground_color: None,
-            link_color: crate::Color::from_rgb_u8(64, 64, 255),
+            link_color: Default::default(),
         },
     );
     PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
