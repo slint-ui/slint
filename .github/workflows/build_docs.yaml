@@ -85,16 +85,6 @@ jobs:
               run: cargo run -p slint-docsnapper -- docs/astro/src/content --overwrite
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
-
-            - name: "Run lint checks"
-              working-directory: docs/astro
-              continue-on-error: true
-              run: pnpm lint
-
-            - name: "Run format checks"
-              working-directory: docs/astro
-              continue-on-error: true
-              run: pnpm format
             - name: Extract Version from Cargo.toml
               id: version
               run: |
