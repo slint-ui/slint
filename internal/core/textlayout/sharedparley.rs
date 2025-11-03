@@ -123,7 +123,7 @@ struct LayoutOptions {
 impl LayoutOptions {
     fn new_from_textinput(
         text_input: Pin<&crate::items::TextInput>,
-        font_request: Option<FontRequest>,
+        font_request: FontRequest,
         max_width: Option<LogicalLength>,
         max_height: Option<LogicalLength>,
         selection: Option<core::ops::Range<usize>>,
@@ -136,7 +136,7 @@ impl LayoutOptions {
             max_height,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
-            font_request,
+            font_request: Some(font_request),
             selection,
             selection_foreground_color,
             stroke: None,
@@ -1285,7 +1285,7 @@ pub fn link_under_cursor(
 pub fn draw_text_input(
     item_renderer: &mut impl GlyphRenderer,
     text_input: Pin<&crate::items::TextInput>,
-    font_request: Option<FontRequest>,
+    item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     password_character: Option<fn() -> char>,
 ) {
@@ -1319,6 +1319,7 @@ pub fn draw_text_input(
     let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
 
     let text: SharedString = visual_representation.text.into();
+    let font_request = FontRequest::new(text_input, item_rc);
 
     let layout = layout(
         Text::PlainText(&text),
@@ -1425,7 +1426,7 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
         LayoutOptions::new_from_textinput(
             text_input,
-            Some(font_request),
+            font_request,
             Some(width),
             Some(height),
             None,
@@ -1464,7 +1465,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         scale_factor,
         LayoutOptions::new_from_textinput(
             text_input,
-            Some(font_request),
+            font_request,
             Some(width),
             Some(height),
             None,

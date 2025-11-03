@@ -1270,6 +1270,28 @@ impl ItemConsts for TextInput {
     > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl HasFont for TextInput {
+    fn font_family(self: Pin<&Self>) -> SharedString {
+        self.as_ref().font_family()
+    }
+
+    fn font_weight(self: Pin<&Self>) -> i32 {
+        self.as_ref().font_weight()
+    }
+
+    fn font_size(self: Pin<&Self>) -> LogicalLength {
+        self.as_ref().font_size()
+    }
+
+    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
+        self.as_ref().letter_spacing()
+    }
+
+    fn font_italic(self: Pin<&Self>) -> bool {
+        self.as_ref().font_italic()
+    }
+}
+
 pub enum TextCursorDirection {
     Forward,
     Backward,
