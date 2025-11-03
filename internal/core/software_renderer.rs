@@ -2484,7 +2484,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
+                sharedparley::draw_text(self, text, Some(font_request), size);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {

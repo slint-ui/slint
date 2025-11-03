@@ -18,7 +18,7 @@ use crate::input::{
     key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
     KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
-use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
+use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
@@ -155,17 +155,9 @@ impl ItemConsts for ComplexText {
     > = ComplexText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl RenderText for ComplexText {
-    fn target_size(self: Pin<&Self>) -> LogicalSize {
-        LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
-    }
-
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
+impl HasFont for ComplexText {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
             self_rc,
             self.font_family(),
             self.font_weight(),
@@ -173,6 +165,16 @@ impl RenderText for ComplexText {
             self.letter_spacing(),
             self.font_italic(),
         )
+    }
+}
+
+impl RenderText for ComplexText {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
+
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -195,10 +197,6 @@ impl RenderText for ComplexText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         self.overflow()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        self.letter_spacing()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
@@ -375,17 +373,9 @@ impl ItemConsts for MarkdownText {
     > = MarkdownText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl RenderText for MarkdownText {
-    fn target_size(self: Pin<&Self>) -> LogicalSize {
-        LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
-    }
-
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
+impl HasFont for MarkdownText {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
             self_rc,
             self.font_family(),
             self.font_weight(),
@@ -393,6 +383,16 @@ impl RenderText for MarkdownText {
             self.letter_spacing(),
             self.font_italic(),
         )
+    }
+}
+
+impl RenderText for MarkdownText {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
+
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -415,10 +415,6 @@ impl RenderText for MarkdownText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         self.overflow()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        self.letter_spacing()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
@@ -552,6 +548,19 @@ impl ItemConsts for SimpleText {
     > = SimpleText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl HasFont for SimpleText {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
+            self_rc,
+            SharedString::default(),
+            self.font_weight(),
+            self.font_size(),
+            LogicalLength::default(),
+            false,
+        )
+    }
+}
+
 impl RenderText for SimpleText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
@@ -559,17 +568,6 @@ impl RenderText for SimpleText {
 
     fn text(self: Pin<&Self>) -> SharedString {
         self.text()
-    }
-
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
-            self_rc,
-            SharedString::default(),
-            self.font_weight(),
-            self.font_size(),
-            self.letter_spacing(),
-            false,
-        )
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -594,10 +592,6 @@ impl RenderText for SimpleText {
         TextOverflow::default()
     }
 
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        LogicalLength::default()
-    }
-
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         Default::default()
     }
@@ -613,8 +607,7 @@ impl SimpleText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request)
+        window_adapter.renderer().font_metrics(self.font_request(self_rc))
     }
 }
 
