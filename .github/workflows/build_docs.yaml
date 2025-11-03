@@ -6,18 +6,18 @@
 # Execution Flow:
 # ┌──────────────────────────────────────────────────────────────┐
 # │  Jobs 1, 2, 3 run in parallel (no dependencies)              │
-# └──────────┬────────────────────┬──────────────────┬───────────┘
-#            │                    │                  │
-#       ┌────▼────┐               │             ┌────▼────┐
-#       │  Job 1  │               │             │  Job 2  │
-#       └────┬────┘               │             └────┬────┘
-#            │                    │                  │
-#       ┌────▼─────────┐          │                  │
-#       │   Job 4      │          │                  │
-#       │ (Check warns)│          │                  │
-#       └──────────────┘          │                  │
-#                                 │                  │
-#            └────────────────────┴──────────────────┘
+# └──────────┬────────────────────┬──────────────────────────────┘
+#            │                    │
+#       ┌────▼────┐               │
+#       │  Job 1  │               │
+#       └────┬────┘               │
+#            │                    │
+#       ┌────▼─────────┐          │
+#       │   Job 4      │          │
+#       │ (Check warns)│          │
+#       └──────────────┘          │
+#                                 │
+#                                 │
 #                                 │
 #                            ┌────▼──────────────┐
 #                            │      Job 5        │
@@ -29,7 +29,7 @@
 # Job 3 (node-python-docs): Build Node and Python documentation
 # Job 4 (check-warnings): Validate docs for warnings (needs Job 1)
 # Job 5 (combine-deploy): Combine all artifacts and deploy (needs Jobs 1-3)
-#
+
 name: Build docs
 
 on:
