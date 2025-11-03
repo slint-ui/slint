@@ -70,8 +70,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
-                  components: rustfmt
+                  toolchain: stable
                   target: aarch64-linux-android
                   cache: false
             - name: Install apt dependencies
@@ -118,8 +117,7 @@ jobs:
                   sudo apt-get install ttf-mscorefonts-installer -y
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
-                  components: rustfmt
+                  toolchain: stable
                   target: aarch64-linux-android
                   cache: false
             - name: "Generate Screenshots for Example Snippets"
@@ -158,8 +156,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
-                  components: rustfmt
+                  toolchain: stable
                   target: aarch64-linux-android
                   cache: false
             - uses: baptiste0928/cargo-install@v3
@@ -208,8 +205,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
-                  components: rustfmt
+                  toolchain: stable
                   target: aarch64-linux-android
                   cache: false
             - name: Download screenshots and version
@@ -275,8 +271,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
-                  components: rustfmt
+                  toolchain: stable
                   target: aarch64-linux-android
                   cache: false
             - name: "Check for docs warnings in internal crates"
