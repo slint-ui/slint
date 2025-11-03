@@ -461,6 +461,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 items::LineCap::Round => femtovg::LineCap::Round,
                 items::LineCap::Square => femtovg::LineCap::Square,
             });
+            paint.set_line_join(match path.stroke_line_join() {
+                items::LineJoin::Miter => femtovg::LineJoin::Miter,
+                items::LineJoin::Round => femtovg::LineJoin::Round,
+                items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
+            });
             paint.set_anti_alias(anti_alias);
             paint
         });

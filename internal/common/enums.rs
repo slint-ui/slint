@@ -480,6 +480,16 @@ macro_rules! for_each_enums {
                 Square,
             }
 
+            /// This enum describes the appearance of the joins between segments of stroked paths.
+            enum LineJoin {
+                /// The stroke joins with a sharp corner or a clipped corner, depending on the miter limit.
+                Miter,
+                /// The stroke joins with a smooth, rounded corner.
+                Round,
+                /// The stroke joins with a beveled (flattened) corner.
+                Bevel,
+            }
+
             /// This enum describes the detected operating system types.
             #[non_exhaustive]
             enum OperatingSystemType {
