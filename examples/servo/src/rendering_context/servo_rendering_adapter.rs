@@ -21,12 +21,15 @@ pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderin
     Box::new(ServoSoftwareRenderingContext { rendering_context })
 }
 
+/// Attempts to create a GPU-accelerated rendering context.
+/// Falls back to software rendering if GPU initialization fails or if forced via env var.
 #[cfg(not(target_os = "android"))]
 pub fn try_create_gpu_context(
     device: wgpu::Device,
     queue: wgpu::Queue,
     size: PhysicalSize<u32>,
 ) -> Option<Box<dyn ServoRenderingAdapter>> {
+    // Allow forcing software rendering for testing/debugging
     if std::env::var_os("SLINT_SERVO_FORCE_SOFTWARE").is_some() {
         return Some(create_software_context(size));
     }

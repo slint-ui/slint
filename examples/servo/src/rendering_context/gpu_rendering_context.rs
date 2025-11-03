@@ -76,12 +76,16 @@ impl GPURenderingContext {
         })
     }
 
+    /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
+    /// Unbinds the surface, converts to WGPU texture, then rebinds it.
     #[cfg(target_vendor = "apple")]
     pub fn get_wgpu_texture_from_metal(
         &self,
         wgpu_device: &wgpu::Device,
         wgpu_queue: &wgpu::Queue,
     ) -> Result<wgpu::Texture, surfman::Error> {
+        use crate::rendering_context::metal::WPGPUTextureFromMetal;
+
         let device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
 
@@ -89,7 +93,7 @@ impl GPURenderingContext {
 
         let size = self.size.get();
 
-        let wgpu_texture = crate::rendering_context::metal::WPGPUTextureFromMetal::new(
+        let wgpu_texture = WPGPUTextureFromMetal::new(
             size,
             wgpu_device,
         )
@@ -105,6 +109,8 @@ impl GPURenderingContext {
         Ok(wgpu_texture)
     }
 
+    /// Imports Vulkan surface as a WGPU texture for rendering on Linux.
+    /// Creates a Vulkan image with external memory, imports to OpenGL, blits content, then wraps as WGPU texture.
     #[cfg(target_os = "linux")]
     pub fn get_wgpu_texture_from_vulkan(
         &self,
@@ -138,7 +144,7 @@ impl GPURenderingContext {
             let vulkan_device = hal_device.raw_device().clone();
             let vulkan_instance = hal_device.shared_instance().raw_instance();
 
-            // Create image
+            // Create Vulkan image with external memory for sharing with OpenGL
 
             let mut external_memory_image_info = vk::ExternalMemoryImageCreateInfo::default()
                 .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
@@ -163,7 +169,7 @@ impl GPURenderingContext {
                 None,
             )?;
 
-            // Allocate memory and bind to image
+            // Allocate dedicated Vulkan memory and bind to the created image
 
             let memory_requirements = vulkan_device.get_image_memory_requirements(vulkan_image);
 
@@ -185,7 +191,7 @@ impl GPURenderingContext {
 
             vulkan_device.bind_image_memory(vulkan_image, memory, 0)?;
 
-            // Get memory handle
+            // Export Vulkan memory as a file descriptor for OpenGL import
 
             let external_memory_fd_api =
                 ash::khr::external_memory_fd::Device::new(&vulkan_instance, &vulkan_device);
@@ -196,7 +202,7 @@ impl GPURenderingContext {
                     .handle_type(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD),
             )?;
 
-            // import into gl
+            // Import Vulkan memory into OpenGL using EXT_external_objects
 
             let gl = &self.surfman_rendering_info.glow_gl;
 
@@ -231,7 +237,7 @@ impl GPURenderingContext {
                 0,
             );
 
-            // Blit to it
+            // Blit Servo's framebuffer to the imported texture
 
             let draw_framebuffer = gl
                 .create_framebuffer()
@@ -256,7 +262,7 @@ impl GPURenderingContext {
                 0,
                 size.width as i32,
                 size.height as i32,
-                // flipped upside down
+                // Flip vertically - OpenGL origin is bottom-left, texture origin is top-left
                 0,
                 size.height as i32,
                 size.width as i32,
