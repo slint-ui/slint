@@ -126,14 +126,14 @@ jobs:
               shell: bash
             - name: Upload build timing report
               if: always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: cargo-timings-${{ matrix.os }}-${{ matrix.rust_version }}
                   path: target/cargo-timings/cargo-timing.html
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: screenshots-${{matrix.os}}
                   path: |
@@ -332,7 +332,7 @@ jobs:
               working-directory: ${{ runner.workspace }}/cppbuild
               run: cmake --build . --config Debug --target package
             - name: "Create C++ packages artifact"
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: cpp_bin-${{ matrix.os }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -354,7 +354,7 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: cpp_bin-ubuntu-22.04
                   path: cpp-package
@@ -734,7 +734,7 @@ jobs:
               working-directory: tools/figma-inspector
               run: pnpm zip
             - name: Archive zip
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: figma-plugin
                   path: tools/figma-inspector/zip

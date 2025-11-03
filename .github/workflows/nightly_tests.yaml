@@ -181,7 +181,7 @@ jobs:
             - name: "Screenshot"
               run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
             - name: Upload Screenshot Artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                 name: ${{matrix.scheme}}-screenshot
                 path: ${{ matrix.scheme }}.png

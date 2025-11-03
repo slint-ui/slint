@@ -95,11 +95,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           name: wasm_gallery
           path: ui-libraries/material/docs/dist/wasm
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         with:
           name: apk_gallery
