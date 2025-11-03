@@ -237,4 +237,6 @@ pub mod re_exports {
 
     #[cfg(feature = "live-preview")]
     pub use slint_interpreter::live_preview;
+
+    pub use webbrowser;
 }

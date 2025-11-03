@@ -280,6 +280,8 @@ wgpu-27 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
 
+webbrowser = "1.0.6"
+
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
 # end even then wouldn't work because it can't load fonts
