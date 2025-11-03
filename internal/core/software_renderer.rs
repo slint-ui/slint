@@ -723,9 +723,8 @@ impl SoftwareRenderer {
 impl RendererSealed for SoftwareRenderer {
     fn text_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
         item_rc: &crate::item_tree::ItemRc,
-        text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
@@ -738,13 +737,14 @@ impl RendererSealed for SoftwareRenderer {
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
+                sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+                let text = text_item.text();
                 let (longest_line_width, height) = layout.text_size(
-                    text,
+                    text.as_str(),
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
                 );
@@ -753,8 +753,9 @@ impl RendererSealed for SoftwareRenderer {
             }
             (fonts::Font::PixelFont(pf), _) => {
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+                let text = text_item.text();
                 let (longest_line_width, height) = layout.text_size(
-                    text,
+                    text.as_str(),
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
                 );
@@ -773,7 +774,7 @@ impl RendererSealed for SoftwareRenderer {
         let Some(scale_factor) = self.scale_factor() else {
             return LogicalSize::default();
         };
-        let font_request = FontRequest::new(text_item, item_rc);
+        let font_request = text_item.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {

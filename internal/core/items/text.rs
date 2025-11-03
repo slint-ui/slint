@@ -18,7 +18,7 @@ use crate::input::{
     key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
     KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
-use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderText};
+use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderString, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
@@ -168,13 +168,15 @@ impl HasFont for ComplexText {
     }
 }
 
+impl RenderString for ComplexText {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+}
+
 impl RenderText for ComplexText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -386,13 +388,15 @@ impl HasFont for MarkdownText {
     }
 }
 
+impl RenderString for MarkdownText {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+}
+
 impl RenderText for MarkdownText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -561,13 +565,15 @@ impl HasFont for SimpleText {
     }
 }
 
+impl RenderString for SimpleText {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+}
+
 impl RenderText for SimpleText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -618,15 +624,8 @@ fn text_layout_info(
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
 ) -> LayoutInfo {
-    let text_string = text.text();
     let implicit_size = |max_width, text_wrap| {
-        window_adapter.renderer().text_size(
-            text,
-            self_rc,
-            text_string.as_str(),
-            max_width,
-            text_wrap,
-        )
+        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
     };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -758,12 +757,8 @@ impl Item for TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
-        let text = self.text();
         let implicit_size = |max_width, text_wrap| {
-            if text.is_empty() {
-                return window_adapter.renderer().char_size(self, self_rc, '*');
-            }
-            window_adapter.renderer().text_size(self, self_rc, text.as_str(), max_width, text_wrap)
+            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -1269,6 +1264,12 @@ impl HasFont for TextInput {
             self.letter_spacing(),
             self.font_italic(),
         )
+    }
+}
+
+impl RenderString for TextInput {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.as_ref().text()
     }
 }
 

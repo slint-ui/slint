@@ -2091,13 +2091,12 @@ impl WindowAdapterInternal for QtWindow {
 impl i_slint_core::renderer::RendererSealed for QtWindow {
     fn text_size(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
         item_rc: &ItemRc,
-        text: &str,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, text_item, item_rc, text, max_width, text_wrap)
+        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
     }
 
     fn char_size(
