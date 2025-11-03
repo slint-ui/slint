@@ -75,6 +75,8 @@ export component TestCase inherits Window {
     in-out property <string> result;
 
     ItemListView {
+        width: 100%;
+        height: 100%;
         model <=> model;
         action(s) => {
             debug(s);
@@ -87,20 +89,28 @@ export component TestCase inherits Window {
         x: 0px;
         y: 0px;
     }
+
+    out property <bool> test;
 }
 
 
 /*
 
 ```rust
-let instance = TestCase::new().unwrap();
-assert!(instance.get_test());
+use slint::Model;
 
-assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "xyz".into() });
+let instance = TestCase::new().unwrap();
+//assert!(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 490., 10.);
+assert_eq!(instance.get_result(), "ChkA:0:off:Olivier\n");
+assert_eq!(instance.get_model().row_data(0).unwrap(), ModelItem { name: "Olivier".into(), checked: false, value: 1 });
+
+/*assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "xyz".into() });
 instance.set_xyz("abc".into());
 assert_eq!(instance.get_value(), MyStruct { name: "Olivier".into(), value: 13, xyz: "abc".into() });
 
-assert_eq!(instance.get_inner_xyz(), "abc");
+assert_eq!(instance.get_inner_xyz(), "abc");*/
 ```
 
 
