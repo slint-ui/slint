@@ -77,6 +77,8 @@ jobs:
               with:
                   crate: cargo-about
                   version: "=0.6.6"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS=""
