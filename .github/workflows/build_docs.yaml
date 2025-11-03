@@ -172,6 +172,7 @@ jobs:
                   name: screenshots-version
                   path: |
                       docs/astro/src/content
+                      docs/astro/src/assets/generated
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
@@ -248,7 +249,7 @@ jobs:
               uses: actions/download-artifact@v5
               with:
                   name: screenshots-version
-                  path: docs/astro/src/content
+                  path: .
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
             - name: Update URL for sitemap in site-config.ts
