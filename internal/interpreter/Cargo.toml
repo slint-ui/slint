@@ -157,7 +157,7 @@ unicode-segmentation = { workspace = true }
 
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
 
-webbrowser = "1.0.6"
+webbrowser = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
