@@ -337,7 +337,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size);
     }
 
     fn draw_text_input(

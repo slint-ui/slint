@@ -1124,10 +1124,11 @@ new *line*
 pub fn draw_text(
     item_renderer: &mut impl GlyphRenderer,
     text: Pin<&dyn crate::item_rendering::RenderText>,
-    font_request: Option<FontRequest>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
     size: LogicalSize,
 ) {
     let str = text.text();
+    let font_request = item_rc.map(|item_rc| text.font_request(item_rc));
 
     #[cfg(feature = "experimental-rich-text")]
     let layout_text = if text.is_markdown() {
