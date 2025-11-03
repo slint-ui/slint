@@ -8,7 +8,7 @@ import {
 import type { ImageMetadata } from "astro";
 import type { OpenGraph } from "@astrolib/seo";
 
-const load = async function () {
+const load = function () {
     let images: Record<string, () => Promise<unknown>> | undefined = undefined;
     try {
         images = import.meta.glob(
@@ -24,8 +24,8 @@ const load = async function () {
 let _images: Record<string, () => Promise<unknown>> | undefined = undefined;
 
 /** */
-export const fetchLocalImages = async () => {
-    _images = _images || (await load());
+export const fetchLocalImages = () => {
+    _images = _images || load();
     return _images;
 };
 
@@ -52,7 +52,7 @@ export const findImage = async (
         return imagePath;
     }
 
-    const images = await fetchLocalImages();
+    const images = fetchLocalImages();
     const key = imagePath.replace("~/", "/src/");
 
     return images && typeof images[key] === "function"

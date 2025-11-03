@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import yaml from "js-yaml";
 
-const loadConfig = async (configPathOrData: string | object) => {
+const loadConfig = (configPathOrData: string | object) => {
     if (typeof configPathOrData === "string") {
         const content = fs.readFileSync(configPathOrData, "utf8");
         if (

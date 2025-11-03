@@ -77,11 +77,11 @@ export default ({
                     buildLogger.info(`Astrowind config has been loaded.`);
                 }
             },
-            "astro:config:done": async ({ config }) => {
+            "astro:config:done": ({ config }) => {
                 cfg = config;
             },
 
-            "astro:build:done": async ({ logger }) => {
+            "astro:build:done": ({ logger }) => {
                 const buildLogger = logger.fork("astrowind");
                 buildLogger.info(
                     "Updating `robots.txt` with `sitemap-index.xml` ...",

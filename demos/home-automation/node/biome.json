@@ -1,15 +1,16 @@
 {
     "root": true,
-    "extends": ["../../biome.json"],
+    "extends": ["../../../biome.json"],
     "files": {
         "includes": [
             "**",
-            "!**/.astro/**",
-            "**/*.astro",
-            "!**/playwright-report/**"
+            "!**/.vscode/**",
+            "!**/webviews/**",
+            "!**/.vscode/**",
+            "!**/build/**",
+            "!**/out/**"
         ]
     },
-    "formatter": {},
     "linter": {
         "rules": {
             "style": {
@@ -25,18 +26,5 @@
                 "noUselessElse": "error"
             }
         }
-    },
-    "overrides": [
-        {
-            "includes": ["**/*.astro"],
-            "linter": {
-                "rules": {
-                    "style": {
-                        "useConst": "off",
-                        "useImportType": "off"
-                    }
-                }
-            }
-        }
-    ]
+    }
 }
