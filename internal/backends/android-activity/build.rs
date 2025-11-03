@@ -68,8 +68,8 @@ fn main() {
 
     if !o.status.success() {
         eprintln!("Dex conversion failed: {}", String::from_utf8_lossy(&o.stderr));
-        let javac = android_build::javac().unwrap();
-        let java_ver = android_build::check_javac_version(&javac).unwrap();
+        let java_home = android_build::java_home().unwrap();
+        let java_ver = android_build::check_javac_version(&java_home).unwrap();
         if java_ver >= 21 {
             eprintln!("WARNING: JDK version 21 is known to cause an error with older android SDK");
             eprintln!("See https://github.com/slint-ui/slint/issues/4973");
