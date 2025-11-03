@@ -41,6 +41,7 @@ std = [
   "chrono/wasmbind",
   "chrono/clock",
   "dep:sys-locale",
+  "dep:webbrowser"
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -129,7 +130,7 @@ wgpu-27 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
-webbrowser = { version = "1.0.6" }
+webbrowser = { version = "1.0.6", optional = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
