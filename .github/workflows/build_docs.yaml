@@ -2,6 +2,34 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # Build various demo binaries, c++ packages and documentation and publish them on the website
+#
+# Execution Flow:
+# ┌──────────────────────────────────────────────────────────────┐
+# │  Jobs 1, 2, 3 run in parallel (no dependencies)              │
+# └──────────┬────────────────────┬──────────────────────────────┘
+#            │                    │
+#       ┌────▼────┐               │
+#       │  Job 1  │               │
+#       └────┬────┘               │
+#            │                    │
+#       ┌────▼─────────┐          │
+#       │   Job 4      │          │
+#       │ (Check warns)│          │
+#       └──────────────┘          │
+#                                 │
+#                                 │
+#                                 │
+#                            ┌────▼──────────────┐
+#                            │      Job 5        │
+#                            │ (Combine & Deploy)│
+#                            └───────────────────┘
+#
+# Job 1 (rust-cpp-docs): Build Rust and C++ documentation
+# Job 2 (astro-docs-tests): Generate screenshots, build Astro docs and run tests
+# Job 3 (node-python-docs): Build Node and Python documentation
+# Job 4 (check-warnings): Validate docs for warnings (needs Job 1)
+# Job 5 (combine-deploy): Combine all artifacts and deploy (needs Jobs 1-3)
+
 name: Build docs
 
 on:
@@ -20,8 +48,11 @@ on:
           required: true
 
 jobs:
-    docs:
+    # Job 1: Build Rust and C++ documentation
+    rust-cpp-docs:
         runs-on: ubuntu-24.04
+        concurrency:
+          group: docs
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
@@ -32,26 +63,14 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v5
-            - uses: pnpm/action-setup@v4.2.0
-              with:
-                version: 10.18.2
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/26 --extern-html-root-url input=https://docs.rs/input/0.9" >> $GITHUB_ENV
-            - uses: actions/setup-node@v6
-              with:
-                node-version: 20
-                package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
-              run: |
-                  echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
-                  sudo apt-get install ttf-mscorefonts-installer -y
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
-                  components: rustfmt
                   target: aarch64-linux-android
                   cache: false
             - name: Install apt dependencies
@@ -62,9 +81,6 @@ jobs:
                   version: "=0.6.6"
             - name: Install uv
               uses: astral-sh/setup-uv@v7
-            - name: Remove docs from cache # Avoid stale docs
-              run: |
-                  rm -rf target/doc target/cppdocs api/node/docs
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS=""
@@ -80,21 +96,46 @@ jobs:
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
+            - name: "Upload Rust/C++ Docs Artifacts"
+              uses: actions/upload-artifact@v5
+              with:
+                  name: rust-cpp-docs
+                  path: |
+                      target/doc
+                      target/cppdocs/html
 
+    # Job 2: Build Astro docs and run tests
+    astro-docs-tests:
+        runs-on: ubuntu-24.04
+        env:
+            RUSTFLAGS: -D warnings -W deprecated
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RELEASE_INPUT: ${{ inputs.release }}
+        steps:
+            - uses: actions/checkout@v5
+            - uses: pnpm/action-setup@v4.2.0
+              with:
+                version: 10.18.2
+            - uses: actions/setup-node@v6
+              with:
+                node-version: 20
+                package-manager-cache: false
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
+              run: |
+                  echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
+                  sudo apt-get install ttf-mscorefonts-installer -y
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: aarch64-linux-android
+                  cache: false
             - name: "Generate Screenshots for Example Snippets"
-              run: cargo run -p slint-docsnapper -- docs/astro/src/content --overwrite
+              run: cargo run --release -p slint-docsnapper -- docs/astro/src/content --overwrite
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
-
-            - name: "Run lint checks"
-              working-directory: docs/astro
-              continue-on-error: true
-              run: pnpm lint
-
-            - name: "Run format checks"
-              working-directory: docs/astro
-              continue-on-error: true
-              run: pnpm format
             - name: Extract Version from Cargo.toml
               id: version
               run: |
@@ -106,14 +147,15 @@ jobs:
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
             - name: Update URL for sitemap in site-config.ts
               run: |
+                version="${{ steps.version.outputs.VERSION }}"
                 if [ "$RELEASE_INPUT" != "true" ]; then
                     base_url="https://snapshots.slint.dev"
                     base_path="/master/docs/slint/"
                     slint_download_version=nightly
                 else
                     base_url="https://releases.slint.dev"
-                    base_path="/${{ steps.version.outputs.VERSION }}/docs/slint/"
-                    slint_download_version=v${{ steps.version.outputs.VERSION }}
+                    base_path="/$version/docs/slint/"
+                    slint_download_version=v$version
                 fi
                 sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
                 sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
@@ -123,7 +165,6 @@ jobs:
             - name: Spellcheck
               working-directory: docs/astro
               run: pnpm spellcheck
-            # Test docs
             - name: Install Playwright
               working-directory: docs/astro
               run: pnpm exec playwright install --with-deps
@@ -140,18 +181,97 @@ jobs:
                 name: playwright-test-report
                 path: docs/astro/playwright-report/
                 retention-days: 30
+            - name: "Upload Astro Docs Artifacts"
+              uses: actions/upload-artifact@v5
+              with:
+                  name: astro-docs
+                  path: |
+                      docs/astro/dist
 
+    # Job 3: Build Node and Python documentation
+    node-python-docs:
+        runs-on: ubuntu-24.04
+        env:
+            RELEASE_INPUT: ${{ inputs.release }}
+        steps:
+            - uses: actions/checkout@v5
+            - uses: pnpm/action-setup@v4.2.0
+              with:
+                version: 10.18.2
+            - uses: actions/setup-node@v6
+              with:
+                node-version: 20
+                package-manager-cache: false
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: aarch64-linux-android
+                  cache: false
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+                  version: "=0.6.6"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+            - name: "Install Node dependencies"
+              run: pnpm i --frozen-lockfile
             - name: "Node docs"
               run: pnpm run docs
               working-directory: api/node
-
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
-
             - name: "Python docs"
               run: uv run build_docs.py
               working-directory: api/python/slint
+            - name: "Upload Node/Python Docs Artifacts"
+              uses: actions/upload-artifact@v5
+              with:
+                  name: node-python-docs
+                  path: |
+                      api/node/docs
+                      api/python/slint/docs
 
+    # Job 4: Check for docs warnings (depends on rust-cpp-docs)
+    check-warnings:
+        runs-on: ubuntu-24.04
+        needs: rust-cpp-docs
+        env:
+            RUSTFLAGS: -D warnings -W deprecated
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: aarch64-linux-android
+                  cache: false
+            - name: "Check for docs warnings in internal crates"
+              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
+
+    # Job 5: Combine all artifacts and deploy (depends on all doc generation jobs)
+    combine-deploy:
+        runs-on: ubuntu-24.04
+        needs: [rust-cpp-docs, node-python-docs, astro-docs-tests]
+        steps:
+            - uses: actions/checkout@v5
+            - name: Download Rust/C++ docs
+              uses: actions/download-artifact@v5
+              with:
+                  name: rust-cpp-docs
+                  path: .
+            - name: Download Node/Python docs
+              uses: actions/download-artifact@v5
+              with:
+                  name: node-python-docs
+                  path: .
+            - name: Download Astro docs
+              uses: actions/download-artifact@v5
+              with:
+                  name: astro-docs
+                  path: docs/astro
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
               id: app-token
@@ -160,7 +280,6 @@ jobs:
                 app-id: ${{ inputs.app-id }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: website
-
             - name: Clone website directory
               if: ${{ github.ref == 'refs/heads/master' }}
               uses: actions/checkout@v5
@@ -170,20 +289,18 @@ jobs:
                 path: website
                 token: ${{ steps.app-token.outputs.token }}
                 persist-credentials: false
-
             - name: Generate release-docs.html and 404.html
               if: ${{ github.ref == 'refs/heads/master' }}
               run: |
                 mkdir -p website/output
                 cd website && go run generator/generator.go -skip-agreements
-
             - name: Copy release-docs.html and 404.html
               if: ${{ github.ref == 'refs/heads/master' }}
               run: |
+                mkdir -p docs/site
                 cp website/output/release-docs.html docs/site/index.html
                 cp website/output/404.html docs/site/404.html
                 rm -rf website
-
             - name: "Upload Docs Artifacts"
               uses: actions/upload-artifact@v5
               with:
@@ -195,9 +312,4 @@ jobs:
                       api/node/docs
                       api/python/slint/docs
                       docs/site
-            - name: "Check for docs warnings in internal crates"
-              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
-            - name: Clean cache # Don't cache docs to avoid them including removed classes being published
-              run: |
-                  rm -rf target/doc target/cppdocs target/aarch64-linux-android api/node/docs api/python/slint/docs docs/astro docs/site
 
