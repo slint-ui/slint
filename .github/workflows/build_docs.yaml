@@ -179,6 +179,14 @@ jobs:
                 name: playwright-test-report
                 path: docs/astro/playwright-report/
                 retention-days: 30
+            - name: Debug - Verify dist exists before upload
+              run: |
+                echo "=== Checking docs/astro/dist ==="
+                ls -la docs/astro/ || echo "docs/astro/ does not exist"
+                ls -la docs/astro/dist/ || echo "docs/astro/dist/ does not exist"
+                echo "File count in dist: $(find docs/astro/dist -type f 2>/dev/null | wc -l)"
+                echo "First 10 files:"
+                find docs/astro/dist -type f 2>/dev/null | head -10
             - name: "Upload Astro Docs Artifacts"
               uses: actions/upload-artifact@v5
               with:
@@ -260,11 +268,22 @@ jobs:
               with:
                   name: rust-cpp-docs
                   path: downloaded-docs
+            - name: Debug - Show rust-cpp-docs artifact structure
+              run: |
+                echo "=== Contents of downloaded-docs ==="
+                ls -la downloaded-docs/ || echo "downloaded-docs does not exist"
+                echo "=== Tree of downloaded-docs (max depth 3) ==="
+                find downloaded-docs -maxdepth 3 -type d 2>/dev/null || echo "find failed"
             - name: Reconstruct Rust/C++ docs paths
               run: |
-                mkdir -p target
+                mkdir -p target/cppdocs
                 mv downloaded-docs/doc target/doc
-                mv downloaded-docs/cppdocs target/cppdocs
+                # The artifact contains cppdocs/html, not just cppdocs
+                if [ -d "downloaded-docs/cppdocs/html" ]; then
+                  mv downloaded-docs/cppdocs/html target/cppdocs/html
+                elif [ -d "downloaded-docs/cppdocs" ]; then
+                  mv downloaded-docs/cppdocs target/cppdocs
+                fi
             - name: Download Node/Python docs
               uses: actions/download-artifact@v5
               with:
@@ -280,6 +299,12 @@ jobs:
               with:
                   name: astro-docs
                   path: .
+            - name: Debug - Check astro docs
+              run: |
+                echo "=== Looking for docs/astro/dist ==="
+                ls -la docs/ || echo "docs/ does not exist"
+                ls -la docs/astro/ || echo "docs/astro/ does not exist"
+                ls -la docs/astro/dist/ || echo "docs/astro/dist/ does not exist"
             - name: Debug - List downloaded files
               run: |
                 echo "=== Workspace root ==="
