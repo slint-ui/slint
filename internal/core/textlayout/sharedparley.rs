@@ -226,72 +226,73 @@ impl LayoutWithoutLineBreaksBuilder {
 
     fn build(
         &self,
-        contexts: &mut Contexts,
         text: &str,
         selection: Option<(Range<usize>, Color)>,
         formatting: impl IntoIterator<Item = FormattedSpan>,
         link_color: Option<Color>,
     ) -> parley::Layout<Brush> {
-        let mut builder = self.ranged_builder(contexts, text);
+        CONTEXTS.with_borrow_mut(|contexts| {
+            let mut builder = self.ranged_builder(contexts.as_mut(), text);
 
-        if let Some((selection_range, selection_color)) = selection {
-            {
-                builder.push(
-                    parley::StyleProperty::Brush(Brush {
-                        selection_fill_color: Some(selection_color),
-                        stroke: self.stroke,
-                        link_color: None,
-                    }),
-                    selection_range,
-                );
-            }
-        }
-
-        for span in formatting {
-            match span.style {
-                Style::Emphasis => {
-                    builder.push(
-                        parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
-                        span.range,
-                    );
-                }
-                Style::Strikethrough => {
-                    builder.push(parley::StyleProperty::Strikethrough(true), span.range);
-                }
-                Style::Strong => {
-                    builder.push(
-                        parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
-                        span.range,
-                    );
-                }
-                Style::Code => {
-                    builder.push(
-                        parley::StyleProperty::FontStack(parley::style::FontStack::Single(
-                            parley::style::FontFamily::Generic(
-                                parley::style::GenericFamily::Monospace,
-                            ),
-                        )),
-                        span.range,
-                    );
-                }
-                Style::Underline => {
-                    builder.push(parley::StyleProperty::Underline(true), span.range);
-                }
-                Style::Link => {
-                    builder.push(parley::StyleProperty::Underline(true), span.range.clone());
+            if let Some((selection_range, selection_color)) = selection {
+                {
                     builder.push(
                         parley::StyleProperty::Brush(Brush {
-                            selection_fill_color: None,
+                            selection_fill_color: Some(selection_color),
                             stroke: self.stroke,
-                            link_color: link_color.clone(),
+                            link_color: None,
                         }),
-                        span.range,
+                        selection_range,
                     );
                 }
             }
-        }
 
-        builder.build(text)
+            for span in formatting {
+                match span.style {
+                    Style::Emphasis => {
+                        builder.push(
+                            parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
+                            span.range,
+                        );
+                    }
+                    Style::Strikethrough => {
+                        builder.push(parley::StyleProperty::Strikethrough(true), span.range);
+                    }
+                    Style::Strong => {
+                        builder.push(
+                            parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
+                            span.range,
+                        );
+                    }
+                    Style::Code => {
+                        builder.push(
+                            parley::StyleProperty::FontStack(parley::style::FontStack::Single(
+                                parley::style::FontFamily::Generic(
+                                    parley::style::GenericFamily::Monospace,
+                                ),
+                            )),
+                            span.range,
+                        );
+                    }
+                    Style::Underline => {
+                        builder.push(parley::StyleProperty::Underline(true), span.range);
+                    }
+                    Style::Link => {
+                        builder.push(parley::StyleProperty::Underline(true), span.range.clone());
+                        builder.push(
+                            parley::StyleProperty::Brush(Brush {
+                                selection_fill_color: None,
+                                stroke: self.stroke,
+                                link_color: link_color.clone(),
+                            }),
+                            span.range,
+                        );
+                    }
+                }
+            }
+
+            builder.build(text)
+        })
     }
 }
 
@@ -344,15 +345,12 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
                     }
                 });
 
-            let layout = CONTEXTS.with_borrow_mut(|contexts| {
-                layout_builder.build(
-                    contexts.as_mut(),
-                    text,
-                    selection,
-                    formatting.into_iter(),
-                    Some(options.link_color),
-                )
-            });
+            let layout = layout_builder.build(
+                text,
+                selection,
+                formatting.into_iter(),
+                Some(options.link_color),
+            );
 
             TextParagraph { range, y: PhysicalLength::default(), layout, links }
         };
@@ -411,9 +409,7 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
     let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
         (options.text_overflow, max_physical_width)
     {
-        let mut layout = CONTEXTS.with_borrow_mut(|contexts| {
-            layout_builder.build(contexts.as_mut(), "…", None, None, None)
-        });
+        let mut layout = layout_builder.build("…", None, None, None);
         layout.break_all_lines(None);
         let line = layout.lines().next().unwrap();
         let item = line.items().next().unwrap();
