@@ -4198,6 +4198,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RetartTimer {arguments:?}")
             }
         }
+        BuiltinFunction::OpenUrl => {
+            let url = a.next().unwrap();
+            format!("slint::cbindgen_private::open_url({})", url)
+        }
     }
 }
 

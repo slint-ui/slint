@@ -809,6 +809,7 @@ impl LookupObject for SlintInternal {
         .or_else(|| f("date-now", b(BuiltinFunction::DateNow)))
         .or_else(|| f("valid-date", b(BuiltinFunction::ValidDate)))
         .or_else(|| f("parse-date", b(BuiltinFunction::ParseDate)))
+        .or_else(|| f("open-url", b(BuiltinFunction::OpenUrl)))
     }
 }
 

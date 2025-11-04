@@ -3448,6 +3448,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
+        BuiltinFunction::OpenUrl => {
+            let url = a.next().unwrap();
+            quote!(sp::open_url(&#url))
+        }
     }
 }
 
