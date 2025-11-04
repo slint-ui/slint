@@ -149,11 +149,11 @@ jobs:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
-                  device: iPad Pro 13-inch (M5)
+                  device: iPad mini (A17 Pro)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
-                  device: iPhone 17
+                  device: iPhone 16e
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v5
@@ -167,16 +167,39 @@ jobs:
               timeout-minutes: 5
               run: |
                 xcrun simctl list > /dev/null # workaround https://github.com/actions/runner-images/issues/12862
-                echo "Available simulators:"
+                echo "=== Available simulators ==="
                 xcrun simctl list devices available | grep -i "ipad\|iphone"
                 echo ""
-                echo "Attempting to boot: ${{ matrix.device }}"
+
+                echo "=== System state before boot ==="
+                echo "Running simulators:"
+                xcrun simctl list devices | grep "(Booted)" || echo "None"
+                echo "Simulator.app processes:"
+                pgrep -fl Simulator || echo "None"
+                echo ""
+
+                echo "=== Booting simulator ==="
+                echo "Device: ${{ matrix.device }}"
+                echo "Command: xcrun simctl boot \"${{ matrix.device }}\""
+                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+
+                set -x  # Enable command echoing
                 xcrun simctl boot "${{ matrix.device }}"
-                timeout 180 xcrun simctl bootstatus booted -b || {
-                  echo "Boot timed out after 3 minutes"
-                  exit 1
-                }
-                echo "Simulator booted successfully"
+                BOOT_RESULT=$?
+                set +x  # Disable command echoing
+
+                echo "Boot command completed with exit code: $BOOT_RESULT"
+                echo ""
+
+                echo "=== Simulator state after boot command ==="
+                xcrun simctl list devices | grep "${{ matrix.device }}"
+                echo ""
+
+                echo "=== Waiting for full boot (bootstatus) ==="
+                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+                xcrun simctl bootstatus booted -b
+                echo "End time: $(date '+%Y-%m-%d %H:%M:%S')"
+                echo "Simulator fully booted and ready"
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
               working-directory: ${{ matrix.demo }}
             - name: "Install"
