@@ -264,6 +264,11 @@ jobs:
               with:
                 name: ${{matrix.scheme}}-screenshot
                 path: ${{ matrix.scheme }}.png
+            - name: "Cleanup - Shutdown Simulator"
+              if: always()
+              run: |
+                echo "Shutting down simulator to avoid orphan processes..."
+                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
 
 
     bevy_example:
