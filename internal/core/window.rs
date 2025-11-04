@@ -1435,7 +1435,18 @@ impl WindowInner {
 
     /// Sets the scale factor for the window. This is set by the backend or for testing.
     pub(crate) fn set_scale_factor(&self, factor: f32) {
-        self.pinned_fields.scale_factor.set(factor)
+        if !self.pinned_fields.scale_factor.is_constant() {
+            self.pinned_fields.scale_factor.set(factor)
+        }
+    }
+
+    /// Sets the scale factor for the window.
+    /// From that point on, the scale factor is constant and cannot be changed anymore.
+    pub fn set_const_scale_factor(&self, factor: f32) {
+        if !self.pinned_fields.scale_factor.is_constant() {
+            self.pinned_fields.scale_factor.set(factor);
+            self.pinned_fields.scale_factor.set_constant();
+        }
     }
 
     /// Reads the global property `TextInputInterface.text-input-focused`
@@ -1685,12 +1696,12 @@ pub mod ffi {
 
     /// Sets the window scale factor, merely for testing purposes.
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_set_scale_factor(
+    pub unsafe extern "C" fn slint_windowrc_set_const_scale_factor(
         handle: *const WindowAdapterRcOpaque,
         value: f32,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).set_scale_factor(value)
+        WindowInner::from_pub(window_adapter.window()).set_const_scale_factor(value)
     }
 
     /// Returns the text-input-focused property value.
