@@ -182,13 +182,32 @@ jobs:
               timeout-minutes: 5
               run: |
                 echo "Attempting to launch ${{ matrix.bundle_id }}..."
-                xcrun simctl launch booted "${{ matrix.bundle_id }}" || {
-                  echo "Launch failed! Checking simulator logs..."
-                  xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"'
-                  exit 1
-                }
-                echo "App launched successfully"
-                sleep 5
+                # Retry loop to wait for FrontBoard to register the app
+                MAX_ATTEMPTS=10
+                ATTEMPT=1
+                while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+                  echo "Launch attempt $ATTEMPT of $MAX_ATTEMPTS..."
+                  if xcrun simctl launch booted "${{ matrix.bundle_id }}" 2>&1 | tee launch_output.txt; then
+                    echo "App launched successfully on attempt $ATTEMPT"
+                    sleep 5
+                    exit 0
+                  fi
+
+                  if grep -q "unknown to FrontBoard" launch_output.txt; then
+                    echo "FrontBoard hasn't registered app yet, waiting 2 seconds..."
+                    sleep 2
+                    ATTEMPT=$((ATTEMPT + 1))
+                  else
+                    echo "Launch failed with a different error:"
+                    cat launch_output.txt
+                    echo "Checking simulator logs..."
+                    xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"' || true
+                    exit 1
+                  fi
+                done
+
+                echo "Failed to launch after $MAX_ATTEMPTS attempts"
+                exit 1
             - name: "Screenshot"
               run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
             - name: Upload Screenshot Artifact
