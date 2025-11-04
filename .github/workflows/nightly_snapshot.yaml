@@ -318,6 +318,17 @@ jobs:
             - uses: actions/download-artifact@v6
               with:
                   name: docs
+                  path: .
+            - name: Debug - List downloaded docs structure
+              run: |
+                echo "=== Workspace root ==="
+                ls -la
+                echo "=== target directory ==="
+                ls -la target/ || echo "target/ does not exist"
+                echo "=== target/cppdocs ==="
+                ls -la target/cppdocs/ || echo "target/cppdocs does not exist"
+                echo "=== target/cppdocs/html ==="
+                ls -la target/cppdocs/html/ || echo "target/cppdocs/html does not exist"
             - uses: actions/download-artifact@v6
               with:
                   name: slintpad
