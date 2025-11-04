@@ -266,8 +266,8 @@ pub struct ConicGradientBrush(SharedVector<GradientStop>);
 impl ConicGradientBrush {
     /// Creates a new conic gradient with the provided starting angle and color stops.
     ///
-    /// The `from_angle` parameter is in normalized form (0.0 = 0°, 1.0 = 360°), corresponding
-    /// to CSS's `from <angle>` syntax. It rotates the entire gradient clockwise.
+    /// The `from_angle` parameter is specified in degrees, corresponding to CSS's `from <angle>` syntax.
+    /// It rotates the entire gradient clockwise.
     pub fn new(from_angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let mut stops: alloc::vec::Vec<_> = stops.into_iter().collect();
 
@@ -319,8 +319,8 @@ impl ConicGradientBrush {
             }
         }
 
-        // Apply from_angle rotation
-        let normalized_from_angle = from_angle - from_angle.floor();
+        // Apply from_angle rotation (convert degrees to normalized 0-1 range)
+        let normalized_from_angle = (from_angle / 360.0) - (from_angle / 360.0).floor();
         if normalized_from_angle.abs() > f32::EPSILON {
             // Step 1: Apply rotation by adding from_angle and wrapping to [0, 1) range
             stops = stops
@@ -380,7 +380,7 @@ impl ConicGradientBrush {
         // The gradient's first stop is a fake stop to store the angle (in degrees)
         encoded_angle_and_stops.push(GradientStop {
             color: Default::default(),
-            position: from_angle * 360.0,
+            position: from_angle,
         });
         encoded_angle_and_stops.extend(stops.into_iter());
         Self(encoded_angle_and_stops)
@@ -425,7 +425,7 @@ pub extern "C" fn slint_conic_gradient_new(
         // SAFETY: stops_ptr is expected to point to valid array of GradientStop with stops_len elements
         unsafe { core::slice::from_raw_parts(stops_ptr, stops_len) }
     };
-    ConicGradientBrush::new(angle_degrees / 360.0, stops.iter().copied())
+    ConicGradientBrush::new(angle_degrees, stops.iter().copied())
 }
 
 /// GradientStop describes a single color stop in a gradient. The colors between multiple

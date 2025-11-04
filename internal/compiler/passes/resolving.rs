@@ -717,7 +717,7 @@ impl Expression {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
             GradKind::Radial => Expression::RadialGradient { stops },
             GradKind::Conic { from_angle } => {
-                // Normalize angles to 0-1 range by dividing by 360deg
+                // Normalize stop angles to 0-1 range by dividing by 360deg
                 let normalized_stops = stops
                     .into_iter()
                     .map(|(color, angle_expr)| {
@@ -732,14 +732,11 @@ impl Expression {
                     })
                     .collect();
 
-                let normalized_from_angle = Box::new(Expression::BinaryExpression {
-                    lhs: from_angle,
-                    rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
-                    op: '/',
-                });
+                // Convert from_angle to degrees (don't normalize to 0-1)
+                let from_angle_degrees = from_angle.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
 
                 Expression::ConicGradient {
-                    from_angle: normalized_from_angle,
+                    from_angle: Box::new(from_angle_degrees),
                     stops: normalized_stops,
                 }
             }

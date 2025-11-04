@@ -155,7 +155,7 @@ pub fn create_brush(
             i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)),
         ),
         ui::BrushKind::Conic => slint::Brush::ConicGradient(
-            i_slint_core::graphics::ConicGradientBrush::new(angle / 360.0, stops.drain(..)),
+            i_slint_core::graphics::ConicGradientBrush::new(angle, stops.drain(..)),
         ),
     }
 }
