@@ -166,7 +166,9 @@ jobs:
             - name: "Boot Simulator (to ensure also that xcodebuild -destination works)"
               run: |
                 xcrun simctl boot "${{ matrix.device }}"
-                sleep 10
+                echo "Waiting for simulator to be fully booted..."
+                xcrun simctl bootstatus booted -b
+                echo "Simulator is ready"
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
               working-directory: ${{ matrix.demo }}
             - name: "Install"
@@ -174,9 +176,18 @@ jobs:
                 APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
                 echo "Found app bundle at $APP_PATH"
                 xcrun simctl install booted "$APP_PATH"
+                echo "Verifying installation..."
+                xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
             - name: "Launch"
+              timeout-minutes: 3
               run: |
-                xcrun simctl launch booted "${{ matrix.bundle_id }}"
+                echo "Attempting to launch ${{ matrix.bundle_id }}..."
+                xcrun simctl launch booted "${{ matrix.bundle_id }}" || {
+                  echo "Launch failed! Checking simulator logs..."
+                  xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"'
+                  exit 1
+                }
+                echo "App launched successfully"
                 sleep 5
             - name: "Screenshot"
               run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
