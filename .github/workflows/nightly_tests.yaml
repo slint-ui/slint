@@ -9,135 +9,135 @@ on:
     workflow_call:
 
 jobs:
-    # qa-esp-idf:
-    #     strategy:
-    #       matrix:
-    #         esp-idf-target:
-    #           - release-v5.5
-    #     runs-on: ubuntu-22.04
-    #     container: espressif/idf:${{ matrix.esp-idf-target }}
-    #     steps:
-    #         - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
-    #           run: |
-    #               . ${IDF_PATH}/export.sh
-    #               cd $IDF_PYTHON_ENV_PATH
-    #               bin/pip install pydantic==2.11.10
-    #         - uses: actions/checkout@v5
-    #         - uses: dtolnay/rust-toolchain@stable
-    #         - uses: esp-rs/xtensa-toolchain@v1.6
-    #           with:
-    #               default: true
-    #               buildtargets: esp32
-    #               ldproxy: false
-    #         - uses: Swatinem/rust-cache@v2
-    #         - name: Build and Test Printer demo
-    #           shell: bash
-    #           working-directory: demos/printerdemo_mcu/esp-idf
-    #           run: |
-    #               . ${IDF_PATH}/export.sh
-    #               idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
-    #         - name: Build and Test Carousel example s3 box
-    #           shell: bash
-    #           working-directory: examples/carousel/esp-idf/s3-box
-    #           run: |
-    #               . ${IDF_PATH}/export.sh
-    #               idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+    qa-esp-idf:
+        strategy:
+          matrix:
+            esp-idf-target:
+              - release-v5.5
+        runs-on: ubuntu-22.04
+        container: espressif/idf:${{ matrix.esp-idf-target }}
+        steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
+            - uses: actions/checkout@v5
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: esp-rs/xtensa-toolchain@v1.6
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+            - uses: Swatinem/rust-cache@v2
+            - name: Build and Test Printer demo
+              shell: bash
+              working-directory: demos/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+            - name: Build and Test Carousel example s3 box
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-box
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
 
-    # qa-tree-sitter-latest:
-    #     uses: ./.github/workflows/tree_sitter.yaml
-    #     with:
-    #       latest: true
+    qa-tree-sitter-latest:
+        uses: ./.github/workflows/tree_sitter.yaml
+        with:
+          latest: true
 
-    # qa-yocto-build:
-    #     strategy:
-    #         matrix:
-    #             include:
-    #                 - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
-    #                   env_setup: environment-setup-cortexa57-poky-linux
-    #                   target: aarch64-unknown-linux-gnu
-    #                 - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
-    #                   env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
-    #                   target: armv7-unknown-linux-gnueabihf
-    #     runs-on: ubuntu-22.04
-    #     steps:
-    #         - uses: actions/checkout@v5
-    #         - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
-    #           run: |
-    #               cargo update -p ring --precise 0.17.9
-    #         - name: Fetch Yocto SDK
-    #           run: |
-    #               # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
-    #               wget -O sdk.sh ${{ matrix.sdk_url }}
-    #               chmod +x sdk.sh
-    #               ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
-    #               rm -f sdk.sh
-    #         - name: Install Rust
-    #           uses: dtolnay/rust-toolchain@stable
-    #           with:
-    #               toolchain: stable
-    #               target: ${{ matrix.target }}
-    #         - name: C++ Build
-    #           run: |
-    #               . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
-    #               # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
-    #               # f5c3908b7ec5131b7b19ff642b5975660c7484f8
-    #               export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
-    #               mkdir ${{ runner.workspace }}/cppbuild
-    #               cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
-    #               cmake --build ${{ runner.workspace }}/cppbuild
+    qa-yocto-build:
+        strategy:
+            matrix:
+                include:
+                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa57-poky-linux
+                      target: aarch64-unknown-linux-gnu
+                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+                      target: armv7-unknown-linux-gnueabihf
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v5
+            - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
+              run: |
+                  cargo update -p ring --precise 0.17.9
+            - name: Fetch Yocto SDK
+              run: |
+                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+                  wget -O sdk.sh ${{ matrix.sdk_url }}
+                  chmod +x sdk.sh
+                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+                  rm -f sdk.sh
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: stable
+                  target: ${{ matrix.target }}
+            - name: C++ Build
+              run: |
+                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  mkdir ${{ runner.workspace }}/cppbuild
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake --build ${{ runner.workspace }}/cppbuild
 
-    # mcu_zephyr:
-    #     strategy:
-    #         matrix:
-    #             include:
-    #                 - board: native_sim/native/64
-    #                   toolchain: nightly
-    #                   target: x86_64-unknown-linux-gnu
-    #                   extra-cmake-args: ''
-    #                 - board: mimxrt1170_evk@B/mimxrt1176/cm7
-    #                   toolchain: stable
-    #                   target: thumbv7em-none-eabi
-    #                   extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
-    #         fail-fast: false
-    #     runs-on: ubuntu-22.04
-    #     steps:
-    #       - uses: actions/checkout@v5
-    #         with:
-    #             path: slint
-    #       - name: Install linux dependencies, including Zephyr dependencies
-    #         uses: ./slint/.github/actions/install-linux-dependencies
-    #         with:
-    #             extra-packages: |
-    #                 git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
-    #       - uses: ./slint/.github/actions/setup-rust
-    #         with:
-    #             toolchain: ${{matrix.toolchain}}
-    #             components: rust-src
-    #             target: ${{matrix.target}}
-    #       - name: Setup Zephyr project
-    #         uses: zephyrproject-rtos/action-zephyr-setup@v1.0.9
-    #         with:
-    #             app-path: slint
-    #             manifest-file-name: demos/printerdemo/zephyr/west.yaml
-    #             sdk-version: 0.16.8
-    #       - name: Export the Zephyr CMake package
-    #         run: west zephyr-export
-    #       - name: Build for ${{matrix.board}}
-    #         run: |
-    #             west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+    mcu_zephyr:
+        strategy:
+            matrix:
+                include:
+                    - board: native_sim/native/64
+                      toolchain: nightly
+                      target: x86_64-unknown-linux-gnu
+                      extra-cmake-args: ''
+                    - board: mimxrt1170_evk@B/mimxrt1176/cm7
+                      toolchain: stable
+                      target: thumbv7em-none-eabi
+                      extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
+            fail-fast: false
+        runs-on: ubuntu-22.04
+        steps:
+          - uses: actions/checkout@v5
+            with:
+                path: slint
+          - name: Install linux dependencies, including Zephyr dependencies
+            uses: ./slint/.github/actions/install-linux-dependencies
+            with:
+                extra-packages: |
+                    git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          - uses: ./slint/.github/actions/setup-rust
+            with:
+                toolchain: ${{matrix.toolchain}}
+                components: rust-src
+                target: ${{matrix.target}}
+          - name: Setup Zephyr project
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.9
+            with:
+                app-path: slint
+                manifest-file-name: demos/printerdemo/zephyr/west.yaml
+                sdk-version: 0.16.8
+          - name: Export the Zephyr CMake package
+            run: west zephyr-export
+          - name: Build for ${{matrix.board}}
+            run: |
+                west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
 
-    # uefi-demo:
-    #     env:
-    #         CARGO_PROFILE_DEV_DEBUG: 0
-    #     runs-on: ubuntu-22.04
-    #     steps:
-    #         - uses: actions/checkout@v5
-    #         - uses: ./.github/actions/setup-rust
-    #           with:
-    #               toolchain: stable
-    #               target: x86_64-unknown-uefi
-    #         - name: Check
-    #           run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
+    uefi-demo:
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: x86_64-unknown-uefi
+            - name: Check
+              run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
 
     ios:
         strategy:
@@ -198,34 +198,34 @@ jobs:
                 path: ${{ matrix.scheme }}.png
 
 
-    # bevy_example:
-    #     strategy:
-    #         matrix:
-    #             os: [ubuntu-22.04, macos-14, windows-2022]
-    #     runs-on: ${{ matrix.os }}
-    #     steps:
-    #         - uses: actions/checkout@v5
-    #         - uses: ./.github/actions/setup-rust
-    #         - uses: ./.github/actions/install-linux-dependencies
-    #         - uses: ./.github/actions/install-skia-dependencies
-    #         - uses: ilammy/msvc-dev-cmd@v1
-    #         - name: Build Bevy Example
-    #           run: cargo build
-    #           working-directory: examples/bevy
+    bevy_example:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/setup-rust
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Build Bevy Example
+              run: cargo build
+              working-directory: examples/bevy
 
-    # android_wgpu:
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #         - uses: actions/checkout@v5
-    #         - name: Install Android API level 30
-    #           run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-    #         - uses: dtolnay/rust-toolchain@stable
-    #         - name: Install cargo-apk
-    #           run: cargo install cargo-apk
-    #         - uses: ./.github/actions/setup-rust
-    #           with:
-    #               target: aarch64-linux-android
-    #         - uses: ./.github/actions/install-linux-dependencies
-    #         - uses: ./.github/actions/install-skia-dependencies
-    #         - name: Build wgpu_texture demo
-    #           run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
+    android_wgpu:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - uses: dtolnay/rust-toolchain@stable
+            - name: Install cargo-apk
+              run: cargo install cargo-apk
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - name: Build wgpu_texture demo
+              run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
