@@ -9,6 +9,9 @@ on:
   push:
     branches: [master, "feature/*"]
   workflow_dispatch:
+  schedule:
+    # Run daily before the work day to warm caches
+    - cron: '0 5 * * *'
 
 permissions:
   contents: read
