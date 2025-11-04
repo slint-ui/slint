@@ -167,6 +167,7 @@ fn generate_public_component(
         let p = p.to_string_lossy();
         quote!((#n.to_string(), #p.into()))
     });
+    let translation_domain = compiler_config.translation_domain.iter();
     let style = compiler_config.style.iter();
 
     quote!(
@@ -178,6 +179,7 @@ fn generate_public_component(
                 compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
                 compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
                 #(compiler.set_style(#style.to_string());)*
+                #(compiler.set_translation_domain(#translation_domain.to_string());)*
                 let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), #component_name.into())?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
