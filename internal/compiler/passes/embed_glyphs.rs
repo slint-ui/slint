@@ -48,7 +48,7 @@ pub fn embed_glyphs<'a>(
     use crate::diagnostics::Spanned;
 
     let generic_diag_location = doc.node.as_ref().map(|n| n.to_source_location());
-    let scale_factor = compiler_config.const_scale_factor;
+    let scale_factor = compiler_config.const_scale_factor.unwrap_or(1.);
 
     characters_seen.extend(
         ('a'..='z')
@@ -62,7 +62,7 @@ pub fn embed_glyphs<'a>(
     if let Ok(sizes_str) = std::env::var("SLINT_FONT_SIZES") {
         for custom_size_str in sizes_str.split(',') {
             let custom_size = if let Ok(custom_size) = custom_size_str
-                .parse::<f64>()
+                .parse::<f32>()
                 .map(|size_as_float| (size_as_float * scale_factor) as i16)
             {
                 custom_size

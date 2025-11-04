@@ -6,7 +6,6 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
-use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::io::BufWriter;
@@ -769,11 +768,9 @@ pub fn generate(
         "   auto &window = self->m_window.emplace(slint::private_api::WindowAdapterRc());".into(),
     ];
 
-    if !compiler_config.const_scale_factor.approx_eq(&1.0) {
-        window_creation_code.push(format!(
-            "window.dispatch_scale_factor_change_event({});",
-            compiler_config.const_scale_factor
-        ));
+    if let Some(scale_factor) = compiler_config.const_scale_factor {
+        window_creation_code
+            .push(format!("window.window_handle().set_const_scale_factor({scale_factor});"));
     }
 
     window_creation_code.extend([

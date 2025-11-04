@@ -82,7 +82,10 @@ public:
     bool is_visible() const { return slint_windowrc_is_visible(&inner); }
 
     float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
-    void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
+    void set_const_scale_factor(float value) const
+    {
+        slint_windowrc_set_const_scale_factor(&inner, value);
+    }
 
     cbindgen_private::ColorScheme color_scheme() const
     {

@@ -716,6 +716,16 @@ impl PropertyHandle {
             }
         }
     }
+
+    fn is_constant(&self) -> bool {
+        let dependencies = self.dependencies();
+        core::ptr::eq(
+            // Safety: dependencies is a valid pointer to a DependencyListHead which is a Cell<usize> internally
+            // and usize can be casted to a pointer
+            unsafe { *(dependencies as *mut *const u32) },
+            (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+        )
+    }
 }
 
 impl Drop for PropertyHandle {
@@ -987,6 +997,11 @@ impl<T: Clone> Property<T> {
     /// Mark that this property will never be modified again and that no tracking should be done
     pub fn set_constant(&self) {
         self.handle.set_constant();
+    }
+
+    /// Returns true if set_constant was called on this property
+    pub fn is_constant(&self) -> bool {
+        self.handle.is_constant()
     }
 }
 

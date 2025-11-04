@@ -289,7 +289,9 @@ impl BuiltinFunction {
     /// It is const if the return value only depends on its argument and has no side effect
     fn is_const(&self, global_analysis: Option<&crate::passes::GlobalAnalysis>) -> bool {
         match self {
-            BuiltinFunction::GetWindowScaleFactor => false,
+            BuiltinFunction::GetWindowScaleFactor => {
+                global_analysis.is_some_and(|x| x.const_scale_factor.is_some())
+            }
             BuiltinFunction::GetWindowDefaultFontSize => {
                 global_analysis.is_some_and(|x| x.default_font_size.is_const())
             }

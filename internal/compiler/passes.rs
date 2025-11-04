@@ -236,7 +236,7 @@ pub async fn run_passes(
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,
-        type_loader.compiler_config.const_scale_factor,
+        type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
         diag,
     )
@@ -265,15 +265,12 @@ pub async fn run_passes(
         crate::EmbedResourcesKind::EmbedTextures => {
             let mut characters_seen = std::collections::HashSet::new();
 
+            let sf = type_loader.compiler_config.const_scale_factor.unwrap_or(1.) as f64;
+
             // Include at least the default font sizes used in the MCU backend
-            let mut font_pixel_sizes =
-                vec![(12. * type_loader.compiler_config.const_scale_factor) as i16];
+            let mut font_pixel_sizes = vec![(12. * sf) as i16];
             doc.visit_all_used_components(|component| {
-                embed_glyphs::collect_font_sizes_used(
-                    component,
-                    type_loader.compiler_config.const_scale_factor,
-                    &mut font_pixel_sizes,
-                );
+                embed_glyphs::collect_font_sizes_used(component, sf, &mut font_pixel_sizes);
                 embed_glyphs::scan_string_literals(component, &mut characters_seen);
             });
 

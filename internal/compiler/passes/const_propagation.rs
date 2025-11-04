@@ -308,6 +308,9 @@ fn try_inline_builtin_function(
     let num = |n: f64| Some(Expression::NumberLiteral(n, Unit::None));
 
     match b {
+        BuiltinFunction::GetWindowScaleFactor => {
+            ga.const_scale_factor.map(|factor| Expression::NumberLiteral(factor as _, Unit::None))
+        }
         BuiltinFunction::GetWindowDefaultFontSize => match ga.default_font_size {
             crate::passes::binding_analysis::DefaultFontSize::LogicalValue(val) => {
                 Some(Expression::NumberLiteral(val as _, Unit::Px))
@@ -483,4 +486,36 @@ export component Foo inherits Window {{
         let out1_binding = bindings.get("test").unwrap().borrow().expression.clone();
         check_expression(&out1_binding);
     }
+}
+
+#[test]
+fn test_const_scale_factor() {
+    let source = r#"
+export component Foo inherits Window {
+    out property <length> test: 10phx;
+}"#;
+
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        source.to_string(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+    let mut compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.const_scale_factor = Some(2.);
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+    assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+
+    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
+    let mut test_binding = bindings.get("test").unwrap().borrow().expression.clone();
+    if let Expression::Cast { from, to: _ } = test_binding {
+        test_binding = *from;
+    }
+    assert!(
+        matches!(test_binding, Expression::NumberLiteral(val, _) if val == 5.0),
+        "Expression should be 5.0: {test_binding:?}"
+    );
 }
