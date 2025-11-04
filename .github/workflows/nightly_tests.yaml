@@ -149,11 +149,11 @@ jobs:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
-                  device: iPad mini (A17 Pro)
+                  device: iPad Pro 13-inch (M5)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
-                  device: iPhone 16e
+                  device: iPhone 17
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v5
@@ -196,10 +196,6 @@ jobs:
             - name: "Boot Simulator"
               timeout-minutes: 5
               run: |
-                echo "=== Shutting down all simulators first ==="
-                xcrun simctl shutdown all || echo "No simulators to shutdown"
-                echo ""
-
                 echo "=== Booting simulator by UDID ==="
                 echo "Device: ${{ matrix.device }}"
                 echo "UDID: ${{ env.SIMULATOR_UDID }}"
@@ -214,14 +210,16 @@ jobs:
                 echo ""
 
                 echo "=== Simulator state after boot command ==="
-                xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}"
-                echo ""
+                SIMULATOR_STATUS=$(xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}")
+                echo "$SIMULATOR_STATUS"
 
-                echo "=== Waiting for full boot (bootstatus) ==="
-                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
-                xcrun simctl bootstatus booted -b
-                echo "End time: $(date '+%Y-%m-%d %H:%M:%S')"
-                echo "Simulator fully booted and ready"
+                if echo "$SIMULATOR_STATUS" | grep -q "(Booted)"; then
+                  echo "Simulator is booted successfully at: $(date '+%Y-%m-%d %H:%M:%S')"
+                else
+                  echo "ERROR: Simulator failed to boot properly"
+                  echo "Current status: $SIMULATOR_STATUS"
+                  exit 1
+                fi
             - name: "Install"
               run: |
                 APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
