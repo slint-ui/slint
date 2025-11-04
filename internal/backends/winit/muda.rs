@@ -119,7 +119,10 @@ impl MudaAdapter {
         menubar: Option<&vtable::VRc<MenuVTable>>,
         muda_type: MudaType,
     ) {
-        win32_set_window_redraw(winit_window, false);
+        let must_set_window_redraw = cfg!(windows) && winit_window.is_visible() == Some(true);
+        if must_set_window_redraw {
+            win32_set_window_redraw(winit_window, false);
+        }
 
         // clear the menu
         while self.menu.remove_at(0).is_some() {}
@@ -225,7 +228,9 @@ impl MudaAdapter {
             }
         }
 
-        win32_set_window_redraw(winit_window, true);
+        if must_set_window_redraw {
+            win32_set_window_redraw(winit_window, true);
+        }
     }
 
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
