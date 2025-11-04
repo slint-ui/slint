@@ -49,6 +49,13 @@ runs:
           run: |
               echo "CARGO_HOME=${{ runner.workspace }}\cargo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           shell: powershell
+        - name: Set GETTEXT_DIR environment variable or it will still be compiled from source.
+          if: runner.os == 'macOS'
+          run: |
+              GETTEXT_PATH=$(brew --prefix gettext)
+              echo "GETTEXT_DIR=${GETTEXT_PATH}" >> $GITHUB_ENV
+              echo "Installed gettext at: ${GETTEXT_PATH}"
+          shell: bash
         - name: Install Rust ${{ inputs.toolchain }}
           uses: dtolnay/rust-toolchain@stable
           with:
