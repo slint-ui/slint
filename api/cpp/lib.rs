@@ -46,7 +46,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_ensure_backend() {
+pub extern "C" fn slint_ensure_backend() {
     with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
@@ -96,7 +96,7 @@ pub unsafe extern "C" fn slint_post_event(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_quit_event_loop() {
+pub extern "C" fn slint_quit_event_loop() {
     i_slint_core::api::quit_event_loop().unwrap();
 }
 
@@ -220,13 +220,13 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 use esp_backtrace as _;
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
+pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
     #[cfg(feature = "i-slint-backend-selector")]
     i_slint_backend_selector::with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone()))
         .unwrap();
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
+pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
     i_slint_core::detect_operating_system()
 }

@@ -284,7 +284,7 @@ impl i_slint_core::platform::EventLoopProxy for CppEventLoopProxy {
 unsafe impl Send for CppEventLoopProxy {}
 unsafe impl Sync for CppEventLoopProxy {}
 
-// silent the warning depite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
+// silent the warning despite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
 #[allow(improper_ctypes_definitions)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_platform_register(
@@ -536,9 +536,7 @@ mod software_renderer {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_software_renderer_new(
-        buffer_age: u32,
-    ) -> SoftwareRendererOpaque {
+    pub extern "C" fn slint_software_renderer_new(buffer_age: u32) -> SoftwareRendererOpaque {
         let repaint_buffer_type = match buffer_age {
             0 => RepaintBufferType::NewBuffer,
             1 => RepaintBufferType::ReusedBuffer,
