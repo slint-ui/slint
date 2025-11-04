@@ -259,17 +259,27 @@ jobs:
               uses: actions/download-artifact@v5
               with:
                   name: rust-cpp-docs
-                  path: .
+                  path: downloaded-docs
+            - name: Reconstruct Rust/C++ docs paths
+              run: |
+                mkdir -p target
+                mv downloaded-docs/doc target/doc
+                mv downloaded-docs/cppdocs target/cppdocs
             - name: Download Node/Python docs
               uses: actions/download-artifact@v5
               with:
                   name: node-python-docs
-                  path: .
+                  path: downloaded-docs
+            - name: Reconstruct Node/Python docs paths
+              run: |
+                mkdir -p api/node api/python/slint
+                mv downloaded-docs/node/docs api/node/docs
+                mv downloaded-docs/python/slint/docs api/python/slint/docs
             - name: Download Astro docs
               uses: actions/download-artifact@v5
               with:
                   name: astro-docs
-                  path: docs/astro
+                  path: .
             - name: Debug - List downloaded files
               run: |
                 echo "=== Workspace root ==="
