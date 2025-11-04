@@ -270,6 +270,26 @@ jobs:
               with:
                   name: astro-docs
                   path: docs/astro
+            - name: Debug - List downloaded files
+              run: |
+                echo "=== Workspace root ==="
+                ls -la
+                echo "=== target/ ==="
+                ls -la target/ || echo "target/ does not exist"
+                echo "=== target/doc ==="
+                ls -la target/doc/ || echo "target/doc does not exist"
+                echo "=== target/cppdocs ==="
+                ls -la target/cppdocs/ || echo "target/cppdocs does not exist"
+                echo "=== target/cppdocs/html ==="
+                ls -la target/cppdocs/html/ || echo "target/cppdocs/html does not exist"
+                echo "=== api/node/docs ==="
+                ls -la api/node/docs/ || echo "api/node/docs does not exist"
+                echo "=== api/python/slint/docs ==="
+                ls -la api/python/slint/docs/ || echo "api/python/slint/docs does not exist"
+                echo "=== docs/astro/dist ==="
+                ls -la docs/astro/dist/ || echo "docs/astro/dist does not exist"
+                echo "=== docs/site ==="
+                ls -la docs/site/ || echo "docs/site does not exist"
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
               id: app-token
@@ -299,6 +319,29 @@ jobs:
                 cp website/output/release-docs.html docs/site/index.html
                 cp website/output/404.html docs/site/404.html
                 rm -rf website
+            - name: Debug - Show what will be uploaded
+              run: |
+                echo "=== Files to be uploaded in artifact ==="
+                echo "--- target/doc ---"
+                find target/doc -type f 2>/dev/null | head -20 || echo "target/doc not found or empty"
+                echo "--- target/cppdocs/html ---"
+                find target/cppdocs/html -type f 2>/dev/null | head -20 || echo "target/cppdocs/html not found or empty"
+                echo "--- docs/astro/dist ---"
+                find docs/astro/dist -type f 2>/dev/null | head -20 || echo "docs/astro/dist not found or empty"
+                echo "--- api/node/docs ---"
+                find api/node/docs -type f 2>/dev/null | head -20 || echo "api/node/docs not found or empty"
+                echo "--- api/python/slint/docs ---"
+                find api/python/slint/docs -type f 2>/dev/null | head -20 || echo "api/python/slint/docs not found or empty"
+                echo "--- docs/site ---"
+                find docs/site -type f 2>/dev/null | head -20 || echo "docs/site not found or empty"
+                echo ""
+                echo "=== Total file counts ==="
+                echo "target/doc: $(find target/doc -type f 2>/dev/null | wc -l) files"
+                echo "target/cppdocs/html: $(find target/cppdocs/html -type f 2>/dev/null | wc -l) files"
+                echo "docs/astro/dist: $(find docs/astro/dist -type f 2>/dev/null | wc -l) files"
+                echo "api/node/docs: $(find api/node/docs -type f 2>/dev/null | wc -l) files"
+                echo "api/python/slint/docs: $(find api/python/slint/docs -type f 2>/dev/null | wc -l) files"
+                echo "docs/site: $(find docs/site -type f 2>/dev/null | wc -l) files"
             - name: "Upload Docs Artifacts"
               uses: actions/upload-artifact@v5
               with:
