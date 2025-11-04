@@ -166,25 +166,43 @@ jobs:
             - name: "Boot Simulator (to ensure also that xcodebuild -destination works)"
               timeout-minutes: 5
               run: |
-                xcrun simctl list > /dev/null # workaround https://github.com/actions/runner-images/issues/12862
-                echo "=== Available simulators ==="
-                xcrun simctl list devices available | grep -i "ipad\|iphone"
+                echo "=== Shutting down all simulators first ==="
+                xcrun simctl shutdown all || echo "No simulators to shutdown"
                 echo ""
 
-                echo "=== System state before boot ==="
-                echo "Running simulators:"
-                xcrun simctl list devices | grep "(Booted)" || echo "None"
-                echo "Simulator.app processes:"
-                pgrep -fl Simulator || echo "None"
-                echo ""
+                echo "=== Finding device from iOS 26.0 runtime (default Xcode) ==="
+                # Find the device UDID from iOS 26.0 runtime to avoid ambiguity
+                # Multiple runtimes have devices with the same name, so we need the specific one
+                # Output format: "    Device Name (UDID) (Shutdown)"
+                DEVICE_LINE=$(xcrun simctl list devices available | grep -A 50 "iOS 26.0" | grep "${{ matrix.device }}" | head -n 1)
 
-                echo "=== Booting simulator ==="
+                if [ -z "$DEVICE_LINE" ]; then
+                  echo "ERROR: Could not find ${{ matrix.device }} in iOS 26.0 runtime"
+                  echo "Available iOS 26.0 devices:"
+                  xcrun simctl list devices available | grep -A 30 "iOS 26.0"
+                  exit 1
+                fi
+
+                # Extract UDID from the line (format: "    Device Name (UDID) (Shutdown)")
+                DEVICE_UDID=$(echo "$DEVICE_LINE" | sed -n 's/.*(\([A-F0-9-]\{36\}\)).*/\1/p')
+
+                if [ -z "$DEVICE_UDID" ]; then
+                  echo "ERROR: Could not extract UDID from line: $DEVICE_LINE"
+                  exit 1
+                fi
+
                 echo "Device: ${{ matrix.device }}"
-                echo "Command: xcrun simctl boot \"${{ matrix.device }}\""
+                echo "UDID: $DEVICE_UDID"
+                echo ""
+
+                # Export UDID for use in subsequent steps
+                echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
+
+                echo "=== Booting simulator by UDID ==="
                 echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
 
                 set -x  # Enable command echoing
-                xcrun simctl boot "${{ matrix.device }}"
+                xcrun simctl boot "$DEVICE_UDID"
                 BOOT_RESULT=$?
                 set +x  # Disable command echoing
 
@@ -192,7 +210,7 @@ jobs:
                 echo ""
 
                 echo "=== Simulator state after boot command ==="
-                xcrun simctl list devices | grep "${{ matrix.device }}"
+                xcrun simctl list devices | grep "$DEVICE_UDID"
                 echo ""
 
                 echo "=== Waiting for full boot (bootstatus) ==="
@@ -200,7 +218,7 @@ jobs:
                 xcrun simctl bootstatus booted -b
                 echo "End time: $(date '+%Y-%m-%d %H:%M:%S')"
                 echo "Simulator fully booted and ready"
-            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
               working-directory: ${{ matrix.demo }}
             - name: "Install"
               run: |
