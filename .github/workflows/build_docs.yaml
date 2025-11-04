@@ -298,7 +298,7 @@ jobs:
               uses: actions/download-artifact@v5
               with:
                   name: astro-docs
-                  path: .
+                  path: docs/astro/dist
             - name: Debug - Check astro docs
               run: |
                 echo "=== Looking for docs/astro/dist ==="
