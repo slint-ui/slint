@@ -323,128 +323,131 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         pixel_size,
     };
 
-    let (paragraphs, elision_info) = CONTEXTS.with_borrow_mut(|contexts| {
-        let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
-            (options.text_overflow, max_physical_width)
-        {
-            let mut layout = layout_builder.build(contexts.as_mut(), "…", None, None, None);
-            layout.break_all_lines(None);
-            let line = layout.lines().next().unwrap();
-            let item = line.items().next().unwrap();
-            let run = match item {
-                parley::layout::PositionedLayoutItem::GlyphRun(run) => Some(run),
-                _ => None,
-            }
-            .unwrap();
-            let glyph = run.positioned_glyphs().next().unwrap();
-            Some(ElisionInfo { elipsis_glyph: glyph, max_physical_width })
-        } else {
-            None
-        };
+    let paragraph_from_text =
+        |text: &str,
+         range: std::ops::Range<usize>,
+         formatting: Vec<FormattedSpan>,
+         links: Vec<(std::ops::Range<usize>, std::string::String)>| {
+            let selection = options
+                .selection
+                .as_ref()
+                .zip(options.selection_foreground_color)
+                .and_then(|(selection, selection_color)| {
+                    let sel_start = selection.start.max(range.start);
+                    let sel_end = selection.end.min(range.end);
 
-        let mut paragraphs = Vec::with_capacity(1);
-        let mut para_y = 0.0;
+                    if sel_start < sel_end {
+                        let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                        Some((local_selection, selection_color))
+                    } else {
+                        None
+                    }
+                });
 
-        let mut paragraph_from_text =
-            |text: &str,
-             range: std::ops::Range<usize>,
-             formatting: Vec<FormattedSpan>,
-             links: Vec<(std::ops::Range<usize>, std::string::String)>| {
-                let selection =
-                    options.selection.as_ref().zip(options.selection_foreground_color).and_then(
-                        |(selection, selection_color)| {
-                            let sel_start = selection.start.max(range.start);
-                            let sel_end = selection.end.min(range.end);
-
-                            if sel_start < sel_end {
-                                let local_selection =
-                                    (sel_start - range.start)..(sel_end - range.start);
-                                Some((local_selection, selection_color))
-                            } else {
-                                None
-                            }
-                        },
-                    );
-
-                let mut layout = layout_builder.build(
+            let layout = CONTEXTS.with_borrow_mut(|contexts| {
+                layout_builder.build(
                     contexts.as_mut(),
                     text,
                     selection,
                     formatting.into_iter(),
                     Some(options.link_color),
-                );
+                )
+            });
 
-                layout.break_all_lines(
-                    max_physical_width
-                        .filter(|_| options.text_wrap != TextWrap::NoWrap)
-                        .map(|width| width.get()),
-                );
-                layout.align(
-                    max_physical_width.map(|width| width.get()),
-                    match options.horizontal_align {
-                        TextHorizontalAlignment::Left => parley::Alignment::Left,
-                        TextHorizontalAlignment::Center => parley::Alignment::Center,
-                        TextHorizontalAlignment::Right => parley::Alignment::Right,
-                    },
-                    parley::AlignmentOptions::default(),
-                );
-
-                let y = PhysicalLength::new(para_y);
-                para_y += layout.height();
-                TextParagraph { range, y, layout, links }
-            };
-
-        match text {
-            Text::PlainText(text) => {
-                let paragraph_ranges = core::iter::from_fn({
-                    let mut start = 0;
-                    let mut char_it = text.char_indices().peekable();
-                    let mut eot = false;
-                    move || {
-                        while let Some((idx, ch)) = char_it.next() {
-                            if ch == '\n' {
-                                let next_range = start..idx;
-                                start = idx + ch.len_utf8();
-                                return Some(next_range);
-                            }
-                        }
-
-                        if eot {
-                            return None;
-                        }
-                        eot = true;
-                        return Some(start..text.len());
-                    }
-                });
-
-                for range in paragraph_ranges {
-                    paragraphs.push(paragraph_from_text(
-                        &text[range.clone()],
-                        range,
-                        Default::default(),
-                        Default::default(),
-                    ));
-                }
-            }
-            #[cfg(feature = "experimental-rich-text")]
-            Text::RichText(rich_text) => {
-                for paragraph in rich_text.paragraphs {
-                    paragraphs.push(paragraph_from_text(
-                        &paragraph.text,
-                        0..0,
-                        paragraph.formatting,
-                        paragraph
-                            .links
-                            .into_iter()
-                            .map(|(range, link)| (range, link.into_string()))
-                            .collect(),
-                    ));
-                }
-            }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links }
         };
 
-        (paragraphs, elision_info)
-    });
+    let mut paragraphs = Vec::with_capacity(1);
+
+    match text {
+        Text::PlainText(text) => {
+            let paragraph_ranges = core::iter::from_fn({
+                let mut start = 0;
+                let mut char_it = text.char_indices().peekable();
+                let mut eot = false;
+                move || {
+                    while let Some((idx, ch)) = char_it.next() {
+                        if ch == '\n' {
+                            let next_range = start..idx;
+                            start = idx + ch.len_utf8();
+                            return Some(next_range);
+                        }
+                    }
+
+                    if eot {
+                        return None;
+                    }
+                    eot = true;
+                    return Some(start..text.len());
+                }
+            });
+
+            for range in paragraph_ranges {
+                paragraphs.push(paragraph_from_text(
+                    &text[range.clone()],
+                    range,
+                    Default::default(),
+                    Default::default(),
+                ));
+            }
+        }
+        #[cfg(feature = "experimental-rich-text")]
+        Text::RichText(rich_text) => {
+            for paragraph in rich_text.paragraphs {
+                paragraphs.push(paragraph_from_text(
+                    &paragraph.text,
+                    0..0,
+                    paragraph.formatting,
+                    paragraph
+                        .links
+                        .into_iter()
+                        .map(|(range, link)| (range, link.into_string()))
+                        .collect(),
+                ));
+            }
+        }
+    };
+
+    let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
+        (options.text_overflow, max_physical_width)
+    {
+        let mut layout = CONTEXTS.with_borrow_mut(|contexts| {
+            layout_builder.build(contexts.as_mut(), "…", None, None, None)
+        });
+        layout.break_all_lines(None);
+        let line = layout.lines().next().unwrap();
+        let item = line.items().next().unwrap();
+        let run = match item {
+            parley::layout::PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => None,
+        }
+        .unwrap();
+        let glyph = run.positioned_glyphs().next().unwrap();
+        Some(ElisionInfo { elipsis_glyph: glyph, max_physical_width })
+    } else {
+        None
+    };
+
+    let mut para_y = 0.0;
+    for para in paragraphs.iter_mut() {
+        para.layout.break_all_lines(
+            max_physical_width
+                .filter(|_| options.text_wrap != TextWrap::NoWrap)
+                .map(|width| width.get()),
+        );
+        para.layout.align(
+            max_physical_width.map(|width| width.get()),
+            match options.horizontal_align {
+                TextHorizontalAlignment::Left => parley::Alignment::Left,
+                TextHorizontalAlignment::Center => parley::Alignment::Center,
+                TextHorizontalAlignment::Right => parley::Alignment::Right,
+            },
+            parley::AlignmentOptions::default(),
+        );
+
+        para.y = PhysicalLength::new(para_y);
+        para_y += para.layout.height();
+    }
 
     let max_width = paragraphs
         .iter()
