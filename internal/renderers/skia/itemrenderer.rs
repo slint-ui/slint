@@ -142,7 +142,7 @@ impl<'a> SkiaItemRenderer<'a> {
             }
             Brush::ConicGradient(g) => {
                 let (colors, pos): (Vec<_>, Vec<_>) =
-                    g.rotated_stops().iter().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
 
                 paint.set_dither(true);
 

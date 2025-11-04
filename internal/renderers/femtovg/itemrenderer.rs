@@ -1502,8 +1502,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let path_height = path_bounds.height();
 
                 let stops: Vec<_> = gradient
-                    .rotated_stops()
-                    .iter()
+                    .stops()
                     .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
                     .collect();
 

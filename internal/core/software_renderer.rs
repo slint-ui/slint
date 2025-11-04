@@ -1427,8 +1427,7 @@ fn process_rectangle_impl(
     } else if let Brush::ConicGradient(g) = &args.background {
         let conic_grad = ConicGradientCommand {
             stops: g
-                .rotated_stops()
-                .iter()
+                .stops()
                 .map(|s| {
                     let mut stop = *s;
                     stop.color = alpha_color(stop.color, args.alpha);
