@@ -19,7 +19,7 @@ use crate::{
     },
     renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
-    SharedString,
+    Color, SharedString,
 };
 
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -43,7 +43,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     ) -> Option<Self::PlatformBrush>;
 
     /// Returns a brush that's a solid fill of the specified color.
-    fn platform_brush_for_color(&mut self, color: &crate::Color) -> Option<Self::PlatformBrush>;
+    fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush>;
 
     /// Returns the brush to be used for stroking text.
     fn platform_text_stroke_brush(
@@ -64,7 +64,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
-    fn fill_rectange_with_color(&mut self, physical_rect: PhysicalRect, color: crate::Color) {
+    fn fill_rectange_with_color(&mut self, physical_rect: PhysicalRect, color: Color) {
         if let Some(platform_brush) = self.platform_brush_for_color(&color) {
             self.fill_rectangle(physical_rect, platform_brush);
         }
@@ -101,9 +101,9 @@ std::thread_local! {
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 struct Brush {
     /// When set, this overrides the fill/stroke to use this color for just a fill, for selection.
-    selection_fill_color: Option<crate::Color>,
+    selection_fill_color: Option<Color>,
     stroke: Option<TextStrokeStyle>,
-    link_color: Option<crate::Color>,
+    link_color: Option<Color>,
 }
 
 struct LayoutOptions {
@@ -116,8 +116,8 @@ struct LayoutOptions {
     text_wrap: TextWrap,
     text_overflow: TextOverflow,
     selection: Option<core::ops::Range<usize>>,
-    selection_foreground_color: Option<crate::Color>,
-    link_color: crate::Color,
+    selection_foreground_color: Option<Color>,
+    link_color: Color,
 }
 
 impl LayoutOptions {
@@ -223,6 +223,76 @@ impl LayoutWithoutLineBreaksBuilder {
 
         builder
     }
+
+    fn build(
+        &self,
+        contexts: &mut Contexts,
+        text: &str,
+        selection: Option<(Range<usize>, Color)>,
+        formatting: impl IntoIterator<Item = FormattedSpan>,
+        link_color: Option<Color>,
+    ) -> parley::Layout<Brush> {
+        let mut builder = self.ranged_builder(contexts, text);
+
+        if let Some((selection_range, selection_color)) = selection {
+            {
+                builder.push(
+                    parley::StyleProperty::Brush(Brush {
+                        selection_fill_color: Some(selection_color),
+                        stroke: self.stroke,
+                        link_color: None,
+                    }),
+                    selection_range,
+                );
+            }
+        }
+
+        for span in formatting {
+            match span.style {
+                Style::Emphasis => {
+                    builder.push(
+                        parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
+                        span.range,
+                    );
+                }
+                Style::Strikethrough => {
+                    builder.push(parley::StyleProperty::Strikethrough(true), span.range);
+                }
+                Style::Strong => {
+                    builder.push(
+                        parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
+                        span.range,
+                    );
+                }
+                Style::Code => {
+                    builder.push(
+                        parley::StyleProperty::FontStack(parley::style::FontStack::Single(
+                            parley::style::FontFamily::Generic(
+                                parley::style::GenericFamily::Monospace,
+                            ),
+                        )),
+                        span.range,
+                    );
+                }
+                Style::Underline => {
+                    builder.push(parley::StyleProperty::Underline(true), span.range);
+                }
+                Style::Link => {
+                    builder.push(parley::StyleProperty::Underline(true), span.range.clone());
+                    builder.push(
+                        parley::StyleProperty::Brush(Brush {
+                            selection_fill_color: None,
+                            stroke: self.stroke,
+                            link_color: link_color.clone(),
+                        }),
+                        span.range,
+                    );
+                }
+            }
+        }
+
+        builder.build(text)
+    }
 }
 
 enum Text<'a> {
@@ -257,8 +327,7 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
         let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
             (options.text_overflow, max_physical_width)
         {
-            let builder = layout_builder.ranged_builder(contexts.as_mut(), "…");
-            let mut layout = builder.build("…");
+            let mut layout = layout_builder.build(contexts.as_mut(), "…", None, None, None);
             layout.break_all_lines(None);
             let line = layout.lines().next().unwrap();
             let item = line.items().next().unwrap();
@@ -281,72 +350,29 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
              range: std::ops::Range<usize>,
              formatting: Vec<FormattedSpan>,
              links: Vec<(std::ops::Range<usize>, std::string::String)>| {
-                let mut builder = layout_builder.ranged_builder(contexts.as_mut(), text);
+                let selection =
+                    options.selection.as_ref().zip(options.selection_foreground_color).and_then(
+                        |(selection, selection_color)| {
+                            let sel_start = selection.start.max(range.start);
+                            let sel_end = selection.end.min(range.end);
 
-                if let Some((selection, selection_color)) =
-                    options.selection.as_ref().zip(options.selection_foreground_color)
-                {
-                    let sel_start = selection.start.max(range.start);
-                    let sel_end = selection.end.min(range.end);
-                    if sel_start < sel_end {
-                        let local_selection = (sel_start - range.start)..(sel_end - range.start);
-                        builder.push(
-                            parley::StyleProperty::Brush(Brush {
-                                selection_fill_color: Some(selection_color),
-                                stroke: options.stroke,
-                                link_color: None,
-                            }),
-                            local_selection,
-                        );
-                    }
-                }
+                            if sel_start < sel_end {
+                                let local_selection =
+                                    (sel_start - range.start)..(sel_end - range.start);
+                                Some((local_selection, selection_color))
+                            } else {
+                                None
+                            }
+                        },
+                    );
 
-                for span in formatting {
-                    match span.style {
-                        Style::Emphasis => {
-                            builder.push(
-                                parley::StyleProperty::FontStyle(parley::style::FontStyle::Italic),
-                                span.range,
-                            );
-                        }
-                        Style::Strikethrough => {
-                            builder.push(parley::StyleProperty::Strikethrough(true), span.range);
-                        }
-                        Style::Strong => {
-                            builder.push(
-                                parley::StyleProperty::FontWeight(parley::style::FontWeight::BOLD),
-                                span.range,
-                            );
-                        }
-                        Style::Code => {
-                            builder.push(
-                                parley::StyleProperty::FontStack(parley::style::FontStack::Single(
-                                    parley::style::FontFamily::Generic(
-                                        parley::style::GenericFamily::Monospace,
-                                    ),
-                                )),
-                                span.range,
-                            );
-                        }
-                        Style::Underline => {
-                            builder.push(parley::StyleProperty::Underline(true), span.range);
-                        }
-                        Style::Link => {
-                            builder
-                                .push(parley::StyleProperty::Underline(true), span.range.clone());
-                            builder.push(
-                                parley::StyleProperty::Brush(Brush {
-                                    selection_fill_color: None,
-                                    stroke: options.stroke,
-                                    link_color: Some(options.link_color),
-                                }),
-                                span.range,
-                            );
-                        }
-                    }
-                }
-
-                let mut layout = builder.build(text);
+                let mut layout = layout_builder.build(
+                    contexts.as_mut(),
+                    text,
+                    selection,
+                    formatting.into_iter(),
+                    Some(options.link_color),
+                );
 
                 layout.break_all_lines(
                     max_physical_width
