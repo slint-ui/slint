@@ -156,6 +156,20 @@ struct LayoutWithoutLineBreaksBuilder {
 }
 
 impl LayoutWithoutLineBreaksBuilder {
+    fn new(
+        font_request: Option<FontRequest>,
+        text_wrap: TextWrap,
+        stroke: Option<TextStrokeStyle>,
+        scale_factor: ScaleFactor,
+    ) -> Self {
+        let pixel_size = font_request
+            .as_ref()
+            .and_then(|font_request| font_request.pixel_size)
+            .unwrap_or(DEFAULT_FONT_SIZE);
+
+        Self { font_request, text_wrap, stroke, scale_factor, pixel_size }
+    }
+
     fn ranged_builder<'a>(
         &self,
         contexts: &'a mut Contexts,
@@ -310,19 +324,13 @@ fn layout(text: Text, scale_factor: ScaleFactor, mut options: LayoutOptions) -> 
 
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
-    let pixel_size = options
-        .font_request
-        .as_ref()
-        .and_then(|font_request| font_request.pixel_size)
-        .unwrap_or(DEFAULT_FONT_SIZE);
 
-    let layout_builder = LayoutWithoutLineBreaksBuilder {
-        font_request: options.font_request,
-        text_wrap: options.text_wrap,
-        stroke: options.stroke,
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        options.font_request,
+        options.text_wrap,
+        options.stroke,
         scale_factor,
-        pixel_size,
-    };
+    );
 
     let paragraph_from_text =
         |text: &str,
