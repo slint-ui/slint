@@ -288,7 +288,7 @@ impl ConicGradientBrush {
                 // Interpolate between the stop below 0 and the stop above 0
                 // Example: -10deg and 10deg → interpolate at 0deg
                 let t = (0.0 - below.position) / (above.position - below.position);
-                let color_at_0 = Self::interpolate_color(below.color, above.color, t);
+                let color_at_0 = Self::interpolate_color(&below.color, &above.color, t);
                 stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
             } else if let Some(above) = stop_above_0 {
                 // Only stops above 0, use the first stop's color
@@ -307,7 +307,7 @@ impl ConicGradientBrush {
                 // Interpolate between the stop below 1 and the stop above 1
                 // Example: 350deg and 370deg → interpolate at 360deg
                 let t = (1.0 - below.position) / (above.position - below.position);
-                let color_at_1 = Self::interpolate_color(below.color, above.color, t);
+                let color_at_1 = Self::interpolate_color(&below.color, &above.color, t);
                 stops.push(GradientStop { position: 1.0, color: color_at_1 });
             } else if let Some(below) = stop_below_1 {
                 // Only stops below 1, use the last stop's color
@@ -364,7 +364,7 @@ impl ConicGradientBrush {
                     let gap = 1.0 - last.position + first.position;
                     let color_at_0 = if gap > f32::EPSILON {
                         let t = (1.0 - last.position) / gap;
-                        Self::interpolate_color(last.color, first.color, t)
+                        Self::interpolate_color(&last.color, &first.color, t)
                     } else {
                         last.color
                     };
@@ -404,16 +404,45 @@ impl ConicGradientBrush {
         self.0.iter().skip(1)
     }
 
-    /// Helper: Linearly interpolate between two colors
-    fn interpolate_color(c1: Color, c2: Color, t: f32) -> Color {
+    /// Helper: Linearly interpolate between two colors using premultiplied alpha.
+    ///
+    /// This is used for interpolating gradient boundary colors in CSS-style gradients.
+    /// We cannot use Color::mix() here because it implements Sass color mixing algorithm,
+    /// which is different from CSS gradient color interpolation.
+    ///
+    /// CSS gradients interpolate in premultiplied RGBA space:
+    /// https://www.w3.org/TR/css-color-4/#interpolation-alpha
+    fn interpolate_color(c1: &Color, c2: &Color, factor: f32) -> Color {
         let argb1 = c1.to_argb_u8();
         let argb2 = c2.to_argb_u8();
-        Color::from_argb_u8(
-            ((1.0 - t) * argb1.alpha as f32 + t * argb2.alpha as f32) as u8,
-            ((1.0 - t) * argb1.red as f32 + t * argb2.red as f32) as u8,
-            ((1.0 - t) * argb1.green as f32 + t * argb2.green as f32) as u8,
-            ((1.0 - t) * argb1.blue as f32 + t * argb2.blue as f32) as u8,
-        )
+
+        // Convert to premultiplied alpha
+        let a1 = argb1.alpha as f32 / 255.0;
+        let a2 = argb2.alpha as f32 / 255.0;
+        let r1 = argb1.red as f32 * a1;
+        let g1 = argb1.green as f32 * a1;
+        let b1 = argb1.blue as f32 * a1;
+        let r2 = argb2.red as f32 * a2;
+        let g2 = argb2.green as f32 * a2;
+        let b2 = argb2.blue as f32 * a2;
+
+        // Interpolate in premultiplied space
+        let alpha = (1.0 - factor) * a1 + factor * a2;
+        let red = (1.0 - factor) * r1 + factor * r2;
+        let green = (1.0 - factor) * g1 + factor * g2;
+        let blue = (1.0 - factor) * b1 + factor * b2;
+
+        // Convert back from premultiplied alpha
+        if alpha > 0.0 {
+            Color::from_argb_u8(
+                (alpha * 255.0) as u8,
+                (red / alpha).min(255.0) as u8,
+                (green / alpha).min(255.0) as u8,
+                (blue / alpha).min(255.0) as u8,
+            )
+        } else {
+            Color::from_argb_u8(0, 0, 0, 0)
+        }
     }
 }
 
