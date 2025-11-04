@@ -80,6 +80,9 @@ fn eval_expression(
                     slint::Color::from_argb_encoded(n as u32).into()
                 }
                 (Value::Brush(brush), langtype::Type::Color) => brush.color().into(),
+                (Value::EnumerationValue(_, val), langtype::Type::String) => {
+                    Value::String(val.into())
+                }
                 (v, _) => v,
             }
         }

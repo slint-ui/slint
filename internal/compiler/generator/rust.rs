@@ -2422,6 +2422,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::String, Type::PathData) => {
                     quote!(sp::PathData::Commands(#f))
                 }
+                (Type::Enumeration(e), Type::String) => {
+                    let cases = e.values.iter().enumerate().map(|(idx, v)| {
+                        let c = compile_expression(&Expression::EnumerationValue(EnumerationValue{ value: idx, enumeration: e.clone() }), ctx);
+                        let v = v.as_str();
+                        quote!(#c => sp::SharedString::from(#v))
+                    });
+                    quote!(match #f { #(#cases),* })
+                }
                 (_, Type::Void) => {
                     quote!({#f;})
                 }

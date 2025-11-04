@@ -1,0 +1,460 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+enum TabAction {
+    tool-select,
+    tool-line,
+    tool-rect,
+    tool-polygon,
+    tool-circle,
+    tool-arc,
+    tool-text,
+    tool-name,
+    tool-value,
+    tool-image,
+    tool-pin,
+    tool-pad-tht,
+    tool-pad-smt,
+    tool-wire,
+    tool-netlabel,
+    tool-via,
+    tool-plane,
+    tool-zone,
+    tool-hole,
+    tool-renumber-pads,
+    tool-component,
+    tool-measure,
+
+    abort,
+
+    extra-tool-1,
+    extra-tool-2,
+    extra-tool-3,
+    extra-tool-4,
+    extra-tool-5,
+    extra-tool-6,
+    extra-tool-7,
+    extra-tool-8,
+    extra-tool-9,
+    extra-tool-10,
+    extra-tool-11,
+    extra-tool-12,
+    extra-tool-13,
+    extra-tool-14,
+    extra-tool-15,
+    extra-tool-16,
+    extra-tool-17,
+    extra-tool-18,
+    extra-tool-19,
+    extra-tool-20,
+    extra-tool-21,
+    extra-tool-22,
+    extra-tool-23,
+    extra-tool-24,
+    extra-tool-25,
+    extra-tool-26,
+    extra-tool-27,
+    extra-tool-28,
+    extra-tool-29,
+    extra-tool-30,
+    extra-tool-31,
+    extra-tool-32,
+    extra-tool-33,
+    extra-tool-34,
+    extra-tool-35,
+    extra-tool-36,
+    extra-tool-37,
+    extra-tool-38,
+    extra-tool-39,
+    extra-tool-40,
+    extra-tool-41,
+    extra-tool-42,
+    extra-tool-43,
+    extra-tool-44,
+    extra-tool-45,
+    extra-tool-46,
+    extra-tool-47,
+    extra-tool-48,
+    extra-tool-49,
+    extra-tool-50,
+    extra-tool-51,
+    extra-tool-52,
+    extra-tool-53,
+    extra-tool-54,
+    extra-tool-55,
+    extra-tool-56,
+    extra-tool-57,
+    extra-tool-58,
+    extra-tool-59,
+    extra-tool-60,
+    extra-tool-61,
+    extra-tool-62,
+    extra-tool-63,
+    extra-tool-64,
+    extra-tool-65,
+    extra-tool-66,
+    extra-tool-67,
+    extra-tool-68,
+    extra-tool-69,
+    extra-tool-70,
+    extra-tool-71,
+    extra-tool-72,
+    extra-tool-73,
+    extra-tool-74,
+    extra-tool-75,
+    extra-tool-76,
+    extra-tool-77,
+    extra-tool-78,
+    extra-tool-79,
+    extra-tool-80,
+    extra-tool-81,
+    extra-tool-82,
+    extra-tool-83,
+    extra-tool-84,
+    extra-tool-85,
+    extra-tool-86,
+    extra-tool-87,
+    extra-tool-88,
+    extra-tool-89,
+    extra-tool-90,
+    extra-tool-91,
+    extra-tool-92,
+    extra-tool-93,
+    extra-tool-94,
+    extra-tool-95,
+    extra-tool-96,
+    extra-tool-97,
+    extra-tool-98,
+    extra-tool-99,
+    extra-tool-100,
+    extra-tool-101,
+    extra-tool-102,
+    extra-tool-103,
+    extra-tool-104,
+    extra-tool-105,
+    extra-tool-106,
+    extra-tool-107,
+    extra-tool-108,
+    extra-tool-109,
+    extra-tool-110,
+    extra-tool-111,
+    extra-tool-112,
+    extra-tool-113,
+    extra-tool-114,
+    extra-tool-115,
+    extra-tool-116,
+    extra-tool-117,
+    extra-tool-118,
+    extra-tool-119,
+    extra-tool-120,
+    extra-tool-121,
+    extra-tool-122,
+    extra-tool-123,
+    extra-tool-124,
+    extra-tool-125,
+    extra-tool-126,
+    extra-tool-127,
+    extra-tool-128,
+    extra-tool-129,
+    extra-tool-130,
+    extra-tool-131,
+    extra-tool-132,
+    extra-tool-133,
+    extra-tool-134,
+    extra-tool-135,
+    extra-tool-136,
+    extra-tool-137,
+    extra-tool-138,
+    extra-tool-139,
+    extra-tool-140,
+    extra-tool-141,
+    extra-tool-142,
+    extra-tool-143,
+    extra-tool-144,
+    extra-tool-145,
+    extra-tool-146,
+    extra-tool-147,
+    extra-tool-148,
+    extra-tool-149,
+    extra-tool-150,
+    extra-tool-151,
+    extra-tool-152,
+    extra-tool-153,
+    extra-tool-154,
+    extra-tool-155,
+    extra-tool-156,
+    extra-tool-157,
+    extra-tool-158,
+    extra-tool-159,
+    extra-tool-160,
+    extra-tool-161,
+    extra-tool-162,
+    extra-tool-163,
+    extra-tool-164,
+    extra-tool-165,
+    extra-tool-166,
+    extra-tool-167,
+    extra-tool-168,
+    extra-tool-169,
+    extra-tool-170,
+    extra-tool-171,
+    extra-tool-172,
+    extra-tool-173,
+    extra-tool-174,
+    extra-tool-175,
+    extra-tool-176,
+    extra-tool-177,
+    extra-tool-178,
+    extra-tool-179,
+    extra-tool-180,
+    extra-tool-181,
+    extra-tool-182,
+    extra-tool-183,
+    extra-tool-184,
+    extra-tool-185,
+    extra-tool-186,
+    extra-tool-187,
+    extra-tool-188,
+    extra-tool-189,
+    extra-tool-190,
+    extra-tool-191,
+    extra-tool-192,
+    extra-tool-193,
+    extra-tool-194,
+    extra-tool-195,
+    extra-tool-196,
+    extra-tool-197,
+    extra-tool-198,
+    extra-tool-199,
+    extra-tool-200,
+    extra-tool-201,
+    extra-tool-202,
+    extra-tool-203,
+    extra-tool-204,
+    extra-tool-205,
+    extra-tool-206,
+    extra-tool-207,
+    extra-tool-208,
+    extra-tool-209,
+    extra-tool-210,
+    extra-tool-211,
+    extra-tool-212,
+    extra-tool-213,
+    extra-tool-214,
+    extra-tool-215,
+    extra-tool-216,
+    extra-tool-217,
+    extra-tool-218,
+    extra-tool-219,
+    extra-tool-220,
+    extra-tool-221,
+    extra-tool-222,
+    extra-tool-223,
+    extra-tool-224,
+    extra-tool-225,
+    extra-tool-226,
+    extra-tool-227,
+    extra-tool-228,
+    extra-tool-229,
+    extra-tool-230,
+    extra-tool-231,
+    extra-tool-232,
+    extra-tool-233,
+    extra-tool-234,
+    extra-tool-235,
+    extra-tool-236,
+    extra-tool-237,
+    extra-tool-238,
+    extra-tool-239,
+    extra-tool-240,
+    extra-tool-241,
+    extra-tool-242,
+    extra-tool-243,
+    extra-tool-244,
+    extra-tool-245,
+    extra-tool-246,
+    extra-tool-247,
+    extra-tool-248,
+    extra-tool-249,
+    extra-tool-250,
+    extra-tool-251,
+    extra-tool-252,
+    extra-tool-253,
+    extra-tool-254,
+    extra-tool-255,
+    extra-tool-256,
+    extra-tool-257,
+    extra-tool-258,
+    extra-tool-259,
+    extra-tool-260,
+    extra-tool-261,
+    extra-tool-262,
+    extra-tool-263,
+    extra-tool-264,
+    extra-tool-265,
+    extra-tool-266,
+    extra-tool-267,
+    extra-tool-268,
+    extra-tool-269,
+    extra-tool-270,
+    extra-tool-271,
+    extra-tool-272,
+}
+
+
+enum EditorTool {
+    select,
+    line,
+    rect,
+    polygon,
+    circle,
+    arc,
+    text,
+    name,
+    value,
+    image,
+    pin,
+    pad-tht,
+    pad-smt,
+    wire,
+    netlabel,
+    via,
+    plane,
+    zone,
+    hole,
+    renumber-pads,
+    component,
+    measure,
+}
+
+
+struct Xxx {
+    tool: EditorTool,
+    f1: string,
+    f2: string,
+    f3: string,
+    f4: string,
+    f5: string,
+    f6: string,
+    f7: string,
+    f8: string,
+    f9: string,
+    f10: string,
+    f11: string,
+    f12: string,
+    f13: string,
+    f14: string,
+    f15: string,
+    f16: string,
+}
+
+global Data {
+    in-out property <[{
+        symbol-tabs: [Xxx],
+        package-tabs: [Xxx],
+        schematic-tabs: [Xxx],
+        board-2d-tabs: [Xxx],
+    }]> sections;
+}
+
+
+export component TestCase {
+    callback trigger-tab(section: int, tab: int, action: TabAction);
+    trigger-tab(section, tab, action) => {
+        debug("Trigger tab action:", section, tab, action);
+
+        if action == TabAction.tool-select {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.select;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.select;
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.select;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.select;
+        } else if action == TabAction.tool-line {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.line;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.line;
+        } else if action == TabAction.tool-rect {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.rect;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.rect;
+        } else if action == TabAction.tool-polygon {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.polygon;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.polygon;
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.polygon;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.polygon;
+        } else if action == TabAction.tool-circle {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.circle;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.circle;
+        } else if action == TabAction.tool-arc {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.arc;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.arc;
+        } else if action == TabAction.tool-text {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.text;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.text;
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.text;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.text;
+        } else if action == TabAction.tool-name {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.name;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.name;
+        } else if action == TabAction.tool-value {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.value;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.value;
+        } else if action == TabAction.tool-image {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.image;
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.image;
+        } else if action == TabAction.tool-pin {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.pin;
+        } else if action == TabAction.tool-pad-tht {
+            Data.sections[section].package-tabs[tab].tool = EditorTool.pad-tht;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.pad-tht;
+        } else if action == TabAction.tool-pad-smt {
+            Data.sections[section].package-tabs[tab].tool = EditorTool.pad-smt;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.pad-smt;
+        } else if action == TabAction.tool-wire {
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.wire;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.wire;
+        } else if action == TabAction.tool-netlabel {
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.netlabel;
+        } else if action == TabAction.tool-via {
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.via;
+        } else if action == TabAction.tool-plane {
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.plane;
+        } else if action == TabAction.tool-zone {
+            Data.sections[section].package-tabs[tab].tool = EditorTool.zone;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.zone;
+        } else if action == TabAction.tool-hole {
+            Data.sections[section].package-tabs[tab].tool = EditorTool.hole;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.hole;
+        } else if action == TabAction.tool-renumber-pads {
+            Data.sections[section].package-tabs[tab].tool = EditorTool.renumber-pads;
+        } else if action == TabAction.tool-component {
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.component;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.component;
+        } else if action == TabAction.tool-measure {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.measure;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.measure;
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.measure;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.measure;
+        } else if action == TabAction.abort {
+            Data.sections[section].symbol-tabs[tab].tool = EditorTool.select;
+            Data.sections[section].package-tabs[tab].tool = EditorTool.select;
+            Data.sections[section].schematic-tabs[tab].tool = EditorTool.select;
+            Data.sections[section].board-2d-tabs[tab].tool = EditorTool.select;
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/
