@@ -1357,7 +1357,7 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_image_size(image: &Image) -> IntSize {
+    pub extern "C" fn slint_image_size(image: &Image) -> IntSize {
         image.size()
     }
 
@@ -1390,7 +1390,7 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_image_compare_equal(image1: &Image, image2: &Image) -> bool {
+    pub extern "C" fn slint_image_compare_equal(image1: &Image, image2: &Image) -> bool {
         image1.eq(image2)
     }
 
