@@ -114,13 +114,14 @@ impl Brush {
                     GradientStop { color: s.color.brighter(factor), position: s.position }
                 })))
             }
-            Brush::ConicGradient(g) => Brush::ConicGradient(ConicGradientBrush::new(
-                0.0,
-                g.stops().map(|s| GradientStop {
-                    color: s.color.brighter(factor),
-                    position: s.position,
-                }),
-            )),
+            Brush::ConicGradient(g) => {
+                let mut new_grad = g.clone();
+                // Skip the first stop (which contains the angle), modify only color stops
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(1) {
+                    x.color = x.color.brighter(factor);
+                }
+                Brush::ConicGradient(new_grad)
+            }
         }
     }
 
@@ -140,11 +141,14 @@ impl Brush {
                 g.stops()
                     .map(|s| GradientStop { color: s.color.darker(factor), position: s.position }),
             )),
-            Brush::ConicGradient(g) => Brush::ConicGradient(ConicGradientBrush::new(
-                0.0,
-                g.stops()
-                    .map(|s| GradientStop { color: s.color.darker(factor), position: s.position }),
-            )),
+            Brush::ConicGradient(g) => {
+                let mut new_grad = g.clone();
+                // Skip the first stop (which contains the angle), modify only color stops
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(1) {
+                    x.color = x.color.darker(factor);
+                }
+                Brush::ConicGradient(new_grad)
+            }
         }
     }
 
@@ -169,13 +173,14 @@ impl Brush {
                     GradientStop { color: s.color.transparentize(amount), position: s.position }
                 })))
             }
-            Brush::ConicGradient(g) => Brush::ConicGradient(ConicGradientBrush::new(
-                0.0,
-                g.stops().map(|s| GradientStop {
-                    color: s.color.transparentize(amount),
-                    position: s.position,
-                }),
-            )),
+            Brush::ConicGradient(g) => {
+                let mut new_grad = g.clone();
+                // Skip the first stop (which contains the angle), modify only color stops
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(1) {
+                    x.color = x.color.transparentize(amount);
+                }
+                Brush::ConicGradient(new_grad)
+            }
         }
     }
 
@@ -197,13 +202,14 @@ impl Brush {
                     GradientStop { color: s.color.with_alpha(alpha), position: s.position }
                 })))
             }
-            Brush::ConicGradient(g) => Brush::ConicGradient(ConicGradientBrush::new(
-                0.0,
-                g.stops().map(|s| GradientStop {
-                    color: s.color.with_alpha(alpha),
-                    position: s.position,
-                }),
-            )),
+            Brush::ConicGradient(g) => {
+                let mut new_grad = g.clone();
+                // Skip the first stop (which contains the angle), modify only color stops
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(1) {
+                    x.color = x.color.with_alpha(alpha);
+                }
+                Brush::ConicGradient(new_grad)
+            }
         }
     }
 }
@@ -539,7 +545,7 @@ impl InterpolatedPropertyValue for Brush {
             }
             (Brush::SolidColor(col), Brush::ConicGradient(grad)) => {
                 let mut new_grad = grad.clone();
-                for x in new_grad.0.make_mut_slice().iter_mut() {
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(1) {
                     x.color = col.interpolate(&x.color, t);
                 }
                 Brush::ConicGradient(new_grad)
@@ -553,6 +559,10 @@ impl InterpolatedPropertyValue for Brush {
                 } else {
                     let mut new_grad = lhs.clone();
                     let mut iter = new_grad.0.make_mut_slice().iter_mut();
+                    {
+                        let angle = &mut iter.next().unwrap().position;
+                        *angle = angle.interpolate(&rhs.angle(), t);
+                    }
                     for s2 in rhs.stops() {
                         let s1 = iter.next().unwrap();
                         s1.color = s1.color.interpolate(&s2.color, t);
