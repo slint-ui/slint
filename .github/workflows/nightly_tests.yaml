@@ -179,7 +179,7 @@ jobs:
                 echo "Verifying installation..."
                 xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
             - name: "Launch"
-              timeout-minutes: 3
+              timeout-minutes: 5
               run: |
                 echo "Attempting to launch ${{ matrix.bundle_id }}..."
                 xcrun simctl launch booted "${{ matrix.bundle_id }}" || {
