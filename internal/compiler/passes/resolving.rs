@@ -733,7 +733,8 @@ impl Expression {
                     .collect();
 
                 // Convert from_angle to degrees (don't normalize to 0-1)
-                let from_angle_degrees = from_angle.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
+                let from_angle_degrees =
+                    from_angle.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
 
                 Expression::ConicGradient {
                     from_angle: Box::new(from_angle_degrees),
