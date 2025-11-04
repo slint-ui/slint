@@ -2,31 +2,57 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-export struct Player := {
+export struct Player {
     skill-profile: int,
 }
-export struct NewGameTeam := {
+export struct NewGameTeam {
     players: [Player],
 }
-export struct NewGameParameters := {
+export struct NewGameParameters {
     teams: [NewGameTeam],
 }
 
 
-struct StructWithArrayOfStruct := { prop: [{hello: string, world: int}], xxx: int }
+struct StructWithArrayOfStruct { prop: [{hello: string, world: int}], xxx: int }
 
-TestCase := Rectangle {
-    property <[int]> p1 : [ 12, 13 ];
-    property <[float]> p2 : [ 14, 15.5 ];
-    property <[string]> p3 : [ ];
-    property <[{a: int, b: int}]> p4 : [ { a: 1 }, { a: 42, b: 10 } ];
-    property <StructWithArrayOfStruct> p5 : { prop: [{hello: "hello"}, {world: 42.0 }]};
+export component TestCase  {
+    in-out property <[int]> p1 : [ 12, 13 ];
+    in-out property <[float]> p2 : [ 14, 15.5 ];
+    in-out property <[string]> p3 : [ ];
+    in-out property <[{a: int, b: int}]> p4 : [ { a: 1 }, { a: 42, b: 10 } ];
+    in-out property <StructWithArrayOfStruct> p5 : { prop: [{hello: "hello"}, {world: 42.0 }]};
 
-    property <NewGameParameters> p6 : { teams: [{ players: [ { skill-profile: 9 } ] }] } ;
+    in-out property <NewGameParameters> p6 : { teams: [{ players: [ { skill-profile: 9 } ] }] } ;
 }
 
 
 /*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto p1 = instance.get_p1();
+assert(p1);
+assert_eq(p1->row_count(), 2);
+assert_eq(*p1->row_data(0), 12);
+assert_eq(*p1->row_data(1), 13);
+
+auto p2 = instance.get_p2();
+assert(p2);
+assert_eq(p2->row_count(), 2);
+assert_eq(*p2->row_data(0), 14);
+assert_eq(*p2->row_data(1), 15.5);
+
+auto p6_teams = instance.get_p6().teams;
+assert(p6_teams);
+assert_eq(p6_teams->row_count(), 1);
+auto p6_players = p6_teams->row_data(0)->players;
+assert(p6_players);
+assert_eq(p6_players->row_count(), 1);
+assert_eq(p6_players->row_data(0)->skill_profile, 9);
+```
+
+
 ```js
 var instance = new slint.TestCase({});
 assert.deepEqual(Array.from(instance.p1), [12, 13]);
