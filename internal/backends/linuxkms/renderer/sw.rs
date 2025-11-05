@@ -131,7 +131,7 @@ impl TargetPixel for DumbBufferPixelXrgb888 {
     }
 }
 
-impl TargetPixel for DumbBufferPixelBgra888 {
+impl TargetPixel for DumbBufferPixelBgra8888 {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let mut x = PremultipliedRgbaColor::from(*self);
         x.blend(color);
