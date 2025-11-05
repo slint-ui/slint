@@ -18,7 +18,7 @@ We commit to publishing security updates for the last release of Slint:
 | `slint-lsp` | Language Server Protocol implementation for `.slint` files | https://crates.io/crates/slint-lsp \| https://github.com/slint-ui/slint/releases/latest |
 
 Paid license holders may be eligible for support on additional versions, depending on their specific terms of
-agreement..
+agreement.
 
 ## Reporting a Vulnerability
 
