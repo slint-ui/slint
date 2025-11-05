@@ -24,7 +24,7 @@ env:
 
 jobs:
     files-changed:
-      runs-on: ubuntu-latest
+      runs-on: warp-ubuntu-latest-x64-2x
       permissions:
         pull-requests: read
       outputs:
