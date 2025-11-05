@@ -115,7 +115,6 @@ struct LayoutOptions {
     text_overflow: TextOverflow,
     selection: Option<core::ops::Range<usize>>,
     selection_foreground_color: Option<Color>,
-    link_color: Color,
 }
 
 impl LayoutOptions {
@@ -125,6 +124,11 @@ impl LayoutOptions {
         max_height: Option<LogicalLength>,
         selection: Option<core::ops::Range<usize>>,
     ) -> Self {
+        // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
+        // If the text starts with a multi-byte character then this selection will be within
+        // that character and parley will panic. We just filter out empty selection ranges.
+        let selection = selection.filter(|selection| !selection.is_empty());
+
         let selection_foreground_color =
             selection.is_some().then(|| text_input.selection_foreground_color());
 
@@ -137,8 +141,11 @@ impl LayoutOptions {
             selection_foreground_color,
             text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
-            link_color: Default::default(),
         }
+    }
+
+    fn selection(&self) -> Option<(Range<usize>, Color)> {
+        self.selection.clone().zip(self.selection_foreground_color)
     }
 }
 
@@ -311,47 +318,31 @@ enum Text<'a> {
     RichText(RichText<'a>),
 }
 
-fn layout(
+fn create_text_paragraphs(
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
     text: Text,
-    layout_builder: LayoutWithoutLineBreaksBuilder,
-    scale_factor: ScaleFactor,
-    mut options: LayoutOptions,
-) -> Layout {
-    // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
-    // If the text starts with a multi-byte character then this selection will be within
-    // that character and parley will panic. We just filter out empty selection ranges.
-    options.selection = options.selection.filter(|selection| !selection.is_empty());
-
-    let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
-    let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
-
+    selection: Option<(Range<usize>, Color)>,
+    link_color: Color,
+) -> Vec<TextParagraph> {
     let paragraph_from_text =
         |text: &str,
          range: std::ops::Range<usize>,
          formatting: Vec<FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>| {
-            let selection = options
-                .selection
-                .as_ref()
-                .zip(options.selection_foreground_color)
-                .and_then(|(selection, selection_color)| {
-                    let sel_start = selection.start.max(range.start);
-                    let sel_end = selection.end.min(range.end);
+            let selection = selection.clone().and_then(|(selection, selection_color)| {
+                let sel_start = selection.start.max(range.start);
+                let sel_end = selection.end.min(range.end);
 
-                    if sel_start < sel_end {
-                        let local_selection = (sel_start - range.start)..(sel_end - range.start);
-                        Some((local_selection, selection_color))
-                    } else {
-                        None
-                    }
-                });
+                if sel_start < sel_end {
+                    let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                    Some((local_selection, selection_color))
+                } else {
+                    None
+                }
+            });
 
-            let layout = layout_builder.build(
-                text,
-                selection,
-                formatting.into_iter(),
-                Some(options.link_color),
-            );
+            let layout =
+                layout_builder.build(text, selection, formatting.into_iter(), Some(link_color));
 
             TextParagraph { range, y: PhysicalLength::default(), layout, links }
         };
@@ -406,6 +397,18 @@ fn layout(
             }
         }
     };
+
+    paragraphs
+}
+
+fn layout(
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    mut paragraphs: Vec<TextParagraph>,
+    scale_factor: ScaleFactor,
+    mut options: LayoutOptions,
+) -> Layout {
+    let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
+    let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
     let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
         (options.text_overflow, max_physical_width)
@@ -1232,9 +1235,12 @@ pub fn draw_text(
         scale_factor,
     );
 
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+
     let layout = layout(
-        layout_text,
-        layout_builder,
+        &layout_builder,
+        paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions {
             horizontal_align,
@@ -1245,7 +1251,6 @@ pub fn draw_text(
             text_overflow,
             selection: None,
             selection_foreground_color: None,
-            link_color: text.link_color(),
         },
     );
 
@@ -1298,9 +1303,12 @@ pub fn link_under_cursor(
     let layout_builder =
         LayoutWithoutLineBreaksBuilder::new(Some(font_request), text_wrap, None, scale_factor);
 
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+
     let layout = layout(
-        layout_text,
-        layout_builder,
+        &layout_builder,
+        paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions {
             horizontal_align,
@@ -1311,7 +1319,6 @@ pub fn link_under_cursor(
             text_overflow: text.overflow(),
             selection: None,
             selection_foreground_color: None,
-            link_color: text.link_color(),
         },
     );
 
@@ -1396,7 +1403,14 @@ pub fn draw_text_input(
         scale_factor,
     );
 
-    let layout = layout(Text::PlainText(&text), layout_builder, scale_factor, options);
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        Text::PlainText(&text),
+        options.selection(),
+        Color::default(),
+    );
+
+    let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
 
     layout.selection_geometry(min_select..max_select, |selection_rect| {
         item_renderer
@@ -1435,9 +1449,16 @@ pub fn text_size(
     let layout_builder =
         LayoutWithoutLineBreaksBuilder::new(Some(font_request), text_wrap, None, scale_factor);
 
-    let layout = layout(
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
         Text::PlainText(text.as_str()),
-        layout_builder,
+        None,
+        Color::default(),
+    );
+
+    let layout = layout(
+        &layout_builder,
+        paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions {
             max_width,
@@ -1448,7 +1469,6 @@ pub fn text_size(
             text_overflow: TextOverflow::Clip,
             selection: None,
             selection_foreground_color: None,
-            link_color: Default::default(),
         },
     );
     PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
@@ -1536,7 +1556,14 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let layout = layout(Text::PlainText(&text), layout_builder, scale_factor, options);
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        Text::PlainText(&text),
+        options.selection(),
+        Color::default(),
+    );
+
+    let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
     let byte_offset = layout.byte_offset_from_point(pos);
     let visual_representation = text_input.visual_representation(None);
     visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
@@ -1574,7 +1601,14 @@ pub fn text_input_cursor_rect_for_byte_offset(
         scale_factor,
     );
 
-    let layout = layout(Text::PlainText(&text), layout_builder, scale_factor, options);
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        Text::PlainText(&text),
+        options.selection(),
+        Color::default(),
+    );
+
+    let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
     let cursor_rect = layout
         .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
     cursor_rect / scale_factor
