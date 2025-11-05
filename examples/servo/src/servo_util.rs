@@ -16,7 +16,7 @@ use servo::{
 };
 
 use crate::{
-    WebviewLogic,
+    Palette, WebviewLogic,
     adapter::{SlintServoAdapter, upgrade_adapter},
     delegate::AppDelegate,
     rendering_context::ServoRenderingAdapter,
@@ -117,7 +117,9 @@ fn init_webview(
 
     webview.show(true);
 
-    let color_scheme = ColorScheme::Dark; // Hard coded for now
+    let app = adapter.app();
+
+    let color_scheme = app.global::<Palette>().get_color_scheme();
 
     let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
 
