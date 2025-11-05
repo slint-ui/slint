@@ -644,6 +644,22 @@ jobs:
         needs: [prepare_release]
         uses: ./.github/workflows/nightly_tests.yaml
 
+    nightly-build-and-test:
+        if: github.event.inputs.release != 'true'
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-22.04
+                      rust_version: "nightly"
+                    - os: windows-2022
+                      rust_version: "1.88"
+                    - os: macos-14
+                      rust_version: "nightly"
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: ${{ matrix.os }}
+            rust_version: ${{ matrix.rust_version }}
+
     android:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
