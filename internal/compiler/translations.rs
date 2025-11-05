@@ -415,10 +415,8 @@ mod plural_rule_parser {
                     translations: None,
                     popup_menu: None,
                 },
-                current_sub_component: None,
-                current_global: None,
+                current_scope: crate::llr::EvaluationScope::Global(0.into()),
                 generator_state: (),
-                parent: None,
                 argument_types: &[crate::langtype::Type::Int32],
             };
             crate::llr::pretty_print::DisplayExpression(

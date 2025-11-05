@@ -7,7 +7,7 @@
 
 use crate::llr::{
     Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression,
-    LocalMemberReference, MemberReference, ParentCtx,
+    LocalMemberReference, MemberReference, ParentScope,
 };
 
 pub fn count_property_use(root: &CompilationUnit) {
@@ -49,11 +49,12 @@ pub fn count_property_use(root: &CompilationUnit) {
                 visit_property(&lv.listview_width.clone().into(), ctx);
                 visit_property(&lv.listview_height.clone().into(), ctx);
 
+                let parent_ctx = ParentScope::new(ctx, Some(idx));
                 let rep_ctx = EvaluationContext::new_sub_component(
                     root,
                     r.sub_tree.root,
                     (),
-                    Some(ParentCtx::new(ctx, Some(idx))),
+                    Some(&parent_ctx),
                 );
                 visit_property(&lv.prop_y, &rep_ctx);
                 visit_property(&lv.prop_height, &rep_ctx);
@@ -96,11 +97,12 @@ pub fn count_property_use(root: &CompilationUnit) {
 
         // 10. popup x/y coordinates
         for popup in &sc.popup_windows {
+            let parent_ctx = ParentScope::new(ctx, None);
             let popup_ctx = EvaluationContext::new_sub_component(
                 root,
                 popup.item_tree.root,
                 (),
-                Some(ParentCtx::new(ctx, None)),
+                Some(&parent_ctx),
             );
             popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
         }

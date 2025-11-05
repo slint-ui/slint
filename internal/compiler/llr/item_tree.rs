@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{EvaluationContext, Expression, ParentCtx};
+use super::{EvaluationContext, Expression, ParentScope};
 use crate::langtype::{NativeClass, Type};
 use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
@@ -465,7 +465,7 @@ impl CompilationUnit {
             root: &'a CompilationUnit,
             c: SubComponentIdx,
             visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
-            parent: Option<ParentCtx<'_>>,
+            parent: Option<&ParentScope<'_>>,
         ) {
             let ctx = EvaluationContext::new_sub_component(root, c, (), parent);
             let sc = &root.sub_components[c];
@@ -475,7 +475,7 @@ impl CompilationUnit {
                     root,
                     r.sub_tree.root,
                     visitor,
-                    Some(ParentCtx::new(&ctx, Some(idx))),
+                    Some(&ParentScope::new(&ctx, Some(idx))),
                 );
             }
             for popup in &sc.popup_windows {
@@ -483,11 +483,11 @@ impl CompilationUnit {
                     root,
                     popup.item_tree.root,
                     visitor,
-                    Some(ParentCtx::new(&ctx, None)),
+                    Some(&ParentScope::new(&ctx, None)),
                 );
             }
             for menu_tree in &sc.menu_item_trees {
-                visit_component(root, menu_tree.root, visitor, Some(ParentCtx::new(&ctx, None)));
+                visit_component(root, menu_tree.root, visitor, Some(&ParentScope::new(&ctx, None)));
             }
         }
         for c in &self.used_sub_components {

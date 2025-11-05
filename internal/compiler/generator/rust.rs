@@ -16,7 +16,7 @@ use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorCla
 use crate::langtype::{Enumeration, EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext, Expression, ParentCtx as llr_ParentCtx,
+    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression, ParentScope,
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
@@ -36,7 +36,6 @@ struct RustGeneratorContext {
 }
 
 type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
-type ParentCtx<'a> = llr_ParentCtx<'a, RustGeneratorContext>;
 
 pub fn ident(ident: &str) -> proc_macro2::Ident {
     if ident.contains('-') {
@@ -323,12 +322,10 @@ fn generate_public_component(
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
-        current_sub_component: Some(llr.item_tree.root),
-        current_global: None,
+        current_scope: EvaluationScope::SubComponent(llr.item_tree.root, None),
         generator_state: RustGeneratorContext {
             global_access: quote!(_self.globals.get().unwrap()),
         },
-        parent: None,
         argument_types: &[],
     };
 
@@ -586,9 +583,9 @@ fn handle_property_init(
     ctx: &EvaluationContext,
 ) {
     let rust_property = access_local_member(prop, ctx);
-    let prop_type = ctx.local_property_ty(prop);
+    let prop_type = ctx.relative_property_ty(prop, 0);
 
-    let init_self_pin_ref = if ctx.current_global.is_some() {
+    let init_self_pin_ref = if ctx.current_global().is_some() {
         quote!(let _self = self_rc.as_ref();)
     } else {
         quote!(let _self = self_rc.as_pin_ref();)
@@ -779,7 +776,7 @@ fn public_api(
 fn generate_sub_component(
     component_idx: llr::SubComponentIdx,
     root: &llr::CompilationUnit,
-    parent_ctx: Option<ParentCtx>,
+    parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
     pinned_drop: bool,
 ) -> TokenStream {
@@ -799,13 +796,13 @@ fn generate_sub_component(
             generate_item_tree(
                 &popup.item_tree,
                 root,
-                Some(ParentCtx::new(&ctx, None)),
+                Some(&ParentScope::new(&ctx, None)),
                 None,
                 false,
             )
         })
         .chain(component.menu_item_trees.iter().map(|tree| {
-            generate_item_tree(tree, root, Some(ParentCtx::new(&ctx, None)), None, false)
+            generate_item_tree(tree, root, Some(&ParentScope::new(&ctx, None)), None, false)
         }))
         .collect::<Vec<_>>();
 
@@ -880,7 +877,7 @@ fn generate_sub_component(
         extra_components.push(generate_repeated_component(
             repeated,
             root,
-            ParentCtx::new(&ctx, Some(idx)),
+            &ParentScope::new(&ctx, Some(idx)),
         ));
 
         let idx = usize::from(idx) as u32;
@@ -1162,7 +1159,7 @@ fn generate_sub_component(
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id =
-            self::inner_component_id(parent.ctx.current_sub_component().unwrap());
+            self::inner_component_id(&ctx.compilation_unit.sub_components[parent.sub_component]);
         quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
     });
 
@@ -1618,7 +1615,7 @@ fn generate_global_getters(
 fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::CompilationUnit,
-    parent_ctx: Option<ParentCtx>,
+    parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
     is_popup_menu: bool,
 ) -> TokenStream {
@@ -1628,7 +1625,7 @@ fn generate_item_tree(
         .iter()
         .map(|parent| {
             let parent_component_id =
-                self::inner_component_id(parent.ctx.current_sub_component().unwrap());
+                self::inner_component_id(&root.sub_components[parent.sub_component]);
             quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
         })
         .collect::<Vec<_>>();
@@ -1649,17 +1646,20 @@ fn generate_item_tree(
     };
 
     let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
-            // No repeater index, this could be a PopupWindow
-            quote!(if let Some(parent_rc) = self.parent.clone().upgrade() {
-                       let parent_origin = sp::VRcMapped::origin(&parent_rc);
-                       // TODO: store popup index in ctx and set it here instead of 0?
-                       *_result = sp::ItemRc::new(parent_origin, 0).downgrade();
-                   })
-        }, |idx| {
-            let current_sub_component = parent.ctx.current_sub_component().unwrap();
-            let sub_component_offset = current_sub_component.repeated[idx].index_in_tree;
+        // No repeater index, this could be a PopupWindow
+        quote!{
+            if let Some(parent_rc) = self.parent.clone().upgrade() {
+                let parent_origin = sp::VRcMapped::origin(&parent_rc);
+                // TODO: store popup index in ctx and set it here instead of 0?
+                *_result = sp::ItemRc::new(parent_origin, 0).downgrade();
+            }
+        }
+    }, |idx| {
+        let current_sub_component = &root.sub_components[parent.sub_component];
+        let sub_component_offset = current_sub_component.repeated[idx].index_in_tree;
 
-            quote!(if let Some((parent_component, parent_index)) = self
+        quote!{
+            if let Some((parent_component, parent_index)) = self
                 .parent
                 .clone()
                 .upgrade()
@@ -1667,8 +1667,9 @@ fn generate_item_tree(
             {
                 *_result = sp::ItemRc::new(parent_component, parent_index + #sub_component_offset - 1)
                     .downgrade();
-            })
-        }));
+            }
+        }
+    }));
     let mut item_tree_array = vec![];
     let mut item_array = vec![];
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
@@ -1887,17 +1888,15 @@ fn generate_item_tree(
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
     unit: &llr::CompilationUnit,
-    parent_ctx: ParentCtx,
+    parent_ctx: &ParentScope,
 ) -> TokenStream {
     let component =
         generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop, false);
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
-        current_sub_component: Some(repeated.sub_tree.root),
-        current_global: None,
+        current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
         generator_state: RustGeneratorContext { global_access: quote!(_self) },
-        parent: Some(parent_ctx),
         argument_types: &[],
     };
 
@@ -1939,7 +1938,7 @@ fn generate_repeated_component(
         |property_index: llr::PropertyIdx| access_local_member(&property_index.into(), &ctx);
     let index_prop = repeated.index_prop.into_iter().map(access_prop);
     let set_data_expr = repeated.data_prop.into_iter().map(|property_index| {
-        let prop_type = ctx.local_property_ty(&property_index.into());
+        let prop_type = ctx.relative_property_ty(&property_index.into(), 0);
         let data_prop = access_prop(property_index);
         let value_tokens = set_primitive_property_value(prop_type, quote!(_data));
         quote!(#data_prop.set(#value_tokens);)
@@ -2007,7 +2006,7 @@ fn property_set_value_tokens(
 }
 
 /// Returns the code that can access the given property or callback
-fn access_member(reference: &llr::MemberReference, mut ctx: &EvaluationContext) -> MemberAccess {
+fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> MemberAccess {
     fn in_global(
         g: &llr::GlobalComponent,
         index: &llr::LocalMemberIndex,
@@ -2036,10 +2035,8 @@ fn access_member(reference: &llr::MemberReference, mut ctx: &EvaluationContext) 
 
             let parent_path = (*parent_level != 0).then(|| {
                 let mut path = quote!(_self.parent.upgrade());
-                ctx = ctx.parent.as_ref().unwrap().ctx;
                 for _ in 1..*parent_level {
                     path = quote!(#path.and_then(|x| x.parent.upgrade()));
-                    ctx = ctx.parent.as_ref().unwrap().ctx;
                 }
                 path
             });
@@ -2048,7 +2045,7 @@ fn access_member(reference: &llr::MemberReference, mut ctx: &EvaluationContext) 
                 llr::LocalMemberIndex::Property(property_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
                         ctx.compilation_unit,
-                        ctx.current_sub_component.unwrap(),
+                        ctx.parent_sub_component_idx(*parent_level).unwrap(),
                         &local_reference.sub_component_path,
                     );
                     let component_id = inner_component_id(sub_component);
@@ -2063,7 +2060,8 @@ fn access_member(reference: &llr::MemberReference, mut ctx: &EvaluationContext) 
                     )
                 }
                 llr::LocalMemberIndex::Function(function_index) => {
-                    let mut sub_component = ctx.current_sub_component().unwrap();
+                    let mut sub_component = &ctx.compilation_unit.sub_components
+                        [ctx.parent_sub_component_idx(*parent_level).unwrap()];
                     let mut compo_path = parent_path
                         .as_ref()
                         .map_or_else(|| quote!(_self), |_| quote!(x.as_pin_ref()));
@@ -2086,7 +2084,7 @@ fn access_member(reference: &llr::MemberReference, mut ctx: &EvaluationContext) 
                 llr::LocalMemberIndex::Native { item_index, prop_name } => {
                     let (compo_path, sub_component) = follow_sub_component_path(
                         ctx.compilation_unit,
-                        ctx.current_sub_component.unwrap(),
+                        ctx.parent_sub_component_idx(*parent_level).unwrap(),
                         &local_reference.sub_component_path,
                     );
                     let component_id = inner_component_id(sub_component);
@@ -2228,7 +2226,6 @@ fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
 fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenStream {
-    let mut ctx = ctx;
     let mut component_access_tokens = quote!(_self);
 
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
@@ -2242,11 +2239,10 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
     for _ in 0..*parent_level {
         component_access_tokens =
             quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
-        ctx = ctx.parent.as_ref().unwrap().ctx;
     }
 
-    let root = ctx.current_sub_component().unwrap();
-    let mut sub_component = root;
+    let mut sub_component =
+        &ctx.compilation_unit.sub_components[ctx.parent_sub_component_idx(*parent_level).unwrap()];
     for i in &local_reference.sub_component_path {
         let sub_component_name = ident(&sub_component.sub_components[*i].name);
         component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
@@ -2448,22 +2444,21 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
             let mut path = quote!(_self);
-            let mut ctx2 = ctx;
+            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
             let mut repeater_index = None;
             for _ in 0..=*level {
-                let x = ctx2.parent.unwrap();
-                ctx2 = x.ctx;
+                let x = par.unwrap();
+                par = x.parent;
                 repeater_index = x.repeater_index;
+                sc = x.sub_component;
                 path = quote!(#path.parent.upgrade().unwrap());
             }
             let repeater_index = repeater_index.unwrap();
-            let local_reference = ctx2.current_sub_component().unwrap().repeated[repeater_index].index_prop.unwrap().into();
+            let sub_component = &ctx.compilation_unit.sub_components[sc];
+            let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
             let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
-            let repeater = access_component_field_offset(
-                &inner_component_id(ctx2.current_sub_component().unwrap()),
-                &format_ident!("repeater{}", usize::from(repeater_index)),
-            );
+            let repeater = access_component_field_offset(&inner_component_id(sub_component), &format_ident!("repeater{}", usize::from(repeater_index)));
             quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
@@ -2814,33 +2809,35 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(popup_index), close_policy, Expression::PropertyReference(parent_ref)] =
                 arguments
             {
-                let mut parent_ctx = ctx;
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                if let llr::MemberReference::Relative { parent_level, .. } = parent_ref {
-                    for _ in 0..*parent_level {
-                        component_access_tokens = match component_access_tokens {
-                            MemberAccess::Option(token_stream) => MemberAccess::Option(
-                                quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
-                            ),
-                            MemberAccess::Direct(token_stream) => {
-                                MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                            }
-                            _ => unreachable!(),
-                        };
-                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
-                    }
+                let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {
+                    unreachable!()
+                };
+                for _ in 0..*parent_level {
+                    component_access_tokens = match component_access_tokens {
+                        MemberAccess::Option(token_stream) => MemberAccess::Option(
+                            quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
+                        ),
+                        MemberAccess::Direct(token_stream) => {
+                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
+                        }
+                        _ => unreachable!(),
+                    };
                 }
-                let current_sub_component = parent_ctx.current_sub_component().unwrap();
+
+                let current_sub_component = &ctx.compilation_unit.sub_components
+                    [ctx.parent_sub_component_idx(*parent_level).unwrap()];
                 let popup = &current_sub_component.popup_windows[*popup_index as usize];
                 let popup_window_id =
                     inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
                 let parent_component = access_item_rc(parent_ref, ctx);
 
+                let parent_ctx = ParentScope::new(ctx, None);
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
                     RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
-                    Some(ParentCtx::new(ctx, None)),
+                    Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 
@@ -2873,21 +2870,20 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =
                 arguments
             {
-                let mut parent_ctx = ctx;
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                if let llr::MemberReference::Relative { parent_level, .. } = parent_ref {
-                    for _ in 0..*parent_level {
-                        component_access_tokens = match component_access_tokens {
-                            MemberAccess::Option(token_stream) => MemberAccess::Option(
-                                quote!(#token_stream.and_then(|a| a.parent.upgrade())),
-                            ),
-                            MemberAccess::Direct(token_stream) => {
-                                MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                            }
-                            _ => unreachable!(),
-                        };
-                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
-                    }
+                let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {
+                    unreachable!()
+                };
+                for _ in 0..*parent_level {
+                    component_access_tokens = match component_access_tokens {
+                        MemberAccess::Option(token_stream) => MemberAccess::Option(
+                            quote!(#token_stream.and_then(|a| a.parent.upgrade())),
+                        ),
+                        MemberAccess::Direct(token_stream) => {
+                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
+                        }
+                        _ => unreachable!(),
+                    };
                 }
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
@@ -3677,12 +3673,10 @@ fn generate_translations(
 
     let ctx = EvaluationContext {
         compilation_unit,
-        current_sub_component: None,
-        current_global: None,
+        current_scope: EvaluationScope::Global(0.into()),
         generator_state: RustGeneratorContext {
             global_access: quote!(compile_error!("language rule can't access state")),
         },
-        parent: None,
         argument_types: &[Type::Int32],
     };
     let rules = translations.plural_rules.iter().map(|rule| {
