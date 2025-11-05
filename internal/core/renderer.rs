@@ -33,16 +33,12 @@ pub trait RendererSealed {
         font_request: crate::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
-        scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize;
 
     /// Returns the metrics of the given font.
-    fn font_metrics(
-        &self,
-        font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
-    ) -> crate::items::FontMetrics;
+    fn font_metrics(&self, font_request: crate::graphics::FontRequest)
+        -> crate::items::FontMetrics;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
@@ -53,7 +49,6 @@ pub trait RendererSealed {
         text_input: Pin<&crate::items::TextInput>,
         pos: LogicalPoint,
         font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> usize;
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
@@ -64,7 +59,6 @@ pub trait RendererSealed {
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
         font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> LogicalRect;
 
     /// Clear the caches for the items that are being removed
@@ -117,6 +111,13 @@ pub trait RendererSealed {
     }
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>);
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>>;
+
+    fn scale_factor(&self) -> Option<ScaleFactor> {
+        self.window_adapter()
+            .map(|window_adapter| ScaleFactor::new(window_adapter.window().scale_factor()))
+    }
 
     fn default_font_size(&self) -> LogicalLength;
 

@@ -20,7 +20,7 @@ use crate::input::{
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -216,10 +216,8 @@ impl ComplexText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 }
 
@@ -292,7 +290,7 @@ impl Item for MarkdownText {
                 is_touch: _,
             } => {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
-                let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+                let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
                 if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
                     scale_factor,
                     self,
@@ -438,10 +436,8 @@ impl MarkdownText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 }
 
@@ -617,10 +613,8 @@ impl SimpleText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 }
 
@@ -631,16 +625,13 @@ fn text_layout_info(
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
 ) -> LayoutInfo {
-    let window_inner = WindowInner::from_pub(window_adapter.window());
     let text_string = text.text();
     let font_request = text.font_request(self_rc);
-    let scale_factor = ScaleFactor::new(window_inner.scale_factor());
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(
             font_request.clone(),
             text_string.as_str(),
             max_width,
-            scale_factor,
             text_wrap,
         )
     };
@@ -655,7 +646,7 @@ fn text_layout_info(
                 TextOverflow::Elide => implicit_size.width.min(
                     window_adapter
                         .renderer()
-                        .text_size(font_request, "…", None, scale_factor, TextWrap::NoWrap)
+                        .text_size(font_request, "…", None, TextWrap::NoWrap)
                         .width,
                 ),
                 TextOverflow::Clip => match text.wrap() {
@@ -789,7 +780,6 @@ impl Item for TextInput {
                     }
                 },
                 max_width,
-                ScaleFactor::new(window_adapter.window().scale_factor()),
                 text_wrap,
             )
         };
@@ -1477,13 +1467,7 @@ impl TextInput {
 
         let font_height = window_adapter
             .renderer()
-            .text_size(
-                self.font_request(self_rc),
-                " ",
-                None,
-                ScaleFactor::new(window_adapter.window().scale_factor()),
-                TextWrap::NoWrap,
-            )
+            .text_size(self.font_request(self_rc), " ", None, TextWrap::NoWrap)
             .height;
 
         let mut reset_preferred_x_pos = true;
@@ -2050,7 +2034,6 @@ impl TextInput {
             self,
             byte_offset,
             self.font_request(self_rc),
-            ScaleFactor::new(window_adapter.window().scale_factor()),
         )
     }
 
@@ -2064,7 +2047,6 @@ impl TextInput {
             self,
             pos,
             self.font_request(self_rc),
-            ScaleFactor::new(window_adapter.window().scale_factor()),
         )
     }
 
@@ -2224,10 +2206,8 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 
     fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {

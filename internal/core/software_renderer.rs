@@ -726,15 +726,17 @@ impl RendererSealed for SoftwareRenderer {
         font_request: crate::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
-        scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalSize::default();
+        };
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
+                sharedparley::text_size(self, font_request, text, max_width, text_wrap)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
@@ -763,8 +765,10 @@ impl RendererSealed for SoftwareRenderer {
     fn font_metrics(
         &self,
         font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> crate::items::FontMetrics {
+        let Some(scale_factor) = self.scale_factor() else {
+            return crate::items::FontMetrics::default();
+        };
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
@@ -805,18 +809,20 @@ impl RendererSealed for SoftwareRenderer {
         text_input: Pin<&crate::items::TextInput>,
         pos: LogicalPoint,
         font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> usize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return 0;
+        };
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_byte_offset_for_position(
+                    self,
                     text_input,
                     pos,
                     font_request,
-                    scale_factor,
                 )
             }
             #[cfg(feature = "software-renderer-systemfonts")]
@@ -884,18 +890,20 @@ impl RendererSealed for SoftwareRenderer {
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
         font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> LogicalRect {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalRect::default();
+        };
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_cursor_rect_for_byte_offset(
+                    self,
                     text_input,
                     byte_offset,
                     font_request,
-                    scale_factor,
                 )
             }
             #[cfg(feature = "software-renderer-systemfonts")]
@@ -1010,6 +1018,13 @@ impl RendererSealed for SoftwareRenderer {
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.partial_rendering_state.clear_cache();
+    }
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|window_adapter| window_adapter.upgrade())
     }
 
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
