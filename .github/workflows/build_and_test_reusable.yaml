@@ -6,6 +6,10 @@ name: Build and Test (Reusable)
 on:
     workflow_call:
         inputs:
+            name:
+                description: 'Name of the job'
+                required: true
+                type: string
             os:
                 description: 'Operating system to run on'
                 required: true
@@ -32,7 +36,7 @@ on:
 
 jobs:
     build_and_test:
-        name: ${{ inputs.os }} / rust ${{ inputs.rust_version }}
+        name: ${{ inputs.name }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
