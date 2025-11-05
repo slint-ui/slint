@@ -62,24 +62,24 @@ jobs:
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
+                os: [warp-ubuntu-2204-x64-8x, warp-macos-14-arm64-6x, warp-windows-latest-x64-8x]
                 rust_version: [stable, "1.88"]
                 include:
-                    - os: windows-2022
+                    - os: warp-windows-latest-x64-8x
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: macos-14
+                    - os: warp-macos-14-arm64-6x
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: windows-2022
+                    - os: warp-windows-latest-x64-8x
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: ubuntu-22.04
+                    - os: warp-ubuntu-2204-x64-8x
                       rust_version: "nightly"
                 exclude:
                     # There is only a limited amount of mac worker machine allocated and this is currently the bottleneck, so disable it
-                    - os: macos-14
+                    - os: warp-macos-14-arm64-6x
                       rust_version: "1.88"
                     # We already test 1.88 and nightly. Stable is in the middle and already covered by other jobs
-                    - os: ubuntu-22.04
+                    - os: warp-ubuntu-2204-x64-8x
                       rust_version: "stable"
 
         runs-on: ${{ matrix.os }}
@@ -112,6 +112,7 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v3
+                  cache-provider: "warpbuild"
             - name: Run tests
               run:  cargo test --verbose --all-features --workspace --timings ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
