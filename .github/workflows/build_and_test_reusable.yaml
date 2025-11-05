@@ -33,10 +33,16 @@ on:
                 required: false
                 type: boolean
                 default: true
+            timeout_minutes:
+                description: 'Timeout in minutes'
+                required: false
+                type: number
+                default: 120
 
 jobs:
     build_and_test:
         name: ${{ inputs.name }}
+        timeout-minutes: ${{ inputs.timeout_minutes }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen

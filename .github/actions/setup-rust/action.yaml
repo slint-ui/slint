@@ -71,4 +71,3 @@ runs:
           with:
               key: ${{ inputs.key }}-1
               save-if: ${{ inputs.save_if }}
-              cache: ${{ inputs.cache }}
