@@ -70,5 +70,5 @@ runs:
           if: inputs.cache == 'true'
           with:
               key: ${{ inputs.key }}-1
-              save-if: ${{ github.ref == 'refs/heads/master' }}
+              save-if: ${{ inputs.cache-provider == 'warpbuild' || github.ref == 'refs/heads/master' }}
               cache-provider: ${{ inputs.cache-provider }}
