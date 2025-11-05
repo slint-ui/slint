@@ -90,7 +90,7 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelXrgb888 {
     }
 }
 
-impl From<DumbBufferPixelBgra888> for PremultipliedRgbaColor {
+impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     #[inline]
     fn from(pixel: DumbBufferPixelBgra8888) -> Self {
         let v = pixel.0;
