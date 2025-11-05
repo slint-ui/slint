@@ -4,10 +4,10 @@
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::graphics::FontRequest;
-use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
-use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal};
+use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 
 use i_slint_core::items::TextWrap;
 use std::cell::{Cell, RefCell};
@@ -167,7 +167,6 @@ impl RendererSealed for TestingWindow {
         _font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         _max_width: Option<LogicalLength>,
-        _scale_factor: ScaleFactor,
         _text_wrap: TextWrap,
     ) -> LogicalSize {
         LogicalSize::new(text.len() as f32 * 10., 10.)
@@ -176,7 +175,6 @@ impl RendererSealed for TestingWindow {
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
-        _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
         let pixel_size = font_request.pixel_size.unwrap_or(LogicalLength::new(10.));
         i_slint_core::items::FontMetrics {
@@ -192,7 +190,6 @@ impl RendererSealed for TestingWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
         _font_request: FontRequest,
-        _scale_factor: ScaleFactor,
     ) -> usize {
         let text = text_input.text();
         if pos.y < 0. {
@@ -213,7 +210,6 @@ impl RendererSealed for TestingWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
         _font_request: FontRequest,
-        _scale_factor: ScaleFactor,
     ) -> LogicalRect {
         let text = text_input.text();
         let line = text[..byte_offset].chars().filter(|c| *c == '\n').count();
@@ -241,6 +237,10 @@ impl RendererSealed for TestingWindow {
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
         // No-op since TestingWindow is also the WindowAdapter
+    }
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        Some(WindowInner::from_pub(&self.window).window_adapter())
     }
 
     fn supports_transformations(&self) -> bool {

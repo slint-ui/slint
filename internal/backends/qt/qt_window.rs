@@ -2101,16 +2101,14 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         font_request: FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
-        scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
+        sharedparley::text_size(self, font_request, text, max_width, text_wrap)
     }
 
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
-        _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
         sharedparley::font_metrics(font_request)
     }
@@ -2120,14 +2118,8 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
         font_request: FontRequest,
-        scale_factor: ScaleFactor,
     ) -> usize {
-        sharedparley::text_input_byte_offset_for_position(
-            text_input,
-            pos,
-            font_request,
-            scale_factor,
-        )
+        sharedparley::text_input_byte_offset_for_position(self, text_input, pos, font_request)
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -2135,13 +2127,12 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
         font_request: FontRequest,
-        scale_factor: ScaleFactor,
     ) -> LogicalRect {
         sharedparley::text_input_cursor_rect_for_byte_offset(
+            self,
             text_input,
             byte_offset,
             font_request,
-            scale_factor,
         )
     }
 
@@ -2185,6 +2176,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
         // No-op because QtWindow is also the WindowAdapter
+    }
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        Some(WindowInner::from_pub(&self.window).window_adapter())
     }
 
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {

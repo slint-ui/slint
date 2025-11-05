@@ -17,6 +17,7 @@ use crate::{
         LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
         PointLengths, ScaleFactor, SizeLengths,
     },
+    renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
     SharedString,
 };
@@ -1352,12 +1353,15 @@ pub fn draw_text_input(
 }
 
 pub fn text_size(
+    renderer: &dyn RendererSealed,
     font_request: FontRequest,
     text: &str,
     max_width: Option<LogicalLength>,
-    scale_factor: ScaleFactor,
     text_wrap: TextWrap,
 ) -> LogicalSize {
+    let Some(scale_factor) = renderer.scale_factor() else {
+        return LogicalSize::default();
+    };
     let layout = layout(
         Text::PlainText(text),
         scale_factor,
@@ -1397,11 +1401,14 @@ pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
 }
 
 pub fn text_input_byte_offset_for_position(
+    renderer: &dyn RendererSealed,
     text_input: Pin<&crate::items::TextInput>,
     pos: LogicalPoint,
     font_request: FontRequest,
-    scale_factor: ScaleFactor,
 ) -> usize {
+    let Some(scale_factor) = renderer.scale_factor() else {
+        return 0;
+    };
     let pos: PhysicalPoint = pos * scale_factor;
     let text = text_input.text();
 
@@ -1428,11 +1435,14 @@ pub fn text_input_byte_offset_for_position(
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
+    renderer: &dyn RendererSealed,
     text_input: Pin<&crate::items::TextInput>,
     byte_offset: usize,
     font_request: FontRequest,
-    scale_factor: ScaleFactor,
 ) -> LogicalRect {
+    let Some(scale_factor) = renderer.scale_factor() else {
+        return LogicalRect::default();
+    };
     let text = text_input.text();
 
     let font_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
