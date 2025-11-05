@@ -480,36 +480,42 @@ pub trait TypeResolutionContext {
     }
 }
 
-pub struct ParentCtx<'a, T = ()> {
-    pub ctx: &'a EvaluationContext<'a, T>,
-    // Index of the repeater within the ctx.current_sub_component
+/// The parent context of the current context when the current context is repeated
+#[derive(Clone, Copy)]
+pub struct ParentScope<'a> {
+    /// The parent sub component
+    pub sub_component: SubComponentIdx,
+    /// Index of the repeater within the ctx.current_sub_component
     pub repeater_index: Option<RepeatedElementIdx>,
+    /// A further parent context when the parent context is itself in a repeater
+    pub parent: Option<&'a ParentScope<'a>>,
 }
 
-impl<T> Clone for ParentCtx<'_, T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T> Copy for ParentCtx<'_, T> {}
-
-impl<'a, T> ParentCtx<'a, T> {
-    pub fn new(
+impl<'a> ParentScope<'a> {
+    pub fn new<T>(
         ctx: &'a EvaluationContext<'a, T>,
         repeater_index: Option<RepeatedElementIdx>,
     ) -> Self {
-        Self { ctx, repeater_index }
+        let EvaluationScope::SubComponent(sub_component, parent) = ctx.current_scope else {
+            unreachable!()
+        };
+        Self { sub_component, repeater_index, parent }
     }
+}
+
+#[derive(Clone, Copy)]
+pub enum EvaluationScope<'a> {
+    /// The evaluation context is in a sub component, optionally with information about the repeater parent
+    SubComponent(SubComponentIdx, Option<&'a ParentScope<'a>>),
+    /// The evaluation context is in a global
+    Global(GlobalIdx),
 }
 
 #[derive(Clone)]
 pub struct EvaluationContext<'a, T = ()> {
     pub compilation_unit: &'a super::CompilationUnit,
-    pub current_sub_component: Option<SubComponentIdx>,
-    pub current_global: Option<GlobalIdx>,
+    pub current_scope: EvaluationScope<'a>,
     pub generator_state: T,
-    /// The repeater parent
-    pub parent: Option<ParentCtx<'a, T>>,
 
     /// The callback argument types
     pub argument_types: &'a [Type],
@@ -520,14 +526,12 @@ impl<'a, T> EvaluationContext<'a, T> {
         compilation_unit: &'a super::CompilationUnit,
         sub_component: SubComponentIdx,
         generator_state: T,
-        parent: Option<ParentCtx<'a, T>>,
+        parent: Option<&'a ParentScope<'a>>,
     ) -> Self {
         Self {
             compilation_unit,
-            current_sub_component: Some(sub_component),
-            current_global: None,
+            current_scope: EvaluationScope::SubComponent(sub_component, parent),
             generator_state,
-            parent,
             argument_types: &[],
         }
     }
@@ -539,10 +543,8 @@ impl<'a, T> EvaluationContext<'a, T> {
     ) -> Self {
         Self {
             compilation_unit,
-            current_sub_component: None,
-            current_global: Some(global),
+            current_scope: EvaluationScope::Global(global),
             generator_state,
-            parent: None,
             argument_types: &[],
         }
     }
@@ -602,26 +604,33 @@ impl<'a, T> EvaluationContext<'a, T> {
 
         match prop {
             MemberReference::Relative { parent_level, local_reference } => {
-                if let Some(g) = self.current_global() {
-                    let index = local_reference.reference.property().unwrap();
-                    return PropertyInfoResult {
-                        analysis: Some(&g.prop_analysis[index]),
-                        binding: g.init_values[index].as_ref().map(|b| (b, ContextMap::Identity)),
-                        animation: None,
-                        property_decl: Some(&g.properties[index]),
-                    };
+                match self.current_scope {
+                    EvaluationScope::Global(g) => {
+                        let g = &self.compilation_unit.globals[g];
+                        let index = local_reference.reference.property().unwrap();
+                        return PropertyInfoResult {
+                            analysis: Some(&g.prop_analysis[index]),
+                            binding: g.init_values[index]
+                                .as_ref()
+                                .map(|b| (b, ContextMap::Identity)),
+                            animation: None,
+                            property_decl: Some(&g.properties[index]),
+                        };
+                    }
+                    EvaluationScope::SubComponent(mut sc, mut parent) => {
+                        for _ in 0..*parent_level {
+                            let p = parent.unwrap();
+                            sc = p.sub_component;
+                            parent = p.parent;
+                        }
+                        match_in_sub_component(
+                            self.compilation_unit,
+                            &self.compilation_unit.sub_components[sc],
+                            local_reference,
+                            ContextMap::from_parent_level(*parent_level),
+                        )
+                    }
                 }
-                let mut ctx = self;
-                for _ in 0..*parent_level {
-                    ctx = ctx.parent.as_ref().unwrap().ctx;
-                }
-                let sc = ctx.current_sub_component().unwrap();
-                match_in_sub_component(
-                    ctx.compilation_unit,
-                    sc,
-                    local_reference,
-                    ContextMap::from_parent_level(*parent_level),
-                )
             }
             MemberReference::Global { global_index, member } => {
                 let g = &self.compilation_unit.globals[*global_index];
@@ -641,19 +650,38 @@ impl<'a, T> EvaluationContext<'a, T> {
     }
 
     pub fn current_sub_component(&self) -> Option<&super::SubComponent> {
-        self.current_sub_component.and_then(|i| self.compilation_unit.sub_components.get(i))
+        let EvaluationScope::SubComponent(i, _) = self.current_scope else { return None };
+        self.compilation_unit.sub_components.get(i)
     }
 
     pub fn current_global(&self) -> Option<&super::GlobalComponent> {
-        self.current_global.and_then(|i| self.compilation_unit.globals.get(i))
+        let EvaluationScope::Global(i) = self.current_scope else { return None };
+        self.compilation_unit.globals.get(i)
     }
 
-    pub fn local_property_ty(&self, local_reference: &LocalMemberReference) -> &Type {
+    pub fn parent_sub_component_idx(&self, parent: usize) -> Option<SubComponentIdx> {
+        let EvaluationScope::SubComponent(mut sc, mut par) = self.current_scope else {
+            return None;
+        };
+        for _ in 0..parent {
+            let p = par?;
+            sc = p.sub_component;
+            par = p.parent;
+        }
+        Some(sc)
+    }
+
+    pub fn relative_property_ty(
+        &self,
+        local_reference: &LocalMemberReference,
+        parent_level: usize,
+    ) -> &Type {
         if let Some(current_global) = self.current_global() {
             return &current_global.properties[local_reference.reference.property().unwrap()].ty;
         }
 
-        let mut sub_component = self.current_sub_component().unwrap();
+        let mut sub_component = &self.compilation_unit.sub_components
+            [self.parent_sub_component_idx(parent_level).unwrap()];
         for i in &local_reference.sub_component_path {
             sub_component =
                 &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
@@ -680,11 +708,7 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
     fn property_ty(&self, prop: &MemberReference) -> &Type {
         match prop {
             MemberReference::Relative { parent_level, local_reference } => {
-                let mut ctx = self;
-                for _ in 0..*parent_level {
-                    ctx = ctx.parent.as_ref().unwrap().ctx;
-                }
-                ctx.local_property_ty(local_reference)
+                self.relative_property_ty(local_reference, *parent_level)
             }
             MemberReference::Global { global_index, member } => {
                 let g = &self.compilation_unit.globals[*global_index];
@@ -790,19 +814,11 @@ impl ContextMap {
         match self {
             ContextMap::Identity => ctx.clone(),
             ContextMap::InSubElement { path, parent } => {
-                let mut ctx = ctx;
-                for _ in 0..*parent {
-                    ctx = ctx.parent.unwrap().ctx;
+                let mut sc = ctx.parent_sub_component_idx(*parent).unwrap();
+                for i in path {
+                    sc = ctx.compilation_unit.sub_components[sc].sub_components[*i].ty;
                 }
-                if path.is_empty() {
-                    ctx.clone()
-                } else {
-                    let mut e = ctx.current_sub_component.unwrap();
-                    for i in path {
-                        e = ctx.compilation_unit.sub_components[e].sub_components[*i].ty;
-                    }
-                    EvaluationContext::new_sub_component(ctx.compilation_unit, e, (), None)
-                }
+                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), None)
             }
             ContextMap::InGlobal(g) => EvaluationContext::new_global(ctx.compilation_unit, *g, ()),
         }
