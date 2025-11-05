@@ -44,6 +44,7 @@ jobs:
         name: ${{ inputs.name }}
         timeout-minutes: ${{ inputs.timeout_minutes }}
         env:
+            MACOSX_DEPLOYMENT_TARGET: "11.0"
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
