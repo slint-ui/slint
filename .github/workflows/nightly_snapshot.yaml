@@ -651,14 +651,21 @@ jobs:
                 include:
                     - os: ubuntu-22.04
                       rust_version: "nightly"
+                      cache: false
                     - os: windows-2022
                       rust_version: "1.88"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      cache: false
                     - os: macos-14
                       rust_version: "nightly"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      cache: false
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
             rust_version: ${{ matrix.rust_version }}
+            cache: ${{ matrix.cache }}
+            extra_args: ${{ matrix.extra_args }}
 
     android:
         env:

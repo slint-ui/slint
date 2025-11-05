@@ -14,14 +14,25 @@ on:
                 description: 'Rust version to use'
                 required: true
                 type: string
-            cache_provider:
-                description: 'Cache provider to use'
+            extra_args:
+                description: 'Extra arguments to pass to cargo test'
                 required: false
                 type: string
-                default: "github"
+                default: ""
+            cache:
+                description: 'Use rust-cache'
+                required: false
+                type: boolean
+                default: true
+            save_if:
+                description: 'Condition to save the cache'
+                required: false
+                type: boolean
+                default: true
 
 jobs:
     build_and_test:
+        name: ${{ inputs.os }} / rust ${{ inputs.rust_version }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
@@ -61,14 +72,14 @@ jobs:
               with:
                   toolchain: ${{ inputs.rust_version }}
                   key: x-v3
-                  cache_provider: ${{ inputs.cache_provider }}
+                  save_if: ${{ inputs.save_if }}
             - name: Run tests
-              run:  cargo test --verbose --all-features --workspace --timings --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run:  cargo test --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: cargo test --verbose --all-features --workspace --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              run: cargo test --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
               shell: bash
             - name: live-preview for rust test
               env:

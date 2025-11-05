@@ -28,10 +28,10 @@ inputs:
         description: "Enable Rust caching (default: true)"
         required: false
         default: "true"
-    cache_provider:
-        description: Specifies what to use as the backend providing cache github, buildjet, or warpbuild
+    save_if:
+        description: "Condition to save the cache"
         required: false
-        default: "github"
+        default: "true"
 
 runs:
     using: composite
@@ -70,5 +70,5 @@ runs:
           if: inputs.cache == 'true'
           with:
               key: ${{ inputs.key }}-1
-              save-if: ${{ inputs.cache-provider == 'warpbuild' || github.ref == 'refs/heads/master' }}
-              cache_provider: ${{ inputs.cache_provider }}
+              save-if: ${{ inputs.save_if }}
+              cache: ${{ inputs.cache }}
