@@ -641,6 +641,7 @@ jobs:
 
     nightly-tests:
         if: github.event.inputs.release != 'true'
+        needs: [prepare_release]
         uses: ./.github/workflows/nightly_tests.yaml
 
     android:
