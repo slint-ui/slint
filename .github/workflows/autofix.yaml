@@ -23,7 +23,7 @@ env:
 
 jobs:
     format_fix:
-        runs-on: ubuntu-24.04
+        runs-on: warp-ubuntu-latest-x64-2x
         timeout-minutes: 15
         steps:
             - uses: actions/checkout@v5
@@ -39,7 +39,7 @@ jobs:
               uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
 
     lint_typecheck:
-        runs-on: ubuntu-24.04
+        runs-on: warp-ubuntu-latest-x64-2x
         timeout-minutes: 15
         steps:
             - uses: actions/checkout@v5
