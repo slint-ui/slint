@@ -19,8 +19,8 @@ categories = ["gui", "development-tools", "no-std"]
 path = "lib.rs"
 
 [features]
-ffi = ["dep:static_assertions"]           # Expose C ABI
-libm = ["num-traits/libm", "euclid/libm"]
+ffi = ["dep:static_assertions"]                         # Expose C ABI
+libm = ["num-traits/libm", "euclid/libm", "zeno?/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
@@ -37,6 +37,7 @@ std = [
   "image-decoders",
   "svg",
   "raw-window-handle-06?/std",
+  "zeno?/std",
   "chrono/std",
   "chrono/wasmbind",
   "chrono/clock",
@@ -51,6 +52,7 @@ unsafe-single-threaded = []
 unicode = ["unicode-script", "unicode-linebreak"]
 
 software-renderer-systemfonts = ["shared-fontique", "skrifa", "fontdue", "software-renderer", "shared-parley"]
+software-renderer-path = ["dep:zeno"]
 software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]
@@ -108,6 +110,7 @@ unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 integer-sqrt = { version = "0.1.5" }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
+zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
 sys-locale = { version = "0.3.2", optional = true }
 parley = { version = "0.6.0", optional = true }
 pulldown-cmark = { version = "0.13.0", optional = true }
