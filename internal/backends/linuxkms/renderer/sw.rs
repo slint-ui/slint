@@ -63,7 +63,7 @@ struct DumbBufferPixelXrgb888(pub u32);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct DumbBufferPixelBgra888(pub u32);
+struct DumbBufferPixelBgra8888(pub u32);
 
 impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
     #[inline]
