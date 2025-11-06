@@ -113,8 +113,6 @@ struct LayoutOptions {
     vertical_align: TextVerticalAlignment,
     text_wrap: TextWrap,
     text_overflow: TextOverflow,
-    selection: Option<core::ops::Range<usize>>,
-    selection_foreground_color: Option<Color>,
 }
 
 impl LayoutOptions {
@@ -122,30 +120,15 @@ impl LayoutOptions {
         text_input: Pin<&crate::items::TextInput>,
         max_width: Option<LogicalLength>,
         max_height: Option<LogicalLength>,
-        selection: Option<core::ops::Range<usize>>,
     ) -> Self {
-        // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
-        // If the text starts with a multi-byte character then this selection will be within
-        // that character and parley will panic. We just filter out empty selection ranges.
-        let selection = selection.filter(|selection| !selection.is_empty());
-
-        let selection_foreground_color =
-            selection.is_some().then(|| text_input.selection_foreground_color());
-
         Self {
             max_width,
             max_height,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
-            selection,
-            selection_foreground_color,
             text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
         }
-    }
-
-    fn selection(&self) -> Option<(Range<usize>, Color)> {
-        self.selection.clone().zip(self.selection_foreground_color)
     }
 }
 
@@ -405,7 +388,7 @@ fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
-    mut options: LayoutOptions,
+    options: LayoutOptions,
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
@@ -1249,8 +1232,6 @@ pub fn draw_text(
             max_width: Some(max_width),
             text_wrap,
             text_overflow,
-            selection: None,
-            selection_foreground_color: None,
         },
     );
 
@@ -1317,8 +1298,6 @@ pub fn link_under_cursor(
             max_width: Some(size.width_length()),
             text_wrap,
             text_overflow: text.overflow(),
-            selection: None,
-            selection_foreground_color: None,
         },
     );
 
@@ -1371,10 +1350,18 @@ pub fn draw_text_input(
         return;
     };
 
-    let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
-        (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
+    let selection_range = if !visual_representation.preedit_range.is_empty() {
+        visual_representation.preedit_range.start..visual_representation.preedit_range.end
     } else {
-        (visual_representation.selection_range.start, visual_representation.selection_range.end)
+        visual_representation.selection_range.start..visual_representation.selection_range.end
+    };
+    // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
+    // If the text starts with a multi-byte character then this selection will be within
+    // that character and parley will panic. We just filter out empty selection ranges.
+    let selection_and_color = if !selection_range.is_empty() {
+        Some((selection_range.clone(), text_input.selection_foreground_color()))
+    } else {
+        None
     };
 
     let (cursor_visible, cursor_pos) =
@@ -1389,12 +1376,7 @@ pub fn draw_text_input(
     let text: SharedString = visual_representation.text.into();
     let font_request = text_input.font_request(item_rc);
 
-    let options = LayoutOptions::new_from_textinput(
-        text_input,
-        Some(width),
-        Some(height),
-        Some(min_select..max_select),
-    );
+    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
@@ -1406,13 +1388,13 @@ pub fn draw_text_input(
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         Text::PlainText(&text),
-        options.selection(),
+        selection_and_color,
         Color::default(),
     );
 
     let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
 
-    layout.selection_geometry(min_select..max_select, |selection_rect| {
+    layout.selection_geometry(selection_range, |selection_rect| {
         item_renderer
             .fill_rectange_with_color(selection_rect, text_input.selection_background_color());
     });
@@ -1467,8 +1449,6 @@ pub fn text_size(
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
-            selection: None,
-            selection_foreground_color: None,
         },
     );
     PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
@@ -1547,7 +1527,7 @@ pub fn text_input_byte_offset_for_position(
         return 0;
     }
 
-    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height), None);
+    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
@@ -1556,12 +1536,8 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        Text::PlainText(&text),
-        options.selection(),
-        Color::default(),
-    );
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
 
     let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
     let byte_offset = layout.byte_offset_from_point(pos);
@@ -1592,7 +1568,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         );
     }
 
-    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height), None);
+    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
@@ -1601,12 +1577,8 @@ pub fn text_input_cursor_rect_for_byte_offset(
         scale_factor,
     );
 
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        Text::PlainText(&text),
-        options.selection(),
-        Color::default(),
-    );
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
 
     let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
     let cursor_rect = layout
