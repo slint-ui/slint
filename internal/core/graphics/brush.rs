@@ -297,6 +297,9 @@ impl ConicGradientBrush {
             } else if let Some(above) = stop_above_0 {
                 // Only stops above 0, use the first stop's color
                 stops.insert(0, GradientStop { position: 0.0, color: above.color });
+            } else if let Some(below) = stop_below_0 {
+                // Only stops below 0, use the last stop's color
+                stops.insert(0, GradientStop { position: 0.0, color: below.color });
             }
         }
 
@@ -320,11 +323,20 @@ impl ConicGradientBrush {
             } else if let Some(below) = stop_below_1 {
                 // Only stops below 1, use the last stop's color
                 stops.push(GradientStop { position: 1.0, color: below.color });
+            } else if let Some(above) = stop_above_1 {
+                // Only stops above 1, use the first stop's color
+                stops.push(GradientStop { position: 1.0, color: above.color });
             }
         }
 
         // Drop stops under 0deg and over 360deg
         stops = stops.into_iter().filter(|s| 0.0 <= s.position && s.position <= 1.0).collect();
+
+        // Handle empty gradients by providing a transparent default
+        if stops.is_empty() {
+            stops.push(GradientStop { position: 0.0, color: Color::default() });
+            stops.push(GradientStop { position: 1.0, color: Color::default() });
+        }
 
         // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
         if let Some(first) = stops.first_mut() {
@@ -639,4 +651,104 @@ fn test_linear_gradient_encoding() {
     let grad = LinearGradientBrush::new(256., stops.clone());
     assert_eq!(grad.angle(), 256.);
     assert!(grad.stops().eq(stops.iter()));
+}
+
+#[test]
+fn test_conic_gradient_basic() {
+    // Test basic conic gradient with no rotation
+    let grad = ConicGradientBrush::new(
+        0.0,
+        [
+            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
+            GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 0, 0) },
+        ],
+    );
+    assert_eq!(grad.angle(), 0.0);
+    assert_eq!(grad.stops().count(), 3);
+}
+
+#[test]
+fn test_conic_gradient_with_rotation() {
+    // Test conic gradient with 90 degree rotation
+    let grad = ConicGradientBrush::new(
+        90.0,
+        [
+            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 0, 0) },
+        ],
+    );
+    assert_eq!(grad.angle(), 90.0);
+    // After rotation, stops should still be present and sorted
+    assert!(grad.stops().count() >= 2);
+}
+
+#[test]
+fn test_conic_gradient_negative_angle() {
+    // Test with negative angle - should be normalized
+    let grad = ConicGradientBrush::new(
+        -90.0,
+        [GradientStop { position: 0.5, color: Color::from_rgb_u8(255, 0, 0) }],
+    );
+    assert_eq!(grad.angle(), -90.0); // Angle is stored as-is
+    assert!(grad.stops().count() >= 2); // Should have boundary stops added
+}
+
+#[test]
+fn test_conic_gradient_stops_outside_range() {
+    // Test with stops outside [0, 1] range
+    let grad = ConicGradientBrush::new(
+        0.0,
+        [
+            GradientStop { position: -0.2, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
+            GradientStop { position: 1.2, color: Color::from_rgb_u8(0, 0, 255) },
+        ],
+    );
+    // All stops should be within [0, 1] after processing
+    for stop in grad.stops() {
+        assert!(stop.position >= 0.0 && stop.position <= 1.0);
+    }
+}
+
+#[test]
+fn test_conic_gradient_all_stops_below_zero() {
+    // Test edge case: all stops are below 0
+    let grad = ConicGradientBrush::new(
+        0.0,
+        [
+            GradientStop { position: -0.5, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: -0.3, color: Color::from_rgb_u8(0, 255, 0) },
+        ],
+    );
+    // Should create valid boundary stops
+    assert!(grad.stops().count() >= 2);
+    // First stop should be at or near 0.0
+    let first = grad.stops().next().unwrap();
+    assert!(first.position >= 0.0 && first.position < 0.1);
+}
+
+#[test]
+fn test_conic_gradient_all_stops_above_one() {
+    // Test edge case: all stops are above 1
+    let grad = ConicGradientBrush::new(
+        0.0,
+        [
+            GradientStop { position: 1.2, color: Color::from_rgb_u8(255, 0, 0) },
+            GradientStop { position: 1.5, color: Color::from_rgb_u8(0, 255, 0) },
+        ],
+    );
+    // Should create valid boundary stops
+    assert!(grad.stops().count() >= 2);
+    // Last stop should be at or near 1.0
+    let last = grad.stops().last().unwrap();
+    assert!(last.position > 0.9 && last.position <= 1.0);
+}
+
+#[test]
+fn test_conic_gradient_empty() {
+    // Test edge case: no stops provided
+    let grad = ConicGradientBrush::new(0.0, []);
+    // Should create default transparent stops
+    assert_eq!(grad.stops().count(), 2);
 }
