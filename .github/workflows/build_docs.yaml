@@ -7,28 +7,20 @@
 # ┌──────────────────────────────────────────────────────────────┐
 # │  Jobs 1, 2, 3 run in parallel (no dependencies)              │
 # └──────────┬────────────────────┬──────────────────────────────┘
-#            │                    │
-#       ┌────▼────┐               │
-#       │  Job 1  │               │
-#       └────┬────┘               │
-#            │                    │
-#       ┌────▼─────────┐          │
-#       │   Job 4      │          │
-#       │ (Check warns)│          │
-#       └──────────────┘          │
-#                                 │
-#                                 │
-#                                 │
-#                            ┌────▼──────────────┐
-#                            │      Job 5        │
-#                            │ (Combine & Deploy)│
-#                            └───────────────────┘
+#            │
+#       ┌────▼────┐
+#       │  Job 1  │
+#       └────┬────┘
+#            │
+#       ┌────▼─────────┐
+#       │   Job 4      │
+#       │ (Check warns)│
+#       └──────────────┘
 #
 # Job 1 (rust-cpp-docs): Build Rust and C++ documentation
 # Job 2 (astro-docs-tests): Generate screenshots, build Astro docs and run tests
 # Job 3 (node-python-docs): Build Node and Python documentation
 # Job 4 (check-warnings): Validate docs for warnings (needs Job 1)
-# Job 5 (combine-deploy): Combine all artifacts and deploy (needs Jobs 1-3)
 
 name: Build docs
 
@@ -94,13 +86,16 @@ jobs:
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
+            - name: "Prepare Rust and C++ docs for website directory structure"
+              run: |
+                  mkdir -p artifact/docs
+                  mv target/doc artifact/docs/rust
+                  mv target/cppdocs/html artifact/docs/cpp
             - name: "Upload Rust/C++ Docs Artifacts"
               uses: actions/upload-artifact@v5
               with:
-                  name: rust-cpp-docs
-                  path: |
-                      target/doc
-                      target/cppdocs/html
+                  name: docs-rust-cpp
+                  path: artifact
 
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
@@ -187,12 +182,15 @@ jobs:
                 echo "File count in dist: $(find docs/astro/dist -type f 2>/dev/null | wc -l)"
                 echo "First 10 files:"
                 find docs/astro/dist -type f 2>/dev/null | head -10
+            - name: "Prepare docs for website structure"
+              run: |
+                mkdir -p artifact/docs
+                mv docs/astro/dist artifact/docs/slint
             - name: "Upload Astro Docs Artifacts"
               uses: actions/upload-artifact@v5
               with:
-                  name: astro-docs
-                  path: |
-                      docs/astro/dist
+                  name: docs-astro
+                  path: artifact
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
@@ -230,13 +228,16 @@ jobs:
             - name: "Python docs"
               run: uv run build_docs.py
               working-directory: api/python/slint
-            - name: "Upload Node/Python Docs Artifacts"
+            - name: "Prepare docs for website structure"
+              run: |
+                  mkdir -p artifact/docs
+                  mv api/node/docs artifact/docs/node
+                  mv api/python/slint/docs artifact/docs/python
+            - name: "Upload Python/Node Docs Artifacts"
               uses: actions/upload-artifact@v5
               with:
-                  name: node-python-docs
-                  path: |
-                      api/node/docs
-                      api/python/slint/docs
+                  name: docs-node-python
+                  path: artifact
 
     # Job 4: Check for docs warnings (depends on rust-cpp-docs)
     check-warnings:
@@ -256,136 +257,4 @@ jobs:
                   cache: false
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
-
-    # Job 5: Combine all artifacts and deploy (depends on all doc generation jobs)
-    combine-deploy:
-        runs-on: ubuntu-24.04
-        needs: [rust-cpp-docs, node-python-docs, astro-docs-tests]
-        steps:
-            - uses: actions/checkout@v5
-            - name: Download Rust/C++ docs
-              uses: actions/download-artifact@v5
-              with:
-                  name: rust-cpp-docs
-                  path: downloaded-docs
-            - name: Debug - Show rust-cpp-docs artifact structure
-              run: |
-                echo "=== Contents of downloaded-docs ==="
-                ls -la downloaded-docs/ || echo "downloaded-docs does not exist"
-                echo "=== Tree of downloaded-docs (max depth 3) ==="
-                find downloaded-docs -maxdepth 3 -type d 2>/dev/null || echo "find failed"
-            - name: Reconstruct Rust/C++ docs paths
-              run: |
-                mkdir -p target/cppdocs
-                mv downloaded-docs/doc target/doc
-                # The artifact contains cppdocs/html, not just cppdocs
-                if [ -d "downloaded-docs/cppdocs/html" ]; then
-                  mv downloaded-docs/cppdocs/html target/cppdocs/html
-                elif [ -d "downloaded-docs/cppdocs" ]; then
-                  mv downloaded-docs/cppdocs target/cppdocs
-                fi
-            - name: Download Node/Python docs
-              uses: actions/download-artifact@v5
-              with:
-                  name: node-python-docs
-                  path: downloaded-docs
-            - name: Reconstruct Node/Python docs paths
-              run: |
-                mkdir -p api/node api/python/slint
-                mv downloaded-docs/node/docs api/node/docs
-                mv downloaded-docs/python/slint/docs api/python/slint/docs
-            - name: Download Astro docs
-              uses: actions/download-artifact@v5
-              with:
-                  name: astro-docs
-                  path: docs/astro/dist
-            - name: Debug - Check astro docs
-              run: |
-                echo "=== Looking for docs/astro/dist ==="
-                ls -la docs/ || echo "docs/ does not exist"
-                ls -la docs/astro/ || echo "docs/astro/ does not exist"
-                ls -la docs/astro/dist/ || echo "docs/astro/dist/ does not exist"
-            - name: Debug - List downloaded files
-              run: |
-                echo "=== Workspace root ==="
-                ls -la
-                echo "=== target/ ==="
-                ls -la target/ || echo "target/ does not exist"
-                echo "=== target/doc ==="
-                ls -la target/doc/ || echo "target/doc does not exist"
-                echo "=== target/cppdocs ==="
-                ls -la target/cppdocs/ || echo "target/cppdocs does not exist"
-                echo "=== target/cppdocs/html ==="
-                ls -la target/cppdocs/html/ || echo "target/cppdocs/html does not exist"
-                echo "=== api/node/docs ==="
-                ls -la api/node/docs/ || echo "api/node/docs does not exist"
-                echo "=== api/python/slint/docs ==="
-                ls -la api/python/slint/docs/ || echo "api/python/slint/docs does not exist"
-                echo "=== docs/astro/dist ==="
-                ls -la docs/astro/dist/ || echo "docs/astro/dist does not exist"
-                echo "=== docs/site ==="
-                ls -la docs/site/ || echo "docs/site does not exist"
-            - name: Generate a token
-              if: ${{ github.ref == 'refs/heads/master' }}
-              id: app-token
-              uses: actions/create-github-app-token@v2
-              with:
-                app-id: ${{ inputs.app-id }}
-                private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-                repositories: website
-            - name: Clone website directory
-              if: ${{ github.ref == 'refs/heads/master' }}
-              uses: actions/checkout@v5
-              with:
-                repository: slint-ui/website
-                ref: prod
-                path: website
-                token: ${{ steps.app-token.outputs.token }}
-                persist-credentials: false
-            - name: Generate release-docs.html and 404.html
-              if: ${{ github.ref == 'refs/heads/master' }}
-              run: |
-                mkdir -p website/output
-                cd website && go run generator/generator.go -skip-agreements
-            - name: Copy release-docs.html and 404.html
-              if: ${{ github.ref == 'refs/heads/master' }}
-              run: |
-                mkdir -p docs/site
-                cp website/output/release-docs.html docs/site/index.html
-                cp website/output/404.html docs/site/404.html
-                rm -rf website
-            - name: Debug - Show what will be uploaded
-              run: |
-                echo "=== Files to be uploaded in artifact ==="
-                echo "--- target/doc ---"
-                find target/doc -type f 2>/dev/null | head -20 || echo "target/doc not found or empty"
-                echo "--- target/cppdocs/html ---"
-                find target/cppdocs/html -type f 2>/dev/null | head -20 || echo "target/cppdocs/html not found or empty"
-                echo "--- docs/astro/dist ---"
-                find docs/astro/dist -type f 2>/dev/null | head -20 || echo "docs/astro/dist not found or empty"
-                echo "--- api/node/docs ---"
-                find api/node/docs -type f 2>/dev/null | head -20 || echo "api/node/docs not found or empty"
-                echo "--- api/python/slint/docs ---"
-                find api/python/slint/docs -type f 2>/dev/null | head -20 || echo "api/python/slint/docs not found or empty"
-                echo "--- docs/site ---"
-                find docs/site -type f 2>/dev/null | head -20 || echo "docs/site not found or empty"
-                echo ""
-                echo "=== Total file counts ==="
-                echo "target/doc: $(find target/doc -type f 2>/dev/null | wc -l) files"
-                echo "target/cppdocs/html: $(find target/cppdocs/html -type f 2>/dev/null | wc -l) files"
-                echo "docs/astro/dist: $(find docs/astro/dist -type f 2>/dev/null | wc -l) files"
-                echo "api/node/docs: $(find api/node/docs -type f 2>/dev/null | wc -l) files"
-                echo "api/python/slint/docs: $(find api/python/slint/docs -type f 2>/dev/null | wc -l) files"
-                echo "docs/site: $(find docs/site -type f 2>/dev/null | wc -l) files"
-            - name: "Upload Docs Artifacts"
-              uses: actions/upload-artifact@v5
-              with:
-                  name: docs
-                  path: |
-                      target/doc
-                      target/cppdocs/html
-                      docs/astro/dist
-                      api/node/docs
-                      api/python/slint/docs
-                      docs/site
 

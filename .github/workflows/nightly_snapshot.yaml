@@ -317,18 +317,34 @@ jobs:
         steps:
             - uses: actions/download-artifact@v6
               with:
-                  name: docs
+                  pattern: docs-*
                   path: .
-            - name: Debug - List downloaded docs structure
+
+            - name: Generate a token
+              id: app-token-website
+              uses: actions/create-github-app-token@v2
+              with:
+                app-id: ${{ inputs.app-id }}
+                private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                repositories: website
+            - name: Clone website directory
+              uses: actions/checkout@v5
+              with:
+                repository: slint-ui/website
+                ref: prod
+                path: website
+                token: ${{ steps.app-token-website.outputs.token }}
+                persist-credentials: false
+            - name: Generate release-docs.html and 404.html
               run: |
-                echo "=== Workspace root ==="
-                ls -la
-                echo "=== target directory ==="
-                ls -la target/ || echo "target/ does not exist"
-                echo "=== target/cppdocs ==="
-                ls -la target/cppdocs/ || echo "target/cppdocs does not exist"
-                echo "=== target/cppdocs/html ==="
-                ls -la target/cppdocs/html/ || echo "target/cppdocs/html does not exist"
+                mkdir -p website/output
+                cd website && go run generator/generator.go -skip-agreements
+            - name: Copy release-docs.html and 404.html
+              run: |
+                cp website/output/release-docs.html docs/index.html
+                cp website/output/404.html docs/404.html
+                rm -rf website
+
             - uses: actions/download-artifact@v6
               with:
                   name: slintpad
@@ -425,12 +441,7 @@ jobs:
                 sed -i "s/VERSION/$version/g" ../docs/site/index.html
 
                 rm -rf $output_path/docs
-                mkdir -p $output_path/docs
-                cp -a ../docs/site/* $output_path/docs
-                mkdir -p $output_path/docs/cpp
-                cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
-                mkdir -p $output_path/docs/rust
-                cp -a ../target/doc/* $output_path/docs/rust/
+                mv ../docs .
 
                 # Fix up link to Slint language documentation
                 sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
