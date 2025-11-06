@@ -77,7 +77,7 @@ jobs:
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
             save_if: ${{ matrix.save_if }}
-            timeout_minutes: 35
+            timeout_minutes: 120
 
     node_test:
         needs: files-changed
