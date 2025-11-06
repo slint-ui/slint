@@ -1430,7 +1430,8 @@ impl WindowInner {
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
     pub fn scale_factor(&self) -> f32 {
-        self.pinned_fields.as_ref().project_ref().scale_factor.get()
+        //self.pinned_fields.as_ref().project_ref().scale_factor.get()
+        1.0
     }
 
     /// Sets the scale factor for the window. This is set by the backend or for testing.

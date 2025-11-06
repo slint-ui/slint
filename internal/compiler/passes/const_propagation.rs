@@ -317,6 +317,7 @@ fn try_inline_builtin_function(
             }
             _ => None,
         },
+        BuiltinFunction::GetWindowScaleFactor => Some(Expression::NumberLiteral(1.0, Unit::None)),
         BuiltinFunction::Mod => num(a(0)?.rem_euclid(a(1)?)),
         BuiltinFunction::Round => num(a(0)?.round()),
         BuiltinFunction::Ceil => num(a(0)?.ceil()),
