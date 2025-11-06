@@ -25,6 +25,7 @@ env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
     SLINT_BINARY_FEATURES: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
     MACOSX_DEPLOYMENT_TARGET: "11.0"
+    FORCE_SKIA_BINARIES_DOWNLOAD: 1
 
 jobs:
     slint-viewer-binary:
