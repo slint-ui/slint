@@ -928,6 +928,10 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     }
 
     fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
+        if size.width == 0 || size.height == 0 {
+            return Ok(());
+        }
+
         if let Some(surface) = self.surface.borrow().as_ref() {
             surface.resize_event(size)
         } else {
