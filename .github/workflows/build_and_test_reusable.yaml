@@ -57,6 +57,10 @@ jobs:
 
         steps:
             - uses: actions/checkout@v5
+            - name: Force Skia binaries download on macOS
+              if: runner.os == 'macos-14' # Remember to update this if the macos runner name changes
+              run: echo "FORCE_SKIA_BINARIES_DOWNLOAD=1" >> $GITHUB_ENV
+              shell: bash
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
