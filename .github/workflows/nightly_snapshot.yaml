@@ -439,7 +439,7 @@ jobs:
                 else
                   version="development snapshot"
                 fi
-                sed -i "s/VERSION/$version/g" ../docs/site/index.html
+                sed -i "s/VERSION/$version/g" ../docs/slint/index.html
 
                 rm -rf $output_path/docs
                 mv ../docs .
