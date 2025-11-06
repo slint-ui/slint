@@ -52,15 +52,19 @@ internal: &internal
 api_cpp:
  - 'api/cpp/**'
  - 'tools/compiler/**'
+ - *ci_config
 
 api_python:
  - 'api/python/**'
+ - *ci_config
 
 api_node:
  - 'api/node/**'
+ - *ci_config
 
 api_rs:
  - 'api/rs/**'
+ - *ci_config
 
 tests:
  - 'tests/**'
