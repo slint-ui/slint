@@ -36,7 +36,6 @@ fn on_theme(adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
 
     app.global::<WebviewLogic>().on_theme(move |color_scheme| {
-        println!("{:?}", color_scheme);
 
         let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
 
