@@ -15,17 +15,23 @@ interface StoreState {
     useVariables: boolean;
     exportsAreCurrent: boolean;
     exportedFiles: Array<{ name: string; content: string }>;
+    devMode: boolean;
+    isExporting: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => void;
     setUseVariables: (useVariables: boolean) => void;
     setExportsAreCurrent: (exportsAreCurrent: boolean) => void;
     exportFilesHandler: (
+        fileName: string,
         files: Array<{ name: string; content: string }>,
     ) => Promise<void>;
     exportFiles: (singleOrMultiple: ExportType) => void;
+    getTestData: () => void;
     startVariableCheckInterval: () => void;
     resizeWindow: (width: number, height: number) => void;
+    setDevMode: (devMode: boolean) => void;
+    simpleExport: () => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
@@ -36,6 +42,8 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportsAreCurrent: false,
     exportedFiles: [],
     exportAsSingleFile: false,
+    devMode: false,
+    isExporting: false,
 
     setTitle: (title) => set({ title }),
 
@@ -57,7 +65,12 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
 
         listenTS("exportedFiles", (res) => {
-            get().exportFilesHandler(res.files);
+            get().exportFilesHandler(res.zipFilename, res.files);
+        });
+
+        listenTS("saveTextFile", (res) => {
+            set({ isExporting: false });
+            saveTextFile(res.filename, res.content);
         });
 
         // On first run check to see if anything is currently selected and show a snippet.
@@ -99,16 +112,27 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
     },
 
-    exportFilesHandler: async (files) => {
+    exportFilesHandler: async (fileName, files) => {
         if (files && Array.isArray(files) && files.length > 0) {
             set({ exportedFiles: files, exportsAreCurrent: true });
 
-            await downloadZipFile(files);
+            await downloadZipFile(fileName, files);
+            set({ isExporting: false });
         } else {
             console.error("Invalid or empty files data received:", files);
-            set({ exportedFiles: [], exportsAreCurrent: false }); // Mark as not current if export failed to produce files
+            set({
+                exportedFiles: [],
+                exportsAreCurrent: false,
+                isExporting: false,
+            }); // Mark as not current if export failed to produce files
         }
     },
+
+    getTestData: () => {
+        set({ isExporting: true });
+        dispatchTS("getTestData", {});
+    },
+
     startVariableCheckInterval: () => {
         setInterval(() => {
             dispatchTS("checkVariableChanges", {});
@@ -118,4 +142,26 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     resizeWindow: (width: number, height: number) => {
         dispatchTS("resizeWindow", { width, height });
     },
+
+    setDevMode: (devMode) => {
+        set({ devMode });
+    },
+
+    simpleExport: () => {
+        set({ isExporting: true });
+        dispatchTS("createSlintExport", {});
+    },
 }));
+
+function saveTextFile(filename: string, text: string) {
+    const element = document.createElement("a");
+    element.setAttribute(
+        "href",
+        "data:text/plain;charset=utf-8," + encodeURIComponent(text),
+    );
+    element.setAttribute("download", filename);
+    element.style.display = "none";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+}
