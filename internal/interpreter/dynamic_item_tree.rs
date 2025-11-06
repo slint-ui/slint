@@ -39,9 +39,9 @@ use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use itertools::Either;
 use once_cell::unsync::{Lazy, OnceCell};
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::num::NonZeroU32;
+use std::path::{Path, PathBuf};
 use std::rc::Weak;
 use std::{pin::Pin, rc::Rc};
 
@@ -884,6 +884,7 @@ pub async fn load(
         return CompilationResult {
             components: HashMap::new(),
             diagnostics: diag.into_iter().collect(),
+            dependencies: Vec::new(),
             #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
             #[cfg(feature = "internal")]
@@ -896,7 +897,12 @@ pub async fn load(
     #[cfg(feature = "internal-highlight")]
     let raw_type_loader = raw_type_loader.map(Rc::new);
 
-    let doc = loader.get_document(&path).unwrap();
+    #[cfg(feature = "internal-highlight")]
+    let loader_ref: &i_slint_compiler::typeloader::TypeLoader = loader.as_ref();
+    #[cfg(not(feature = "internal-highlight"))]
+    let loader_ref: &i_slint_compiler::typeloader::TypeLoader = &loader;
+
+    let doc = loader_ref.get_document(&path).unwrap();
 
     let compiled_globals = Rc::new(CompiledGlobalCollection::compile(doc));
     let mut components = HashMap::new();
@@ -965,10 +971,37 @@ pub async fn load(
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
+        dependencies: gather_dependency_paths(loader_ref, &path, doc),
         #[cfg(feature = "internal")]
         structs_and_enums,
         #[cfg(feature = "internal")]
         named_exports,
+    }
+}
+
+fn gather_dependency_paths(
+    loader: &i_slint_compiler::typeloader::TypeLoader,
+    root_path: &PathBuf,
+    root_document: &object_tree::Document,
+) -> Vec<PathBuf> {
+    let mut collected = BTreeSet::new();
+    collected.insert(root_path.clone());
+    collect_document_dependencies(loader, root_document, &mut collected);
+    collected.into_iter().collect()
+}
+
+fn collect_document_dependencies(
+    loader: &i_slint_compiler::typeloader::TypeLoader,
+    document: &object_tree::Document,
+    visited: &mut BTreeSet<PathBuf>,
+) {
+    for import in &document.imports {
+        let path = i_slint_compiler::pathutils::clean_path(Path::new(&import.file));
+        if visited.insert(path.clone()) {
+            if let Some(dep_doc) = loader.get_document(&path) {
+                collect_document_dependencies(loader, dep_doc, visited);
+            }
+        }
     }
 }
 

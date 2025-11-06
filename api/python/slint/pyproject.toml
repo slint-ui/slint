@@ -24,10 +24,10 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Software Development :: User Interfaces",
   "Topic :: Software Development :: Widget Sets",
-  "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
 ]
+dependencies = ["libcst>=1.8.5"]
 
 [project.urls]
 Homepage = "https://slint.dev"
@@ -35,9 +35,6 @@ Documentation = "https://slint.dev/docs"
 Repository = "https://github.com/slint-ui/slint"
 Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
 Tracker = "https://github.com/slint-ui/slint/issues"
-
-[project.optional-dependencies]
-dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15"]
 
 [dependency-groups]
 dev = [
@@ -49,13 +46,20 @@ dev = [
   "pillow>=11.3.0",
   "numpy>=2.3.2",
   "aiohttp>=3.12.15",
+  "maturin>=1.9.6",
+  "pytest-cov>=7.0.0",
 ]
+
+[tool.maturin]
+module-name = "slint.core"
+python-packages = ["slint"]
+features = ["pyo3/extension-module"]
 
 [tool.uv]
 # Rebuild package when any rust files change
 cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
-# Uncomment to build rust code in development mode
-# config-settings = { build-args = '--profile=dev' }
+# Build rust code in development mode
+config-settings = { build-args = '--profile=dev' }
 
 [tool.mypy]
 strict = true

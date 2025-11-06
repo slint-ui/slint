@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::OnceLock;
 
 use pyo3::IntoPyObjectExt;
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
+use pyo3_stub_gen::derive::*;
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::Type;
@@ -18,6 +19,7 @@ use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::PyTraverseError;
+use smol_str::SmolStr;
 
 use crate::errors::{
     PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
@@ -68,7 +70,6 @@ impl Compiler {
         self.compiler.set_library_paths(libraries)
     }
 
-    #[setter]
     fn set_translation_domain(&mut self, domain: String) {
         self.compiler.set_translation_domain(domain)
     }
@@ -216,6 +217,11 @@ impl CompilationResult {
     fn named_exports(&self) -> Vec<(String, String)> {
         self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
     }
+
+    #[getter]
+    fn resource_paths(&self) -> Vec<PathBuf> {
+        self.result.dependencies().cloned().collect()
+    }
 }
 
 #[gen_stub_pyclass]
@@ -225,6 +231,7 @@ pub struct ComponentDefinition {
     type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl ComponentDefinition {
     #[getter]
@@ -255,6 +262,39 @@ impl ComponentDefinition {
         self.definition.globals().collect()
     }
 
+    fn property_infos(&self) -> Vec<PyPropertyInfo> {
+        self.definition
+            .properties_and_callbacks()
+            .filter_map(|(name, (ty, _))| {
+                if ty.is_property_type() {
+                    Some(PyPropertyInfo::new(name, &ty))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn callback_infos(&self) -> Vec<PyCallbackInfo> {
+        self.definition
+            .properties_and_callbacks()
+            .filter_map(|(name, (ty, _))| match ty {
+                Type::Callback(function) => Some(PyCallbackInfo::new(name, &function)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn function_infos(&self) -> Vec<PyFunctionInfo> {
+        self.definition
+            .properties_and_callbacks()
+            .filter_map(|(name, (ty, _))| match ty {
+                Type::Function(function) => Some(PyFunctionInfo::new(name, &function)),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn global_properties(&self, name: &str) -> Option<IndexMap<String, PyValueType>> {
         self.definition.global_properties_and_callbacks(name).map(|propiter| {
             propiter
@@ -269,6 +309,39 @@ impl ComponentDefinition {
 
     fn global_functions(&self, name: &str) -> Option<Vec<String>> {
         self.definition.global_functions(name).map(|functioniter| functioniter.collect())
+    }
+
+    fn global_property_infos(&self, global_name: &str) -> Option<Vec<PyPropertyInfo>> {
+        self.definition.global_properties_and_callbacks(global_name).map(|iter| {
+            iter.filter_map(|(name, (ty, _))| {
+                if ty.is_property_type() {
+                    Some(PyPropertyInfo::new(name, &ty))
+                } else {
+                    None
+                }
+            })
+            .collect()
+        })
+    }
+
+    fn global_callback_infos(&self, global_name: &str) -> Option<Vec<PyCallbackInfo>> {
+        self.definition.global_properties_and_callbacks(global_name).map(|iter| {
+            iter.filter_map(|(name, (ty, _))| match ty {
+                Type::Callback(function) => Some(PyCallbackInfo::new(name, &function)),
+                _ => None,
+            })
+            .collect()
+        })
+    }
+
+    fn global_function_infos(&self, global_name: &str) -> Option<Vec<PyFunctionInfo>> {
+        self.definition.global_properties_and_callbacks(global_name).map(|iter| {
+            iter.filter_map(|(name, (ty, _))| match ty {
+                Type::Function(function) => Some(PyFunctionInfo::new(name, &function)),
+                _ => None,
+            })
+            .collect()
+        })
     }
 
     fn callback_returns_void(&self, callback_name: &str) -> bool {
@@ -357,6 +430,192 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
     }
 }
 
+fn is_python_keyword(name: &str) -> bool {
+    static PYTHON_KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    let keywords = PYTHON_KEYWORDS.get_or_init(|| {
+        let keywords: HashSet<&str> = HashSet::from([
+            "False", "await", "else", "import", "pass", "None", "break", "except", "in", "raise",
+            "True", "class", "finally", "is", "return", "and", "continue", "for", "lambda", "try",
+            "as", "def", "from", "nonlocal", "while", "assert", "del", "global", "not", "with",
+            "async", "elif", "if", "or", "yield",
+        ]);
+        keywords
+    });
+    keywords.contains(name)
+}
+
+fn python_identifier(name: &str) -> String {
+    if name.is_empty() {
+        return String::new();
+    }
+    let mut ident = name.replace('-', "_");
+    if ident.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        ident.insert(0, '_');
+    }
+    if is_python_keyword(&ident) {
+        ident.push('_');
+    }
+    ident
+}
+
+fn type_to_python_hint(ty: &i_slint_compiler::langtype::Type) -> String {
+    use i_slint_compiler::langtype::Type::*;
+
+    match ty {
+        Void => "None".into(),
+        Bool => "bool".into(),
+        Int32 => "int".into(),
+        Float32 | Duration | PhysicalLength | LogicalLength | Rem | Angle | Percent
+        | UnitProduct(_) => "float".into(),
+        String => "str".into(),
+        Brush | Color => "slint.Brush".into(),
+        Image => "slint.Image".into(),
+        Model => "slint.Model".into(),
+        Array(inner) => format!("slint.ListModel[{}]", type_to_python_hint(inner)),
+        Struct(struct_ty) => struct_to_python_hint(struct_ty),
+        // Enumeration(enum_ty) => {
+        //     let name = enum_ty.name.as_str();
+        //     let tail = name.rsplit("::").next().unwrap_or(name);
+        //     format!("slint.{}", python_identifier(tail))
+        // }
+        Callback(function) | Function(function) => function_to_python_hint(function),
+        // ComponentFactory => "slint.ComponentFactory".into(),  // TODO
+        // PathData | Easing | ElementReference | LayoutCache | InferredProperty
+        // | InferredCallback | Invalid => "Any".into(),
+        _ => "Any".into(),
+    }
+}
+
+fn struct_to_python_hint(struct_ty: &Rc<i_slint_compiler::langtype::Struct>) -> String {
+    if let Some(inner_ty) = optional_struct_inner(struct_ty) {
+        return format!("Optional[{}]", type_to_python_hint(inner_ty));
+    }
+
+    if let Some(name) = &struct_ty.name {
+        let full = name.as_str();
+        let tail = full.rsplit("::").next().unwrap_or(full);
+        if full.starts_with("slint::") {
+            return format!("slint.{}", python_identifier(tail));
+        }
+        return python_identifier(tail);
+    }
+
+    "dict[str, Any]".into()
+}
+
+fn optional_struct_inner(
+    struct_ty: &Rc<i_slint_compiler::langtype::Struct>,
+) -> Option<&i_slint_compiler::langtype::Type> {
+    let name = struct_ty.name.as_ref()?;
+    let tail = name.as_str().rsplit("::").next().unwrap_or(name.as_str());
+    let tail_lower = tail.to_ascii_lowercase();
+    if !tail_lower.starts_with("optional") {
+        return None;
+    }
+
+    if let Some(value_ty) =
+        struct_ty.fields.get("value").or_else(|| struct_ty.fields.get("maybe_value"))
+    {
+        return Some(value_ty);
+    }
+
+    struct_ty.fields.values().next()
+}
+
+fn function_to_python_hint(function: &Rc<i_slint_compiler::langtype::Function>) -> String {
+    let args: Vec<String> = function.args.iter().map(type_to_python_hint).collect();
+    let return_type = type_to_python_hint(&function.return_type);
+
+    if args.is_empty() {
+        if function.return_type == i_slint_compiler::langtype::Type::Void {
+            "Callable[..., Any]".into()
+        } else {
+            format!("Callable[[], {}]", return_type)
+        }
+    } else {
+        format!("Callable[[{}], {}]", args.join(", "), return_type)
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(module = "slint.core", name = "PropertyInfo")]
+#[derive(Clone)]
+pub struct PyPropertyInfo {
+    #[pyo3(get)]
+    pub name: String,
+    #[pyo3(get)]
+    pub python_type: String,
+}
+
+impl PyPropertyInfo {
+    fn new(name: String, ty: &i_slint_compiler::langtype::Type) -> Self {
+        Self { name, python_type: type_to_python_hint(ty) }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(module = "slint.core", name = "CallbackParameter")]
+#[derive(Clone)]
+pub struct PyCallbackParameter {
+    #[pyo3(get)]
+    pub name: Option<String>,
+    #[pyo3(get)]
+    pub python_type: String,
+}
+
+impl PyCallbackParameter {
+    fn new(name: Option<SmolStr>, ty: &i_slint_compiler::langtype::Type) -> Self {
+        let name = name.and_then(|n| if n.is_empty() { None } else { Some(n.into()) });
+        Self { name, python_type: type_to_python_hint(ty) }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(module = "slint.core", name = "CallbackInfo")]
+#[derive(Clone)]
+pub struct PyCallbackInfo {
+    #[pyo3(get)]
+    pub name: String,
+    #[pyo3(get)]
+    pub parameters: Vec<PyCallbackParameter>,
+    #[pyo3(get)]
+    pub return_type: String,
+}
+
+impl PyCallbackInfo {
+    fn new(name: String, function: &Rc<i_slint_compiler::langtype::Function>) -> Self {
+        let mut parameters = Vec::with_capacity(function.args.len());
+        for (idx, arg_ty) in function.args.iter().enumerate() {
+            let arg_name = function.arg_names.get(idx).cloned();
+            parameters.push(PyCallbackParameter::new(arg_name, arg_ty));
+        }
+        Self { name, parameters, return_type: type_to_python_hint(&function.return_type) }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(module = "slint.core", name = "FunctionInfo")]
+#[derive(Clone)]
+pub struct PyFunctionInfo {
+    #[pyo3(get)]
+    pub name: String,
+    #[pyo3(get)]
+    pub parameters: Vec<PyCallbackParameter>,
+    #[pyo3(get)]
+    pub return_type: String,
+}
+
+impl PyFunctionInfo {
+    fn new(name: String, function: &Rc<i_slint_compiler::langtype::Function>) -> Self {
+        let mut parameters = Vec::with_capacity(function.args.len());
+        for (idx, arg_ty) in function.args.iter().enumerate() {
+            let arg_name = function.arg_names.get(idx).cloned();
+            parameters.push(PyCallbackParameter::new(arg_name, arg_ty));
+        }
+        Self { name, parameters, return_type: type_to_python_hint(&function.return_type) }
+    }
+}
+
 #[gen_stub_pyclass]
 #[pyclass(unsendable, weakref)]
 pub struct ComponentInstance {
@@ -366,6 +625,7 @@ pub struct ComponentInstance {
     type_collection: TypeCollection,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl ComponentInstance {
     #[getter]
@@ -376,6 +636,7 @@ impl ComponentInstance {
         }
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn get_property(&self, name: &str) -> Result<SlintToPyValue, PyGetPropertyError> {
         Ok(self.type_collection.to_py_value(self.instance.get_property(name)?))
     }
@@ -386,6 +647,7 @@ impl ComponentInstance {
         Ok(self.instance.set_property(name, pv).map_err(|e| PySetPropertyError(e))?)
     }
 
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn get_global_property(
         &self,
         global_name: &str,
@@ -411,6 +673,7 @@ impl ComponentInstance {
     }
 
     #[pyo3(signature = (callback_name, *args))]
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
@@ -424,6 +687,7 @@ impl ComponentInstance {
     }
 
     #[pyo3(signature = (global_name, callback_name, *args))]
+    #[gen_stub(override_return_type(type_repr = "typing.Any", imports = ("typing",)))]
     fn invoke_global(
         &self,
         global_name: &str,
@@ -473,6 +737,7 @@ impl ComponentInstance {
         Ok(self.instance.hide()?)
     }
 
+    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.callbacks.__traverse__(&visit)?;
         for global_callbacks in self.global_callbacks.values() {

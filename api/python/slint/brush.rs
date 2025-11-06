@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods, impl_stub_type};
+use pyo3_stub_gen::{
+    derive::gen_stub_pyclass, derive::gen_stub_pyclass_complex_enum, derive::gen_stub_pymethods,
+    impl_stub_type,
+};
 
 use crate::errors::PyColorParseError;
 
@@ -33,6 +36,7 @@ struct RgbColor {
 }
 
 #[derive(FromPyObject)]
+#[gen_stub_pyclass_complex_enum]
 #[pyclass]
 enum PyColorInput {
     ColorStr(String),
@@ -56,8 +60,6 @@ enum PyColorInput {
         blue: u8,
     },
 }
-
-impl_stub_type!(PyColorInput = String | RgbaColor | RgbColor);
 
 /// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha is represented
 /// as an 8-bit integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
