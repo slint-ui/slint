@@ -128,57 +128,28 @@ jobs:
               working-directory: examples/imagefilter/node
               run: pnpm check
 
-    python_test:
+    # For changes to Slint internals, do a quick test on Linux for Python only.
+    python_test_linux:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
-        env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-            QT_QPA_PLATFORM: offscreen
-            RUSTFLAGS: -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: full
-            SLINT_BACKEND: winit
-        strategy:
-            matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
-
-        runs-on: ${{ matrix.os }}
-
-        steps:
-            - uses: actions/checkout@v5
-            - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Qt
-              if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v4
-              with:
-                  version: "5.15.2"
-                  setup-python: false
-                  cache: true
-            - name: Setup headless display
-              if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
-            - uses: ./.github/actions/setup-rust
-              with:
-                  key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-            - uses: actions/setup-python@v6
-              with:
-                  python-version: "3.12"
-            - name: Install uv
-              uses: astral-sh/setup-uv@v7
-            - uses: fjwillemsen/setup-nox2@v3.0.0
-            - name: Run python tests
-              working-directory: api/python/slint
-              run: nox --default-venv-backend uv
-            - name: Run mypy
-              working-directory: api/python/slint
-              run: uv run mypy -p tests -p slint
-            - name: Run ruff linter
-              working-directory: api/python/slint
-              run: uv tool run ruff check
-            - name: Run ruff linter
-              working-directory: api/python/briefcase
-              run: uv tool run ruff check
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true'
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+          name: "Python Linux"
+          os: "ubuntu-22.04"
+    python_test_macos:
+        needs: files-changed
+        if: needs.files-changed.outputs.api_python == 'true'
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+          name: "Python macOS"
+          os: "macos-14"
+    python_test_windows:
+        needs: files-changed
+        if: needs.files-changed.outputs.api_python == 'true'
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+          name: "Python Windows"
+          os: "windows-2022"
 
     cpp_test_driver:
         needs: files-changed
