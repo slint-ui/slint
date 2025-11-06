@@ -24,7 +24,7 @@ env:
 
 jobs:
     files-changed:
-      runs-on: warp-ubuntu-latest-arm64-2x
+      runs-on: ubuntu-latest
       timeout-minutes: 1
       permissions:
         pull-requests: read
@@ -56,16 +56,16 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: warp-ubuntu-2204-x64-4x
+                    - os: ubuntu-22.04
                       name: "Ubuntu 22.04 1.88"
                       rust_version: "1.88"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
-                    - os: warp-windows-latest-x64-4x
+                    - os: windows-2022
                       name: "Windows 2022 beta"
                       rust_version: "beta"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: warp-macos-14-arm64-6x
+                    - os: macos-14
                       name: "MacOS 14 stable"
                       rust_version: "stable"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
