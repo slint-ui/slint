@@ -324,7 +324,7 @@ jobs:
               id: app-token-website
               uses: actions/create-github-app-token@v2
               with:
-                app-id: ${{ inputs.app-id }}
+                app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: website
             - name: Clone website directory
