@@ -69,7 +69,7 @@ fn color_to_short_string(color: slint::Color) -> String {
 }
 
 pub fn string_to_color(text: &str) -> Option<slint::Color> {
-    i_slint_compiler::literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
+    i_slint_common::color_parsing::parse_color_literal(text).map(slint::Color::from_argb_encoded)
 }
 
 fn as_json_brush(
