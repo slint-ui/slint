@@ -24,7 +24,7 @@ env:
 jobs:
     format_fix:
         runs-on: warp-ubuntu-latest-x64-2x
-        timeout-minutes: 15
+        timeout-minutes: 5
         steps:
             - uses: actions/checkout@v5
             - uses: jdx/mise-action@v3
@@ -40,7 +40,7 @@ jobs:
 
     lint_typecheck:
         runs-on: warp-ubuntu-latest-x64-2x
-        timeout-minutes: 15
+        timeout-minutes: 5
         steps:
             - uses: actions/checkout@v5
             - uses: jdx/mise-action@v3
