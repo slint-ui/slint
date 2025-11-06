@@ -81,10 +81,10 @@ export component SliderBase {
             }
 
             if ((!vertical && event.text == Key.RightArrow) || (vertical && event.text == Key.DownArrow)) {
-                root.set-value(root.value + root.step);
+                root.increment();
                 return accept;
             } else if ((!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow)) {
-                root.set-value(root.value - root.step);
+                root.decrement();
                 return accept;
             } else if (event.text == Key.Home) {
                 root.set-value(root.minimum);
@@ -114,12 +114,20 @@ export component SliderBase {
         size * (root.maximum - root.minimum) / range;
     }
 
-    function set-value(value: float) {
+    public function set-value(value: float) {
         if (root.value == value) {
             return;
         }
 
         root.value = max(root.minimum, min(root.maximum, value));
         root.changed(root.value);
+    }
+
+    public function increment() {
+        root.set-value(root.value + root.step);
+    }
+
+    public function decrement() {
+        root.set-value(root.value - root.step);
     }
 }
