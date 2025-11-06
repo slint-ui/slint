@@ -28,6 +28,10 @@ inputs:
         description: "Enable Rust caching (default: true)"
         required: false
         default: "true"
+    save_if:
+        description: "Condition to save the cache"
+        required: false
+        default: "true"
 
 runs:
     using: composite
@@ -66,4 +70,4 @@ runs:
           if: inputs.cache == 'true'
           with:
               key: ${{ inputs.key }}-1
-              save-if: ${{ github.ref == 'refs/heads/master' }}
+              save-if: ${{ inputs.save_if }}

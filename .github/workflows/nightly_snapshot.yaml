@@ -644,6 +644,33 @@ jobs:
         needs: [prepare_release]
         uses: ./.github/workflows/nightly_tests.yaml
 
+    nightly-build-and-test:
+        if: github.event.inputs.release != 'true'
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-22.04
+                      name: "Ubuntu 22.04 nightly"
+                      rust_version: "nightly"
+                      cache: false
+                    - os: windows-2022
+                      name: "Windows 2022 1.88"
+                      rust_version: "1.88"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      cache: false
+                    - os: macos-14
+                      name: "MacOS 14 nightly"
+                      rust_version: "nightly"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      cache: false
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: ${{ matrix.os }}
+            name: ${{ matrix.name }}
+            rust_version: ${{ matrix.rust_version }}
+            cache: ${{ matrix.cache }}
+            extra_args: ${{ matrix.extra_args }}
+
     android:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore

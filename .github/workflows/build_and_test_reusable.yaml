@@ -1,0 +1,114 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Build and Test (Reusable)
+
+on:
+    workflow_call:
+        inputs:
+            name:
+                description: 'Name of the job'
+                required: true
+                type: string
+            os:
+                description: 'Operating system to run on'
+                required: true
+                type: string
+            rust_version:
+                description: 'Rust version to use'
+                required: true
+                type: string
+            extra_args:
+                description: 'Extra arguments to pass to cargo test'
+                required: false
+                type: string
+                default: ""
+            cache:
+                description: 'Use rust-cache'
+                required: false
+                type: boolean
+                default: true
+            save_if:
+                description: 'Condition to save the cache'
+                required: false
+                type: boolean
+                default: true
+            timeout_minutes:
+                description: 'Timeout in minutes'
+                required: false
+                type: number
+                default: 120
+
+jobs:
+    build_and_test:
+        name: ${{ inputs.name }}
+        timeout-minutes: ${{ inputs.timeout_minutes }}
+        env:
+            MACOSX_DEPLOYMENT_TARGET: "11.0"
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            SLINT_EMIT_DEBUG_INFO: 1
+
+        runs-on: ${{ inputs.os }}
+
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: actions/setup-python@v6
+              with:
+                python-version: '3.10'
+            - name: Install Qt
+              if: runner.os != 'Windows'
+              uses: jurplel/install-qt-action@v4
+              with:
+                  version: "6.2.2"
+                  setup-python: false
+                  cache: true
+            - name: Install ffmpeg and alsa (Linux)
+              if: runner.os == 'Linux'
+              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+            - name: Install gstreamer and libunwind (Linux)
+              if: runner.os == 'Linux'
+              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - name: Setup headless display
+              if: runner.os != 'macOS'
+              uses: pyvista/setup-headless-display-action@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ inputs.rust_version }}
+                  key: x-v3
+                  save_if: ${{ inputs.save_if }}
+            - name: Run tests
+              run:  cargo test --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              env:
+                  SLINT_CREATE_SCREENSHOTS: 1
+              shell: bash
+            - name: Run tests (qt)
+              run: cargo test --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              shell: bash
+            - name: live-preview for rust test
+              env:
+                SLINT_LIVE_PREVIEW: 1
+              run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
+              shell: bash
+            - name: Upload build timing report
+              if: always()
+              uses: actions/upload-artifact@v5
+              with:
+                  name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}
+                  path: target/cargo-timings/cargo-timing.html
+                  if-no-files-found: ignore
+            - name: Archive screenshots after failed tests
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v5
+              with:
+                  name: screenshots-${{ inputs.os }}
+                  path: |
+                      tests/screenshots/references
+

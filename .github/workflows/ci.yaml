@@ -25,6 +25,7 @@ env:
 jobs:
     files-changed:
       runs-on: ubuntu-latest
+      timeout-minutes: 1
       permissions:
         pull-requests: read
       outputs:
@@ -52,93 +53,31 @@ jobs:
     build_and_test:
         needs: files-changed
         if: needs.files-changed.outputs.slint == 'true'
-        env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
-            QT_QPA_PLATFORM: offscreen
-            RUSTFLAGS: -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
-                rust_version: [stable, "1.88"]
                 include:
-                    - os: windows-2022
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: macos-14
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: windows-2022
-                      rust_version: "beta"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: ubuntu-22.04
-                      rust_version: "nightly"
-                exclude:
-                    # There is only a limited amount of mac worker machine allocated and this is currently the bottleneck, so disable it
-                    - os: macos-14
+                      name: "Ubuntu 22.04 1.88"
                       rust_version: "1.88"
-                    # We already test 1.88 and nightly. Stable is in the middle and already covered by other jobs
-                    - os: ubuntu-22.04
+                      save_if: ${{ github.ref == 'refs/heads/master' }}
+                    - os: windows-2022
+                      name: "Windows 2022 beta"
+                      rust_version: "beta"
+                      save_if: ${{ github.ref == 'refs/heads/master' }}
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                    - os: macos-14
+                      name: "MacOS 14 stable"
                       rust_version: "stable"
-
-        runs-on: ${{ matrix.os }}
-
-        steps:
-            - uses: actions/checkout@v5
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/install-skia-dependencies
-            - uses: ilammy/msvc-dev-cmd@v1
-            - uses: actions/setup-python@v6
-              with:
-                python-version: '3.10'
-            - name: Install Qt
-              if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v4
-              with:
-                  version: "6.2.2"
-                  setup-python: false
-                  cache: true
-            - name: Install ffmpeg and alsa (Linux)
-              if: runner.os == 'Linux'
-              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
-            - name: Install gstreamer and libunwind (Linux)
-              if: runner.os == 'Linux'
-              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-            - name: Setup headless display
-              if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
-            - uses: ./.github/actions/setup-rust
-              with:
-                  toolchain: ${{ matrix.rust_version }}
-                  key: x-v3
-            - name: Run tests
-              run:  cargo test --verbose --all-features --workspace --timings ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
-              env:
-                  SLINT_CREATE_SCREENSHOTS: 1
-              shell: bash
-            - name: Run tests (qt)
-              run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
-              shell: bash
-            - name: live-preview for rust test
-              env:
-                SLINT_LIVE_PREVIEW: 1
-              run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
-              shell: bash
-            - name: Upload build timing report
-              if: always()
-              uses: actions/upload-artifact@v5
-              with:
-                  name: cargo-timings-${{ matrix.os }}-${{ matrix.rust_version }}
-                  path: target/cargo-timings/cargo-timing.html
-                  if-no-files-found: ignore
-            - name: Archive screenshots after failed tests
-              if: ${{ failure() }}
-              uses: actions/upload-artifact@v5
-              with:
-                  name: screenshots-${{matrix.os}}
-                  path: |
-                      tests/screenshots/references
+                      save_if: ${{ github.ref == 'refs/heads/master' }}
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: ${{ matrix.os }}
+            name: ${{ matrix.name }}
+            rust_version: ${{ matrix.rust_version }}
+            extra_args: ${{ matrix.extra_args }}
+            save_if: ${{ matrix.save_if }}
+            timeout_minutes: 120
 
     node_test:
         needs: files-changed
