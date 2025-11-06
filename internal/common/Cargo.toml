@@ -17,7 +17,8 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
-default = []
+default = ["std"]
+std = []
 shared-fontique = ["dep:fontique", "dep:ttf-parser"]
 
 [dependencies]

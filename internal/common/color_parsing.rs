@@ -3,7 +3,58 @@
 
 use std::collections::HashMap;
 
-use crate::literals::parse_color_literal;
+/// Returns `0xaarrggbb`
+pub fn parse_color_literal(str: &str) -> Option<u32> {
+    if !str.starts_with('#') {
+        return None;
+    }
+    if !str.is_ascii() {
+        return None;
+    }
+    let str = &str[1..];
+    let (r, g, b, a) = match str.len() {
+        3 => (
+            u8::from_str_radix(&str[0..=0], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[1..=1], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[2..=2], 16).ok()? * 0x11,
+            255u8,
+        ),
+        4 => (
+            u8::from_str_radix(&str[0..=0], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[1..=1], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[2..=2], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[3..=3], 16).ok()? * 0x11,
+        ),
+        6 => (
+            u8::from_str_radix(&str[0..2], 16).ok()?,
+            u8::from_str_radix(&str[2..4], 16).ok()?,
+            u8::from_str_radix(&str[4..6], 16).ok()?,
+            255u8,
+        ),
+        8 => (
+            u8::from_str_radix(&str[0..2], 16).ok()?,
+            u8::from_str_radix(&str[2..4], 16).ok()?,
+            u8::from_str_radix(&str[4..6], 16).ok()?,
+            u8::from_str_radix(&str[6..8], 16).ok()?,
+        ),
+        _ => return None,
+    };
+    Some((a as u32) << 24 | (r as u32) << 16 | (g as u32) << 8 | (b as u32))
+}
+
+#[test]
+fn test_parse_color_literal() {
+    assert_eq!(parse_color_literal("#abc"), Some(0xffaabbcc));
+    assert_eq!(parse_color_literal("#ABC"), Some(0xffaabbcc));
+    assert_eq!(parse_color_literal("#AbC"), Some(0xffaabbcc));
+    assert_eq!(parse_color_literal("#AbCd"), Some(0xddaabbcc));
+    assert_eq!(parse_color_literal("#01234567"), Some(0x67012345));
+    assert_eq!(parse_color_literal("#012345"), Some(0xff012345));
+    assert_eq!(parse_color_literal("_01234567"), None);
+    assert_eq!(parse_color_literal("→↓←"), None);
+    assert_eq!(parse_color_literal("#→↓←"), None);
+    assert_eq!(parse_color_literal("#1234567890"), None);
+}
 
 static NAMED_COLORS: std::sync::OnceLock<HashMap<&'static str, u32>> = std::sync::OnceLock::new();
 

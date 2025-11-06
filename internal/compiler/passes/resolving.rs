@@ -410,7 +410,7 @@ impl Expression {
                         ),
                     ),
                     SyntaxKind::ColorLiteral => Some(
-                        crate::literals::parse_color_literal(token.text())
+                        i_slint_common::color_parsing::parse_color_literal(token.text())
                             .map(|i| Expression::Cast {
                                 from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
                                 to: Type::Color,
