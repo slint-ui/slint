@@ -111,7 +111,6 @@ struct LayoutOptions {
     max_height: Option<LogicalLength>,
     horizontal_align: TextHorizontalAlignment,
     vertical_align: TextVerticalAlignment,
-    text_wrap: TextWrap,
     text_overflow: TextOverflow,
 }
 
@@ -126,7 +125,6 @@ impl LayoutOptions {
             max_height,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
-            text_wrap: text_input.wrap(),
             text_overflow: TextOverflow::Clip,
         }
     }
@@ -415,7 +413,7 @@ fn layout(
     for para in paragraphs.iter_mut() {
         para.layout.break_all_lines(
             max_physical_width
-                .filter(|_| options.text_wrap != TextWrap::NoWrap)
+                .filter(|_| layout_builder.text_wrap != TextWrap::NoWrap)
                 .map(|width| width.get()),
         );
         para.layout.align(
@@ -1209,11 +1207,10 @@ pub fn draw_text(
     let (horizontal_align, vertical_align) = text.alignment();
 
     let text_overflow = text.overflow();
-    let text_wrap = text.wrap();
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         font_request,
-        text_wrap,
+        text.wrap(),
         platform_stroke_brush.is_some().then_some(stroke_style),
         scale_factor,
     );
@@ -1230,7 +1227,6 @@ pub fn draw_text(
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
-            text_wrap,
             text_overflow,
         },
     );
@@ -1279,10 +1275,8 @@ pub fn link_under_cursor(
 
     let font_request = text.font_request(item_rc);
 
-    let text_wrap = text.wrap();
-
     let layout_builder =
-        LayoutWithoutLineBreaksBuilder::new(Some(font_request), text_wrap, None, scale_factor);
+        LayoutWithoutLineBreaksBuilder::new(Some(font_request), text.wrap(), None, scale_factor);
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
@@ -1296,7 +1290,6 @@ pub fn link_under_cursor(
             vertical_align,
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
-            text_wrap,
             text_overflow: text.overflow(),
         },
     );
@@ -1380,7 +1373,7 @@ pub fn draw_text_input(
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
-        options.text_wrap,
+        text_input.wrap(),
         None,
         scale_factor,
     );
@@ -1444,7 +1437,6 @@ pub fn text_size(
         scale_factor,
         LayoutOptions {
             max_width,
-            text_wrap,
             max_height: None,
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
@@ -1531,7 +1523,7 @@ pub fn text_input_byte_offset_for_position(
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
-        options.text_wrap,
+        text_input.wrap(),
         None,
         scale_factor,
     );
@@ -1572,7 +1564,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
-        options.text_wrap,
+        text_input.wrap(),
         None,
         scale_factor,
     );
