@@ -10,6 +10,7 @@ export component TextEdit {
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
+    in property <string> font-family <=> base.font-family;
     in property <bool> enabled <=> base.enabled;
     in property <string> placeholder-text <=> base.placeholder-text;
     out property <bool> has-focus: base.has-focus;
@@ -20,7 +21,6 @@ export component TextEdit {
     in-out property <length> viewport-y <=> base.viewport-y;
     in-out property <length> viewport-width <=> base.viewport-width;
     in-out property <length> viewport-height <=> base.viewport-height;
-    in-out property <string> font-family <=> base.font-family;
 
     callback edited <=> base.edited;
     callback key-pressed <=> base.key-pressed;

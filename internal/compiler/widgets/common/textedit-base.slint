@@ -10,6 +10,7 @@ export component TextEditBase inherits Rectangle {
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
     in property <bool> read-only <=> text-input.read-only;
     in property <length> font-size <=> text-input.font-size;
+    in property <string> font-family <=> text-input.font-family;
     in property <bool> enabled <=> text-input.enabled;
     out property <bool> has-focus: text-input.has-focus;
     out property <length> visible-width <=> scroll-view.visible-width;
@@ -19,7 +20,6 @@ export component TextEditBase inherits Rectangle {
     in-out property <length> viewport-y <=> scroll-view.viewport-y;
     in-out property <length> viewport-width <=> scroll-view.viewport-width;
     in-out property <length> viewport-height <=> scroll-view.viewport-height;
-    in-out property <string> font-family <=> text-input.font-family;
 
     in property <brush> foreground <=> text-input.color;
     in property <int> font-weight <=> text-input.font-weight;

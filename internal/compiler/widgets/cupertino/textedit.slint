@@ -64,6 +64,7 @@ export component TextEdit {
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
     in property <bool> read-only <=> text-input.read-only;
     in property <length> font-size <=> text-input.font-size;
+    in property <string> font-family <=> text-input.font-family;
     in property <bool> enabled <=> text-input.enabled;
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
@@ -73,7 +74,6 @@ export component TextEdit {
     in-out property <length> viewport-y <=> scroll-view.viewport-y;
     in-out property <length> viewport-width <=> scroll-view.viewport-width;
     in-out property <length> viewport-height <=> scroll-view.viewport-height;
-    in-out property <string> font-family <=> base.font-family;
     in property <string> placeholder-text;
 
     callback edited(text: string);
