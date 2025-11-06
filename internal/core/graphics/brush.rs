@@ -330,7 +330,7 @@ impl ConicGradientBrush {
         }
 
         // Drop stops under 0deg and over 360deg
-        stops = stops.into_iter().filter(|s| 0.0 <= s.position && s.position <= 1.0).collect();
+        stops.retain(|s| 0.0 <= s.position && s.position <= 1.0);
 
         // Handle empty gradients by providing a transparent default
         if stops.is_empty() {
