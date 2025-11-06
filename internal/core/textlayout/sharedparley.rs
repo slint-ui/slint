@@ -285,6 +285,7 @@ impl LayoutWithoutLineBreaksBuilder {
                             span.range,
                         );
                     }
+                    Style::Color(_) => {}
                 }
             }
 
@@ -837,6 +838,7 @@ enum Style {
     Code,
     Link,
     Underline,
+    Color(std::string::String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -994,20 +996,63 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                     .formatting
                     .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
             }
-            pulldown_cmark::Event::InlineHtml(html) => match &*html {
-                "<u>" => {
-                    style_stack
-                        .push((Style::Underline, rich_text.paragraphs.last().unwrap().text.len()));
-                }
-                "</u>" => {
+            pulldown_cmark::Event::InlineHtml(html) => {
+                if html.starts_with("</") {
                     let (style, start) = style_stack.pop().unwrap();
 
                     let paragraph = rich_text.paragraphs.last_mut().unwrap();
                     let end = paragraph.text.len();
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                } else {
+                    let mut expecting_color_attribute = false;
+                    
+                    for token in htmlparser::Tokenizer::from(&*html) {
+                        match token {
+                            Ok(htmlparser::Token::ElementStart { local: tag_type, .. }) => {
+                                match &*tag_type {
+                                    "u" => {
+                                        style_stack.push((
+                                            Style::Underline,
+                                            rich_text.paragraphs.last().unwrap().text.len(),
+                                        ));
+                                    }
+                                    "font" => {
+                                        expecting_color_attribute = true;
+                                    }
+                                    _ => {
+                                        unimplemented!("Unhandled start tag type: {}", tag_type)
+                                    }
+                                }
+                            }
+                            Ok(htmlparser::Token::Attribute {
+                                local: key,
+                                value: Some(value),
+                                ..
+                            }) => match &*key {
+                                "color" => {
+                                    assert!(expecting_color_attribute);
+                                    expecting_color_attribute = false;
+                                    
+                                    style_stack.push((
+                                        Style::Color((&*value).into()),
+                                        rich_text.paragraphs.last().unwrap().text.len(),
+                                    ));
+                                    
+                                }
+                                _ => {
+                                    std::unimplemented!("attribute {}: {}", key, value);
+                                }
+                            },
+                            Ok(htmlparser::Token::ElementEnd { .. }) => {}
+                            _ => {
+                                std::unimplemented!("{:?}", token);
+                            }
+                        }
+                    }
+                    
+                    assert!(!expecting_color_attribute);
                 }
-                other => unimplemented!("{}", other),
-            },
+            }
             pulldown_cmark::Event::Rule
             | pulldown_cmark::Event::TaskListMarker(_)
             | pulldown_cmark::Event::FootnoteReference(_)
@@ -1016,6 +1061,8 @@ fn parse_markdown(string: &str) -> RichText<'_> {
             | pulldown_cmark::Event::Html(_) => unimplemented!("{:?}", event),
         }
     }
+    
+    debug_assert!(style_stack.is_empty());
 
     rich_text
 }
@@ -1148,6 +1195,30 @@ new *line*
         [RichTextParagraph {
             text: "hello world".into(),
             formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
+            links: std::vec![]
+        }]
+    );
+
+    assert_eq!(
+        parse_markdown(r#"<font color="red">hello world</font>"#).paragraphs,
+        [RichTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan {
+                range: 0..11,
+                style: Style::Color(std::format!("red"))
+            },],
+            links: std::vec![]
+        }]
+    );
+    
+    assert_eq!(
+        parse_markdown(r#"<u><font color="red">hello world</font></u>"#).paragraphs,
+        [RichTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan {
+                range: 0..11,
+                style: Style::Color(std::format!("red"))
+            },FormattedSpan { range: 0..11, style: Style::Underline },],
             links: std::vec![]
         }]
     );
