@@ -4,7 +4,7 @@
 
 > Disclaimer: Servo is still experimental and not ready for productions use.
 
-Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using handrware rendring on desktop platforms and software rendring on android for now.
+Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using hardware rendring on MacOS, Linux and software rendring on android for now.
 
 ![Preview](https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be)
 
