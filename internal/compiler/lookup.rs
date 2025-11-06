@@ -17,7 +17,6 @@ use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 
-
 pub use i_slint_common::color_parsing::named_colors;
 
 /// Contains information which allow to lookup identifier in expressions

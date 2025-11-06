@@ -6,10 +6,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod builtin_structs;
-pub mod enums;
-pub mod key_codes;
 #[cfg(feature = "std")]
 pub mod color_parsing;
+pub mod enums;
+pub mod key_codes;
 
 #[cfg(feature = "shared-fontique")]
 pub mod sharedfontique;
