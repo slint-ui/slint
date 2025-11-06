@@ -318,6 +318,7 @@ jobs:
             - uses: actions/download-artifact@v6
               with:
                   pattern: docs-*
+                  merge-multiple: true
                   path: .
 
             - name: Generate a token
