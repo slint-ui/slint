@@ -67,7 +67,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental = []
 
-experimental-rich-text = ["dep:pulldown-cmark"]
+experimental-rich-text = ["dep:pulldown-cmark", "i-slint-common/color-parsing"]
 
 unstable-wgpu-26 = ["dep:wgpu-26"]
 unstable-wgpu-27 = ["dep:wgpu-27"]
