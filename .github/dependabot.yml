@@ -42,32 +42,9 @@ updates:
       - dependency-name: "monaco-languageclient"
 
     groups:
-      vscode:
-        patterns:
-          - "vscode*"
-      starlight_astro:
-        patterns:
-          - "*astro*"
-          - "@*astro*"
-          - "starlight*"
-          - "sharp"
-          - "@expressive-code/plugin-line-numbers"
-      playwright:
-        patterns:
-          - "playwright*"
-          - "@playwright*"
-      react:
-        patterns:
-          - "react"
-          - "react-dom"
-          - "@types/react"
-          - "@types/react-dom"
-      lumino:
-        patterns:
-          - "@lumino/*"
-      vite:
-        patterns:
-          - "vite*"
-          - "@vitejs*"
-          - "vitest*"
-          - "@vitest*"
+      npm-major-updates:
+        update-types: ["major"]
+      npm-minor-updates:
+        update-types: ["minor"]
+      npm-patch-updates:
+        update-types: ["patch"]
