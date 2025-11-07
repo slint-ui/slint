@@ -70,7 +70,7 @@ pub fn main() {
         })
         .expect("Failed to set rendering notifier - WGPU integration may not be available");
 
-    init_servo_webview(adapter.clone());
+    init_servo_webview(adapter.clone(), "https://slint.dev".into());
 
     spin_servo_event_loop(adapter.clone());
 

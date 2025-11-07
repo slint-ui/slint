@@ -9,7 +9,7 @@ use winit::dpi::PhysicalSize;
 use euclid::{Scale, Size2D};
 
 use i_slint_core::items::ColorScheme;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, SharedString};
 
 use servo::{
     RenderingContext, Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel,
@@ -47,7 +47,7 @@ pub fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
     .expect("Failed to spawn servo event loop task");
 }
 
-pub fn init_servo_webview(adapter: Rc<SlintServoAdapter>) {
+pub fn init_servo_webview(adapter: Rc<SlintServoAdapter>, initial_url: SharedString) {
     let state_weak = Rc::downgrade(&adapter);
 
     slint::spawn_local({
@@ -79,7 +79,7 @@ pub fn init_servo_webview(adapter: Rc<SlintServoAdapter>) {
 
             let servo = intit_servo(state.clone(), rendering_context);
 
-            init_webview(scale_factor, physical_size, state, servo, rendering_adapter);
+            init_webview(scale_factor, physical_size, initial_url, state, servo, rendering_adapter);
         }
     })
     .unwrap();
@@ -96,15 +96,18 @@ fn intit_servo(state: Rc<SlintServoAdapter>, rendering_context: Rc<dyn Rendering
 fn init_webview(
     scale_factor: f32,
     physical_size: PhysicalSize<u32>,
+    initial_url: SharedString,
     adapter: Rc<SlintServoAdapter>,
     servo: Servo,
     rendering_adapter: Box<dyn ServoRenderingAdapter>,
 ) {
     let scale = Scale::new(scale_factor);
 
-    let url = adapter.app().get_url();
+    let app = adapter.app();
 
-    let url = Url::parse(url.as_str()).expect("Failed to parse url");
+    app.global::<WebviewLogic>().set_current_url(initial_url.clone());
+
+    let url = Url::parse(&initial_url).expect("Failed to parse url");
 
     let delegate = Rc::new(AppDelegate::new(adapter.clone()));
 
@@ -116,8 +119,6 @@ fn init_webview(
         .build();
 
     webview.show(true);
-
-    let app = adapter.app();
 
     let color_scheme = app.global::<Palette>().get_color_scheme();
 
