@@ -1369,8 +1369,6 @@ pub fn draw_text_input(
     let text: SharedString = visual_representation.text.into();
     let font_request = text_input.font_request(item_rc);
 
-    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
-
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
         text_input.wrap(),
@@ -1385,7 +1383,12 @@ pub fn draw_text_input(
         Color::default(),
     );
 
-    let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
+    let layout = layout(
+        &layout_builder,
+        paragraphs_without_linebreaks,
+        scale_factor,
+        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+    );
 
     layout.selection_geometry(selection_range, |selection_rect| {
         item_renderer
@@ -1519,8 +1522,6 @@ pub fn text_input_byte_offset_for_position(
         return 0;
     }
 
-    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
-
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
         text_input.wrap(),
@@ -1531,7 +1532,12 @@ pub fn text_input_byte_offset_for_position(
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
 
-    let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
+    let layout = layout(
+        &layout_builder,
+        paragraphs_without_linebreaks,
+        scale_factor,
+        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+    );
     let byte_offset = layout.byte_offset_from_point(pos);
     let visual_representation = text_input.visual_representation(None);
     visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
@@ -1560,8 +1566,6 @@ pub fn text_input_cursor_rect_for_byte_offset(
         );
     }
 
-    let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
-
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
         text_input.wrap(),
@@ -1572,7 +1576,12 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
 
-    let layout = layout(&layout_builder, paragraphs_without_linebreaks, scale_factor, options);
+    let layout = layout(
+        &layout_builder,
+        paragraphs_without_linebreaks,
+        scale_factor,
+        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+    );
     let cursor_rect = layout
         .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
     cursor_rect / scale_factor
