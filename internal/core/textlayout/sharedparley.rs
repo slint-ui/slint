@@ -838,7 +838,7 @@ enum Style {
     Code,
     Link,
     Underline,
-    Color(crate::Color),
+    Color(Color),
 }
 
 #[derive(Debug, PartialEq)]
@@ -1043,7 +1043,7 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                                             .expect("invalid color value");
 
                                     style_stack.push((
-                                        Style::Color(crate::Color::from_argb_encoded(value)),
+                                        Style::Color(Color::from_argb_encoded(value)),
                                         rich_text.paragraphs.last().unwrap().text.len(),
                                     ));
                                 }
@@ -1213,7 +1213,7 @@ new *line*
             text: "hello world".into(),
             formatting: std::vec![FormattedSpan {
                 range: 0..11,
-                style: Style::Color(crate::Color::from_rgb_u8(255, 0, 0))
+                style: Style::Color(Color::from_rgb_u8(255, 0, 0))
             },],
             links: std::vec![]
         }]
@@ -1224,10 +1224,7 @@ new *line*
         [RichTextParagraph {
             text: "hello world".into(),
             formatting: std::vec![
-                FormattedSpan {
-                    range: 0..11,
-                    style: Style::Color(crate::Color::from_rgb_u8(255, 0, 0))
-                },
+                FormattedSpan { range: 0..11, style: Style::Color(Color::from_rgb_u8(255, 0, 0)) },
                 FormattedSpan { range: 0..11, style: Style::Underline },
             ],
             links: std::vec![]
