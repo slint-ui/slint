@@ -1567,15 +1567,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     if width.get() <= 0. || height.get() <= 0. {
         return LogicalRect::new(
             LogicalPoint::default(),
-            LogicalSize::from_lengths(
-                LogicalLength::new(1.0),
-                layout_builder
-                    .font_request
-                    .as_ref()
-                    .unwrap()
-                    .pixel_size
-                    .unwrap_or(DEFAULT_FONT_SIZE),
-            ),
+            LogicalSize::from_lengths(LogicalLength::new(1.0), layout_builder.pixel_size),
         );
     }
 
