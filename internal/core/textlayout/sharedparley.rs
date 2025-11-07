@@ -1515,9 +1515,7 @@ pub fn text_input_byte_offset_for_position(
     let Some(scale_factor) = renderer.scale_factor() else {
         return 0;
     };
-    let font_request = text_input.font_request(item_rc);
     let pos: PhysicalPoint = pos * scale_factor;
-    let text = text_input.text();
 
     let width = text_input.width();
     let height = text_input.height();
@@ -1526,12 +1524,13 @@ pub fn text_input_byte_offset_for_position(
     }
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(font_request),
+        Some(text_input.font_request(item_rc)),
         text_input.wrap(),
         None,
         scale_factor,
     );
 
+    let text = text_input.text();
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
 
