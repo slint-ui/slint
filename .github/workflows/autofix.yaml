@@ -9,6 +9,7 @@ on:
   push:
     branches: [master, "feature/*"]
   workflow_dispatch:
+  merge_group:
 
 permissions:
   contents: read
