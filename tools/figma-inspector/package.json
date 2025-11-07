@@ -34,11 +34,11 @@
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.3.0",
-    "vitest": "4.0.6"
+    "vitest": "4.0.8"
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.19",
-    "html-react-parser": "5.2.7",
+    "html-react-parser": "5.2.8",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-rnd": "10.5.2",
