@@ -562,10 +562,11 @@ impl Expression {
                 );
                 return Expression::Invalid;
             }
-            if !comma.is_some_and(|s| s.kind() == SyntaxKind::Comma) {
+            // Only error if there's something after 'circle' that's NOT a comma
+            if comma.is_some_and(|s| s.kind() != SyntaxKind::Comma) {
                 ctx.diag.push_error(
                     "'circle' must be followed by a comma".into(),
-                    comma.map_or(&node as &dyn Spanned, |x| x as &dyn Spanned),
+                    comma.unwrap(),
                 );
                 return Expression::Invalid;
             }
