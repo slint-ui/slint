@@ -1419,11 +1419,15 @@ pub fn text_size(
     let Some(scale_factor) = renderer.scale_factor() else {
         return LogicalSize::default();
     };
-    let font_request = text_item.font_request(item_rc);
-    let text = text_item.text();
 
-    let layout_builder =
-        LayoutWithoutLineBreaksBuilder::new(Some(font_request), text_wrap, None, scale_factor);
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(text_item.font_request(item_rc)),
+        text_wrap,
+        None,
+        scale_factor,
+    );
+
+    let text = text_item.text();
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
