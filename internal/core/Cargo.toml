@@ -67,7 +67,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental = []
 
-experimental-rich-text = ["dep:pulldown-cmark", "i-slint-common/color-parsing"]
+experimental-rich-text = ["dep:pulldown-cmark", "dep:htmlparser", "i-slint-common/color-parsing"]
 
 unstable-wgpu-26 = ["dep:wgpu-26"]
 unstable-wgpu-27 = ["dep:wgpu-27"]
@@ -134,7 +134,7 @@ wgpu-27 = { workspace = true, optional = true }
 tr = { workspace = true, optional = true }
 
 webbrowser = { version = "1.0.6", optional = true }
-htmlparser = "0.2.1"
+htmlparser = { version = "0.2.1", optional = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
