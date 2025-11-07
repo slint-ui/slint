@@ -1009,6 +1009,13 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                 if html.starts_with("</") {
                     let (style, start) = style_stack.pop().unwrap();
 
+                    let matches_opening = matches!(
+                        (&*html, &style),
+                        ("</font>", Style::Color(_)) | ("</u>", Style::Underline)
+                    );
+
+                    debug_assert!(matches_opening);
+
                     let paragraph = rich_text.paragraphs.last_mut().unwrap();
                     let end = paragraph.text.len();
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
