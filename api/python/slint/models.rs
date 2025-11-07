@@ -96,7 +96,7 @@ impl i_slint_core::model::Model for PyModelShared {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        Python::attach(|py| {
+        Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
             let Some(obj) = obj.as_ref() else {
                 eprintln!("Python: Model implementation is lacking self object (in row_count)");
@@ -125,11 +125,11 @@ impl i_slint_core::model::Model for PyModelShared {
                     0
                 }
             }
-        })
+        }).unwrap_or_default()
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        Python::attach(|py| {
+        Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
             let Some(obj) = obj.as_ref() else {
                 eprintln!("Python: Model implementation is lacking self object (in row_data)");
@@ -164,11 +164,11 @@ impl i_slint_core::model::Model for PyModelShared {
                     None
                 }
             }
-        })
+        }).flatten()
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        Python::attach(|py| {
+        Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
             let Some(obj) = obj.as_ref() else {
                 eprintln!("Python: Model implementation is lacking self object (in set_row_data)");
