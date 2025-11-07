@@ -1346,6 +1346,18 @@ pub fn draw_text_input(
     } else {
         visual_representation.selection_range.start..visual_representation.selection_range.end
     };
+
+    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(text_input.font_request(item_rc)),
+        text_input.wrap(),
+        None,
+        scale_factor,
+    );
+
+    let text: SharedString = visual_representation.text.into();
+
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
     // that character and parley will panic. We just filter out empty selection ranges.
@@ -1354,25 +1366,6 @@ pub fn draw_text_input(
     } else {
         None
     };
-
-    let (cursor_visible, cursor_pos) =
-        if let Some(cursor_pos) = visual_representation.cursor_position {
-            (true, cursor_pos)
-        } else {
-            (false, 0)
-        };
-
-    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
-
-    let text: SharedString = visual_representation.text.into();
-    let font_request = text_input.font_request(item_rc);
-
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(font_request),
-        text_input.wrap(),
-        None,
-        scale_factor,
-    );
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
@@ -1401,6 +1394,13 @@ pub fn draw_text_input(
             item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
         },
     );
+
+    let (cursor_visible, cursor_pos) =
+        if let Some(cursor_pos) = visual_representation.cursor_position {
+            (true, cursor_pos)
+        } else {
+            (false, 0)
+        };
 
     if cursor_visible {
         let cursor_rect = layout
