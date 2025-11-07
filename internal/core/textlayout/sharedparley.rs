@@ -1396,14 +1396,7 @@ pub fn draw_text_input(
         },
     );
 
-    let (cursor_visible, cursor_pos) =
-        if let Some(cursor_pos) = visual_representation.cursor_position {
-            (true, cursor_pos)
-        } else {
-            (false, 0)
-        };
-
-    if cursor_visible {
+    if let Some(cursor_pos) = visual_representation.cursor_position {
         let cursor_rect = layout
             .cursor_rect_for_byte_offset(cursor_pos, text_input.text_cursor_width() * scale_factor);
         item_renderer.fill_rectange_with_color(cursor_rect, visual_representation.cursor_color);
