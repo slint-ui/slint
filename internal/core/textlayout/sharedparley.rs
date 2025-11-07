@@ -1555,27 +1555,32 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let Some(scale_factor) = renderer.scale_factor() else {
         return LogicalRect::default();
     };
-    let text = text_input.text();
 
-    let font_request = text_input.font_request(item_rc);
-    let font_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(text_input.font_request(item_rc)),
+        text_input.wrap(),
+        None,
+        scale_factor,
+    );
 
     let width = text_input.width();
     let height = text_input.height();
     if width.get() <= 0. || height.get() <= 0. {
         return LogicalRect::new(
             LogicalPoint::default(),
-            LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
+            LogicalSize::from_lengths(
+                LogicalLength::new(1.0),
+                layout_builder
+                    .font_request
+                    .as_ref()
+                    .unwrap()
+                    .pixel_size
+                    .unwrap_or(DEFAULT_FONT_SIZE),
+            ),
         );
     }
 
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(font_request),
-        text_input.wrap(),
-        None,
-        scale_factor,
-    );
-
+    let text = text_input.text();
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
 
