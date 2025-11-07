@@ -838,7 +838,7 @@ enum Style {
     Code,
     Link,
     Underline,
-    Color(std::string::String),
+    Color(crate::Color),
 }
 
 #[derive(Debug, PartialEq)]
@@ -1032,12 +1032,20 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                                 "color" => {
                                     assert!(expecting_color_attribute);
                                     expecting_color_attribute = false;
-                                    
+
+                                    let value =
+                                        i_slint_common::color_parsing::parse_color_literal(&*value)
+                                            .or_else(|| {
+                                                i_slint_common::color_parsing::named_colors()
+                                                    .get(&*value)
+                                                    .copied()
+                                            })
+                                            .expect("invalid color value");
+
                                     style_stack.push((
-                                        Style::Color((&*value).into()),
+                                        Style::Color(crate::Color::from_argb_encoded(value)),
                                         rich_text.paragraphs.last().unwrap().text.len(),
                                     ));
-                                    
                                 }
                                 _ => {
                                     std::unimplemented!("attribute {}: {}", key, value);
@@ -1049,7 +1057,7 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                             }
                         }
                     }
-                    
+
                     assert!(!expecting_color_attribute);
                 }
             }
@@ -1061,7 +1069,7 @@ fn parse_markdown(string: &str) -> RichText<'_> {
             | pulldown_cmark::Event::Html(_) => unimplemented!("{:?}", event),
         }
     }
-    
+
     debug_assert!(style_stack.is_empty());
 
     rich_text
@@ -1205,20 +1213,23 @@ new *line*
             text: "hello world".into(),
             formatting: std::vec![FormattedSpan {
                 range: 0..11,
-                style: Style::Color(std::format!("red"))
+                style: Style::Color(crate::Color::from_rgb_u8(255, 0, 0))
             },],
             links: std::vec![]
         }]
     );
-    
+
     assert_eq!(
         parse_markdown(r#"<u><font color="red">hello world</font></u>"#).paragraphs,
         [RichTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![FormattedSpan {
-                range: 0..11,
-                style: Style::Color(std::format!("red"))
-            },FormattedSpan { range: 0..11, style: Style::Underline },],
+            formatting: std::vec![
+                FormattedSpan {
+                    range: 0..11,
+                    style: Style::Color(crate::Color::from_rgb_u8(255, 0, 0))
+                },
+                FormattedSpan { range: 0..11, style: Style::Underline },
+            ],
             links: std::vec![]
         }]
     );
