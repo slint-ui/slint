@@ -1005,7 +1005,7 @@ fn parse_markdown(string: &str) -> RichText<'_> {
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
                 } else {
                     let mut expecting_color_attribute = false;
-                    
+
                     for token in htmlparser::Tokenizer::from(&*html) {
                         match token {
                             Ok(htmlparser::Token::ElementStart { local: tag_type, .. }) => {
