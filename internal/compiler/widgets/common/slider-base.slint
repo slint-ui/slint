@@ -49,7 +49,7 @@ export component SliderBase {
 
             if (!root.handle-has-hover) {
                 root.set-value((!root.vertical ? root.size-to-value(touch-area.mouse-x, root.width) :
-                    root.size-to-value(touch-area.mouse-y, root.height)) + root.minimum);
+                    root.size-to-value(root.height - touch-area.mouse-y, root.height)) + root.minimum);
             }
 
             self.pressed-value = value;
@@ -63,7 +63,7 @@ export component SliderBase {
             }
 
             root.set-value(self.pressed-value + (!vertical ? root.size-to-value(touch-area.mouse-x - touch-area.pressed-x, root.width - root.ref-size) :
-                root.size-to-value(touch-area.mouse-y - touch-area.pressed-y, root.height - root.ref-size))
+                root.size-to-value(touch-area.pressed-y - touch-area.mouse-y, root.height - root.ref-size))
             );
         }
     }
@@ -80,10 +80,10 @@ export component SliderBase {
                 return reject;
             }
 
-            if ((!vertical && event.text == Key.RightArrow) || (vertical && event.text == Key.DownArrow)) {
+            if ((!vertical && event.text == Key.RightArrow) || (vertical && event.text == Key.UpArrow)) {
                 root.increment();
                 return accept;
-            } else if ((!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow)) {
+            } else if ((!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.DownArrow)) {
                 root.decrement();
                 return accept;
             } else if (event.text == Key.Home) {
