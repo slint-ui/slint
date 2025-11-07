@@ -442,7 +442,7 @@ jobs:
                 sed -i "s/VERSION/$version/g" ../docs/index.html
 
                 rm -rf $output_path/docs
-                mv ../docs .
+                mv ../docs $output_path
 
                 # Fix up link to Slint language documentation
                 sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
