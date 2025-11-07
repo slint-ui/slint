@@ -37,7 +37,7 @@ pub fn main() {
     {
         let mut wgpu_settings = WGPUSettings::default();
         wgpu_settings.device_required_features = wgpu::Features::PUSH_CONSTANTS;
-        wgpu_settings.device_required_limits.max_push_constant_size = 16; // Maximum push size 
+        wgpu_settings.device_required_limits.max_push_constant_size = 16; // Maximum push size
 
         slint::BackendSelector::new()
         .require_wgpu_27(WGPUConfiguration::Automatic(wgpu_settings))
