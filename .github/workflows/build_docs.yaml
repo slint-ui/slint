@@ -47,7 +47,6 @@ jobs:
               with:
                   toolchain: nightly
                   target: aarch64-linux-android
-                  cache: false
             - name: Install apt dependencies
               run: sudo apt-get install doxygen
             - uses: baptiste0928/cargo-install@v3
@@ -81,6 +80,8 @@ jobs:
               with:
                   name: docs-rust-cpp
                   path: artifact
+            - name: "Check for docs warnings in internal crates"
+              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
 
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
@@ -223,22 +224,3 @@ jobs:
               with:
                   name: docs-node-python
                   path: artifact
-
-    # Job 4: Check for docs warnings (depends on rust-cpp-docs)
-    check-warnings:
-        runs-on: ubuntu-24.04
-        env:
-            RUSTFLAGS: -D warnings -W deprecated
-            SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-        steps:
-            - uses: actions/checkout@v5
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
-              with:
-                  toolchain: stable
-                  target: aarch64-linux-android
-                  cache: false
-            - name: "Check for docs warnings in internal crates"
-              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
-
