@@ -171,6 +171,8 @@ enum WinitWindowOrNone {
         muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
         #[cfg(muda)]
         context_menu_muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
+        #[cfg(target_os = "ios")]
+        keyboard_curve_sampler: super::virtual_keyboard::KeyboardCurveSampler,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -478,6 +480,20 @@ impl WinitWindowAdapter {
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
         self.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
+        #[cfg(target_os = "ios")]
+        let (content_view, keyboard_curve_self) = {
+            use objc2::Message as _;
+            use raw_window_handle::HasWindowHandle as _;
+
+            let raw_window_handle::RawWindowHandle::UiKit(window_handle) =
+                winit_window.window_handle().unwrap().as_raw()
+            else {
+                panic!()
+            };
+            let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) }.retain();
+            (view, self.self_weak.clone())
+        };
+
         *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
             #[cfg(enable_accesskit)]
@@ -492,6 +508,21 @@ impl WinitWindowAdapter {
             muda_adapter: RefCell::new(None),
             #[cfg(muda)]
             context_menu_muda_adapter: None.into(),
+            #[cfg(target_os = "ios")]
+            keyboard_curve_sampler: super::virtual_keyboard::KeyboardCurveSampler::new(
+                &content_view,
+                move |rect| {
+                    if let Some(this) = keyboard_curve_self.upgrade() {
+                        use i_slint_core::api::{LogicalPosition, LogicalSize};
+
+                        this.window().set_keyboard_area(
+                            LogicalPosition::new(rect.origin.x as _, rect.origin.y as _),
+                            LogicalSize::new(rect.size.width as _, rect.size.height as _),
+                            i_slint_core::InternalToken,
+                        );
+                    }
+                },
+            ),
         };
 
         #[cfg(muda)]
@@ -628,6 +659,21 @@ impl WinitWindowAdapter {
 
     pub fn winit_window(&self) -> Option<Arc<winit::window::Window>> {
         self.winit_window_or_none.borrow().as_window()
+    }
+
+    #[cfg(target_os = "ios")]
+    pub(crate) fn with_keyboard_curve_sampler<R>(
+        &self,
+        f: impl FnOnce(&mut super::virtual_keyboard::KeyboardCurveSampler) -> R,
+    ) -> Option<R> {
+        let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
+        if let WinitWindowOrNone::HasWindow { keyboard_curve_sampler, .. } =
+            &mut *winit_window_or_none
+        {
+            Some(f(keyboard_curve_sampler))
+        } else {
+            None
+        }
     }
 
     #[cfg(muda)]

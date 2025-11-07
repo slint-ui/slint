@@ -587,10 +587,12 @@ impl SharedBackendData {
             }
         }
 
-        let active_windows = Rc::<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>::default();
+        let active_windows =
+            Rc::<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>::default();
 
         #[cfg(target_os = "ios")]
-        let keyboard_notifications = virtual_keyboard::register_keyboard_notifications(Rc::downgrade(&active_windows));
+        let keyboard_notifications =
+            virtual_keyboard::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]

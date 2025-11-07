@@ -127,7 +127,8 @@ i-slint-renderer-skia = { workspace = true, features = ["default"] }
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6.3"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSGeometry", "objc2-core-foundation"] }
-objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIScreen", "UIWindow", "UIView", "UIResponder", "objc2-core-foundation"] }
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIScreen", "UIWindow", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction"] }
 # Match version in objc2
 block2 = "0.6.2"
 
