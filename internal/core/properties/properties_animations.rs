@@ -128,7 +128,9 @@ pub(super) enum AnimatedBindingState {
     ShouldStart,
 }
 
+#[pin_project::pin_project]
 pub(super) struct AnimatedBindingCallable<T, A> {
+    #[pin]
     pub(super) original_binding: PropertyHandle,
     pub(super) state: Cell<AnimatedBindingState>,
     pub(super) animation_data: RefCell<PropertyValueAnimationData<T>>,
@@ -137,11 +139,11 @@ pub(super) struct AnimatedBindingCallable<T, A> {
 
 pub(super) type AnimationDetail = Option<(PropertyAnimation, crate::animations::Instant)>;
 
-unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable
+unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable<T>
     for AnimatedBindingCallable<T, A>
 {
-    unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
-        let original_binding = Pin::new_unchecked(&self.original_binding);
+    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+        let original_binding = self.project_ref().original_binding;
         original_binding.register_as_dependency_to_current_binding(
             #[cfg(slint_debug_property)]
             "<AnimatedBindingCallable>",
@@ -149,7 +151,7 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
         match self.state.get() {
             AnimatedBindingState::Animating => {
                 let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
-                *(value as *mut T) = val;
+                *value = val;
                 if finished {
                     self.state.set(AnimatedBindingState::NotAnimating)
                 } else {
@@ -158,15 +160,16 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                 }
             }
             AnimatedBindingState::NotAnimating => {
-                self.original_binding.update(value);
+                // Safety: `value` is a valid mutable reference
+                unsafe { self.original_binding.update(value as *mut T) };
             }
             AnimatedBindingState::ShouldStart => {
-                let value = &mut *(value as *mut T);
                 self.state.set(AnimatedBindingState::Animating);
                 let mut animation_data = self.animation_data.borrow_mut();
                 // animation_data.details.iteration_count = 1.;
                 animation_data.from_value = value.clone();
-                self.original_binding.update((&mut animation_data.to_value) as *mut T as *mut ());
+                // Safety: `animation_data.to_value` is a valid mutable reference
+                unsafe { self.original_binding.update((&mut animation_data.to_value) as *mut T) };
                 if let Some((details, start_time)) = (self.compute_animation_details)() {
                     animation_data.start_time = start_time;
                     animation_data.details = details;
@@ -254,9 +257,9 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding(
-                move |val: *mut ()| {
+                move |val: &mut T| {
                     let (value, finished) = d.borrow_mut().compute_interpolated_value();
-                    *(val as *mut T) = value;
+                    *val = value;
                     if finished {
                         BindingResult::RemoveBinding
                     } else {
@@ -285,9 +288,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
-                    (alloc_binding_holder(move |val: *mut ()| unsafe {
-                        let val = &mut *(val as *mut T);
-                        *(val as *mut T) = binding.evaluate(val);
+                    (alloc_binding_holder(move |val: &mut T| {
+                        *val = binding.evaluate(val);
                         BindingResult::KeepBinding
                     }) as usize)
                         | 0b10,
@@ -327,9 +329,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
-                    (alloc_binding_holder(move |val: *mut ()| unsafe {
-                        let val = &mut *(val as *mut T);
-                        *(val as *mut T) = binding.evaluate(val);
+                    (alloc_binding_holder(move |val: &mut T| {
+                        *val = binding.evaluate(val);
                         BindingResult::KeepBinding
                     }) as usize)
                         | 0b10,
