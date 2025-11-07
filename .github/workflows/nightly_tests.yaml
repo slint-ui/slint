@@ -311,3 +311,12 @@ jobs:
         with:
             name: "Python ${{ matrix.os }}"
             os: ${{ matrix.os }}
+
+    node:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+            name: "Node.js ${{ matrix.os }}"
+            os: ${{ matrix.os }}

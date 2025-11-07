@@ -79,54 +79,30 @@ jobs:
             save_if: ${{ matrix.save_if }}
             timeout_minutes: 120
 
-    node_test:
+    # For changes to Slint internals, do a quick test on Linux for Node.js only.
+    node_test_linux:
         needs: files-changed
         if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
-        env:
-            RUSTFLAGS: -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-        strategy:
-            matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+          name: "Node.js Linux"
+          os: "ubuntu-22.04"
 
-        runs-on: ${{ matrix.os }}
+    node_test_macos:
+        needs: files-changed
+        if: needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+          name: "Node.js macOS"
+          os: "macos-14"
 
-        steps:
-            - uses: actions/checkout@v5
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/install-skia-dependencies
-            - name: Setup headless display
-              if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
-            - uses: actions/setup-node@v6
-              with:
-                node-version: 20
-                package-manager-cache: false
-              id: node-install
-            - uses: pnpm/action-setup@v4.2.0
-              with:
-                version: 10.18.2
-            - uses: ./.github/actions/setup-rust
-              with:
-                  key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-            - name: Run pnpm install
-              working-directory: api/node
-              run: pnpm install --frozen-lockfile
-            - name: Build node plugin in debug
-              run: pnpm build:testing
-              working-directory: api/node
-            - name: Run node tests
-              working-directory: api/node
-              run: pnpm test
-            - name: Run test-driver-nodejs
-              # Release is only applied to the harness that drives the node.js invocations, but needed
-              # to avoid crashing on Windows with what looks like an out of stack exception.
-              run: cargo test --verbose --release --all-features -p test-driver-nodejs
-            - name: Check image-filter example
-              working-directory: examples/imagefilter/node
-              run: pnpm check
+    node_test_windows:
+        needs: files-changed
+        if: needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+          name: "Node.js Windows"
+          os: "windows-2022"
 
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
