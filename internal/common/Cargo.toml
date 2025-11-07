@@ -18,8 +18,8 @@ path = "lib.rs"
 
 [features]
 default = []
-std = []
-shared-fontique = ["dep:fontique", "dep:ttf-parser", "std"]
+shared-fontique = ["dep:fontique", "dep:ttf-parser"]
+color-parsing = []
 
 [dependencies]
 ttf-parser = { workspace = true, optional = true }
