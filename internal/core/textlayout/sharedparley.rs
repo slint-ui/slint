@@ -1265,19 +1265,20 @@ pub fn link_under_cursor(
     size: LogicalSize,
     cursor: PhysicalPoint,
 ) -> Option<std::string::String> {
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(text.font_request(item_rc)),
+        text.wrap(),
+        None,
+        scale_factor,
+    );
+
     let str = text.text();
-
     let layout_text = Text::RichText(parse_markdown(&str));
-
-    let (horizontal_align, vertical_align) = text.alignment();
-
-    let font_request = text.font_request(item_rc);
-
-    let layout_builder =
-        LayoutWithoutLineBreaksBuilder::new(Some(font_request), text.wrap(), None, scale_factor);
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+
+    let (horizontal_align, vertical_align) = text.alignment();
 
     let layout = layout(
         &layout_builder,
