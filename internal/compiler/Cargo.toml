@@ -41,7 +41,7 @@ experimental-library-module = []
 default = []
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default"] }
+i-slint-common = { workspace = true, features = ["default", "std"] }
 
 num_enum = "0.7"
 strum = { workspace = true }
