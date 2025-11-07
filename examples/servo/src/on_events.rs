@@ -3,20 +3,19 @@
 
 use std::rc::Rc;
 
-use euclid::{Box2D, Point2D, Size2D, Vector2D};
-
-use i_slint_core::items::{PointerEvent, PointerEventKind};
-use servo::{
-    InputEvent, MouseButton, MouseButtonAction, MouseButtonEvent, MouseMoveEvent, TouchEvent,
-    TouchEventType, TouchId,
-    webrender_api::{
-        ScrollLocation,
-        units::{DevicePixel, DevicePoint},
-    },
-};
-use slint::{ComponentHandle, platform::PointerEventButton};
 use url::Url;
 use winit::dpi::PhysicalSize;
+
+use euclid::{Box2D, Point2D, Size2D};
+
+use i_slint_core::items::{ColorScheme, PointerEvent, PointerEventKind};
+use slint::{ComponentHandle, platform::PointerEventButton};
+
+use servo::{
+    InputEvent, MouseButton, MouseButtonAction, MouseButtonEvent, MouseMoveEvent, Scroll, Theme,
+    TouchEvent, TouchEventType, TouchId, WebViewPoint,
+    webrender_api::units::{DevicePixel, DevicePoint, DeviceVector2D},
+};
 
 use crate::{
     WebviewLogic,
@@ -24,10 +23,87 @@ use crate::{
 };
 
 pub fn on_app_callbacks(adapter: Rc<SlintServoAdapter>) {
+    on_url(adapter.clone());
+    on_theme(adapter.clone());
     on_resize(adapter.clone());
-    on_buttons(adapter.clone());
     on_scroll(adapter.clone());
+    on_buttons(adapter.clone());
     on_pointer(adapter.clone());
+}
+
+fn on_url(adapter: Rc<SlintServoAdapter>) {
+    let app = adapter.app();
+
+    let adapter_weak = Rc::downgrade(&adapter);
+
+    app.global::<WebviewLogic>().on_loadUrl(move |url| {
+        let adapter = upgrade_adapter(&adapter_weak);
+        let webview = adapter.webview();
+        let url = Url::parse(url.as_str()).expect("Failed to parse url");
+        webview.load(url);
+    });
+}
+
+fn on_theme(adapter: Rc<SlintServoAdapter>) {
+    let app = adapter.app();
+
+    let adapter_weak = Rc::downgrade(&adapter);
+
+    app.global::<WebviewLogic>().on_theme(move |color_scheme| {
+        let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
+
+        let adapter = upgrade_adapter(&adapter_weak);
+
+        let webview = adapter.webview();
+
+        // Theme not updating its the issue with servo itself until mouse move over it
+        // https://github.com/servo/servo/issues/40268
+        webview.notify_theme_change(theme);
+    });
+}
+
+fn on_resize(adapter: Rc<SlintServoAdapter>) {
+    let app = adapter.app();
+
+    let adapter_weak = Rc::downgrade(&adapter);
+    app.global::<WebviewLogic>().on_resize(move |width, height| {
+        let adapter = upgrade_adapter(&adapter_weak);
+
+        let webview = adapter.webview();
+
+        let scale_factor = adapter.scale_factor();
+
+        let size = Size2D::new(width, height) * scale_factor;
+
+        let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
+
+        let rect: Box2D<f32, DevicePixel> = Box2D::from_origin_and_size(Point2D::origin(), size);
+
+        webview.move_resize(rect);
+        webview.resize(physical_size);
+    });
+}
+
+fn on_scroll(adapter: Rc<SlintServoAdapter>) {
+    let app = adapter.app();
+
+    let adapter_weak = Rc::downgrade(&adapter);
+    app.global::<WebviewLogic>().on_scroll(move |initial_x, initial_y, delta_x, delta_y| {
+        let adapter = upgrade_adapter(&adapter_weak);
+
+        let webview = adapter.webview();
+
+        let scale_factor = adapter.scale_factor();
+
+        let point = DevicePoint::new(initial_x * scale_factor, initial_y * scale_factor);
+
+        let moved_by = DeviceVector2D::new(delta_x, delta_y);
+
+        // Invert delta to match Servo's coordinate system
+        let servo_delta = -moved_by;
+
+        webview.notify_scroll_event(Scroll::Delta(servo_delta.into()), point.into());
+    });
 }
 
 fn on_buttons(adapter: Rc<SlintServoAdapter>) {
@@ -59,90 +135,33 @@ fn on_buttons(adapter: Rc<SlintServoAdapter>) {
 
         webview.reload();
     });
-
-    let adpater_weak = Rc::downgrade(&adapter);
-    app.on_go(move |url| {
-        let adapter = upgrade_adapter(&adpater_weak);
-        let webview = adapter.webview();
-        let url = Url::parse(url.as_str()).expect("Failed to parse url");
-        webview.load(url);
-    });
-}
-
-fn on_resize(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
-    let adapter_weak = Rc::downgrade(&adapter);
-    app.global::<WebviewLogic>()
-        .on_resize(move |width, height| {
-            let adapter = upgrade_adapter(&adapter_weak);
-
-            let webview = adapter.webview();
-
-            let scale_factor = adapter.scale_factor();
-
-            let size = Size2D::new(width, height) * scale_factor;
-
-            let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
-
-            let rect: Box2D<f32, DevicePixel> =
-                Box2D::from_origin_and_size(Point2D::origin(), size);
-
-            webview.move_resize(rect);
-            webview.resize(physical_size);
-        });
-}
-
-fn on_scroll(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
-    let adapter_weak = Rc::downgrade(&adapter);
-    app.global::<WebviewLogic>()
-        .on_scroll(move |initial_x, initial_y, delta_x, delta_y| {
-            let adapter = upgrade_adapter(&adapter_weak);
-
-            println!(
-                "Scroll event initial_x:{} initial_y:{} delta_x:{} delta_y:{}",
-                initial_x, initial_y, delta_x, delta_y
-            );
-
-            let webview = adapter.webview();
-
-            let scale_factor = adapter.scale_factor();
-
-            let point = DevicePoint::new(initial_x * scale_factor, initial_y * scale_factor);
-
-            let moved_by = Vector2D::new(delta_x, delta_y);
-            let servo_delta = -moved_by;
-
-            webview.notify_scroll_event(ScrollLocation::Delta(servo_delta), point.to_i32());
-        });
 }
 
 fn on_pointer(adapter: Rc<SlintServoAdapter>) {
     let app = adapter.app();
 
     let adapter_weak = Rc::downgrade(&adapter);
-    app.global::<WebviewLogic>()
-        .on_pointer(move |pointer_event, x, y| {
-            let adapter = upgrade_adapter(&adapter_weak);
+    app.global::<WebviewLogic>().on_pointer(move |pointer_event, x, y| {
+        let adapter = upgrade_adapter(&adapter_weak);
 
-            let webview = adapter.webview();
+        let webview = adapter.webview();
 
-            let scale_factor = adapter.scale_factor();
+        let scale_factor = adapter.scale_factor();
 
-            let point = DevicePoint::new(x * scale_factor, y * scale_factor);
+        let point = DevicePoint::new(x * scale_factor, y * scale_factor);
 
-            let input_event =
-                convert_slint_pointer_event_to_servo_input_event(&pointer_event, point);
+        let input_event =
+            convert_slint_pointer_event_to_servo_input_event(&pointer_event, point.into());
 
-            webview.notify_input_event(input_event);
-        });
+        webview.notify_input_event(input_event);
+    });
 }
 
+/// Converts Slint pointer events to Servo input events.
+/// Distinguishes between touch and mouse events for proper handling.
 fn convert_slint_pointer_event_to_servo_input_event(
     pointer_event: &PointerEvent,
-    point: DevicePoint,
+    point: WebViewPoint,
 ) -> InputEvent {
     if pointer_event.is_touch {
         handle_touch_events(pointer_event, point)
@@ -151,7 +170,7 @@ fn convert_slint_pointer_event_to_servo_input_event(
     }
 }
 
-fn handle_touch_events(pointer_event: &PointerEvent, point: DevicePoint) -> InputEvent {
+fn handle_touch_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
     let touch_id = TouchId(1);
     let touch_event = match pointer_event.kind {
         PointerEventKind::Down => TouchEvent::new(TouchEventType::Down, touch_id, point),
@@ -161,7 +180,7 @@ fn handle_touch_events(pointer_event: &PointerEvent, point: DevicePoint) -> Inpu
     InputEvent::Touch(touch_event)
 }
 
-fn _handle_mouse_events(pointer_event: &PointerEvent, point: DevicePoint) -> InputEvent {
+fn _handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
     let button = _get_mouse_button(pointer_event);
     match pointer_event.kind {
         PointerEventKind::Down => {

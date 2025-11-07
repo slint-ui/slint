@@ -2,9 +2,11 @@
 
 # Slint Servo Example
 
-Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using handrware rendring on desktop platforms and software rendring on android for now.
+> Disclaimer: Servo is still experimental and not ready for productions use.
 
-<img width="2900" height="2052" alt="CleanShot 2025-10-28 at 12 58 30@2x" src="https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be" />
+Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using hardware rendring on MacOS, Linux and software rendring on android for now.
+
+![Preview](https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be)
 
 ## For Android build on Mac
 
@@ -37,7 +39,7 @@ export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
 sdkmanager platform-tools "platforms;android-30" "build-tools;34.0.0" "ndk;28.2.13676358"
 ```
 
-### Add rust target anf install cargo apk
+### Add rust target and install cargo apk
 
 ```bash
 rustup target add aarch64-linux-android

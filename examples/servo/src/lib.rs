@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 mod adapter;
-mod constants;
 mod delegate;
 mod on_events;
 mod rendering_context;
 mod servo_util;
 mod waker;
-
-#[cfg(not(target_os = "android"))]
-mod application_handler;
 
 #[cfg(target_os = "linux")]
 mod gl_bindings {
@@ -21,7 +17,7 @@ mod gl_bindings {
 
 use slint::ComponentHandle;
 use smol::channel;
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     adapter::{SlintServoAdapter, upgrade_adapter},
@@ -32,28 +28,19 @@ use crate::{
 slint::include_modules!();
 
 #[cfg(not(target_os = "android"))]
-use {
-    crate::application_handler::ApplicationHandler,
-    slint::wgpu_27::{WGPUConfiguration, WGPUSettings, wgpu},
-};
+use slint::wgpu_27::{WGPUConfiguration, WGPUSettings, wgpu};
 
 pub fn main() {
     let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
-    let state_placeholder = Rc::new(RefCell::new(None));
-
     #[cfg(not(target_os = "android"))]
     {
-        let application_handler = ApplicationHandler::new(state_placeholder.clone());
-
         let mut wgpu_settings = WGPUSettings::default();
         wgpu_settings.device_required_features = wgpu::Features::PUSH_CONSTANTS;
-        wgpu_settings.device_required_limits.max_push_constant_size =
-            constants::MAX_PUSH_CONSTANT_SIZE;
+        wgpu_settings.device_required_limits.max_push_constant_size = 16; // Maximum push size
 
         slint::BackendSelector::new()
         .require_wgpu_27(WGPUConfiguration::Automatic(wgpu_settings))
-        .with_winit_custom_application_handler(application_handler)
         .select()
         .expect("Failed to create Slint backend with WGPU based renderer - ensure your system supports WGPU");
     }
@@ -62,11 +49,8 @@ pub fn main() {
 
     let app_weak = app.as_weak();
 
-    let adapter = Rc::new(SlintServoAdapter::new(
-        app_weak,
-        waker_sender.clone(),
-        waker_receiver.clone(),
-    ));
+    let adapter =
+        Rc::new(SlintServoAdapter::new(app_weak, waker_sender.clone(), waker_receiver.clone()));
 
     let adapter_weak = Rc::downgrade(&adapter);
 
@@ -86,17 +70,13 @@ pub fn main() {
         })
         .expect("Failed to set rendering notifier - WGPU integration may not be available");
 
-    // Update the placeholder with the actual state
-    *state_placeholder.borrow_mut() = Some(adapter.clone());
-
-    init_servo_webview(adapter.clone());
+    init_servo_webview(adapter.clone(), "https://slint.dev".into());
 
     spin_servo_event_loop(adapter.clone());
 
     on_app_callbacks(adapter.clone());
 
-    app.run()
-        .expect("Application failed to run - check for runtime errors");
+    app.run().expect("Application failed to run - check for runtime errors");
 }
 
 #[cfg(target_os = "android")]

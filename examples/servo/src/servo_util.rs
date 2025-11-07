@@ -3,17 +3,20 @@
 
 use std::rc::Rc;
 
-use euclid::{Scale, Size2D};
-use slint::ComponentHandle;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
+use euclid::{Scale, Size2D};
+
+use i_slint_core::items::ColorScheme;
+use slint::{ComponentHandle, SharedString};
+
 use servo::{
-    RenderingContext, Servo, ServoBuilder, WebViewBuilder, webrender_api::units::DevicePixel,
+    RenderingContext, Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel,
 };
 
 use crate::{
-    WebviewLogic,
+    Palette, WebviewLogic,
     adapter::{SlintServoAdapter, upgrade_adapter},
     delegate::AppDelegate,
     rendering_context::ServoRenderingAdapter,
@@ -44,8 +47,8 @@ pub fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
     .expect("Failed to spawn servo event loop task");
 }
 
-pub fn init_servo_webview(state: Rc<SlintServoAdapter>) {
-    let state_weak = Rc::downgrade(&state);
+pub fn init_servo_webview(adapter: Rc<SlintServoAdapter>, initial_url: SharedString) {
+    let state_weak = Rc::downgrade(&adapter);
 
     slint::spawn_local({
         async move {
@@ -76,7 +79,7 @@ pub fn init_servo_webview(state: Rc<SlintServoAdapter>) {
 
             let servo = intit_servo(state.clone(), rendering_context);
 
-            init_webview(scale_factor, physical_size, state, servo, rendering_adapter);
+            init_webview(scale_factor, physical_size, initial_url, state, servo, rendering_adapter);
         }
     })
     .unwrap();
@@ -87,25 +90,26 @@ fn intit_servo(state: Rc<SlintServoAdapter>, rendering_context: Rc<dyn Rendering
 
     let event_loop_waker = Box::new(waker);
 
-    ServoBuilder::new(rendering_context)
-        .event_loop_waker(event_loop_waker)
-        .build()
+    ServoBuilder::new(rendering_context).event_loop_waker(event_loop_waker).build()
 }
 
 fn init_webview(
     scale_factor: f32,
     physical_size: PhysicalSize<u32>,
-    state: Rc<SlintServoAdapter>,
+    initial_url: SharedString,
+    adapter: Rc<SlintServoAdapter>,
     servo: Servo,
     rendering_adapter: Box<dyn ServoRenderingAdapter>,
 ) {
     let scale = Scale::new(scale_factor);
 
-    let url = state.app().get_url();
+    let app = adapter.app();
 
-    let url = Url::parse(url.as_str()).expect("Failed to parse url");
+    app.global::<WebviewLogic>().set_current_url(initial_url.clone());
 
-    let delegate = Rc::new(AppDelegate::new(state.clone()));
+    let url = Url::parse(&initial_url).expect("Failed to parse url");
+
+    let delegate = Rc::new(AppDelegate::new(adapter.clone()));
 
     let webview = WebViewBuilder::new(&servo)
         .url(url)
@@ -116,5 +120,11 @@ fn init_webview(
 
     webview.show(true);
 
-    state.set_inner(servo, webview, scale_factor, rendering_adapter);
+    let color_scheme = app.global::<Palette>().get_color_scheme();
+
+    let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
+
+    webview.notify_theme_change(theme);
+
+    adapter.set_inner(servo, webview, scale_factor, rendering_adapter);
 }

@@ -43,8 +43,8 @@ wgpu-hal = "27.0.2"
 wgpu-core = "27.0.1"
 wgpu = { version = "27.0.1", features = ["metal"] }
 
-libservo = { git = "https://github.com/servo/servo", rev = "6357fc8" }
-embedder_traits = { git = "https://github.com/servo/servo", rev = "6357fc8", features = ["baked-default-resources"] }
+libservo = { git = "https://github.com/servo/servo", rev = "158bf97e" }
+embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", features = ["baked-default-resources"] }
 
 i-slint-core = { path = "../../internal/core" }
 

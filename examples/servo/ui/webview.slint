@@ -1,22 +1,38 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Palette } from "std-widgets.slint";
+
 export global WebviewLogic {
 
+    callback loadUrl(url: string);
+    callback theme(scheme: ColorScheme);
     callback resize(width: length, height: length);
     callback pointer(event: PointerEvent, x: length, y: length);
     callback scroll(initital_x: length, initital_y: length, delta_x: length, delta_y: length);
 
     in property <image> web_content;
+    in-out property <string> current_url;
 
-    out property <length> viewport_width: 800px;
-    out property <length> viewport_height: 400px;
+    out property <length> viewport_width: 1224px;
+    out property <length> viewport_height: 768px;
 
     out property <length> mouse_x;
     out property <length> mouse_y;
 }
 
 export component Webview {
+
+    out property <string> current_url: WebviewLogic.current_url;
+
+    public function loadUrl(url: string) {
+        WebviewLogic.loadUrl(url);
+    }
+
+    property <ColorScheme> scheme: Palette.color-scheme;
+    changed scheme => {
+        WebviewLogic.theme(scheme);
+    }
 
     touch_area := TouchArea {
 

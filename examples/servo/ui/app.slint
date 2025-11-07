@@ -10,17 +10,15 @@ import {
 import { Webview } from "webview.slint";
 
 export { WebviewLogic } from "webview.slint";
+export { Palette } from "std-widgets.slint";
 
 export component MyApp inherits Window {
     preferred-width: 1224px;
     preferred-height: 768px;
 
-    out property <string> url: "https://slint.dev";
-
     callback back();
     callback forward();
     callback reload();
-    callback go(url: string);
 
     VerticalBox {
         padding: 0px;
@@ -52,24 +50,24 @@ export component MyApp inherits Window {
                 }
             }
 
-            LineEdit {
-                text: url;
+            lineEdit := LineEdit {
+                text: webview.current_url;
                 horizontal-stretch: 1;
                 accepted(url) => {
-                    go(url);
+                    webview.loadUrl(lineEdit.text);
                 }
             }
 
             Button {
                 text: "Go";
                 clicked => {
-                    go(url);
+                    webview.loadUrl(lineEdit.text);
                 }
             }
         }
 
         Rectangle {
-            Webview {
+            webview := Webview {
                 width: 100%;
                 height: 100%;
             }
