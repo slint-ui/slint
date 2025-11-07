@@ -1159,19 +1159,6 @@ pub fn draw_text(
     item_rc: Option<&crate::item_tree::ItemRc>,
     size: LogicalSize,
 ) {
-    let str = text.text();
-    let font_request = item_rc.map(|item_rc| text.font_request(item_rc));
-
-    #[cfg(feature = "experimental-rich-text")]
-    let layout_text = if text.is_markdown() {
-        Text::RichText(parse_markdown(&str))
-    } else {
-        Text::PlainText(&str)
-    };
-
-    #[cfg(not(feature = "experimental-rich-text"))]
-    let layout_text = Text::PlainText(&str);
-
     let max_width = size.width_length();
     let max_height = size.height_length();
 
@@ -1188,35 +1175,46 @@ pub fn draw_text(
     let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
 
     let (stroke_brush, stroke_width, stroke_style) = text.stroke();
-    let stroke_width = if stroke_width.get() != 0.0 {
-        (stroke_width * scale_factor).get()
-    } else {
-        // Hairline stroke
-        1.0
-    };
-    let stroke_width = match stroke_style {
-        TextStrokeStyle::Outside => stroke_width * 2.0,
-        TextStrokeStyle::Center => stroke_width,
-    };
     let platform_stroke_brush = if !stroke_brush.is_transparent() {
+        let stroke_width = if stroke_width.get() != 0.0 {
+            (stroke_width * scale_factor).get()
+        } else {
+            // Hairline stroke
+            1.0
+        };
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => stroke_width * 2.0,
+            TextStrokeStyle::Center => stroke_width,
+        };
         item_renderer.platform_text_stroke_brush(stroke_brush, stroke_width, size)
     } else {
         None
     };
 
-    let (horizontal_align, vertical_align) = text.alignment();
-
-    let text_overflow = text.overflow();
-
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        font_request,
+        item_rc.map(|item_rc| text.font_request(item_rc)),
         text.wrap(),
         platform_stroke_brush.is_some().then_some(stroke_style),
         scale_factor,
     );
 
+    let str = text.text();
+
+    #[cfg(feature = "experimental-rich-text")]
+    let layout_text = if text.is_markdown() {
+        Text::RichText(parse_markdown(&str))
+    } else {
+        Text::PlainText(&str)
+    };
+
+    #[cfg(not(feature = "experimental-rich-text"))]
+    let layout_text = Text::PlainText(&str);
+
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+
+    let (horizontal_align, vertical_align) = text.alignment();
+    let text_overflow = text.overflow();
 
     let layout = layout(
         &layout_builder,
@@ -1227,7 +1225,7 @@ pub fn draw_text(
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
-            text_overflow,
+            text_overflow: text.overflow(),
         },
     );
 
