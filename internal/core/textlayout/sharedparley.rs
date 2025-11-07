@@ -100,8 +100,8 @@ std::thread_local! {
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 struct Brush {
-    /// When set, this overrides the fill/stroke to use this color for just a fill, for selection.
-    selection_fill_color: Option<Color>,
+    /// When set, this overrides the fill/stroke to use this color.
+    override_fill_color: Option<Color>,
     stroke: Option<TextStrokeStyle>,
     link_color: Option<Color>,
 }
@@ -213,7 +213,7 @@ impl LayoutWithoutLineBreaksBuilder {
         }));
 
         builder.push_default(parley::StyleProperty::Brush(Brush {
-            selection_fill_color: None,
+            override_fill_color: None,
             stroke: self.stroke,
             link_color: None,
         }));
@@ -235,7 +235,7 @@ impl LayoutWithoutLineBreaksBuilder {
                 {
                     builder.push(
                         parley::StyleProperty::Brush(Brush {
-                            selection_fill_color: Some(selection_color),
+                            override_fill_color: Some(selection_color),
                             stroke: self.stroke,
                             link_color: None,
                         }),
@@ -278,14 +278,23 @@ impl LayoutWithoutLineBreaksBuilder {
                         builder.push(parley::StyleProperty::Underline(true), span.range.clone());
                         builder.push(
                             parley::StyleProperty::Brush(Brush {
-                                selection_fill_color: None,
+                                override_fill_color: None,
                                 stroke: self.stroke,
                                 link_color: link_color.clone(),
                             }),
                             span.range,
                         );
                     }
-                    Style::Color(_) => {}
+                    Style::Color(color) => {
+                        builder.push(
+                            parley::StyleProperty::Brush(Brush {
+                                override_fill_color: Some(color),
+                                stroke: self.stroke,
+                                link_color: None,
+                            }),
+                            span.range,
+                        );
+                    }
                 }
             }
 
@@ -524,7 +533,7 @@ impl TextParagraph {
                         };
 
                         let (fill_brush, stroke_style) =
-                            match (brush.selection_fill_color, brush.link_color) {
+                            match (brush.override_fill_color, brush.link_color) {
                                 (Some(color), _) => {
                                     let Some(selection_brush) =
                                         item_renderer.platform_brush_for_color(&color)
@@ -1208,12 +1217,12 @@ new *line*
     );
 
     assert_eq!(
-        parse_markdown(r#"<font color="red">hello world</font>"#).paragraphs,
+        parse_markdown(r#"<font color="blue">hello world</font>"#).paragraphs,
         [RichTextParagraph {
             text: "hello world".into(),
             formatting: std::vec![FormattedSpan {
                 range: 0..11,
-                style: Style::Color(Color::from_rgb_u8(255, 0, 0))
+                style: Style::Color(Color::from_rgb_u8(0, 0, 255))
             },],
             links: std::vec![]
         }]
