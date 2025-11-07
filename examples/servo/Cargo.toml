@@ -72,3 +72,6 @@ gl_generator = "0.14.0"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
+
+[patch.'https://github.com/servo/mozjs.git']
+mozjs = { git = "https://github.com/slint-ui/mozjs.git", rev = "b9555e20d4abcb206888e8c921373d095db3b1a6" }
