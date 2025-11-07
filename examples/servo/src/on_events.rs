@@ -23,11 +23,25 @@ use crate::{
 };
 
 pub fn on_app_callbacks(adapter: Rc<SlintServoAdapter>) {
+    on_url(adapter.clone());
     on_theme(adapter.clone());
     on_resize(adapter.clone());
     on_scroll(adapter.clone());
     on_buttons(adapter.clone());
     on_pointer(adapter.clone());
+}
+
+fn on_url(adapter: Rc<SlintServoAdapter>) {
+    let app = adapter.app();
+
+    let adapter_weak = Rc::downgrade(&adapter);
+
+    app.global::<WebviewLogic>().on_loadUrl(move |url| {
+        let adapter = upgrade_adapter(&adapter_weak);
+        let webview = adapter.webview();
+        let url = Url::parse(url.as_str()).expect("Failed to parse url");
+        webview.load(url);
+    });
 }
 
 fn on_theme(adapter: Rc<SlintServoAdapter>) {
@@ -36,7 +50,6 @@ fn on_theme(adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
 
     app.global::<WebviewLogic>().on_theme(move |color_scheme| {
-
         let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
 
         let adapter = upgrade_adapter(&adapter_weak);
@@ -85,7 +98,7 @@ fn on_scroll(adapter: Rc<SlintServoAdapter>) {
         let point = DevicePoint::new(initial_x * scale_factor, initial_y * scale_factor);
 
         let moved_by = DeviceVector2D::new(delta_x, delta_y);
-        
+
         // Invert delta to match Servo's coordinate system
         let servo_delta = -moved_by;
 
@@ -121,14 +134,6 @@ fn on_buttons(adapter: Rc<SlintServoAdapter>) {
         let webview = adapter.webview();
 
         webview.reload();
-    });
-
-    let adpater_weak = Rc::downgrade(&adapter);
-    app.on_go(move |url| {
-        let adapter = upgrade_adapter(&adpater_weak);
-        let webview = adapter.webview();
-        let url = Url::parse(url.as_str()).expect("Failed to parse url");
-        webview.load(url);
     });
 }
 
