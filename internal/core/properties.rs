@@ -1174,12 +1174,15 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 PropertyHandle::default()
             };
 
+            #[cfg(slint_debug_property)]
+            let debug_name = alloc::format!("{}*", prop1.debug_name.borrow());
+
             let common_property = Rc::pin(Property {
                 handle,
                 value: UnsafeCell::new(prop1.get_internal()),
                 pinned: PhantomPinned,
                 #[cfg(slint_debug_property)]
-                debug_name: alloc::format("{}*", prop1.debug_name.borrow()).into(),
+                debug_name: debug_name.clone().into(),
             });
             // Safety: TwoWayBinding's T is the same as the type for both properties
             unsafe {
