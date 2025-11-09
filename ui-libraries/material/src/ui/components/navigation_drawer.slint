@@ -179,6 +179,7 @@ export component NavigationDrawer inherits Drawer {
 }
 
 export component ModalNavigationDrawer inherits ModalDrawer {
+    callback selected(group-index: int, item_index: int);
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
     in_out property <int> current_index;
@@ -207,5 +208,6 @@ export component ModalNavigationDrawer inherits ModalDrawer {
         root.current_group = group_index;
         root.current_index = item_index;
         root.close();
+        root.selected(group_index, item_index);
     }
 }
