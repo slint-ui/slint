@@ -120,11 +120,11 @@ export component CheckBoxTile inherits ListTile {
         }
     }
 
+    // When clicked on this, but not on the checkbox
+    // apply the click on the checkbox manually
+    // So the user can click anywhere in the tile to toggle
+    // the checkbox
     clicked => {
         check_box.toggle();
-    }
-
-    public function set_check_state(check-state: CheckState) {
-        check_box.set_check_state(check_state);
     }
 }
