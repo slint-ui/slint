@@ -269,7 +269,7 @@ impl Color {
     #[must_use]
     pub fn transparentize(&self, factor: f32) -> Self {
         let mut color = *self;
-        color.alpha = (self.alpha as f32) * (1.0 - factor);
+        color.alpha = ((self.alpha as f32) * (1.0 - factor)).clamp(0.0, 1.0);
         color
     }
 
