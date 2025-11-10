@@ -163,7 +163,7 @@ impl Color {
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub fn from_argb_f32(alpha: f32, red: f32, green: f32, blue: f32) -> Self {
-        Self { alpha, red, green, blue }
+        RgbaColor {alpha,red,green,blue}.into()
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
@@ -316,11 +316,11 @@ impl Color {
 
         let original_factor = factor.clamp(0.0, 1.0);
 
-        let self_opacity = RgbaColor::<f32>::from(*self).alpha;
-        let other_opacity = RgbaColor::<f32>::from(*other).alpha;
+        let col = RgbaColor::<f32>::from(*self);
+        let other = RgbaColor::<f32>::from(*other);
 
         let normal_weight = 2.0 * original_factor - 1.0;
-        let alpha_distance = self_opacity - other_opacity;
+        let alpha_distance = col.alpha - other.alpha;
         let weight_by_distance = normal_weight * alpha_distance;
 
         // As to not divide by 0.0
@@ -332,13 +332,13 @@ impl Color {
 
         let channels_factor = (combined_weight + 1.0) / 2.0;
 
-        let red = lerp(self.red, other.red, channels_factor);
-        let green = lerp(self.green, other.green, channels_factor);
-        let blue = lerp(self.blue, other.blue, channels_factor);
+        let red = lerp(col.red, other.red, channels_factor);
+        let green = lerp(col.green, other.green, channels_factor);
+        let blue = lerp(col.blue, other.blue, channels_factor);
 
-        let alpha = lerp(self.alpha, other.alpha, original_factor);
+        let alpha = lerp(col.alpha, other.alpha, original_factor);
 
-        Self { red, green, blue, alpha }
+        RgbaColor { red, green, blue, alpha }.into()
     }
 
     /// Returns a new version of this color with the opacity set to `alpha`.
