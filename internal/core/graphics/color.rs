@@ -53,8 +53,17 @@ pub struct Color {
     alpha: f32,
 }
 
+// until slint uses rust 1.90 as MSRV.
+const fn round(mut value: f32) -> u8 {
+    if value % 1.0 > 0.5 {
+        value += 0.5;
+    }
+
+    value as _
+}
+
 const fn quantize(value: f32) -> u8 {
-    (value * 255.0).round() as u8
+    round(value * 255.0)
 }
 
 const fn unquantize(value: u8) -> f32 {
