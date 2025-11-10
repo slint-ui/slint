@@ -561,9 +561,9 @@ fn test_rgb_to_hsv() {
 
 #[test]
 fn test_brighter_darker() {
-    let blue = Color::from_rgb_f32(0.0, 0.0, 0.5);
-    assert_eq!(blue.brighter(0.5), Color::from_rgb_f32(0.0, 0.0, 0.75));
-    assert_eq!(blue.darker(0.5), Color::from_rgb_f32(0.0, 0.0, 1.0 / 3.0));
+    let blue = Color::from_rgb_u8(0, 0, 128);
+    assert_eq!(blue.brighter(0.5), Color::from_rgb_f32(0.0, 0.0, 0.75294125));
+    assert_eq!(blue.darker(0.5), Color::from_rgb_f32(0.0, 0.0, 0.33464053));
 }
 
 #[test]
