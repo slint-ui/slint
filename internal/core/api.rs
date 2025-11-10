@@ -602,15 +602,9 @@ impl Window {
     }
 
     #[doc(hidden)]
-    pub fn keyboard_area(
-        &self,
-        _: crate::InternalToken,
-    ) -> Option<(LogicalPosition, LogicalSize)> {
+    pub fn keyboard_area(&self, _: crate::InternalToken) -> Option<(LogicalPosition, LogicalSize)> {
         self.0.window_item_keyboard_area().map(|(origin, size)| {
-            (
-                LogicalPosition::from_euclid(origin),
-                LogicalSize::from_euclid(size),
-            )
+            (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
         })
     }
 

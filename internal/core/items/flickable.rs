@@ -69,7 +69,9 @@ impl Item for Flickable {
                 let mut geo = flick_rc.geometry();
 
                 // subtract keyboard rect if needed
-                if let Some(keyboard_rect) = flick_rc.window_adapter().and_then(|window_adapter| window_adapter.window().keyboard_area(crate::InternalToken)) {
+                if let Some(keyboard_rect) = flick_rc.window_adapter().and_then(|window_adapter| {
+                    window_adapter.window().keyboard_area(crate::InternalToken)
+                }) {
                     let keyboard_top_left = flick_rc.map_from_window(keyboard_rect.0.to_euclid());
                     if keyboard_top_left.y > geo.origin.y {
                         geo.size.height = keyboard_top_left.y - geo.origin.y;
@@ -280,7 +282,10 @@ impl Flickable {
         let mut geo = self_rc.geometry();
 
         // subtract keyboard rect if needed
-        if let Some(keyboard_rect) = self_rc.window_adapter().and_then(|window_adapter| window_adapter.window().keyboard_area(crate::InternalToken)) {
+        if let Some(keyboard_rect) = self_rc
+            .window_adapter()
+            .and_then(|window_adapter| window_adapter.window().keyboard_area(crate::InternalToken))
+        {
             let keyboard_top_left = self_rc.map_from_window(keyboard_rect.0.to_euclid());
             if keyboard_top_left.y > geo.origin.y {
                 geo.size.height = keyboard_top_left.y - geo.origin.y;

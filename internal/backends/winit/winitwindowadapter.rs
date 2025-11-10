@@ -668,8 +668,7 @@ impl WinitWindowAdapter {
         f: impl FnOnce(&super::virtual_keyboard::KeyboardCurveSampler) -> R,
     ) -> Option<R> {
         let winit_window_or_none = self.winit_window_or_none.borrow();
-        if let WinitWindowOrNone::HasWindow { keyboard_curve_sampler, .. } =
-            &*winit_window_or_none
+        if let WinitWindowOrNone::HasWindow { keyboard_curve_sampler, .. } = &*winit_window_or_none
         {
             Some(f(keyboard_curve_sampler))
         } else {

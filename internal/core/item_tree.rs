@@ -523,7 +523,11 @@ impl ItemRc {
         result
     }
 
-    fn map_from_item_tree_impl(&self, p: LogicalPoint, stop_condition: impl Fn(&Self) -> bool) -> LogicalPoint {
+    fn map_from_item_tree_impl(
+        &self,
+        p: LogicalPoint,
+        stop_condition: impl Fn(&Self) -> bool,
+    ) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
         if stop_condition(&current) {
