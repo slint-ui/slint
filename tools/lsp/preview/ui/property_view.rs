@@ -1074,6 +1074,10 @@ export component Test { in property <Foobar> test1; }"#,
             [
                 GradientStop {
                     color: slint::Color::from_rgb_u8(0xff, 0xff, 0xff,),
+                    position: 0.0
+                },
+                GradientStop {
+                    color: slint::Color::from_rgb_u8(0xff, 0xff, 0xff,),
                     position: 36.0 / 360.0
                 },
                 GradientStop {
@@ -1083,6 +1087,10 @@ export component Test { in property <Foobar> test1; }"#,
                 GradientStop {
                     color: slint::Color::from_rgb_u8(0xff, 0x00, 0x00),
                     position: 306.0 / 360.0
+                },
+                GradientStop {
+                    color: slint::Color::from_rgb_u8(0xff, 0x00, 0x00),
+                    position: 360.0 / 360.0
                 },
             ]
         );

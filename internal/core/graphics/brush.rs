@@ -338,16 +338,16 @@ impl ConicGradientBrush {
             stops.push(GradientStop { position: 1.0, color: Color::default() });
         }
 
-        // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
-        if let Some(first) = stops.first_mut() {
-            if first.position.abs() < f32::EPSILON {
-                first.position = f32::EPSILON;
-            }
-        }
-
         // Apply from_angle rotation (convert degrees to normalized 0-1 range)
         let normalized_from_angle = (from_angle / 360.0) - (from_angle / 360.0).floor();
         if normalized_from_angle.abs() > f32::EPSILON {
+            // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
+            if let Some(first) = stops.first_mut() {
+                if first.position.abs() < f32::EPSILON {
+                    first.position = f32::EPSILON;
+                }
+            }
+
             // Step 1: Apply rotation by adding from_angle and wrapping to [0, 1) range
             stops = stops
                 .iter()
