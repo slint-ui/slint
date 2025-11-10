@@ -142,7 +142,7 @@ component NavigationGroupTemplate {
 }
 
 export component NavigationDrawer inherits Drawer {
-    callback selected(group-index: int, item_index: int);
+    callback selected(group-index: int, item-index: int);
     callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
@@ -179,7 +179,7 @@ export component NavigationDrawer inherits Drawer {
 }
 
 export component ModalNavigationDrawer inherits ModalDrawer {
-    callback selected(group-index: int, item_index: int);
+    callback selected(group-index: int, item-index: int);
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
     in_out property <int> current_index;
