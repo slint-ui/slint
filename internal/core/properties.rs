@@ -389,7 +389,7 @@ pub fn is_currently_tracking() -> bool {
 /// This structure erase the `B` type with a vtable.
 #[repr(C)]
 struct BindingHolder<B = ()> {
-    /// Access to the list of binding which depends on this binding
+    /// Access to the list of bindings which depend on this binding
     dependencies: Cell<usize>,
     /// The binding own the nodes used in the dependencies lists of the properties
     /// From which we depend.
@@ -490,10 +490,10 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
 struct PropertyHandle {
     /// The handle can either be a pointer to a binding, or a pointer to the list of dependent properties.
     /// The two least significant bit of the pointer are flags, as the pointer will be aligned.
-    /// The least significant bit (`0b01`) tells that the binding is borrowed. So no two reference to the
+    /// The least significant bit (`0b01`) tells that the binding is borrowed. So no two references to the
     /// binding exist at the same time.
     /// The second to last bit (`0b10`) tells that the pointer points to a binding. Otherwise, it is the head
-    /// node of the linked list of dependent binding
+    /// node of the linked list of dependent bindings.
     handle: Cell<usize>,
 }
 
@@ -511,12 +511,12 @@ impl core::fmt::Debug for PropertyHandle {
 }
 
 impl PropertyHandle {
-    /// The lock flag specify that we can get reference to the Cell or unsafe cell
+    /// The lock flag specifies that we can get a reference to the Cell or unsafe cell
     fn lock_flag(&self) -> bool {
         self.handle.get() & 0b1 == 1
     }
     /// Sets the lock_flag.
-    /// Safety: the lock flag must not be unset if there exist reference to what's inside the cell
+    /// Safety: the lock flag must not be unset if there exist references to what's inside the cell
     unsafe fn set_lock_flag(&self, set: bool) {
         self.handle.set(if set { self.handle.get() | 0b1 } else { self.handle.get() & !0b1 })
     }
@@ -779,9 +779,9 @@ impl<T, F: Fn() -> T> Binding<T> for F {
     }
 }
 
-/// A Property that allow binding that track changes
+/// A Property that allows a binding that tracks changes
 ///
-/// Property can have an assigned value, or binding.
+/// Property can have an assigned value, or a binding.
 /// When a binding is assigned, it is lazily evaluated on demand
 /// when calling `get()`.
 /// When accessing another property from a binding evaluation,
