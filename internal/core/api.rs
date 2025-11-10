@@ -601,6 +601,19 @@ impl Window {
         self.0.set_window_item_keyboard_area(origin.to_euclid(), size.to_euclid());
     }
 
+    #[doc(hidden)]
+    pub fn keyboard_area(
+        &self,
+        _: crate::InternalToken,
+    ) -> Option<(LogicalPosition, LogicalSize)> {
+        self.0.window_item_keyboard_area().map(|(origin, size)| {
+            (
+                LogicalPosition::from_euclid(origin),
+                LogicalSize::from_euclid(size),
+            )
+        })
+    }
+
     /// Dispatch a window event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.

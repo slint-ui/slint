@@ -664,11 +664,11 @@ impl WinitWindowAdapter {
     #[cfg(target_os = "ios")]
     pub(crate) fn with_keyboard_curve_sampler<R>(
         &self,
-        f: impl FnOnce(&mut super::virtual_keyboard::KeyboardCurveSampler) -> R,
+        f: impl FnOnce(&super::virtual_keyboard::KeyboardCurveSampler) -> R,
     ) -> Option<R> {
-        let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
+        let winit_window_or_none = self.winit_window_or_none.borrow();
         if let WinitWindowOrNone::HasWindow { keyboard_curve_sampler, .. } =
-            &mut *winit_window_or_none
+            &*winit_window_or_none
         {
             Some(f(keyboard_curve_sampler))
         } else {

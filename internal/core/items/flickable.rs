@@ -66,7 +66,16 @@ impl Item for Flickable {
                 let Some(flick_rc) = self_weak.upgrade() else { return false };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return false };
                 let flick = flick.as_pin_ref();
-                let geo = flick_rc.geometry();
+                let mut geo = flick_rc.geometry();
+
+                // subtract keyboard rect if needed
+                if let Some(keyboard_rect) = flick_rc.window_adapter().and_then(|window_adapter| window_adapter.window().keyboard_area(crate::InternalToken)) {
+                    let keyboard_top_left = flick_rc.map_from_window(keyboard_rect.0.to_euclid());
+                    if keyboard_top_left.y > geo.origin.y {
+                        geo.size.height = keyboard_top_left.y - geo.origin.y;
+                    }
+                }
+
                 let zero = LogicalLength::zero();
                 let vpx = flick.viewport_x();
                 if vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero) {
@@ -268,7 +277,15 @@ impl Flickable {
         }
 
         // visible viewport size from base Item
-        let geo = self_rc.geometry();
+        let mut geo = self_rc.geometry();
+
+        // subtract keyboard rect if needed
+        if let Some(keyboard_rect) = self_rc.window_adapter().and_then(|window_adapter| window_adapter.window().keyboard_area(crate::InternalToken)) {
+            let keyboard_top_left = self_rc.map_from_window(keyboard_rect.0.to_euclid());
+            if keyboard_top_left.y > geo.origin.y {
+                geo.size.height = keyboard_top_left.y - geo.origin.y;
+            }
+        }
 
         // content extents and current viewport origin (content coords)
         let vw = Self::FIELD_OFFSETS.viewport_width.apply_pin(self).get().0;

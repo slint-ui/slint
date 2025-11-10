@@ -62,6 +62,14 @@ impl DisplayLinkTarget {
         self.ivars().display_link.set(display_link).unwrap();
     }
 
+    fn stop(&self) {
+        let ivars = self.ivars();
+        ivars.display_link.get().unwrap().setPaused(true);
+        if let Some(animator) = ivars.animator.borrow_mut().take() {
+            animator.stopAnimation(true);
+        }
+    }
+
     fn start(&self, animator: Retained<UIViewPropertyAnimator>) {
         let ivars = self.ivars();
         animator.startAnimation();
@@ -104,7 +112,7 @@ impl KeyboardCurveSampler {
     }
 
     pub(crate) fn start(
-        &mut self,
+        &self,
         duration: f64,
         curve: UIViewAnimationCurve,
         begin: NSRect,
@@ -112,6 +120,7 @@ impl KeyboardCurveSampler {
     ) {
         CATransaction::begin();
         CATransaction::setDisableActions(true);
+        self.target.stop();
         self.view.setFrame(begin);
         CATransaction::commit();
 

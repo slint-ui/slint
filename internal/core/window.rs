@@ -1539,6 +1539,28 @@ impl WindowInner {
         ] {
             property.set(LogicalLength::new(value));
         }
+        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
+            focus_item.try_scroll_into_visible();
+        }
+    }
+
+    pub(crate) fn window_item_keyboard_area(
+        &self,
+    ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
+        let component_rc = self.try_component()?;
+        let component = ItemTreeRc::borrow_pin(&component_rc);
+        let root_item = component.as_ref().get_item_ref(0);
+        let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
+        Some((
+            crate::lengths::LogicalPoint::new(
+                window_item.keyboard_area_x().0,
+                window_item.keyboard_area_y().0,
+            ),
+            crate::lengths::LogicalSize::from_lengths(
+                window_item.keyboard_area_width(),
+                window_item.keyboard_area_height(),
+            ),
+        ))
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.

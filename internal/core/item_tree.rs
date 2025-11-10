@@ -473,6 +473,10 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
+    pub(crate) fn map_from_window(&self, p: LogicalPoint) -> LogicalPoint {
+        self.map_from_item_tree_impl(p, |_| false)
+    }
+
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_item_tree(
@@ -515,6 +519,35 @@ impl ItemRc {
             }
             result += geometry.origin.to_vector();
             current = parent;
+        }
+        result
+    }
+
+    fn map_from_item_tree_impl(&self, p: LogicalPoint, stop_condition: impl Fn(&Self) -> bool) -> LogicalPoint {
+        let mut current = self.clone();
+        let mut result = p;
+        if stop_condition(&current) {
+            return result;
+        }
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
+        let mut item_tree = Vec::new();
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            if stop_condition(&parent) {
+                break;
+            }
+            item_tree.push(parent.clone());
+            current = parent;
+        }
+        for item in item_tree.into_iter().rev() {
+            let geometry = item.geometry();
+            result -= geometry.origin.to_vector();
+            if supports_transformations {
+                if let Some(transform) = item.children_transform() {
+                    result = transform.transform_point(result.cast()).cast();
+                }
+            }
         }
         result
     }
