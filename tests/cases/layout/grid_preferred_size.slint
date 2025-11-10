@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     background: green;
     width: 300phx;
     height: 50phx;
@@ -28,8 +28,8 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> fake-image-width-ok: fake-image.width == 25phx;
-    property <bool> fake-image-height-ok: fake-image.height == 50phx;
+    out property <bool> fake-image-width-ok: fake-image.width == 25phx;
+    out property <bool> fake-image-height-ok: fake-image.height == 50phx;
 
     out property <bool> test: fake-image-width-ok && fake-image-height-ok;
 }

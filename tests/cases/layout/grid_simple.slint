@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
@@ -25,11 +25,11 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 150phx && rect1.height == 150phx;
-    property <bool> rect2_pos_ok: rect2.x == 150phx && rect2.y == 0phx && rect2.width == 150phx && rect2.height == 150phx;
-    property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == 150phx && rect3.width == 150phx && rect3.height == 150phx;
-    property <bool> row_col_ok: rect1.row == 0 && rect1.col == 0 && rect2.row == 0 && rect2.col == 1 && rect3.row == 1 && rect3.col == 0;
-    property <length> layout_width: layout.width;
+    out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 150phx && rect1.height == 150phx;
+    out property <bool> rect2_pos_ok: rect2.x == 150phx && rect2.y == 0phx && rect2.width == 150phx && rect2.height == 150phx;
+    out property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == 150phx && rect3.width == 150phx && rect3.height == 150phx;
+    out property <bool> row_col_ok: rect1.row == 0 && rect1.col == 0 && rect2.row == 0 && rect2.col == 1 && rect3.row == 1 && rect3.col == 0;
+    out property <length> layout_width: layout.width;
 
     out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && row_col_ok && layout_width == 300phx;
 }

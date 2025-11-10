@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
-    property<int> value: -10;
-    property <bool> cond: true;
+    out property<int> value: -10;
+    in property <bool> cond: true;
 
     VerticalLayout {
         padding: 0px;

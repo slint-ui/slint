@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //include_path: ../../../demos/printerdemo/ui/images/
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 500phx;
     height: 2000phx;
 
@@ -34,7 +34,7 @@ TestCase := Rectangle {
                 Row {
                     hfw_rect := Rectangle {
                         background: orange;
-                        height: width / 2;
+                        height: self.width / 2;
                     }
                     Rectangle { }
                 }
@@ -43,11 +43,11 @@ TestCase := Rectangle {
         Image { }
     }
 
-    property <length> top_image_height: top_image.height;
-    property <length> second_image_height: second_image.height;
-    property <length> second_image_width: second_image.width;
-    property <bool> hfw_rect_ok: hfw_rect.width == 250phx && hfw_rect.height == 125phx;
-    property <bool> test: top_image_height == 750phx && second_image_width == 200phx && second_image_height == 300phx && hfw_rect_ok;
+    out property <length> top_image_height: top_image.height;
+    out property <length> second_image_height: second_image.height;
+    out property <length> second_image_width: second_image.width;
+    out property <bool> hfw_rect_ok: hfw_rect.width == 250phx && hfw_rect.height == 125phx;
+    out property <bool> test: top_image_height == 750phx && second_image_width == 200phx && second_image_height == 300phx && hfw_rect_ok;
 }
 
 /*
