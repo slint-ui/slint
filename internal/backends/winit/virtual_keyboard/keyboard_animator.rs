@@ -4,9 +4,7 @@
 use std::cell::{OnceCell, RefCell};
 
 use block2::RcBlock;
-use objc2::{
-    define_class, msg_send, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly,
-};
+use objc2::{define_class, msg_send, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_foundation::{NSDefaultRunLoopMode, NSObject, NSObjectProtocol, NSRect, NSRunLoop};
 use objc2_quartz_core::{CADisplayLink, CATransaction};
 use objc2_ui_kit::{UIView, UIViewAnimating as _, UIViewAnimationCurve, UIViewPropertyAnimator};
@@ -48,13 +46,12 @@ impl DisplayLinkTarget {
         view: Retained<UIView>,
         callback: impl Fn(NSRect) + 'static,
     ) -> Retained<Self> {
-        let this = Self::alloc(mtm)
-            .set_ivars(DisplayLinkTargetIvars {
-                view,
-                callback: Box::new(callback),
-                animator: Default::default(),
-                display_link: OnceCell::new(),
-            });
+        let this = Self::alloc(mtm).set_ivars(DisplayLinkTargetIvars {
+            view,
+            callback: Box::new(callback),
+            animator: Default::default(),
+            display_link: OnceCell::new(),
+        });
         unsafe { msg_send![super(this), init] }
     }
 
@@ -131,7 +128,7 @@ impl KeyboardCurveSampler {
 
         let animator = UIViewPropertyAnimator::initWithDuration_curve_animations(
             UIViewPropertyAnimator::alloc(self.mtm),
-            duration,  // duration is already in seconds
+            duration, // duration is already in seconds
             curve,
             Some(&animations),
         );

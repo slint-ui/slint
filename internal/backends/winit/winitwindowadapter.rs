@@ -490,7 +490,8 @@ impl WinitWindowAdapter {
             else {
                 panic!()
             };
-            let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) }.retain();
+            let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) }
+                .retain();
             (view, self.self_weak.clone())
         };
 
