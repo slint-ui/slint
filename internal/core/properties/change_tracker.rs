@@ -54,7 +54,12 @@ impl ChangeTracker {
     /// The `data` is any struct that is going to be passed to the functor.
     /// The `eval_fn` is a function that queries and return the property.
     /// And the `notify_fn` is the callback run if the property is changed
-    pub fn init<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+    pub fn init<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
         &self,
         data: Data,
         eval_fn: EF,
@@ -68,7 +73,12 @@ impl ChangeTracker {
     /// Same as [`Self::init`], but the first eval function is called in a future evaluation of the event loop.
     /// This means that the change tracker will consider the value as default initialized, and the eval function will
     /// be called the firs ttime if the initial value is not equal to the default constructed value.
-    pub fn init_delayed<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+    pub fn init_delayed<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
         &self,
         data: Data,
         eval_fn: EF,
@@ -77,7 +87,12 @@ impl ChangeTracker {
         self.init_impl(data, eval_fn, notify_fn, true);
     }
 
-    fn init_impl<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+    fn init_impl<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
         &self,
         data: Data,
         eval_fn: EF,
@@ -93,7 +108,12 @@ impl ChangeTracker {
             evaluating: false.into(),
         };
 
-        unsafe fn evaluate<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data>(
+        unsafe fn evaluate<
+            T: PartialEq,
+            EF: Fn(&Data) -> T + 'static,
+            NF: Fn(&Data, &T) + 'static,
+            Data: 'static,
+        >(
             _self: *const BindingHolder,
             _value: *mut (),
         ) -> BindingResult {
@@ -135,8 +155,12 @@ impl ChangeTracker {
         trait HasBindingVTable {
             const VT: &'static BindingVTable;
         }
-        impl<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data> HasBindingVTable
-            for ChangeTrackerInner<T, EF, NF, Data>
+        impl<
+                T: PartialEq,
+                EF: Fn(&Data) -> T + 'static,
+                NF: Fn(&Data, &T) + 'static,
+                Data: 'static,
+            > HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
         {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,
