@@ -1064,7 +1064,7 @@ fn parse_markdown(string: &str) -> Result<RichText<'_>, RichTextError<'_>> {
                     let expected_tag = match &style {
                         Style::Color(_) => "</font>",
                         Style::Underline => "</u>",
-                        other => std::unreachable!("Got unexpected closing style {:?} with html {}. This error should have been caught earlier.", other, html) 
+                        other => std::unreachable!("Got unexpected closing style {:?} with html {}. This error should have been caught earlier.", other, html)
                     };
 
                     if (&*html) != expected_tag {
