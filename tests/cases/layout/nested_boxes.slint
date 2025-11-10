@@ -19,12 +19,12 @@ RectRed := Rectangle {
         }
     }
 
-    property <bool> rect_green_ok:
+    out property <bool> rect_green_ok:
         rect_green.x == 0phx &&
         rect_green.y == 0phx &&
         rect_green.width == 50phx &&
         rect_green.height == 50phx;
-    property <bool> rect_pink_ok:
+    out property <bool> rect_pink_ok:
         rect_pink.x == 60phx &&
         rect_pink.y == 0phx &&
         rect_pink.width == 140phx &&
@@ -41,22 +41,22 @@ RedBlue := HorizontalLayout {
         background: blue;
     }
 
-    property rect_green_ok <=> rect_red.rect_green_ok;
-    property rect_pink_ok <=> rect_red.rect_pink_ok;
+    out property rect_green_ok <=> rect_red.rect_green_ok;
+    out property rect_pink_ok <=> rect_red.rect_pink_ok;
 
-    property <bool> rect_blue_ok:
+    out property <bool> rect_blue_ok:
         rect_blue.x == 200phx &&
         rect_blue.y == 0phx &&
         rect_blue.width == 100phx &&
         rect_blue.height == 50phx;
-    property <bool> rect_red_ok:
+    out property <bool> rect_red_ok:
         rect_red.x == 0phx &&
         rect_red.y == 0phx &&
         rect_red.width == 200phx &&
         rect_red.height == 50phx;
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
@@ -112,35 +112,35 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect_orange_ok:
+    out property <bool> rect_orange_ok:
         rect_orange.x == 0phx &&
         rect_orange.y == 0phx &&
         rect_orange.width == 300phx &&
         rect_orange.height == 10phx;
-    property <bool> rect_blue_ok:
+    out property <bool> rect_blue_ok:
         hl_redblue.y == 10phx && hl-redblue.rect-blue-ok;
-    property <bool> rect_red_ok:
+    out property <bool> rect_red_ok:
         hl_redblue.y == 10phx && hl-redblue.rect-red-ok;
-    property <bool> rect_yellow_ok:
+    out property <bool> rect_yellow_ok:
         rect_yellow.x == 0phx &&
         rect_yellow.y == 60phx &&
         rect_yellow.width == 300phx &&
         rect_yellow.height == 240phx;
-    property <bool> rect_black1_ok:
+    out property <bool> rect_black1_ok:
         rect_black1.x + vl1.x == 8phx &&
         rect_black1.y + vl1.y == 1phx * (2 + 5) &&
         rect_black1.width == 1phx * (300 - 18 - 2)/2 &&
         rect_black1.height == 1phx * (240 - 6 - 10)/2 ;
-    property <bool> rect_black2_ok:
+    out property <bool> rect_black2_ok:
         rect_black2.x + vl2.x == 300phx - 1phx * (300 - 20) / 2 - 10phx &&
         rect_black2.y + vl2.y == 2phx &&
         rect_black2.width == 1phx * (300 - 18 - 2)/2 &&
         rect_black2.height == 1phx * (240 - 6 - 10)/2 ;
 
-    property rect_green_ok <=> hl_redblue.rect_green_ok;
-    property rect_pink_ok <=> hl_redblue.rect_pink_ok;
+    out property rect_green_ok <=> hl_redblue.rect_green_ok;
+    out property rect_pink_ok <=> hl_redblue.rect_pink_ok;
 
-    property <bool> test: rect_orange_ok && rect_blue_ok && rect_red_ok && rect_green_ok && rect_pink_ok && rect_yellow_ok && rect_black1_ok && rect_black2_ok;
+    out property <bool> test: rect_orange_ok && rect_blue_ok && rect_red_ok && rect_green_ok && rect_pink_ok && rect_yellow_ok && rect_black1_ok && rect_black2_ok;
 }
 
 /*

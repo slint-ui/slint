@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export TestCase := Window {
+export component TestCase inherits Window {
     VerticalLayout {
         padding: 7px;
         Flickable {
@@ -17,7 +17,7 @@ export TestCase := Window {
         }
     }
 
-    property <bool> test: root.min_width == 7px*2 && root.min_height == 7px*2 && root.preferred_width == 114px && root.preferred_height == 14px + 600px;
+    out property <bool> test: root.min_width == 7px*2 && root.min_height == 7px*2 && root.preferred_width == 114px && root.preferred_height == 14px + 600px;
 }
 
 /*
