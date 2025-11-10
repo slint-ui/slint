@@ -84,6 +84,7 @@ jobs:
                   toolchain: ${{ inputs.rust_version }}
                   key: x-v3
                   save_if: ${{ inputs.save_if }}
+                  cache: ${{ inputs.cache }}
             - name: Run tests
               run:  cargo test --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
