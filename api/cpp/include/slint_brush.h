@@ -129,14 +129,23 @@ private:
 
     friend class slint::Brush;
 
-    // Forward declaration of FFI function
-    friend cbindgen_private::types::ConicGradientBrush slint_conic_gradient_new(
-        float angle_degrees, const GradientStop *stops_ptr, size_t stops_len);
-
-    static cbindgen_private::types::ConicGradientBrush
+    static SharedVector<private_api::GradientStop>
     make_conic_gradient(float angle, const GradientStop *firstStop, int stopCount)
     {
-        return slint_conic_gradient_new(angle, firstStop, stopCount);
+        SharedVector<private_api::GradientStop> gradient;
+        // The gradient's first stop is a fake stop to store the angle (same pattern as LinearGradient)
+        gradient.push_back({ Color::from_argb_encoded(0).inner, angle });
+        for (int i = 0; i < stopCount; ++i, ++firstStop)
+            gradient.push_back(*firstStop);
+
+        // Normalize stops to [0, 1] range with proper boundary stops
+        cbindgen_private::types::slint_conic_gradient_normalize_stops(&gradient);
+
+        // Apply rotation if angle is non-zero
+        if (angle != 0.0f) {
+            cbindgen_private::types::slint_conic_gradient_apply_rotation(&gradient, angle);
+        }
+        return gradient;
     }
 };
 

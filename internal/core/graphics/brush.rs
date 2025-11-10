@@ -270,18 +270,43 @@ impl RadialGradientBrush {
 pub struct ConicGradientBrush(SharedVector<GradientStop>);
 
 impl ConicGradientBrush {
-    /// Creates a new conic gradient with the provided starting angle and color stops.
+    /// Creates a new conic gradient, described by the specified angle and the provided color stops.
     ///
-    /// The `from_angle` parameter is specified in degrees, corresponding to CSS's `from <angle>` syntax.
-    /// It rotates the entire gradient clockwise.
-    pub fn new(from_angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
-        let mut stops: alloc::vec::Vec<_> = stops.into_iter().collect();
+    /// The angle need to be specified in degrees (CSS `from <angle>` syntax).
+    /// The stops don't need to be sorted as this function will normalize and process them.
+    pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
+        let stop_iter = stops.into_iter();
+        let mut encoded_angle_and_stops = SharedVector::with_capacity(stop_iter.size_hint().0 + 1);
+        // The gradient's first stop is a fake stop to store the angle
+        encoded_angle_and_stops.push(GradientStop { color: Default::default(), position: angle });
+        encoded_angle_and_stops.extend(stop_iter);
+        let mut result = Self(encoded_angle_and_stops);
+        result.normalize_stops();
+        if angle.abs() > f32::EPSILON {
+            result.apply_rotation(angle);
+        }
+        result
+    }
+
+    /// Normalizes the gradient stops to be within [0, 1] range with proper boundary stops.
+    fn normalize_stops(&mut self) {
+        // Check if we need to make any changes
+        let stops_slice = &self.0[1..];
+        let has_stop_at_0 = stops_slice.iter().any(|s| s.position.abs() < f32::EPSILON);
+        let has_stop_at_1 = stops_slice.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
+        let has_stops_outside = stops_slice.iter().any(|s| s.position < 0.0 || s.position > 1.0);
+        let is_empty = stops_slice.is_empty();
+
+        // If no changes needed, return early
+        if has_stop_at_0 && has_stop_at_1 && !has_stops_outside && !is_empty {
+            return;
+        }
+
+        // Need to make changes, so copy
+        let mut stops: alloc::vec::Vec<_> = stops_slice.iter().copied().collect();
 
         // Add interpolated boundary stop at 0.0 if needed
-        let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
         if !has_stop_at_0 {
-            // Find stops closest to boundaries for interpolation
-            // For 0.0: find the stop just below 0 and just at/above 0
             let stop_below_0 = stops.iter().filter(|s| s.position < 0.0).max_by(|a, b| {
                 a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
             });
@@ -289,24 +314,18 @@ impl ConicGradientBrush {
                 a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
             });
             if let (Some(below), Some(above)) = (stop_below_0, stop_above_0) {
-                // Interpolate between the stop below 0 and the stop above 0
-                // Example: -10deg and 10deg → interpolate at 0deg
                 let t = (0.0 - below.position) / (above.position - below.position);
                 let color_at_0 = Self::interpolate_color(&below.color, &above.color, t);
                 stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
             } else if let Some(above) = stop_above_0 {
-                // Only stops above 0, use the first stop's color
                 stops.insert(0, GradientStop { position: 0.0, color: above.color });
             } else if let Some(below) = stop_below_0 {
-                // Only stops below 0, use the last stop's color
                 stops.insert(0, GradientStop { position: 0.0, color: below.color });
             }
         }
 
         // Add interpolated boundary stop at 1.0 if needed
-        let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
         if !has_stop_at_1 {
-            // For 1.0: find the stop just at/below 1 and just above 1
             let stop_below_1 = stops.iter().filter(|s| s.position < 1.0).max_by(|a, b| {
                 a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
             });
@@ -315,99 +334,114 @@ impl ConicGradientBrush {
             });
 
             if let (Some(below), Some(above)) = (stop_below_1, stop_above_1) {
-                // Interpolate between the stop below 1 and the stop above 1
-                // Example: 350deg and 370deg → interpolate at 360deg
                 let t = (1.0 - below.position) / (above.position - below.position);
                 let color_at_1 = Self::interpolate_color(&below.color, &above.color, t);
                 stops.push(GradientStop { position: 1.0, color: color_at_1 });
             } else if let Some(below) = stop_below_1 {
-                // Only stops below 1, use the last stop's color
                 stops.push(GradientStop { position: 1.0, color: below.color });
             } else if let Some(above) = stop_above_1 {
-                // Only stops above 1, use the first stop's color
                 stops.push(GradientStop { position: 1.0, color: above.color });
             }
         }
 
-        // Drop stops under 0deg and over 360deg
-        stops.retain(|s| 0.0 <= s.position && s.position <= 1.0);
+        // Drop stops outside [0, 1] range
+        if has_stops_outside {
+            stops.retain(|s| 0.0 <= s.position && s.position <= 1.0);
+        }
 
-        // Handle empty gradients by providing a transparent default
+        // Handle empty gradients
         if stops.is_empty() {
             stops.push(GradientStop { position: 0.0, color: Color::default() });
             stops.push(GradientStop { position: 1.0, color: Color::default() });
         }
 
-        // Apply from_angle rotation (convert degrees to normalized 0-1 range)
+        // Update the internal storage
+        let angle = self.angle();
+        self.0 = SharedVector::with_capacity(stops.len() + 1);
+        self.0.push(GradientStop { color: Default::default(), position: angle });
+        self.0.extend(stops.into_iter());
+    }
+
+    /// Apply rotation to the gradient (CSS `from <angle>` syntax).
+    ///
+    /// The `from_angle` parameter is specified in degrees and rotates the entire gradient clockwise.
+    pub fn apply_rotation(&mut self, from_angle: f32) {
+        // Convert degrees to normalized 0-1 range
         let normalized_from_angle = (from_angle / 360.0) - (from_angle / 360.0).floor();
-        if normalized_from_angle.abs() > f32::EPSILON {
-            // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
-            if let Some(first) = stops.first_mut() {
-                if first.position.abs() < f32::EPSILON {
-                    first.position = f32::EPSILON;
-                }
-            }
 
-            // Step 1: Apply rotation by adding from_angle and wrapping to [0, 1) range
-            stops = stops
-                .iter()
-                .map(|stop| {
-                    #[cfg(feature = "std")]
-                    let rotated_position = (stop.position + normalized_from_angle).rem_euclid(1.0);
-                    #[cfg(not(feature = "std"))]
-                    let rotated_position = (stop.position + normalized_from_angle).rem_euclid(&1.0);
-                    GradientStop { position: rotated_position, color: stop.color }
-                })
-                .collect();
+        // If no rotation needed, just update the stored angle
+        if normalized_from_angle.abs() < f32::EPSILON {
+            self.0.make_mut_slice()[0].position = from_angle;
+            return;
+        }
 
-            // Step 2: Separate duplicate positions with different colors to avoid flickering
-            for i in 0..stops.len() {
-                let j = (i + 1) % stops.len();
-                if (stops[i].position - stops[j].position).abs() < f32::EPSILON
-                    && stops[i].color != stops[j].color
-                {
-                    stops[i].position = (stops[i].position - f32::EPSILON).max(0.0);
-                    stops[j].position = (stops[j].position + f32::EPSILON).min(1.0);
-                }
-            }
+        // Update the stored angle
+        self.0.make_mut_slice()[0].position = from_angle;
 
-            // Step 3: Sort by rotated position
-            stops.sort_by(|a, b| {
-                a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
-            });
+        // Need to rotate, so copy
+        let mut stops: alloc::vec::Vec<_> = self.0.iter().skip(1).copied().collect();
 
-            // Step 4: Add boundary stops at 0.0 and 1.0 if missing
-            let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
-            if !has_stop_at_0 {
-                // Find the color at position 0.0 by interpolating from the last and first stops
-                if let (Some(last), Some(first)) = (stops.last(), stops.first()) {
-                    let gap = 1.0 - last.position + first.position;
-                    let color_at_0 = if gap > f32::EPSILON {
-                        let t = (1.0 - last.position) / gap;
-                        Self::interpolate_color(&last.color, &first.color, t)
-                    } else {
-                        last.color
-                    };
-                    stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
-                }
-            }
-
-            let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
-            if !has_stop_at_1 {
-                // Add stop at 1.0 with same color as stop at 0.0
-                if let Some(first) = stops.first() {
-                    stops.push(GradientStop { position: 1.0, color: first.color });
-                }
+        // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
+        if let Some(first) = stops.first_mut() {
+            if first.position.abs() < f32::EPSILON {
+                first.position = f32::EPSILON;
             }
         }
 
-        // Store the result with angle encoded in first stop (similar to LinearGradientBrush)
-        let mut encoded_angle_and_stops = SharedVector::with_capacity(stops.len() + 1);
-        // The gradient's first stop is a fake stop to store the angle (in degrees)
-        encoded_angle_and_stops
-            .push(GradientStop { color: Default::default(), position: from_angle });
-        encoded_angle_and_stops.extend(stops.into_iter());
-        Self(encoded_angle_and_stops)
+        // Step 1: Apply rotation by adding from_angle and wrapping to [0, 1) range
+        stops = stops
+            .iter()
+            .map(|stop| {
+                #[cfg(feature = "std")]
+                let rotated_position = (stop.position + normalized_from_angle).rem_euclid(1.0);
+                #[cfg(not(feature = "std"))]
+                let rotated_position = (stop.position + normalized_from_angle).rem_euclid(&1.0);
+                GradientStop { position: rotated_position, color: stop.color }
+            })
+            .collect();
+
+        // Step 2: Separate duplicate positions with different colors to avoid flickering
+        for i in 0..stops.len() {
+            let j = (i + 1) % stops.len();
+            if (stops[i].position - stops[j].position).abs() < f32::EPSILON
+                && stops[i].color != stops[j].color
+            {
+                stops[i].position = (stops[i].position - f32::EPSILON).max(0.0);
+                stops[j].position = (stops[j].position + f32::EPSILON).min(1.0);
+            }
+        }
+
+        // Step 3: Sort by rotated position
+        stops.sort_by(|a, b| {
+            a.position.partial_cmp(&b.position).unwrap_or(core::cmp::Ordering::Equal)
+        });
+
+        // Step 4: Add boundary stops at 0.0 and 1.0 if missing
+        let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
+        if !has_stop_at_0 {
+            if let (Some(last), Some(first)) = (stops.last(), stops.first()) {
+                let gap = 1.0 - last.position + first.position;
+                let color_at_0 = if gap > f32::EPSILON {
+                    let t = (1.0 - last.position) / gap;
+                    Self::interpolate_color(&last.color, &first.color, t)
+                } else {
+                    last.color
+                };
+                stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
+            }
+        }
+
+        let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
+        if !has_stop_at_1 {
+            if let Some(first) = stops.first() {
+                stops.push(GradientStop { position: 1.0, color: first.color });
+            }
+        }
+
+        // Update the internal storage
+        self.0 = SharedVector::with_capacity(stops.len() + 1);
+        self.0.push(GradientStop { color: Default::default(), position: from_angle });
+        self.0.extend(stops.into_iter());
     }
 
     /// Returns the starting angle (rotation) of the conic gradient in degrees.
@@ -464,21 +498,33 @@ impl ConicGradientBrush {
     }
 }
 
-/// C FFI function to create a ConicGradientBrush from angle (in degrees) and color stops
+/// C FFI function to normalize the gradient stops to be within [0, 1] range
 #[no_mangle]
 #[allow(unsafe_code)]
-pub extern "C" fn slint_conic_gradient_new(
+pub extern "C" fn slint_conic_gradient_normalize_stops(gradient: *mut ConicGradientBrush) {
+    if gradient.is_null() {
+        return;
+    }
+    // SAFETY: gradient is expected to point to a valid ConicGradientBrush
+    unsafe {
+        (*gradient).normalize_stops();
+    }
+}
+
+/// C FFI function to apply rotation to a ConicGradientBrush
+#[no_mangle]
+#[allow(unsafe_code)]
+pub extern "C" fn slint_conic_gradient_apply_rotation(
+    gradient: *mut ConicGradientBrush,
     angle_degrees: f32,
-    stops_ptr: *const GradientStop,
-    stops_len: usize,
-) -> ConicGradientBrush {
-    let stops = if stops_ptr.is_null() || stops_len == 0 {
-        &[]
-    } else {
-        // SAFETY: stops_ptr is expected to point to valid array of GradientStop with stops_len elements
-        unsafe { core::slice::from_raw_parts(stops_ptr, stops_len) }
-    };
-    ConicGradientBrush::new(angle_degrees, stops.iter().copied())
+) {
+    if gradient.is_null() {
+        return;
+    }
+    // SAFETY: gradient is expected to point to a valid ConicGradientBrush
+    unsafe {
+        (*gradient).apply_rotation(angle_degrees);
+    }
 }
 
 /// GradientStop describes a single color stop in a gradient. The colors between multiple
@@ -656,14 +702,11 @@ fn test_linear_gradient_encoding() {
 #[test]
 fn test_conic_gradient_basic() {
     // Test basic conic gradient with no rotation
-    let grad = ConicGradientBrush::new(
-        0.0,
-        [
-            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
-            GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
-            GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 0, 0) },
-        ],
-    );
+    let grad = ConicGradientBrush::new(0.0, [
+        GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+        GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
+        GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 0, 0) },
+    ]);
     assert_eq!(grad.angle(), 0.0);
     assert_eq!(grad.stops().count(), 3);
 }
@@ -671,13 +714,10 @@ fn test_conic_gradient_basic() {
 #[test]
 fn test_conic_gradient_with_rotation() {
     // Test conic gradient with 90 degree rotation
-    let grad = ConicGradientBrush::new(
-        90.0,
-        [
-            GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
-            GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 0, 0) },
-        ],
-    );
+    let grad = ConicGradientBrush::new(90.0, [
+        GradientStop { position: 0.0, color: Color::from_rgb_u8(255, 0, 0) },
+        GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 0, 0) },
+    ]);
     assert_eq!(grad.angle(), 90.0);
     // After rotation, stops should still be present and sorted
     assert!(grad.stops().count() >= 2);
@@ -686,10 +726,9 @@ fn test_conic_gradient_with_rotation() {
 #[test]
 fn test_conic_gradient_negative_angle() {
     // Test with negative angle - should be normalized
-    let grad = ConicGradientBrush::new(
-        -90.0,
-        [GradientStop { position: 0.5, color: Color::from_rgb_u8(255, 0, 0) }],
-    );
+    let grad = ConicGradientBrush::new(-90.0, [
+        GradientStop { position: 0.5, color: Color::from_rgb_u8(255, 0, 0) }
+    ]);
     assert_eq!(grad.angle(), -90.0); // Angle is stored as-is
     assert!(grad.stops().count() >= 2); // Should have boundary stops added
 }
@@ -697,14 +736,11 @@ fn test_conic_gradient_negative_angle() {
 #[test]
 fn test_conic_gradient_stops_outside_range() {
     // Test with stops outside [0, 1] range
-    let grad = ConicGradientBrush::new(
-        0.0,
-        [
-            GradientStop { position: -0.2, color: Color::from_rgb_u8(255, 0, 0) },
-            GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
-            GradientStop { position: 1.2, color: Color::from_rgb_u8(0, 0, 255) },
-        ],
-    );
+    let grad = ConicGradientBrush::new(0.0, [
+        GradientStop { position: -0.2, color: Color::from_rgb_u8(255, 0, 0) },
+        GradientStop { position: 0.5, color: Color::from_rgb_u8(0, 255, 0) },
+        GradientStop { position: 1.2, color: Color::from_rgb_u8(0, 0, 255) },
+    ]);
     // All stops should be within [0, 1] after processing
     for stop in grad.stops() {
         assert!(stop.position >= 0.0 && stop.position <= 1.0);
@@ -714,13 +750,10 @@ fn test_conic_gradient_stops_outside_range() {
 #[test]
 fn test_conic_gradient_all_stops_below_zero() {
     // Test edge case: all stops are below 0
-    let grad = ConicGradientBrush::new(
-        0.0,
-        [
-            GradientStop { position: -0.5, color: Color::from_rgb_u8(255, 0, 0) },
-            GradientStop { position: -0.3, color: Color::from_rgb_u8(0, 255, 0) },
-        ],
-    );
+    let grad = ConicGradientBrush::new(0.0, [
+        GradientStop { position: -0.5, color: Color::from_rgb_u8(255, 0, 0) },
+        GradientStop { position: -0.3, color: Color::from_rgb_u8(0, 255, 0) },
+    ]);
     // Should create valid boundary stops
     assert!(grad.stops().count() >= 2);
     // First stop should be at or near 0.0
@@ -731,13 +764,10 @@ fn test_conic_gradient_all_stops_below_zero() {
 #[test]
 fn test_conic_gradient_all_stops_above_one() {
     // Test edge case: all stops are above 1
-    let grad = ConicGradientBrush::new(
-        0.0,
-        [
-            GradientStop { position: 1.2, color: Color::from_rgb_u8(255, 0, 0) },
-            GradientStop { position: 1.5, color: Color::from_rgb_u8(0, 255, 0) },
-        ],
-    );
+    let grad = ConicGradientBrush::new(0.0, [
+        GradientStop { position: 1.2, color: Color::from_rgb_u8(255, 0, 0) },
+        GradientStop { position: 1.5, color: Color::from_rgb_u8(0, 255, 0) },
+    ]);
     // Should create valid boundary stops
     assert!(grad.stops().count() >= 2);
     // Last stop should be at or near 1.0
