@@ -31,7 +31,7 @@ inputs:
     save_if:
         description: "Condition to save the cache"
         required: false
-        default: "true"
+        default: ${{ github.ref == 'refs/heads/master' }}
 
 runs:
     using: composite
