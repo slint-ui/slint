@@ -163,7 +163,7 @@ impl Color {
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub fn from_argb_f32(alpha: f32, red: f32, green: f32, blue: f32) -> Self {
-        RgbaColor {alpha,red,green,blue}.into()
+        RgbaColor { alpha, red, green, blue }.into()
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
