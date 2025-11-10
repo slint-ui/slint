@@ -1390,7 +1390,13 @@ pub fn draw_text(
 
     #[cfg(feature = "experimental-rich-text")]
     let layout_text = if text.is_markdown() {
-        Text::RichText(parse_markdown(&str).unwrap())
+        Text::RichText(match parse_markdown(&str) {
+            Ok(rich_text) => rich_text,
+            Err(error) => {
+                crate::debug_log!("{}", error);
+                return;
+            }
+        })
     } else {
         Text::PlainText(&str)
     };
@@ -1461,7 +1467,13 @@ pub fn link_under_cursor(
     );
 
     let str = text.text();
-    let layout_text = Text::RichText(parse_markdown(&str).unwrap());
+    let layout_text = Text::RichText(match parse_markdown(&str) {
+        Ok(rich_text) => rich_text,
+        Err(error) => {
+            crate::debug_log!("{}", error);
+            return None;
+        }
+    });
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
