@@ -52,7 +52,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
     use smol_str::ToSmolStr;
 
     fn string_to_color(s: &str) -> Option<i_slint_core::Color> {
-        i_slint_compiler::literals::parse_color_literal(s).map(Color::from_argb_encoded)
+        i_slint_common::color_parsing::parse_color_literal(s).map(Color::from_argb_encoded)
     }
 
     match v {

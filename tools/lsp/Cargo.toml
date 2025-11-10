@@ -87,6 +87,7 @@ default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-common = { workspace = true }
 
 by_address = { workspace = true }
 clru = { workspace = true }
