@@ -27,6 +27,11 @@ pub struct RgbaColor<T> {
     pub blue: T,
 }
 
+#[cfg(not(feature = "8-bit-color"))]
+type Channel = f32;
+#[cfg(feature = "8-bit-color")]
+type Channel = u8;
+
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 /// It can be conveniently converted using the `to_` and `from_` (a)rgb helper functions:
@@ -47,10 +52,10 @@ pub struct RgbaColor<T> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub struct Color {
-    red: f32,
-    green: f32,
-    blue: f32,
-    alpha: f32,
+    red: Channel,
+    green: Channel,
+    blue: Channel,
+    alpha: Channel,
 }
 
 // until slint uses rust 1.90 as MSRV.
@@ -78,6 +83,7 @@ fn unquantize_roundtrip() {
 }
 
 impl From<RgbaColor<u8>> for RgbaColor<f32> {
+    #[inline]
     fn from(col: RgbaColor<u8>) -> Self {
         Self {
             red: unquantize(col.red),
@@ -89,6 +95,7 @@ impl From<RgbaColor<u8>> for RgbaColor<f32> {
 }
 
 impl From<RgbaColor<f32>> for RgbaColor<u8> {
+    #[inline]
     fn from(col: RgbaColor<f32>) -> Self {
         Self {
             red: quantize(col.red),
@@ -100,28 +107,62 @@ impl From<RgbaColor<f32>> for RgbaColor<u8> {
 }
 
 impl From<Color> for RgbaColor<f32> {
+    #[inline]
     fn from(col: Color) -> Self {
-        Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        #[cfg(not(feature = "8-bit-color"))]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
+        #[cfg(feature = "8-bit-color")]
+        {
+            let col: RgbaColor<u8> = col.into();
+            col.into()
+        }
     }
 }
 
 impl From<RgbaColor<f32>> for Color {
+    #[inline]
     fn from(col: RgbaColor<f32>) -> Self {
-        Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        #[cfg(not(feature = "8-bit-color"))]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
+        #[cfg(feature = "8-bit-color")]
+        {
+            let col: RgbaColor<u8> = col.into();
+            col.into()
+        }
     }
 }
 
 impl From<RgbaColor<u8>> for Color {
+    #[inline]
     fn from(col: RgbaColor<u8>) -> Self {
-        let col: RgbaColor<f32> = col.into();
-        col.into()
+        #[cfg(not(feature = "8-bit-color"))]
+        {
+            let col: RgbaColor<f32> = col.into();
+            col.into()
+        }
+        #[cfg(feature = "8-bit-color")]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
     }
 }
 
 impl From<Color> for RgbaColor<u8> {
+    #[inline]
     fn from(col: Color) -> Self {
-        let f32col: RgbaColor<f32> = col.into();
-        f32col.into()
+        #[cfg(not(feature = "8-bit-color"))]
+        {
+            let col: RgbaColor<f32> = col.into();
+            col.into()
+        }
+        #[cfg(feature = "8-bit-color")]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
     }
 }
 
@@ -147,11 +188,18 @@ impl Color {
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub const fn from_argb_u8(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
-        Self {
-            red: unquantize(red),
-            green: unquantize(green),
-            blue: unquantize(blue),
-            alpha: unquantize(alpha),
+        #[cfg(not(feature = "8-bit-color"))]
+        {
+            Self {
+                red: unquantize(red),
+                green: unquantize(green),
+                blue: unquantize(blue),
+                alpha: unquantize(alpha),
+            }
+        }
+        #[cfg(feature = "8-bit-color")]
+        {
+            Self { red, green, blue, alpha }
         }
     }
 
@@ -199,25 +247,25 @@ impl Color {
     /// Returns the red channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn red(self) -> u8 {
-        quantize(self.red)
+        RgbaColor::<u8>::from(self).red
     }
 
     /// Returns the green channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn green(self) -> u8 {
-        quantize(self.green)
+        RgbaColor::<u8>::from(self).green
     }
 
     /// Returns the blue channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn blue(self) -> u8 {
-        quantize(self.blue)
+        RgbaColor::<u8>::from(self).blue
     }
 
     /// Returns the alpha channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn alpha(self) -> u8 {
-        quantize(self.alpha)
+        RgbaColor::<u8>::from(self).alpha
     }
 
     /// Returns a new version of this color that has the brightness increased
@@ -277,9 +325,9 @@ impl Color {
     /// ```
     #[must_use]
     pub fn transparentize(&self, factor: f32) -> Self {
-        let mut color = *self;
-        color.alpha = ((self.alpha as f32) * (1.0 - factor)).clamp(0.0, 1.0);
-        color
+        let mut col: RgbaColor<f32> = (*self).into();
+        col.alpha = (col.alpha * (1.0 - factor)).clamp(0.0, 1.0);
+        col.into()
     }
 
     /// Returns a new color that is a mix of this color and `other`. The specified factor is
@@ -295,12 +343,12 @@ impl Color {
     /// assert_eq!(red.mix(&black, 0.5), Color::from_rgb_f32(0.5, 0.0, 0.0));
     /// ```
     ///
-    /// Mix Purple with OrangeRed,  with `80%` purple and `20%` orange red ratio:
+    /// Mix Purple with OrangeRed,  with `75%` purpe and `25%` orange red ratio:
     /// ```
-    /// # use i_slint_core::graphics::Color;
-    /// let purple = Color::from_rgb_f32(0.5, 0.5, 0.5);
-    /// let orange_red = Color::from_rgb_f32(1.0, 0.27, 0.0);
-    /// assert_eq!(purple.mix(&orange_red, 0.8), Color::from_rgb_f32(0.6, 0.454, 0.4));
+    /// # use i_slint_core::graphics::{Color, RgbaColor};
+    /// let purple = Color::from_rgb_u8(128, 0, 128);
+    /// let orange_red = Color::from_rgb_u8(255, 69, 0);
+    /// assert_eq!(purple.mix(&orange_red, 0.75), Color::from_rgb_f32(0.6264706, 0.06764706, 0.37647063));
     /// ```
     #[must_use]
     pub fn mix(&self, other: &Self, factor: f32) -> Self {

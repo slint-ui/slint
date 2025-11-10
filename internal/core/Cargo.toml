@@ -74,6 +74,7 @@ unstable-wgpu-27 = ["dep:wgpu-27"]
 
 tr = ["dep:tr"]
 
+8-bit-color = []
 default = ["std", "unicode"]
 
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]
