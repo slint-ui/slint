@@ -9,6 +9,7 @@ use i_slint_core::api::LogicalPosition;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
+use i_slint_core::window::WindowAdapterInternal;
 use muda::ContextMenu;
 use std::rc::Weak;
 use std::sync::atomic::AtomicBool;
@@ -56,9 +57,17 @@ impl MudaAdapter {
         let menu = muda::Menu::new();
         install_event_handler_if_necessary(proxy);
 
+        let theme = window_adapter_weak.upgrade().map_or(muda::MenuTheme::Auto, |win| {
+            match win.color_scheme() {
+                i_slint_core::items::ColorScheme::Unknown => muda::MenuTheme::Auto,
+                i_slint_core::items::ColorScheme::Dark => muda::MenuTheme::Dark,
+                i_slint_core::items::ColorScheme::Light => muda::MenuTheme::Light,
+            }
+        });
+
         #[cfg(target_os = "windows")]
         if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
-            unsafe { menu.init_for_hwnd(handle.hwnd.get()).unwrap() };
+            unsafe { menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap() };
         }
 
         #[cfg(target_os = "macos")]
