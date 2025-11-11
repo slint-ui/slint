@@ -78,6 +78,9 @@ export component CheckBox {
     }
 
     changed check_state => {
+        if self.check_state == CheckState.partially-checked {
+            root.tristate = true;
+        }
         root.checked_state_changed(root.check_state);
     }
 
@@ -91,10 +94,8 @@ export component CheckBox {
             root.check_state == CheckState.partially_checked ? CheckState.unchecked : CheckState.checked;
     }
 
+    // Keep for backward compatibility
     public function set_check_state(check_state: CheckState) {
-        if check_state == CheckState.partially-checked {
-            root.tristate = true;
-        }
         root.check_state = check_state;
     }
 
@@ -113,20 +114,11 @@ export component CheckBox {
 }
 
 export component CheckBoxTile inherits ListTile {
-    in_out property <CheckState> check_state;
+    in_out property <CheckState> check_state <=> check_box.check_state;
     in_out property <bool> tristate <=> check_box.tristate;
     in property <bool> has_error <=> check_box.has_error;
 
     callback checked_state_changed <=> check_box.checked_state_changed;
-
-    init => {
-        check_box.set_check_state(self.check_state);
-    }
-
-    // Required because the checkbox handles the `CheckState.partially-checked` differently
-    changed check_state => {
-        check_box.set_check_state(self.check_state);
-    }
 
     Rectangle {
         horizontal-stretch: 0;
@@ -146,5 +138,10 @@ export component CheckBoxTile inherits ListTile {
     // the checkbox
     clicked => {
         check_box.toggle();
+    }
+
+    // Keep function for backward compatibility
+    public function set_check_state(check-state: CheckState) {
+        check_box.set_check_state(check_state);
     }
 }
