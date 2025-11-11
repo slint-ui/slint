@@ -35,6 +35,13 @@ export component CheckBox {
     accessible-action-default => { state_area.clicked(); }
     forward_focus: state_area;
 
+    init() => {
+        // Initialize tristate as well
+        if self.check_state == CheckState.partially-checked {
+            root.tristate = true;
+        }
+    }
+
     state_area := StateLayerArea {
         width: 100%;
         height: 100%;
@@ -106,7 +113,6 @@ export component CheckBox {
 }
 
 export component CheckBoxTile inherits ListTile {
-    // TODO: removing the `in` here in favour of the set_check_state function below?
     in_out property <CheckState> check_state <=> check_box.check_state;
     in_out property <bool> tristate <=> check_box.tristate;
     in property <bool> has_error <=> check_box.has_error;
