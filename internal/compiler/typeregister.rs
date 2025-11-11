@@ -153,7 +153,6 @@ impl BuiltinTypes {
                 ])
                 .collect(),
                 name: BuiltinPrivateStruct::GridLayoutInputData.into(),
-                rust_attributes: None,
             })),
         }
     }

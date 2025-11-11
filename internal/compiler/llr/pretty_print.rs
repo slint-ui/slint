@@ -403,9 +403,6 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 write!(f, "{}[{} % {}]", DisplayPropertyRef(layout_cache_prop, ctx), index, e(ri))
             }
             Expression::BoxLayoutFunction { .. } => write!(f, "BoxLayoutFunction(TODO)",),
-            Expression::ComputeDialogLayoutCells { .. } => {
-                write!(f, "ComputeDialogLayoutCells(TODO)",)
-            }
             Expression::MinMax { ty: _, op, lhs, rhs } => match op {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),
