@@ -75,7 +75,7 @@ jobs:
             os: ${{ matrix.os }}
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
-            extra_args: ${{ matrix.extra_args }} --exclude material-gallery
+            extra_args: ${{ matrix.extra_args }} --exclude material-gallery --features test-driver-rust/build-time
             save_if: ${{ matrix.save_if }}
             timeout_minutes: 120
 
