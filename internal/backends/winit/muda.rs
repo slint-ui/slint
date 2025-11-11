@@ -6,10 +6,10 @@ use super::WinitWindowAdapter;
 use crate::SlintEvent;
 use core::pin::Pin;
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::items::ColorScheme;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
-use i_slint_core::window::WindowAdapterInternal;
 use muda::ContextMenu;
 use std::rc::Weak;
 use std::sync::atomic::AtomicBool;
@@ -57,16 +57,13 @@ impl MudaAdapter {
         let menu = muda::Menu::new();
         install_event_handler_if_necessary(proxy);
 
-        let theme = window_adapter_weak.upgrade().map_or(muda::MenuTheme::Auto, |win| {
-            match win.color_scheme() {
-                i_slint_core::items::ColorScheme::Unknown => muda::MenuTheme::Auto,
-                i_slint_core::items::ColorScheme::Dark => muda::MenuTheme::Dark,
-                i_slint_core::items::ColorScheme::Light => muda::MenuTheme::Light,
-            }
-        });
-
         #[cfg(target_os = "windows")]
         if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+            let theme = match winit_window.theme() {
+                Some(winit::window::Theme::Dark) => muda::MenuTheme::Dark,
+                Some(winit::window::Theme::Light) => muda::MenuTheme::Light,
+                None => muda::MenuTheme::Auto,
+            };
             unsafe { menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap() };
         }
 
@@ -245,6 +242,18 @@ impl MudaAdapter {
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
         let Some(entry) = &self.entries.get(entry_id) else { return };
         vtable::VRc::borrow(&menubar).activate(entry);
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn set_menubar_theme(&self, winit_window: &Window, theme: ColorScheme) {
+        let theme = match theme {
+            ColorScheme::Dark => muda::MenuTheme::Dark,
+            ColorScheme::Light => muda::MenuTheme::Light,
+            ColorScheme::Unknown => muda::MenuTheme::Auto,
+        };
+        if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+            unsafe { self.menu.set_theme_for_hwnd(handle.hwnd.get(), theme).unwrap() };
+        }
     }
 
     #[cfg(target_os = "macos")]

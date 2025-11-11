@@ -757,6 +757,21 @@ impl WinitWindowAdapter {
             .get_or_init(|| Box::pin(Property::new(ColorScheme::Unknown)))
             .as_ref()
             .set(scheme);
+
+        // Update the menubar theme
+        #[cfg(target_os = "windows")]
+        if let WinitWindowOrNone::HasWindow {
+            window: winit_window,
+            muda_adapter: maybe_muda_adapter,
+            ..
+        } = &*self.winit_window_or_none.borrow()
+        {
+            let mut maybe_muda_adapter = maybe_muda_adapter.borrow_mut();
+            if let Some(muda_adapter) = maybe_muda_adapter.as_mut() {
+                muda_adapter.set_menubar_theme(&winit_window, scheme);
+            };
+        }
+
         // Inform winit about the selected color theme, so that the window decoration is drawn correctly.
         #[cfg(not(use_winit_theme))]
         if let Some(winit_window) = self.winit_window() {
