@@ -57,8 +57,8 @@ Selects the navigation item at the specified group and item indices.
 
 ## Callbacks
 
-### selected()
-Invoked when an item is selected
+### selected(group-index: int, item-index: int)
+Invoked when an item is selected. `group-index` is the index of the selected group and `item-index` the selected index in that group.
 
 ### item_pointer_event()
 Emitted on any mouse pointer event similar to `TouchArea`. Arguments are the group and item index associated with the event, the `PointerEvent` itself and the mouse position within the `NavigationDrawer`.
