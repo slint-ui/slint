@@ -60,6 +60,17 @@ runs:
               echo "GETTEXT_DIR=${GETTEXT_PATH}" >> $GITHUB_ENV
               echo "Installed gettext at: ${GETTEXT_PATH}"
           shell: bash
+        - name: Configure persistent cargo directories for act
+          if: env.ACT == 'true'
+          run: |
+              set -eu
+              CARGO_HOME="${CARGO_HOME:-$HOME/.cache/act/cargo-home}"
+              TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/act/cargo-target}"
+              mkdir -p "$CARGO_HOME" "$TARGET_DIR"
+              echo "CARGO_HOME=$CARGO_HOME" >> "$GITHUB_ENV"
+              echo "CARGO_TARGET_DIR=$TARGET_DIR" >> "$GITHUB_ENV"
+              echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
+          shell: bash
         - name: Install Rust ${{ inputs.toolchain }}
           uses: dtolnay/rust-toolchain@stable
           with:
@@ -67,7 +78,7 @@ runs:
               components: ${{ inputs.components }}
               target: ${{ inputs.target }}
         - uses: Swatinem/rust-cache@v2
-          if: inputs.cache == 'true'
+          if: inputs.cache == 'true' && env.ACT != 'true'
           with:
               key: ${{ inputs.key }}-1
               save-if: ${{ inputs.save_if }}

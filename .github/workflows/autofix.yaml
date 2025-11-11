@@ -23,46 +23,75 @@ env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-    format_fix:
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-            - uses: actions/checkout@v5
-            - uses: jdx/mise-action@v3
-              with:
-                version: 2025.9.18
-                log_level: debug
-            - name: Install rust dependencies
-              run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
-            - name: Run fixes
-              run: mise run --force --jobs=1 'ci:autofix:fix'
-            - name: Suggest format changes
-              uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
+  build_and_test:
+        # needs: files-changed
+        # if: needs.files-changed.outputs.slint == 'true'
+        # strategy:
+        #     matrix:
+        #         include:
+        #             - os: ubuntu-22.04
+        #               name: "Ubuntu 22.04 1.88"
+        #               rust_version: "1.88"
+        #               save_if: ${{ github.ref == 'refs/heads/master' }}
+        #             - os: windows-2022
+        #               name: "Windows 2022 beta"
+        #               rust_version: "beta"
+        #               save_if: ${{ github.ref == 'refs/heads/master' }}
+        #               extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+        #             - os: macos-14
+        #               name: "MacOS 14 stable"
+        #               rust_version: "stable"
+        #               save_if: ${{ github.ref == 'refs/heads/master' }}
+        #               extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: macos-14
+            name: MacOS stable
+            rust_version: stable
+            extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
+            save_if: true
+            cache: true
+            timeout_minutes: 120
+    # format_fix:
+    #     runs-on: ubuntu-latest
+    #     timeout-minutes: 5
+    #     steps:
+    #         - uses: actions/checkout@v5
+    #         - uses: jdx/mise-action@v3
+    #           with:
+    #             version: 2025.9.18
+    #             log_level: debug
+    #         - name: Install rust dependencies
+    #           run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
+    #         - name: Run fixes
+    #           run: mise run --force --jobs=1 'ci:autofix:fix'
+    #         - name: Suggest format changes
+    #           uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
 
-    lint_typecheck:
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-            - uses: actions/checkout@v5
-            - uses: jdx/mise-action@v3
-              with:
-                version: 2025.9.18
-                log_level: debug
-            - name: Install rust dependencies
-              run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
-            - name: Run lints
-              run: mise run --force --jobs=1 'ci:autofix:lint'
+    # lint_typecheck:
+    #     runs-on: ubuntu-latest
+    #     timeout-minutes: 5
+    #     steps:
+    #         - uses: actions/checkout@v5
+    #         - uses: jdx/mise-action@v3
+    #           with:
+    #             version: 2025.9.18
+    #             log_level: debug
+    #         - name: Install rust dependencies
+    #           run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
+    #         - name: Run lints
+    #           run: mise run --force --jobs=1 'ci:autofix:lint'
 
-    ci:
-        needs: [format_fix, lint_typecheck]
-        permissions:
-            contents: read
-            deployments: write
-            pull-requests: read
-        uses: ./.github/workflows/ci.yaml
-        secrets:
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+    # ci:
+    #     needs: [format_fix, lint_typecheck]
+    #     permissions:
+    #         contents: read
+    #         deployments: write
+    #         pull-requests: read
+    #     uses: ./.github/workflows/ci.yaml
+    #     secrets:
+    #         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+    #         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+    #         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    #         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    #         READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}

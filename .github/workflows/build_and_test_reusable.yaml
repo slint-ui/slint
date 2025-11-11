@@ -59,17 +59,60 @@ jobs:
             - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
+            - name: Prepare tool cache directories
+              id: prep_toolcache
+              run: |
+                  set -eu
+                  TOOLCACHE="${RUNNER_TOOL_CACHE:-$HOME/.cache/act/toolcache}"
+                  TEMP_DIR="${RUNNER_TEMP:-$HOME/.cache/act/temp}"
+                  mkdir -p "$TOOLCACHE" "$TEMP_DIR"
+                  echo "RUNNER_TOOL_CACHE=$TOOLCACHE" >> "$GITHUB_ENV"
+                  echo "AGENT_TOOLSDIRECTORY=$TOOLCACHE" >> "$GITHUB_ENV"
+                  echo "RUNNER_TEMP=$TEMP_DIR" >> "$GITHUB_ENV"
+                  echo "toolcache=$TOOLCACHE" >> "$GITHUB_OUTPUT"
+                  echo "temp-dir=$TEMP_DIR" >> "$GITHUB_OUTPUT"
+                  if [ -n "${ACT:-}" ]; then
+                      echo "act-mode=true" >> "$GITHUB_OUTPUT"
+                      echo "ACT=true" >> "$GITHUB_ENV"
+                  else
+                      echo "act-mode=false" >> "$GITHUB_OUTPUT"
+                      echo "ACT=" >> "$GITHUB_ENV"
+                  fi
             - uses: ilammy/msvc-dev-cmd@v1
             - uses: actions/setup-python@v6
+              if: ${{ steps.prep_toolcache.outputs.act-mode != 'true' }}
               with:
                 python-version: '3.10'
+              env:
+                RUNNER_TOOL_CACHE: ${{ steps.prep_toolcache.outputs.toolcache }}
+                AGENT_TOOLSDIRECTORY: ${{ steps.prep_toolcache.outputs.toolcache }}
+                RUNNER_TEMP: ${{ steps.prep_toolcache.outputs['temp-dir'] }}
+            - name: Install Python 3.10 for act
+              if: ${{ steps.prep_toolcache.outputs.act-mode == 'true' }}
+              env:
+                HOMEBREW_NO_AUTO_UPDATE: 1
+                HOMEBREW_NO_ANALYTICS: 1
+              run: |
+                  set -eux
+                  if ! brew list python@3.10 >/dev/null 2>&1; then
+                      brew install python@3.10
+                  fi
+                  PY_PREFIX="$(brew --prefix python@3.10)"
+                  PY_BIN="$PY_PREFIX/bin"
+                  echo "pythonLocation=$PY_PREFIX" >> "$GITHUB_ENV"
+                  echo "PKG_CONFIG_PATH=$PY_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+                  echo "$PY_BIN" >> "$GITHUB_PATH"
+                  python3.10 --version
             - name: Install Qt
               if: runner.os != 'Windows'
               uses: jurplel/install-qt-action@v4
+              env:
+                  PIP_BREAK_SYSTEM_PACKAGES: 1
               with:
                   version: "6.2.2"
                   setup-python: false
                   cache: true
+                  dir: ${{ runner.temp }}/qt
             - name: Install ffmpeg and alsa (Linux)
               if: runner.os == 'Linux'
               run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
@@ -81,10 +124,10 @@ jobs:
               uses: pyvista/setup-headless-display-action@v4
             - uses: ./.github/actions/setup-rust
               with:
+                  cache: ${{ inputs.cache }}
                   toolchain: ${{ inputs.rust_version }}
                   key: x-v3
                   save_if: ${{ inputs.save_if }}
-                  cache: ${{ inputs.cache }}
             - name: Run tests
               run:  cargo test --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
@@ -99,14 +142,14 @@ jobs:
               run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
             - name: Upload build timing report
-              if: always()
+              if: ${{ always() && steps.prep_toolcache.outputs.act-mode != 'true' }}
               uses: actions/upload-artifact@v5
               with:
                   name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}
                   path: target/cargo-timings/cargo-timing.html
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
-              if: ${{ failure() }}
+              if: ${{ failure() && steps.prep_toolcache.outputs.act-mode != 'true' }}
               uses: actions/upload-artifact@v5
               with:
                   name: screenshots-${{ inputs.os }}
