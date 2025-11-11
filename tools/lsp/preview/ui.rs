@@ -1096,15 +1096,6 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
         Inner(BTreeMap<String, NodeKind>),
     }
 
-    if row.row_count() == 1 {
-        if let Some(v) = row.row_data(0) {
-            if v.accessor_path.is_empty() {
-                // bare value!
-                return Some(format!("{}{}", "  ".repeat(indent_level), v.code));
-            }
-        }
-    }
-
     fn structurize(row: ModelRc<PropertyValue>) -> Option<BTreeMap<String, NodeKind>> {
         let mut result = BTreeMap::default();
 
@@ -1151,7 +1142,12 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
         prefix: &str,
     ) -> Option<String> {
         let indent_step = "  ";
-        let mut result = format!("{}{prefix}{{\n", indent_step.repeat(indent_level));
+        let is_struct = structure.len() != 1 || !structure.contains_key("");
+        let mut result = if is_struct {
+            format!("{}{prefix}{{\n", indent_step.repeat(indent_level))
+        } else {
+            format!("{}{prefix}", indent_step.repeat(indent_level))
+        };
 
         let last_index = structure.len() - 1;
 
@@ -1159,17 +1155,25 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
             let comma = if index == last_index { "" } else { "," };
             match v {
                 NodeKind::Leaf(v) => {
-                    result +=
-                        &format!("{}\"{k}\": {v}{comma}\n", indent_step.repeat(indent_level + 1))
+                    if is_struct {
+                        result += &format!(
+                            "{}\"{k}\": {v}{comma}\n",
+                            indent_step.repeat(indent_level + 1)
+                        )
+                    } else {
+                        result += &format!("{v}{comma}\n")
+                    }
                 }
                 NodeKind::Inner(m) => {
-                    result += &structure_to_string(m, indent_level + 1, &format!("\"{k}\": "))?;
+                    let prefix = if is_struct { format!("\"{k}\": ") } else { String::new() };
+                    result += &structure_to_string(m, indent_level + 1, &prefix)?;
                     result += &format!("{comma}\n");
                 }
             }
         }
-
-        result += &format!("{}}}", indent_step.repeat(indent_level));
+        if is_struct {
+            result += &format!("{}}}", indent_step.repeat(indent_level));
+        }
 
         Some(result)
     }
@@ -2151,10 +2155,10 @@ export component Tester {{
             }
         }
 
-        validate_array_row_to_struct(0, vec![bool_pv(true, "")], "true");
-        validate_array_row_to_struct(1, vec![bool_pv(true, "")], "  true");
-        validate_array_row_to_struct(2, vec![bool_pv(true, "")], "    true");
-        validate_array_row_to_struct(3, vec![bool_pv(true, "")], "      true");
+        validate_array_row_to_struct(0, vec![bool_pv(true, "")], "true\n");
+        validate_array_row_to_struct(1, vec![bool_pv(true, "")], "  true\n");
+        validate_array_row_to_struct(2, vec![bool_pv(true, "")], "    true\n");
+        validate_array_row_to_struct(3, vec![bool_pv(true, "")], "      true\n");
         validate_array_row_to_struct(
             1,
             vec![bool_pv(true, "test")],
