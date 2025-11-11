@@ -93,7 +93,20 @@ pub(crate) fn organize_grid_layout(
     local_context: &mut EvalLocalContext,
 ) -> Value {
     let cells = grid_layout_input_data(layout, local_context);
-    core_layout::organize_grid_layout(Slice::from_slice(cells.as_slice())).into()
+
+    if let Some(buttons_roles) = &layout.dialog_button_roles {
+        let roles = buttons_roles
+            .iter()
+            .map(|r| DialogButtonRole::from_str(r).unwrap())
+            .collect::<Vec<_>>();
+        core_layout::organize_dialog_button_layout(
+            Slice::from_slice(cells.as_slice()),
+            Slice::from_slice(roles.as_slice()),
+        )
+        .into()
+    } else {
+        core_layout::organize_grid_layout(Slice::from_slice(cells.as_slice())).into()
+    }
 }
 
 pub(crate) fn solve_grid_layout(

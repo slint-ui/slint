@@ -490,16 +490,111 @@ impl GridLayoutOrganizedData {
     }
 }
 
-// Implement "auto" behavior for row/col numbers (unless specified in the slint file).
-pub fn organize_grid_layout(core_slice: Slice<GridLayoutInputData>) -> GridLayoutOrganizedData {
-    let data = core_slice.as_slice();
+/// Given the cells of a layout of a Dialog, re-order the buttons according to the platform
+/// This function assume that the `roles` contains the roles of the button which are the first cells in `input_data`
+pub fn organize_dialog_button_layout(
+    input_data: Slice<GridLayoutInputData>,
+    dialog_button_roles: Slice<DialogButtonRole>,
+) -> GridLayoutOrganizedData {
     let mut organized_data = GridLayoutOrganizedData::default();
-    organized_data.reserve(data.len() * 4);
+    organized_data.reserve(input_data.len() * 4);
+
+    #[cfg(feature = "std")]
+    fn is_kde() -> bool {
+        // assume some Unix, check if XDG_CURRENT_DESKTOP starts with K
+        std::env::var("XDG_CURRENT_DESKTOP")
+            .ok()
+            .and_then(|v| v.as_bytes().first().copied())
+            .is_some_and(|x| x.eq_ignore_ascii_case(&b'K'))
+    }
+    #[cfg(not(feature = "std"))]
+    let is_kde = || true;
+
+    let expected_order: &[DialogButtonRole] = match crate::detect_operating_system() {
+        crate::items::OperatingSystemType::Windows => {
+            &[
+                DialogButtonRole::Reset,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Accept,
+                DialogButtonRole::Action,
+                DialogButtonRole::Reject,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Help,
+            ]
+        }
+        crate::items::OperatingSystemType::Macos | crate::items::OperatingSystemType::Ios => {
+            &[
+                DialogButtonRole::Help,
+                DialogButtonRole::Reset,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Action,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Reject,
+                DialogButtonRole::Accept,
+            ]
+        }
+        _ if is_kde() => {
+            // KDE variant
+            &[
+                DialogButtonRole::Help,
+                DialogButtonRole::Reset,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Action,
+                DialogButtonRole::Accept,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Reject,
+            ]
+        }
+        _ => {
+            // GNOME variant and fallback for WASM build
+            &[
+                DialogButtonRole::Help,
+                DialogButtonRole::Reset,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Action,
+                DialogButtonRole::Accept,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Reject,
+            ]
+        }
+    };
+
+    // Reorder the actual buttons according to expected_order
+    let mut column_for_input: Vec<usize> = Vec::with_capacity(dialog_button_roles.len());
+    for role in expected_order.iter() {
+        if role == &DialogButtonRole::None {
+            column_for_input.push(usize::MAX); // empty column, ensure nothing will match
+            continue;
+        }
+        for (idx, r) in dialog_button_roles.as_slice().iter().enumerate() {
+            if *r == *role {
+                column_for_input.push(idx);
+            }
+        }
+    }
+
+    for (input_index, cell) in input_data.as_slice().iter().enumerate() {
+        let col = column_for_input.iter().position(|&x| x == input_index);
+        if let Some(col) = col {
+            organized_data.push_cell(col as u16, cell.colspan, cell.row, cell.rowspan);
+        } else {
+            // This is used for the main window (which is the only cell which isn't a button)
+            // Given lower_dialog_layout(), this will always be a single cell at 0,0 with a colspan of number_of_buttons
+            organized_data.push_cell(cell.col, cell.colspan, cell.row, cell.rowspan);
+        }
+    }
+    organized_data
+}
+
+// Implement "auto" behavior for row/col numbers (unless specified in the slint file).
+pub fn organize_grid_layout(input_data: Slice<GridLayoutInputData>) -> GridLayoutOrganizedData {
+    let mut organized_data = GridLayoutOrganizedData::default();
+    organized_data.reserve(input_data.len() * 4);
     let mut row = 0;
     let mut col = 0;
     let mut first = true;
     let auto = u16::MAX;
-    for cell in data.iter() {
+    for cell in input_data.as_slice().iter() {
         if cell.new_row && !first {
             row += 1;
             col = 0;
@@ -752,80 +847,6 @@ pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding)
     fold
 }
 
-/// Given the cells of a layout of a Dialog, re-order the button according to the platform
-///
-/// This function assume that the `roles` contains the roles of the button which are the first `cells`
-/// It will simply change the column field of the cell
-pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[DialogButtonRole]) {
-    fn add_buttons(
-        cells: &mut [GridLayoutCellData],
-        roles: &[DialogButtonRole],
-        idx: &mut u16,
-        role: DialogButtonRole,
-    ) {
-        for (cell, r) in cells.iter_mut().zip(roles.iter()) {
-            if *r == role {
-                cell.col_or_row = *idx;
-                *idx += 1;
-            }
-        }
-    }
-
-    #[cfg(feature = "std")]
-    fn is_kde() -> bool {
-        // assume some Unix, check if XDG_CURRENT_DESKTOP starts with K
-        std::env::var("XDG_CURRENT_DESKTOP")
-            .ok()
-            .and_then(|v| v.as_bytes().first().copied())
-            .is_some_and(|x| x.eq_ignore_ascii_case(&b'K'))
-    }
-    #[cfg(not(feature = "std"))]
-    let is_kde = || true;
-
-    let mut idx = 0;
-
-    match crate::detect_operating_system() {
-        crate::items::OperatingSystemType::Windows => {
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        }
-        crate::items::OperatingSystemType::Macos | crate::items::OperatingSystemType::Ios => {
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        }
-        _ if is_kde() => {
-            // KDE variant
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        }
-        _ => {
-            // GNOME variant and fallback for everything else
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        }
-    }
-}
-
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -838,6 +859,15 @@ pub(crate) mod ffi {
         result: &mut GridLayoutOrganizedData,
     ) {
         *result = super::organize_grid_layout(input_data);
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_organize_dialog_button_layout(
+        input_data: Slice<GridLayoutInputData>,
+        dialog_button_roles: Slice<DialogButtonRole>,
+        result: &mut GridLayoutOrganizedData,
+    ) {
+        *result = super::organize_dialog_button_layout(input_data, dialog_button_roles);
     }
 
     #[unsafe(no_mangle)]
@@ -888,20 +918,5 @@ pub(crate) mod ffi {
         padding: &Padding,
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
-    }
-
-    /// Calls [`reorder_dialog_button_layout`].
-    ///
-    /// Safety: `cells` must be a pointer to a mutable array of cell data, the array must have at
-    /// least `roles.len()` elements.
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_reorder_dialog_button_layout(
-        cells: *mut GridLayoutCellData,
-        roles: Slice<DialogButtonRole>,
-    ) {
-        reorder_dialog_button_layout(
-            unsafe { core::slice::from_raw_parts_mut(cells, roles.len()) },
-            &roles,
-        );
     }
 }
