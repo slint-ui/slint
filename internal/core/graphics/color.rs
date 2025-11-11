@@ -24,9 +24,9 @@ pub struct RgbaColor<T> {
     pub blue: T,
 }
 
-#[cfg(not(feature = "8-bit-color"))]
+#[cfg(feature = "32-bit-color")]
 type Channel = f32;
-#[cfg(feature = "8-bit-color")]
+#[cfg(not(feature = "32-bit-color"))]
 type Channel = u8;
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
@@ -106,11 +106,11 @@ impl From<RgbaColor<f32>> for RgbaColor<u8> {
 impl From<Color> for RgbaColor<f32> {
     #[inline]
     fn from(col: Color) -> Self {
-        #[cfg(not(feature = "8-bit-color"))]
+        #[cfg(feature = "32-bit-color")]
         {
             Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
         }
-        #[cfg(feature = "8-bit-color")]
+        #[cfg(not(feature = "32-bit-color"))]
         {
             let col: RgbaColor<u8> = col.into();
             col.into()
@@ -121,11 +121,11 @@ impl From<Color> for RgbaColor<f32> {
 impl From<RgbaColor<f32>> for Color {
     #[inline]
     fn from(col: RgbaColor<f32>) -> Self {
-        #[cfg(not(feature = "8-bit-color"))]
+        #[cfg(feature = "32-bit-color")]
         {
             Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
         }
-        #[cfg(feature = "8-bit-color")]
+        #[cfg(not(feature = "32-bit-color"))]
         {
             let col: RgbaColor<u8> = col.into();
             col.into()
@@ -136,12 +136,12 @@ impl From<RgbaColor<f32>> for Color {
 impl From<RgbaColor<u8>> for Color {
     #[inline]
     fn from(col: RgbaColor<u8>) -> Self {
-        #[cfg(not(feature = "8-bit-color"))]
+        #[cfg(feature = "32-bit-color")]
         {
             let col: RgbaColor<f32> = col.into();
             col.into()
         }
-        #[cfg(feature = "8-bit-color")]
+        #[cfg(not(feature = "32-bit-color"))]
         {
             Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
         }
@@ -151,12 +151,12 @@ impl From<RgbaColor<u8>> for Color {
 impl From<Color> for RgbaColor<u8> {
     #[inline]
     fn from(col: Color) -> Self {
-        #[cfg(not(feature = "8-bit-color"))]
+        #[cfg(feature = "32-bit-color")]
         {
             let col: RgbaColor<f32> = col.into();
             col.into()
         }
-        #[cfg(feature = "8-bit-color")]
+        #[cfg(not(feature = "32-bit-color"))]
         {
             Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
         }
@@ -185,7 +185,7 @@ impl Color {
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub const fn from_argb_u8(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
-        #[cfg(not(feature = "8-bit-color"))]
+        #[cfg(feature = "32-bit-color")]
         {
             Self {
                 red: unquantize(red),
@@ -194,7 +194,7 @@ impl Color {
                 alpha: unquantize(alpha),
             }
         }
-        #[cfg(feature = "8-bit-color")]
+        #[cfg(not(feature = "32-bit-color"))]
         {
             Self { red, green, blue, alpha }
         }
