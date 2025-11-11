@@ -6,7 +6,6 @@ use super::WinitWindowAdapter;
 use crate::SlintEvent;
 use core::pin::Pin;
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::items::ColorScheme;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
@@ -245,11 +244,15 @@ impl MudaAdapter {
     }
 
     #[cfg(target_os = "windows")]
-    pub fn set_menubar_theme(&self, winit_window: &Window, theme: ColorScheme) {
+    pub fn set_menubar_theme(
+        &self,
+        winit_window: &Window,
+        theme: i_slint_core::items::ColorScheme,
+    ) {
         let theme = match theme {
-            ColorScheme::Dark => muda::MenuTheme::Dark,
-            ColorScheme::Light => muda::MenuTheme::Light,
-            ColorScheme::Unknown => muda::MenuTheme::Auto,
+            i_slint_core::items::ColorScheme::Dark => muda::MenuTheme::Dark,
+            i_slint_core::items::ColorScheme::Light => muda::MenuTheme::Light,
+            i_slint_core::items::ColorScheme::Unknown => muda::MenuTheme::Auto,
         };
         if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
             unsafe { self.menu.set_theme_for_hwnd(handle.hwnd.get(), theme).unwrap() };
