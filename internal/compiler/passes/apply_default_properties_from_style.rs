@@ -7,7 +7,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::object_tree::Component;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -24,7 +24,9 @@ pub fn apply_default_properties_from_style(
         &(),
         &mut |elem, _| {
             let mut elem = elem.borrow_mut();
-            match elem.builtin_type().as_ref().map_or("", |b| b.name.as_str()) {
+            let ElementType::Builtin(builtin) = &elem.base_type else { return };
+            let builtin_name = builtin.name.as_str();
+            match builtin_name {
                 "TextInput" => {
                     elem.set_binding_if_not_set("text-cursor-width".into(), || {
                         Expression::PropertyReference(NamedReference::new(
