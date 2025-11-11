@@ -674,7 +674,7 @@ jobs:
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
             cache: ${{ matrix.cache }}
-            extra_args: ${{ matrix.extra_args }}
+            extra_args: "--all-features ${{ matrix.extra_args }}"
 
     android:
         env:

@@ -70,6 +70,13 @@ jobs:
                   version: "6.2.2"
                   setup-python: false
                   cache: true
+            - name: "Check if we can enforce Skia binary use"
+              shell: bash
+              run: |
+                  if [[ "${{ inputs.extra_args }}" != *"--all-features"* ]]; then
+                      echo "Not building with all features, so enforce the use of Skia binaries"
+                      echo "FORCE_SKIA_BINARIES_DOWNLOAD=1" >> $GITHUB_ENV
+                  fi
             - name: Install ffmpeg and alsa (Linux)
               if: runner.os == 'Linux'
               run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
@@ -86,12 +93,12 @@ jobs:
                   save_if: ${{ inputs.save_if }}
                   cache: ${{ inputs.cache }}
             - name: Run tests
-              run:  cargo test --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run:  cargo test --verbose --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: cargo test --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              run: cargo test --verbose --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
               shell: bash
             - name: live-preview for rust test
               env:
