@@ -269,47 +269,28 @@ pub fn embed_glyphs<'a>(
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
 fn get_fallback_fonts(compiler_config: &CompilerConfiguration) -> Vec<Font> {
-    #[allow(unused)]
-    let mut fallback_families: Vec<String> = Vec::new();
+    let mut fallback_fonts = Vec::new();
 
-    #[cfg(target_os = "macos")]
-    {
-        fallback_families = ["Menlo", "Apple Symbols", "Apple Color Emoji"]
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<String>>();
-    }
+    let mut collection = sharedfontique::get_collection();
+    let mut query = collection.query();
+    query.set_families(
+        sharedfontique::FALLBACK_FAMILIES.into_iter().map(fontique::QueryFamily::Generic).chain(
+            core::iter::once(fontique::QueryFamily::Generic(fontique::GenericFamily::Emoji)),
+        ),
+    );
 
-    #[cfg(target_family = "windows")]
-    {
-        fallback_families = ["Segoe UI Emoji", "Segoe UI Symbol", "Arial", "Wingdings"]
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<String>>();
-    }
+    query.matches_with(|query_font| {
+        if let Some(font) = compiler_config
+            .load_font_by_id(&query_font)
+            .ok()
+            .map(|fontdue_font| Font { font: query_font.clone(), fontdue_font })
+        {
+            fallback_fonts.push(font);
+        }
 
-    let fallback_fonts = fallback_families
-        .iter()
-        .filter_map(|fallback_family| {
-            let mut collection = sharedfontique::get_collection();
-            let mut query = collection.query();
-            query.set_families(std::iter::once(fontique::QueryFamily::from(
-                fallback_family.as_str(),
-            )));
-            let mut font = None;
-            query.matches_with(|query_font| {
-                font = Some(query_font.clone());
-                fontique::QueryStatus::Stop
-            });
+        fontique::QueryStatus::Continue
+    });
 
-            font.and_then(|font| {
-                compiler_config
-                    .load_font_by_id(&font)
-                    .ok()
-                    .map(|fontdue_font| Font { font, fontdue_font })
-            })
-        })
-        .collect::<Vec<_>>();
     fallback_fonts
 }
 
