@@ -664,10 +664,34 @@ fn organize_grid_layout(
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     let cells = grid_layout_input_data(layout, ctx);
-    llr_Expression::ExtraBuiltinFunctionCall {
-        function: "organize_grid_layout".into(),
-        arguments: vec![cells],
-        return_ty: Type::Array(Type::Int32.into()),
+
+    if let Some(button_roles) = &layout.dialog_button_roles {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.DialogButtonRole.clone());
+        let roles = button_roles
+            .iter()
+            .map(|r| {
+                llr_Expression::EnumerationValue(EnumerationValue {
+                    value: e.values.iter().position(|x| x == r).unwrap() as _,
+                    enumeration: e.clone(),
+                })
+            })
+            .collect();
+        let roles_expr = llr_Expression::Array {
+            element_ty: Type::Enumeration(e),
+            values: roles,
+            as_model: false,
+        };
+        llr_Expression::ExtraBuiltinFunctionCall {
+            function: "organize_dialog_button_layout".into(),
+            arguments: vec![cells, roles_expr],
+            return_ty: Type::Array(Type::Int32.into()),
+        }
+    } else {
+        llr_Expression::ExtraBuiltinFunctionCall {
+            function: "organize_grid_layout".into(),
+            arguments: vec![cells],
+            return_ty: Type::Array(Type::Int32.into()),
+        }
     }
 }
 
@@ -896,18 +920,6 @@ fn grid_layout_input_data(
     }
 }
 
-pub(super) fn grid_layout_cell_data_ty() -> Type {
-    Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
-            (SmolStr::new_static("col_or_row"), Type::Int32),
-            (SmolStr::new_static("span"), Type::Int32),
-            (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type().into()),
-        ])
-        .collect(),
-        name: BuiltinPrivateStruct::GridLayoutCellData.into(),
-    }))
-}
-
 pub(super) fn grid_layout_input_data_ty() -> Type {
     Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -919,7 +931,6 @@ pub(super) fn grid_layout_input_data_ty() -> Type {
         ])
         .collect(),
         name: BuiltinPrivateStruct::GridLayoutInputData.into(),
-        rust_attributes: None,
     }))
 }
 

@@ -2710,21 +2710,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
             ctx,
         ),
-        Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
-            let cells_variable = ident(cells_variable);
-            let roles = compile_expression(roles, ctx);
-            let cells = match &**unsorted_cells {
-                Expression::Array { values, .. } => {
-                    values.iter().map(|v| compile_expression(v, ctx))
-                }
-                _ => panic!("dialog layout unsorted cells not an array"),
-            };
-            quote! {
-                let mut #cells_variable = [#(#cells),*];
-                sp::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
-                let #cells_variable = sp::Slice::from_slice(&#cells_variable);
-            }
-        }
         Expression::MinMax { ty, op, lhs, rhs } => {
             let lhs = compile_expression(lhs, ctx);
             let t = rust_primitive_type(ty);

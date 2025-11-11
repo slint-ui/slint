@@ -3664,23 +3664,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
-        Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
-            let cells_variable = ident(cells_variable);
-            let mut cells = match &**unsorted_cells {
-                Expression::Array { values, .. } => {
-                    values.iter().map(|v| compile_expression(v, ctx))
-                }
-                _ => panic!("dialog layout unsorted cells not an array"),
-            };
-            format!(
-                "slint::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
-                    slint::cbindgen_private::slint_reorder_dialog_button_layout({cv}_array, {r});\
-                    slint::cbindgen_private::Slice<slint::cbindgen_private::GridLayoutCellData> {cv} = slint::private_api::make_slice(std::span({cv}_array))",
-                r = compile_expression(roles, ctx),
-                cv = cells_variable,
-                c = cells.join(", "),
-            )
-        }
         Expression::MinMax { ty, op, lhs, rhs } => {
             let ident = match op {
                 MinMaxOp::Min => "min",
