@@ -390,11 +390,17 @@ fn lower_sub_component(
 
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
         let nr = NamedReference::new(e, p.clone());
-        let prop = ctx.map_property_reference(&nr).local();
+        let prop = ctx.map_property_reference(&nr);
 
         if let Type::Function { .. } = nr.ty() {
-            assert!(prop.sub_component_path.is_empty());
-            let LocalMemberIndex::Function(function_index) = prop.reference else { unreachable!() };
+            let MemberReference::Relative { parent_level, local_reference } = prop else {
+                unreachable!()
+            };
+            assert!(parent_level == 0);
+            assert!(local_reference.sub_component_path.is_empty());
+            let LocalMemberIndex::Function(function_index) = local_reference.reference else {
+                unreachable!()
+            };
 
             sub_component.functions[function_index].code =
                 super::lower_expression::lower_expression(&binding.expression, &mut ctx);
@@ -454,7 +460,7 @@ fn lower_sub_component(
             if let Some(anim) = binding.animation.as_ref() {
                 match super::lower_expression::lower_animation(anim, &mut ctx) {
                     Animation::Static(anim) => {
-                        sub_component.animations.insert(prop, anim);
+                        sub_component.animations.insert(prop.local(), anim);
                     }
                     Animation::Transition(_) => {
                         // Cannot set a property with a transition anyway
@@ -499,13 +505,12 @@ fn lower_sub_component(
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
-        let x = x.local();
         // ensure that all const properties have analysis
         sub_component.prop_analysis.entry(x.clone()).or_insert_with(|| PropAnalysis {
             property_init: None,
             analysis: get_property_analysis(elem, n),
         });
-        sub_component.const_properties.push(x);
+        sub_component.const_properties.push(x.local());
     });
 
     sub_component.init_code = component
@@ -569,7 +574,7 @@ fn lower_sub_component(
                 &tree_Expression::CodeBlock(exprs),
                 &mut ctx,
             );
-            (prop.local(), expr.into())
+            (prop, expr.into())
         })
         .collect();
 

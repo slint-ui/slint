@@ -577,13 +577,13 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
 }
 
 fn handle_property_init(
-    prop: &llr::LocalMemberReference,
+    prop: &llr::MemberReference,
     binding_expression: &llr::BindingExpression,
     init: &mut Vec<TokenStream>,
     ctx: &EvaluationContext,
 ) {
-    let rust_property = access_local_member(prop, ctx);
-    let prop_type = ctx.relative_property_ty(prop, 0);
+    let rust_property = access_member(prop, ctx).unwrap();
+    let prop_type = ctx.property_ty(prop);
 
     let init_self_pin_ref = if ctx.current_global().is_some() {
         quote!(let _self = self_rc.as_ref();)
@@ -1125,7 +1125,7 @@ fn generate_sub_component(
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
-        let p1 = access_local_member(prop1, &ctx);
+        let p1 = access_member(prop1, &ctx).unwrap();
         let p2 = access_member(prop2, &ctx);
         let r = p2.then(|p2| {
             if fields.is_empty() {
@@ -1151,7 +1151,7 @@ fn generate_sub_component(
         }
     }
     for prop in &component.const_properties {
-        if component.prop_used(prop, root) {
+        if component.prop_used(&prop.clone().into(), root) {
             let rust_property = access_local_member(prop, &ctx);
             init.push(quote!(#rust_property.set_constant();))
         }
@@ -1487,7 +1487,12 @@ fn generate_global(
             continue;
         }
         if let Some(expression) = expression.as_ref() {
-            handle_property_init(&property_index.into(), expression, &mut init, &ctx)
+            handle_property_init(
+                &llr::LocalMemberReference::from(property_index).into(),
+                expression,
+                &mut init,
+                &ctx,
+            )
         }
     }
     for (property_index, cst) in global.const_properties.iter_enumerated() {

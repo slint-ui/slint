@@ -327,12 +327,12 @@ pub struct SubComponent {
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
-    pub property_init: Vec<(LocalMemberReference, BindingExpression)>,
-    pub change_callbacks: Vec<(LocalMemberReference, MutExpression)>,
+    pub property_init: Vec<(MemberReference, BindingExpression)>,
+    pub change_callbacks: Vec<(MemberReference, MutExpression)>,
     /// The animation for properties which are animated
     pub animations: HashMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
-    pub two_way_bindings: Vec<(LocalMemberReference, MemberReference, Vec<SmolStr>)>,
+    pub two_way_bindings: Vec<(MemberReference, MemberReference, Vec<SmolStr>)>,
     pub const_properties: Vec<LocalMemberReference>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
@@ -349,7 +349,7 @@ pub struct SubComponent {
     /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
     pub element_infos: BTreeMap<u32, String>,
 
-    pub prop_analysis: HashMap<LocalMemberReference, PropAnalysis>,
+    pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
 }
 
 #[derive(Debug)]
@@ -401,10 +401,16 @@ impl SubComponent {
     }
 
     /// Return if a local property is used. (unused property shouldn't be generated)
-    pub fn prop_used(&self, prop: &LocalMemberReference, cu: &CompilationUnit) -> bool {
-        if let LocalMemberIndex::Property(property_index) = &prop.reference {
+    pub fn prop_used(&self, prop: &MemberReference, cu: &CompilationUnit) -> bool {
+        let MemberReference::Relative { parent_level, local_reference } = prop else {
+            return true;
+        };
+        if *parent_level != 0 {
+            return true;
+        }
+        if let LocalMemberIndex::Property(property_index) = &local_reference.reference {
             let mut sc = self;
-            for i in &prop.sub_component_path {
+            for i in &local_reference.sub_component_path {
                 sc = &cu.sub_components[sc.sub_components[*i].ty];
             }
             if sc.properties[*property_index].use_count.get() == 0 {

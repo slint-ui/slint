@@ -597,13 +597,13 @@ fn property_set_value_code(
 }
 
 fn handle_property_init(
-    prop: &llr::LocalMemberReference,
+    prop: &llr::MemberReference,
     binding_expression: &llr::BindingExpression,
     init: &mut Vec<String>,
     ctx: &EvaluationContext,
 ) {
-    let prop_access = access_local_member(prop, ctx);
-    let prop_type = ctx.relative_property_ty(prop, 0);
+    let prop_access = access_member(prop, ctx).unwrap();
+    let prop_type = ctx.property_ty(prop);
     if let Type::Callback(callback) = &prop_type {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = &callback.args;
@@ -2086,8 +2086,8 @@ fn generate_sub_component(
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
         if fields.is_empty() {
-            let ty = ctx.relative_property_ty(&prop1, 0).cpp_type().unwrap();
-            let p1 = access_local_member(prop1, &ctx);
+            let ty = ctx.property_ty(&prop1).cpp_type().unwrap();
+            let p1 = access_member(prop1, &ctx).unwrap();
             init.push(
                 access_member(prop2, &ctx).then(|p2| {
                     format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
@@ -2105,7 +2105,7 @@ fn generate_sub_component(
                 ty = s.fields.get(f).unwrap();
             }
 
-            let p1 = access_local_member(prop1, &ctx);
+            let p1 = access_member(prop1, &ctx).unwrap();
             init.push(
                 access_member(prop2, &ctx).then(|p2|
                     format!("slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
@@ -2121,7 +2121,7 @@ fn generate_sub_component(
         }
     }
     for prop in &component.const_properties {
-        if component.prop_used(prop, root) {
+        if component.prop_used(&prop.clone().into(), root) {
             let p = access_local_member(prop, &ctx);
             properties_init_code.push(format!("{p}.set_constant();"));
         }
@@ -2659,10 +2659,7 @@ fn generate_global(
 
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
-                &llr::LocalMemberReference {
-                    sub_component_path: vec![],
-                    reference: property_index.into(),
-                },
+                &llr::LocalMemberReference::from(property_index).into(),
                 expression,
                 &mut init,
                 &ctx,

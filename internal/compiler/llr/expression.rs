@@ -567,7 +567,7 @@ impl<'a, T> EvaluationContext<'a, T> {
             };
 
             let animation = sc.animations.get(prop).map(|a| (a, map.clone()));
-            let analysis = sc.prop_analysis.get(prop);
+            let analysis = sc.prop_analysis.get(&prop.clone().into());
             if let Some(a) = &analysis {
                 if let Some(init) = a.property_init {
                     return PropertyInfoResult {
