@@ -125,10 +125,6 @@ export component CheckBoxTile inherits ListTile {
 
         check_box := CheckBox {
             enabled: root.enabled;
-
-            changed check_state => {
-                root.check_state = check_box.check_state;
-            }
         }
     }
 
