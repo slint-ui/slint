@@ -24,9 +24,9 @@ pub struct RgbaColor<T> {
     pub blue: T,
 }
 
-#[cfg(not(any(feature = "8-bit-color", cbindgen)))]
+#[cfg(not(feature = "8-bit-color"))]
 type Channel = f32;
-#[cfg(any(feature = "8-bit-color", cbindgen))]
+#[cfg(feature = "8-bit-color")]
 type Channel = u8;
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
