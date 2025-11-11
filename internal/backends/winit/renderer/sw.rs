@@ -171,7 +171,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     }
 
     fn occluded(&self, _: bool) {
-        // On X11, the buffer is completely cleared when the window is hidden
+        // On X11 and Windows, the buffer is completely cleared when the window is hidden
         // and the buffer age doesn't respect that, so clean the partial rendering cache
         self.renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
     }
