@@ -106,6 +106,7 @@ export component CheckBox {
 }
 
 export component CheckBoxTile inherits ListTile {
+    // TODO: removing the `in` here in favour of the set_check_state function below?
     in_out property <CheckState> check_state <=> check_box.check_state;
     in_out property <bool> tristate <=> check_box.tristate;
     in property <bool> has_error <=> check_box.has_error;
@@ -126,5 +127,10 @@ export component CheckBoxTile inherits ListTile {
     // the checkbox
     clicked => {
         check_box.toggle();
+    }
+
+    // Required because the checkbox handles the `CheckState.partially-checked` differently
+    public function set_check_state(check-state: CheckState) {
+        check_box.set_check_state(check_state);
     }
 }
