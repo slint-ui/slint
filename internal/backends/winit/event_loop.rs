@@ -186,9 +186,17 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // trigger a resize event. We need to update the internal window
                 // state to match the actual window state. We simulate a "window
                 // state event" since there is not an official event for it yet.
-                // Because we don't always get a Resized event (eg, minimized), also handle Occluded
                 // See: https://github.com/rust-windowing/winit/issues/2334
                 window.window_state_event();
+
+                // Some platforms (e.g., Windows) may not emit an Occluded event when minimized,
+                // so manually mark the window as occluded if its size is zero.
+                #[cfg(target_os = "windows")]
+                {
+                    if size.width == 0 || size.height == 0 {
+                        window.renderer.occluded(true);
+                    }
+                }
             }
             WindowEvent::CloseRequested => {
                 self.loop_error = window
