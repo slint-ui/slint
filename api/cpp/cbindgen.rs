@@ -234,6 +234,7 @@ fn default_config() -> cbindgen::Config {
             // therefore it is ok to reinterpret_cast
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
+            ("Channel".into(), "float".into()),
         ]
         .iter()
         .cloned()
@@ -397,6 +398,7 @@ fn gen_corelib(
         "MenuEntryModel",
         "MenuEntryArg",
         "Coord",
+        "Channel",
         "LogicalRect",
         "LogicalPoint",
         "LogicalPosition",
