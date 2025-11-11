@@ -65,7 +65,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "{} <=> {}{}{};",
-                DisplayLocalRef(p1, &ctx),
+                DisplayPropertyRef(p1, &ctx),
                 DisplayPropertyRef(p2, &ctx),
                 if fields.is_empty() { "" } else { "." },
                 fields.join(".")
@@ -76,7 +76,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "{}: {};{}",
-                DisplayLocalRef(p, &ctx),
+                DisplayPropertyRef(p, &ctx),
                 DisplayExpression(&init.expression.borrow(), &ctx),
                 if init.is_constant { " /*const*/" } else { "" }
             )?
@@ -86,7 +86,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "changed {} => {};",
-                DisplayLocalRef(p, &ctx),
+                DisplayPropertyRef(p, &ctx),
                 DisplayExpression(&e.borrow(), &ctx),
             )?
         }

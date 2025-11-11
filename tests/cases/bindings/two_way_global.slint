@@ -1,19 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// See FIXME in the js test
+//ignore: live-preview
+
 export global G1 {
     in-out property <int> data: 42;
+    in-out property <string> string-prop;
 }
 
 export global G2 {
     in-out property <int> data <=> G1.data;
 }
 
-export component TestCase inherits Window {
+component SubComponent {
+    in-out property <string> str <=> G1.string-prop;
+}
 
+export component TestCase inherits Window {
     out property <int> d1: G1.data;
     out property <int> d2: G2.data;
-    out property <bool> test: G2.data == 42;
+    sc1 := SubComponent {
+        str: "sc1";
+    }
+    sc2 := SubComponent {
+        str: "sc2";
+    }
+
+    in-out property <string> string-prop-alias <=> sc1.str;
+    out property <int> string-prop-alias-changed: 0;
+    changed string-prop-alias => { string-prop-alias-changed+=1;  }
+
+    out property <bool> test: G2.data == 42 && sc1.str == sc2.str;
 }
 
 
@@ -37,6 +55,13 @@ assert_eq!(G2::get(&instance).get_data(), -1);
 assert_eq!(instance.get_d1(), -1);
 assert_eq!(instance.get_d2(), -1);
 
+let string_prop = instance.global::<G1<'_>>().get_string_prop();
+assert!(string_prop == "sc1" || string_prop == "sc2");
+instance.set_string_prop_alias("xxx".into());
+let string_prop = instance.global::<G1<'_>>().get_string_prop();
+assert_eq!(string_prop, "xxx");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_string_prop_alias_changed(), 1);
 ```
 
 ```cpp
@@ -57,6 +82,14 @@ assert_eq(instance.global<G1>().get_data(), -1);
 assert_eq(instance.global<G2>().get_data(), -1);
 assert_eq(instance.get_d1(), -1);
 assert_eq(instance.get_d2(), -1);
+
+auto string_prop = instance.global<G1>().get_string_prop();
+assert(string_prop == "sc1" || string_prop == "sc2");
+instance.set_string_prop_alias("xxx");
+string_prop = instance.global<G1>().get_string_prop();
+assert_eq(string_prop, "xxx");
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_string_prop_alias_changed(), 1);
 ```
 
 ```js
@@ -76,6 +109,17 @@ assert.equal(instance.G1.data, -1);
 assert.equal(instance.G2.data, -1);
 assert.equal(instance.d1, -1);
 assert.equal(instance.d2, -1);
+
+// FIXME!  This is not working with the interpreter
+/*
+let string_prop = instance.G1.string_prop;
+assert(string_prop == "sc1" || string_prop == "sc2");
+instance.G1.string_prop = "xxx";
+string_prop = instance.G1.string_prop;
+assert.equal(string_prop, "xxx");
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.string_prop_alias_changed, 1);
+*/
 ```
 
 */
