@@ -442,6 +442,12 @@ impl Expression {
         self.visit(|e| e.visit_recursive(visitor));
     }
 
+    /// Visit itself and each sub expression recursively
+    pub fn visit_recursive_mut(&mut self, visitor: &mut dyn FnMut(&mut Self)) {
+        visitor(self);
+        self.visit_mut(|e| e.visit_recursive_mut(visitor));
+    }
+
     pub fn visit_property_references(
         &self,
         ctx: &EvaluationContext,

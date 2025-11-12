@@ -86,7 +86,7 @@ pub fn lower_to_item_tree(
         PopupMenu { item_tree, sub_menu, activated, close, entries }
     });
 
-    let root = CompilationUnit {
+    let mut root = CompilationUnit {
         public_components,
         globals,
         sub_components: state.sub_components.into_iter().map(|sc| sc.sub_component).collect(),
@@ -102,7 +102,7 @@ pub fn lower_to_item_tree(
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
     };
-    super::optim_passes::run_passes(&root);
+    super::optim_passes::run_passes(&mut root);
     root
 }
 

@@ -812,7 +812,7 @@ fn generate_sub_component(
     let mut declared_callbacks_types = vec![];
     let mut declared_callbacks_ret = vec![];
 
-    for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
+    for property in component.properties.iter() {
         let prop_ident = ident(&property.name);
         if let Type::Callback(callback) = &property.ty {
             let callback_args =
@@ -1146,15 +1146,11 @@ fn generate_sub_component(
     }
 
     for (prop, expression) in &component.property_init {
-        if expression.use_count.get() > 0 && component.prop_used(prop, root) {
-            handle_property_init(prop, expression, &mut init, &ctx)
-        }
+        handle_property_init(prop, expression, &mut init, &ctx)
     }
     for prop in &component.const_properties {
-        if component.prop_used(&prop.clone().into(), root) {
-            let rust_property = access_local_member(prop, &ctx);
-            init.push(quote!(#rust_property.set_constant();))
-        }
+        let rust_property = access_local_member(prop, &ctx);
+        init.push(quote!(#rust_property.set_constant();))
     }
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
@@ -1447,7 +1443,7 @@ fn generate_global(
     let mut declared_callbacks_types = vec![];
     let mut declared_callbacks_ret = vec![];
 
-    for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
+    for property in global.properties.iter() {
         let prop_ident = ident(&property.name);
         if let Type::Callback(callback) = &property.ty {
             let callback_args =
@@ -1483,9 +1479,6 @@ fn generate_global(
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
 
     for (property_index, expression) in global.init_values.iter_enumerated() {
-        if global.properties[property_index].use_count.get() == 0 {
-            continue;
-        }
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
                 &llr::LocalMemberReference::from(property_index).into(),
@@ -1496,9 +1489,6 @@ fn generate_global(
         }
     }
     for (property_index, cst) in global.const_properties.iter_enumerated() {
-        if global.properties[property_index].use_count.get() == 0 {
-            continue;
-        }
         if *cst {
             let rust_property = access_local_member(&property_index.into(), &ctx);
             init.push(quote!(#rust_property.set_constant();))
