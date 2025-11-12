@@ -11,8 +11,9 @@ slint::include_modules!();
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn load_font_from_bytes(font_data: &[u8]) -> Result<(), JsValue> {
-    slint::register_font_from_memory(font_data.to_vec());
-    Ok(())
+    slint::register_font_from_memory(font_data.to_vec())
+        .map(|_| ())
+        .map_err(|e| JsValue::from_str(&format!("Failed to register font: {}", e)))
 }
 
 use std::rc::Rc;
@@ -31,15 +32,6 @@ pub fn main() {
     slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
 
     let app = App::new().unwrap();
-
-    // For WASM builds, select translation after App::new()
-    #[cfg(target_arch = "wasm32")]
-    if let Some(window) = web_sys::window() {
-        if let Some(lang) = window.navigator().language() {
-            let lang_code = lang.split('-').next().unwrap_or("en");
-            let _ = slint::select_bundled_translation(lang_code);
-        }
-    }
 
     let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
 

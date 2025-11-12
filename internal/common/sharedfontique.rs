@@ -131,24 +131,86 @@ impl std::ops::DerefMut for Collection {
     }
 }
 
+/// Handle to a registered font that can be used for future operations.
+#[derive(Debug, Clone)]
+pub struct FontHandle {
+    /// Family IDs of the registered fonts
+    pub family_ids: Vec<fontique::FamilyId>,
+}
+
+/// Error type for font registration failures.
+#[derive(Debug, Clone)]
+pub enum RegisterFontError {
+    /// The provided font data was empty
+    EmptyData,
+    /// No valid fonts could be extracted from the data
+    NoFontsFound,
+    /// The font data could not be parsed
+    InvalidFontData,
+}
+
+impl std::fmt::Display for RegisterFontError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RegisterFontError::EmptyData => write!(f, "Font data is empty"),
+            RegisterFontError::NoFontsFound => {
+                write!(f, "No valid fonts found in the provided data")
+            }
+            RegisterFontError::InvalidFontData => write!(f, "Invalid font data"),
+        }
+    }
+}
+
+impl std::error::Error for RegisterFontError {}
+
 /// Register a font from byte data dynamically.
-pub fn register_font_from_memory(font_data: Vec<u8>) -> usize {
-    let blob = fontique::Blob::new(Arc::new(font_data));
+///
+/// # Arguments
+///
+/// * `font_data` - Font data as bytes (supports any type that can be converted to a byte slice)
+///
+/// # Returns
+///
+/// Returns a `FontHandle` on success, or a `RegisterFontError` on failure.
+///
+/// # Example
+///
+/// ```ignore
+/// let font_bytes = include_bytes!("my_font.ttf");
+/// match register_font_from_memory(font_bytes.to_vec()) {
+///     Ok(handle) => println!("Registered {} font families", handle.family_ids.len()),
+///     Err(e) => eprintln!("Failed to register font: {}", e),
+/// }
+/// ```
+pub fn register_font_from_memory(
+    font_data: impl AsRef<[u8]> + Send + Sync + 'static,
+) -> Result<FontHandle, RegisterFontError> {
+    let data = font_data.as_ref();
+
+    if data.is_empty() {
+        return Err(RegisterFontError::EmptyData);
+    }
+
+    // Convert to owned data for Arc
+    let owned_data: Vec<u8> = data.to_vec();
+    let blob = fontique::Blob::new(Arc::new(owned_data));
 
     let mut collection = get_collection();
     let fonts = collection.register_fonts(blob, None);
 
-    let family_count = fonts.len();
+    if fonts.is_empty() {
+        return Err(RegisterFontError::NoFontsFound);
+    }
+
+    let family_ids: Vec<_> = fonts.iter().map(|(family_id, _)| *family_id).collect();
 
     // Set up fallbacks for all scripts
     for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
-        collection.append_fallbacks(
-            fontique::FallbackKey::new(script, None),
-            fonts.iter().map(|(family_id, _)| *family_id),
-        );
+        collection
+            .append_fallbacks(fontique::FallbackKey::new(script, None), family_ids.iter().copied());
     }
 
-    family_count
+    Ok(FontHandle { family_ids })
 }
 
 /// Font metrics in design space. Scale with desired pixel size and divided by units_per_em

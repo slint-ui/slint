@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-    slint_build::compile_with_config(
-        "gallery.slint",
-        slint_build::CompilerConfiguration::new()
-            .with_bundled_translations(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/")),
-    )
-    .unwrap();
+    let mut config = slint_build::CompilerConfiguration::new();
+    let target = std::env::var("TARGET").unwrap();
+    if target.contains("android") || target.contains("wasm32") {
+        config = config.with_bundled_translations(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
+    }
+    slint_build::compile_with_config("gallery.slint", config).unwrap();
 }
