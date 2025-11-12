@@ -1210,6 +1210,7 @@ pub(crate) fn generate_item_tree<'id>(
 
     fn property_info_for_type(
         ty: &Type,
+        name: &str,
     ) -> Option<(Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)> {
         Some(match ty {
             Type::Float32 => animated_property_info::<f32>(),
@@ -1262,7 +1263,7 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::Model
             | Type::PathData
             | Type::UnitProduct(_)
-            | Type::ElementReference => panic!("bad type {ty:?}"),
+            | Type::ElementReference => panic!("bad type {ty:?} for property {name}"),
         })
     }
 
@@ -1275,7 +1276,9 @@ pub(crate) fn generate_item_tree<'id>(
                 .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
             continue;
         }
-        let Some((prop, type_info)) = property_info_for_type(&decl.property_type) else { continue };
+        let Some((prop, type_info)) = property_info_for_type(&decl.property_type, &name) else {
+            continue;
+        };
         custom_properties.insert(
             name.clone(),
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
@@ -1297,7 +1300,8 @@ pub(crate) fn generate_item_tree<'id>(
                     element: component.parent_element.clone(),
                 }
                 .ty();
-                let (prop, type_info) = property_info_for_type(&model_ty).unwrap();
+                let (prop, type_info) =
+                    property_info_for_type(&model_ty, &SPECIAL_PROPERTY_MODEL_DATA).unwrap();
                 custom_properties.insert(
                     SPECIAL_PROPERTY_MODEL_DATA.into(),
                     PropertiesWithinComponent {
