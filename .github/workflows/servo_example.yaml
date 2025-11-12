@@ -8,13 +8,16 @@ on:
   workflow_call:
 
 jobs:
-  linux_build:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix: 
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/install-linux-dependencies
       - uses: ./.github/actions/install-skia-dependencies
       - name: Build
         working-directory: examples/servo
-        run: cargo run
+        run: cargo build
