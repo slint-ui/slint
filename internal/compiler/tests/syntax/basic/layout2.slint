@@ -6,8 +6,6 @@ export X := Rectangle {
 
     lay := GridLayout {
         property<string> foo: "hello";
-        property<int> last_row: 4;
-        property<int> negative: -5;
         Row {
             Text {
                 text: lay.foo + parent.width;
@@ -36,10 +34,7 @@ export X := Rectangle {
                 }
             }
         }
-        Text {
-            row: lay.last_row;
-            col: -lay.negative; // check that a unary minus isn't necessary an error
-        }
+
         Row {
             Text {
                 x: 12px;
@@ -50,6 +45,30 @@ export X := Rectangle {
 //               ^error{'row' must be a positive integer}
             Rectangle { row: 3; }
 //                           ^error{row used outside of a GridLayout's cell}
+        }
+    }
+
+    lay2 := GridLayout {
+//          ^error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
+        property<int> negative: -5;
+        property<int> last_row: 4;
+        Text {
+            row: lay2.last_row;
+            col: -lay2.negative; // check that a unary minus isn't necessary an error
+        }
+        Text {
+            row: 0; // mixing runtime expr and literal is ok
+        }
+    }
+
+    lay3 := GridLayout {
+//          ^error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
+        Text {
+            row: lay2.last_row;
+            col: lay2.last_row;
+        }
+        Text {
+            col: 1;
         }
     }
 
