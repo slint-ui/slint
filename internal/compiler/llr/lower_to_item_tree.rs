@@ -50,7 +50,6 @@ pub fn lower_to_item_tree(
             let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
                 root: state.push_sub_component(sc),
-                parent_context: None,
             };
             // For C++ codegen, the root component must have the same name as the public component
             PublicComponent {
@@ -83,7 +82,6 @@ pub fn lower_to_item_tree(
         let item_tree = ItemTree {
             tree: make_tree(&state, &c.root_element, &sc, &[]),
             root: state.push_sub_component(sc),
-            parent_context: None,
         };
         PopupMenu { item_tree, sub_menu, activated, close, entries }
     });
@@ -496,7 +494,6 @@ fn lower_sub_component(
             ItemTree {
                 tree: make_tree(ctx.state, &c.root_element, &sc, &[]),
                 root: ctx.state.push_sub_component(sc),
-                parent_context: None,
             }
         })
         .collect();
@@ -677,7 +674,6 @@ fn lower_repeated_component(
         sub_tree: ItemTree {
             tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
             root: ctx.state.push_sub_component(sc),
-            parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
         },
         index_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_INDEX),
         data_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_DATA),
@@ -705,19 +701,6 @@ fn lower_popup_component(
     let item_tree = ItemTree {
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
-        parent_context: Some(
-            popup
-                .component
-                .parent_element
-                .upgrade()
-                .unwrap()
-                .borrow()
-                .enclosing_component
-                .upgrade()
-                .unwrap()
-                .id
-                .clone(),
-        ),
     };
     PopupWindow { item_tree, position: position.into() }
 }
