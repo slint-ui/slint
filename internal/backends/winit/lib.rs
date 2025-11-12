@@ -28,7 +28,7 @@ use winitwindowadapter::*;
 pub(crate) mod event_loop;
 mod frame_throttle;
 #[cfg(target_os = "ios")]
-mod virtual_keyboard;
+mod ios;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -535,7 +535,7 @@ pub(crate) struct SharedBackendData {
     is_wayland: bool,
     #[cfg(target_os = "ios")]
     #[allow(unused)]
-    keyboard_notifications: virtual_keyboard::KeyboardNotifications,
+    keyboard_notifications: ios::KeyboardNotifications,
 }
 
 impl SharedBackendData {
@@ -592,7 +592,7 @@ impl SharedBackendData {
 
         #[cfg(target_os = "ios")]
         let keyboard_notifications =
-            virtual_keyboard::register_keyboard_notifications(Rc::downgrade(&active_windows));
+            ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]

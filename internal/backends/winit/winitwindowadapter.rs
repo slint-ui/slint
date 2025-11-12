@@ -172,7 +172,7 @@ enum WinitWindowOrNone {
         #[cfg(muda)]
         context_menu_muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
         #[cfg(target_os = "ios")]
-        keyboard_curve_sampler: super::virtual_keyboard::KeyboardCurveSampler,
+        keyboard_curve_sampler: super::ios::KeyboardCurveSampler,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -510,7 +510,7 @@ impl WinitWindowAdapter {
             #[cfg(muda)]
             context_menu_muda_adapter: None.into(),
             #[cfg(target_os = "ios")]
-            keyboard_curve_sampler: super::virtual_keyboard::KeyboardCurveSampler::new(
+            keyboard_curve_sampler: super::ios::KeyboardCurveSampler::new(
                 &content_view,
                 move |rect| {
                     if let Some(this) = keyboard_curve_self.upgrade() {
@@ -665,7 +665,7 @@ impl WinitWindowAdapter {
     #[cfg(target_os = "ios")]
     pub(crate) fn with_keyboard_curve_sampler<R>(
         &self,
-        f: impl FnOnce(&super::virtual_keyboard::KeyboardCurveSampler) -> R,
+        f: impl FnOnce(&super::ios::KeyboardCurveSampler) -> R,
     ) -> Option<R> {
         let winit_window_or_none = self.winit_window_or_none.borrow();
         if let WinitWindowOrNone::HasWindow { keyboard_curve_sampler, .. } = &*winit_window_or_none

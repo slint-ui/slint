@@ -4,15 +4,15 @@
 use std::{cell::RefCell, collections::HashMap, ptr::NonNull, rc::Weak};
 
 use block2::RcBlock;
-use objc2_foundation::{NSNotification, NSNotificationCenter, NSNumber, NSOperationQueue, NSValue};
+use objc2_foundation::{
+    NSContainsRect, NSIntersectsRect, NSNotification, NSNotificationCenter, NSNumber,
+    NSOperationQueue, NSRect, NSValue,
+};
 use objc2_ui_kit::{UICoordinateSpace, UIScreen, UIViewAnimationCurve};
 use raw_window_handle::HasWindowHandle;
 use winit::window::WindowId;
 
 use crate::winitwindowadapter::WinitWindowAdapter;
-
-mod keyboard_animator;
-pub(crate) use keyboard_animator::KeyboardCurveSampler;
 
 pub(crate) struct KeyboardNotifications(
     [objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2_foundation::NSObjectProtocol>>;
@@ -35,7 +35,7 @@ pub(crate) fn register_keyboard_notifications(
 ) -> KeyboardNotifications {
     let event_block = RcBlock::new(move |notification: NonNull<NSNotification>| {
         if let Some(active_windows) = active_windows.upgrade() {
-            crate::virtual_keyboard::handle_keyboard_notification(
+            handle_keyboard_notification(
                 unsafe { notification.as_ref() },
                 active_windows.borrow().values(),
             );
@@ -60,7 +60,7 @@ pub(crate) fn register_keyboard_notifications(
     })
 }
 
-pub(crate) fn handle_keyboard_notification<'a>(
+fn handle_keyboard_notification<'a>(
     notification: &NSNotification,
     windows: impl IntoIterator<Item = &'a Weak<WinitWindowAdapter>>,
 ) -> Option<()> {
@@ -110,15 +110,22 @@ pub(crate) fn handle_keyboard_notification<'a>(
             let raw_window_handle::RawWindowHandle::UiKit(window_handle) =
                 adapter.winit_window()?.window_handle().ok()?.as_raw()
             else {
-                return None;
+                continue;
             };
             let view = unsafe { &*(window_handle.ui_view.as_ptr() as *const objc2_ui_kit::UIView) };
             let frame_begin = view.convertRect_fromCoordinateSpace(frame_begin, &coordinate_space);
             let frame_end = view.convertRect_fromCoordinateSpace(frame_end, &coordinate_space);
 
-            adapter.with_keyboard_curve_sampler(|kcs| {
-                kcs.start(animation_duration, curve, frame_begin, frame_end);
-            });
+            // Assumes that the keyboard animation doesn't pass over the window without
+            // starting or ending while intersecting.
+            // Although, in this strange edge case we should probably ignore the keyboard anyways.
+            if NSIntersectsRect(view.bounds(), frame_begin)
+                || NSIntersectsRect(view.bounds(), frame_end)
+            {
+                adapter.with_keyboard_curve_sampler(|kcs| {
+                    kcs.start(animation_duration, curve, frame_begin, frame_end);
+                });
+            }
         }
     }
 

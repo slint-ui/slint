@@ -536,22 +536,29 @@ impl ItemRc {
         let supports_transformations = self
             .window_adapter()
             .is_none_or(|adapter| adapter.renderer().supports_transformations());
-        let mut item_tree = Vec::new();
+
+        let mut full_transform = supports_transformations.then(ItemTransform::identity);
+        let mut offset = euclid::Vector2D::zero();
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if stop_condition(&parent) {
                 break;
             }
-            item_tree.push(parent.clone());
+            let geometry = parent.geometry();
+            if let (Some(transform), Some(children_transform)) =
+                (full_transform, parent.children_transform())
+            {
+                full_transform = Some(
+                    transform.then_translate(geometry.origin.to_vector()).then(&children_transform),
+                );
+            }
+            offset += geometry.origin.to_vector();
             current = parent;
         }
-        for item in item_tree.into_iter().rev() {
-            let geometry = item.geometry();
-            result -= geometry.origin.to_vector();
-            if supports_transformations {
-                if let Some(transform) = item.children_transform() {
-                    result = transform.transform_point(result.cast()).cast();
-                }
-            }
+        full_transform = full_transform.and_then(|ft| ft.inverse());
+        if let Some(transform) = full_transform {
+            result = transform.transform_point(result.cast()).cast();
+        } else {
+            result -= offset;
         }
         result
     }
@@ -908,14 +915,14 @@ impl ItemRc {
                                 geo.origin.x - flickable.viewport_x().0,
                                 geo.origin.y - flickable.viewport_y().0,
                             ),
-                            &item_rc,
+                            item_rc,
                         ),
                         self.map_to_ancestor(
                             LogicalPoint::new(
                                 geo.max_x() - flickable.viewport_x().0,
                                 geo.max_y() - flickable.viewport_y().0,
                             ),
-                            &item_rc,
+                            item_rc,
                         ),
                     ],
                 );

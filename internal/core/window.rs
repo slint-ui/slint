@@ -1544,7 +1544,7 @@ impl WindowInner {
         }
     }
 
-    pub(crate) fn window_item_keyboard_area(
+    pub(crate) fn window_item_virtual_keyboard(
         &self,
     ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
         let component_rc = self.try_component()?;
@@ -1552,9 +1552,9 @@ impl WindowInner {
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
         Some((
-            crate::lengths::LogicalPoint::new(
-                window_item.virtual_keyboard_x().0,
-                window_item.virtual_keyboard_y().0,
+            crate::lengths::LogicalPoint::from_lengths(
+                window_item.virtual_keyboard_x(),
+                window_item.virtual_keyboard_y(),
             ),
             crate::lengths::LogicalSize::from_lengths(
                 window_item.virtual_keyboard_width(),
