@@ -13,8 +13,6 @@ export component ScrollBar {
     in-out property <length> value;
     in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
-    callback scrolled();
-
     private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
     private property <length> step-size: 10px;
     private property <length> offset: 2px;
@@ -77,7 +75,6 @@ export component ScrollBar {
                     root.horizontal ? (self.mouse-x - self.saved-values.x) * (root.maximum / (root.track-size - thumb.width))
                                : (self.mouse-y - self.saved-values.y) * (root.maximum / (root.track-size - thumb.height))
                 )));
-                root.scrolled();
             }
         }
 
@@ -137,8 +134,6 @@ export component ScrollView {
         horizontal: false;
         maximum:  flickable.viewport-height - flickable.height;
         page-size:  flickable.height;
-
-        scrolled => {root.scrolled()}
     }
 
     horizontal-bar := ScrollBar {
@@ -150,7 +145,5 @@ export component ScrollView {
         horizontal: true;
         maximum:  flickable.viewport-width - flickable.width;
         page-size:  flickable.width;
-
-        scrolled => {root.scrolled()}
     }
 }
