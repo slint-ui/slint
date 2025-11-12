@@ -31,7 +31,7 @@ impl PropertyIdx {
     pub const REPEATER_INDEX: Self = Self(1);
 }
 
-#[derive(Debug, Clone, derive_more::Deref)]
+#[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
 pub struct MutExpression(RefCell<Expression>);
 
 impl From<Expression> for MutExpression {
@@ -398,26 +398,6 @@ impl SubComponent {
             count += cu.sub_components[x.ty].child_item_count(cu);
         }
         count
-    }
-
-    /// Return if a local property is used. (unused property shouldn't be generated)
-    pub fn prop_used(&self, prop: &MemberReference, cu: &CompilationUnit) -> bool {
-        let MemberReference::Relative { parent_level, local_reference } = prop else {
-            return true;
-        };
-        if *parent_level != 0 {
-            return true;
-        }
-        if let LocalMemberIndex::Property(property_index) = &local_reference.reference {
-            let mut sc = self;
-            for i in &local_reference.sub_component_path {
-                sc = &cu.sub_components[sc.sub_components[*i].ty];
-            }
-            if sc.properties[*property_index].use_count.get() == 0 {
-                return false;
-            }
-        }
-        true
     }
 }
 

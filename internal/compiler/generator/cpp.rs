@@ -1973,7 +1973,7 @@ fn generate_sub_component(
         file.declarations.push(Declaration::Struct(menu_struct));
     }
 
-    for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
+    for property in component.properties.iter() {
         let cpp_name = ident(&property.name);
 
         let ty = if let Type::Callback(callback) = &property.ty {
@@ -2116,15 +2116,11 @@ fn generate_sub_component(
 
     let mut properties_init_code = Vec::new();
     for (prop, expression) in &component.property_init {
-        if expression.use_count.get() > 0 && component.prop_used(prop, root) {
-            handle_property_init(prop, expression, &mut properties_init_code, &ctx)
-        }
+        handle_property_init(prop, expression, &mut properties_init_code, &ctx)
     }
     for prop in &component.const_properties {
-        if component.prop_used(&prop.clone().into(), root) {
-            let p = access_local_member(prop, &ctx);
-            properties_init_code.push(format!("{p}.set_constant();"));
-        }
+        let p = access_local_member(prop, &ctx);
+        properties_init_code.push(format!("{p}.set_constant();"));
     }
 
     for item in &component.items {
@@ -2621,7 +2617,7 @@ fn generate_global(
 ) {
     let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
 
-    for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
+    for property in global.properties.iter() {
         let cpp_name = ident(&property.name);
 
         let ty = if let Type::Callback(callback) = &property.ty {
@@ -2653,10 +2649,6 @@ fn generate_global(
     );
 
     for (property_index, expression) in global.init_values.iter_enumerated() {
-        if global.properties[property_index].use_count.get() == 0 {
-            continue;
-        }
-
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
                 &llr::LocalMemberReference::from(property_index).into(),
