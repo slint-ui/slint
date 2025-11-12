@@ -602,7 +602,10 @@ impl Window {
     }
 
     #[doc(hidden)]
-    pub fn virtual_keyboard(&self, _: crate::InternalToken) -> Option<(LogicalPosition, LogicalSize)> {
+    pub fn virtual_keyboard(
+        &self,
+        _: crate::InternalToken,
+    ) -> Option<(LogicalPosition, LogicalSize)> {
         self.0.window_item_keyboard_area().map(|(origin, size)| {
             (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
         })
