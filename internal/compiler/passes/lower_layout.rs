@@ -151,6 +151,26 @@ fn lower_element_layout(
     layout_type
 }
 
+// to detect mixing auto and non-literal expressions in row/col values
+#[derive(Debug, PartialEq, Eq)]
+enum RowColExpressionType {
+    Auto, // not specified
+    Literal,
+    RuntimeExpression,
+}
+impl RowColExpressionType {
+    fn from_option_expr(
+        expr: &Option<Expression>,
+        is_number_literal: bool,
+    ) -> RowColExpressionType {
+        match expr {
+            None => RowColExpressionType::Auto,
+            Some(_) if is_number_literal => RowColExpressionType::Literal,
+            Some(_) => RowColExpressionType::RuntimeExpression,
+        }
+    }
+}
+
 fn lower_grid_layout(
     component: &Rc<Component>,
     grid_layout_element: &ElementRc,
@@ -192,6 +212,7 @@ fn lower_grid_layout(
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
     let mut collected_children = Vec::new();
     let mut new_row = false; // true until the first child of a Row, or the first item after an empty Row
+    let mut numbering_type: Option<RowColExpressionType> = None;
     for layout_child in layout_children {
         let is_row = if let ElementType::Builtin(be) = &layout_child.borrow().base_type {
             be.name == "Row"
@@ -214,6 +235,7 @@ fn lower_grid_layout(
                     &layout_cache_prop_h,
                     &layout_cache_prop_v,
                     &layout_organized_data_prop,
+                    &mut numbering_type,
                     diag,
                 );
                 collected_children.push(x);
@@ -234,6 +256,7 @@ fn lower_grid_layout(
                 &layout_cache_prop_h,
                 &layout_cache_prop_v,
                 &layout_organized_data_prop,
+                &mut numbering_type,
                 diag,
             );
             collected_children.push(layout_child);
@@ -314,20 +337,24 @@ impl GridLayout {
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         organized_data_prop: &NamedReference,
+        numbering_type: &mut Option<RowColExpressionType>,
         diag: &mut BuildDiagnostics,
     ) {
         let mut get_expr = |name: &str| {
-            item_element.borrow_mut().bindings.get(name).map(|e| {
+            let mut is_number_literal = false;
+            let expr = item_element.borrow_mut().bindings.get(name).map(|e| {
                 let expr = &e.borrow().expression;
-                check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
+                is_number_literal =
+                    check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
                 expr.clone()
-            })
+            });
+            (expr, is_number_literal)
         };
 
-        let row_expr = get_expr("row");
-        let col_expr = get_expr("col");
-        let rowspan_expr = get_expr("rowspan");
-        let colspan_expr = get_expr("colspan");
+        let (row_expr, row_is_number_literal) = get_expr("row");
+        let (col_expr, col_is_number_literal) = get_expr("col");
+        let (rowspan_expr, _) = get_expr("rowspan");
+        let (colspan_expr, _) = get_expr("colspan");
 
         self.add_element_with_coord_as_expr(
             item_element,
@@ -339,6 +366,32 @@ impl GridLayout {
             organized_data_prop,
             diag,
         );
+
+        let mut check_numbering_consistency = |expr_type: RowColExpressionType, prop_name: &str| {
+            if !matches!(expr_type, RowColExpressionType::Literal) {
+                if let Some(current_numbering_type) = numbering_type {
+                    if *current_numbering_type != expr_type {
+                        item_element.borrow_mut().bindings.get(prop_name).map(|binding| {
+                    diag.push_error(
+                    format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property"),
+                    &*binding.borrow(),
+                    );
+                });
+                    }
+                } else {
+                    // Store the first auto or runtime expression case we see
+                    *numbering_type = Some(expr_type);
+                }
+            }
+        };
+
+        let row_expr_type =
+            RowColExpressionType::from_option_expr(&row_expr, row_is_number_literal);
+        check_numbering_consistency(row_expr_type, "row");
+
+        let col_expr_type =
+            RowColExpressionType::from_option_expr(&col_expr, col_is_number_literal);
+        check_numbering_consistency(col_expr_type, "col");
     }
 
     fn add_element_with_coord(
@@ -910,27 +963,30 @@ fn set_prop_from_cache(
 
 // If it's a number literal, it must be a positive integer
 // But also allow any other kind of expression
+// Returns true for literals, false for other kinds of expressions
 fn check_number_literal_is_positive_integer(
     expression: &Expression,
     name: &str,
     span: &dyn crate::diagnostics::Spanned,
     diag: &mut BuildDiagnostics,
-) {
+) -> bool {
     match super::ignore_debug_hooks(expression) {
         Expression::NumberLiteral(v, Unit::None) => {
             if *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
                 diag.push_error(format!("'{name}' must be a positive integer"), span);
             }
+            true
         }
         Expression::UnaryOp { op: '-', sub } => {
             if let Expression::NumberLiteral(_, Unit::None) = super::ignore_debug_hooks(sub) {
                 diag.push_error(format!("'{name}' must be a positive integer"), span);
             }
+            true
         }
         Expression::Cast { from, .. } => {
             check_number_literal_is_positive_integer(from, name, span, diag)
         }
-        _ => {}
+        _ => false,
     }
 }
 
