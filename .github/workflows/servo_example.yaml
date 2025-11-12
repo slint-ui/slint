@@ -4,15 +4,17 @@
 name: Servo example
 
 on:
+  workflow_dispatch:
   workflow_call:
 
 jobs:
-  macos_build:
+  linux_build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: ./.github/actions/install-linux-dependencies
+      - uses: ./.github/actions/install-skia-dependencies
       - name: Build
         working-directory: examples/servo
         run: cargo run
