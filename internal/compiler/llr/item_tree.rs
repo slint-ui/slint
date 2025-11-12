@@ -434,10 +434,6 @@ pub struct SubComponentInstance {
 pub struct ItemTree {
     pub root: SubComponentIdx,
     pub tree: TreeNode,
-    /// This tree has a parent. e.g: it is a Repeater or a PopupWindow whose property can access
-    /// the parent ItemTree.
-    /// The String is the type of the parent ItemTree
-    pub parent_context: Option<SmolStr>,
 }
 
 #[derive(Debug)]
