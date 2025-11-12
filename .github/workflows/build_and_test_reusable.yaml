@@ -45,7 +45,6 @@ jobs:
         timeout-minutes: ${{ inputs.timeout_minutes }}
         env:
             MACOSX_DEPLOYMENT_TARGET: "11.0"
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
@@ -104,6 +103,7 @@ jobs:
                   echo "$PY_BIN" >> "$GITHUB_PATH"
                   python3.10 --version
             - name: Install Qt
+              id: install_qt
               if: runner.os != 'Windows'
               uses: jurplel/install-qt-action@v4
               env:
@@ -113,6 +113,18 @@ jobs:
                   setup-python: false
                   cache: true
                   dir: ${{ runner.temp }}/qt
+            - name: Export Qt paths
+              if: runner.os == 'macOS'
+              run: |
+                  set -eu
+                  qt_root="${{ steps.install_qt.outputs.qtPath }}"
+                  if [ -z "$qt_root" ]; then
+                      echo "Qt install directory not reported" >&2
+                      exit 1
+                  fi
+                  echo "DYLD_FRAMEWORK_PATH=$qt_root/lib" >> "$GITHUB_ENV"
+                  echo "QT_PLUGIN_PATH=$qt_root/plugins" >> "$GITHUB_ENV"
+                  echo "QML2_IMPORT_PATH=$qt_root/qml" >> "$GITHUB_ENV"
             - name: Install ffmpeg and alsa (Linux)
               if: runner.os == 'Linux'
               run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
