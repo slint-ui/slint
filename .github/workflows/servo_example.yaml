@@ -10,7 +10,8 @@ on:
 jobs:
   build:
     strategy:
-      matrix: 
+      fail-fast: false
+      matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
