@@ -111,6 +111,7 @@ pub enum BuiltinFunction {
     StartTimer,
     StopTimer,
     RestartTimer,
+    OpenUrl,
 }
 
 #[derive(Debug, Clone)]
@@ -276,6 +277,7 @@ declare_builtin_function_types!(
     StartTimer: (Type::ElementReference) -> Type::Void,
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
+    OpenUrl: (Type::String) -> Type::Void
 );
 
 impl BuiltinFunction {
@@ -289,7 +291,9 @@ impl BuiltinFunction {
     /// It is const if the return value only depends on its argument and has no side effect
     fn is_const(&self, global_analysis: Option<&crate::passes::GlobalAnalysis>) -> bool {
         match self {
-            BuiltinFunction::GetWindowScaleFactor => false,
+            BuiltinFunction::GetWindowScaleFactor => {
+                global_analysis.is_some_and(|x| x.const_scale_factor.is_some())
+            }
             BuiltinFunction::GetWindowDefaultFontSize => {
                 global_analysis.is_some_and(|x| x.default_font_size.is_const())
             }
@@ -369,6 +373,7 @@ impl BuiltinFunction {
             BuiltinFunction::StartTimer => false,
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
+            BuiltinFunction::OpenUrl => false,
         }
     }
 
@@ -446,6 +451,7 @@ impl BuiltinFunction {
             BuiltinFunction::StartTimer => false,
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
+            BuiltinFunction::OpenUrl => false,
         }
     }
 }
@@ -1507,6 +1513,35 @@ fn model_inner_type(model: &Expression) -> Type {
     }
 }
 
+/// The right hand side of a two way binding
+#[derive(Clone, Debug)]
+pub struct TwoWayBinding {
+    /// The property being linked
+    pub property: NamedReference,
+    /// If property is a struct, this is the fields.
+    /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
+    pub field_access: Vec<SmolStr>,
+}
+impl TwoWayBinding {
+    pub fn ty(&self) -> Type {
+        let mut ty = self.property.ty();
+        for x in &self.field_access {
+            ty = match ty {
+                Type::InferredProperty | Type::InferredCallback => return ty,
+                Type::Struct(s) => s.fields.get(x).cloned().unwrap_or_default(),
+                _ => return Type::Invalid,
+            };
+        }
+        ty
+    }
+}
+
+impl From<NamedReference> for TwoWayBinding {
+    fn from(nr: NamedReference) -> Self {
+        Self { property: nr, field_access: vec![] }
+    }
+}
+
 /// The expression in the Element::binding hash table
 #[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
 pub struct BindingExpression {
@@ -1515,8 +1550,8 @@ pub struct BindingExpression {
     pub expression: Expression,
     /// The location of this expression in the source code
     pub span: Option<SourceLocation>,
-    /// How deep is this binding declared in the hierarchy. When two binding are conflicting
-    /// for the same priority (because of two way binding), the lower priority wins.
+    /// How deep is this binding declared in the hierarchy. When two bindings are conflicting
+    /// for the same priority (because of a two way binding), the lower priority wins.
     /// The priority starts at 1, and each level of inlining adds one to the priority.
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
@@ -1527,7 +1562,7 @@ pub struct BindingExpression {
     pub analysis: Option<BindingAnalysis>,
 
     /// The properties this expression is aliased with using two way bindings
-    pub two_way_bindings: Vec<NamedReference>,
+    pub two_way_bindings: Vec<TwoWayBinding>,
 }
 
 impl std::convert::From<Expression> for BindingExpression {
@@ -1566,7 +1601,7 @@ impl BindingExpression {
     }
 
     /// Create an expression binding that simply is a two way binding to the other
-    pub fn new_two_way(other: NamedReference) -> Self {
+    pub fn new_two_way(other: TwoWayBinding) -> Self {
         Self {
             expression: Expression::Invalid,
             span: None,

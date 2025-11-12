@@ -30,11 +30,11 @@ Old := Rectangle {
         && t1.x == 0 && t1.y == 0;
 }
 
-TestCase := Window {
+export component TestCase inherits Window {
     f := Foo {}
     o := Old {}
 
-    property <bool> test : f.test && o.test;
+    out property <bool> test : f.test && o.test;
 }
 
 /*

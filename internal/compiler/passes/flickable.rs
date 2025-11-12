@@ -103,7 +103,8 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
             }
             viewport.borrow_mut().bindings.insert(
                 vp_prop.into(),
-                BindingExpression::new_two_way(NamedReference::new(flickable, prop.clone())).into(),
+                BindingExpression::new_two_way(NamedReference::new(flickable, prop.clone()).into())
+                    .into(),
             );
         }
     }

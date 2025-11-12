@@ -171,6 +171,7 @@ impl Item for NativeScrollView {
                     if new_control == SC_ScrollBarSlider {
                         data.pressed_x = pos as f32;
                         data.pressed_val = -value as f32;
+                        data.pressed_max = max as f32;
                     }
                     data.active_controls = new_control;
                     InputEventResult::GrabMouse
@@ -210,6 +211,17 @@ impl Item for NativeScrollView {
                 MouseEvent::Moved { .. } => {
                     if data.pressed != 0 && data.active_controls == SC_ScrollBarSlider {
                         let max = max as f32;
+
+                        // Update reference points when the size of the viewport changes to
+                        // avoid 'jumping' during scrolling.
+                        // This happens when the height estimate of a ListView changes after
+                        // new items are loaded.
+                        if data.pressed_max != max {
+                            data.pressed_x = pos as f32;
+                            data.pressed_val = -value as f32;
+                            data.pressed_max = max;
+                        }
+
                         let new_val = data.pressed_val
                             + ((pos as f32) - data.pressed_x) * (max + (page_size as f32))
                                 / size as f32;

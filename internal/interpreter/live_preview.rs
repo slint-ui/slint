@@ -335,6 +335,7 @@ mod ffi {
         include_paths: &SharedVector<SharedString>,
         library_paths: &SharedVector<SharedString>,
         style: Slice<u8>,
+        translation_domain: Slice<u8>,
     ) -> *const LiveReloadingComponentInner {
         let mut compiler = Compiler::default();
         compiler.set_include_paths(
@@ -349,6 +350,10 @@ mod ffi {
         );
         if !style.is_empty() {
             compiler.set_style(std::str::from_utf8(&style).unwrap().into());
+        }
+        if !translation_domain.is_empty() {
+            compiler
+                .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().into());
         }
         Rc::into_raw(
             LiveReloadingComponent::new(

@@ -8,7 +8,9 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, LineCap, RenderingResult};
+use super::{
+    FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, LineCap, LineJoin, RenderingResult,
+};
 use crate::graphics::{Brush, PathData, PathDataIterator};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -41,6 +43,7 @@ pub struct Path {
     pub stroke: Property<Brush>,
     pub stroke_width: Property<LogicalLength>,
     pub stroke_line_cap: Property<LineCap>,
+    pub stroke_line_join: Property<LineJoin>,
     pub viewbox_x: Property<f32>,
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,

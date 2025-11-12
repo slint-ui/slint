@@ -48,3 +48,10 @@ pub fn main() {
 
     app.run().expect("AppWindow::run() failed");
 }
+
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+fn android_main(android_app: slint::android::AndroidApp) {
+    slint::android::init(android_app).unwrap();
+    main();
+}

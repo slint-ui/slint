@@ -10,7 +10,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.14.0"
+version = "1.15.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 
@@ -87,6 +87,7 @@ default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-common = { workspace = true }
 
 by_address = { workspace = true }
 clru = { workspace = true }

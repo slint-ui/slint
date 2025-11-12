@@ -1,13 +1,13 @@
-# Copyright © SixtyFPS GmbH <info@slint.dev>
+# Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
 # SPDX-License-Identifier: MIT
 
 [package]
 name = "bapp"
-version = "0.1.0"
+version = "1.15.0"
 edition = "2021"
 authors = ["Slint Developers <info@slint.dev>"]
 publish = false
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+license = "MIT"
 
 [dependencies]
 slint = { path = "../../../../api/rs/slint" }

@@ -138,7 +138,7 @@ fn adjust_references(comp: &Rc<Component>) {
     // Transform any references to the repeated element to refer to the root of each instance.
     visit_all_expressions(comp, |expr, _| {
         expr.visit_recursive_mut(&mut |expr| {
-            if let Expression::ElementReference(ref mut element_ref) = expr {
+            if let Expression::ElementReference(element_ref) = expr {
                 if let Some(repeater_element) =
                     element_ref.upgrade().filter(|e| e.borrow().repeated.is_some())
                 {

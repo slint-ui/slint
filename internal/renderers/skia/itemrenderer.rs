@@ -286,7 +286,14 @@ impl<'a> SkiaItemRenderer<'a> {
                     ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
                 if let Some(shader) = skia_image
-                    .make_subset(None, &src, skia_safe::image::RequiredProperties::default())
+                    .make_subset(
+                        self.canvas
+                            .recording_context()
+                            .as_mut()
+                            .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
+                        &src,
+                        skia_safe::image::RequiredProperties::default(),
+                    )
                     .and_then(|i| {
                         i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
                     })
@@ -526,7 +533,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size);
     }
 
     fn draw_text_input(
@@ -535,13 +542,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
-        sharedparley::draw_text_input(
-            self,
-            text_input,
-            Some(text_input.font_request(self_rc)),
-            size,
-            None,
-        );
+        sharedparley::draw_text_input(self, text_input, self_rc, size, None);
     }
 
     fn draw_path(
@@ -648,6 +649,11 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 i_slint_core::items::LineCap::Butt => skia_safe::PaintCap::Butt,
                 i_slint_core::items::LineCap::Round => skia_safe::PaintCap::Round,
                 i_slint_core::items::LineCap::Square => skia_safe::PaintCap::Square,
+            });
+            border_paint.set_stroke_join(match path.stroke_line_join() {
+                i_slint_core::items::LineJoin::Miter => skia_safe::PaintJoin::Miter,
+                i_slint_core::items::LineJoin::Round => skia_safe::PaintJoin::Round,
+                i_slint_core::items::LineJoin::Bevel => skia_safe::PaintJoin::Bevel,
             });
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
@@ -941,17 +947,13 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             size.height_length() * self.scale_factor,
         ) {
             Some(mut stroke_paint) => {
-                if brush.is_transparent() {
-                    None
-                } else {
-                    stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
-                    stroke_paint.set_stroke_width(physical_stroke_width);
-                    // Set stroke cap/join/miter to match FemtoVG
-                    stroke_paint.set_stroke_cap(skia_safe::PaintCap::Butt);
-                    stroke_paint.set_stroke_join(skia_safe::PaintJoin::Miter);
-                    stroke_paint.set_stroke_miter(10.0);
-                    Some(stroke_paint)
-                }
+                stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
+                stroke_paint.set_stroke_width(physical_stroke_width);
+                // Set stroke cap/join/miter to match FemtoVG
+                stroke_paint.set_stroke_cap(skia_safe::PaintCap::Butt);
+                stroke_paint.set_stroke_join(skia_safe::PaintJoin::Miter);
+                stroke_paint.set_stroke_miter(10.0);
+                Some(stroke_paint)
             }
             None => None,
         }
@@ -986,14 +988,11 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         );
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
-            return;
-        }
-
-        let mut paint = self.default_paint().unwrap_or_default();
-        paint.set_shader(skia_safe::shaders::color(to_skia_color(&color)));
-
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        paint: Self::PlatformBrush,
+    ) {
         self.canvas.draw_rect(
             skia_safe::Rect::from_xywh(
                 physical_rect.min_x(),

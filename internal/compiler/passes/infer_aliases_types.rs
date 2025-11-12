@@ -82,7 +82,7 @@ fn resolve_alias(
         assert!(diag.has_errors());
         return;
     };
-    let nr = match super::ignore_debug_hooks(&binding.borrow().expression) {
+    let twb = match super::ignore_debug_hooks(&binding.borrow().expression) {
         Expression::Uncompiled(node) => {
             let Some(node) = syntax_nodes::TwoWayBinding::new(node.clone()) else {
                 assert!(
@@ -102,24 +102,21 @@ fn resolve_alias(
     drop(borrow);
 
     let mut ty = Type::Invalid;
-    if let Some(nr) = &nr {
-        let element = nr.element();
+    if let Some(twb) = &twb {
+        let element = twb.property.element();
         let same_element = Rc::ptr_eq(&element, elem);
-        if same_element && nr.name() == prop {
+        if same_element && twb.property.name() == prop {
             diag.push_error(
                 "Cannot alias to itself".to_string(),
                 &elem.borrow().property_declarations[prop].type_node(),
             );
             return;
         }
-        ty = nr.ty();
+        ty = twb.ty();
         if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
-            if same_element {
-                resolve_alias(&element, nr.name(), scope, type_register, diag)
-            } else {
-                resolve_alias(&element, nr.name(), &recompute_scope(&element), type_register, diag)
-            };
-            ty = nr.ty();
+            let s = if same_element { scope } else { &recompute_scope(&element) };
+            resolve_alias(&element, twb.property.name(), s, type_register, diag);
+            ty = twb.ty();
         }
     }
 
@@ -134,7 +131,7 @@ fn resolve_alias(
         }
     } else if old_type == Type::InferredCallback {
         if !matches!(ty, Type::Callback { .. }) {
-            if nr.is_some() && ty == Type::Invalid {
+            if twb.is_some() && ty == Type::Invalid {
                 debug_assert!(diag.has_errors());
             } else {
                 diag.push_error(
@@ -143,7 +140,7 @@ fn resolve_alias(
                 );
             }
         } else {
-            let nr = nr.unwrap();
+            let nr = twb.unwrap().property;
             let is_global = nr.element().borrow().base_type == crate::langtype::ElementType::Global;
             let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
             let mut elem = elem.borrow_mut();

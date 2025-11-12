@@ -8,7 +8,7 @@ use core::pin::Pin;
 use crate::api::PlatformError;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::item_tree::ItemTreeRef;
-use crate::items::TextWrap;
+use crate::items::{ItemRc, TextWrap};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
@@ -30,19 +30,23 @@ pub trait RendererSealed {
     /// using the wrapping type passed by `text_wrap`.
     fn text_size(
         &self,
-        font_request: crate::graphics::FontRequest,
-        text: &str,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
+        item_rc: &crate::item_tree::ItemRc,
         max_width: Option<LogicalLength>,
-        scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize;
 
-    /// Returns the metrics of the given font.
-    fn font_metrics(
+    /// Returns the size of the individual character in logical pixels.
+    fn char_size(
         &self,
-        font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
-    ) -> crate::items::FontMetrics;
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize;
+
+    /// Returns the metrics of the given font.
+    fn font_metrics(&self, font_request: crate::graphics::FontRequest)
+        -> crate::items::FontMetrics;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
@@ -51,9 +55,8 @@ pub trait RendererSealed {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         pos: LogicalPoint,
-        font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> usize;
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
@@ -62,9 +65,8 @@ pub trait RendererSealed {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         byte_offset: usize,
-        font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> LogicalRect;
 
     /// Clear the caches for the items that are being removed
@@ -117,6 +119,13 @@ pub trait RendererSealed {
     }
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>);
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>>;
+
+    fn scale_factor(&self) -> Option<ScaleFactor> {
+        self.window_adapter()
+            .map(|window_adapter| ScaleFactor::new(window_adapter.window().scale_factor()))
+    }
 
     fn default_font_size(&self) -> LogicalLength;
 

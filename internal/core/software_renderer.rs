@@ -11,6 +11,8 @@ mod draw_functions;
 mod fixed;
 mod fonts;
 mod minimal_software_window;
+#[cfg(feature = "software-renderer-path")]
+mod path;
 mod scene;
 
 use self::fonts::GlyphRenderer;
@@ -721,24 +723,28 @@ impl SoftwareRenderer {
 impl RendererSealed for SoftwareRenderer {
     fn text_size(
         &self,
-        font_request: crate::graphics::FontRequest,
-        text: &str,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
+        item_rc: &crate::item_tree::ItemRc,
         max_width: Option<LogicalLength>,
-        scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalSize::default();
+        };
+        let font_request = text_item.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::text_size(font_request, text, max_width, scale_factor, text_wrap)
+                sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+                let text = text_item.text();
                 let (longest_line_width, height) = layout.text_size(
-                    text,
+                    text.as_str(),
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
                 );
@@ -747,8 +753,9 @@ impl RendererSealed for SoftwareRenderer {
             }
             (fonts::Font::PixelFont(pf), _) => {
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+                let text = text_item.text();
                 let (longest_line_width, height) = layout.text_size(
-                    text,
+                    text.as_str(),
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
                 );
@@ -758,11 +765,50 @@ impl RendererSealed for SoftwareRenderer {
         }
     }
 
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalSize::default();
+        };
+        let font_request = text_item.font_request(item_rc);
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "software-renderer-systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+            }
+            #[cfg(feature = "software-renderer-systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let mut buf = [0u8, 0u8, 0u8, 0u8];
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+                let (longest_line_width, height) =
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let mut buf = [0u8, 0u8, 0u8, 0u8];
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+                let (longest_line_width, height) =
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
+            }
+        }
+    }
+
     fn font_metrics(
         &self,
         font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> crate::items::FontMetrics {
+        let Some(scale_factor) = self.scale_factor() else {
+            return crate::items::FontMetrics::default();
+        };
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
@@ -801,21 +847,19 @@ impl RendererSealed for SoftwareRenderer {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         pos: LogicalPoint,
-        font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> usize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return 0;
+        };
+        let font_request = text_input.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::text_input_byte_offset_for_position(
-                    text_input,
-                    pos,
-                    font_request,
-                    scale_factor,
-                )
+                sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
@@ -880,20 +924,23 @@ impl RendererSealed for SoftwareRenderer {
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
         byte_offset: usize,
-        font_request: crate::graphics::FontRequest,
-        scale_factor: ScaleFactor,
     ) -> LogicalRect {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalRect::default();
+        };
+        let font_request = text_input.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_cursor_rect_for_byte_offset(
+                    self,
                     text_input,
+                    item_rc,
                     byte_offset,
-                    font_request,
-                    scale_factor,
                 )
             }
             #[cfg(feature = "software-renderer-systemfonts")]
@@ -1008,6 +1055,13 @@ impl RendererSealed for SoftwareRenderer {
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.partial_rendering_state.clear_cache();
+    }
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|window_adapter| window_adapter.upgrade())
     }
 
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
@@ -1301,6 +1355,23 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    #[cfg(feature = "software-renderer-path")]
+    fn process_filled_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+    );
+    #[cfg(feature = "software-renderer-path")]
+    fn process_stroked_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+        stroke_width: f32,
+    );
 }
 
 fn process_rectangle_impl(
@@ -1681,6 +1752,36 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
+
+    #[cfg(feature = "software-renderer-path")]
+    fn process_filled_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+    ) {
+        path::render_filled_path(&commands, &path_geometry, &clip_geometry, color, self.buffer);
+    }
+
+    #[cfg(feature = "software-renderer-path")]
+    fn process_stroked_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+        stroke_width: f32,
+    ) {
+        path::render_stroked_path(
+            &commands,
+            &path_geometry,
+            &clip_geometry,
+            color,
+            stroke_width,
+            self.buffer,
+        );
+    }
 }
 
 #[derive(Default)]
@@ -1813,6 +1914,31 @@ impl ProcessScene for PrepareScene {
                 command: SceneCommand::ConicGradient { conic_gradient_index },
             });
         }
+    }
+
+    #[cfg(feature = "software-renderer-path")]
+    fn process_filled_path(
+        &mut self,
+        _path_geometry: PhysicalRect,
+        _clip_geometry: PhysicalRect,
+        _commands: alloc::vec::Vec<path::Command>,
+        _color: PremultipliedRgbaColor,
+    ) {
+        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
+        // Only works with buffer-based rendering (RenderToBuffer)
+    }
+
+    #[cfg(feature = "software-renderer-path")]
+    fn process_stroked_path(
+        &mut self,
+        _path_geometry: PhysicalRect,
+        _clip_geometry: PhysicalRect,
+        _commands: alloc::vec::Vec<path::Command>,
+        _color: PremultipliedRgbaColor,
+        _stroke_width: f32,
+    ) {
+        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
+        // Only works with buffer-based rendering (RenderToBuffer)
     }
 }
 
@@ -2398,7 +2524,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::draw_text(self, text, Some(text.font_request(self_rc)), size);
+                sharedparley::draw_text(self, text, Some(self_rc), size);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
@@ -2498,13 +2624,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         match (font, parley_disabled()) {
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::draw_text_input(
-                    self,
-                    text_input,
-                    Some(text_input.font_request(self_rc)),
-                    size,
-                    None,
-                );
+                sharedparley::draw_text_input(self, text_input, self_rc, size, None);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
@@ -2678,9 +2798,84 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         }
     }
 
-    #[cfg(feature = "std")]
-    fn draw_path(&mut self, _path: Pin<&crate::items::Path>, _: &ItemRc, _size: LogicalSize) {
-        // TODO
+    #[cfg(all(feature = "std", not(feature = "software-renderer-path")))]
+    fn draw_path(
+        &mut self,
+        _path: Pin<&crate::items::Path>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+        // Path rendering is disabled without the software-renderer-path feature
+    }
+
+    #[cfg(all(feature = "std", feature = "software-renderer-path"))]
+    fn draw_path(&mut self, path: Pin<&crate::items::Path>, self_rc: &ItemRc, size: LogicalSize) {
+        let geom = LogicalRect::from(size);
+        if !self.should_draw(&geom) {
+            return;
+        }
+
+        // Get the fitted path events from the Path item
+        let Some((offset, path_iterator)) = path.fitted_path_events(self_rc) else {
+            return;
+        };
+
+        // Convert to zeno commands
+        let zeno_commands = path::convert_path_data_to_zeno(path_iterator);
+
+        // Calculate the physical geometry
+        let physical_geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+            * self.scale_factor)
+            .round()
+            .cast()
+            .transformed(self.rotation);
+
+        let physical_clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast::<i16>()
+                .transformed(self.rotation);
+
+        // Apply the offset from fitted path
+        let physical_offset = (offset.cast::<f32>() * self.scale_factor).cast::<i16>();
+        let adjusted_geom = physical_geom.translate(physical_offset);
+
+        // Clip the geometry - early return if nothing to draw
+        let Some(clipped_geom) = adjusted_geom.intersection(&physical_clip) else {
+            return;
+        };
+
+        // Draw fill if specified
+        let fill_brush = path.fill();
+        if !fill_brush.is_transparent() {
+            let fill_color = self.alpha_color(fill_brush.color());
+            if fill_color.alpha() > 0 {
+                self.processor.process_filled_path(
+                    adjusted_geom,
+                    clipped_geom,
+                    zeno_commands.clone(),
+                    fill_color.into(),
+                );
+            }
+        }
+
+        // Draw stroke if specified
+        let stroke_brush = path.stroke();
+        let stroke_width = path.stroke_width();
+        if !stroke_brush.is_transparent() && stroke_width.get() > 0.0 {
+            let stroke_color = self.alpha_color(stroke_brush.color());
+            if stroke_color.alpha() > 0 {
+                let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
+                self.processor.process_stroked_path(
+                    adjusted_geom,
+                    clipped_geom,
+                    zeno_commands,
+                    stroke_color.into(),
+                    physical_stroke_width,
+                );
+            }
+        }
     }
 
     fn draw_box_shadow(

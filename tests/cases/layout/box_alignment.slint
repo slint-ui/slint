@@ -9,7 +9,7 @@ MyWid := Rectangle {
 }
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
@@ -52,17 +52,17 @@ TestCase := Rectangle {
     }
 
     // check the vertical layout
-    property <bool> v1: ls.y == height - (4*20phx + 15phx) && rs1.y == 0 && rs1.y == rs2.y && rs1.y == rs3.y;
-    property <bool> v2: lb.y == height - (3*20phx + 10phx) && rb1.y == 0 && rb1.y == rb2.y && rb1.y == rb3.y;
-    property <bool> v3: la.y == height - (2*20phx + 5phx) && ra1.y == 0 && ra1.y == ra2.y && ra1.y == ra3.y;
-    property <bool> v4: lc.y == height - (1*20phx + 0phx) && rc1.y == 0 && rc1.y == rc2.y && rc1.y == rc3.y;
+    out property <bool> v1: ls.y == self.height - (4*20phx + 15phx) && rs1.y == 0 && rs1.y == rs2.y && rs1.y == rs3.y;
+    out property <bool> v2: lb.y == self.height - (3*20phx + 10phx) && rb1.y == 0 && rb1.y == rb2.y && rb1.y == rb3.y;
+    out property <bool> v3: la.y == self.height - (2*20phx + 5phx) && ra1.y == 0 && ra1.y == ra2.y && ra1.y == ra3.y;
+    out property <bool> v4: lc.y == self.height - (1*20phx + 0phx) && rc1.y == 0 && rc1.y == rc2.y && rc1.y == rc3.y;
 
     // check the horizontal layout
-    property <bool> s1: rs1.x == 0phx && rs2.x == 22phx && rs3.x == 44phx;
-    property <bool> c1: rc1.x == (width - 64phx)/2 && rc2.x == (width - rc2.width)/2 && rc3.x == (width + 64phx)/2 - ra3.width;
-    property <bool> b1: rb1.x == 0phx && rb2.x == (width - rb2.width)/2 && rb3.x == width - rb3.width;
+    out property <bool> s1: rs1.x == 0phx && rs2.x == 22phx && rs3.x == 44phx;
+    out property <bool> c1: rc1.x == (self.width - 64phx)/2 && rc2.x == (self.width - rc2.width)/2 && rc3.x == (self.width + 64phx)/2 - ra3.width;
+    out property <bool> b1: rb1.x == 0phx && rb2.x == (self.width - rb2.width)/2 && rb3.x == self.width - rb3.width;
 
-    property <bool> test: v1 && v2 && v3 && v4 && s1 && c1 && b1;
+    out property <bool> test: v1 && v2 && v3 && v4 && s1 && c1 && b1;
 }
 
 /*

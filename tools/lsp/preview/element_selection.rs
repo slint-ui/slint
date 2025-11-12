@@ -7,8 +7,8 @@ use i_slint_compiler::{
     object_tree::ElementRc,
     parser::{SyntaxKind, TextSize},
 };
-use i_slint_core::lengths::{LogicalPoint, LogicalRect};
-use slint_interpreter::{ComponentHandle, ComponentInstance};
+use i_slint_core::lengths::LogicalPoint;
+use slint_interpreter::{highlight::HighlightedRect, ComponentHandle, ComponentInstance};
 
 use crate::common;
 use crate::preview::{self, ext::ElementRcNodeExt, ui, SelectionNotification};
@@ -79,7 +79,7 @@ fn element_covers_point(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
     selected_element: &ElementRc,
-) -> Option<LogicalRect> {
+) -> Option<HighlightedRect> {
     slint_interpreter::highlight::element_positions(
         &component_instance.clone_strong().into(),
         selected_element,
@@ -147,10 +147,11 @@ pub fn highlight_positions(
     let offset = TextSize::new(offset as u32);
     let positions = component_instance.component_positions(&path, offset.into());
     let model = slint::VecModel::from_iter(positions.iter().map(|g| ui::SelectionRectangle {
-        width: g.size.width,
-        height: g.size.height,
-        x: g.origin.x,
-        y: g.origin.y,
+        width: g.rect.size.width,
+        height: g.rect.size.height,
+        x: g.rect.origin.x,
+        y: g.rect.origin.y,
+        angle: g.angle,
     }));
     slint::ModelRc::new(model)
 }
@@ -197,7 +198,7 @@ pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
 pub struct SelectionCandidate {
     pub element: ElementRc,
     pub debug_index: usize,
-    pub geometry: LogicalRect,
+    pub geometry: HighlightedRect,
     pub is_in_root_component: bool,
 }
 
@@ -408,12 +409,12 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 }
             }
 
-            let width = (sc.geometry.size.width / root_geometry.size.width) * 100.0;
-            let height = (sc.geometry.size.height / root_geometry.size.height) * 100.0;
-            let x = ((sc.geometry.origin.x + root_geometry.origin.x) / root_geometry.size.width)
-                * 100.0;
-            let y = ((sc.geometry.origin.y + root_geometry.origin.y) / root_geometry.size.height)
-                * 100.0;
+            let root_geo = root_geometry.rect;
+            let sc_geom = sc.geometry.rect;
+            let width = (sc_geom.size.width / root_geo.size.width) * 100.0;
+            let height = (sc_geom.size.height / root_geo.size.height) * 100.0;
+            let x = ((sc_geom.origin.x + root_geo.origin.x) / root_geo.size.width) * 100.0;
+            let y = ((sc_geom.origin.y + root_geo.origin.y) / root_geo.size.height) * 100.0;
 
             let is_interactive = known_components
                 .iter()

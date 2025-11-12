@@ -624,6 +624,16 @@ impl ElementHandle {
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Description))
     }
 
+    /// Returns the value of the `accessible-id` property, if present
+    pub fn accessible_id(&self) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Id))
+    }
+
     /// Returns the value of the `accessible-checked` property, if present
     pub fn accessible_checked(&self) -> Option<bool> {
         if self.element_index != 0 {

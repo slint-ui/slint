@@ -106,7 +106,7 @@ macro_rules! node_accessors {
 
     (@ * $kind:ident) => {
         #[allow(non_snake_case)]
-        pub fn $kind(&self) -> impl Iterator<Item = $kind> {
+        pub fn $kind(&self) -> impl Iterator<Item = $kind> + use<> {
             self.0.children().filter(|n| n.kind() == SyntaxKind::$kind).map(Into::into)
         }
     };
@@ -827,7 +827,7 @@ impl SyntaxNode {
             .find(|n| n.kind() == kind)
             .and_then(|x| x.as_token().map(|x| x.text().into()))
     }
-    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> + use<'_> {
+    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> + use<> {
         let source_file = self.source_file.clone();
         self.node
             .descendants()
@@ -836,11 +836,11 @@ impl SyntaxNode {
     pub fn kind(&self) -> SyntaxKind {
         self.node.kind()
     }
-    pub fn children(&self) -> impl Iterator<Item = SyntaxNode> {
+    pub fn children(&self) -> impl Iterator<Item = SyntaxNode> + use<> {
         let source_file = self.source_file.clone();
         self.node.children().map(move |node| SyntaxNode { node, source_file: source_file.clone() })
     }
-    pub fn children_with_tokens(&self) -> impl Iterator<Item = NodeOrToken> {
+    pub fn children_with_tokens(&self) -> impl Iterator<Item = NodeOrToken> + use<> {
         let source_file = self.source_file.clone();
         self.node.children_with_tokens().map(move |token| match token {
             rowan::NodeOrToken::Node(node) => {

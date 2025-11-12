@@ -696,40 +696,45 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
 
     let mut idx = 0;
 
-    if cfg!(windows) {
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-        idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-    } else if cfg!(target_os = "macos") {
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-        idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-    } else if is_kde() {
-        // KDE variant
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-        idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-    } else {
-        // GNOME variant and fallback for WASM build
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-        idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+    match crate::detect_operating_system() {
+        crate::items::OperatingSystemType::Windows => {
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+            idx += 1;
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        }
+        crate::items::OperatingSystemType::Macos | crate::items::OperatingSystemType::Ios => {
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+            idx += 1;
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        }
+        _ if is_kde() => {
+            // KDE variant
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+            idx += 1;
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        }
+        _ => {
+            // GNOME variant and fallback for everything else
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+            idx += 1;
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        }
     }
 }
 

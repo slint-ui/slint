@@ -17,9 +17,7 @@ use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 
-mod named_colors;
-
-pub use named_colors::named_colors;
+pub use i_slint_common::color_parsing::named_colors;
 
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
@@ -619,7 +617,7 @@ impl LookupObject for ColorSpecific {
         _ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for (name, c) in named_colors::named_colors().iter() {
+        for (name, c) in named_colors().iter() {
             if let Some(r) = f(&SmolStr::new_static(name), Self::as_result(*c)) {
                 return Some(r);
             }
@@ -627,7 +625,7 @@ impl LookupObject for ColorSpecific {
         None
     }
     fn lookup(&self, _ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        named_colors::named_colors().get(name.as_str()).map(|c| Self::as_result(*c))
+        named_colors().get(name.as_str()).map(|c| Self::as_result(*c))
     }
 }
 impl ColorSpecific {
@@ -809,6 +807,7 @@ impl LookupObject for SlintInternal {
         .or_else(|| f("date-now", b(BuiltinFunction::DateNow)))
         .or_else(|| f("valid-date", b(BuiltinFunction::ValidDate)))
         .or_else(|| f("parse-date", b(BuiltinFunction::ParseDate)))
+        .or_else(|| f("open-url", b(BuiltinFunction::OpenUrl)))
     }
 }
 

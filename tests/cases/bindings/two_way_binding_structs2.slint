@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// FIXME: only works with rust
+//ignore: cpp,interpreter,js
+
+
+component Link {
+    in-out property <string> str1: "XXX";
+    in-out property <string> str2 <=> str1;
+}
+
+struct S1 {
+    s1: string,
+    i1: int,
+}
+
+struct S2 {
+    f2: float,
+    s2: string,
+}
+
+export component TestCase inherits Window {
+    in-out property <S1> s1: { s1: "s1", i1: 8 };
+    in-out property <S2> s2: { f2: 4.1, s2: "s2" };
+    Link {
+        str1 <=> s1.s1;
+        str2 <=> s2.s2;
+    }
+    out property <bool> test: s1.s1 == s2.s2;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_s1(S1{ s1: "s1-changed".into(), i1: 89 });
+assert_eq!(instance.get_s2(), S2{ s2: "s1-changed".into(), f2: 4.1 });
+instance.set_s2(S2{ s2: "s2-changed".into(), f2: 4.2 });
+assert_eq!(instance.get_s1(), S1{ s1: "s2-changed".into(), i1: 89 });
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

@@ -305,7 +305,10 @@ fn accept_drop_at(
     let Some(geometry) = element_node.geometry_at(component_instance, position) else {
         return DropAccept::No;
     };
-    calculate_drop_acceptance(&geometry, position, &layout_kind)
+    if geometry.angle != 0.0 {
+        return DropAccept::No;
+    }
+    calculate_drop_acceptance(&geometry.rect, position, &layout_kind)
 }
 
 #[derive(Clone, Debug)]
@@ -697,11 +700,13 @@ fn find_filtered_location(
             .children()
             .iter()
             .filter(|c| !c.with_element_node(common::is_element_node_ignored))
-            .filter_map(|c| c.geometry_in(component_instance, &geometry).map(|g| ((mark)(c), g)))
+            .filter_map(|c| {
+                c.geometry_in(component_instance, &geometry.rect).map(|g| ((mark)(c), g.rect))
+            })
             .collect();
 
         let (drop_mark, child_index) = calculate_drop_information_for_layout(
-            &geometry,
+            &geometry.rect,
             position,
             &layout_kind,
             &children_geometries,
@@ -1147,7 +1152,8 @@ pub fn create_move_element_workspace_edit(
     let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
         // We are moving within ourselves!
 
-        let size = element.geometries(component_instance).get(instance_index).map(|g| g.size)?;
+        let size =
+            element.geometries(component_instance).get(instance_index).map(|g| g.rect.size)?;
 
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
             let (edit, _) = preview::resize_selected_element_impl(

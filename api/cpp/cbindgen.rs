@@ -234,6 +234,7 @@ fn default_config() -> cbindgen::Config {
             // therefore it is ok to reinterpret_cast
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
+            ("Channel".into(), "uint8_t".into()),
         ]
         .iter()
         .cloned()
@@ -397,6 +398,7 @@ fn gen_corelib(
         "MenuEntryModel",
         "MenuEntryArg",
         "Coord",
+        "Channel",
         "LogicalRect",
         "LogicalPoint",
         "LogicalPosition",
@@ -545,7 +547,7 @@ fn gen_corelib(
             "slint_windowrc_hide",
             "slint_windowrc_is_visible",
             "slint_windowrc_get_scale_factor",
-            "slint_windowrc_set_scale_factor",
+            "slint_windowrc_set_const_scale_factor",
             "slint_windowrc_get_text_input_focused",
             "slint_windowrc_set_text_input_focused",
             "slint_windowrc_set_focus_item",
@@ -649,6 +651,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("api.rs"))
         .with_src(crate_dir.join("model.rs"))
         .with_src(crate_dir.join("graphics/image.rs"))
+        .with_src(crate_dir.join("lengths.rs"))
         .with_include("slint_string.h")
         .with_after_include(format!(
             r#"

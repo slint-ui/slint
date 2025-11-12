@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
@@ -26,12 +26,12 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 148phx && rect1.height == 148phx;
-    property <bool> rect2_pos_ok: rect2.x == 0phx && rect2.y == 148phx && rect2.width == 148phx && rect2.height == 152phx;
-    property <bool> rect3_pos_ok: ig.x + rect3.x == 148phx && ig.y + rect3.y == 148phx && rect3.width == 74phx && rect3.height == 74phx;
-    property <bool> rect4_pos_ok: ig.x + rect4.x == 226phx && ig.y + rect4.y == 148phx && rect4.width == 74phx && rect4.height == 74phx;
-    property <bool> rect5_pos_ok: ig.x + rect5.x == 148phx && ig.y + rect5.y == 226phx && rect5.width == 74phx && rect5.height == 74phx;
-    property <bool> rect6_pos_ok: ig.x + rect6.x == 226phx && ig.y + rect6.y == 226phx && rect6.width == 74phx && rect6.height == 74phx;
+    out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 148phx && rect1.height == 148phx;
+    out property <bool> rect2_pos_ok: rect2.x == 0phx && rect2.y == 148phx && rect2.width == 148phx && rect2.height == 152phx;
+    out property <bool> rect3_pos_ok: ig.x + rect3.x == 148phx && ig.y + rect3.y == 148phx && rect3.width == 74phx && rect3.height == 74phx;
+    out property <bool> rect4_pos_ok: ig.x + rect4.x == 226phx && ig.y + rect4.y == 148phx && rect4.width == 74phx && rect4.height == 74phx;
+    out property <bool> rect5_pos_ok: ig.x + rect5.x == 148phx && ig.y + rect5.y == 226phx && rect5.width == 74phx && rect5.height == 74phx;
+    out property <bool> rect6_pos_ok: ig.x + rect6.x == 226phx && ig.y + rect6.y == 226phx && rect6.width == 74phx && rect6.height == 74phx;
 
     out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && rect4_pos_ok && rect5_pos_ok && rect6_pos_ok;
 }

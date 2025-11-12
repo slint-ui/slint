@@ -69,7 +69,7 @@ struct Cli {
     /// Apply a constant scale factor to embedded assets, typically for high-DPI displays.
     /// This scale factor is also applied to the window by default.
     #[arg(long, name = "scale factor")]
-    scale_factor: Option<f64>,
+    scale_factor: Option<f32>,
 
     /// Generate a dependency file for build systems like CMake or Ninja.
     /// This file is similar to the output of `gcc -M`.
@@ -184,7 +184,7 @@ fn main() -> std::io::Result<()> {
         compiler_config.style = Some(style);
     }
     if let Some(constant_scale_factor) = args.scale_factor {
-        compiler_config.const_scale_factor = constant_scale_factor;
+        compiler_config.const_scale_factor = Some(constant_scale_factor);
     }
     if let Some(path) = args.bundle_translations {
         compiler_config.translation_path_bundle = Some(path);

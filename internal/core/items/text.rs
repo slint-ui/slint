@@ -9,7 +9,7 @@ Lookup the [`crate::items`] module documentation.
 */
 use super::{
     EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
-    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
     VoidArg, WindowItem,
 };
@@ -18,9 +18,9 @@ use crate::input::{
     key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
     KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
-use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
+use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderString, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -155,17 +155,9 @@ impl ItemConsts for ComplexText {
     > = ComplexText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl RenderText for ComplexText {
-    fn target_size(self: Pin<&Self>) -> LogicalSize {
-        LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
-    }
-
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
+impl HasFont for ComplexText {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
             self_rc,
             self.font_family(),
             self.font_weight(),
@@ -174,9 +166,25 @@ impl RenderText for ComplexText {
             self.font_italic(),
         )
     }
+}
+
+impl RenderString for ComplexText {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+}
+
+impl RenderText for ComplexText {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
     }
 
     fn alignment(
@@ -191,10 +199,6 @@ impl RenderText for ComplexText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         self.overflow()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        self.letter_spacing()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
@@ -212,10 +216,8 @@ impl ComplexText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 }
 
@@ -232,6 +234,7 @@ pub struct MarkdownText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub link_clicked: Callback<StringArg>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -241,6 +244,7 @@ pub struct MarkdownText {
     pub stroke: Property<Brush>,
     pub stroke_width: Property<LogicalLength>,
     pub stroke_style: Property<TextStrokeStyle>,
+    pub link_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -268,9 +272,42 @@ impl Item for MarkdownText {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardAndIgnore
+        InputEventFilterResult::ForwardEvent
     }
 
+    #[cfg(feature = "experimental-rich-text")]
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> InputEventResult {
+        match event {
+            MouseEvent::Pressed {
+                position,
+                button: PointerEventButton::Left,
+                click_count: _,
+                is_touch: _,
+            } => {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
+                if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
+                    scale_factor,
+                    self,
+                    self_rc,
+                    LogicalSize::from_lengths(self.width(), self.height()),
+                    *position * scale_factor,
+                ) {
+                    Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
+                }
+
+                InputEventResult::EventAccepted
+            }
+            _ => InputEventResult::EventIgnored,
+        }
+    }
+
+    #[cfg(not(feature = "experimental-rich-text"))]
     fn input_event(
         self: Pin<&Self>,
         _: &MouseEvent,
@@ -338,17 +375,9 @@ impl ItemConsts for MarkdownText {
     > = MarkdownText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl RenderText for MarkdownText {
-    fn target_size(self: Pin<&Self>) -> LogicalSize {
-        LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
-    }
-
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
+impl HasFont for MarkdownText {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
             self_rc,
             self.font_family(),
             self.font_weight(),
@@ -357,9 +386,25 @@ impl RenderText for MarkdownText {
             self.font_italic(),
         )
     }
+}
+
+impl RenderString for MarkdownText {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+}
+
+impl RenderText for MarkdownText {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        self.link_color()
     }
 
     fn alignment(
@@ -374,10 +419,6 @@ impl RenderText for MarkdownText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         self.overflow()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        self.letter_spacing()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
@@ -395,10 +436,8 @@ impl MarkdownText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 }
 
@@ -513,28 +552,36 @@ impl ItemConsts for SimpleText {
     > = SimpleText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl HasFont for SimpleText {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
+            self_rc,
+            SharedString::default(),
+            self.font_weight(),
+            self.font_size(),
+            LogicalLength::default(),
+            false,
+        )
+    }
+}
+
+impl RenderString for SimpleText {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+}
+
 impl RenderText for SimpleText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
     }
 
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
-    }
-
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
-            self_rc,
-            SharedString::default(),
-            self.font_weight(),
-            self.font_size(),
-            self.letter_spacing(),
-            false,
-        )
-    }
-
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
     }
 
     fn alignment(
@@ -549,10 +596,6 @@ impl RenderText for SimpleText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         TextOverflow::default()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        LogicalLength::default()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
@@ -570,10 +613,7 @@ impl SimpleText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
-        let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(self.font_request(self_rc))
     }
 }
 
@@ -584,18 +624,8 @@ fn text_layout_info(
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
 ) -> LayoutInfo {
-    let window_inner = WindowInner::from_pub(window_adapter.window());
-    let text_string = text.text();
-    let font_request = text.font_request(self_rc);
-    let scale_factor = ScaleFactor::new(window_inner.scale_factor());
     let implicit_size = |max_width, text_wrap| {
-        window_adapter.renderer().text_size(
-            font_request.clone(),
-            text_string.as_str(),
-            max_width,
-            scale_factor,
-            text_wrap,
-        )
+        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
     };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -605,12 +635,9 @@ fn text_layout_info(
         Orientation::Horizontal => {
             let implicit_size = implicit_size(None, TextWrap::NoWrap);
             let min = match text.overflow() {
-                TextOverflow::Elide => implicit_size.width.min(
-                    window_adapter
-                        .renderer()
-                        .text_size(font_request, "…", None, scale_factor, TextWrap::NoWrap)
-                        .width,
-                ),
+                TextOverflow::Elide => implicit_size
+                    .width
+                    .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
                 TextOverflow::Clip => match text.wrap() {
                     TextWrap::NoWrap => implicit_size.width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
@@ -730,21 +757,8 @@ impl Item for TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
-        let text = self.text();
         let implicit_size = |max_width, text_wrap| {
-            window_adapter.renderer().text_size(
-                self.font_request(&self_rc),
-                {
-                    if text.is_empty() {
-                        "*"
-                    } else {
-                        text.as_str()
-                    }
-                },
-                max_width,
-                ScaleFactor::new(window_adapter.window().scale_factor()),
-                text_wrap,
-            )
+            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -798,7 +812,9 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
+            MouseEvent::Pressed {
+                position, button: PointerEventButton::Left, click_count, ..
+            } => {
                 let clicked_offset =
                     self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
@@ -855,7 +871,7 @@ impl Item for TextInput {
                 }
                 self.as_ref().pressed.set(0)
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if let Some(x) = window_adapter.internal(crate::InternalToken) {
                     x.set_mouse_cursor(super::MouseCursor::Text);
                 }
@@ -1238,6 +1254,25 @@ impl ItemConsts for TextInput {
     > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl HasFont for TextInput {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
+            self_rc,
+            self.font_family(),
+            self.font_weight(),
+            self.font_size(),
+            self.letter_spacing(),
+            self.font_italic(),
+        )
+    }
+}
+
+impl RenderString for TextInput {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.as_ref().text()
+    }
+}
+
 pub enum TextCursorDirection {
     Forward,
     Backward,
@@ -1426,16 +1461,7 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window_adapter
-            .renderer()
-            .text_size(
-                self.font_request(self_rc),
-                " ",
-                None,
-                ScaleFactor::new(window_adapter.window().scale_factor()),
-                TextWrap::NoWrap,
-            )
-            .height;
+        let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -1997,12 +2023,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LogicalRect {
-        window_adapter.renderer().text_input_cursor_rect_for_byte_offset(
-            self,
-            byte_offset,
-            self.font_request(self_rc),
-            ScaleFactor::new(window_adapter.window().scale_factor()),
-        )
+        window_adapter.renderer().text_input_cursor_rect_for_byte_offset(self, self_rc, byte_offset)
     }
 
     pub fn byte_offset_for_position(
@@ -2011,12 +2032,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> usize {
-        window_adapter.renderer().text_input_byte_offset_for_position(
-            self,
-            pos,
-            self.font_request(self_rc),
-            ScaleFactor::new(window_adapter.window().scale_factor()),
-        )
+        window_adapter.renderer().text_input_byte_offset_for_position(self, self_rc, pos)
     }
 
     /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already.
@@ -2175,10 +2191,8 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FontMetrics {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(self_rc);
-        window_adapter.renderer().font_metrics(font_request, scale_factor)
+        window_adapter.renderer().font_metrics(font_request)
     }
 
     fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
@@ -2203,7 +2217,7 @@ fn next_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .iter()
         .enumerate()
         .skip(last_cursor_pos)
-        .find(|(_, &c)| c == b'\n')
+        .find(|(_, c)| **c == b'\n')
         .map(|(new_pos, _)| new_pos)
         .unwrap_or(text.len())
 }
@@ -2214,7 +2228,7 @@ fn prev_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .enumerate()
         .rev()
         .skip(text.len() - last_cursor_pos)
-        .find(|(_, &c)| c == b'\n')
+        .find(|(_, c)| **c == b'\n')
         .map(|(new_pos, _)| new_pos + 1)
         .unwrap_or(0)
 }

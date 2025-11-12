@@ -53,13 +53,13 @@ fn make_c_function_binding(
     intercept_set_binding: Option<
         extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
     >,
-) -> impl BindingCallable {
+) -> impl BindingCallable<c_void> {
     struct CFunctionBinding<T> {
         binding_function: extern "C" fn(*mut c_void, *mut T),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
         intercept_set:
-            Option<extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool>,
+            Option<extern "C" fn(user_data: *mut c_void, pointer_to_value: *const T) -> bool>,
         intercept_set_binding:
             Option<extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool>,
     }
@@ -72,15 +72,15 @@ fn make_c_function_binding(
         }
     }
 
-    unsafe impl<T> BindingCallable for CFunctionBinding<T> {
-        unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
+    unsafe impl<T> BindingCallable<T> for CFunctionBinding<T> {
+        fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
             (self.binding_function)(self.user_data, value as *mut T);
             BindingResult::KeepBinding
         }
-        unsafe fn intercept_set(self: Pin<&Self>, value: *const ()) -> bool {
+        fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
             match self.intercept_set {
                 None => false,
-                Some(intercept_set) => intercept_set(self.user_data, value),
+                Some(intercept_set) => intercept_set(self.user_data, value as *const T),
             }
         }
         unsafe fn intercept_set_binding(self: Pin<&Self>, new_binding: *mut BindingHolder) -> bool {
@@ -141,6 +141,20 @@ pub unsafe extern "C" fn slint_property_set_binding_internal(
     handle.0.set_binding_impl(binding.cast());
 }
 
+/// Delete a binding. The pointer must be a pointer to a binding (so a BindingHolder)
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_delete_binding(binding: *mut c_void) {
+    let b = binding as *mut BindingHolder;
+    ((*b).vtable.drop)(b);
+}
+
+/// Evaluate a raw binding
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_evaluate_binding(binding: *mut c_void, value: *mut c_void) {
+    let b = binding as *mut BindingHolder;
+    ((*b).vtable.evaluate)(b, value);
+}
+
 /// Returns whether the property behind this handle is marked as dirty
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
@@ -178,9 +192,9 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
     ));
     // Safety: The BindingCallable is for type T
     unsafe {
-        handle.0.set_binding(move |val: *mut ()| {
+        handle.0.set_binding(move |val: &mut T| {
             let (value, finished) = d.borrow_mut().compute_interpolated_value();
-            *(val as *mut T) = value;
+            *val = value;
             if finished {
                 BindingResult::RemoveBinding
             } else {
@@ -506,7 +520,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         core::mem::drop(Box::from_raw(_self as *mut BindingHolder<C_ChangeTrackerInner>));
     }
 
-    unsafe fn evaluate(_self: *mut BindingHolder, _value: *mut ()) -> BindingResult {
+    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
         let pinned_holder = Pin::new_unchecked(&*_self);
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();

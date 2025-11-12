@@ -8,7 +8,8 @@ use itertools::Itertools;
 use crate::expression_tree::MinMaxOp;
 
 use super::{
-    CompilationUnit, EvaluationContext, Expression, ParentCtx, PropertyReference, SubComponentIdx,
+    CompilationUnit, EvaluationContext, Expression, LocalMemberIndex, LocalMemberReference,
+    MemberReference, ParentScope, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -38,7 +39,7 @@ impl PrettyPrinter<'_> {
         &mut self,
         root: &CompilationUnit,
         sc_idx: SubComponentIdx,
-        parent: Option<ParentCtx<'_>>,
+        parent: Option<&ParentScope<'_>>,
     ) -> Result {
         let ctx = EvaluationContext::new_sub_component(root, sc_idx, (), parent);
         let sc = &root.sub_components[sc_idx];
@@ -59,13 +60,15 @@ impl PrettyPrinter<'_> {
                 DisplayExpression(&f.code, &ctx)
             )?;
         }
-        for (p1, p2) in &sc.two_way_bindings {
+        for (p1, p2, fields) in &sc.two_way_bindings {
             self.indent()?;
             writeln!(
                 self.writer,
-                "{} <=> {};",
+                "{} <=> {}{}{};",
                 DisplayPropertyRef(p1, &ctx),
-                DisplayPropertyRef(p2, &ctx)
+                DisplayPropertyRef(p2, &ctx),
+                if fields.is_empty() { "" } else { "." },
+                fields.join(".")
             )?
         }
         for (p, init) in &sc.property_init {
@@ -101,15 +104,15 @@ impl PrettyPrinter<'_> {
         for (idx, r) in sc.repeated.iter_enumerated() {
             self.indent()?;
             write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
-            self.print_component(root, r.sub_tree.root, Some(ParentCtx::new(&ctx, Some(idx))))?
+            self.print_component(root, r.sub_tree.root, Some(&ParentScope::new(&ctx, Some(idx))))?
         }
         for t in &sc.menu_item_trees {
             self.indent()?;
-            self.print_component(root, t.root, Some(ParentCtx::new(&ctx, None)))?
+            self.print_component(root, t.root, Some(&ParentScope::new(&ctx, None)))?
         }
         for w in &sc.popup_windows {
             self.indent()?;
-            self.print_component(root, w.item_tree.root, Some(ParentCtx::new(&ctx, None)))?
+            self.print_component(root, w.item_tree.root, Some(&ParentScope::new(&ctx, None)))?
         }
         self.indentation -= 1;
         self.indent()?;
@@ -183,60 +186,71 @@ impl PrettyPrinter<'_> {
     }
 }
 
-pub struct DisplayPropertyRef<'a, T>(pub &'a PropertyReference, pub &'a EvaluationContext<'a, T>);
+pub struct DisplayPropertyRef<'a, T>(pub &'a MemberReference, pub &'a EvaluationContext<'a, T>);
 impl<T> Display for DisplayPropertyRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
-        let mut ctx = self.1;
+        let ctx = self.1;
         match &self.0 {
-            PropertyReference::Local { sub_component_path, property_index } => {
-                if let Some(g) = ctx.current_global() {
-                    write!(f, "{}.{}", g.name, g.properties[*property_index].name)
-                } else {
-                    let mut sc = ctx.current_sub_component().unwrap();
-                    for i in sub_component_path {
-                        write!(f, "{}.", sc.sub_components[*i].name)?;
-                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
-                    }
-                    write!(f, "{}", sc.properties[*property_index].name)
-                }
+            MemberReference::Relative { parent_level, local_reference } => {
+                print_local_ref(f, ctx, local_reference, *parent_level)
             }
-            PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-                let mut sc = ctx.current_sub_component().unwrap();
-                for i in sub_component_path {
-                    write!(f, "{}.", sc.sub_components[*i].name)?;
-                    sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
-                }
-                let i = &sc.items[*item_index];
-                write!(f, "{}.{}", i.name, prop_name)
-            }
-            PropertyReference::InParent { level, parent_reference } => {
-                for _ in 0..level.get() {
-                    if ctx.parent.is_none() {
-                        return write!(f, "<invalid parent reference>");
-                    }
-                    ctx = ctx.parent.unwrap().ctx;
-                }
-                write!(f, "{}", Self(parent_reference, ctx))
-            }
-            PropertyReference::Global { global_index, property_index } => {
+            MemberReference::Global { global_index, member } => {
                 let g = &ctx.compilation_unit.globals[*global_index];
+                match member {
+                    LocalMemberIndex::Property(property_index) => {
+                        write!(f, "{}.{}", g.name, g.properties[*property_index].name)
+                    }
+                    LocalMemberIndex::Function(function_index) => {
+                        write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+                    }
+                    _ => write!(f, "<invalid reference in global>"),
+                }
+            }
+        }
+    }
+}
+
+pub struct DisplayLocalRef<'a, T>(pub &'a LocalMemberReference, pub &'a EvaluationContext<'a, T>);
+impl<T> Display for DisplayLocalRef<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        print_local_ref(f, self.1, self.0, 0)
+    }
+}
+
+fn print_local_ref<T>(
+    f: &mut std::fmt::Formatter<'_>,
+    ctx: &EvaluationContext<T>,
+    local_ref: &LocalMemberReference,
+    parent_level: usize,
+) -> Result {
+    if let Some(g) = ctx.current_global() {
+        match &local_ref.reference {
+            LocalMemberIndex::Property(property_index) => {
                 write!(f, "{}.{}", g.name, g.properties[*property_index].name)
             }
-            PropertyReference::Function { sub_component_path, function_index } => {
-                if let Some(g) = ctx.current_global() {
-                    write!(f, "{}.{}", g.name, g.functions[*function_index].name)
-                } else {
-                    let mut sc = ctx.current_sub_component().unwrap();
-                    for i in sub_component_path {
-                        write!(f, "{}.", sc.sub_components[*i].name)?;
-                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
-                    }
-                    write!(f, "{}", sc.functions[*function_index].name)
-                }
-            }
-            PropertyReference::GlobalFunction { global_index, function_index } => {
-                let g = &ctx.compilation_unit.globals[*global_index];
+            LocalMemberIndex::Function(function_index) => {
                 write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+            }
+            _ => write!(f, "<invalid reference in global>"),
+        }
+    } else {
+        let mut sc = &ctx.compilation_unit.sub_components
+            [ctx.parent_sub_component_idx(parent_level).unwrap()];
+
+        for i in &local_ref.sub_component_path {
+            write!(f, "{}.", sc.sub_components[*i].name)?;
+            sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
+        }
+        match &local_ref.reference {
+            LocalMemberIndex::Property(property_index) => {
+                write!(f, "{}", sc.properties[*property_index].name)
+            }
+            LocalMemberIndex::Function(function_index) => {
+                write!(f, "{}", sc.functions[*function_index].name)
+            }
+            LocalMemberIndex::Native { item_index, prop_name } => {
+                let i = &sc.items[*item_index];
+                write!(f, "{}.{}", i.name, prop_name)
             }
         }
     }

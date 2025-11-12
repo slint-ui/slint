@@ -80,7 +80,7 @@ export component PreviewUi inherits Window {
 
             MenuItem {
                 title: @tr("Reload");
-                icon: Icons.sync;
+                icon: Platform.os != OperatingSystemType.macos ? Icons.sync : @image-url("");
                 activated => {
                     Api.reload-preview();
                 }

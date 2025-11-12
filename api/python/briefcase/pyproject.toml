@@ -1,9 +1,9 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [project]
 name = "briefcasex-slint"
-version = "1.14.0b1"
+version = "1.15.0b1"
 description = "Plugin for Briefcase to offer Slint application templates"
 readme = "README.md"
 requires-python = ">=3.10"

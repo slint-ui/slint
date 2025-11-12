@@ -9,4 +9,28 @@ export component Slider inherits NativeSlider {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: min(root.step, (root.maximum - root.minimum) / 100);
+    accessible-action-set-value(v) => {
+        if v.is-float() {
+            root.update-value(v.to-float());
+        }
+    }
+    accessible-action-increment => { root.increment(); }
+    accessible-action-decrement => { root.decrement(); }
+
+    function increment() {
+        root.update-value(root.value + root.step);
+    }
+
+    function decrement() {
+        root.update-value(root.value - root.step);
+    }
+
+    function update-value(value: float) {
+        if (root.value == value) {
+            return;
+        }
+
+        root.value = max(root.minimum, min(root.maximum, value));
+        root.changed(root.value);
+    }
 }

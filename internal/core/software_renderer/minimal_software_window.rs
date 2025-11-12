@@ -89,8 +89,8 @@ impl WindowAdapter for MinimalSoftwareWindow {
     fn set_size(&self, size: crate::api::WindowSize) {
         let sf = self.window.scale_factor();
         self.size.set(size.to_physical(sf));
-        self.window
-            .dispatch_event(crate::platform::WindowEvent::Resized { size: size.to_logical(sf) })
+        let logical_size = size.to_logical(sf);
+        self.window.dispatch_event(crate::platform::WindowEvent::Resized { size: logical_size });
     }
 
     fn request_redraw(&self) {

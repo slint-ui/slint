@@ -24,6 +24,7 @@ pub enum AccessibleStringProperty {
     Enabled,
     Expandable,
     Expanded,
+    Id,
     ItemCount,
     ItemIndex,
     ItemSelectable,

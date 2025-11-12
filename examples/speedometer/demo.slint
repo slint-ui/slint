@@ -1,8 +1,41 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 import "./01 Digitall.ttf";
+
+component CarButton inherits Rectangle {
+    callback clicked <=> touch-area.clicked;
+    in property <string> text;
+    in property <bool> enabled: true;
+    property <angle> touch-animation: touch-area.pressed ? 180deg : 0deg;
+    animate touch-animation { duration: 500ms; }
+    property <angle> stop1: 67deg + touch-animation;
+    property <angle> stop2: 121deg + touch-animation;
+    property <angle> stop3: 167deg + touch-animation;
+    property <angle> stop4: 256deg + touch-animation;
+    property <angle> stop5: 302deg + touch-animation;
+    property <angle> stop6: 351deg + touch-animation;
+
+    width: 80px;
+    height: 30px;
+    border-radius: self.height / 2;
+    border-width: 1px;
+    border-color: @conic-gradient(#020414 stop1, #ff0000 stop2, #020414 stop3, #020414 stop4, #ff0000 stop5, #000000 stop6);
+    background: @linear-gradient(45deg + touch-animation, #000000 0%, #4d0404 100%);
+    opacity: enabled ? 1 : 0.5;
+
+    label := Text {
+        text: text;
+        font-family: "01 Digitall";
+        font-size: 16px;
+        color: touch-area.pressed ? #ff0404 : #ffffff;
+        letter-spacing: 2px;
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+    }
+}
 
 component MiniDot {
     width: 0;
@@ -10,9 +43,22 @@ component MiniDot {
     Rectangle {
         y: 160px;
         x: -(self.width / 2);
-        width: 4px;
+        width: 3px;
         height: 6px;
         background: #47505b;
+        border-radius: self.width / 2;
+    }
+}
+
+component MediumDot {
+    width: 0;
+    height: 0;
+    Rectangle {
+        y: 158px;
+        x: -(self.width / 2);
+        width: 4px;
+        height: 10px;
+        background: #505b63;
         border-radius: self.width / 2;
     }
 }
@@ -21,34 +67,97 @@ component BigDot {
     width: 0;
     height: 0;
     Rectangle {
-        y: 159px;
+        y: 154px;
         x: -(self.width / 2);
         width: 5px;
-        height: 10px;
-        background: #a5adb3;
+        height: 14px;
+        background: #b2c7d8;
         border-radius: self.width / 2;
     }
 }
 
 component KPHText {
+    in property <int> current-speed;
+    in property <bool> current-engine-running;
+    property <bool> showing: false;
     width: 0;
     height: 0;
+    opacity: 0;
+
+
+    states [
+        visible when showing : {
+            opacity: 1;
+            in-out {
+                animate opacity { easing: ease-out; duration: 250ms; }
+            }
+        }
+    ]
+
+    changed current-speed => {
+        if current-speed >= (root.transform-rotation / 1deg).floor() && current-engine-running {
+            showing = true;
+        }
+    }
+
+    changed current-engine-running => {
+        if (!current-engine-running) {
+            showing = false;
+        }
+    }
+
     Text {
-        y: 127px;
+        y: 122px;
         width: 36px;
         color: white;
         text: (root.transform-rotation / 1deg).floor();
         font-size: 18px;
         transform-rotation: -root.transform-rotation - 50deg;
         font-family: "01 Digitall";
-        opacity: 0.9;
         horizontal-alignment: left;
+    }
+}
+
+component SpeedTextDigit inherits Text {
+    in property <bool> active: true;
+    in property <int> digit;
+    text: active ? digit : 0;
+    color: active ? white : #392e2e;
+    width: 36px;
+    font-size: 52px;
+    font-family: "01 Digitall";
+}
+
+component SpeedText {
+    in property <int> speed;
+    HorizontalLayout {
+        property <length> default-width: 18px;
+        SpeedTextDigit {
+            digit: (speed / 100).floor();
+            active: speed > 99;
+        }
+
+        SpeedTextDigit {
+            digit: (speed.mod(100) / 10).floor();
+            active: speed > 9;
+        }
+
+        SpeedTextDigit {
+            digit: speed.mod(10);
+        }
     }
 }
 
 export component MainWindow inherits Window {
     property <color> background-color: #020414;
     property <int> speed: 0;
+    property <int> max-speed: 260;
+    property <int> total-mini-dots: max-speed / 2;
+    property <int> total-medium-dots: total-mini-dots / 10;
+    property <int> total-big-dots: total-mini-dots / 10;
+    property <int> kph-indicators: total-mini-dots / 10;
+    property <bool> engine-running: false;
+    property <bool> starting-up: true;
 
     width: 500px;
     height: 500px;
@@ -56,8 +165,23 @@ export component MainWindow inherits Window {
     title: "Sci-Fi Speedometer";
 
     animate speed {
-        duration: 1000ms;
+        duration: starting-up ? 750ms : 500ms;
         easing: ease-in-out;
+    }
+
+    changed engine-running => {
+        if (engine-running) {
+            speed = 260;
+        }
+    }
+
+    changed speed => {
+        if (speed == 260 && starting-up) {
+            speed = 0;
+        }
+        if (speed == 0 && starting-up) {
+            starting-up = false;
+        }
     }
 
     property <angle> stop1: speed < 100 ? 0deg : (speed - 100) * 1deg;
@@ -73,27 +197,20 @@ export component MainWindow inherits Window {
         transform-rotation: -130deg;
     }
 
-        Rectangle {
-
+    Rectangle {
         dial := Rectangle {
             width: 0px;
             height: 0px;
             transform-rotation: 50deg;
 
-            property <int> max-speed: 260;
-            property <int> total-mini-dots: max-speed / 2;
-            property <int> total-big-dots: total-mini-dots / 5;
-            property <int> kph-indicators: total-big-dots / 2;
-
             for i in total-mini-dots: MiniDot {
                 transform-rotation: 260deg * (i / total-mini-dots);
             }
+            for i in total-medium-dots: MediumDot {
+                transform-rotation: 260deg * (i / total-medium-dots) + 10deg;
+            }
             for i in total-big-dots + 1: BigDot {
                 transform-rotation: 260deg * (i / total-big-dots);
-            }
-
-            for i in kph-indicators + 1: KPHText {
-                transform-rotation: 260deg * (i / kph-indicators);
             }
         }
 
@@ -119,58 +236,82 @@ export component MainWindow inherits Window {
             border-width: 1px;
             border-color: @conic-gradient(#020414 67.5deg, #ff0000 121deg, #020414 167deg, #020414 256deg, #ff0000 302deg, #000000 351deg);
             background: background-color;
-            drop-shadow-blur: 30px;
-            drop-shadow-color: #fe5a5a60;
+            drop-shadow-blur: 25px;
+            drop-shadow-color: #fe5a5a.with-alpha(0.4 + (0.2 * (speed / 260)));
 
-            Text {
-                text: speed;
-                font-family: "01 Digitall";
-                font-size: 52px;
-                color: white;
-                y: parent.height / 2 - self.height / 2 - 20px;
-            }
+            Rectangle {
+                opacity: engine-running && !starting-up ? 1 : 0;
+                animate opacity {
+                    duration: 500ms;
+                    easing: ease-in-out;
+                }
+                SpeedText {
+                    speed: speed;
+                    y: parent.height / 2 - self.height / 2 - 20px;
+                }
 
-            kmh-label :=Text {
-                text: "km/h";
-                font-size: 18px;
-                color: white;
-                x: parent.width / 2 - self.width / 2;
-                y: parent.height / 2 + 20px;
+                kmh-label := Text {
+                    text: "km/h";
+                    font-size: 18px;
+                    color: white;
+                    x: parent.width / 2 - self.width / 2;
+                    y: parent.height / 2 + 20px;
+                }
             }
         }
     }
 
-    control-buttons := HorizontalBox {
-        spacing: 10px;
+    Rectangle {
+        transform-rotation: 50deg;
+        for i in kph-indicators + 1: KPHText {
+            current-speed: speed;
+            current-engine-running: root.engine-running;
+            transform-rotation: 260deg * (i / kph-indicators);
+        }
+    }
+
+    control-buttons := HorizontalLayout {
+        spacing: 20px;
         alignment: center;
         height: 50px;
-        y: 450px;
+        y: 420px;
 
-        Button {
-            text: "STOP";
+        CarButton {
+            text: root.engine-running ? "STOP" : "START";
             clicked => {
-                speed = 0;
+                if !engine-running {
+                    engine-running = true;
+                    starting-up = true;
+                    speed = 260;
+                } else {
+                    engine-running = false;
+                    starting-up = false;
+                    speed = 0;
+                }
             }
         }
 
-        Button {
-            text: "CRUISE";
+        CarButton {
+            text: "DRIVE";
+            enabled: !starting-up && engine-running;
             clicked => {
                 speed = 60;
             }
         }
 
-        Button {
+        CarButton {
             text: "FAST";
+            enabled: !starting-up && engine-running;
             clicked => {
                 speed = 120;
             }
         }
 
-        Button {
-            text: "MAX";
+        CarButton {
+            text: "TURBO";
+            enabled: !starting-up && engine-running;
             clicked => {
-                speed = 240;
+                speed = 260;
             }
         }
     }

@@ -32,7 +32,7 @@ impl LicenseTagStyle {
             line_break: "\n",
             tag_end: SPDX_LICENSE_LINE,
             overall_start: "",
-            overall_end: "*/ \n",
+            overall_end: " */\n",
             is_real_end: false,
         }
     }
@@ -173,7 +173,7 @@ impl<'a> SourceFileWithTags<'a> {
         &self.source[tag_loc.start..tag_loc.end]
     }
 
-    fn has_license_header(&self, expected_tag: &LicenseHeader) -> bool {
+    fn tag_matches(&self, expected_tag: &LicenseHeader, license: &str) -> bool {
         let tag_loc = match &self.tag_location {
             Some(loc) => loc,
             None => return false,
@@ -185,9 +185,8 @@ impl<'a> SourceFileWithTags<'a> {
         let mut tag_entries = found_tag.split(self.tag_style.line_break);
         let Some(_copyright_entry) = tag_entries.next() else { return false };
         // Require _some_ license ...
-        let Some(_) = tag_entries.next() else { return false };
-        // ... as well as the SPDX license line at the start
-        expected_tag.0 == SPDX_LICENSE_LINE
+        let Some(license_entry) = tag_entries.next() else { return false };
+        expected_tag.to_string(self.tag_style, license) == license_entry
     }
 
     fn replace_tag(&self, replacement: &LicenseHeader, license: &str) -> String {
@@ -565,7 +564,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.svg$", LicenseLocation::NoLicense),
             ("\\.tmPreferences$", LicenseLocation::NoLicense),
-            ("\\.toml$", LicenseLocation::NoLicense),
+            ("\\.toml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.ttf$", LicenseLocation::NoLicense),
@@ -595,7 +594,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
 static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock::new(|| {
     [
         ("^editors/tree-sitter-slint/grammar.js$", MIT_LICENSE),
-        ("^editors/zed/", GPL_OR_LATER),
+        ("^editors/zed/", MIT_LICENSE),
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
@@ -603,6 +602,9 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
         ("^demos/", MIT_LICENSE),
         ("^docs/", MIT_LICENSE),
         ("^api/cpp/docs/", MIT_LICENSE),
+        ("^ui-libraries/material", MIT_LICENSE),
+        ("^tests/manual/module-builds/", MIT_LICENSE),
+        ("^tools/figma-inspector/", MIT_LICENSE),
         ("(^|/)(README|CONTRIBUTING|CHANGELOG|LICENSE)\\.md", TRIPLE_LICENSE),
         (".*\\.md$", MIT_LICENSE),
         (".*", TRIPLE_LICENSE),
@@ -617,7 +619,6 @@ const TRIPLE_LICENSE: &str =
     "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0";
 const MIT_LICENSE: &str = "MIT";
 const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
-const GPL_OR_LATER: &str = "GPL-3.0-or-later";
 
 // This is really just the SPDX expression after the copyright line. The existence of the
 // Copyright prefix is enforced by the tag scanning (tag_start).
@@ -935,7 +936,7 @@ impl LicenseHeaderCheck {
             } else {
                 Err(anyhow!("Missing tag"))
             }
-        } else if source.has_license_header(&EXPECTED_HEADER) {
+        } else if source.tag_matches(&EXPECTED_HEADER, license) {
             Ok(())
         } else if self.fix_it {
             eprintln!("Fixing up {path:?} as instructed. It has a wrong license header.");

@@ -48,7 +48,7 @@ pub fn embed_glyphs<'a>(
     use crate::diagnostics::Spanned;
 
     let generic_diag_location = doc.node.as_ref().map(|n| n.to_source_location());
-    let scale_factor = compiler_config.const_scale_factor;
+    let scale_factor = compiler_config.const_scale_factor.unwrap_or(1.);
 
     characters_seen.extend(
         ('a'..='z')
@@ -62,7 +62,7 @@ pub fn embed_glyphs<'a>(
     if let Ok(sizes_str) = std::env::var("SLINT_FONT_SIZES") {
         for custom_size_str in sizes_str.split(',') {
             let custom_size = if let Ok(custom_size) = custom_size_str
-                .parse::<f64>()
+                .parse::<f32>()
                 .map(|size_as_float| (size_as_float * scale_factor) as i16)
             {
                 custom_size
@@ -137,11 +137,17 @@ pub fn embed_glyphs<'a>(
             let font = {
                 let mut query = collection.query();
 
-                query.set_families(std::iter::once(if let Some(ref family) = family {
-                    fontique::QueryFamily::from(family.as_str())
-                } else {
-                    fontique::QueryFamily::Generic(fontique::GenericFamily::SansSerif)
-                }));
+                query.set_families(
+                    family
+                        .as_ref()
+                        .map(|family| fontique::QueryFamily::from(family.as_str()))
+                        .into_iter()
+                        .chain(
+                            sharedfontique::FALLBACK_FAMILIES
+                                .into_iter()
+                                .map(fontique::QueryFamily::Generic),
+                        ),
+                );
 
                 let mut font = None;
 
@@ -263,47 +269,28 @@ pub fn embed_glyphs<'a>(
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
 fn get_fallback_fonts(compiler_config: &CompilerConfiguration) -> Vec<Font> {
-    #[allow(unused)]
-    let mut fallback_families: Vec<String> = Vec::new();
+    let mut fallback_fonts = Vec::new();
 
-    #[cfg(target_os = "macos")]
-    {
-        fallback_families = ["Menlo", "Apple Symbols", "Apple Color Emoji"]
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<String>>();
-    }
+    let mut collection = sharedfontique::get_collection();
+    let mut query = collection.query();
+    query.set_families(
+        sharedfontique::FALLBACK_FAMILIES.into_iter().map(fontique::QueryFamily::Generic).chain(
+            core::iter::once(fontique::QueryFamily::Generic(fontique::GenericFamily::Emoji)),
+        ),
+    );
 
-    #[cfg(target_family = "windows")]
-    {
-        fallback_families = ["Segoe UI Emoji", "Segoe UI Symbol", "Arial", "Wingdings"]
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<String>>();
-    }
+    query.matches_with(|query_font| {
+        if let Some(font) = compiler_config
+            .load_font_by_id(&query_font)
+            .ok()
+            .map(|fontdue_font| Font { font: query_font.clone(), fontdue_font })
+        {
+            fallback_fonts.push(font);
+        }
 
-    let fallback_fonts = fallback_families
-        .iter()
-        .filter_map(|fallback_family| {
-            let mut collection = sharedfontique::get_collection();
-            let mut query = collection.query();
-            query.set_families(std::iter::once(fontique::QueryFamily::from(
-                fallback_family.as_str(),
-            )));
-            let mut font = None;
-            query.matches_with(|query_font| {
-                font = Some(query_font.clone());
-                fontique::QueryStatus::Stop
-            });
+        fontique::QueryStatus::Continue
+    });
 
-            font.and_then(|font| {
-                compiler_config
-                    .load_font_by_id(&font)
-                    .ok()
-                    .map(|fontdue_font| Font { font, fontdue_font })
-            })
-        })
-        .collect::<Vec<_>>();
     fallback_fonts
 }
 
@@ -455,7 +442,7 @@ fn generate_sdf_for_glyph(
     let face =
         fdsm_ttf_parser::ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
-    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id);
+    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id)?;
 
     let metrics = sharedfontique::DesignFontMetrics::new(&font.font);
     let target_pixel_size = target_pixel_size as f64;

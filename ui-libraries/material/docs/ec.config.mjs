@@ -26,7 +26,7 @@ function sideBorder() {
         }
         `,
         hooks: {
-            postprocessRenderedBlock: async (context) => {
+            postprocessRenderedBlock: (context) => {
                 if (
                     context.renderData.blockAst.children[1].properties
                         .dataLanguage !== "slint"
@@ -81,7 +81,7 @@ function languageLabel() {
         }
         `,
         hooks: {
-            postprocessRenderedBlock: async (context) => {
+            postprocessRenderedBlock: (context) => {
                 const language =
                     context.renderData.blockAst.children[1].properties
                         .dataLanguage;
@@ -142,7 +142,7 @@ function workersPlaygroundButton() {
             }
         `,
         hooks: {
-            postprocessRenderedBlock: async (context) => {
+            postprocessRenderedBlock: (context) => {
                 if (!context.codeBlock.meta.includes("playground")) {
                     return;
                 }

@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Window {
+    preferred-width: 500px;
+    preferred-height: 500px;
+    no-frame: false;
+
+    f := Flickable {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        viewport_width: 2100px;
+        viewport_height: 2100px;
+
+        VerticalLayout {
+            padding: 0;
+            Rectangle {
+                width: 100%;
+                height: 20px;
+            }
+
+            HorizontalLayout {
+                Rectangle {
+                    width: 20px;
+                    height: 100%;
+                }
+
+                inner_ta := TouchArea {
+                    width: 50px;
+                    height: 50px;
+                    fs := FocusScope {
+                        Rectangle { }
+                    }
+                }
+            }
+        }
+    }
+
+    public function set-focus() {
+        fs.focus();
+    }
+    public function remove-focus() {
+        fs.clear-focus();
+    }
+
+    property <length> offset_x: -f.viewport_x;
+    property <length> offset_y: -f.viewport_y;
+}
+
+/*
+```rust
+// Test that focused items stay visible when resizing the window
+
+use slint::{LogicalSize, LogicalPosition, platform::WindowEvent};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::Resized { size: LogicalSize::new(70., 70.) });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+instance.window().dispatch_event(WindowEvent::Resized { size: LogicalSize::new(500., 500.) });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+instance.invoke_set_focus();
+instance.window().dispatch_event(WindowEvent::Resized { size: LogicalSize::new(70., 70.) });
+assert_eq!(instance.get_offset_x(), 20.);
+assert_eq!(instance.get_offset_y(), 20.);
+
+// Test that items that gain focus scroll to visible
+
+instance.invoke_remove_focus();
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 20.0, delta_y: 20.0 });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+instance.invoke_set_focus();
+assert_eq!(instance.get_offset_x(), 20.);
+assert_eq!(instance.get_offset_y(), 20.);
+
+```
+*/

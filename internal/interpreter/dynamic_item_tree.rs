@@ -1460,9 +1460,8 @@ pub fn animation_for_property(
 
 fn make_callback_eval_closure(
     expr: Expression,
-    self_weak: &ErasedItemTreeBoxWeak,
+    self_weak: ErasedItemTreeBoxWeak,
 ) -> impl Fn(&[Value]) -> Value {
-    let self_weak = self_weak.clone();
     move |args| {
         let self_rc = self_weak.upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -1476,9 +1475,8 @@ fn make_callback_eval_closure(
 
 fn make_binding_eval_closure(
     expr: Expression,
-    self_weak: &ErasedItemTreeBoxWeak,
+    self_weak: ErasedItemTreeBoxWeak,
 ) -> impl Fn() -> Value {
-    let self_weak = self_weak.clone();
     move || {
         let self_rc = self_weak.upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -1608,7 +1606,7 @@ pub fn instantiate(
                         description.custom_callbacks.get(prop_name).filter(|_| is_root)
                     {
                         let callback = callback_offset.apply(instance_ref.as_ref());
-                        callback.set_handler(make_callback_eval_closure(expr, &self_weak));
+                        callback.set_handler(make_callback_eval_closure(expr, self_weak.clone()));
                     } else {
                         let item_within_component = &description.items[&elem.id];
                         let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
@@ -1617,7 +1615,7 @@ pub fn instantiate(
                         {
                             callback.set_handler(
                                 item,
-                                Box::new(make_callback_eval_closure(expr, &self_weak)),
+                                Box::new(make_callback_eval_closure(expr, self_weak.clone())),
                             );
                         } else {
                             panic!("unknown callback {prop_name}")
@@ -1627,14 +1625,14 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 description.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let is_state_info = matches!(property_type, Type::Struct (s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")));
+                let is_state_info = matches!(&property_type, Type::Struct (s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)
                             as *const Property<i_slint_core::properties::StateInfo>),
                     );
                     let e = binding.expression.clone();
-                    let state_binding = make_binding_eval_closure(e, &self_weak);
+                    let state_binding = make_binding_eval_closure(e, self_weak.clone());
                     i_slint_core::properties::set_state_binding(prop, move || {
                         state_binding().try_into().unwrap()
                     });
@@ -1656,15 +1654,24 @@ pub fn instantiate(
                         prop_info
                             .set_binding(
                                 item,
-                                Box::new(make_binding_eval_closure(e, &self_weak)),
+                                Box::new(make_binding_eval_closure(e, self_weak.clone())),
                                 maybe_animation,
                             )
                             .unwrap();
                     }
                 }
-                for nr in &binding.two_way_bindings {
-                    // Safety: The compiler must have ensured that the properties exist and are of the same type
-                    prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
+                for twb in &binding.two_way_bindings {
+                    if twb.field_access.is_empty()
+                        && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
+                    {
+                        // Safety: The compiler must have ensured that the properties exist and are of the same type
+                        // (Except for struct and array, which may map to a Value)
+                        prop_info
+                            .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
+                    } else {
+                        let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
+                        prop_info.link_two_way_with_map(item, common, map);
+                    }
                 }
             } else {
                 let item_within_component = &description.items[&elem.id];
@@ -1673,9 +1680,18 @@ pub fn instantiate(
                     item_within_component.rtti.properties.get(prop_name.as_str())
                 {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
-                    for nr in &binding.two_way_bindings {
-                        // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        prop_rtti.link_two_ways(item, get_property_ptr(nr, instance_ref));
+
+                    for twb in &binding.two_way_bindings {
+                        if twb.field_access.is_empty()
+                            && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
+                        {
+                            // Safety: The compiler must have ensured that the properties exist and are of the same type
+                            prop_rtti
+                                .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
+                        } else {
+                            let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
+                            prop_rtti.link_two_way_with_map(item, common, map);
+                        }
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
                         if is_const {
@@ -1695,7 +1711,7 @@ pub fn instantiate(
                             let e = binding.expression.clone();
                             prop_rtti.set_binding(
                                 item,
-                                Box::new(make_binding_eval_closure(e, &self_weak)),
+                                Box::new(make_binding_eval_closure(e, self_weak.clone())),
                                 maybe_animation,
                             );
                         }
@@ -1713,7 +1729,7 @@ pub fn instantiate(
 
         let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
         let expr = rep_in_comp.model.clone();
-        let model_binding_closure = make_binding_eval_closure(expr, &self_weak);
+        let model_binding_closure = make_binding_eval_closure(expr, self_weak.clone());
         if rep_in_comp.is_conditional {
             let bool_model = Rc::new(crate::value_model::BoolModel::default());
             repeater.set_model_binding(move || {
@@ -1733,6 +1749,80 @@ pub fn instantiate(
         }
     }
     self_rc
+}
+
+fn prepare_for_two_way_binding(
+    instance_ref: InstanceRef,
+    twb: &i_slint_compiler::expression_tree::TwoWayBinding,
+) -> (Pin<Rc<Property<Value>>>, Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>>) {
+    let element = twb.property.element();
+    let name = twb.property.name();
+    generativity::make_guard!(guard);
+    let enclosing_component = eval::enclosing_component_instance_for_element(
+        &element,
+        &eval::ComponentInstance::InstanceRef(instance_ref),
+        guard,
+    );
+    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if twb.field_access.is_empty() {
+        None
+    } else {
+        struct FieldAccess(Vec<SmolStr>);
+        impl rtti::TwoWayBindingMapping<Value> for FieldAccess {
+            fn map_to(&self, value: &Value) -> Value {
+                let mut value = value.clone();
+                for f in &self.0 {
+                    match value {
+                        Value::Struct(o) => value = o.get_field(f).cloned().unwrap_or_default(),
+                        Value::Void => return Value::Void,
+                        _ => panic!("Cannot map to a field of a non-struct {value:?}  - {f}"),
+                    }
+                }
+                value
+            }
+            fn map_from(&self, mut value: &mut Value, from: &Value) {
+                for f in &self.0 {
+                    match value {
+                        Value::Struct(o) => {
+                            value = o.0.get_mut(f).expect("field not found while mapping")
+                        }
+                        _ => panic!("Cannot map to a field of a non-struct {value:?}"),
+                    }
+                }
+                *value = from.clone();
+            }
+        }
+        Some(Rc::new(FieldAccess(twb.field_access.clone())))
+    };
+    let common = match enclosing_component {
+        eval::ComponentInstance::InstanceRef(enclosing_component) => {
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
+                if let Some(x) = enclosing_component.description.custom_properties.get(name) {
+                    let item = unsafe { Pin::new_unchecked(&*instance_ref.as_ptr().add(x.offset)) };
+                    let common = x.prop.prepare_for_two_way_binding(item);
+                    return (common, map);
+                };
+            };
+            let item_info = enclosing_component
+                .description
+                .items
+                .get(element.id.as_str())
+                .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, name));
+            let prop_info = item_info
+                .rtti
+                .properties
+                .get(name.as_str())
+                .unwrap_or_else(|| panic!("Property {} not in {}", name, element.id));
+            core::mem::drop(element);
+            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+            prop_info.prepare_for_two_way_binding(item)
+        }
+        eval::ComponentInstance::GlobalComponent(glob) => {
+            glob.as_ref().prepare_for_two_way_binding(name).unwrap()
+        }
+    };
+    (common, map)
 }
 
 pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
@@ -2490,7 +2580,8 @@ pub fn make_menu_item_tree(
     let item_tree = vtable::VRc::into_dyn(mit_inst);
     let menu = match condition {
         Some(condition) => {
-            let binding = make_binding_eval_closure(condition.clone(), enclosing_component_weak);
+            let binding =
+                make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
             MenuFromItemTree::new_with_condition(item_tree, move || binding().try_into().unwrap())
         }
         None => MenuFromItemTree::new(item_tree),

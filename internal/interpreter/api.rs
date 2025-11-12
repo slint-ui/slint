@@ -208,7 +208,7 @@ impl std::fmt::Debug for Value {
 /// means that `Value::Number` can be converted to / from each of the said rust types
 ///
 /// For `Value::Object` mapping to a rust `struct`, one can use [`declare_value_struct_conversion!`]
-/// And for `Value::EnumerationValue` which maps to a rust `enum`, one can use [`declare_value_struct_conversion!`]
+/// And for `Value::EnumerationValue` which maps to a rust `enum`, one can use [`declare_value_enum_conversion!`]
 macro_rules! declare_value_conversion {
     ( $value:ident => [$($ty:ty),*] ) => {
         $(
@@ -1503,7 +1503,7 @@ impl ComponentInstance {
         &self,
         path: &Path,
         offset: u32,
-    ) -> Vec<i_slint_core::lengths::LogicalRect> {
+    ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(&self.inner, path, offset)
     }
 
@@ -1514,7 +1514,7 @@ impl ComponentInstance {
     pub fn element_positions(
         &self,
         element: &i_slint_compiler::object_tree::ElementRc,
-    ) -> Vec<i_slint_core::lengths::LogicalRect> {
+    ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::element_positions(
             &self.inner,
             element,

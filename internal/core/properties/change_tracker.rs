@@ -6,7 +6,7 @@ use super::{
     DependencyListHead, DependencyNode,
 };
 use alloc::boxed::Box;
-use core::cell::Cell;
+use core::cell::{Cell, UnsafeCell};
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 use core::ptr::addr_of;
@@ -17,10 +17,11 @@ crate::thread_local! {static CHANGED_NODES : Pin<Box<DependencyListHead>> = Box:
 struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
     eval_fn: EvalFn,
     notify_fn: NotifyFn,
-    value: T,
+    /// The value. Borrowed-mut when `evaluating` is true
+    value: UnsafeCell<T>,
     data: Data,
     /// When true, we are currently running eval_fn or notify_fn and we shouldn't be dropped
-    evaluating: bool,
+    evaluating: Cell<bool>,
 }
 
 /// A change tracker is used to run a callback when a property value changes.
@@ -53,7 +54,12 @@ impl ChangeTracker {
     /// The `data` is any struct that is going to be passed to the functor.
     /// The `eval_fn` is a function that queries and return the property.
     /// And the `notify_fn` is the callback run if the property is changed
-    pub fn init<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+    pub fn init<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
         &self,
         data: Data,
         eval_fn: EF,
@@ -67,7 +73,12 @@ impl ChangeTracker {
     /// Same as [`Self::init`], but the first eval function is called in a future evaluation of the event loop.
     /// This means that the change tracker will consider the value as default initialized, and the eval function will
     /// be called the firs ttime if the initial value is not equal to the default constructed value.
-    pub fn init_delayed<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+    pub fn init_delayed<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
         &self,
         data: Data,
         eval_fn: EF,
@@ -76,7 +87,12 @@ impl ChangeTracker {
         self.init_impl(data, eval_fn, notify_fn, true);
     }
 
-    fn init_impl<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+    fn init_impl<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
         &self,
         data: Data,
         eval_fn: EF,
@@ -84,38 +100,53 @@ impl ChangeTracker {
         delayed: bool,
     ) {
         self.clear();
-        let inner =
-            ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data, evaluating: false };
+        let inner = ChangeTrackerInner {
+            eval_fn,
+            notify_fn,
+            value: T::default().into(),
+            data,
+            evaluating: false.into(),
+        };
 
-        unsafe fn evaluate<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data>(
-            _self: *mut BindingHolder,
+        unsafe fn evaluate<
+            T: PartialEq,
+            EF: Fn(&Data) -> T + 'static,
+            NF: Fn(&Data, &T) + 'static,
+            Data: 'static,
+        >(
+            _self: *const BindingHolder,
             _value: *mut (),
         ) -> BindingResult {
             let pinned_holder = Pin::new_unchecked(&*_self);
-            let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
-            let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
-            (*core::ptr::addr_of_mut!((*_self).dep_nodes)).take();
-            assert!(!inner.evaluating);
-            inner.evaluating = true;
+            let _self = _self as *const BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
+            let inner = core::ptr::addr_of!((*_self).binding).as_ref().unwrap();
+            (*core::ptr::addr_of!((*_self).dep_nodes)).take();
+            assert!(!inner.evaluating.get());
+            inner.evaluating.set(true);
             let new_value =
                 super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data));
-            if new_value != inner.value {
-                inner.value = new_value;
-                (inner.notify_fn)(&inner.data, &inner.value);
+            {
+                // Safety: We just set `evaluating` to true which means we can borrow
+                let inner_value = &mut *inner.value.get();
+                if new_value != *inner_value {
+                    *inner_value = new_value;
+                    (inner.notify_fn)(&inner.data, inner_value);
+                }
             }
-            if !core::mem::replace(&mut inner.evaluating, false) {
+
+            if !inner.evaluating.replace(false) {
                 // `drop` from the vtable was called while evaluating. Do it now.
-                core::mem::drop(Box::from_raw(_self));
+                core::mem::drop(Box::from_raw(
+                    _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>,
+                ));
             }
             BindingResult::KeepBinding
         }
 
         unsafe fn drop<T, EF, NF, Data>(_self: *mut BindingHolder) {
             let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
-            let evaluating = core::mem::replace(
-                &mut core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap().evaluating,
-                false,
-            );
+            let evaluating =
+                core::ptr::addr_of!((*_self).binding).as_ref().unwrap().evaluating.replace(false);
             if !evaluating {
                 core::mem::drop(Box::from_raw(_self));
             }
@@ -124,8 +155,12 @@ impl ChangeTracker {
         trait HasBindingVTable {
             const VT: &'static BindingVTable;
         }
-        impl<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data> HasBindingVTable
-            for ChangeTrackerInner<T, EF, NF, Data>
+        impl<
+                T: PartialEq,
+                EF: Fn(&Data) -> T + 'static,
+                NF: Fn(&Data, &T) + 'static,
+                Data: 'static,
+            > HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
         {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,
@@ -163,7 +198,9 @@ impl ChangeTracker {
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
             super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data))
         };
-        unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap().value = value };
+        unsafe {
+            *core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap().value.get_mut() = value
+        };
     }
 
     /// Clear the change tracker.

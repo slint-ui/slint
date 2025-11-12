@@ -412,6 +412,23 @@ Whether the element is expanded or not. Applies to combo boxes, menu items,
 tree view items and other widgets.
 </SlintProperty>
 
+### accessible-id
+<SlintProperty typeName="string" propName="accessible-id" default='""'>
+A unique identifier for the element, used to identify widgets for automation and testing purposes.
+This property can be set to any string value and is particularly useful when writing automated tests or
+when using accessibility tools to uniquely identify specific widgets in your application.
+
+If you need to identify repeated elements, make sure to assign different values to each instance as illustrated below.
+
+```slint
+for i in 5: Rectangle {
+    accessible-role: button;
+    accessible-id: "btn-" + i;
+    accessible-label: "Button " + i;
+}
+```
+</SlintProperty>
+
 ### accessible-label
 <SlintProperty typeName="string" propName="accessible-label" default='""'>
 The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)

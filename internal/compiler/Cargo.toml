@@ -41,7 +41,7 @@ experimental-library-module = []
 default = []
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default"] }
+i-slint-common = { workspace = true, features = ["default", "color-parsing"] }
 
 num_enum = "0.7"
 strum = { workspace = true }
@@ -58,16 +58,16 @@ by_address = { workspace = true }
 itertools = { workspace = true }
 url = "2.2.1"
 linked_hash_set = "0.1.4"
-typed-index-collections = "3.2"
+typed-index-collections = { workspace = true }
 
 # for processing and embedding the rendered image (texture)
 image = { workspace = true, optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true, features = ["parallel"] }
-fdsm = { version = "0.7.0", optional = true }
-fdsm-ttf-parser = { version = "0.1.2", optional = true }
-nalgebra = { version = "0.33.0", optional = true }
+fdsm = { version = "0.8.0", optional = true }
+fdsm-ttf-parser = { version = "0.2", optional = true }
+nalgebra = { version = "0.34.0", optional = true }
 rayon = { workspace = true, optional = true }
 # translations
 polib = { version = "0.2", optional = true }

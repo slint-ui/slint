@@ -101,16 +101,18 @@ fn create_property_element(
 ) -> ElementRc {
     let bindings = properties
         .map(|property_name| {
-            let mut bind =
-                BindingExpression::new_two_way(NamedReference::new(child, property_name.into()));
+            let property_name = SmolStr::new_static(property_name);
+            let mut bind = BindingExpression::new_two_way(
+                NamedReference::new(child, property_name.clone()).into(),
+            );
             if let Some(default_value_for_extra_properties) = default_value_for_extra_properties {
-                if !child.borrow().bindings.contains_key(property_name) {
-                    if let Some(e) = default_value_for_extra_properties(child, property_name) {
+                if !child.borrow().bindings.contains_key(&property_name) {
+                    if let Some(e) = default_value_for_extra_properties(child, &property_name) {
                         bind.expression = e;
                     }
                 }
             }
-            (property_name.into(), bind.into())
+            (property_name, bind.into())
         })
         .collect();
 

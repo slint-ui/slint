@@ -5,7 +5,7 @@
 //! module for rendering the tree of items
 
 use super::items::*;
-use crate::graphics::{FontRequest, Image, IntRect};
+use crate::graphics::{Color, FontRequest, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
@@ -210,23 +210,40 @@ pub fn item_children_bounding_rect(
     index: isize,
     clip_rect: &LogicalRect,
 ) -> LogicalRect {
+    item_children_bounding_rect_inner(component, index, clip_rect, Default::default())
+}
+
+fn item_children_bounding_rect_inner(
+    component: &ItemTreeRc,
+    index: isize,
+    clip_rect: &LogicalRect,
+    transform: crate::lengths::ItemTransform,
+) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
 
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
-            let item_geometry = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
+            let item_geometry = transform.outer_transformed_rect(
+                &ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index).cast(),
+            );
+            let children_transform = ItemRc::new(component.clone(), index)
+                .children_transform()
+                .unwrap_or_default()
+                .then_translate(item_geometry.origin.to_vector());
 
-            let local_clip_rect = clip_rect.translate(-item_geometry.origin.to_vector());
+            let offset: LogicalPoint = item_geometry.origin.cast();
+            let local_clip_rect = clip_rect.translate(-offset.to_vector());
 
-            if let Some(clipped_item_geometry) = item_geometry.intersection(clip_rect) {
-                bounding_rect = bounding_rect.union(&clipped_item_geometry);
+            if let Some(clipped_item_geometry) = item_geometry.intersection(&clip_rect.cast()) {
+                bounding_rect = bounding_rect.union(&clipped_item_geometry.cast());
             }
 
             if !item.as_ref().clips_children() {
-                bounding_rect = bounding_rect.union(&item_children_bounding_rect(
+                bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
                     component,
                     index as isize,
                     &local_clip_rect,
+                    transform.then(&children_transform),
                 ));
             }
             VisitChildrenResult::CONTINUE
@@ -269,19 +286,48 @@ pub trait RenderImage {
     fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling);
 }
 
+/// Trait for an item has font properties
+#[allow(missing_docs)]
+pub trait HasFont {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest;
+}
+
+/// Trait for an item that represents an string towards the renderer
+#[allow(missing_docs)]
+pub trait RenderString: HasFont {
+    fn text(self: Pin<&Self>) -> SharedString;
+}
+
 /// Trait for an item that represents an Text towards the renderer
 #[allow(missing_docs)]
-pub trait RenderText {
+pub trait RenderText: RenderString {
     fn target_size(self: Pin<&Self>) -> LogicalSize;
-    fn text(self: Pin<&Self>) -> SharedString;
-    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest;
     fn color(self: Pin<&Self>) -> Brush;
     fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
     fn wrap(self: Pin<&Self>) -> TextWrap;
     fn overflow(self: Pin<&Self>) -> TextOverflow;
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength;
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
     fn is_markdown(self: Pin<&Self>) -> bool;
+    fn link_color(self: Pin<&Self>) -> Color;
+}
+
+impl HasFont for (SharedString, Brush) {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        crate::items::WindowItem::resolved_font_request(
+            self_rc,
+            SharedString::default(),
+            0,
+            LogicalLength::default(),
+            LogicalLength::default(),
+            false,
+        )
+    }
+}
+
+impl RenderString for (SharedString, Brush) {
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.0.clone()
+    }
 }
 
 impl RenderText for (SharedString, Brush) {
@@ -289,16 +335,12 @@ impl RenderText for (SharedString, Brush) {
         LogicalSize::default()
     }
 
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.0.clone()
-    }
-
-    fn font_request(self: Pin<&Self>, _self_rc: &ItemRc) -> crate::graphics::FontRequest {
-        Default::default()
-    }
-
     fn color(self: Pin<&Self>) -> Brush {
         self.1.clone()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
     }
 
     fn alignment(
@@ -313,10 +355,6 @@ impl RenderText for (SharedString, Brush) {
 
     fn overflow(self: Pin<&Self>) -> crate::items::TextOverflow {
         Default::default()
-    }
-
-    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        LogicalLength::default()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {

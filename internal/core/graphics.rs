@@ -114,11 +114,9 @@ impl FontRequest {
                 .map(|family| fontique::QueryFamily::from(family.as_str()))
                 .into_iter()
                 .chain(
-                    [
-                        fontique::QueryFamily::Generic(fontique::GenericFamily::SansSerif),
-                        fontique::QueryFamily::Generic(fontique::GenericFamily::SystemUi),
-                    ]
-                    .into_iter(),
+                    sharedfontique::FALLBACK_FAMILIES
+                        .into_iter()
+                        .map(fontique::QueryFamily::Generic),
                 ),
         );
 

@@ -134,12 +134,12 @@ public:
     LiveReloadingComponent(std::string_view file_name, std::string_view component_name,
                            const slint::SharedVector<slint::SharedString> &include_paths,
                            const slint::SharedVector<slint::SharedString> &libraries,
-                           std::string_view style)
+                           std::string_view style, std::string_view translation_domain)
     {
         assert_main_thread();
         inner = cbindgen_private::slint_live_preview_new(
                 string_to_slice(file_name), string_to_slice(component_name), &include_paths,
-                &libraries, string_to_slice(style));
+                &libraries, string_to_slice(style), string_to_slice(translation_domain));
     }
 
     LiveReloadingComponent(const LiveReloadingComponent &other) : inner(other.inner)
@@ -354,13 +354,21 @@ public:
     }
 };
 
+template<typename T>
+concept HasFromSlintValue = requires(const slint::interpreter::Value &val) {
+    { from_slint_value(val, std::declval<T *>()) };
+};
+
 template<typename ModelData>
 slint::interpreter::Value into_slint_value(const std::shared_ptr<slint::Model<ModelData>> &val)
 {
     if (!val) {
         return {};
     }
-    return LiveReloadModelWrapper<ModelData>::wrap(val);
+    if constexpr (HasFromSlintValue<ModelData>) {
+        return LiveReloadModelWrapper<ModelData>::wrap(val);
+    }
+    return {};
 }
 
 template<typename ModelData>
@@ -371,6 +379,16 @@ from_slint_value(const slint::interpreter::Value &value,
     if (const LiveReloadModelWrapperBase *base = LiveReloadModelWrapperBase::get(value)) {
         if (auto wrapper = dynamic_cast<const LiveReloadModelWrapper<ModelData> *>(base)) {
             return wrapper->model;
+        }
+    }
+    if constexpr (HasFromSlintValue<ModelData>) {
+        if (auto array = value.to_array(); array && array->size() > 0) {
+            std::vector<ModelData> data;
+            data.reserve(array->size());
+            for (auto &v : *array) {
+                data.push_back(from_slint_value<ModelData>(v));
+            }
+            return std::make_shared<slint::VectorModel<ModelData>>(std::move(data));
         }
     }
     return {};

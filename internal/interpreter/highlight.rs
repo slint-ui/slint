@@ -5,8 +5,9 @@
 
 use crate::dynamic_item_tree::{DynamicComponentVRc, ItemTreeBox};
 use i_slint_compiler::object_tree::{Component, Element, ElementRc};
+use i_slint_core::graphics::euclid;
 use i_slint_core::items::ItemRc;
-use i_slint_core::lengths::LogicalRect;
+use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::path::Path;
@@ -27,10 +28,28 @@ fn normalize_repeated_element(element: ElementRc) -> ElementRc {
     element
 }
 
+/// The rectangle of an element, which may be rotated around its center
+#[derive(Clone, Copy, Debug, Default)]
+pub struct HighlightedRect {
+    /// The element's geometry
+    pub rect: LogicalRect,
+    /// In degrees, around the center of the element
+    pub angle: f32,
+}
+impl HighlightedRect {
+    /// return true if the point is inside the (potentially rotated) rectangle
+    pub fn contains(&self, position: LogicalPoint) -> bool {
+        let center = self.rect.center();
+        let rotation = euclid::Rotation2D::radians((-self.angle).to_radians());
+        let transformed = center + rotation.transform_vector(position - center);
+        self.rect.contains(transformed)
+    }
+}
+
 fn collect_highlight_data(
     component: &DynamicComponentVRc,
     elements: &[std::rc::Weak<RefCell<Element>>],
-) -> Vec<i_slint_core::lengths::LogicalRect> {
+) -> Vec<HighlightedRect> {
     let component_instance = VRc::downgrade(component);
     let component_instance = component_instance.upgrade().unwrap();
     generativity::make_guard!(guard);
@@ -56,7 +75,7 @@ pub(crate) fn component_positions(
     component_instance: &DynamicComponentVRc,
     path: &Path,
     offset: u32,
-) -> Vec<i_slint_core::lengths::LogicalRect> {
+) -> Vec<HighlightedRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
@@ -82,7 +101,7 @@ pub fn element_positions(
     component_instance: &DynamicComponentVRc,
     element: &ElementRc,
     filter_clipped: ElementPositionFilter,
-) -> Vec<LogicalRect> {
+) -> Vec<HighlightedRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
@@ -112,7 +131,7 @@ fn fill_highlight_data(
     component_instance: &ItemTreeBox,
     root_component_instance: &ItemTreeBox,
     filter_clipped: ElementPositionFilter,
-    values: &mut Vec<i_slint_core::lengths::LogicalRect>,
+    values: &mut Vec<HighlightedRect>,
 ) {
     if element.borrow().repeated.is_some() {
         // avoid a panic
@@ -150,9 +169,31 @@ fn fill_highlight_data(
         let item_rc = ItemRc::new(vrc.clone(), index);
         if filter_clipped == ElementPositionFilter::IncludeClipped || item_rc.is_visible() {
             let geometry = item_rc.geometry();
+            if geometry.size.is_empty() {
+                return;
+            }
             let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
-            let size = geometry.size;
-            values.push(LogicalRect { origin, size });
+            let top_right = item_rc.map_to_item_tree(
+                geometry.origin + euclid::vec2(geometry.size.width, 0.),
+                &root_vrc,
+            );
+            let delta = top_right - origin;
+            let width = delta.length();
+            let height = geometry.size.height * width / geometry.size.width;
+            // Compute the angle between the origin(top-right) and top-left corner
+            let angle_rad = delta.y.atan2(delta.x);
+            let (sin, cos) = angle_rad.sin_cos();
+            let center = euclid::point2(
+                origin.x + (width / 2.0) * cos - (height / 2.0) * sin,
+                origin.y + (width / 2.0) * sin + (height / 2.0) * cos,
+            );
+            values.push(HighlightedRect {
+                rect: LogicalRect {
+                    origin: center - euclid::vec2(width / 2.0, height / 2.0),
+                    size: euclid::size2(width, height),
+                },
+                angle: angle_rad.to_degrees(),
+            });
         }
     }
 }

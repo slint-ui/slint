@@ -226,7 +226,7 @@ fn lower_popup_window(
     });
     visit_all_expressions(&parent_component, |exp, _| {
         exp.visit_recursive_mut(&mut |exp| {
-            if let Expression::ElementReference(ref element) = exp {
+            if let Expression::ElementReference(element) = exp {
                 let elem = element.upgrade().unwrap();
                 if !Rc::ptr_eq(&elem, popup_window_element) {
                     check_element(&elem, &weak, diag, popup_window_element);

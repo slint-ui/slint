@@ -120,7 +120,18 @@ component ComplexText inherits SimpleText {
 
 export { ComplexText as Text }
 
-export component MarkdownText inherits SimpleText {
+export component MarkdownText inherits Empty {
+    in property <length> width;
+    in property <length> height;
+    in property <string> text;
+    in property <length> font-size;
+    in property <int> font-weight;
+    in property <brush> color;
+    in property <TextHorizontalAlignment> horizontal-alignment;
+    in property <TextVerticalAlignment> vertical-alignment;
+    callback link-clicked(link: string);
+    in property <color> link-color: #00f;
+
     in property <string> font-family;
     in property <bool> font-italic;
     in property <TextOverflow> overflow;
@@ -296,6 +307,10 @@ export component ContextMenuArea inherits Empty {
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
+    out property <length> safe-area-inset-top;
+    out property <length> safe-area-inset-bottom;
+    out property <length> safe-area-inset-left;
+    out property <length> safe-area-inset-right;
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
     in property <brush> color <=> background;
     in property <string> title: "Slint Window";
@@ -487,6 +502,7 @@ export component Path {
     in property <brush> stroke;
     in property <length> stroke-width;
     in property <LineCap> stroke-line-cap;
+    in property <LineJoin> stroke-line-join;
     in property <string> commands;  // 'fake' hardcoded in typeregister.rs
     in property <float> viewbox-x;
     in property <float> viewbox-y;

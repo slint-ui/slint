@@ -250,6 +250,12 @@ public:
                 cbindgen_private::AccessibleStringProperty::Description);
     }
 
+    /// Returns the accessible-id of that element, if any.
+    std::optional<SharedString> accessible_id() const
+    {
+        return get_accessible_string_property(cbindgen_private::AccessibleStringProperty::Id);
+    }
+
     /// Returns the accessible-value-maximum of that element, if any.
     std::optional<float> accessible_value_maximum() const
     {

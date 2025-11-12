@@ -1163,7 +1163,7 @@ fn get_document_color(
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
                 let range = util::token_to_lsp_range(&token);
-                let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
+                let col = i_slint_common::color_parsing::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
                     range,

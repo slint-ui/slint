@@ -470,23 +470,7 @@ impl ItemRc {
     /// Returns an absolute position of `p` in the parent item coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
-        let mut current = self.clone();
-        let mut result = p;
-        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            let geometry = parent.geometry();
-            if self
-                .window_adapter()
-                .map(|adapter| adapter.renderer().supports_transformations())
-                .unwrap_or(true)
-            {
-                if let Some(transform) = parent.children_transform() {
-                    result = transform.transform_point(result.cast()).cast();
-                }
-            }
-            result += geometry.origin.to_vector();
-            current = parent.clone();
-        }
-        result
+        self.map_to_item_tree_impl(p, |_| false)
     }
 
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
@@ -496,18 +480,41 @@ impl ItemRc {
         p: LogicalPoint,
         item_tree: &vtable::VRc<ItemTreeVTable>,
     ) -> LogicalPoint {
+        self.map_to_item_tree_impl(p, |current| current.is_root_item_of(item_tree))
+    }
+
+    /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
+    /// (does not add this item's x and y)
+    /// Don't rely on any specific behavior if `self` isn't a descendant of `ancestor`.
+    fn map_to_ancestor(&self, p: LogicalPoint, ancestor: &Self) -> LogicalPoint {
+        self.map_to_item_tree_impl(p, |parent| parent == ancestor)
+    }
+
+    fn map_to_item_tree_impl(
+        &self,
+        p: LogicalPoint,
+        stop_condition: impl Fn(&Self) -> bool,
+    ) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
-        if current.is_root_item_of(item_tree) {
+        if stop_condition(&current) {
             return result;
         }
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            if parent.is_root_item_of(item_tree) {
+            if stop_condition(&parent) {
                 break;
             }
             let geometry = parent.geometry();
+            if supports_transformations {
+                if let Some(transform) = parent.children_transform() {
+                    result = transform.transform_point(result.cast()).cast();
+                }
+            }
             result += geometry.origin.to_vector();
-            current = parent.clone();
+            current = parent;
         }
         result
     }
@@ -846,6 +853,40 @@ impl ItemRc {
         self.children_transform()
             // Should practically always be possible.
             .and_then(|child_transform| child_transform.inverse())
+    }
+
+    pub(crate) fn try_scroll_into_visible(&self) {
+        let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
+        while let Some(item_rc) = parent.as_ref() {
+            let item_ref = item_rc.borrow();
+            if let Some(flickable) = vtable::VRef::downcast_pin::<crate::items::Flickable>(item_ref)
+            {
+                let geo = self.geometry();
+
+                flickable.reveal_points(
+                    item_rc,
+                    &[
+                        self.map_to_ancestor(
+                            LogicalPoint::new(
+                                geo.origin.x - flickable.viewport_x().0,
+                                geo.origin.y - flickable.viewport_y().0,
+                            ),
+                            &item_rc,
+                        ),
+                        self.map_to_ancestor(
+                            LogicalPoint::new(
+                                geo.max_x() - flickable.viewport_x().0,
+                                geo.max_y() - flickable.viewport_y().0,
+                            ),
+                            &item_rc,
+                        ),
+                    ],
+                );
+                break;
+            }
+
+            parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
+        }
     }
 }
 

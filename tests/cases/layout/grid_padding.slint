@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 600phx;
     height: 300phx;
 
@@ -43,8 +43,8 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 20phx && rect1.y == 10phx && rect1.width == 250phx && rect1.height == 250phx;
-    property <bool> rect2_pos_ok: rect2.x == 20phx && rect2.y == 25phx && rect2.width == 250phx && rect2.height == 250phx;
+    out property <bool> rect1_pos_ok: rect1.x == 20phx && rect1.y == 10phx && rect1.width == 250phx && rect1.height == 250phx;
+    out property <bool> rect2_pos_ok: rect2.x == 20phx && rect2.y == 25phx && rect2.width == 250phx && rect2.height == 250phx;
     out property <bool> test: rect1_pos_ok && rect2_pos_ok;
 }
 

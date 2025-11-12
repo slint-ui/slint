@@ -149,7 +149,7 @@ jobs:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
-                  device: iPad Pro 13-inch (M4)
+                  device: iPad Pro 13-inch (M5)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
@@ -163,28 +163,112 @@ jobs:
             - run: brew install xcodegen
             - run: xcodegen -s ios-project.yml
               working-directory: ${{ matrix.demo }}
-            - name: "Boot Simulator (to ensure also that xcodebuild -destination works)"
+            - name: "Find Simulator UDID from iOS 26.0 runtime"
               run: |
-                xcrun simctl boot "${{ matrix.device }}"
-                sleep 10
-            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
+                echo "=== Finding device from iOS 26.0 runtime (default Xcode) ==="
+                # Find the device UDID from iOS 26.0 runtime to avoid ambiguity
+                # Multiple runtimes have devices with the same name, so we need the specific one
+                # Output format: "    Device Name (UDID) (Shutdown)"
+                DEVICE_LINE=$(xcrun simctl list devices available | grep -A 50 "iOS 26.0" | grep "${{ matrix.device }}" | head -n 1)
+
+                if [ -z "$DEVICE_LINE" ]; then
+                  echo "ERROR: Could not find ${{ matrix.device }} in iOS 26.0 runtime"
+                  echo "Available iOS 26.0 devices:"
+                  xcrun simctl list devices available | grep -A 30 "iOS 26.0"
+                  exit 1
+                fi
+
+                # Extract UDID from the line (format: "    Device Name (UDID) (Shutdown)")
+                DEVICE_UDID=$(echo "$DEVICE_LINE" | sed -n 's/.*(\([A-F0-9-]\{36\}\)).*/\1/p')
+
+                if [ -z "$DEVICE_UDID" ]; then
+                  echo "ERROR: Could not extract UDID from line: $DEVICE_LINE"
+                  exit 1
+                fi
+
+                echo "Device: ${{ matrix.device }}"
+                echo "UDID: $DEVICE_UDID"
+
+                # Export UDID for use in xcodebuild and boot steps
+                echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
               working-directory: ${{ matrix.demo }}
+            - name: "Boot Simulator"
+              timeout-minutes: 5
+              run: |
+                echo "=== Booting simulator by UDID ==="
+                echo "Device: ${{ matrix.device }}"
+                echo "UDID: ${{ env.SIMULATOR_UDID }}"
+                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+
+                set -x  # Enable command echoing
+                xcrun simctl boot "${{ env.SIMULATOR_UDID }}"
+                BOOT_RESULT=$?
+                set +x  # Disable command echoing
+
+                echo "Boot command completed with exit code: $BOOT_RESULT"
+                echo ""
+
+                echo "=== Simulator state after boot command ==="
+                SIMULATOR_STATUS=$(xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}")
+                echo "$SIMULATOR_STATUS"
+
+                if echo "$SIMULATOR_STATUS" | grep -q "(Booted)"; then
+                  echo "Simulator is booted successfully at: $(date '+%Y-%m-%d %H:%M:%S')"
+                else
+                  echo "ERROR: Simulator failed to boot properly"
+                  echo "Current status: $SIMULATOR_STATUS"
+                  exit 1
+                fi
             - name: "Install"
               run: |
                 APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
                 echo "Found app bundle at $APP_PATH"
                 xcrun simctl install booted "$APP_PATH"
+                echo "Verifying installation..."
+                xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
             - name: "Launch"
+              timeout-minutes: 5
               run: |
-                xcrun simctl launch booted "${{ matrix.bundle_id }}"
-                sleep 5
+                echo "Attempting to launch ${{ matrix.bundle_id }}..."
+                # Retry loop to wait for FrontBoard to register the app
+                MAX_ATTEMPTS=10
+                ATTEMPT=1
+                while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+                  echo "Launch attempt $ATTEMPT of $MAX_ATTEMPTS..."
+                  if xcrun simctl launch booted "${{ matrix.bundle_id }}" 2>&1 | tee launch_output.txt; then
+                    echo "App launched successfully on attempt $ATTEMPT"
+                    sleep 5
+                    exit 0
+                  fi
+
+                  if grep -q "unknown to FrontBoard" launch_output.txt; then
+                    echo "FrontBoard hasn't registered app yet, waiting 2 seconds..."
+                    sleep 2
+                    ATTEMPT=$((ATTEMPT + 1))
+                  else
+                    echo "Launch failed with a different error:"
+                    cat launch_output.txt
+                    echo "Checking simulator logs..."
+                    xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"' || true
+                    exit 1
+                  fi
+                done
+
+                echo "Failed to launch after $MAX_ATTEMPTS attempts"
+                exit 1
             - name: "Screenshot"
               run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
             - name: Upload Screenshot Artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                 name: ${{matrix.scheme}}-screenshot
                 path: ${{ matrix.scheme }}.png
+            - name: "Cleanup - Shutdown Simulator"
+              if: always()
+              run: |
+                echo "Shutting down simulator to avoid orphan processes..."
+                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
 
 
     bevy_example:
@@ -219,18 +303,20 @@ jobs:
             - name: Build wgpu_texture demo
               run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
 
-    uvx_slint_compiler:
+    python:
         strategy:
             matrix:
-                os: [ubuntu-22.04, ubuntu-22.04-arm, macos-14, windows-2022, windows-11-arm]
-        runs-on: ${{ matrix.os }}
-        steps:
-            - uses: actions/checkout@v5
-            - name: Install uv
-              uses: astral-sh/setup-uv@v7
-            - name: Run slint compiler via uxv
-              working-directory: api/python/compiler
-              env:
-                SLINT_COMPILER_VERSION: nightly
-              # TODO: generate python code when the python generator lands
-              run: uvx --with-editable=. slint-compiler ../../../demos/printerdemo/ui/printerdemo.slint
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+            name: "Python ${{ matrix.os }}"
+            os: ${{ matrix.os }}
+
+    node:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+            name: "Node.js ${{ matrix.os }}"
+            os: ${{ matrix.os }}

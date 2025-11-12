@@ -257,7 +257,7 @@ const getBreakpoints = ({
 };
 
 /* ** */
-export const astroAssetsOptimizer: ImagesOptimizer = async (
+export const astroAssetsOptimizer: ImagesOptimizer = (
     image,
     breakpoints,
     _width,
@@ -265,7 +265,7 @@ export const astroAssetsOptimizer: ImagesOptimizer = async (
     format = undefined,
 ) => {
     if (!image) {
-        return [];
+        return Promise.resolve([]);
     }
 
     return Promise.all(
@@ -291,7 +291,7 @@ export const isUnpicCompatible = (image: string) => {
 };
 
 /* ** */
-export const unpicOptimizer: ImagesOptimizer = async (
+export const unpicOptimizer: ImagesOptimizer = (
     image,
     breakpoints,
     width,
@@ -299,16 +299,16 @@ export const unpicOptimizer: ImagesOptimizer = async (
     format = undefined,
 ) => {
     if (!image || typeof image !== "string") {
-        return [];
+        return Promise.resolve([]);
     }
 
     const urlParsed = parseUrl(image);
     if (!urlParsed) {
-        return [];
+        return Promise.resolve([]);
     }
 
     return Promise.all(
-        breakpoints.map(async (w: number) => {
+        breakpoints.map((w: number) => {
             const _height =
                 width && height ? computeHeight(w, width / height) : height;
             const url =

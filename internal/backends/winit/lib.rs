@@ -384,17 +384,14 @@ impl BackendBuilder {
             }
             #[cfg(feature = "renderer-femtovg-wgpu")]
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
-                if !maybe_graphics_api.is_some_and(|_api| {
+                if let Some(_api) = maybe_graphics_api {
                     #[cfg(feature = "unstable-wgpu-27")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU27(..)) {
-                        return true;
+                    if !matches!(_api, RequestedGraphicsAPI::WGPU27(..)) {
+                        return Err(
+                           "The FemtoVG WGPU renderer only supports the WGPU27 graphics API selection"
+                                .into(),
+                        );
                     }
-                    false
-                }) {
-                    return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU27 graphics API selection"
-                            .into(),
-                    );
                 }
                 renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
             }

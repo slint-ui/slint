@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 200phx;
     height: 500phx;
 
@@ -28,7 +28,7 @@ TestCase := Window {
     }
 
     // there should be 5 rows
-    property <bool> size_ok:
+    out property <bool> size_ok:
         rect1.width == 100phx && rect1.height == 100phx &&
         rect2.width == 100phx && rect2.height == 100phx &&
         rect3.width == 100phx && rect3.height == 100phx &&
@@ -39,14 +39,14 @@ TestCase := Window {
         rect8.width == 100phx && rect8.height == 100phx &&
         rect9.width == 100phx && rect9.height == 100phx &&
         rect10.width == 100phx && rect10.height == 100phx;
-    property <bool> x_ok:
+    out property <bool> x_ok:
         rect1.x == 0phx && rect2.x == 100phx &&
         rect3.x == 0phx && rect4.x == 100phx &&
         rect5.x == 0phx && rect6.x == 100phx &&
         rect7.x == 0phx && rect8.x == 100phx &&
         rect9.x == 0phx && rect10.x == 100phx;
 
-    property <bool> y_ok:
+    out property <bool> y_ok:
         rect1.y == 0phx && rect2.y == 0phx &&
         rect3.y == 100phx && rect4.y == 100phx &&
         rect5.y == 200phx && rect6.y == 200phx &&

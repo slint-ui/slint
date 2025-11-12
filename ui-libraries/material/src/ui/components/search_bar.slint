@@ -132,6 +132,7 @@ export component SearchBar {
     callback action_button_clicked(index: int);
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;
+    callback item-activated(index: int) -> bool;
 
     property <color> color: MaterialPalette.on_surface_variant;
     property <length> item_height: MaterialStyleMetrics.size_72;
@@ -288,7 +289,9 @@ export component SearchBar {
                         action_button_icon: item.action_button_icon;
 
                         clicked => {
-                            root.text = self.text;
+                            if (!root.item-activated(index)) {
+                                root.text = self.text;
+                            }
                             popup.close();
                         }
 

@@ -13,19 +13,19 @@ use vtable::VRef;
 
 /// Construct a new Value in the given memory location
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new() -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new() -> Box<Value> {
     Box::new(Value::default())
 }
 
 /// Construct a new Value in the given memory location
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_clone(other: &Value) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_clone(other: &Value) -> Box<Value> {
     Box::new(other.clone())
 }
 
 /// Destruct the value in that memory location
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_destructor(val: Box<Value>) {
+pub extern "C" fn slint_interpreter_value_destructor(val: Box<Value>) {
     drop(val);
 }
 
@@ -36,25 +36,25 @@ pub extern "C" fn slint_interpreter_value_eq(a: &Value, b: &Value) -> bool {
 
 /// Construct a new Value in the given memory location as string
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_string(str: &SharedString) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new_string(str: &SharedString) -> Box<Value> {
     Box::new(Value::String(str.clone()))
 }
 
 /// Construct a new Value in the given memory location as double
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_double(double: f64) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new_double(double: f64) -> Box<Value> {
     Box::new(Value::Number(double))
 }
 
 /// Construct a new Value in the given memory location as bool
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_bool(b: bool) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new_bool(b: bool) -> Box<Value> {
     Box::new(Value::Bool(b))
 }
 
 /// Construct a new Value in the given memory location as array model
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_array_model(
+pub extern "C" fn slint_interpreter_value_new_array_model(
     a: &SharedVector<Box<Value>>,
 ) -> Box<Value> {
     let vec = a.iter().map(|vb| vb.as_ref().clone()).collect::<SharedVector<_>>();
@@ -63,19 +63,19 @@ pub unsafe extern "C" fn slint_interpreter_value_new_array_model(
 
 /// Construct a new Value in the given memory location as Brush
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_brush(brush: &Brush) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new_brush(brush: &Brush) -> Box<Value> {
     Box::new(Value::Brush(brush.clone()))
 }
 
 /// Construct a new Value in the given memory location as Struct
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_struct(struc: &StructOpaque) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new_struct(struc: &StructOpaque) -> Box<Value> {
     Box::new(Value::Struct(struc.as_struct().clone()))
 }
 
 /// Construct a new Value in the given memory location as image
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_new_image(img: &Image) -> Box<Value> {
+pub extern "C" fn slint_interpreter_value_new_image(img: &Image) -> Box<Value> {
     Box::new(Value::Image(img.clone()))
 }
 
@@ -110,7 +110,7 @@ pub extern "C" fn slint_interpreter_value_to_model(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_value_type(val: &Value) -> ValueType {
+pub extern "C" fn slint_interpreter_value_type(val: &Value) -> ValueType {
     val.value_type()
 }
 
@@ -144,15 +144,12 @@ pub extern "C" fn slint_interpreter_value_to_bool(val: &Value) -> Option<&bool> 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_interpreter_value_to_array(
     val: &Box<Value>,
-    out: *mut SharedVector<Box<Value>>,
+    out: &mut SharedVector<Box<Value>>,
 ) -> bool {
     match val.as_ref() {
         Value::Model(m) => {
             let vec = m.iter().map(|vb| Box::new(vb)).collect::<SharedVector<_>>();
-            unsafe {
-                std::ptr::write(out, vec);
-            }
-
+            *out = vec;
             true
         }
         _ => false,
@@ -314,7 +311,7 @@ pub extern "C" fn slint_interpreter_struct_make_iter(
 
 /// Get a property. Returns a null pointer if the property does not exist.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_component_instance_get_property(
+pub extern "C" fn slint_interpreter_component_instance_get_property(
     inst: &ErasedItemTreeBox,
     name: Slice<u8>,
 ) -> *mut Value {
@@ -348,7 +345,7 @@ pub extern "C" fn slint_interpreter_component_instance_set_property(
 
 /// Invoke a callback or function. Returns raw boxed value on success and null ptr on failure.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_interpreter_component_instance_invoke(
+pub extern "C" fn slint_interpreter_component_instance_invoke(
     inst: &ErasedItemTreeBox,
     name: Slice<u8>,
     args: Slice<Box<Value>>,

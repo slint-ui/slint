@@ -78,7 +78,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
     cost
 }
 
-fn callback_cost(_callback: &crate::llr::PropertyReference, _ctx: &EvaluationContext) -> isize {
+fn callback_cost(_callback: &crate::llr::MemberReference, _ctx: &EvaluationContext) -> isize {
     // TODO: lookup the callback and find out what it does
     isize::MAX
 }
@@ -155,6 +155,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StartTimer => 10,
         BuiltinFunction::StopTimer => 10,
         BuiltinFunction::RestartTimer => 10,
+        BuiltinFunction::OpenUrl => isize::MAX,
     }
 }
 

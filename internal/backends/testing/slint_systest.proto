@@ -101,6 +101,7 @@ enum AccessibleRole {
     TabPanel = 16;
     Groupbox = 17;
     Image = 18;
+    RadioButton = 19;
 }
 
 message ElementQueryInstruction {

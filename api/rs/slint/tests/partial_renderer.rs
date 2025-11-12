@@ -824,3 +824,44 @@ fn create_item_tree_during_rendering() {
         do_test_render_region(renderer, 12, 3, 22, 24);
     }));
 }
+
+#[test]
+fn issue_9882_borrow_mut() {
+    slint::slint! {
+        export component App inherits Window {
+            in-out property <[string]> strings: ["Home"];
+            VerticalLayout {
+                VerticalLayout {
+                    for str in root.strings: Text {
+                        text: str;
+                    }
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = App::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_strings(slint::ModelRc::new(slint::VecModel::from_iter([slint::SharedString::from(
+        "Hello",
+    )])));
+
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+
+    ui.set_strings(slint::ModelRc::new(slint::VecModel::from_iter([slint::SharedString::from(
+        "World",
+    )])));
+
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+}

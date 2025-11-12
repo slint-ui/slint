@@ -15,7 +15,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+use i_slint_core::lengths::{LogicalInset, PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -451,8 +451,6 @@ impl WinitWindowAdapter {
             }
         }
 
-        let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
-
         // Never show the window right away, as we
         //  a) need to compute the correct size based on the scale factor before it's shown on the screen (handled by set_visible)
         //  b) need to create the accesskit adapter before it's shown on the screen, as required by accesskit.
@@ -480,7 +478,7 @@ impl WinitWindowAdapter {
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
         self.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
-        *winit_window_or_none = WinitWindowOrNone::HasWindow {
+        *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
@@ -491,24 +489,31 @@ impl WinitWindowAdapter {
             )
             .into(),
             #[cfg(muda)]
-            muda_adapter: self
-                .menubar
-                .borrow()
-                .as_ref()
-                .map(|menubar| {
-                    crate::muda::MudaAdapter::setup(
-                        menubar,
-                        &winit_window,
-                        self.event_loop_proxy.clone(),
-                        self.self_weak.clone(),
-                    )
-                })
-                .into(),
+            muda_adapter: RefCell::new(None),
             #[cfg(muda)]
             context_menu_muda_adapter: None.into(),
         };
 
-        drop(winit_window_or_none);
+        #[cfg(muda)]
+        {
+            let new_muda_adapter = self.menubar.borrow().as_ref().map(|menubar| {
+                crate::muda::MudaAdapter::setup(
+                    menubar,
+                    &winit_window,
+                    self.event_loop_proxy.clone(),
+                    self.self_weak.clone(),
+                )
+            });
+            match &*self.winit_window_or_none.borrow() {
+                WinitWindowOrNone::HasWindow { muda_adapter, .. } => {
+                    *muda_adapter.borrow_mut() = new_muda_adapter;
+                }
+                WinitWindowOrNone::None(_) => {
+                    // During muda menubar creation the winit window was destroyed again? Well then...
+                    // there's nothing to do for us :)
+                }
+            }
+        }
 
         if show_after_creation {
             self.shown.set(WindowVisibility::Hidden);
@@ -721,8 +726,13 @@ impl WinitWindowAdapter {
             self.size.set(physical_size);
             self.pending_requested_size.set(None);
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
-            self.window().try_dispatch_event(WindowEvent::Resized {
-                size: physical_size.to_logical(scale_factor),
+
+            let size = physical_size.to_logical(scale_factor);
+            self.window().try_dispatch_event(WindowEvent::Resized { size })?;
+
+            self.window().try_dispatch_event(WindowEvent::SafeAreaChanged {
+                inset: self.safe_area_inset().to_logical(scale_factor),
+                token: corelib::InternalToken,
             })?;
 
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
@@ -1164,6 +1174,17 @@ impl WindowAdapter for WinitWindowAdapter {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();
+            self.window()
+                .try_dispatch_event(WindowEvent::SafeAreaChanged {
+                    inset: LogicalInset::new(
+                        window_item.safe_area_inset_top().get(),
+                        window_item.safe_area_inset_bottom().get(),
+                        window_item.safe_area_inset_left().get(),
+                        window_item.safe_area_inset_right().get(),
+                    ),
+                    token: corelib::InternalToken,
+                })
+                .unwrap();
         }
 
         let m = properties.is_fullscreen();
@@ -1461,6 +1482,30 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             winit_window.focus_window();
         }
         Ok(())
+    }
+
+    #[cfg(target_os = "ios")]
+    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalInset {
+        self.winit_window_or_none
+            .borrow()
+            .as_window()
+            .and_then(|window| {
+                let outer_position = window.outer_position().ok()?;
+                let inner_position = window.inner_position().ok()?;
+                let outer_size = window.outer_size();
+                let inner_size = window.inner_size();
+                Some(i_slint_core::lengths::PhysicalInset::new(
+                    inner_position.y - outer_position.y,
+                    outer_size.height as i32
+                        - (inner_size.height as i32)
+                        - (inner_position.y - outer_position.y),
+                    inner_position.x - outer_position.x,
+                    outer_size.width as i32
+                        - (inner_size.width as i32)
+                        - (inner_position.x - outer_position.x),
+                ))
+            })
+            .unwrap_or_default()
     }
 }
 

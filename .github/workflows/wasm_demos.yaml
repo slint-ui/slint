@@ -46,7 +46,7 @@ jobs:
             - name: Remaining wasm demos
               if: ${{ inputs.build_artifacts }}
               run: |
-                  for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust; do
+                  for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
                       pushd $demo
                       sed -i "s/#wasm# //" Cargo.toml
                       wasm-pack build --release --target web
@@ -65,7 +65,7 @@ jobs:
               working-directory: demos/weather-demo
             - name: "Upload Demo Artifacts"
               if: ${{ inputs.build_artifacts }}
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: wasm_demo
                   path: |
@@ -76,6 +76,7 @@ jobs:
                       examples/carousel/rust/
                       examples/memory/
                       examples/slide_puzzle/
+                      examples/speedometer/rust/
                       examples/imagefilter/rust
                       examples/plotter/
                       examples/opengl_underlay/

@@ -74,7 +74,7 @@ impl Item for DragArea {
                 InputEventFilterResult::ForwardAndIgnore
             }
 
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if !self.pressed.get() {
                     InputEventFilterResult::ForwardEvent
                 } else {
@@ -116,7 +116,7 @@ impl Item for DragArea {
                 self.cancel();
                 InputEventResult::EventIgnored
             }
-            MouseEvent::Moved { position } => {
+            MouseEvent::Moved { position, .. } => {
                 if !self.pressed.get() || !self.enabled() {
                     return InputEventResult::EventIgnored;
                 }

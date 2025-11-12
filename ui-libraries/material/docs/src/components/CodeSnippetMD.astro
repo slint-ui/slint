@@ -14,8 +14,14 @@ interface Props {
     skip?: boolean;
     scale?: number;
 }
-const { imagePath, imageAlt, skip, needsBackground, imageWidth, imageHeight } =
-    Astro.props as Props;
+const {
+    imagePath,
+    imageAlt,
+    skip,
+    needsBackground,
+    imageWidth: _imageWidth,
+    imageHeight: _imageHeight,
+} = Astro.props as Props;
 const images = import.meta.glob<{ default: ImageMetadata }>(
     "/src/assets/generated/*.{jpeg,jpg,png,gif}",
 );
