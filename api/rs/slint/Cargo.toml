@@ -56,9 +56,6 @@ serde = ["i-slint-core/serde"]
 ## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
 software-renderer-systemfonts = ["renderer-software", "i-slint-core/software-renderer-systemfonts"]
 
-## Internal feature: Enable shared fontique font handling
-shared-fontique = ["i-slint-core/shared-fontique"]
-
 ## Slint uses internally some `thread_local` state.
 ##
 ## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`
