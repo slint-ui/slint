@@ -3,24 +3,37 @@
 
 import { StandardButton, Button, GridBox } from "std-widgets.slint";
 
-TestCase := Dialog {
-    Rectangle {
+export component TestCase inherits Dialog {
+    mainwidget := Rectangle {
         background: red;
         preferred-width: 600px;
         preferred-height: 600px;
     }
     forward-focus: ok-button;
 
-    StandardButton { kind: help; }
+    help-button := StandardButton { kind: help; }
     ok-button := StandardButton { kind: ok; }
-    StandardButton { kind: cancel; }
-    StandardButton { kind: apply; }
-    StandardButton { kind: reset; }
-    StandardButton { kind: yes; }
-    Button {
-        text: "Action";
+    cancel-button := StandardButton { kind: cancel; }
+    apply-button := StandardButton { kind: apply; }
+    reset-button := StandardButton { kind: reset; }
+    yes-button := StandardButton { kind: yes; }
+    action-button := Button {
+        text: mainwidget.colspan;
         dialog-button-role: action;
     }
+
+    property <length> buttons_y: mainwidget.y + mainwidget.height + 8px;
+
+    // The interpreter in test mode assumes Windows layout: Reset, Accept, Action, Reject, Apply, Help
+    property <bool> mainwidget_ok: mainwidget.x == 8px && mainwidget.y == 8px;
+    property <bool> reset_ok: reset-button.x == 8px && reset-button.y == buttons_y;
+    property <bool> ok_ok: ok-button.x > reset-button.x && ok-button.y == buttons_y;
+    property <bool> yes_ok: yes-button.x > ok-button.x && yes-button.y == buttons_y;
+    property <bool> action_ok: action-button.x > ok-button.x && action-button.y == buttons_y;
+    property <bool> cancel_ok: cancel-button.x > action-button.x && cancel-button.y == buttons_y;
+    property <bool> apply_ok: apply-button.x > cancel-button.x && apply-button.y == buttons_y;
+    property <bool> help_ok: help-button.x > apply-button.x && help-button.y == buttons_y;
+    out property <bool> test: mainwidget_ok && reset_ok && ok_ok && yes_ok && action_ok && cancel_ok && apply_ok && help_ok;
 }
 
 /*
