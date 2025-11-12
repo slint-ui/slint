@@ -15,6 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/install-linux-dependencies
       - uses: ./.github/actions/install-skia-dependencies
