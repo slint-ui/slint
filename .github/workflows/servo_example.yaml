@@ -37,6 +37,9 @@ jobs:
             working-directory: examples/servo
         steps:
             - uses: actions/checkout@v5
+            - uses: astral-sh/setup-uv@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
