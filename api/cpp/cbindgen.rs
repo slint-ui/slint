@@ -516,7 +516,8 @@ fn gen_corelib(
             "#include \"slint_sharedvector.h\"\n#include \"slint_point.h\"",
         ),
         (
-            vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient"],
+            vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
+                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation"],
             "slint_brush_internal.h",
             "",
         ),
@@ -576,6 +577,10 @@ fn gen_corelib(
             "slint_windowrc_is_minimized",
             "slint_windowrc_is_maximized",
             "slint_windowrc_take_snapshot",
+            "GradientStop",
+            "ConicGradientBrush",
+            "slint_conic_gradient_normalize_stops",
+            "slint_conic_gradient_apply_rotation",
         ]
         .into_iter()
         .chain(config.export.exclude.iter().map(|s| s.as_str()))
