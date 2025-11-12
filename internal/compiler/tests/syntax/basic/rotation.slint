@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Ex1 := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {
         rotation-origin-x: width / 2;
         rotation-angle: 45deg;
-//      ^error{Unknown property rotation-angle in Rectangle}
+//      >            <error{Unknown property rotation-angle in Rectangle}
         rotation-origin-y: width / 2;
     }
     Rectangle {
@@ -16,29 +16,29 @@ export Ex1 := Rectangle {
 
     Text {
         rotation-angle: 90deg;
-//      ^warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//      >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
     }
 }
 
 RotImg := Image {
-//     ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//     ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     rotation-angle: 45deg;
-//  ^warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//  >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
 }
 
 JustAnImage := Image {}
-//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 ImageWithChild := Image {
-//             ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//             ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {}
 }
 
 export Ex2 := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Image {
         rotation-angle: 45deg;
-//      ^warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//      >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
         Rectangle {}
     }
     RotImg {
@@ -49,14 +49,14 @@ export Ex2 := Rectangle {
     }
     JustAnImage {
         rotation-angle: 45deg;
-//      ^warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//      >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
         Rectangle {}
     }
 }
 
 
 export Ex3 := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     i1 := Image {
         Rectangle {}
     }
@@ -65,17 +65,17 @@ export Ex3 := Rectangle {
     TouchArea {
         clicked => {
             i1.rotation-angle = 60deg;
-//             ^warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//             >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
             i2.rotation-origin-x = 10px;
-//             ^warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+//             >               <warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
         }
     }
 }
 
 export component Ex4  {
     in property rot <=> rect . rotation-angle;
-//  ^error{Could not infer type of property 'rot'}
-//                             ^^error{Element 'Rectangle' does not have a property 'rotation-angle'}
+//                             >            <error{Element 'Rectangle' does not have a property 'rotation-angle'}
+//  >                                        <^error{Could not infer type of property 'rot'}
 
     rect := Rectangle {}
 }
@@ -83,11 +83,11 @@ export component Ex4  {
 
 export component Ex5 {
     property <int>  transform-origin;
-//                  ^error{Cannot override property 'transform-origin'}
+//                  >              <error{Cannot override property 'transform-origin'}
 
     // Even if the property is deprecated and was never allowed in a non-Image/Text, it is still not allowed to override it
     property <string> rotation-origin-x;
-//                    ^error{Cannot override property 'rotation-origin-x'}
+//                    >               <error{Cannot override property 'rotation-origin-x'}
     Image { property <string> rotation-origin-y; }
-//                            ^error{Cannot override property 'rotation-origin-y'}
+//                            >               <error{Cannot override property 'rotation-origin-y'}
 }
