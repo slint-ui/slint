@@ -1518,7 +1518,7 @@ impl WindowInner {
         }
     }
 
-    pub(crate) fn set_window_item_keyboard_area(
+    pub(crate) fn set_window_item_virtual_keyboard(
         &self,
         origin: crate::lengths::LogicalPoint,
         size: crate::lengths::LogicalSize,
@@ -1532,10 +1532,10 @@ impl WindowInner {
             return;
         };
         for (property, value) in [
-            (&window_item.keyboard_area_x, origin.x),
-            (&window_item.keyboard_area_y, origin.y),
-            (&window_item.keyboard_area_width, size.width),
-            (&window_item.keyboard_area_height, size.height),
+            (&window_item.virtual_keyboard_x, origin.x),
+            (&window_item.virtual_keyboard_y, origin.y),
+            (&window_item.virtual_keyboard_width, size.width),
+            (&window_item.virtual_keyboard_height, size.height),
         ] {
             property.set(LogicalLength::new(value));
         }
@@ -1553,12 +1553,12 @@ impl WindowInner {
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
         Some((
             crate::lengths::LogicalPoint::new(
-                window_item.keyboard_area_x().0,
-                window_item.keyboard_area_y().0,
+                window_item.virtual_keyboard_x().0,
+                window_item.virtual_keyboard_y().0,
             ),
             crate::lengths::LogicalSize::from_lengths(
-                window_item.keyboard_area_width(),
-                window_item.keyboard_area_height(),
+                window_item.virtual_keyboard_width(),
+                window_item.virtual_keyboard_height(),
             ),
         ))
     }

@@ -516,7 +516,7 @@ impl WinitWindowAdapter {
                     if let Some(this) = keyboard_curve_self.upgrade() {
                         use i_slint_core::api::{LogicalPosition, LogicalSize};
 
-                        this.window().set_keyboard_area(
+                        this.window().set_virtual_keyboard(
                             LogicalPosition::new(rect.origin.x as _, rect.origin.y as _),
                             LogicalSize::new(rect.size.width as _, rect.size.height as _),
                             i_slint_core::InternalToken,

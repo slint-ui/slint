@@ -592,17 +592,17 @@ impl Window {
 
     /// The area of the window covered by the software keyboard is changing (animated).
     #[doc(hidden)]
-    pub fn set_keyboard_area(
+    pub fn set_virtual_keyboard(
         &self,
         origin: LogicalPosition,
         size: LogicalSize,
         _: crate::InternalToken,
     ) {
-        self.0.set_window_item_keyboard_area(origin.to_euclid(), size.to_euclid());
+        self.0.set_window_item_virtual_keyboard(origin.to_euclid(), size.to_euclid());
     }
 
     #[doc(hidden)]
-    pub fn keyboard_area(&self, _: crate::InternalToken) -> Option<(LogicalPosition, LogicalSize)> {
+    pub fn virtual_keyboard(&self, _: crate::InternalToken) -> Option<(LogicalPosition, LogicalSize)> {
         self.0.window_item_keyboard_area().map(|(origin, size)| {
             (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
         })
