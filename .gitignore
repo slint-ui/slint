@@ -1,4 +1,6 @@
 Cargo.lock
+!examples/servo/Cargo.lock
+
 tsconfig.tsbuildinfo
 /target
 node_modules
