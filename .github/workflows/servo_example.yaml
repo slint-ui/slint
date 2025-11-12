@@ -25,3 +25,31 @@ jobs:
       - name: Build
         working-directory: examples/servo
         run: cargo build
+  android_build:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+            CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
+            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        runs-on: macos-latest
+        defaults:
+          run:
+            working-directory: examples/servo
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - name: Install API level
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Install build-tools
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
+            - name: Install NDK
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.2.13676358"
+            - name: Install cargo-apk
+              run: cargo install cargo-apk
+            - name: Build
+              working-directory: examples/servo
+              run: |
+                export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
+                cargo apk build --target aarch64-linux-android --lib
