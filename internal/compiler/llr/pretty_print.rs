@@ -234,8 +234,10 @@ fn print_local_ref<T>(
             _ => write!(f, "<invalid reference in global>"),
         }
     } else {
-        let mut sc = &ctx.compilation_unit.sub_components
-            [ctx.parent_sub_component_idx(parent_level).unwrap()];
+        let Some(s) = ctx.parent_sub_component_idx(parent_level) else {
+            return write!(f, "<invalid parent reference>");
+        };
+        let mut sc = &ctx.compilation_unit.sub_components[s];
 
         for i in &local_ref.sub_component_path {
             write!(f, "{}.", sc.sub_components[*i].name)?;
