@@ -30,7 +30,6 @@ export X := Rectangle {
 
                 init => {
                     self.colspan = 45;
-//                  ^error{The property must be known at compile time and cannot be changed at runtime}
                 }
             }
         }
@@ -49,7 +48,6 @@ export X := Rectangle {
     }
 
     lay2 := GridLayout {
-//          ^error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
         property<int> negative: -5;
         property<int> last_row: 4;
         Text {
@@ -57,17 +55,18 @@ export X := Rectangle {
             col: -lay2.negative; // check that a unary minus isn't necessary an error
         }
         Text {
+//      ^error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
             row: 0; // mixing runtime expr and literal is ok
         }
     }
 
     lay3 := GridLayout {
-//          ^error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
         Text {
             row: lay2.last_row;
             col: lay2.last_row;
         }
         Text {
+//      ^error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
             col: 1;
         }
     }
