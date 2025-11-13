@@ -6,6 +6,11 @@ name: Servo example
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEYSTORE_BASE64:
+        required: true
 
 jobs:
   build:
@@ -66,6 +71,10 @@ jobs:
       - name: Install cargo-apk
         if: steps.cache-apk.outputs.cache-hit != 'true'
         run: cargo install cargo-apk
+      - name: Decode keystore
+        run: |
+          mkdir -p /home/runner/.android
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
       - name: Build
         if: steps.cache-apk.outputs.cache-hit != 'true'
         working-directory: examples/servo
