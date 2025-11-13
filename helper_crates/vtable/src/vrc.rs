@@ -75,7 +75,7 @@ struct VRcInner<'vt, VTable: VTableMeta, X> {
 
 impl<VTable: VTableMeta, X> VRcInner<'_, VTable, X> {
     unsafe fn data_ptr(s: *const Self) -> *const X {
-        (s as *const u8).add(*core::ptr::addr_of!((*s).data_offset) as usize) as *const X
+        unsafe { (s as *const u8).add(*core::ptr::addr_of!((*s).data_offset) as usize) as *const X }
     }
     fn as_ref(&self) -> &X {
         let ptr = self as *const Self as *const u8;
