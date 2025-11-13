@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    single_linked_list_pin::SingleLinkedListPinHead, BindingHolder, BindingResult, BindingVTable,
-    DependencyListHead, DependencyNode,
+    BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode,
+    single_linked_list_pin::SingleLinkedListPinHead,
 };
 use alloc::boxed::Box;
 use core::cell::{Cell, UnsafeCell};
@@ -155,12 +155,8 @@ impl ChangeTracker {
         trait HasBindingVTable {
             const VT: &'static BindingVTable;
         }
-        impl<
-                T: PartialEq,
-                EF: Fn(&Data) -> T + 'static,
-                NF: Fn(&Data, &T) + 'static,
-                Data: 'static,
-            > HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
+        impl<T: PartialEq, EF: Fn(&Data) -> T + 'static, NF: Fn(&Data, &T) + 'static, Data: 'static>
+            HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
         {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,

@@ -331,11 +331,7 @@ where
 /// Convert a f62 to a SharedString
 pub fn shared_string_from_number(n: f64) -> SharedString {
     // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
-    if n < 16777216. {
-        crate::format!("{}", n as f32)
-    } else {
-        crate::format!("{}", n)
-    }
+    if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) }
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
@@ -435,11 +431,7 @@ pub(crate) mod ffi {
     /// The returned value is owned by the string, and should not be used after any
     /// mutable function have been called on the string, and must not be freed.
     pub extern "C" fn slint_shared_string_bytes(ss: &SharedString) -> *const c_char {
-        if ss.is_empty() {
-            "\0".as_ptr()
-        } else {
-            ss.as_ptr()
-        }
+        if ss.is_empty() { "\0".as_ptr() } else { ss.as_ptr() }
     }
 
     #[unsafe(no_mangle)]

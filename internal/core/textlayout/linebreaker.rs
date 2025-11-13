@@ -22,8 +22,8 @@ pub struct TextLine<Length: Default + Clone> {
 }
 
 impl<
-        Length: Default + Copy + Clone + Zero + core::ops::Add<Output = Length> + core::cmp::PartialOrd,
-    > TextLine<Length>
+    Length: Default + Copy + Clone + Zero + core::ops::Add<Output = Length> + core::cmp::PartialOrd,
+> TextLine<Length>
 {
     pub fn line_text<'a>(&self, paragraph: &'a str) -> &'a str {
         &paragraph[self.byte_range.clone()]

@@ -6,7 +6,7 @@
 // cspell:ignore coord
 
 use crate::items::{DialogButtonRole, LayoutAlignment};
-use crate::{slice::Slice, Coord, SharedVector};
+use crate::{Coord, SharedVector, slice::Slice};
 use alloc::vec::Vec;
 
 pub use crate::items::Orientation;

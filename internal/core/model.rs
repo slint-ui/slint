@@ -572,11 +572,7 @@ impl Model for bool {
     type Data = ();
 
     fn row_count(&self) -> usize {
-        if *self {
-            1
-        } else {
-            0
-        }
+        if *self { 1 } else { 0 }
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {

@@ -1212,11 +1212,11 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             marker: PhantomData<(T, T2)>,
         }
         unsafe impl<
-                T: PartialEq + Clone + 'static,
-                T2: PartialEq + Clone + 'static,
-                M1: Fn(&T) -> T2 + Clone + 'static,
-                M2: Fn(&mut T, &T2) + Clone + 'static,
-            > BindingCallable<T2> for TwoWayBindingWithMap<T, T2, M1, M2>
+            T: PartialEq + Clone + 'static,
+            T2: PartialEq + Clone + 'static,
+            M1: Fn(&T) -> T2 + Clone + 'static,
+            M2: Fn(&mut T, &T2) + Clone + 'static,
+        > BindingCallable<T2> for TwoWayBindingWithMap<T, T2, M1, M2>
         {
             fn evaluate(self: Pin<&Self>, value: &mut T2) -> BindingResult {
                 *value = (self.map_to)(&self.common_property.as_ref().get());
@@ -1254,11 +1254,11 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             marker: PhantomData<(T, T2)>,
         }
         unsafe impl<
-                T: PartialEq + Clone + 'static,
-                T2: PartialEq + Clone + 'static,
-                M1: Fn(&T) -> T2 + 'static,
-                M2: Fn(&mut T, &T2) + 'static,
-            > BindingCallable<T> for BindingMapper<T, T2, M1, M2>
+            T: PartialEq + Clone + 'static,
+            T2: PartialEq + Clone + 'static,
+            M1: Fn(&T) -> T2 + 'static,
+            M2: Fn(&mut T, &T2) + 'static,
+        > BindingCallable<T> for BindingMapper<T, T2, M1, M2>
         {
             fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
                 let mut sub_value = (self.map_to)(value);

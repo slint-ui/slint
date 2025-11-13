@@ -8,10 +8,10 @@
     This module contains the abstractions and convenience types used for rendering.
 */
 extern crate alloc;
-use crate::api::PlatformError;
-use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
+use crate::api::PlatformError;
+use crate::lengths::LogicalLength;
 use alloc::boxed::Box;
 
 pub use euclid;

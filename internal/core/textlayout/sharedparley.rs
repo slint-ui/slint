@@ -11,6 +11,7 @@ use std::boxed::Box;
 use std::cell::RefCell;
 
 use crate::{
+    Color, SharedString,
     graphics::FontRequest,
     items::TextStrokeStyle,
     lengths::{
@@ -19,7 +20,6 @@ use crate::{
     },
     renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
-    Color, SharedString,
 };
 
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -1064,7 +1064,11 @@ fn parse_markdown(string: &str) -> Result<RichText<'_>, RichTextError<'_>> {
                     let expected_tag = match &style {
                         Style::Color(_) => "</font>",
                         Style::Underline => "</u>",
-                        other => std::unreachable!("Got unexpected closing style {:?} with html {}. This error should have been caught earlier.", other, html)
+                        other => std::unreachable!(
+                            "Got unexpected closing style {:?} with html {}. This error should have been caught earlier.",
+                            other,
+                            html
+                        ),
                     };
 
                     if (&*html) != expected_tag {
@@ -1168,7 +1172,7 @@ fn parse_markdown(string: &str) -> Result<RichText<'_>, RichTextError<'_>> {
             | pulldown_cmark::Event::InlineMath(_)
             | pulldown_cmark::Event::DisplayMath(_)
             | pulldown_cmark::Event::Html(_) => {
-                return Err(RichTextError::UnimplementedEvent(event))
+                return Err(RichTextError::UnimplementedEvent(event));
             }
         }
     }

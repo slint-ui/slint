@@ -1312,29 +1312,17 @@ fn next_window_item(item: &ItemRc) -> Option<ItemRc> {
 impl WindowItem {
     pub fn font_family(self: Pin<&Self>) -> Option<SharedString> {
         let maybe_family = self.default_font_family();
-        if !maybe_family.is_empty() {
-            Some(maybe_family)
-        } else {
-            None
-        }
+        if !maybe_family.is_empty() { Some(maybe_family) } else { None }
     }
 
     pub fn font_size(self: Pin<&Self>) -> Option<LogicalLength> {
         let font_size = self.default_font_size();
-        if font_size.get() <= 0 as Coord {
-            None
-        } else {
-            Some(font_size)
-        }
+        if font_size.get() <= 0 as Coord { None } else { Some(font_size) }
     }
 
     pub fn font_weight(self: Pin<&Self>) -> Option<i32> {
         let font_weight = self.default_font_weight();
-        if font_weight == 0 {
-            None
-        } else {
-            Some(font_weight)
-        }
+        if font_weight == 0 { None } else { Some(font_weight) }
     }
 
     pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {

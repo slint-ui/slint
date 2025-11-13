@@ -15,8 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
-    KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
+    KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut, key_codes,
 };
 use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderString, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
@@ -1322,11 +1322,7 @@ enum AnchorMode {
 
 impl From<KeyboardModifiers> for AnchorMode {
     fn from(modifiers: KeyboardModifiers) -> Self {
-        if modifiers.shift {
-            Self::KeepAnchor
-        } else {
-            Self::MoveAnchor
-        }
+        if modifiers.shift { Self::KeepAnchor } else { Self::MoveAnchor }
     }
 }
 

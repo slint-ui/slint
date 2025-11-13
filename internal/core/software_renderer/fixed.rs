@@ -6,14 +6,14 @@
 pub struct Fixed<T, const SHIFT: usize>(pub T);
 
 impl<
-        T: Copy
-            + core::ops::Shl<usize, Output = T>
-            + core::ops::Shr<usize, Output = T>
-            + core::ops::Div<Output = T>
-            + core::ops::Add<Output = T>
-            + core::ops::Rem<Output = T>,
-        const SHIFT: usize,
-    > Fixed<T, SHIFT>
+    T: Copy
+        + core::ops::Shl<usize, Output = T>
+        + core::ops::Shr<usize, Output = T>
+        + core::ops::Div<Output = T>
+        + core::ops::Add<Output = T>
+        + core::ops::Rem<Output = T>,
+    const SHIFT: usize,
+> Fixed<T, SHIFT>
 {
     /// Create a fixed point from an integer value
     #[inline(always)]
@@ -33,11 +33,7 @@ impl<
     where
         T: num_traits::AsPrimitive<u8>,
     {
-        if SHIFT < 8 {
-            (self.0 >> (SHIFT - 8)).as_()
-        } else {
-            (self.0 << (8 - SHIFT)).as_()
-        }
+        if SHIFT < 8 { (self.0 >> (SHIFT - 8)).as_() } else { (self.0 << (8 - SHIFT)).as_() }
     }
 
     #[inline(always)]

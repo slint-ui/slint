@@ -11,8 +11,8 @@ use crate::api::{
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    key_codes, ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent,
-    KeyEventType, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker,
+    ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent, KeyEventType,
+    MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -1650,11 +1650,11 @@ pub mod ffi {
     #![allow(missing_docs)]
 
     use super::*;
+    use crate::SharedVector;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
-    use crate::SharedVector;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.

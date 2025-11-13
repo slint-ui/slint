@@ -89,12 +89,16 @@ impl RenderingMetricsCollector {
         }
 
         let Some(refresh_mode) = refresh_mode else {
-            debug_log!("Missing refresh mode in SLINT_DEBUG_PERFORMANCE. Please specify either refresh_full_speed or refresh_lazy");
+            debug_log!(
+                "Missing refresh mode in SLINT_DEBUG_PERFORMANCE. Please specify either refresh_full_speed or refresh_lazy"
+            );
             return None;
         };
 
         if !output_console && !output_overlay {
-            debug_log!("Missing output mode in SLINT_DEBUG_PERFORMANCE. Please specify either console or overlay (or both)");
+            debug_log!(
+                "Missing output mode in SLINT_DEBUG_PERFORMANCE. Please specify either console or overlay (or both)"
+            );
             return None;
         }
 

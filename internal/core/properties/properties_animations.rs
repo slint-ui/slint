@@ -89,11 +89,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     let progress = {
                         let progress =
                             (time_progress as f32 / self.details.duration as f32).clamp(0., 1.);
-                        if reversed(current_iteration) {
-                            1. - progress
-                        } else {
-                            progress
-                        }
+                        if reversed(current_iteration) { 1. - progress } else { progress }
                     };
                     let t = crate::animations::easing_curve(&self.details.easing, progress);
                     let val = self.from_value.interpolate(&self.to_value, t);
@@ -324,7 +320,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         &self,
         binding: impl Binding<T> + 'static,
         compute_animation_details: impl Fn() -> (PropertyAnimation, crate::animations::Instant)
-            + 'static,
+        + 'static,
     ) {
         let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {

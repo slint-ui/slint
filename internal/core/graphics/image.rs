@@ -349,11 +349,7 @@ impl ImageCacheKey {
             #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
             ImageInner::WGPUTexture(..) => return None,
         };
-        if matches!(key, ImageCacheKey::Invalid) {
-            None
-        } else {
-            Some(key)
-        }
+        if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
     }
 
     /// Returns a cache key for static embedded image data.
@@ -1223,7 +1219,7 @@ pub fn fit(
                 size: target,
                 offset: Default::default(),
                 tiled: None,
-            }
+            };
         }
         ImageFit::Preserve => scale_factor.get(),
         ImageFit::Contain => f32::min(target.width / o.width, target.height / o.height),

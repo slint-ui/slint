@@ -245,24 +245,26 @@ impl PhysicalRegion {
         let mut line_ranges = Vec::<core::ops::Range<i16>>::new();
         let mut begin_line = 0;
         let mut end_line = 0;
-        core::iter::from_fn(move || loop {
-            match line_ranges.pop() {
-                Some(r) => {
-                    return Some((
-                        crate::api::PhysicalPosition { x: r.start as _, y: begin_line as _ },
-                        crate::api::PhysicalSize {
-                            width: r.len() as _,
-                            height: (end_line - begin_line) as _,
-                        },
-                    ));
-                }
-                None => {
-                    begin_line = end_line;
-                    end_line = match region_line_ranges(self, begin_line, &mut line_ranges) {
-                        Some(end_line) => end_line,
-                        None => return None,
-                    };
-                    line_ranges.reverse();
+        core::iter::from_fn(move || {
+            loop {
+                match line_ranges.pop() {
+                    Some(r) => {
+                        return Some((
+                            crate::api::PhysicalPosition { x: r.start as _, y: begin_line as _ },
+                            crate::api::PhysicalSize {
+                                width: r.len() as _,
+                                height: (end_line - begin_line) as _,
+                            },
+                        ));
+                    }
+                    None => {
+                        begin_line = end_line;
+                        end_line = match region_line_ranges(self, begin_line, &mut line_ranges) {
+                            Some(end_line) => end_line,
+                            None => return None,
+                        };
+                        line_ranges.reverse();
+                    }
                 }
             }
         })
@@ -551,11 +553,18 @@ impl SoftwareRenderer {
         }
         assert!(
             if rotation.is_transpose() {
-                pixels_per_line >= size.height as usize && buffer_pixel_count >= (size.width as usize * pixels_per_line + size.height as usize) - pixels_per_line
+                pixels_per_line >= size.height as usize
+                    && buffer_pixel_count
+                        >= (size.width as usize * pixels_per_line + size.height as usize)
+                            - pixels_per_line
             } else {
-                pixels_per_line >= size.width as usize && buffer_pixel_count >= (size.height as usize * pixels_per_line + size.width as usize) - pixels_per_line
+                pixels_per_line >= size.width as usize
+                    && buffer_pixel_count
+                        >= (size.height as usize * pixels_per_line + size.width as usize)
+                            - pixels_per_line
             },
-            "buffer of size {} with {pixels_per_line} pixels per line is too small to handle a window of size {size:?}", buffer_pixel_count
+            "buffer of size {} with {pixels_per_line} pixels per line is too small to handle a window of size {size:?}",
+            buffer_pixel_count
         );
         let buffer_renderer = SceneBuilder::new(
             size,
