@@ -469,7 +469,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #[allow(unsafe_code)]
                     unsafe #abi fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
                         use ::core::convert::TryInto;
-                        vtable::internal::dealloc(ptr, layout.try_into().unwrap())
+                        unsafe { vtable::internal::dealloc(ptr, layout.try_into().unwrap()) }
                     }
                     #ident
                 },));
