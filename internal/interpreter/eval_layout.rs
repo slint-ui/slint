@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::dynamic_item_tree::InstanceRef;
-use crate::eval::{self, eval_expression, EvalLocalContext};
+use crate::eval::{self, EvalLocalContext};
 use crate::Value;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::layout::{
-    GridLayout, Layout, LayoutConstraints, LayoutGeometry, Orientation,
+    GridLayout, Layout, LayoutConstraints, LayoutGeometry, Orientation, RowColExpr,
 };
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
@@ -92,7 +92,11 @@ pub(crate) fn organize_grid_layout(
     layout: &GridLayout,
     local_context: &mut EvalLocalContext,
 ) -> Value {
-    let cells = grid_layout_input_data(layout, local_context);
+    let component = local_context.component_instance;
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    };
+    let cells = grid_layout_input_data(layout, &expr_eval);
 
     if let Some(buttons_roles) = &layout.dialog_button_roles {
         let roles = buttons_roles
@@ -197,29 +201,30 @@ fn padding_and_spacing(
 
 fn grid_layout_input_data(
     grid_layout: &i_slint_compiler::layout::GridLayout,
-    local_context: &mut EvalLocalContext,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
 ) -> Vec<core_layout::GridLayoutInputData> {
     grid_layout
         .elems
         .iter()
         .map(|cell| {
-            let mut eval_or_default = |expr: &Option<Expression>, default: u16| match expr {
-                None => default,
-                Some(e) => {
-                    let value = eval_expression(e, local_context);
-                    match value {
-                        Value::Number(n) if n >= 0.0 && n <= u16::MAX as f64 => n as u16,
-                        _ => panic!(
+            let eval_or_default = |expr: &RowColExpr| match expr {
+                RowColExpr::Literal(value) => *value,
+                RowColExpr::Named(e) => {
+                    let value = expr_eval(e);
+                    if value >= 0.0 && value <= u16::MAX as f32 {
+                        value as u16
+                    } else {
+                        panic!(
                             "Expected a positive integer, but got {:?} while evaluating {:?}",
                             value, e
-                        ),
+                        );
                     }
                 }
             };
-            let row = eval_or_default(&cell.row_expr, u16::MAX);
-            let col = eval_or_default(&cell.col_expr, u16::MAX);
-            let rowspan = eval_or_default(&cell.rowspan_expr, 1);
-            let colspan = eval_or_default(&cell.colspan_expr, 1);
+            let row = eval_or_default(&cell.row_expr);
+            let col = eval_or_default(&cell.col_expr);
+            let rowspan = eval_or_default(&cell.rowspan_expr);
+            let colspan = eval_or_default(&cell.colspan_expr);
             core_layout::GridLayoutInputData { new_row: cell.new_row, col, row, colspan, rowspan }
         })
         .collect()

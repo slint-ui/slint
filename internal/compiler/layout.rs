@@ -275,19 +275,25 @@ impl LayoutConstraints {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum RowColExpr {
+    Named(NamedReference),
+    Literal(u16),
+}
+
 /// An element in a GridLayout
 #[derive(Debug, Clone)]
 pub struct GridLayoutElement {
     pub new_row: bool,
-    pub col_expr: Option<Expression>,
-    pub row_expr: Option<Expression>,
-    pub colspan_expr: Option<Expression>,
-    pub rowspan_expr: Option<Expression>,
+    pub col_expr: RowColExpr,
+    pub row_expr: RowColExpr,
+    pub colspan_expr: RowColExpr,
+    pub rowspan_expr: RowColExpr,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
-    pub fn span(&self, orientation: Orientation) -> &Option<Expression> {
+    pub fn span(&self, orientation: Orientation) -> &RowColExpr {
         match orientation {
             Orientation::Horizontal => &self.colspan_expr,
             Orientation::Vertical => &self.rowspan_expr,
@@ -426,7 +432,7 @@ fn find_binding<R>(
 }
 
 /// Return a named reference to a property if a binding is set on that property
-fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
+pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
     find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
 }
 
@@ -468,6 +474,18 @@ impl GridLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.item.constraints.visit_named_references(visitor);
+            if let RowColExpr::Named(ref mut e) = cell.col_expr {
+                visitor(e);
+            }
+            if let RowColExpr::Named(ref mut e) = cell.row_expr {
+                visitor(e);
+            }
+            if let RowColExpr::Named(ref mut e) = cell.colspan_expr {
+                visitor(e);
+            }
+            if let RowColExpr::Named(ref mut e) = cell.rowspan_expr {
+                visitor(e);
+            }
         }
         self.geometry.visit_named_references(visitor);
     }
