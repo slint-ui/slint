@@ -548,7 +548,9 @@ impl ItemRc {
                 (full_transform, parent.children_transform())
             {
                 full_transform = Some(
-                    transform.then_translate(geometry.origin.to_vector()).then(&children_transform),
+                    transform
+                        .then_translate(geometry.origin.to_vector().cast())
+                        .then(&children_transform),
                 );
             }
             offset += geometry.origin.to_vector();
