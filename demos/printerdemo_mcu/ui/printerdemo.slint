@@ -33,8 +33,10 @@ component SideBarIcon inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
-    width: 320px;
-    height: 240px;
+    min-width: 320px;
+    min-height: 240px;
+    preferred-width: self.min-width;
+    preferred-height: self.min-height;
     title: "Slint printer demo";
     background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
