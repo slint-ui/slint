@@ -38,9 +38,8 @@ jobs:
         id: cache-apk
         uses: actions/cache@v4
         with:
-          path: examples/servo/target/release/apk/slint_material.apk
+          path: examples/servo/target/release/apk/servo_example_lib.apk
           key: apk-build-${{ hashFiles('examples/servo/**') }}
-
       - name: Install uv
         if: steps.cache-apk.outputs.cache-hit != 'true'
         uses: astral-sh/setup-uv@v7
