@@ -235,6 +235,7 @@ fn lower_sub_component(
     let mut sub_component = SubComponent {
         name: component_id(component),
         properties: Default::default(),
+        callbacks: Default::default(),
         functions: Default::default(),
         items: Default::default(),
         repeated: Default::default(),
@@ -298,6 +299,15 @@ fn lower_sub_component(
                     args: function.args.clone(),
                     // will be replaced later
                     code: super::Expression::CodeBlock(vec![]),
+                });
+                index.into()
+            } else if let Type::Callback(callback) = &x.property_type {
+                let index = sub_component.callbacks.push_and_get_key(Callback {
+                    name: format_smolstr!("{}_{}", elem.id, p),
+                    ret_ty: callback.return_type.clone(),
+                    args: callback.args.clone(),
+                    ty: Type::Callback(callback.clone()),
+                    use_count: 0.into(),
                 });
                 index.into()
             } else {
@@ -727,6 +737,7 @@ fn lower_global(
     state: &mut LoweringState,
 ) -> GlobalComponent {
     let mut properties = TiVec::new();
+    let mut callbacks = TiVec::new();
     let mut const_properties = TiVec::new();
     let mut prop_analysis = TiVec::new();
     let mut functions = TiVec::new();
@@ -751,6 +762,19 @@ fn lower_global(
                 MemberReference::Global { global_index, member: function_index.into() },
             );
             continue;
+        } else if let Type::Callback(cb) = &x.property_type {
+            let callback_index: CallbackIdx = callbacks.push_and_get_key(Callback {
+                name: p.clone(),
+                ret_ty: cb.return_type.clone(),
+                args: cb.args.clone(),
+                ty: x.property_type.clone(),
+                use_count: 0.into(),
+            });
+            state.global_properties.insert(
+                nr.clone(),
+                MemberReference::Global { global_index, member: callback_index.into() },
+            );
+            continue;
         }
 
         let property_index: PropertyIdx = properties.push_and_get_key(Property {
@@ -758,11 +782,9 @@ fn lower_global(
             ty: x.property_type.clone(),
             ..Property::default()
         });
-        if !matches!(x.property_type, Type::Callback { .. }) {
-            const_properties.push(nr.is_constant());
-        } else {
-            const_properties.push(false);
-        }
+
+        const_properties.push(nr.is_constant());
+
         prop_analysis.push(
             global
                 .root_element
@@ -812,8 +834,9 @@ fn lower_global(
 
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
-        init_values: typed_index_collections::ti_vec![None; properties.len()],
+        init_values: BTreeMap::new(),
         properties,
+        callbacks,
         functions,
         change_callbacks: BTreeMap::new(),
         const_properties,
@@ -844,26 +867,27 @@ fn lower_global_expressions(
             super::lower_expression::lower_expression(&binding.borrow().expression, &mut ctx);
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
-        let property_index = match ctx.state.global_properties[&nr] {
-            MemberReference::Global {
-                member: LocalMemberIndex::Property(property_index), ..
-            } => property_index,
+        let member_index = match &ctx.state.global_properties[&nr] {
             MemberReference::Global {
                 member: LocalMemberIndex::Function(function_index), ..
             } => {
-                lowered.functions[function_index].code = expression;
+                lowered.functions[*function_index].code = expression;
                 continue;
             }
+            MemberReference::Global { member, .. } => member.clone(),
             _ => unreachable!(),
         };
         let is_constant = binding.borrow().analysis.as_ref().is_some_and(|a| a.is_const);
-        lowered.init_values[property_index] = Some(BindingExpression {
-            expression: expression.into(),
-            animation: None,
-            is_constant,
-            is_state_info: false,
-            use_count: 0.into(),
-        });
+        lowered.init_values.insert(
+            member_index,
+            BindingExpression {
+                expression: expression.into(),
+                animation: None,
+                is_constant,
+                is_state_info: false,
+                use_count: 0.into(),
+            },
+        );
     }
 
     for (prop, expr) in &global.root_element.borrow().change_callbacks {

@@ -3,27 +3,28 @@
 
 use super::{EvaluationContext, Expression, ParentScope};
 use crate::langtype::{NativeClass, Type};
+use derive_more::{From, Into};
 use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use typed_index_collections::TiVec;
 
-#[derive(
-    Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PropertyIdx(usize);
-#[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FunctionIdx(usize);
-#[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CallbackIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct SubComponentIdx(usize);
-#[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
-#[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct SubComponentInstanceIdx(usize);
-#[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
-#[derive(Debug, Clone, Copy, derive_more::Into, derive_more::From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
 
 impl PropertyIdx {
@@ -72,9 +73,10 @@ pub struct BindingExpression {
 pub struct GlobalComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
+    pub callbacks: TiVec<CallbackIdx, Callback>,
     pub functions: TiVec<FunctionIdx, Function>,
     /// One entry per property
-    pub init_values: TiVec<PropertyIdx, Option<BindingExpression>>,
+    pub init_values: BTreeMap<LocalMemberIndex, BindingExpression>,
     // maps property to its changed callback
     pub change_callbacks: BTreeMap<PropertyIdx, MutExpression>,
     pub const_properties: TiVec<PropertyIdx, bool>,
@@ -100,15 +102,18 @@ impl GlobalComponent {
             && (self.exported
                 || !self.functions.is_empty()
                 || self.properties.iter().any(|p| p.use_count.get() > 0))
+            || self.callbacks.iter().any(|c| c.use_count.get() > 0)
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, derive_more::From)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, From, PartialOrd, Ord)]
 pub enum LocalMemberIndex {
     #[from]
     Property(PropertyIdx),
     #[from]
     Function(FunctionIdx),
+    #[from]
+    Callback(CallbackIdx),
     Native {
         item_index: ItemInstanceIdx,
         prop_name: SmolStr,
@@ -187,6 +192,20 @@ pub struct Property {
     pub ty: Type,
     /// The amount of time this property is used of another property
     /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
+    pub use_count: Cell<usize>,
+}
+
+#[derive(Debug, Default)]
+pub struct Callback {
+    pub name: SmolStr,
+    pub ret_ty: Type,
+    pub args: Vec<Type>,
+
+    /// The Type::Callback
+    /// (This shouldn't be needed but it is because we call property_ty that returns a &Type)
+    pub ty: Type,
+
+    /// Same as for Property::use_count
     pub use_count: Cell<usize>,
 }
 
@@ -316,6 +335,7 @@ impl TreeNode {
 pub struct SubComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
+    pub callbacks: TiVec<CallbackIdx, Callback>,
     pub functions: TiVec<FunctionIdx, Function>,
     pub items: TiVec<ItemInstanceIdx, Item>,
     pub repeated: TiVec<RepeatedElementIdx, RepeatedElement>,
@@ -508,7 +528,7 @@ impl CompilationUnit {
         });
         for (idx, g) in self.globals.iter_enumerated() {
             let ctx = EvaluationContext::new_global(self, idx, ());
-            for e in g.init_values.iter().filter_map(|x| x.as_ref()) {
+            for e in g.init_values.values() {
                 visitor(&e.expression, &ctx)
             }
             for e in g.change_callbacks.values() {

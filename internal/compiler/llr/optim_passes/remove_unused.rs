@@ -4,7 +4,20 @@
 use crate::llr::*;
 use typed_index_collections::TiVec;
 
-type Mapping = TiVec<PropertyIdx, Option<PropertyIdx>>;
+struct Mapping {
+    prop_mapping: TiVec<PropertyIdx, Option<PropertyIdx>>,
+    callback_mapping: TiVec<CallbackIdx, Option<CallbackIdx>>,
+}
+
+impl Mapping {
+    fn keep(&self, member: &LocalMemberIndex) -> bool {
+        match member {
+            LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
+            LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
+            _ => true,
+        }
+    }
+}
 
 type ScMappings = TiVec<SubComponentIdx, Mapping>;
 type GlobMappings = TiVec<GlobalIdx, Mapping>;
@@ -18,16 +31,15 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         sc_mappings: root
             .sub_components
             .iter_mut()
-            .map(|sc| create_mapping(&mut sc.properties))
+            .map(|sc| create_mapping(&mut sc.properties, &mut sc.callbacks))
             .collect(),
         glob_mappings: root
             .globals
             .iter_mut()
             .map(|g| {
-                clean_vec(&mut g.init_values, &g.properties);
                 clean_vec(&mut g.const_properties, &g.properties);
                 clean_vec(&mut g.prop_analysis, &g.properties);
-                create_mapping(&mut g.properties)
+                create_mapping(&mut g.properties, &mut g.callbacks)
             })
             .collect(),
     };
@@ -38,19 +50,11 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         let keep = |refer: &MemberReference| match refer {
             MemberReference::Relative { parent_level, local_reference } => {
                 assert_eq!(*parent_level, 0);
-                if let LocalMemberIndex::Property(p) = local_reference.reference {
-                    let idx = state.follow_sub_components(idx, &local_reference.sub_component_path);
-                    mappings.sc_mappings[idx][p].is_some()
-                } else {
-                    true
-                }
+                let idx = state.follow_sub_components(idx, &local_reference.sub_component_path);
+                mappings.sc_mappings[idx].keep(&local_reference.reference)
             }
             MemberReference::Global { global_index, member } => {
-                if let LocalMemberIndex::Property(p) = member {
-                    mappings.glob_mappings[*global_index][*p].is_some()
-                } else {
-                    true
-                }
+                mappings.glob_mappings[*global_index].keep(member)
             }
         };
 
@@ -68,15 +72,17 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         });
         sc.change_callbacks.retain(|(x, _)| keep(x));
         sc.const_properties.retain(|x| {
-            let LocalMemberIndex::Property(p) = x.reference else { return true };
             let idx = state.follow_sub_components(idx, &x.sub_component_path);
-            mappings.sc_mappings[idx][p].is_some()
+            mappings.sc_mappings[idx].keep(&x.reference)
         });
         sc.prop_analysis.retain(|x, v| {
             v.property_init = v.property_init.and_then(|x| property_init_mapping[x]);
             keep(x)
         });
         sc.animations.retain(|x, _| keep(&x.clone().into()));
+    }
+    for (idx, g) in root.globals.iter_mut_enumerated() {
+        g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
     }
 
     impl visitor::Visitor for &RemoveUnusedMappings {
@@ -88,10 +94,26 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         ) {
             match scope {
                 EvaluationScope::SubComponent(sub_component_idx, _) => {
-                    *p = self.sc_mappings[*sub_component_idx][*p].unwrap();
+                    *p = self.sc_mappings[*sub_component_idx].prop_mapping[*p].unwrap();
                 }
                 EvaluationScope::Global(global_idx) => {
-                    *p = self.glob_mappings[*global_idx][*p].unwrap();
+                    *p = self.glob_mappings[*global_idx].prop_mapping[*p].unwrap();
+                }
+            }
+        }
+
+        fn visit_callback_idx(
+            &mut self,
+            p: &mut CallbackIdx,
+            scope: &EvaluationScope,
+            _state: &visitor::VisitorState,
+        ) {
+            match scope {
+                EvaluationScope::SubComponent(sub_component_idx, _) => {
+                    *p = self.sc_mappings[*sub_component_idx].callback_mapping[*p].unwrap();
+                }
+                EvaluationScope::Global(global_idx) => {
+                    *p = self.glob_mappings[*global_idx].callback_mapping[*p].unwrap();
                 }
             }
         }
@@ -100,12 +122,25 @@ pub fn remove_unused(root: &mut CompilationUnit) {
     visitor::visit_compilation_unit(root, &state, &mut visitor);
 }
 
-fn create_mapping(properties: &mut TiVec<PropertyIdx, Property>) -> Mapping {
-    let mut map = TiVec::with_capacity(properties.len());
+fn create_mapping(
+    properties: &mut TiVec<PropertyIdx, Property>,
+    callbacks: &mut TiVec<CallbackIdx, Callback>,
+) -> Mapping {
+    Mapping {
+        prop_mapping: create_vec_mapping(properties, |p| p.use_count.get() > 0),
+        callback_mapping: create_vec_mapping(callbacks, |c| c.use_count.get() > 0),
+    }
+}
+
+fn create_vec_mapping<Idx: From<usize>, T>(
+    vec: &mut TiVec<Idx, T>,
+    mut retain: impl FnMut(&T) -> bool,
+) -> TiVec<Idx, Option<Idx>> {
+    let mut map = TiVec::with_capacity(vec.len());
     let mut i = 0;
-    properties.retain(|p| {
-        if p.use_count.get() > 0 {
-            map.push(Some(PropertyIdx::from(i)));
+    vec.retain(|t| {
+        if retain(t) {
+            map.push(Some(Idx::from(i)));
             i += 1;
             true
         } else {
@@ -139,6 +174,14 @@ mod visitor {
         fn visit_function_idx(
             &mut self,
             _p: &mut FunctionIdx,
+            _scope: &EvaluationScope,
+            _state: &VisitorState,
+        ) {
+        }
+
+        fn visit_callback_idx(
+            &mut self,
+            _p: &mut CallbackIdx,
             _scope: &EvaluationScope,
             _state: &VisitorState,
         ) {
@@ -233,6 +276,7 @@ mod visitor {
         SubComponent {
             name: _,
             properties: _,
+            callbacks: _,
             functions,
             items: _,
             repeated,
@@ -354,6 +398,7 @@ mod visitor {
         GlobalComponent {
             name: _,
             properties: _,
+            callbacks: _,
             functions,
             init_values,
             change_callbacks,
@@ -374,11 +419,14 @@ mod visitor {
             visit_function(f, &scope, state, visitor);
         }
 
-        for init in init_values {
-            if let Some(init) = init {
-                visit_binding_expression(init, &scope, state, visitor);
-            }
-        }
+        *init_values = std::mem::take(init_values)
+            .into_iter()
+            .map(|(mut k, mut v)| {
+                visit_member_index(&mut k, &scope, state, visitor);
+                visit_binding_expression(&mut v, &scope, state, visitor);
+                (k, v)
+            })
+            .collect();
 
         *change_callbacks = std::mem::take(change_callbacks)
             .into_iter()
@@ -509,6 +557,9 @@ mod visitor {
             }
             LocalMemberIndex::Function(f) => {
                 visitor.visit_function_idx(f, scope, state);
+            }
+            LocalMemberIndex::Callback(c) => {
+                visitor.visit_callback_idx(c, scope, state);
             }
             LocalMemberIndex::Native { .. } => {}
         }
