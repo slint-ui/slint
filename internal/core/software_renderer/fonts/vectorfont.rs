@@ -7,8 +7,8 @@ use alloc::rc::Rc;
 use skrifa::MetadataProvider;
 
 use crate::lengths::PhysicalPx;
-use crate::software_renderer::fixed::Fixed;
 use crate::software_renderer::PhysicalLength;
+use crate::software_renderer::fixed::Fixed;
 use crate::textlayout::{Glyph, TextShaper};
 use i_slint_common::sharedfontique::fontique;
 

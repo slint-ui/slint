@@ -7,9 +7,9 @@ use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
+use crate::Color;
 use crate::graphics::{SharedImageBuffer, TexturePixelFormat};
 use crate::lengths::{PointLengths as _, SizeLengths as _};
-use crate::Color;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;

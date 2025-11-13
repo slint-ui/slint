@@ -334,8 +334,8 @@ fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> R
 
 #[test]
 fn test_shaping() {
-    use std::num::NonZeroU16;
     use TextShaper;
+    use std::num::NonZeroU16;
 
     with_dejavu_font(|face| {
         {

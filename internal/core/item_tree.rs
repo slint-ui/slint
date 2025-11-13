@@ -5,6 +5,7 @@
 
 //! This module contains the ItemTree and code that helps navigating it
 
+use crate::SharedString;
 use crate::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -13,7 +14,6 @@ use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
-use crate::SharedString;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use core::pin::Pin;
@@ -998,11 +998,7 @@ impl VisitChildrenResult {
         self.0 != Self::CONTINUE.0
     }
     pub fn aborted_index(&self) -> Option<usize> {
-        if self.0 != Self::CONTINUE.0 {
-            Some((self.0 & 0xffff_ffff) as usize)
-        } else {
-            None
-        }
+        if self.0 != Self::CONTINUE.0 { Some((self.0 & 0xffff_ffff) as usize) } else { None }
     }
     pub fn aborted_indexes(&self) -> Option<(usize, usize)> {
         if self.0 != Self::CONTINUE.0 {

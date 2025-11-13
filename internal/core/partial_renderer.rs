@@ -15,6 +15,7 @@
 //!    This register dependencies only on the rendering tracker.
 //!
 
+use crate::Coord;
 use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
@@ -29,7 +30,6 @@ use crate::lengths::{
 };
 use crate::properties::PropertyTracker;
 use crate::window::WindowAdapter;
-use crate::Coord;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
@@ -71,11 +71,7 @@ impl CachedRenderingData {
         cache: &'a mut PartialRendererCache,
     ) -> Option<&'a mut PartialRenderingCachedData> {
         let index = self.cache_index.get();
-        if self.cache_generation.get() == cache.generation() {
-            cache.get_mut(index)
-        } else {
-            None
-        }
+        if self.cache_generation.get() == cache.generation() { cache.get_mut(index) } else { None }
     }
 }
 

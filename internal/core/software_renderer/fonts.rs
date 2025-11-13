@@ -6,10 +6,10 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
+use crate::Coord;
 use crate::graphics::{BitmapFont, FontRequest};
 use crate::lengths::{LogicalLength, ScaleFactor};
 use crate::textlayout::TextLayout;
-use crate::Coord;
 
 crate::thread_local! {
     static BITMAP_FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
@@ -165,7 +165,9 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
                 #[cfg(feature = "software-renderer-systemfonts")]
                 return systemfonts::fallbackfont(request, scale_factor).into();
                 #[cfg(not(feature = "software-renderer-systemfonts"))]
-                panic!("No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
+                panic!(
+                    "No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files."
+                )
             }
         }
     };

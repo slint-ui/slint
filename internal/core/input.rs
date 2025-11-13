@@ -377,16 +377,16 @@ impl KeyEvent {
         if move_mod {
             match keycode {
                 key_codes::LeftArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord))
+                    return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
                 }
                 key_codes::RightArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord))
+                    return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
                 }
                 key_codes::UpArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::StartOfParagraph))
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfParagraph));
                 }
                 key_codes::DownArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::EndOfParagraph))
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfParagraph));
                 }
                 key_codes::Backspace => {
                     return Some(TextShortcut::DeleteWordBackward);
@@ -403,10 +403,10 @@ impl KeyEvent {
             if self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta {
                 match keycode {
                     key_codes::Home => {
-                        return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
+                        return Some(TextShortcut::Move(TextCursorDirection::StartOfText));
                     }
                     key_codes::End => {
-                        return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
+                        return Some(TextShortcut::Move(TextCursorDirection::EndOfText));
                     }
                     _ => (),
                 };
@@ -416,16 +416,16 @@ impl KeyEvent {
         if is_apple && self.modifiers.control {
             match keycode {
                 key_codes::LeftArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::StartOfLine))
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfLine));
                 }
                 key_codes::RightArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::EndOfLine))
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfLine));
                 }
                 key_codes::UpArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfText));
                 }
                 key_codes::DownArrow => {
-                    return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfText));
                 }
                 key_codes::Backspace => {
                     return Some(TextShortcut::DeleteToStartOfLine);
@@ -578,7 +578,7 @@ impl ClickState {
                     button,
                     click_count: self.click_count.get(),
                     is_touch,
-                }
+                };
             }
             _ => {}
         };

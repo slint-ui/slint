@@ -7,9 +7,9 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
+use crate::Color;
 use crate::graphics::{Rgb8Pixel, TexturePixelFormat};
 use crate::lengths::{PointLengths, SizeLengths};
-use crate::Color;
 use derive_more::{Add, Mul, Sub};
 use integer_sqrt::IntegerSquareRoot;
 #[allow(unused_imports)]

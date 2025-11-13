@@ -6,8 +6,8 @@ This module contains brush related types for the run-time library.
 */
 
 use super::Color;
-use crate::properties::InterpolatedPropertyValue;
 use crate::SharedVector;
+use crate::properties::InterpolatedPropertyValue;
 use euclid::default::{Point2D, Size2D};
 
 #[cfg(not(feature = "std"))]
@@ -306,11 +306,7 @@ pub fn line_for_angle(angle: f32, size: Size2D<f32>) -> (Point2D<f32>, Point2D<f
         (Point2D::new(size.width - x, size.height - y), Point2D::new(x, y))
     };
 
-    if s > 0. {
-        (a, b)
-    } else {
-        (b, a)
-    }
+    if s > 0. { (a, b) } else { (b, a) }
 }
 
 impl InterpolatedPropertyValue for Brush {

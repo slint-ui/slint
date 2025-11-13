@@ -144,11 +144,7 @@ impl<T, U> BorderRadius<T, U> {
     where
         T: Copy + ApproxEq<T>,
     {
-        if self.is_uniform() {
-            Some(self.top_left)
-        } else {
-            None
-        }
+        if self.is_uniform() { Some(self.top_left) } else { None }
     }
 
     /// Returns `true` if all radii are zero.

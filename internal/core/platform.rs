@@ -7,6 +7,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
+use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
@@ -15,7 +16,6 @@ pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
-use crate::SharedString;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -291,8 +291,8 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
 }
 
 // reexport key enum to the public api
-pub use crate::input::key_codes::Key;
 pub use crate::input::PointerEventButton;
+pub use crate::input::key_codes::Key;
 
 /// A event that describes user input or windowing system events.
 ///

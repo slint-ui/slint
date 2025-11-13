@@ -186,9 +186,8 @@ struct TransformedLyonPathIterator<EventIt> {
     transform: lyon_path::math::Transform,
 }
 
-impl<
-        EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
-    > Iterator for TransformedLyonPathIterator<EventIt>
+impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>>
+    Iterator for TransformedLyonPathIterator<EventIt>
 {
     type Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -200,9 +199,8 @@ impl<
     }
 }
 
-impl<
-        EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
-    > ExactSizeIterator for TransformedLyonPathIterator<EventIt>
+impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>>
+    ExactSizeIterator for TransformedLyonPathIterator<EventIt>
 {
 }
 
@@ -318,9 +316,9 @@ impl PathData {
 
     fn build_path(element_it: core::slice::Iter<PathElement>) -> lyon_path::Path {
         use lyon_geom::SvgArc;
+        use lyon_path::ArcFlags;
         use lyon_path::math::{Angle, Point, Vector};
         use lyon_path::traits::SvgPathBuilder;
-        use lyon_path::ArcFlags;
 
         let mut path_builder = lyon_path::Path::builder().with_svg();
         for element in element_it {

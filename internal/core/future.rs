@@ -6,8 +6,8 @@
 
 //! This module contains the code that runs futures
 
-use crate::api::EventLoopError;
 use crate::SlintContext;
+use crate::api::EventLoopError;
 use alloc::boxed::Box;
 use alloc::task::Wake;
 use alloc::vec::Vec;

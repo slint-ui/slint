@@ -436,10 +436,16 @@ impl core::fmt::Display for SelectBundledTranslationError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SelectBundledTranslationError::LanguageNotFound { available_languages } => {
-                write!(f, "The specified language was not found. Available languages are: {available_languages:?}")
+                write!(
+                    f,
+                    "The specified language was not found. Available languages are: {available_languages:?}"
+                )
             }
             SelectBundledTranslationError::NoTranslationsBundled => {
-                write!(f, "There are no bundled translations. Either select_bundled_translation was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option")
+                write!(
+                    f,
+                    "There are no bundled translations. Either select_bundled_translation was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option"
+                )
             }
         }
     }
