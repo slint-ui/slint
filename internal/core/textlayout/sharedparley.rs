@@ -1587,20 +1587,34 @@ pub fn draw_text_input(
             .fill_rectange_with_color(selection_rect, text_input.selection_background_color());
     });
 
-    layout.draw(
-        item_renderer,
-        platform_fill_brush,
-        None,
-        &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
-            item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
-        },
+    item_renderer.save_state();
+
+    let render = item_renderer.combine_clip(
+        LogicalRect::new(LogicalPoint::default(), size),
+        LogicalBorderRadius::zero(),
+        LogicalLength::zero(),
     );
 
-    if let Some(cursor_pos) = visual_representation.cursor_position {
-        let cursor_rect = layout
-            .cursor_rect_for_byte_offset(cursor_pos, text_input.text_cursor_width() * scale_factor);
-        item_renderer.fill_rectange_with_color(cursor_rect, visual_representation.cursor_color);
+    if render {
+        layout.draw(
+            item_renderer,
+            platform_fill_brush,
+            None,
+            &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
+                item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
+            },
+        );
+
+        if let Some(cursor_pos) = visual_representation.cursor_position {
+            let cursor_rect = layout.cursor_rect_for_byte_offset(
+                cursor_pos,
+                text_input.text_cursor_width() * scale_factor,
+            );
+            item_renderer.fill_rectange_with_color(cursor_rect, visual_representation.cursor_color);
+        }
     }
+
+    item_renderer.restore_state();
 }
 
 pub fn text_size(
