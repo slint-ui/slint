@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
   workflow_call:
     secrets:
-      ANDROID_KEYSTORE_PASSWORD:
-        required: true
       ANDROID_KEYSTORE_BASE64:
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
         required: true
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
         working-directory: examples/servo
         run: cargo build
   android_build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env:
       CARGO_PROFILE_RELEASE_OPT_LEVEL: s
       CARGO_INCREMENTAL: false
