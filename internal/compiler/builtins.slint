@@ -131,7 +131,6 @@ export component MarkdownText inherits Empty {
     in property <TextVerticalAlignment> vertical-alignment;
     callback link-clicked(link: string);
     in property <color> link-color: #00f;
-
     in property <string> font-family;
     in property <bool> font-italic;
     in property <TextOverflow> overflow;
@@ -141,6 +140,10 @@ export component MarkdownText inherits Empty {
     in property <length> stroke-width;
     in property <TextStrokeStyle> stroke-style;
     //-default_size_binding:implicit_size
+}
+
+export component StyledText inherits Empty {
+    in property <styled-text> text;
 }
 
 export component TouchArea {
