@@ -139,8 +139,8 @@ pub fn count_property_use(root: &CompilationUnit) {
 
 fn visit_property(pr: &MemberReference, ctx: &EvaluationContext) {
     let p_info = ctx.property_info(pr);
-    if let Some(p) = &p_info.property_decl {
-        p.use_count.set(p.use_count.get() + 1);
+    if let Some(use_count) = &p_info.use_count {
+        use_count.set(use_count.get() + 1);
     }
     if let Some((binding, map)) = &p_info.binding {
         let c = binding.use_count.get();
@@ -172,7 +172,7 @@ fn clean_unused_bindings(root: &CompilationUnit) {
         }
     });
     for g in &root.globals {
-        for e in g.init_values.iter().flatten() {
+        for e in g.init_values.values() {
             if e.use_count.get() == 0 {
                 e.expression.replace(Expression::CodeBlock(vec![]));
             }

@@ -814,18 +814,18 @@ fn generate_sub_component(
 
     for property in component.properties.iter() {
         let prop_ident = ident(&property.name);
-        if let Type::Callback(callback) = &property.ty {
-            let callback_args =
-                callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = rust_primitive_type(&callback.return_type).unwrap();
-            declared_callbacks.push(prop_ident.clone());
-            declared_callbacks_types.push(callback_args);
-            declared_callbacks_ret.push(return_type);
-        } else {
-            let rust_property_type = rust_property_type(&property.ty).unwrap();
-            declared_property_vars.push(prop_ident.clone());
-            declared_property_types.push(rust_property_type.clone());
-        }
+        let rust_property_type = rust_property_type(&property.ty).unwrap();
+        declared_property_vars.push(prop_ident.clone());
+        declared_property_types.push(rust_property_type.clone());
+    }
+    for callback in component.callbacks.iter() {
+        let cb_ident = ident(&callback.name);
+        let callback_args =
+            callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+        let return_type = rust_primitive_type(&callback.ret_ty).unwrap();
+        declared_callbacks.push(cb_ident.clone());
+        declared_callbacks_types.push(callback_args);
+        declared_callbacks_ret.push(return_type);
     }
 
     let change_tracker_names = component
@@ -1444,19 +1444,15 @@ fn generate_global(
     let mut declared_callbacks_ret = vec![];
 
     for property in global.properties.iter() {
-        let prop_ident = ident(&property.name);
-        if let Type::Callback(callback) = &property.ty {
-            let callback_args =
-                callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = rust_primitive_type(&callback.return_type);
-            declared_callbacks.push(prop_ident.clone());
-            declared_callbacks_types.push(callback_args);
-            declared_callbacks_ret.push(return_type);
-        } else {
-            let rust_property_type = rust_property_type(&property.ty).unwrap();
-            declared_property_vars.push(prop_ident.clone());
-            declared_property_types.push(rust_property_type.clone());
-        }
+        declared_property_vars.push(ident(&property.name));
+        declared_property_types.push(rust_property_type(&property.ty).unwrap());
+    }
+    for callback in &global.callbacks {
+        let callback_args =
+            callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+        declared_callbacks.push(ident(&callback.name));
+        declared_callbacks_types.push(callback_args);
+        declared_callbacks_ret.push(rust_primitive_type(&callback.ret_ty));
     }
 
     let mut init = vec![];
@@ -1478,15 +1474,13 @@ fn generate_global(
 
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
 
-    for (property_index, expression) in global.init_values.iter_enumerated() {
-        if let Some(expression) = expression.as_ref() {
-            handle_property_init(
-                &llr::LocalMemberReference::from(property_index).into(),
-                expression,
-                &mut init,
-                &ctx,
-            )
-        }
+    for (property_index, expression) in &global.init_values {
+        handle_property_init(
+            &llr::LocalMemberReference::from(property_index.clone()).into(),
+            expression,
+            &mut init,
+            &ctx,
+        )
     }
     for (property_index, cst) in global.const_properties.iter_enumerated() {
         if *cst {
@@ -2014,6 +2008,11 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 let property_field = quote!({ *&#global_name::FIELD_OFFSETS.#property_name });
                 MemberAccess::Direct(quote!(#property_field.apply_pin(#_self)))
             }
+            llr::LocalMemberIndex::Callback(callback_idx) => {
+                let callback_name = ident(&g.callbacks[*callback_idx].name);
+                let callback_field = quote!({ *&#global_name::FIELD_OFFSETS.#callback_name });
+                MemberAccess::Direct(quote!(#callback_field.apply_pin(#_self)))
+            }
             llr::LocalMemberIndex::Function(function_idx) => {
                 let fn_id = ident(&format!("fn_{}", g.functions[*function_idx].name));
                 MemberAccess::Direct(quote!(#_self.#fn_id))
@@ -2051,6 +2050,23 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         || MemberAccess::Direct(quote!((#compo_path #property_field).apply_pin(_self))),
                         |parent_path| {
                             MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #property_field).apply_pin(x.as_pin_ref()))))
+                        },
+                    )
+                }
+                llr::LocalMemberIndex::Callback(callback_index) => {
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                        &local_reference.sub_component_path,
+                    );
+                    let component_id = inner_component_id(sub_component);
+                    let callback_name = ident(&sub_component.callbacks[*callback_index].name);
+                    let callback_field =
+                        access_component_field_offset(&component_id, &callback_name);
+                    parent_path.map_or_else(
+                        || MemberAccess::Direct(quote!((#compo_path #callback_field).apply_pin(_self))),
+                        |parent_path| {
+                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #callback_field).apply_pin(x.as_pin_ref()))))
                         },
                     )
                 }

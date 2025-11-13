@@ -49,6 +49,16 @@ impl PrettyPrinter<'_> {
             self.indent()?;
             writeln!(self.writer, "property <{}> {}; //use={}", p.ty, p.name, p.use_count.get())?;
         }
+        for c in &sc.callbacks {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "callback {} ({}) -> {};",
+                c.name,
+                c.args.iter().map(ToString::to_string).join(", "),
+                c.ret_ty,
+            )?;
+        }
         for f in &sc.functions {
             self.indent()?;
             writeln!(
@@ -133,26 +143,51 @@ impl PrettyPrinter<'_> {
         let aliases = if aliases.is_empty() { String::new() } else { format!(" /*{aliases}*/") };
         writeln!(self.writer, "global {} {{{aliases}", global.name)?;
         self.indentation += 1;
-        for ((p, init), is_const) in
-            std::iter::zip(&global.properties, &global.init_values).zip(&global.const_properties)
-        {
+        for (p, is_const) in std::iter::zip(&global.properties, &global.const_properties) {
             self.indent()?;
-            let init = init.as_ref().map_or(String::new(), |init| {
-                format!(
-                    ": {}{}",
-                    DisplayExpression(&init.expression.borrow(), &ctx,),
-                    if init.is_constant { "/*const*/" } else { "" }
-                )
-            });
             writeln!(
                 self.writer,
-                "property <{}> {}{init}; //use={}{}",
+                "property <{}> {}; //use={}{}",
                 p.ty,
                 p.name,
                 p.use_count.get(),
                 if *is_const { "  const" } else { "" }
             )?;
         }
+        for c in &global.callbacks {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "callback {} ({}) -> {};",
+                c.name,
+                c.args.iter().map(ToString::to_string).join(", "),
+                c.ret_ty,
+            )?;
+        }
+        for (p, init) in &global.init_values {
+            self.indent()?;
+            match p {
+                LocalMemberIndex::Property(p) => {
+                    writeln!(
+                        self.writer,
+                        "{}: {}{};",
+                        global.properties[*p].name,
+                        DisplayExpression(&init.expression.borrow(), &ctx,),
+                        if init.is_constant { "/*const*/" } else { "" }
+                    )?;
+                }
+                LocalMemberIndex::Callback(c) => {
+                    writeln!(
+                        self.writer,
+                        "{} => {};",
+                        global.callbacks[*c].name,
+                        DisplayExpression(&init.expression.borrow(), &ctx,),
+                    )?;
+                }
+                _ => unreachable!(),
+            }
+        }
+
         for (p, e) in &global.change_callbacks {
             self.indent()?;
             writeln!(
@@ -246,6 +281,9 @@ fn print_local_ref<T>(
         match &local_ref.reference {
             LocalMemberIndex::Property(property_index) => {
                 write!(f, "{}", sc.properties[*property_index].name)
+            }
+            LocalMemberIndex::Callback(callback_index) => {
+                write!(f, "{}", sc.callbacks[*callback_index].name)
             }
             LocalMemberIndex::Function(function_index) => {
                 write!(f, "{}", sc.functions[*function_index].name)

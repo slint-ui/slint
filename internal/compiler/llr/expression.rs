@@ -562,25 +562,33 @@ impl<'a, T> EvaluationContext<'a, T> {
             prop: &LocalMemberReference,
             map: ContextMap,
         ) -> PropertyInfoResult<'b> {
-            let property_decl = || {
-                prop.reference.property().map(|property_index| {
-                    let mut sc = sc;
-                    for i in &prop.sub_component_path {
-                        sc = &cu.sub_components[sc.sub_components[*i].ty];
+            let use_count_and_ty = || {
+                let mut sc = sc;
+                for i in &prop.sub_component_path {
+                    sc = &cu.sub_components[sc.sub_components[*i].ty];
+                }
+                match &prop.reference {
+                    LocalMemberIndex::Property(property_index) => {
+                        sc.properties.get(*property_index).map(|x| (&x.use_count, &x.ty))
                     }
-                    &sc.properties[property_index]
-                })
+                    LocalMemberIndex::Callback(callback_index) => {
+                        sc.callbacks.get(*callback_index).map(|x| (&x.use_count, &x.ty))
+                    }
+                    _ => None,
+                }
             };
 
             let animation = sc.animations.get(prop).map(|a| (a, map.clone()));
             let analysis = sc.prop_analysis.get(&prop.clone().into());
             if let Some(a) = &analysis {
                 if let Some(init) = a.property_init {
+                    let u = use_count_and_ty();
                     return PropertyInfoResult {
                         analysis: Some(&a.analysis),
                         binding: Some((&sc.property_init[init].1, map)),
                         animation,
-                        property_decl: property_decl(),
+                        ty: u.map_or(Type::Invalid, |x| x.1.clone()),
+                        use_count: u.map(|x| x.0),
                     };
                 }
             }
@@ -596,7 +604,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                     map.deeper_in_sub_component(idx),
                 )
             } else {
-                PropertyInfoResult { property_decl: property_decl(), ..Default::default() }
+                let u = use_count_and_ty();
+                PropertyInfoResult {
+                    ty: u.map_or(Type::Invalid, |x| x.1.clone()),
+                    use_count: u.map(|x| x.0),
+                    ..Default::default()
+                }
             };
 
             if animation.is_some() {
@@ -608,20 +621,43 @@ impl<'a, T> EvaluationContext<'a, T> {
             r
         }
 
+        fn in_global<'a>(
+            g: &'a super::GlobalComponent,
+            r: &'_ LocalMemberIndex,
+            map: ContextMap,
+        ) -> PropertyInfoResult<'a> {
+            let binding = g.init_values.get(r).map(|b| (b, map));
+            match r {
+                LocalMemberIndex::Property(index) => {
+                    let property_decl = &g.properties[*index];
+                    return PropertyInfoResult {
+                        analysis: Some(&g.prop_analysis[*index]),
+                        binding,
+                        animation: None,
+                        ty: property_decl.ty.clone(),
+                        use_count: Some(&property_decl.use_count),
+                    };
+                }
+                LocalMemberIndex::Callback(index) => {
+                    let callback_decl = &g.callbacks[*index];
+                    return PropertyInfoResult {
+                        analysis: None,
+                        binding,
+                        animation: None,
+                        ty: callback_decl.ty.clone(),
+                        use_count: Some(&callback_decl.use_count),
+                    };
+                }
+                _ => return PropertyInfoResult::default(),
+            }
+        }
+
         match prop {
             MemberReference::Relative { parent_level, local_reference } => {
                 match self.current_scope {
                     EvaluationScope::Global(g) => {
                         let g = &self.compilation_unit.globals[g];
-                        let index = local_reference.reference.property().unwrap();
-                        return PropertyInfoResult {
-                            analysis: Some(&g.prop_analysis[index]),
-                            binding: g.init_values[index]
-                                .as_ref()
-                                .map(|b| (b, ContextMap::Identity)),
-                            animation: None,
-                            property_decl: Some(&g.properties[index]),
-                        };
+                        in_global(g, &local_reference.reference, ContextMap::Identity)
                     }
                     EvaluationScope::SubComponent(mut sc, mut parent) => {
                         for _ in 0..*parent_level {
@@ -640,17 +676,7 @@ impl<'a, T> EvaluationContext<'a, T> {
             }
             MemberReference::Global { global_index, member } => {
                 let g = &self.compilation_unit.globals[*global_index];
-                let index = member.property().unwrap();
-                PropertyInfoResult {
-                    analysis: Some(&g.prop_analysis[index]),
-                    animation: None,
-                    binding: g
-                        .init_values
-                        .get(index)
-                        .and_then(Option::as_ref)
-                        .map(|b| (b, ContextMap::InGlobal(*global_index))),
-                    property_decl: Some(&g.properties[index]),
-                }
+                in_global(g, member, ContextMap::InGlobal(*global_index))
             }
         }
     }
@@ -682,29 +708,30 @@ impl<'a, T> EvaluationContext<'a, T> {
         local_reference: &LocalMemberReference,
         parent_level: usize,
     ) -> &Type {
-        if let Some(current_global) = self.current_global() {
-            return &current_global.properties[local_reference.reference.property().unwrap()].ty;
+        if let Some(g) = self.current_global() {
+            return match &local_reference.reference {
+                LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
+                LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
+                LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
+                LocalMemberIndex::Native { .. } => unreachable!(),
+            };
         }
 
-        let mut sub_component = &self.compilation_unit.sub_components
+        let mut sc = &self.compilation_unit.sub_components
             [self.parent_sub_component_idx(parent_level).unwrap()];
         for i in &local_reference.sub_component_path {
-            sub_component =
-                &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
+            sc = &self.compilation_unit.sub_components[sc.sub_components[*i].ty];
         }
         match &local_reference.reference {
-            LocalMemberIndex::Property(property_index) => {
-                &sub_component.properties[*property_index].ty
-            }
-            LocalMemberIndex::Function(function_index) => {
-                &sub_component.functions[*function_index].ret_ty
-            }
+            LocalMemberIndex::Property(property_index) => &sc.properties[*property_index].ty,
+            LocalMemberIndex::Function(function_index) => &sc.functions[*function_index].ret_ty,
+            LocalMemberIndex::Callback(callback_index) => &sc.callbacks[*callback_index].ty,
             LocalMemberIndex::Native { item_index, prop_name } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
                 }
-                &sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
+                &sc.items[*item_index].ty.lookup_property(prop_name).unwrap()
             }
         }
     }
@@ -721,6 +748,7 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
                 match member {
                     LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                     LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
+                    LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
                     LocalMemberIndex::Native { .. } => unreachable!(),
                 }
             }
@@ -737,7 +765,8 @@ pub(crate) struct PropertyInfoResult<'a> {
     pub analysis: Option<&'a crate::object_tree::PropertyAnalysis>,
     pub binding: Option<(&'a super::BindingExpression, ContextMap)>,
     pub animation: Option<(&'a Expression, ContextMap)>,
-    pub property_decl: Option<&'a super::Property>,
+    pub ty: Type,
+    pub use_count: Option<&'a std::cell::Cell<usize>>,
 }
 
 /// Maps between two evaluation context.

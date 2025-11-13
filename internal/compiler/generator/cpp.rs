@@ -1975,20 +1975,21 @@ fn generate_sub_component(
 
     for property in component.properties.iter() {
         let cpp_name = ident(&property.name);
-
-        let ty = if let Type::Callback(callback) = &property.ty {
-            let param_types =
-                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = callback.return_type.cpp_type().unwrap();
-            format_smolstr!(
-                "slint::private_api::Callback<{}({})>",
-                return_type,
-                param_types.join(", ")
-            )
-        } else {
-            format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap())
-        };
-
+        let ty =
+            format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap());
+        target_struct.members.push((
+            field_access,
+            Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
+        ));
+    }
+    for callback in component.callbacks.iter() {
+        let cpp_name = ident(&callback.name);
+        let param_types = callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+        let ty = format_smolstr!(
+            "slint::private_api::Callback<{}({})>",
+            callback.ret_ty.cpp_type().unwrap(),
+            param_types.join(", ")
+        );
         target_struct.members.push((
             field_access,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
@@ -2619,19 +2620,24 @@ fn generate_global(
 
     for property in global.properties.iter() {
         let cpp_name = ident(&property.name);
-
-        let ty = if let Type::Callback(callback) = &property.ty {
-            let param_types =
-                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            format_smolstr!(
-                "slint::private_api::Callback<{}({})>",
-                callback.return_type.cpp_type().unwrap(),
-                param_types.join(", ")
-            )
-        } else {
-            format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap())
-        };
-
+        let ty =
+            format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap());
+        global_struct.members.push((
+            // FIXME: this is public (and also was public in the pre-llr generator) because other generated code accesses the
+            // fields directly. But it shouldn't be from an API point of view since the same `global_struct` class is public API
+            // when the global is exported and exposed in the public component.
+            Access::Public,
+            Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
+        ));
+    }
+    for callback in global.callbacks.iter().filter(|p| p.use_count.get() > 0) {
+        let cpp_name = ident(&callback.name);
+        let param_types = callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+        let ty = format_smolstr!(
+            "slint::private_api::Callback<{}({})>",
+            callback.ret_ty.cpp_type().unwrap(),
+            param_types.join(", ")
+        );
         global_struct.members.push((
             // FIXME: this is public (and also was public in the pre-llr generator) because other generated code accesses the
             // fields directly. But it shouldn't be from an API point of view since the same `global_struct` class is public API
@@ -2648,15 +2654,13 @@ fn generate_global(
         CppGeneratorContext { global_access: "this->globals".into(), conditional_includes },
     );
 
-    for (property_index, expression) in global.init_values.iter_enumerated() {
-        if let Some(expression) = expression.as_ref() {
-            handle_property_init(
-                &llr::LocalMemberReference::from(property_index).into(),
-                expression,
-                &mut init,
-                &ctx,
-            )
-        }
+    for (property_index, expression) in &global.init_values {
+        handle_property_init(
+            &llr::LocalMemberReference::from(property_index.clone()).into(),
+            expression,
+            &mut init,
+            &ctx,
+        )
     }
 
     for (i, _) in global.change_callbacks.iter() {
@@ -2961,6 +2965,10 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         let property_name = ident(&sub_component.properties[*property_index].name);
                         path.with_member(format!("->{compo_path}{property_name}"))
                     }
+                    llr::LocalMemberIndex::Callback(callback_index) => {
+                        let callback_name = ident(&sub_component.callbacks[*callback_index].name);
+                        path.with_member(format!("->{compo_path}{callback_name}"))
+                    }
                     llr::LocalMemberIndex::Function(function_index) => {
                         let function_name = ident(&sub_component.functions[*function_index].name);
                         path.with_member(format!("->{compo_path}fn_{function_name}"))
@@ -2992,6 +3000,10 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         let function_name = ident(&current_global.functions[*function_index].name);
                         MemberAccess::Direct(format!("this->fn_{function_name}"))
                     }
+                    llr::LocalMemberIndex::Callback(callback_index) => {
+                        let callback_name = ident(&current_global.callbacks[*callback_index].name);
+                        MemberAccess::Direct(format!("this->{callback_name}"))
+                    }
                     _ => unreachable!(),
                 }
             } else {
@@ -3005,6 +3017,9 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
             let name = match member {
                 llr::LocalMemberIndex::Property(property_index) => ident(
                     &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
+                ),
+                llr::LocalMemberIndex::Callback(callback_index) => ident(
+                    &ctx.compilation_unit.globals[*global_index].callbacks[*callback_index].name,
                 ),
                 llr::LocalMemberIndex::Function(function_index) => ident(&format!(
                     "fn_{}",

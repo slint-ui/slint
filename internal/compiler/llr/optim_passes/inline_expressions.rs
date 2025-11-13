@@ -190,8 +190,8 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
                         map.map_expression(expr);
                         // adjust use count
                         binding.use_count.set(use_count - 1);
-                        if let Some(prop_decl) = prop_info.property_decl {
-                            prop_decl.use_count.set(prop_decl.use_count.get() - 1);
+                        if let Some(use_count) = prop_info.use_count {
+                            use_count.set(use_count.get() - 1);
                         }
                         adjust_use_count(expr, ctx, 1);
                         if use_count == 1 {
@@ -200,9 +200,9 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
                         }
                     }
                 }
-            } else if let Some(prop_decl) = prop_info.property_decl {
-                if let Some(e) = Expression::default_value_for_type(&prop_decl.ty) {
-                    prop_decl.use_count.set(prop_decl.use_count.get() - 1);
+            } else if let Some(use_count) = prop_info.use_count {
+                if let Some(e) = Expression::default_value_for_type(&prop_info.ty) {
+                    use_count.set(use_count.get() - 1);
                     *expr = e;
                 }
             }
@@ -215,10 +215,8 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
 fn adjust_use_count(expr: &Expression, ctx: &EvaluationContext, adjust: isize) {
     expr.visit_property_references(ctx, &mut |p, ctx| {
         let prop_info = ctx.property_info(p);
-        if let Some(property_decl) = prop_info.property_decl {
-            property_decl
-                .use_count
-                .set(property_decl.use_count.get().checked_add_signed(adjust).unwrap());
+        if let Some(use_count) = prop_info.use_count {
+            use_count.set(use_count.get().checked_add_signed(adjust).unwrap());
         }
         if let Some((binding, _)) = prop_info.binding {
             let use_count = binding.use_count.get().checked_add_signed(adjust).unwrap();
