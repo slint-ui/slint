@@ -383,6 +383,7 @@ declare_syntax! {
         AtGradient -> [*Expression],
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
+        AtMarkdown -> [*Expression],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node

@@ -359,6 +359,7 @@ impl Expression {
                     SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
+                    SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
                     SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
                         node.clone().into(),
                         ctx,
@@ -742,6 +743,126 @@ impl Expression {
                     stops: normalized_stops,
                 }
             }
+        }
+    }
+    
+    fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
+        let Some(string) = std::dbg!(node
+            .child_text(SyntaxKind::StringLiteral))
+            .and_then(|s| crate::literals::unescape_string(&s))
+        else {
+            ctx.diag.push_error("Cannot parse string literal".into(), &node);
+            return Expression::Invalid;
+        };
+        
+        let subs = node.Expression().map(|n| {
+            Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
+                Type::String,
+                &n,
+                ctx.diag,
+            )
+        });
+        let values = subs.collect::<Vec<_>>();
+        std::dbg!(&values);
+
+        let mut expr = None;
+        
+        // check format string
+        {
+            let mut arg_idx = 0;
+            let mut pos_max = 0;
+            let mut pos = 0;
+            let mut literal_start_pos = 0;
+            while let Some(mut p) = string[pos..].find(['{', '}']) {
+                if string.len() - pos < p + 1 {
+                    ctx.diag.push_error(
+                        "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
+                        &node,
+                    );
+                    break;
+                }
+                p += pos;
+
+                // Skip escaped }
+                if string.get(p..=p) == Some("}") {
+                    if string.get(p + 1..=p + 1) == Some("}") {
+                        pos = p + 2;
+                        continue;
+                    } else {
+                        ctx.diag.push_error(
+                            "Unescaped '}' in format string. Escape '}' with '}}'".into(),
+                            &node,
+                        );
+                        break;
+                    }
+                }
+
+                // Skip escaped {
+                if string.get(p + 1..=p + 1) == Some("{") {
+                    pos = p + 2;
+                    continue;
+                }
+
+                // Find the argument
+                let end = if let Some(end) = string[p..].find('}') {
+                    end + p
+                } else {
+                    ctx.diag.push_error(
+                        "Unterminated placeholder in format string. '{' must be escaped with '{{'"
+                            .into(),
+                        &node,
+                    );
+                    break;
+                };
+                let argument = &string[p + 1..end];
+                if argument.is_empty() {
+                    arg_idx += 1;
+                } else if let Ok(n) = argument.parse::<u16>() {
+                    pos_max = pos_max.max(n as usize + 1);
+                } else {
+                    ctx.diag
+                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                    break;
+                };
+                let add = Expression::BinaryExpression {
+                    lhs: Box::new(Expression::StringLiteral((&string[literal_start_pos..p]).into())),
+                    op: '+',
+                    rhs: Box::new(values[arg_idx-1].clone())
+                };
+                expr = Some(match expr {
+                    None => add,
+                    Some(expr) => Expression::BinaryExpression {
+                        lhs: Box::new(expr),
+                        op: '+',
+                        rhs: Box::new(add),
+                    },
+                });
+                pos = end + 1;
+                literal_start_pos = pos;
+            }
+            if arg_idx > 0 && pos_max > 0 {
+                ctx.diag.push_error(
+                    "Cannot mix positional and non-positional placeholder in format string".into(),
+                    &node,
+                );
+            } else if arg_idx > values.len() || pos_max > values.len() {
+                let num = arg_idx.max(pos_max);
+                ctx.diag.push_error(
+                    format!("Format string contains {num} placeholders, but only {} extra arguments were given", values.len()),
+                    &node,
+                );
+            }            
+        }
+        
+        std::dbg!(&expr);
+
+        Expression::FunctionCall {
+            function: BuiltinFunction::ParseMarkdown.into(),
+            arguments: vec![
+                expr.unwrap()//Expression::StringLiteral(string),
+                
+            ],
+            source_location: Some(node.to_source_location()),
         }
     }
 

@@ -87,7 +87,6 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Markdown => markdown_macro(n, sub_expr.collect()),
     }
 }
 
@@ -316,30 +315,6 @@ fn debug_macro(
         arguments: vec![
             string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String)),
         ],
-        source_location: Some(node.to_source_location()),
-    }
-}
-
-fn markdown_macro(node: &dyn Spanned, args: Vec<(Expression, Option<NodeOrToken>)>) -> Expression {
-    let mut string = None;
-    for (expr, node) in args {
-        let escaped = Expression::FunctionCall {
-            function: BuiltinFunction::EscapeMarkdown.into(),
-            arguments: vec![expr],
-            source_location: Some(node.to_source_location()),
-        };
-        string = Some(match string {
-            None => escaped,
-            Some(string) => Expression::BinaryExpression {
-                lhs: Box::new(string),
-                op: '+',
-                rhs: Box::new(escaped),
-            },
-        });
-    }
-    Expression::FunctionCall {
-        function: BuiltinFunction::ParseMarkdown.into(),
-        arguments: vec![string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String))],
         source_location: Some(node.to_source_location()),
     }
 }

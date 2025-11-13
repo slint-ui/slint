@@ -1400,6 +1400,16 @@ fn call_builtin_function(
             corelib::open_url(&url);
             Value::Void
         }
+        BuiltinFunction::EscapeMarkdown => {
+            let text: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+             Value::String(corelib::escape_markdown(&text).into())
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let text: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+             Value::String(corelib::parse_markdown(&text).into())
+        }
     }
 }
 
