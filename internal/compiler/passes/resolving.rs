@@ -745,16 +745,16 @@ impl Expression {
             }
         }
     }
-    
+
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = std::dbg!(node
-            .child_text(SyntaxKind::StringLiteral))
+        let Some(string) = node
+            .child_text(SyntaxKind::StringLiteral)
             .and_then(|s| crate::literals::unescape_string(&s))
         else {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
-        
+
         let subs = node.Expression().map(|n| {
             Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::String,
@@ -763,10 +763,9 @@ impl Expression {
             )
         });
         let values = subs.collect::<Vec<_>>();
-        std::dbg!(&values);
 
         let mut expr = None;
-        
+
         // check format string
         {
             let mut arg_idx = 0;
@@ -815,19 +814,28 @@ impl Expression {
                     break;
                 };
                 let argument = &string[p + 1..end];
-                if argument.is_empty() {
+                let argument_index = if argument.is_empty() {
+                    let argument_index = arg_idx;
                     arg_idx += 1;
+                    argument_index
                 } else if let Ok(n) = argument.parse::<u16>() {
                     pos_max = pos_max.max(n as usize + 1);
+                    n as usize
                 } else {
                     ctx.diag
                         .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
                     break;
                 };
                 let add = Expression::BinaryExpression {
-                    lhs: Box::new(Expression::StringLiteral((&string[literal_start_pos..p]).into())),
+                    lhs: Box::new(Expression::StringLiteral(
+                        (&string[literal_start_pos..p]).into(),
+                    )),
                     op: '+',
-                    rhs: Box::new(values[arg_idx-1].clone())
+                    rhs: Box::new(Expression::FunctionCall {
+                        function: BuiltinFunction::EscapeMarkdown.into(),
+                        arguments: vec![values[argument_index].clone()],
+                        source_location: Some(node.to_source_location()),
+                    }),
                 };
                 expr = Some(match expr {
                     None => add,
@@ -840,6 +848,17 @@ impl Expression {
                 pos = end + 1;
                 literal_start_pos = pos;
             }
+            {
+                let trailing = Expression::StringLiteral((&string[literal_start_pos..]).into());
+                expr = Some(match expr {
+                    None => trailing,
+                    Some(expr) => Expression::BinaryExpression {
+                        lhs: Box::new(expr),
+                        op: '+',
+                        rhs: Box::new(trailing),
+                    },
+                });
+            }
             if arg_idx > 0 && pos_max > 0 {
                 ctx.diag.push_error(
                     "Cannot mix positional and non-positional placeholder in format string".into(),
@@ -851,16 +870,13 @@ impl Expression {
                     format!("Format string contains {num} placeholders, but only {} extra arguments were given", values.len()),
                     &node,
                 );
-            }            
+            }
         }
-        
-        std::dbg!(&expr);
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                expr.unwrap()//Expression::StringLiteral(string),
-                
+                expr.unwrap_or_else(|| Expression::default_value_for_type(&Type::String))
             ],
             source_location: Some(node.to_source_location()),
         }

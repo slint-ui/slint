@@ -185,12 +185,25 @@ pub fn open_url(url: &str) {
     }
 }
 
-pub fn escape_markdown(text: &str) -> std::string::String  {
-    std::dbg!(text);
-    text.into()
+pub fn escape_markdown(text: &str) -> std::string::String {
+    let mut out = std::string::String::with_capacity(text.len());
+
+    for c in text.chars() {
+        match c {
+            '*' => out.push_str("\\*"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '_' => out.push_str("\\_"),
+            '#' => out.push_str("\\#"),
+            '-' => out.push_str("\\-"),
+            '`' => out.push_str("\\`"),
+            _ => out.push(c),
+        }
+    }
+
+    out
 }
 
 pub fn parse_markdown(text: &str) -> std::string::String {
-    std::dbg!(text);
     text.into()
 }
