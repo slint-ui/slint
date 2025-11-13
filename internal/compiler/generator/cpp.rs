@@ -3508,7 +3508,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops_it.join(", "), angle, stops.len()
             )
         }
-        Expression::RadialGradient{ stops} => {
+        Expression::RadialGradient{ stops } => {
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
@@ -3519,15 +3519,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops_it.join(", "), stops.len()
             )
         }
-        Expression::ConicGradient{ stops} => {
+        Expression::ConicGradient{ from_angle, stops } => {
+            let from_angle = compile_expression(from_angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::ConicGradientBrush(stops, {})); }}()",
-                stops_it.join(", "), stops.len()
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::ConicGradientBrush(float({}), stops, {})); }}()",
+                stops_it.join(", "), from_angle, stops.len()
             )
         }
         Expression::EnumerationValue(value) => {

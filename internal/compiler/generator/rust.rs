@@ -2671,14 +2671,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 sp::RadialGradientBrush::new_circle([#(#stops),*])
             ))
         }
-        Expression::ConicGradient { stops } => {
+        Expression::ConicGradient { from_angle, stops } => {
+            let from_angle = compile_expression(from_angle, ctx);
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 quote!(sp::GradientStop{ color: #color, position: #position as _ })
             });
             quote!(slint::Brush::ConicGradient(
-                sp::ConicGradientBrush::new([#(#stops),*])
+                sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*])
             ))
         }
         Expression::EnumerationValue(value) => {

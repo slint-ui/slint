@@ -33,6 +33,14 @@ export component TestCase inherits Window {
             // Edge case: invisible stop at start
             Rectangle { background: @conic-gradient(transparent 0deg, red 3.6deg, white 180deg, transparent 360deg); }
         }
+        Row {
+            // Test 'from <angle>' syntax: default (from 0deg)
+            Rectangle { background: @conic-gradient(red 0deg, blue 180deg, red 360deg); }
+            // Rotated by 90deg
+            Rectangle { background: @conic-gradient(from 90deg, red 0deg, blue 180deg, red 360deg); }
+            // Rotated by 180deg
+            Rectangle { background: @conic-gradient(from 180deg, red 0deg, blue 180deg, red 360deg); }
+        }
     }
 
     init => {

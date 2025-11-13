@@ -385,9 +385,10 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 "@radial-gradient(circle, {})",
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
-            Expression::ConicGradient { stops } => write!(
+            Expression::ConicGradient { from_angle, stops } => write!(
                 f,
-                "@conic-gradient({})",
+                "@conic-gradient(from {}, {})",
+                e(from_angle),
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
             Expression::EnumerationValue(x) => write!(f, "{x}"),

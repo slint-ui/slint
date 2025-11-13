@@ -91,9 +91,12 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::RadialGradient { stops } => stops
             .iter()
             .all(|(start, end)| without_side_effects(start) && without_side_effects(end)),
-        Expression::ConicGradient { stops } => stops
-            .iter()
-            .all(|(start, end)| without_side_effects(start) && without_side_effects(end)),
+        Expression::ConicGradient { from_angle, stops } => {
+            without_side_effects(from_angle)
+                && stops
+                    .iter()
+                    .all(|(start, end)| without_side_effects(start) && without_side_effects(end))
+        }
         Expression::EnumerationValue(_) => true,
         // A return statement is never without side effects, as an important "side effect" is that
         // the current function stops at this point.
