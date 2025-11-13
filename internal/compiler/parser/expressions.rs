@@ -254,7 +254,7 @@ fn parse_at_keyword(p: &mut impl Parser) {
         }
         "markdown" => {
             parse_markdown(p);
-        },
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
@@ -444,7 +444,7 @@ fn parse_markdown(p: &mut impl Parser) {
     debug_assert!(p.peek().as_str().ends_with("markdown"));
     p.expect(SyntaxKind::Identifier); //eg "markdown"
     p.expect(SyntaxKind::LParent);
-    
+
     fn consume_literal(p: &mut impl Parser) -> bool {
         let peek = p.peek();
         if peek.kind() != SyntaxKind::StringLiteral
