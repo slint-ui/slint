@@ -31,11 +31,11 @@ jobs:
         working-directory: examples/servo
         run: cargo build
   android_build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       CARGO_PROFILE_RELEASE_OPT_LEVEL: s
       CARGO_INCREMENTAL: false
-      CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
+      CARGO_APK_RELEASE_KEYSTORE: /Users/runner/.android/release.keystore
       CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
@@ -73,7 +73,7 @@ jobs:
         run: cargo install cargo-apk
       - name: Decode keystore
         run: |
-          mkdir -p /home/runner/.android
+          mkdir -p /Users/runner/.android
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
       - name: Build
         if: steps.cache-apk.outputs.cache-hit != 'true'
