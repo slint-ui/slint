@@ -13,7 +13,7 @@ on:
         required: true
 
 jobs:
-  build:
+  matrix_build:
     strategy:
       fail-fast: false
       matrix:
@@ -23,13 +23,27 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
-      - uses: ./.github/actions/setup-rust
-      - uses: ./.github/actions/install-linux-dependencies
-      - uses: ./.github/actions/install-skia-dependencies
+      - name: Cache build
+        id: cache-build
+        uses: actions/cache@v4
+        with:
+          path: examples/servo/target/release/servo_example
+          key: cache-matrix-${{ matrix.os }}-build-${{ hashFiles('examples/servo/**') }}
+      - name: Install uv
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        uses: astral-sh/setup-uv@v7
+      - name: Install rust
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust
+      - name: Install dependencies
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        uses: ./.github/actions/install-linux-dependencies
+      - name: Install skia dependencies
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        uses: ./.github/actions/install-skia-dependencies
       - name: Build
         working-directory: examples/servo
-        run: cargo build
+        run: cargo build --release
   android_build:
     runs-on: macos-latest
     env:
@@ -39,44 +53,44 @@ jobs:
       CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
-      - name: Cache APK build
-        id: cache-apk
+      - name: Cache build
+        id: cache
         uses: actions/cache@v4
         with:
           path: examples/servo/target/release/apk/servo_example_lib.apk
-          key: apk-build-${{ hashFiles('examples/servo/**') }}
+          key: cache-android-build-${{ hashFiles('examples/servo/**') }}
       - name: Install uv
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         uses: astral-sh/setup-uv@v7
       - name: Install rust
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust
         with:
           target: aarch64-linux-android
       - name: Install dependencies
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-linux-dependencies
       - name: Install skia dependencies
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-skia-dependencies
       - name: Install API level
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
       - name: Install build-tools
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
       - name: Install NDK
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.2.13676358"
       - name: Install cargo-apk
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         run: cargo install cargo-apk
       - name: Decode keystore
         run: |
           mkdir -p /Users/runner/.android
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
       - name: Build
-        if: steps.cache-apk.outputs.cache-hit != 'true'
+        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
         working-directory: examples/servo
         run: |
           export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
