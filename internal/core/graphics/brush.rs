@@ -499,32 +499,20 @@ impl ConicGradientBrush {
 }
 
 /// C FFI function to normalize the gradient stops to be within [0, 1] range
-#[no_mangle]
-#[allow(unsafe_code)]
-pub extern "C" fn slint_conic_gradient_normalize_stops(gradient: *mut ConicGradientBrush) {
-    if gradient.is_null() {
-        return;
-    }
-    // SAFETY: gradient is expected to point to a valid ConicGradientBrush
-    unsafe {
-        (*gradient).normalize_stops();
-    }
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_conic_gradient_normalize_stops(gradient: &mut ConicGradientBrush) {
+    gradient.normalize_stops();
 }
 
 /// C FFI function to apply rotation to a ConicGradientBrush
-#[no_mangle]
-#[allow(unsafe_code)]
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_conic_gradient_apply_rotation(
-    gradient: *mut ConicGradientBrush,
+    gradient: &mut ConicGradientBrush,
     angle_degrees: f32,
 ) {
-    if gradient.is_null() {
-        return;
-    }
-    // SAFETY: gradient is expected to point to a valid ConicGradientBrush
-    unsafe {
-        (*gradient).apply_rotation(angle_degrees);
-    }
+    gradient.apply_rotation(angle_degrees);
 }
 
 /// GradientStop describes a single color stop in a gradient. The colors between multiple
