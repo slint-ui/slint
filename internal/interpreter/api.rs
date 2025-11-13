@@ -51,6 +51,7 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
+    StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
     Other = -1,
@@ -128,6 +129,7 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
+    StyledText(()) = 13,
 }
 
 impl Value {
@@ -173,6 +175,9 @@ impl PartialEq for Value {
             Value::ComponentFactory(lhs) => {
                 matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
             }
+            Value::StyledText(lhs) => {
+                matches!(other, Value::StyledText(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -197,6 +202,7 @@ impl std::fmt::Debug for Value {
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({n:?}, {v:?})"),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
+            Value::StyledText(text) => write!(f, "Value::StyledText({text:?})"),
         }
     }
 }
