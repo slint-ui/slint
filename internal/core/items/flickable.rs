@@ -66,7 +66,8 @@ impl Item for Flickable {
                 let Some(flick_rc) = self_weak.upgrade() else { return false };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return false };
                 let flick = flick.as_pin_ref();
-                let geo = flick_rc.geometry();
+                let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
+
                 let zero = LogicalLength::zero();
                 let vpx = flick.viewport_x();
                 if vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero) {
@@ -110,15 +111,15 @@ impl Item for Flickable {
         self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
-            let geometry = self_rc.geometry();
-            if pos.x < 0 as _
+            let geometry = Self::geometry_without_virtual_keyboard(self_rc);
+
+            if (pos.x < 0 as _
                 || pos.y < 0 as _
                 || pos.x_length() > geometry.width_length()
-                || pos.y_length() > geometry.height_length()
+                || pos.y_length() > geometry.height_length())
+                && self.data.inner.borrow().pressed_time.is_none()
             {
-                if !self.data.inner.borrow().pressed_time.is_some() {
-                    return InputEventFilterResult::Intercept;
-                }
+                return InputEventFilterResult::Intercept;
             }
         }
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
@@ -137,7 +138,7 @@ impl Item for Flickable {
             return InputEventResult::EventIgnored;
         }
         if let Some(pos) = event.position() {
-            let geometry = self_rc.geometry();
+            let geometry = Self::geometry_without_virtual_keyboard(self_rc);
             if matches!(event, MouseEvent::Wheel { .. } | MouseEvent::Pressed { .. })
                 && (pos.x < 0 as _
                     || pos.y < 0 as _
@@ -268,7 +269,7 @@ impl Flickable {
         }
 
         // visible viewport size from base Item
-        let geo = self_rc.geometry();
+        let geo = Self::geometry_without_virtual_keyboard(self_rc);
 
         // content extents and current viewport origin (content coords)
         let vw = Self::FIELD_OFFSETS.viewport_width.apply_pin(self).get().0;
@@ -285,6 +286,21 @@ impl Flickable {
 
         Self::FIELD_OFFSETS.viewport_x.apply_pin(self).set(euclid::Length::new(-new_vx));
         Self::FIELD_OFFSETS.viewport_y.apply_pin(self).set(euclid::Length::new(-new_vy));
+    }
+
+    fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
+        let mut geometry = self_rc.geometry();
+
+        // subtract keyboard rect if needed
+        if let Some(keyboard_rect) = self_rc.window_adapter().and_then(|window_adapter| {
+            window_adapter.window().virtual_keyboard(crate::InternalToken)
+        }) {
+            let keyboard_top_left = self_rc.map_from_window(keyboard_rect.0.to_euclid());
+            if keyboard_top_left.y > geometry.origin.y {
+                geometry.size.height = keyboard_top_left.y - geometry.origin.y;
+            }
+        }
+        geometry
     }
 }
 
@@ -381,7 +397,7 @@ impl FlickableData {
                         // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
                         // direction in which the flickable can flick
                         let diff = *position - inner.pressed_pos;
-                        let geo = flick_rc.geometry();
+                        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
                         let w = geo.width_length();
                         let h = geo.height_length();
                         let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
@@ -460,7 +476,7 @@ impl FlickableData {
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                     let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                     let should_capture = || {
-                        let geo = flick_rc.geometry();
+                        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
                         let w = geo.width_length();
                         let h = geo.height_length();
                         let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
@@ -507,7 +523,7 @@ impl FlickableData {
                     LogicalVector::new(*delta_x, *delta_y)
                 };
 
-                let geo = flick_rc.geometry();
+                let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
                 if (delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
                     || (delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
@@ -585,7 +601,7 @@ fn abs(l: LogicalLength) -> LogicalLength {
 
 /// Make sure that the point is within the bounds
 fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -> LogicalPoint {
-    let geo = flick_rc.geometry();
+    let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
     let w = geo.width_length();
     let h = geo.height_length();
     let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();

@@ -1518,6 +1518,51 @@ impl WindowInner {
         }
     }
 
+    pub(crate) fn set_window_item_virtual_keyboard(
+        &self,
+        origin: crate::lengths::LogicalPoint,
+        size: crate::lengths::LogicalSize,
+    ) {
+        let Some(component_rc) = self.try_component() else {
+            return;
+        };
+        let component = ItemTreeRc::borrow_pin(&component_rc);
+        let root_item = component.as_ref().get_item_ref(0);
+        let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item) else {
+            return;
+        };
+        for (property, value) in [
+            (&window_item.virtual_keyboard_x, origin.x),
+            (&window_item.virtual_keyboard_y, origin.y),
+            (&window_item.virtual_keyboard_width, size.width),
+            (&window_item.virtual_keyboard_height, size.height),
+        ] {
+            property.set(LogicalLength::new(value));
+        }
+        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
+            focus_item.try_scroll_into_visible();
+        }
+    }
+
+    pub(crate) fn window_item_virtual_keyboard(
+        &self,
+    ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
+        let component_rc = self.try_component()?;
+        let component = ItemTreeRc::borrow_pin(&component_rc);
+        let root_item = component.as_ref().get_item_ref(0);
+        let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
+        Some((
+            crate::lengths::LogicalPoint::from_lengths(
+                window_item.virtual_keyboard_x(),
+                window_item.virtual_keyboard_y(),
+            ),
+            crate::lengths::LogicalSize::from_lengths(
+                window_item.virtual_keyboard_width(),
+                window_item.virtual_keyboard_height(),
+            ),
+        ))
+    }
+
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
     pub fn on_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.close_requested.set_handler(move |()| callback());
