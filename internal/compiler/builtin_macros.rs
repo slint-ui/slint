@@ -420,6 +420,7 @@ fn to_debug_string(
             }
         }
         Type::Enumeration(_) => Expression::Cast { from: Box::new(expr), to: (Type::String) },
+        Type::StyledText => Expression::Invalid,
     }
 }
 

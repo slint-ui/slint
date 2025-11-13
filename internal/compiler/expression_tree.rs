@@ -281,7 +281,7 @@ declare_builtin_function_types!(
     RestartTimer: (Type::ElementReference) -> Type::Void,
     OpenUrl: (Type::String) -> Type::Void,
     EscapeMarkdown: (Type::String) -> Type::String,
-    ParseMarkdown: (Type::String) -> Type::String
+    ParseMarkdown: (Type::String) -> Type::StyledText
 );
 
 impl BuiltinFunction {
@@ -1434,6 +1434,7 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::ComponentFactory => Expression::EmptyComponentFactory,
+            Type::StyledText => Expression::Invalid,
         }
     }
 

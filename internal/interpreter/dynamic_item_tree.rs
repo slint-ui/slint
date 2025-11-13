@@ -1254,7 +1254,7 @@ pub(crate) fn generate_item_tree<'id>(
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
-
+            Type::StyledText => property_info::<Value>(),
             // These can't be used in properties
             Type::Invalid
             | Type::Void
