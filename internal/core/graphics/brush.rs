@@ -11,9 +11,9 @@ use crate::properties::InterpolatedPropertyValue;
 use euclid::default::{Point2D, Size2D};
 
 #[cfg(not(feature = "std"))]
-use num_traits::float::Float;
-#[cfg(not(feature = "std"))]
 use num_traits::Euclid;
+#[cfg(not(feature = "std"))]
+use num_traits::float::Float;
 
 /// A brush is a data structure that is used to describe how
 /// a shape, such as a rectangle, path or even text, shall be filled.
