@@ -192,7 +192,7 @@ where
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
-        let p2 = Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap());
+        let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };
         Property::link_two_way(p1, p2);
     }
 
@@ -334,7 +334,7 @@ where
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
-        let p2 = Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap());
+        let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };
         Property::link_two_way(p1, p2);
     }
 

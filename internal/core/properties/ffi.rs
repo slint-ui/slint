@@ -15,15 +15,17 @@ pub struct PropertyHandleOpaque(PropertyHandle);
 /// `out` is assumed to be uninitialized
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_init(out: *mut PropertyHandleOpaque) {
-    core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default()));
+    unsafe { core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default())) };
 }
 
 /// To be called before accessing the value
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, val: *mut c_void) {
-    let handle = Pin::new_unchecked(&handle.0);
-    handle.update(val);
-    handle.register_as_dependency_to_current_binding();
+    unsafe {
+        let handle = Pin::new_unchecked(&handle.0);
+        handle.update(val);
+        handle.register_as_dependency_to_current_binding();
+    }
 }
 
 /// Mark the fact that the property was changed and that its binding need to be removed, and
@@ -34,13 +36,14 @@ pub unsafe extern "C" fn slint_property_set_changed(
     handle: &PropertyHandleOpaque,
     value: *const c_void,
 ) {
-    if !handle
-        .0
-        .access(|b| b.is_some_and(|b| (b.vtable.intercept_set)(&*b as *const BindingHolder, value)))
-    {
-        handle.0.remove_binding();
+    unsafe {
+        if !handle.0.access(|b| {
+            b.is_some_and(|b| (b.vtable.intercept_set)(&*b as *const BindingHolder, value))
+        }) {
+            handle.0.remove_binding();
+        }
+        handle.0.mark_dirty();
     }
-    handle.0.mark_dirty();
 }
 
 fn make_c_function_binding(
@@ -127,7 +130,7 @@ pub unsafe extern "C" fn slint_property_set_binding(
         intercept_set,
         intercept_set_binding,
     );
-    handle.0.set_binding(binding);
+    unsafe { handle.0.set_binding(binding) };
 }
 
 /// Set a binding using an already allocated building holder
@@ -145,14 +148,14 @@ pub unsafe extern "C" fn slint_property_set_binding_internal(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_delete_binding(binding: *mut c_void) {
     let b = binding as *mut BindingHolder;
-    ((*b).vtable.drop)(b);
+    unsafe { ((*b).vtable.drop)(b) };
 }
 
 /// Evaluate a raw binding
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_evaluate_binding(binding: *mut c_void, value: *mut c_void) {
     let b = binding as *mut BindingHolder;
-    ((*b).vtable.evaluate)(b, value);
+    unsafe { ((*b).vtable.evaluate)(b, value) };
 }
 
 /// Returns whether the property behind this handle is marked as dirty
@@ -176,7 +179,9 @@ pub extern "C" fn slint_property_set_constant(handle: &PropertyHandleOpaque) {
 /// Destroy handle
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_drop(handle: *mut PropertyHandleOpaque) {
-    core::ptr::drop_in_place(handle);
+    unsafe {
+        core::ptr::drop_in_place(handle);
+    }
 }
 
 fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
@@ -261,47 +266,49 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
         extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
     >,
 ) {
-    let binding = core::mem::transmute::<
-        extern "C" fn(*mut c_void, *mut T),
-        extern "C" fn(*mut c_void, *mut ()),
-    >(binding);
-    let original_binding = PropertyHandle {
-        handle: Cell::new(
-            (alloc_binding_holder(make_c_function_binding(
-                binding,
-                user_data,
-                drop_user_data,
-                None,
-                None,
-            )) as usize)
-                | 0b10,
-        ),
-    };
-    let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
-        T::default(),
-        T::default(),
-        animation_data.cloned().unwrap_or_default(),
-    ));
-    if let Some(transition_data) = transition_data {
-        handle.0.set_binding(properties_animations::AnimatedBindingCallable::<T, _> {
-            original_binding,
-            state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
-            animation_data,
-            compute_animation_details: move || -> properties_animations::AnimationDetail {
-                let mut start_instant = 0;
-                let anim = transition_data(user_data, &mut start_instant);
-                Some((anim, crate::animations::Instant(start_instant)))
-            },
-        });
-    } else {
-        handle.0.set_binding(properties_animations::AnimatedBindingCallable::<T, _> {
-            original_binding,
-            state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
-            animation_data,
-            compute_animation_details: || -> properties_animations::AnimationDetail { None },
-        });
+    unsafe {
+        let binding = core::mem::transmute::<
+            extern "C" fn(*mut c_void, *mut T),
+            extern "C" fn(*mut c_void, *mut ()),
+        >(binding);
+        let original_binding = PropertyHandle {
+            handle: Cell::new(
+                (alloc_binding_holder(make_c_function_binding(
+                    binding,
+                    user_data,
+                    drop_user_data,
+                    None,
+                    None,
+                )) as usize)
+                    | 0b10,
+            ),
+        };
+        let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
+            T::default(),
+            T::default(),
+            animation_data.cloned().unwrap_or_default(),
+        ));
+        if let Some(transition_data) = transition_data {
+            handle.0.set_binding(properties_animations::AnimatedBindingCallable::<T, _> {
+                original_binding,
+                state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
+                animation_data,
+                compute_animation_details: move || -> properties_animations::AnimationDetail {
+                    let mut start_instant = 0;
+                    let anim = transition_data(user_data, &mut start_instant);
+                    Some((anim, crate::animations::Instant(start_instant)))
+                },
+            });
+        } else {
+            handle.0.set_binding(properties_animations::AnimatedBindingCallable::<T, _> {
+                original_binding,
+                state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
+                animation_data,
+                compute_animation_details: || -> properties_animations::AnimationDetail { None },
+            });
+        }
+        handle.0.mark_dirty();
     }
-    handle.0.mark_dirty();
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for an integer property.
@@ -316,14 +323,16 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_int(
         extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
     >,
 ) {
-    c_set_animated_binding(
-        handle,
-        binding,
-        user_data,
-        drop_user_data,
-        animation_data,
-        transition_data,
-    );
+    unsafe {
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
+    }
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for a float property.
@@ -338,14 +347,16 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_float(
         extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
     >,
 ) {
-    c_set_animated_binding(
-        handle,
-        binding,
-        user_data,
-        drop_user_data,
-        animation_data,
-        transition_data,
-    );
+    unsafe {
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
+    }
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for a color property.
@@ -360,14 +371,16 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_color(
         extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
     >,
 ) {
-    c_set_animated_binding(
-        handle,
-        binding,
-        user_data,
-        drop_user_data,
-        animation_data,
-        transition_data,
-    );
+    unsafe {
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
+    }
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for a brush property.
@@ -382,14 +395,16 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
         extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
     >,
 ) {
-    c_set_animated_binding(
-        handle,
-        binding,
-        user_data,
-        drop_user_data,
-        animation_data,
-        transition_data,
-    );
+    unsafe {
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
+    }
 }
 
 /// Internal function to set up a state binding on a Property<StateInfo>.
@@ -423,7 +438,7 @@ pub unsafe extern "C" fn slint_property_set_state_binding(
     let c_state_binding = CStateBinding { binding, user_data, drop_user_data };
     let bind_callable =
         StateInfoBinding { dirty_time: Cell::new(None), binding: move || c_state_binding.call() };
-    handle.0.set_binding(bind_callable)
+    unsafe { handle.0.set_binding(bind_callable) }
 }
 
 #[repr(C)]
@@ -443,7 +458,9 @@ static_assertions::assert_eq_size!(PropertyTrackerOpaque, PropertyTracker);
 /// slint_property_tracker_drop need to be called after that
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_init(out: *mut PropertyTrackerOpaque) {
-    core::ptr::write(out as *mut PropertyTracker, PropertyTracker::default());
+    unsafe {
+        core::ptr::write(out as *mut PropertyTracker, PropertyTracker::default());
+    }
 }
 
 /// Call the callback with the user data. Any properties access within the callback will be registered.
@@ -454,7 +471,8 @@ pub unsafe extern "C" fn slint_property_tracker_evaluate(
     callback: extern "C" fn(user_data: *mut c_void),
     user_data: *mut c_void,
 ) {
-    Pin::new_unchecked(&*(handle as *const PropertyTracker)).evaluate(|| callback(user_data))
+    unsafe { Pin::new_unchecked(&*(handle as *const PropertyTracker)) }
+        .evaluate(|| callback(user_data))
 }
 
 /// Call the callback with the user data. Any properties access within the callback will be registered.
@@ -465,7 +483,7 @@ pub unsafe extern "C" fn slint_property_tracker_evaluate_as_dependency_root(
     callback: extern "C" fn(user_data: *mut c_void),
     user_data: *mut c_void,
 ) {
-    Pin::new_unchecked(&*(handle as *const PropertyTracker))
+    unsafe { Pin::new_unchecked(&*(handle as *const PropertyTracker)) }
         .evaluate_as_dependency_root(|| callback(user_data))
 }
 /// Query if the property tracker is dirty
@@ -473,25 +491,25 @@ pub unsafe extern "C" fn slint_property_tracker_evaluate_as_dependency_root(
 pub unsafe extern "C" fn slint_property_tracker_is_dirty(
     handle: *const PropertyTrackerOpaque,
 ) -> bool {
-    (*(handle as *const PropertyTracker)).is_dirty()
+    unsafe { (*(handle as *const PropertyTracker)).is_dirty() }
 }
 
 /// Destroy handle
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
-    core::ptr::drop_in_place(handle as *mut PropertyTracker);
+    unsafe { core::ptr::drop_in_place(handle as *mut PropertyTracker) };
 }
 
 /// Construct a ChangeTracker
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTracker) {
-    core::ptr::write(ct, ChangeTracker::default());
+    unsafe { core::ptr::write(ct, ChangeTracker::default()) };
 }
 
 /// Drop a ChangeTracker
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
-    core::ptr::drop_in_place(ct);
+    unsafe { core::ptr::drop_in_place(ct) };
 }
 
 /// initialize the change tracker
@@ -517,13 +535,15 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     }
 
     unsafe fn drop(_self: *mut BindingHolder) {
-        core::mem::drop(Box::from_raw(_self as *mut BindingHolder<C_ChangeTrackerInner>));
+        core::mem::drop(unsafe {
+            Box::from_raw(_self as *mut BindingHolder<C_ChangeTrackerInner>)
+        });
     }
 
     unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
-        let pinned_holder = Pin::new_unchecked(&*_self);
+        let pinned_holder = unsafe { Pin::new_unchecked(&*_self) };
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
-        let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+        let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
         let notify =
             super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
         if notify {
@@ -557,10 +577,10 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     };
 
     let raw = Box::into_raw(Box::new(holder));
-    ct.set_internal(raw as *mut BindingHolder);
+    unsafe { ct.set_internal(raw as *mut BindingHolder) };
 
-    let pinned_holder = Pin::new_unchecked(&*(raw as *mut BindingHolder));
-    let inner = core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap();
+    let pinned_holder = unsafe { Pin::new_unchecked(&*(raw as *mut BindingHolder)) };
+    let inner = unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap() };
     super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
 }
 

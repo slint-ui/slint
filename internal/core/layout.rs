@@ -799,6 +799,9 @@ pub(crate) mod ffi {
         cells: *mut GridLayoutCellData,
         roles: Slice<DialogButtonRole>,
     ) {
-        reorder_dialog_button_layout(core::slice::from_raw_parts_mut(cells, roles.len()), &roles);
+        reorder_dialog_button_layout(
+            unsafe { core::slice::from_raw_parts_mut(cells, roles.len()) },
+            &roles,
+        );
     }
 }

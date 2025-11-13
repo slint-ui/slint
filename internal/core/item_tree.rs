@@ -1302,8 +1302,10 @@ pub(crate) mod ffi {
         item_tree_rc: &ItemTreeRc,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let window_adapter = (window_handle as *const WindowAdapterRc).as_ref().cloned();
-        super::register_item_tree(item_tree_rc, window_adapter)
+        unsafe {
+            let window_adapter = (window_handle as *const WindowAdapterRc).as_ref().cloned();
+            super::register_item_tree(item_tree_rc, window_adapter)
+        }
     }
 
     /// Free the backend graphics resources allocated in the item array.
@@ -1313,13 +1315,15 @@ pub(crate) mod ffi {
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let window_adapter = &*(window_handle as *const WindowAdapterRc);
-        super::unregister_item_tree(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            core::pin::Pin::into_inner(component),
-            item_array.as_slice(),
-            window_adapter,
-        )
+        unsafe {
+            let window_adapter = &*(window_handle as *const WindowAdapterRc);
+            super::unregister_item_tree(
+                core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+                core::pin::Pin::into_inner(component),
+                item_array.as_slice(),
+                window_adapter,
+            )
+        }
     }
 
     /// Expose `crate::item_tree::visit_item_tree` to C++

@@ -115,12 +115,14 @@ pub(crate) mod dependency_tracker {
 
     impl<T> DependencyListHead<T> {
         pub unsafe fn mem_move(from: *mut Self, to: *mut Self) {
-            (*to).0.set((*from).0.get());
-            if let Some(next) = (*from).0.get().as_ref() {
-                debug_assert_eq!(from as *const _, next.prev.get() as *const _);
-                next.debug_assert_valid();
-                next.prev.set(to as *const _);
-                next.debug_assert_valid();
+            unsafe {
+                (*to).0.set((*from).0.get());
+                if let Some(next) = (*from).0.get().as_ref() {
+                    debug_assert_eq!(from as *const _, next.prev.get() as *const _);
+                    next.debug_assert_valid();
+                    next.prev.set(to as *const _);
+                    next.debug_assert_valid();
+                }
             }
         }
 
@@ -148,11 +150,13 @@ pub(crate) mod dependency_tracker {
         }
 
         pub unsafe fn drop(_self: *mut Self) {
-            if let Some(next) = (*_self).0.get().as_ref() {
-                debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
-                next.debug_assert_valid();
-                next.prev.set(core::ptr::null());
-                next.debug_assert_valid();
+            unsafe {
+                if let Some(next) = (*_self).0.get().as_ref() {
+                    debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
+                    next.debug_assert_valid();
+                    next.prev.set(core::ptr::null());
+                    next.debug_assert_valid();
+                }
             }
         }
         pub fn append(&self, node: Pin<&DependencyNode<T>>) {
@@ -423,7 +427,9 @@ impl BindingHolder {
 fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut BindingHolder {
     /// Safety: _self must be a pointer that comes from a `Box<BindingHolder<B>>::into_raw()`
     unsafe fn binding_drop<B>(_self: *mut BindingHolder) {
-        drop(Box::from_raw(_self as *mut BindingHolder<B>));
+        unsafe {
+            drop(Box::from_raw(_self as *mut BindingHolder<B>));
+        }
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
@@ -432,13 +438,15 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         _self: *const BindingHolder,
         value: *mut (),
     ) -> BindingResult {
-        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
-            .evaluate(&mut *(value as *mut T))
+        unsafe {
+            Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
+                .evaluate(&mut *(value as *mut T))
+        }
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
     unsafe fn mark_dirty<T, B: BindingCallable<T>>(_self: *const BindingHolder, _: bool) {
-        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).mark_dirty()
+        unsafe { Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).mark_dirty() }
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
@@ -446,16 +454,20 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         _self: *const BindingHolder,
         value: *const (),
     ) -> bool {
-        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
-            .intercept_set(&*(value as *const T))
+        unsafe {
+            Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
+                .intercept_set(&*(value as *const T))
+        }
     }
 
     unsafe fn intercept_set_binding<T, B: BindingCallable<T>>(
         _self: *const BindingHolder,
         new_binding: *mut BindingHolder,
     ) -> bool {
-        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
-            .intercept_set_binding(new_binding)
+        unsafe {
+            Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
+                .intercept_set_binding(new_binding)
+        }
     }
 
     trait HasBindingVTable<T> {
@@ -642,7 +654,7 @@ impl PropertyHandle {
                         value: *mut (),
                         binding: Pin<&BindingHolder>,
                     ) -> BindingResult {
-                        CURRENT_BINDING.set(Some(binding), || {
+                        CURRENT_BINDING.set(Some(binding), || unsafe {
                             (binding.vtable.evaluate)(
                                 binding.get_ref() as *const BindingHolder,
                                 value as *mut (),
@@ -652,7 +664,8 @@ impl PropertyHandle {
 
                     // clear all the nodes so that we can start from scratch
                     binding.dep_nodes.set(Default::default());
-                    let r = evaluate_as_current_binding(value as *mut (), binding.as_ref());
+                    let r =
+                        unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
                     binding.dirty.set(false);
                     if r == BindingResult::RemoveBinding {
                         return true;
@@ -744,27 +757,29 @@ impl Drop for PropertyHandle {
 
 /// Safety: the dependency list must be valid and consistent
 unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
-    debug_assert!(!core::ptr::eq(
-        *(dependencies as *mut *const u32),
-        (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-    ));
-    DependencyListHead::for_each(&*dependencies, |binding| {
-        let binding: &BindingHolder = &**binding;
-        let was_dirty = binding.dirty.replace(true);
-        (binding.vtable.mark_dirty)(binding as *const BindingHolder, was_dirty);
+    unsafe {
+        debug_assert!(!core::ptr::eq(
+            *(dependencies as *mut *const u32),
+            (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+        ));
+        DependencyListHead::for_each(&*dependencies, |binding| {
+            let binding: &BindingHolder = &**binding;
+            let was_dirty = binding.dirty.replace(true);
+            (binding.vtable.mark_dirty)(binding as *const BindingHolder, was_dirty);
 
-        assert!(
-            !core::ptr::eq(
-                *(binding.dependencies.as_ptr() as *mut *const u32),
-                (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-            ),
-            "Const property marked as dirty"
-        );
+            assert!(
+                !core::ptr::eq(
+                    *(binding.dependencies.as_ptr() as *mut *const u32),
+                    (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+                ),
+                "Const property marked as dirty"
+            );
 
-        if !was_dirty {
-            mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
-        }
-    });
+            if !was_dirty {
+                mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
+            }
+        });
+    }
 }
 
 /// Types that can be set as bindings for a `Property<T>`
@@ -1764,7 +1779,9 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
             was_dirty: bool,
         ) {
             if !was_dirty {
-                Pin::new_unchecked(&(*(_self as *const BindingHolder<B>)).binding).notify();
+                unsafe {
+                    Pin::new_unchecked(&(*(_self as *const BindingHolder<B>)).binding).notify()
+                };
             }
         }
 

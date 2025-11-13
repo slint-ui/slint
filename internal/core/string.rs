@@ -437,14 +437,16 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Destroy the shared string
     pub unsafe extern "C" fn slint_shared_string_drop(ss: *const SharedString) {
-        core::ptr::read(ss);
+        unsafe {
+            core::ptr::read(ss);
+        }
     }
 
     #[unsafe(no_mangle)]
     /// Increment the reference count of the string.
     /// The resulting structure must be passed to slint_shared_string_drop
     pub unsafe extern "C" fn slint_shared_string_clone(out: *mut SharedString, ss: &SharedString) {
-        core::ptr::write(out, ss.clone())
+        unsafe { core::ptr::write(out, ss.clone()) }
     }
 
     #[unsafe(no_mangle)]
@@ -455,8 +457,10 @@ pub(crate) mod ffi {
         bytes: *const c_char,
         len: usize,
     ) {
-        let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
-        core::ptr::write(out, SharedString::from(str));
+        unsafe {
+            let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
+            core::ptr::write(out, SharedString::from(str));
+        }
     }
 
     /// Create a string from a number.
@@ -464,7 +468,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
         let str = shared_string_from_number(n);
-        core::ptr::write(out, str);
+        unsafe { core::ptr::write(out, str) };
     }
 
     #[test]
@@ -627,7 +631,7 @@ pub(crate) mod ffi {
         bytes: *const c_char,
         len: usize,
     ) {
-        let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
+        let str = core::str::from_utf8(unsafe { core::slice::from_raw_parts(bytes, len) }).unwrap();
         self_.push_str(str);
     }
     #[test]

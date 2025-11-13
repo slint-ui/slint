@@ -1592,9 +1592,11 @@ pub unsafe extern "C" fn slint_contextmenu_close(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    s.close(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        s.close(window_adapter, &self_rc);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -1605,9 +1607,11 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) -> bool {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    s.is_open(window_adapter, &self_rc)
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        s.is_open(window_adapter, &self_rc)
+    }
 }
 
 /// The implementation of the `BoxShadow` element
