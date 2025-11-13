@@ -105,8 +105,9 @@ class ConicGradientBrush
 public:
     /// Constructs an empty conic gradient with no color stops.
     ConicGradientBrush() = default;
-    /// Constructs a new conic gradient with the specified starting \a angle. The color stops will be
-    /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
+    /// Constructs a new conic gradient with the specified starting \a angle. The color stops will
+    /// be constructed from the stops array pointed to be \a firstStop, with the length \a
+    /// stopCount.
     ConicGradientBrush(float angle, const GradientStop *firstStop, int stopCount)
         : inner(make_conic_gradient(angle, firstStop, stopCount))
     {
@@ -133,7 +134,8 @@ private:
     make_conic_gradient(float angle, const GradientStop *firstStop, int stopCount)
     {
         SharedVector<private_api::GradientStop> gradient;
-        // The gradient's first stop is a fake stop to store the angle (same pattern as LinearGradient)
+        // The gradient's first stop is a fake stop to store the angle (same pattern as
+        // LinearGradient)
         gradient.push_back({ Color::from_argb_encoded(0).inner, angle });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             gradient.push_back(*firstStop);
