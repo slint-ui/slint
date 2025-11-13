@@ -12,7 +12,7 @@ use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, Lowe
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
-use crate::layout::Orientation;
+use crate::layout::{Orientation, RowColExpr};
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
@@ -891,18 +891,16 @@ fn grid_layout_input_data(
             .elems
             .iter()
             .map(|c| {
-                let mut lower_expr_or_default =
-                    |expr: &Option<crate::expression_tree::Expression>, default: u16| {
-                        expr.as_ref().map_or_else(
-                            || llr_Expression::NumberLiteral(default.into()),
-                            |e| lower_expression(e, ctx),
-                        )
-                    };
-                // MAX means "auto", see to_layout_data()
-                let row_expr = lower_expr_or_default(&c.row_expr, u16::MAX);
-                let col_expr = lower_expr_or_default(&c.col_expr, u16::MAX);
-                let rowspan_expr = lower_expr_or_default(&c.rowspan_expr, 1);
-                let colspan_expr = lower_expr_or_default(&c.colspan_expr, 1);
+                let propref_or_default = |named_ref: &RowColExpr| match named_ref {
+                    RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
+                    RowColExpr::Named(e) => {
+                        llr_Expression::PropertyReference(ctx.map_property_reference(e))
+                    }
+                };
+                let row_expr = propref_or_default(&c.row_expr);
+                let col_expr = propref_or_default(&c.col_expr);
+                let rowspan_expr = propref_or_default(&c.rowspan_expr);
+                let colspan_expr = propref_or_default(&c.colspan_expr);
 
                 make_struct(
                     BuiltinPrivateStruct::GridLayoutInputData,

@@ -340,21 +340,66 @@ impl GridLayout {
         numbering_type: &mut Option<RowColExpressionType>,
         diag: &mut BuildDiagnostics,
     ) {
-        let mut get_expr = |name: &str| {
-            let mut is_number_literal = false;
-            let expr = item_element.borrow_mut().bindings.get(name).map(|e| {
-                let expr = &e.borrow().expression;
-                is_number_literal =
-                    check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
-                expr.clone()
-            });
-            (expr, is_number_literal)
+        // Some compile-time checks
+        {
+            let mut check_expr = |name: &str| {
+                let mut is_number_literal = false;
+                let expr = item_element.borrow_mut().bindings.get(name).map(|e| {
+                    let expr = &e.borrow().expression;
+                    is_number_literal =
+                        check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
+                    expr.clone()
+                });
+                (expr, is_number_literal)
+            };
+
+            let (row_expr, row_is_number_literal) = check_expr("row");
+            let (col_expr, col_is_number_literal) = check_expr("col");
+            check_expr("rowspan");
+            check_expr("colspan");
+
+            let mut check_numbering_consistency =
+                |expr_type: RowColExpressionType, prop_name: &str| {
+                    if !matches!(expr_type, RowColExpressionType::Literal) {
+                        if let Some(current_numbering_type) = numbering_type {
+                            if *current_numbering_type != expr_type {
+                                let element_ref = item_element.borrow();
+                                let span: &dyn Spanned =
+                                    if let Some(binding) = element_ref.bindings.get(prop_name) {
+                                        &*binding.borrow()
+                                    } else {
+                                        &*element_ref
+                                    };
+                                diag.push_error(
+                                    format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property"),
+                                    span,
+                                );
+                            }
+                        } else {
+                            // Store the first auto or runtime expression case we see
+                            *numbering_type = Some(expr_type);
+                        }
+                    }
+                };
+
+            let row_expr_type =
+                RowColExpressionType::from_option_expr(&row_expr, row_is_number_literal);
+            check_numbering_consistency(row_expr_type, "row");
+
+            let col_expr_type =
+                RowColExpressionType::from_option_expr(&col_expr, col_is_number_literal);
+            check_numbering_consistency(col_expr_type, "col");
+        }
+
+        let propref_or_default = |name: &'static str| -> Option<RowColExpr> {
+            crate::layout::binding_reference(item_element, &name).map(|nr| RowColExpr::Named(nr))
         };
 
-        let (row_expr, row_is_number_literal) = get_expr("row");
-        let (col_expr, col_is_number_literal) = get_expr("col");
-        let (rowspan_expr, _) = get_expr("rowspan");
-        let (colspan_expr, _) = get_expr("colspan");
+        // MAX means "auto", see to_layout_data()
+        let row_expr = propref_or_default("row");
+        let col_expr = propref_or_default("col");
+        let rowspan_expr = propref_or_default("rowspan");
+        let colspan_expr = propref_or_default("colspan");
 
         self.add_element_with_coord_as_expr(
             item_element,
@@ -366,32 +411,6 @@ impl GridLayout {
             organized_data_prop,
             diag,
         );
-
-        let mut check_numbering_consistency = |expr_type: RowColExpressionType, prop_name: &str| {
-            if !matches!(expr_type, RowColExpressionType::Literal) {
-                if let Some(current_numbering_type) = numbering_type {
-                    if *current_numbering_type != expr_type {
-                        item_element.borrow_mut().bindings.get(prop_name).map(|binding| {
-                    diag.push_error(
-                    format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property"),
-                    &*binding.borrow(),
-                    );
-                });
-                    }
-                } else {
-                    // Store the first auto or runtime expression case we see
-                    *numbering_type = Some(expr_type);
-                }
-            }
-        };
-
-        let row_expr_type =
-            RowColExpressionType::from_option_expr(&row_expr, row_is_number_literal);
-        check_numbering_consistency(row_expr_type, "row");
-
-        let col_expr_type =
-            RowColExpressionType::from_option_expr(&col_expr, col_is_number_literal);
-        check_numbering_consistency(col_expr_type, "col");
     }
 
     fn add_element_with_coord(
@@ -407,14 +426,8 @@ impl GridLayout {
         self.add_element_with_coord_as_expr(
             item_element,
             false, // new_row
-            (
-                &Some(Expression::NumberLiteral(row as _, Unit::None)),
-                &Some(Expression::NumberLiteral(col as _, Unit::None)),
-            ),
-            (
-                &Some(Expression::NumberLiteral(rowspan as _, Unit::None)),
-                &Some(Expression::NumberLiteral(colspan as _, Unit::None)),
-            ),
+            (&Some(RowColExpr::Literal(row)), &Some(RowColExpr::Literal(col))),
+            (&Some(RowColExpr::Literal(rowspan)), &Some(RowColExpr::Literal(colspan))),
             layout_cache_prop_h,
             layout_cache_prop_v,
             organized_data_prop,
@@ -426,8 +439,8 @@ impl GridLayout {
         &mut self,
         item_element: &ElementRc,
         new_row: bool,
-        (row_expr, col_expr): (&Option<Expression>, &Option<Expression>),
-        (rowspan_expr, colspan_expr): (&Option<Expression>, &Option<Expression>),
+        (row_expr, col_expr): (&Option<RowColExpr>, &Option<RowColExpr>),
+        (rowspan_expr, colspan_expr): (&Option<RowColExpr>, &Option<RowColExpr>),
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         organized_data_prop: &NamedReference,
@@ -463,12 +476,20 @@ impl GridLayout {
                 set_prop_from_cache(e, "row", organized_data_prop, org_index + 2, &None, diag);
             }
 
+            let expr_or_default = |expr: &Option<RowColExpr>, default: u16| -> RowColExpr {
+                match expr {
+                    Some(RowColExpr::Literal(v)) => RowColExpr::Literal(*v),
+                    Some(RowColExpr::Named(nr)) => RowColExpr::Named(nr.clone()),
+                    None => RowColExpr::Literal(default),
+                }
+            };
+
             self.elems.push(GridLayoutElement {
                 new_row,
-                col_expr: col_expr.clone(),
-                row_expr: row_expr.clone(),
-                colspan_expr: colspan_expr.clone(),
-                rowspan_expr: rowspan_expr.clone(),
+                col_expr: expr_or_default(col_expr, u16::MAX), // MAX means "auto"
+                row_expr: expr_or_default(row_expr, u16::MAX),
+                colspan_expr: expr_or_default(colspan_expr, 1),
+                rowspan_expr: expr_or_default(rowspan_expr, 1),
                 item: layout_item.item.clone(),
             });
         }

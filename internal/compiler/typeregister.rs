@@ -247,7 +247,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(
             RESERVED_GRIDLAYOUT_PROPERTIES
                 .iter()
-                .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Constexpr)),
+                .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
         .chain(IntoIterator::into_iter([
             ("absolute-position", logical_point_type().into(), PropertyVisibility::Output),
