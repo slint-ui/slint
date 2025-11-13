@@ -1732,6 +1732,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         }
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
+        Type::StyledText => matches!(value, Value::StyledText(_)),
     }
 }
 
@@ -2032,6 +2033,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Function { .. } => {
             panic!("There can't be such property")
         }
+        Type::StyledText => Value::StyledText(Default::default()),
     }
 }
 

@@ -63,6 +63,8 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
+    /// Correspond to `styled-text` type in .slint.
+    StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
     Other = -1,
@@ -87,6 +89,7 @@ impl From<LangType> for ValueType {
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
             LangType::Image => Self::Image,
+            LangType::StyledText => Self::StyledText,
             _ => Self::Other,
         }
     }
@@ -140,6 +143,8 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
+    /// Correspond to the `styled-text` type in .slint
+    StyledText(i_slint_core::api::StyledText) = 13,
 }
 
 impl Value {
@@ -185,6 +190,9 @@ impl PartialEq for Value {
             Value::ComponentFactory(lhs) => {
                 matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
             }
+            Value::StyledText(lhs) => {
+                matches!(other, Value::StyledText(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -209,6 +217,7 @@ impl std::fmt::Debug for Value {
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({n:?}, {v:?})"),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
+            Value::StyledText(text) => write!(f, "Value::StyledText({text:?})"),
         }
     }
 }
@@ -251,6 +260,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
+declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
