@@ -172,3 +172,13 @@ pub fn open_url(url: &str) {
         debug_log!("Error opening url {}: {}", url, err);
     }
 }
+
+pub fn escape_markdown(text: &str) -> std::string::String  {
+    std::dbg!(text);
+    text.into()
+}
+
+pub fn parse_markdown(text: &str) -> std::string::String {
+    std::dbg!(text);
+    text.into()
+}

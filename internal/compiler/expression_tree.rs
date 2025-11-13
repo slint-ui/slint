@@ -142,8 +142,6 @@ pub enum BuiltinMacroFunction {
     Hsv,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
-    /// Markdown
-    Markdown,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -283,7 +281,7 @@ declare_builtin_function_types!(
     RestartTimer: (Type::ElementReference) -> Type::Void,
     OpenUrl: (Type::String) -> Type::Void,
     EscapeMarkdown: (Type::String) -> Type::String,
-    ParseMarkdown: (Type::String) -> Type::Void
+    ParseMarkdown: (Type::String) -> Type::String
 );
 
 impl BuiltinFunction {
