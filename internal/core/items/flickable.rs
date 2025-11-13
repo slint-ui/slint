@@ -618,7 +618,7 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) {
-    core::ptr::write(data, FlickableDataBox::default());
+    unsafe { core::ptr::write(data, FlickableDataBox::default()) };
 }
 
 /// # Safety
@@ -626,5 +626,7 @@ pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
-    core::ptr::drop_in_place(data);
+    unsafe {
+        core::ptr::drop_in_place(data);
+    }
 }

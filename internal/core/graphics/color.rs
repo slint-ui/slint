@@ -581,17 +581,17 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_brighter(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.brighter(factor))
+        unsafe { core::ptr::write(out, col.brighter(factor)) }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_darker(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.darker(factor))
+        unsafe { core::ptr::write(out, col.darker(factor)) }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_transparentize(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.transparentize(factor))
+        unsafe { core::ptr::write(out, col.transparentize(factor)) }
     }
 
     #[unsafe(no_mangle)]
@@ -601,12 +601,12 @@ pub(crate) mod ffi {
         factor: f32,
         out: *mut Color,
     ) {
-        core::ptr::write(out, col1.mix(col2, factor))
+        unsafe { core::ptr::write(out, col1.mix(col2, factor)) }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_with_alpha(col: &Color, alpha: f32, out: *mut Color) {
-        core::ptr::write(out, col.with_alpha(alpha))
+        unsafe { core::ptr::write(out, col.with_alpha(alpha)) }
     }
 
     #[unsafe(no_mangle)]

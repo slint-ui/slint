@@ -402,8 +402,9 @@ pub(crate) mod ffi {
         first_element: *const PathElement,
         count: usize,
     ) {
-        let arr = crate::SharedVector::from(core::slice::from_raw_parts(first_element, count));
-        core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr);
+        let arr =
+            crate::SharedVector::from(unsafe { core::slice::from_raw_parts(first_element, count) });
+        unsafe { core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr) };
     }
 
     #[unsafe(no_mangle)]
@@ -416,13 +417,15 @@ pub(crate) mod ffi {
         first_coordinate: *const Point,
         coordinate_count: usize,
     ) {
-        let events =
-            crate::SharedVector::from(core::slice::from_raw_parts(first_event, event_count));
-        core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events);
-        let coordinates = crate::SharedVector::from(core::slice::from_raw_parts(
-            first_coordinate,
-            coordinate_count,
-        ));
-        core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates);
+        let events = crate::SharedVector::from(unsafe {
+            core::slice::from_raw_parts(first_event, event_count)
+        });
+        unsafe { core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events) };
+        let coordinates = crate::SharedVector::from(unsafe {
+            core::slice::from_raw_parts(first_coordinate, coordinate_count)
+        });
+        unsafe {
+            core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates)
+        };
     }
 }

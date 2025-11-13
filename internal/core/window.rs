@@ -1676,15 +1676,17 @@ pub mod ffi {
     /// Releases the reference to the windowrc held by handle.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowAdapterRcOpaque) {
-        assert_eq!(
-            core::mem::size_of::<Rc<dyn WindowAdapter>>(),
-            core::mem::size_of::<WindowAdapterRcOpaque>()
-        );
-        assert_eq!(
-            core::mem::size_of::<Option<Rc<dyn WindowAdapter>>>(),
-            core::mem::size_of::<WindowAdapterRcOpaque>()
-        );
-        drop(core::ptr::read(handle as *mut Option<Rc<dyn WindowAdapter>>));
+        unsafe {
+            assert_eq!(
+                core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            assert_eq!(
+                core::mem::size_of::<Option<Rc<dyn WindowAdapter>>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            drop(core::ptr::read(handle as *mut Option<Rc<dyn WindowAdapter>>));
+        }
     }
 
     /// Releases the reference to the component window held by handle.
@@ -1693,27 +1695,33 @@ pub mod ffi {
         source: *const WindowAdapterRcOpaque,
         target: *mut WindowAdapterRcOpaque,
     ) {
-        assert_eq!(
-            core::mem::size_of::<Rc<dyn WindowAdapter>>(),
-            core::mem::size_of::<WindowAdapterRcOpaque>()
-        );
-        let window = &*(source as *const Rc<dyn WindowAdapter>);
-        core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window.clone());
+        unsafe {
+            assert_eq!(
+                core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            let window = &*(source as *const Rc<dyn WindowAdapter>);
+            core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window.clone());
+        }
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
 
-        window_adapter.window().show().unwrap();
+            window_adapter.window().show().unwrap();
+        }
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().hide().unwrap();
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().hide().unwrap();
+        }
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
@@ -1722,8 +1730,10 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_is_visible(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
-        let window = &*(handle as *const Rc<dyn WindowAdapter>);
-        window.window().is_visible()
+        unsafe {
+            let window = &*(handle as *const Rc<dyn WindowAdapter>);
+            window.window().is_visible()
+        }
     }
 
     /// Returns the window scale factor.
@@ -1731,12 +1741,14 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_get_scale_factor(
         handle: *const WindowAdapterRcOpaque,
     ) -> f32 {
-        assert_eq!(
-            core::mem::size_of::<Rc<dyn WindowAdapter>>(),
-            core::mem::size_of::<WindowAdapterRcOpaque>()
-        );
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).scale_factor()
+        unsafe {
+            assert_eq!(
+                core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).scale_factor()
+        }
     }
 
     /// Sets the window scale factor, merely for testing purposes.
@@ -1745,8 +1757,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         value: f32,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).set_const_scale_factor(value)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).set_const_scale_factor(value)
+        }
     }
 
     /// Returns the text-input-focused property value.
@@ -1754,12 +1768,14 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_get_text_input_focused(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
-        assert_eq!(
-            core::mem::size_of::<Rc<dyn WindowAdapter>>(),
-            core::mem::size_of::<WindowAdapterRcOpaque>()
-        );
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).text_input_focused()
+        unsafe {
+            assert_eq!(
+                core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).text_input_focused()
+        }
     }
 
     /// Set the text-input-focused property.
@@ -1768,8 +1784,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         value: bool,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).set_text_input_focused(value)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).set_text_input_focused(value)
+        }
     }
 
     /// Sets the focus item.
@@ -1780,8 +1798,11 @@ pub mod ffi {
         set_focus: bool,
         reason: FocusReason,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).set_focus_item(focus_item, set_focus, reason)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window())
+                .set_focus_item(focus_item, set_focus, reason)
+        }
     }
 
     /// Associates the window with the given component.
@@ -1790,8 +1811,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         component: &ItemTreeRc,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).set_component(component)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).set_component(component)
+        }
     }
 
     /// Show a popup and return its ID. The returned ID will always be non-zero.
@@ -1804,14 +1827,16 @@ pub mod ffi {
         parent_item: &ItemRc,
         is_menu: bool,
     ) -> NonZeroU32 {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).show_popup(
-            popup,
-            position,
-            close_policy,
-            parent_item,
-            is_menu,
-        )
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).show_popup(
+                popup,
+                position,
+                close_policy,
+                parent_item,
+                is_menu,
+            )
+        }
     }
 
     /// Close the popup by the given ID.
@@ -1820,8 +1845,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         popup_id: NonZeroU32,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).close_popup(popup_id);
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).close_popup(popup_id);
+        }
     }
 
     /// C binding to the set_rendering_notifier() API of Window
@@ -1837,46 +1864,52 @@ pub mod ffi {
         user_data: *mut c_void,
         error: *mut SetRenderingNotifierError,
     ) -> bool {
-        struct CNotifier {
-            callback: extern "C" fn(
-                rendering_state: RenderingState,
-                graphics_api: GraphicsAPI,
+        unsafe {
+            struct CNotifier {
+                callback: extern "C" fn(
+                    rendering_state: RenderingState,
+                    graphics_api: GraphicsAPI,
+                    user_data: *mut c_void,
+                ),
+                drop_user_data: extern "C" fn(*mut c_void),
                 user_data: *mut c_void,
-            ),
-            drop_user_data: extern "C" fn(*mut c_void),
-            user_data: *mut c_void,
-        }
-
-        impl Drop for CNotifier {
-            fn drop(&mut self) {
-                (self.drop_user_data)(self.user_data)
             }
-        }
 
-        impl RenderingNotifier for CNotifier {
-            fn notify(&mut self, state: RenderingState, graphics_api: &crate::api::GraphicsAPI) {
-                let cpp_graphics_api = match graphics_api {
-                    crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
-                    crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
-                    #[cfg(feature = "unstable-wgpu-26")]
-                    crate::api::GraphicsAPI::WGPU26 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
-                    #[cfg(feature = "unstable-wgpu-27")]
-                    crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
-                };
-                (self.callback)(state, cpp_graphics_api, self.user_data)
+            impl Drop for CNotifier {
+                fn drop(&mut self) {
+                    (self.drop_user_data)(self.user_data)
+                }
             }
-        }
 
-        let window = &*(handle as *const Rc<dyn WindowAdapter>);
-        match window.renderer().set_rendering_notifier(Box::new(CNotifier {
-            callback,
-            drop_user_data,
-            user_data,
-        })) {
-            Ok(()) => true,
-            Err(err) => {
-                *error = err;
-                false
+            impl RenderingNotifier for CNotifier {
+                fn notify(
+                    &mut self,
+                    state: RenderingState,
+                    graphics_api: &crate::api::GraphicsAPI,
+                ) {
+                    let cpp_graphics_api = match graphics_api {
+                        crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
+                        crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
+                        #[cfg(feature = "unstable-wgpu-26")]
+                        crate::api::GraphicsAPI::WGPU26 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                        #[cfg(feature = "unstable-wgpu-27")]
+                        crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                    };
+                    (self.callback)(state, cpp_graphics_api, self.user_data)
+                }
+            }
+
+            let window = &*(handle as *const Rc<dyn WindowAdapter>);
+            match window.renderer().set_rendering_notifier(Box::new(CNotifier {
+                callback,
+                drop_user_data,
+                user_data,
+            })) {
+                Ok(()) => true,
+                Err(err) => {
+                    *error = err;
+                    false
+                }
             }
         }
     }
@@ -1889,35 +1922,39 @@ pub mod ffi {
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
     ) {
-        struct WithUserData {
-            callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
-            drop_user_data: extern "C" fn(*mut c_void),
-            user_data: *mut c_void,
-        }
-
-        impl Drop for WithUserData {
-            fn drop(&mut self) {
-                (self.drop_user_data)(self.user_data)
+        unsafe {
+            struct WithUserData {
+                callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
+                drop_user_data: extern "C" fn(*mut c_void),
+                user_data: *mut c_void,
             }
-        }
 
-        impl WithUserData {
-            fn call(&self) -> CloseRequestResponse {
-                (self.callback)(self.user_data)
+            impl Drop for WithUserData {
+                fn drop(&mut self) {
+                    (self.drop_user_data)(self.user_data)
+                }
             }
+
+            impl WithUserData {
+                fn call(&self) -> CloseRequestResponse {
+                    (self.callback)(self.user_data)
+                }
+            }
+
+            let with_user_data = WithUserData { callback, drop_user_data, user_data };
+
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().on_close_requested(move || with_user_data.call());
         }
-
-        let with_user_data = WithUserData { callback, drop_user_data, user_data };
-
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().on_close_requested(move || with_user_data.call());
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowAdapterRcOpaque) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.request_redraw();
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.request_redraw();
+        }
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
@@ -1927,8 +1964,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         pos: &mut euclid::default::Point2D<i32>,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        *pos = window_adapter.position().unwrap_or_default().to_euclid()
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            *pos = window_adapter.position().unwrap_or_default().to_euclid()
+        }
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
@@ -1939,8 +1978,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         pos: &euclid::default::Point2D<i32>,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_position(crate::api::PhysicalPosition::new(pos.x, pos.y).into());
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.set_position(crate::api::PhysicalPosition::new(pos.x, pos.y).into());
+        }
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
@@ -1951,16 +1992,20 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         pos: &euclid::default::Point2D<f32>,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_position(LogicalPosition::new(pos.x, pos.y).into());
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.set_position(LogicalPosition::new(pos.x, pos.y).into());
+        }
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowAdapterRcOpaque) -> IntSize {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.size().to_euclid().cast()
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.size().to_euclid().cast()
+        }
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
@@ -1970,8 +2015,12 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         size: &IntSize,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().set_size(crate::api::PhysicalSize::new(size.width, size.height));
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter
+                .window()
+                .set_size(crate::api::PhysicalSize::new(size.width, size.height));
+        }
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
@@ -1981,8 +2030,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         size: &Size,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().set_size(crate::api::LogicalSize::new(size.width, size.height));
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().set_size(crate::api::LogicalSize::new(size.width, size.height));
+        }
     }
 
     /// Return whether the style is using a dark theme
@@ -1990,10 +2041,12 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_color_scheme(
         handle: *const WindowAdapterRcOpaque,
     ) -> ColorScheme {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter
-            .internal(crate::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter
+                .internal(crate::InternalToken)
+                .map_or(ColorScheme::Unknown, |x| x.color_scheme())
+        }
     }
 
     /// Return whether the platform supports native menu bars
@@ -2001,8 +2054,12 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_supports_native_menu_bar(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.internal(crate::InternalToken).is_some_and(|x| x.supports_native_menu_bar())
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter
+                .internal(crate::InternalToken)
+                .is_some_and(|x| x.supports_native_menu_bar())
+        }
     }
 
     /// Setup the native menu bar
@@ -2011,9 +2068,11 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         menu_instance: &vtable::VRc<MenuVTable>,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        if let Some(x) = window_adapter.internal(crate::InternalToken) {
-            x.setup_menubar(menu_instance.clone())
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            if let Some(x) = window_adapter.internal(crate::InternalToken) {
+                x.setup_menubar(menu_instance.clone())
+            }
         }
     }
 
@@ -2025,12 +2084,14 @@ pub mod ffi {
         position: LogicalPosition,
         parent_item: &ItemRc,
     ) -> bool {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(
-            context_menu.clone(),
-            position,
-            parent_item,
-        )
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(
+                context_menu.clone(),
+                position,
+                parent_item,
+            )
+        }
     }
 
     /// Return the default-font-size property of the WindowItem
@@ -2049,13 +2110,15 @@ pub mod ffi {
         text: &SharedString,
         repeat: bool,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.process_key_input(crate::items::KeyEvent {
-            text: text.clone(),
-            repeat,
-            event_type,
-            ..Default::default()
-        });
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().0.process_key_input(crate::items::KeyEvent {
+                text: text.clone(),
+                repeat,
+                event_type,
+                ..Default::default()
+            });
+        }
     }
 
     /// Dispatch a mouse event
@@ -2064,8 +2127,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         event: &crate::input::MouseEvent,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.process_mouse_input(event.clone());
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().0.process_mouse_input(event.clone());
+        }
     }
 
     /// Dispatch a window event
@@ -2074,32 +2139,40 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         event: &crate::platform::WindowEvent,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().dispatch_event(event.clone());
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().dispatch_event(event.clone());
+        }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_fullscreen(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().is_fullscreen()
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().is_fullscreen()
+        }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_minimized(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().is_minimized()
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().is_minimized()
+        }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_maximized(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().is_maximized()
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().is_maximized()
+        }
     }
 
     #[unsafe(no_mangle)]
@@ -2107,8 +2180,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         value: bool,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().set_fullscreen(value)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().set_fullscreen(value)
+        }
     }
 
     #[unsafe(no_mangle)]
@@ -2116,8 +2191,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         value: bool,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().set_minimized(value)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().set_minimized(value)
+        }
     }
 
     #[unsafe(no_mangle)]
@@ -2125,8 +2202,10 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         value: bool,
     ) {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().set_maximized(value)
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.window().set_maximized(value)
+        }
     }
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
@@ -2137,14 +2216,16 @@ pub mod ffi {
         width: &mut u32,
         height: &mut u32,
     ) -> bool {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        if let Ok(snapshot) = window_adapter.window().take_snapshot() {
-            *data = snapshot.data.clone();
-            *width = snapshot.width();
-            *height = snapshot.height();
-            true
-        } else {
-            false
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            if let Ok(snapshot) = window_adapter.window().take_snapshot() {
+                *data = snapshot.data.clone();
+                *width = snapshot.width();
+                *height = snapshot.height();
+                true
+            } else {
+                false
+            }
         }
     }
 }

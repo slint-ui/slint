@@ -493,7 +493,7 @@ mod ffi {
             .get(idx)
             .filter(|x| !x.is_null())
             .or_else(|| strs.first())
-            .map(|x| core::ffi::CStr::from_ptr(*x).to_str().unwrap())
+            .map(|x| unsafe { core::ffi::CStr::from_ptr(*x) }.to_str().unwrap())
         else {
             return;
         };
@@ -532,7 +532,7 @@ mod ffi {
         let Some(translated) = translations
             .get(rule(n))
             .or_else(|| translations.first())
-            .map(|x| core::ffi::CStr::from_ptr(*x).to_str().unwrap())
+            .map(|x| unsafe { core::ffi::CStr::from_ptr(*x) }.to_str().unwrap())
         else {
             return;
         };
