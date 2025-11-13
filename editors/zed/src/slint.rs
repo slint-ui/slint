@@ -90,8 +90,10 @@ impl SlintExtension {
                 String::new()
             }
         );
-        // The directory in the tarball is usually named "slint-lsp", but it is different for the slint-lsp-*-linux-*
-        let subdir = if target_name == "slint-lsp-aarch64-unknown-linux-gnu" {
+        let subdir = if asset_file_type == DownloadedFileType::Zip {
+            ""
+        } else if target_name == "slint-lsp-aarch64-unknown-linux-gnu" {
+            // The directory in the tarball is usually named "slint-lsp", but it is different for the slint-lsp-*-linux-*
             target_name
         } else {
             "slint-lsp"
