@@ -12,12 +12,14 @@ export component TestCase inherits Window {
         value: 10;
         width: 100%;
         height: 100%;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
     }
 
     forward-focus: slider;
     out property <bool> slider-focused <=> slider.has_focus;
     in-out property <float> value <=> slider.value;
     in property <float> step <=> slider.step;
+    in-out property <bool> vertical;
     callback released <=> slider.released;
     callback changed <=> slider.changed;
 }
@@ -134,6 +136,88 @@ changes.borrow_mut().clear();
 slider_element.set_accessible_value("75");
 assert_eq!(instance.get_value(), 75f32);
 assert_eq!(changes.borrow().clone(), vec![75f32]);
+
+// Test vertical slider
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+instance.set_vertical(true);
+instance.set_value(10.);
+instance.set_step(1.);
+
+// Test vertical keyboard navigation: Up arrow should increment, Down arrow should decrement
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![14f32]);
+assert_eq!(changes.borrow().clone(), vec![11f32, 12f32, 13f32, 14f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![12f32]);
+assert_eq!(changes.borrow().clone(), vec![13f32, 12f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+// Test vertical Home/End: Home should go to minimum, End should go to maximum
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), false);
+assert_eq!(edits.borrow().clone(), vec![0f32]);
+assert_eq!(changes.borrow().clone(), vec![0f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::End.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::End.into(), false);
+assert_eq!(edits.borrow().clone(), vec![100f32]);
+assert_eq!(changes.borrow().clone(), vec![100f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+// Test vertical mouse dragging: drag upward beyond top edge should hit maximum
+instance.set_value(50.);
+let mut position = slint::LogicalPosition::new(50., 50.);
+let button = slint::platform::PointerEventButton::Left;
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(50);
+
+// Drag upward way beyond the top edge
+for y in (0..=(position.y as usize)).rev().step_by(10) {
+    position.y = y as _;
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+}
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
+assert_eq!(edits.borrow().clone(), vec![100f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+// Test dragging downward beyond bottom edge should hit minimum
+instance.set_value(50.);
+position = slint::LogicalPosition::new(50., 50.);
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(50);
+
+// Drag downward way beyond the bottom edge
+for y in (position.y as usize..200).step_by(10) {
+    position.y = y as _;
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+}
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
+assert_eq!(edits.borrow().clone(), vec![0f32]);
 ```
 
 */
