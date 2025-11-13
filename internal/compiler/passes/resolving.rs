@@ -564,10 +564,7 @@ impl Expression {
             }
             // Only error if there's something after 'circle' that's NOT a comma
             if comma.is_some_and(|s| s.kind() != SyntaxKind::Comma) {
-                ctx.diag.push_error(
-                    "'circle' must be followed by a comma".into(),
-                    comma.unwrap(),
-                );
+                ctx.diag.push_error("'circle' must be followed by a comma".into(), comma.unwrap());
                 return Expression::Invalid;
             }
             (GradKind::Radial, 2)

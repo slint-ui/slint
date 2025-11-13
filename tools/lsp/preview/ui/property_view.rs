@@ -1072,10 +1072,7 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(
             result.gradient_stops.iter().collect::<Vec<_>>(),
             [
-                GradientStop {
-                    color: slint::Color::from_rgb_u8(0xff, 0xff, 0xff,),
-                    position: 0.0
-                },
+                GradientStop { color: slint::Color::from_rgb_u8(0xff, 0xff, 0xff,), position: 0.0 },
                 GradientStop {
                     color: slint::Color::from_rgb_u8(0xff, 0xff, 0xff,),
                     position: 36.0 / 360.0
