@@ -54,43 +54,43 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Cache build
-        id: cache
+        id: cache-android
         uses: actions/cache@v4
         with:
           path: examples/servo/target/release/apk/servo_example_lib.apk
           key: cache-android-build-${{ hashFiles('examples/servo/**') }}
       - name: Install uv
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         uses: astral-sh/setup-uv@v7
       - name: Install rust
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust
         with:
           target: aarch64-linux-android
       - name: Install dependencies
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-linux-dependencies
       - name: Install skia dependencies
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-skia-dependencies
       - name: Install API level
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
       - name: Install build-tools
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
       - name: Install NDK
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.2.13676358"
       - name: Install cargo-apk
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         run: cargo install cargo-apk
       - name: Decode keystore
         run: |
           mkdir -p /Users/runner/.android
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
       - name: Build
-        if: steps.cache-andorid-build.outputs.cache-hit != 'true'
+        if: steps.cache-android.outputs.cache-hit != 'true'
         working-directory: examples/servo
         run: |
           export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
