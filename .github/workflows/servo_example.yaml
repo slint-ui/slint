@@ -42,6 +42,7 @@ jobs:
         if: steps.cache-build.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-skia-dependencies
       - name: Build
+        if: steps.cache-build.outputs.cache-hit != 'true'
         working-directory: examples/servo
         run: cargo build --release
   android_build:
@@ -86,6 +87,7 @@ jobs:
         if: steps.cache-android.outputs.cache-hit != 'true'
         run: cargo install cargo-apk
       - name: Decode keystore
+        if: steps.cache-android.outputs.cache-hit != 'true'
         run: |
           mkdir -p /Users/runner/.android
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
