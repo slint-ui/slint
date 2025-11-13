@@ -112,6 +112,8 @@ pub enum BuiltinFunction {
     StopTimer,
     RestartTimer,
     OpenUrl,
+    ParseMarkdown,
+    EscapeMarkdown,
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +142,8 @@ pub enum BuiltinMacroFunction {
     Hsv,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
+    /// Markdown
+    Markdown,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -277,7 +281,9 @@ declare_builtin_function_types!(
     StartTimer: (Type::ElementReference) -> Type::Void,
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
-    OpenUrl: (Type::String) -> Type::Void
+    OpenUrl: (Type::String) -> Type::Void,
+    EscapeMarkdown: (Type::String) -> Type::String,
+    ParseMarkdown: (Type::String) -> Type::Void
 );
 
 impl BuiltinFunction {
@@ -374,6 +380,7 @@ impl BuiltinFunction {
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::OpenUrl => false,
+            BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => true,
         }
     }
 
@@ -452,6 +459,7 @@ impl BuiltinFunction {
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::OpenUrl => false,
+            BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => true,
         }
     }
 }

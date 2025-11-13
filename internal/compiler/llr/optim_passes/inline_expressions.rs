@@ -156,6 +156,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StopTimer => 10,
         BuiltinFunction::RestartTimer => 10,
         BuiltinFunction::OpenUrl => isize::MAX,
+        BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => isize::MAX,
     }
 }
 
