@@ -516,9 +516,10 @@ fn recurse_expression(
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
         Expression::OrganizeGridLayout(layout) => {
-            let mut g = layout.geometry.clone();
-            g.rect = Default::default();
-            g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
+            let mut layout = layout.clone();
+            layout.visit_rowcol_named_references(&mut |nr: &mut NamedReference| {
+                vis(&nr.clone().into(), P)
+            });
         }
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
         | Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
