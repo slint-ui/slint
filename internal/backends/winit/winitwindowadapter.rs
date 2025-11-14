@@ -421,7 +421,7 @@ impl WinitWindowAdapter {
         self_rc
     }
 
-    fn renderer(&self) -> &dyn WinitCompatibleRenderer {
+    pub(crate) fn renderer(&self) -> &dyn WinitCompatibleRenderer {
         self.renderer.as_ref()
     }
 
