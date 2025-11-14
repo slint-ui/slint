@@ -117,8 +117,6 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackIn
     }
 }
 
-impl corelib::rtti::ValueType for Value {}
-
 #[derive(Clone)]
 pub(crate) enum ComponentInstance<'a, 'id> {
     InstanceRef(InstanceRef<'a, 'id>),
