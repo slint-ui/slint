@@ -592,7 +592,7 @@ impl PropertyHandle {
     ) {
         let binding = alloc_binding_holder::<T, B>(binding);
         #[cfg(slint_debug_property)]
-        {
+        unsafe {
             (*binding).debug_name = debug_name.into();
         }
         self.set_binding_impl(binding);
