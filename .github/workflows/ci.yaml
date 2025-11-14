@@ -645,9 +645,6 @@ jobs:
     servo_example:
         needs: files-changed
         if: needs.files-changed.outputs.servo_example == 'true'
-        permissions:
-            contents: read
-            deployments: write
         uses: ./.github/workflows/servo_example.yaml
         secrets:
             ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
