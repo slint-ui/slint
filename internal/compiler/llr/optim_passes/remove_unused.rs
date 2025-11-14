@@ -514,7 +514,7 @@ mod visitor {
     ) {
         match member {
             MemberReference::Relative { parent_level, local_reference } => {
-                let EvaluationScope::SubComponent(mut sc, _) = scope else { unreachable!() };
+                let &EvaluationScope::SubComponent(mut sc, _) = scope else { unreachable!() };
                 for _ in 0..*parent_level {
                     sc = state.parent_mapping[sc].unwrap();
                 }

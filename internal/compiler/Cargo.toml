@@ -5,7 +5,7 @@
 name = "i-slint-compiler"
 description = "Internal Slint Compiler Library"
 authors.workspace = true
-edition.workspace = true
+edition = "2024"
 homepage.workspace = true
 license.workspace = true
 repository.workspace = true
