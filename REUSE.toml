@@ -46,6 +46,7 @@ path = [
   ".vscode/**",
   "editors/vscode/tests/grammar/*.slint",
   "Cargo.lock",
+  "examples/servo/Cargo.lock",
   "REUSE.toml",
   "biome.json",
   "cspell.json",
