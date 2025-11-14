@@ -53,8 +53,8 @@ jobs:
         uses: ./.github/actions/install-linux-dependencies
       - name: Install skia dependencies
         uses: ./.github/actions/install-skia-dependencies
-      - name: Install API level
-        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+      # - name: Install API level
+      #   run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
       - name: Install cargo-apk
         run: cargo install cargo-apk
       - name: Decode keystore
