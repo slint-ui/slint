@@ -1,6 +1,6 @@
 Cargo.lock
+# The servo example requires a lock file as servo only builds with pinned dependencies.
 !examples/servo/Cargo.lock
-
 tsconfig.tsbuildinfo
 /target
 node_modules
