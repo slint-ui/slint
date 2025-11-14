@@ -15,8 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
-    KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
+    KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut, key_codes,
 };
 use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderString, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
@@ -1322,11 +1322,7 @@ enum AnchorMode {
 
 impl From<KeyboardModifiers> for AnchorMode {
     fn from(modifiers: KeyboardModifiers) -> Self {
-        if modifiers.shift {
-            Self::KeepAnchor
-        } else {
-            Self::MoveAnchor
-        }
+        if modifiers.shift { Self::KeepAnchor } else { Self::MoveAnchor }
     }
 }
 
@@ -2263,9 +2259,11 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
     start: i32,
     end: i32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    text_input.set_selection_offsets(window_adapter, &self_rc, start, end);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.set_selection_offsets(window_adapter, &self_rc, start, end);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -2276,9 +2274,11 @@ pub unsafe extern "C" fn slint_textinput_select_all(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    text_input.select_all(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.select_all(window_adapter, &self_rc);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -2289,9 +2289,11 @@ pub unsafe extern "C" fn slint_textinput_clear_selection(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    text_input.clear_selection(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.clear_selection(window_adapter, &self_rc);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -2302,9 +2304,11 @@ pub unsafe extern "C" fn slint_textinput_cut(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    text_input.cut(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.cut(window_adapter, &self_rc);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -2315,9 +2319,11 @@ pub unsafe extern "C" fn slint_textinput_copy(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    text_input.copy(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.copy(window_adapter, &self_rc);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -2328,9 +2334,11 @@ pub unsafe extern "C" fn slint_textinput_paste(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    text_input.paste(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.paste(window_adapter, &self_rc);
+    }
 }
 
 pub fn slint_text_item_fontmetrics(
@@ -2356,8 +2364,10 @@ pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) -> FontMetrics {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    let self_ref = self_rc.borrow();
-    slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        let self_ref = self_rc.borrow();
+        slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
+    }
 }

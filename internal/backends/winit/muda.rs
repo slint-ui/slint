@@ -58,7 +58,12 @@ impl MudaAdapter {
 
         #[cfg(target_os = "windows")]
         if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
-            unsafe { menu.init_for_hwnd(handle.hwnd.get()).unwrap() };
+            let theme = match winit_window.theme() {
+                Some(winit::window::Theme::Dark) => muda::MenuTheme::Dark,
+                Some(winit::window::Theme::Light) => muda::MenuTheme::Light,
+                None => muda::MenuTheme::Auto,
+            };
+            unsafe { menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap() };
         }
 
         #[cfg(target_os = "macos")]
@@ -236,6 +241,22 @@ impl MudaAdapter {
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
         let Some(entry) = &self.entries.get(entry_id) else { return };
         vtable::VRc::borrow(&menubar).activate(entry);
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn set_menubar_theme(
+        &self,
+        winit_window: &Window,
+        theme: i_slint_core::items::ColorScheme,
+    ) {
+        let theme = match theme {
+            i_slint_core::items::ColorScheme::Dark => muda::MenuTheme::Dark,
+            i_slint_core::items::ColorScheme::Light => muda::MenuTheme::Light,
+            i_slint_core::items::ColorScheme::Unknown => muda::MenuTheme::Auto,
+        };
+        if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+            unsafe { self.menu.set_theme_for_hwnd(handle.hwnd.get(), theme).unwrap() };
+        }
     }
 
     #[cfg(target_os = "macos")]

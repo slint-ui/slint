@@ -90,7 +90,7 @@ pub use graphics::PathData;
 #[doc(inline)]
 pub use graphics::BorderRadius;
 
-pub use context::{with_global_context, SlintContext};
+pub use context::{SlintContext, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -103,8 +103,20 @@ pub type Coord = i32;
 #[repr(C)]
 pub struct InternalToken;
 
+#[cfg(feature = "std")]
+thread_local!(
+    /// Permit testing code to force an OS type
+    pub static OPERATING_SYSTEM_OVERRIDE: core::cell::Cell<Option<OperatingSystemType>> =
+        Default::default();
+);
+
 #[cfg(not(target_family = "wasm"))]
 pub fn detect_operating_system() -> OperatingSystemType {
+    #[cfg(feature = "std")]
+    if let Some(os_override) = OPERATING_SYSTEM_OVERRIDE.with(|os_override| os_override.get()) {
+        return os_override;
+    }
+
     if cfg!(target_os = "android") {
         OperatingSystemType::Android
     } else if cfg!(target_os = "ios") {
@@ -122,6 +134,10 @@ pub fn detect_operating_system() -> OperatingSystemType {
 
 #[cfg(target_family = "wasm")]
 pub fn detect_operating_system() -> OperatingSystemType {
+    if let Some(os_override) = OPERATING_SYSTEM_OVERRIDE.with(|os_override| os_override.get()) {
+        return os_override;
+    }
+
     let mut user_agent =
         web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
     user_agent.make_ascii_lowercase();

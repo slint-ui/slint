@@ -46,7 +46,7 @@ pub trait RendererSealed {
 
     /// Returns the metrics of the given font.
     fn font_metrics(&self, font_request: crate::graphics::FontRequest)
-        -> crate::items::FontMetrics;
+    -> crate::items::FontMetrics;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
@@ -106,7 +106,9 @@ pub trait RendererSealed {
     }
 
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
-        crate::debug_log!("Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files");
+        crate::debug_log!(
+            "Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files"
+        );
     }
 
     /// This function is called through the public API to register a callback that the backend needs to invoke during

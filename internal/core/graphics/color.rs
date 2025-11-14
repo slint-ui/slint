@@ -7,9 +7,6 @@ This module contains color related types for the run-time library.
 
 use crate::properties::InterpolatedPropertyValue;
 
-#[cfg(not(feature = "std"))]
-use num_traits::float::Float;
-
 /// RgbaColor stores the red, green, blue and alpha components of a color
 /// with the precision of the generic parameter T. For example if T is f32,
 /// the values are normalized between 0 and 1. If T is u8, they values range
@@ -26,6 +23,11 @@ pub struct RgbaColor<T> {
     /// The blue channel.
     pub blue: T,
 }
+
+#[cfg(feature = "32-bit-color")]
+type Channel = f32;
+#[cfg(not(feature = "32-bit-color"))]
+type Channel = u8;
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
@@ -47,49 +49,116 @@ pub struct RgbaColor<T> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub struct Color {
-    red: u8,
-    green: u8,
-    blue: u8,
-    alpha: u8,
+    red: Channel,
+    green: Channel,
+    blue: Channel,
+    alpha: Channel,
 }
 
-impl From<RgbaColor<u8>> for Color {
-    fn from(col: RgbaColor<u8>) -> Self {
-        Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+// until slint uses rust 1.90 as MSRV.
+const fn round(mut value: f32) -> u8 {
+    if value % 1.0 > 0.5 {
+        value += 0.5;
     }
+
+    value as _
 }
 
-impl From<Color> for RgbaColor<u8> {
-    fn from(col: Color) -> Self {
-        RgbaColor { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+const fn quantize(value: f32) -> u8 {
+    round(value * 255.0)
+}
+
+const fn unquantize(value: u8) -> f32 {
+    (value as f32) / 255.0
+}
+
+#[test]
+fn unquantize_roundtrip() {
+    for v in 0..=255 {
+        assert_eq!(v, quantize(unquantize(v)));
     }
 }
 
 impl From<RgbaColor<u8>> for RgbaColor<f32> {
+    #[inline]
     fn from(col: RgbaColor<u8>) -> Self {
         Self {
-            red: (col.red as f32) / 255.0,
-            green: (col.green as f32) / 255.0,
-            blue: (col.blue as f32) / 255.0,
-            alpha: (col.alpha as f32) / 255.0,
+            red: unquantize(col.red),
+            green: unquantize(col.green),
+            blue: unquantize(col.blue),
+            alpha: unquantize(col.alpha),
+        }
+    }
+}
+
+impl From<RgbaColor<f32>> for RgbaColor<u8> {
+    #[inline]
+    fn from(col: RgbaColor<f32>) -> Self {
+        Self {
+            red: quantize(col.red),
+            green: quantize(col.green),
+            blue: quantize(col.blue),
+            alpha: quantize(col.alpha),
         }
     }
 }
 
 impl From<Color> for RgbaColor<f32> {
+    #[inline]
     fn from(col: Color) -> Self {
-        let u8col: RgbaColor<u8> = col.into();
-        u8col.into()
+        #[cfg(feature = "32-bit-color")]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
+        #[cfg(not(feature = "32-bit-color"))]
+        {
+            let col: RgbaColor<u8> = col.into();
+            col.into()
+        }
     }
 }
 
 impl From<RgbaColor<f32>> for Color {
+    #[inline]
     fn from(col: RgbaColor<f32>) -> Self {
-        Self {
-            red: (col.red * 255.).round() as u8,
-            green: (col.green * 255.).round() as u8,
-            blue: (col.blue * 255.).round() as u8,
-            alpha: (col.alpha * 255.).round() as u8,
+        #[cfg(feature = "32-bit-color")]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
+        #[cfg(not(feature = "32-bit-color"))]
+        {
+            let col: RgbaColor<u8> = col.into();
+            col.into()
+        }
+    }
+}
+
+impl From<RgbaColor<u8>> for Color {
+    #[inline]
+    fn from(col: RgbaColor<u8>) -> Self {
+        #[cfg(feature = "32-bit-color")]
+        {
+            let col: RgbaColor<f32> = col.into();
+            col.into()
+        }
+        #[cfg(not(feature = "32-bit-color"))]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        }
+    }
+}
+
+impl From<Color> for RgbaColor<u8> {
+    #[inline]
+    fn from(col: Color) -> Self {
+        #[cfg(feature = "32-bit-color")]
+        {
+            let col: RgbaColor<f32> = col.into();
+            col.into()
+        }
+        #[cfg(not(feature = "32-bit-color"))]
+        {
+            Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
         }
     }
 }
@@ -97,25 +166,38 @@ impl From<RgbaColor<f32>> for Color {
 impl Color {
     /// Construct a color from an integer encoded as `0xAARRGGBB`
     pub const fn from_argb_encoded(encoded: u32) -> Color {
-        Self {
-            red: (encoded >> 16) as u8,
-            green: (encoded >> 8) as u8,
-            blue: encoded as u8,
-            alpha: (encoded >> 24) as u8,
-        }
+        Self::from_argb_u8(
+            (encoded >> 24) as u8,
+            (encoded >> 16) as u8,
+            (encoded >> 8) as u8,
+            encoded as u8,
+        )
     }
 
     /// Returns `(alpha, red, green, blue)` encoded as u32
     pub fn as_argb_encoded(&self) -> u32 {
-        ((self.red as u32) << 16)
-            | ((self.green as u32) << 8)
-            | (self.blue as u32)
-            | ((self.alpha as u32) << 24)
+        let col: RgbaColor<u8> = (*self).into();
+        ((col.red as u32) << 16)
+            | ((col.green as u32) << 8)
+            | (col.blue as u32)
+            | ((col.alpha as u32) << 24)
     }
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub const fn from_argb_u8(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
-        Self { red, green, blue, alpha }
+        #[cfg(feature = "32-bit-color")]
+        {
+            Self {
+                red: unquantize(red),
+                green: unquantize(green),
+                blue: unquantize(blue),
+                alpha: unquantize(alpha),
+            }
+        }
+        #[cfg(not(feature = "32-bit-color"))]
+        {
+            Self { red, green, blue, alpha }
+        }
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
@@ -162,25 +244,25 @@ impl Color {
     /// Returns the red channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn red(self) -> u8 {
-        self.red
+        RgbaColor::<u8>::from(self).red
     }
 
     /// Returns the green channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn green(self) -> u8 {
-        self.green
+        RgbaColor::<u8>::from(self).green
     }
 
     /// Returns the blue channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn blue(self) -> u8 {
-        self.blue
+        RgbaColor::<u8>::from(self).blue
     }
 
     /// Returns the alpha channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn alpha(self) -> u8 {
-        self.alpha
+        RgbaColor::<u8>::from(self).alpha
     }
 
     /// Returns a new version of this color that has the brightness increased
@@ -220,31 +302,29 @@ impl Color {
     /// Decreasing the opacity of a red color by half:
     /// ```
     /// # use i_slint_core::graphics::Color;
-    /// let red = Color::from_argb_u8(255, 255, 0, 0);
-    /// assert_eq!(red.transparentize(0.5), Color::from_argb_u8(128, 255, 0, 0));
+    /// let red = Color::from_argb_f32(1.0, 1.0, 0.0, 0.0);
+    /// assert_eq!(red.transparentize(0.5), Color::from_argb_f32(0.5, 1.0, 0.0, 0.0));
     /// ```
     ///
     /// Decreasing the opacity of a blue color by 20%:
     /// ```
     /// # use i_slint_core::graphics::Color;
-    /// let blue = Color::from_argb_u8(200, 0, 0, 255);
-    /// assert_eq!(blue.transparentize(0.2), Color::from_argb_u8(160, 0, 0, 255));
+    /// let blue = Color::from_argb_f32(1.0, 0.0, 0.0, 1.0);
+    /// assert_eq!(blue.transparentize(0.2), Color::from_argb_f32(0.8, 0.0, 0.0, 1.0));
     /// ```
     ///
     /// Negative values increase the opacity
     ///
     /// ```
     /// # use i_slint_core::graphics::Color;
-    /// let blue = Color::from_argb_u8(200, 0, 0, 255);
-    /// assert_eq!(blue.transparentize(-0.1), Color::from_argb_u8(220, 0, 0, 255));
+    /// let blue = Color::from_argb_f32(0.5, 0.0, 0.0, 1.0);
+    /// assert_eq!(blue.transparentize(-0.1), Color::from_argb_f32(0.55, 0.0, 0.0, 1.0));
     /// ```
     #[must_use]
     pub fn transparentize(&self, factor: f32) -> Self {
-        let mut color = *self;
-        color.alpha = ((self.alpha as f32) * (1.0 - factor))
-            .round()
-            .clamp(u8::MIN as f32, u8::MAX as f32) as u8;
-        color
+        let mut col: RgbaColor<f32> = (*self).into();
+        col.alpha = (col.alpha * (1.0 - factor)).clamp(0.0, 1.0);
+        col.into()
     }
 
     /// Returns a new color that is a mix of this color and `other`. The specified factor is
@@ -255,17 +335,17 @@ impl Color {
     /// Mix red with black half-and-half:
     /// ```
     /// # use i_slint_core::graphics::Color;
-    /// let red = Color::from_rgb_u8(255, 0, 0);
-    /// let black = Color::from_rgb_u8(0, 0, 0);
-    /// assert_eq!(red.mix(&black, 0.5), Color::from_rgb_u8(128, 0, 0));
+    /// let red = Color::from_rgb_f32(1.0, 0.0, 0.0);
+    /// let black = Color::from_rgb_f32(0.0, 0.0, 0.0);
+    /// assert_eq!(red.mix(&black, 0.5), Color::from_rgb_f32(0.5, 0.0, 0.0));
     /// ```
     ///
     /// Mix Purple with OrangeRed,  with `75%` purpe and `25%` orange red ratio:
     /// ```
-    /// # use i_slint_core::graphics::Color;
+    /// # use i_slint_core::graphics::{Color, RgbaColor};
     /// let purple = Color::from_rgb_u8(128, 0, 128);
     /// let orange_red = Color::from_rgb_u8(255, 69, 0);
-    /// assert_eq!(purple.mix(&orange_red, 0.75), Color::from_rgb_u8(160, 17, 96));
+    /// assert_eq!(purple.mix(&orange_red, 0.75), Color::from_rgb_f32(0.6264706, 0.06764706, 0.37647063));
     /// ```
     #[must_use]
     pub fn mix(&self, other: &Self, factor: f32) -> Self {
@@ -275,18 +355,17 @@ impl Color {
         // * NOTE: Considering the spec (textual):
         // *       <https://github.com/sass/sass/blob/47d30713765b975c86fa32ec359ed16e83ad1ecc/spec/built-in-modules/color.md#mix>
 
-        fn lerp(v1: u8, v2: u8, f: f32) -> u8 {
-            (v1 as f32 * f + v2 as f32 * (1.0 - f)).clamp(u8::MIN as f32, u8::MAX as f32).round()
-                as u8
+        fn lerp(v1: f32, v2: f32, f: f32) -> f32 {
+            (v1 * f + v2 * (1.0 - f)).clamp(0.0, 1.0)
         }
 
         let original_factor = factor.clamp(0.0, 1.0);
 
-        let self_opacity = RgbaColor::<f32>::from(*self).alpha;
-        let other_opacity = RgbaColor::<f32>::from(*other).alpha;
+        let col = RgbaColor::<f32>::from(*self);
+        let other = RgbaColor::<f32>::from(*other);
 
         let normal_weight = 2.0 * original_factor - 1.0;
-        let alpha_distance = self_opacity - other_opacity;
+        let alpha_distance = col.alpha - other.alpha;
         let weight_by_distance = normal_weight * alpha_distance;
 
         // As to not divide by 0.0
@@ -298,13 +377,13 @@ impl Color {
 
         let channels_factor = (combined_weight + 1.0) / 2.0;
 
-        let red = lerp(self.red, other.red, channels_factor);
-        let green = lerp(self.green, other.green, channels_factor);
-        let blue = lerp(self.blue, other.blue, channels_factor);
+        let red = lerp(col.red, other.red, channels_factor);
+        let green = lerp(col.green, other.green, channels_factor);
+        let blue = lerp(col.blue, other.blue, channels_factor);
 
-        let alpha = lerp(self.alpha, other.alpha, original_factor);
+        let alpha = lerp(col.alpha, other.alpha, original_factor);
 
-        Self { red, green, blue, alpha }
+        RgbaColor { red, green, blue, alpha }.into()
     }
 
     /// Returns a new version of this color with the opacity set to `alpha`.
@@ -324,7 +403,7 @@ impl InterpolatedPropertyValue for Color {
 
 impl core::fmt::Display for Color {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "argb({}, {}, {}, {})", self.alpha, self.red, self.green, self.blue)
+        write!(f, "argb({}, {}, {}, {})", self.alpha(), self.red(), self.green(), self.blue())
     }
 }
 
@@ -480,19 +559,19 @@ fn test_rgb_to_hsv() {
 #[test]
 fn test_brighter_darker() {
     let blue = Color::from_rgb_u8(0, 0, 128);
-    assert_eq!(blue.brighter(0.5), Color::from_rgb_u8(0, 0, 192));
-    assert_eq!(blue.darker(0.5), Color::from_rgb_u8(0, 0, 85));
+    assert_eq!(blue.brighter(0.5), Color::from_rgb_f32(0.0, 0.0, 0.75294125));
+    assert_eq!(blue.darker(0.5), Color::from_rgb_f32(0.0, 0.0, 0.33464053));
 }
 
 #[test]
 fn test_transparent_transition() {
-    let color = Color::from_argb_u8(0, 0, 0, 0);
-    let interpolated = color.interpolate(&Color::from_rgb_u8(211, 211, 211), 0.25);
-    assert_eq!(interpolated, Color::from_argb_u8(64, 211, 211, 211));
-    let interpolated = color.interpolate(&Color::from_rgb_u8(211, 211, 211), 0.5);
-    assert_eq!(interpolated, Color::from_argb_u8(128, 211, 211, 211));
-    let interpolated = color.interpolate(&Color::from_rgb_u8(211, 211, 211), 0.75);
-    assert_eq!(interpolated, Color::from_argb_u8(191, 211, 211, 211));
+    let color = Color::from_argb_f32(0.0, 0.0, 0.0, 0.0);
+    let interpolated = color.interpolate(&Color::from_rgb_f32(0.8, 0.8, 0.8), 0.25);
+    assert_eq!(interpolated, Color::from_argb_f32(0.25, 0.8, 0.8, 0.8));
+    let interpolated = color.interpolate(&Color::from_rgb_f32(0.8, 0.8, 0.8), 0.5);
+    assert_eq!(interpolated, Color::from_argb_f32(0.5, 0.8, 0.8, 0.8));
+    let interpolated = color.interpolate(&Color::from_rgb_f32(0.8, 0.8, 0.8), 0.75);
+    assert_eq!(interpolated, Color::from_argb_f32(0.75, 0.8, 0.8, 0.8));
 }
 
 #[cfg(feature = "ffi")]
@@ -502,17 +581,17 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_brighter(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.brighter(factor))
+        unsafe { core::ptr::write(out, col.brighter(factor)) }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_darker(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.darker(factor))
+        unsafe { core::ptr::write(out, col.darker(factor)) }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_transparentize(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.transparentize(factor))
+        unsafe { core::ptr::write(out, col.transparentize(factor)) }
     }
 
     #[unsafe(no_mangle)]
@@ -522,12 +601,12 @@ pub(crate) mod ffi {
         factor: f32,
         out: *mut Color,
     ) {
-        core::ptr::write(out, col1.mix(col2, factor))
+        unsafe { core::ptr::write(out, col1.mix(col2, factor)) }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_with_alpha(col: &Color, alpha: f32, out: *mut Color) {
-        core::ptr::write(out, col.with_alpha(alpha))
+        unsafe { core::ptr::write(out, col.with_alpha(alpha)) }
     }
 
     #[unsafe(no_mangle)]

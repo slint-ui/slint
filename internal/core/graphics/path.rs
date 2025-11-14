@@ -186,9 +186,8 @@ struct TransformedLyonPathIterator<EventIt> {
     transform: lyon_path::math::Transform,
 }
 
-impl<
-        EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
-    > Iterator for TransformedLyonPathIterator<EventIt>
+impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>>
+    Iterator for TransformedLyonPathIterator<EventIt>
 {
     type Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -200,9 +199,8 @@ impl<
     }
 }
 
-impl<
-        EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
-    > ExactSizeIterator for TransformedLyonPathIterator<EventIt>
+impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>>
+    ExactSizeIterator for TransformedLyonPathIterator<EventIt>
 {
 }
 
@@ -318,9 +316,9 @@ impl PathData {
 
     fn build_path(element_it: core::slice::Iter<PathElement>) -> lyon_path::Path {
         use lyon_geom::SvgArc;
+        use lyon_path::ArcFlags;
         use lyon_path::math::{Angle, Point, Vector};
         use lyon_path::traits::SvgPathBuilder;
-        use lyon_path::ArcFlags;
 
         let mut path_builder = lyon_path::Path::builder().with_svg();
         for element in element_it {
@@ -404,8 +402,9 @@ pub(crate) mod ffi {
         first_element: *const PathElement,
         count: usize,
     ) {
-        let arr = crate::SharedVector::from(core::slice::from_raw_parts(first_element, count));
-        core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr);
+        let arr =
+            crate::SharedVector::from(unsafe { core::slice::from_raw_parts(first_element, count) });
+        unsafe { core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr) };
     }
 
     #[unsafe(no_mangle)]
@@ -418,13 +417,15 @@ pub(crate) mod ffi {
         first_coordinate: *const Point,
         coordinate_count: usize,
     ) {
-        let events =
-            crate::SharedVector::from(core::slice::from_raw_parts(first_event, event_count));
-        core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events);
-        let coordinates = crate::SharedVector::from(core::slice::from_raw_parts(
-            first_coordinate,
-            coordinate_count,
-        ));
-        core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates);
+        let events = crate::SharedVector::from(unsafe {
+            core::slice::from_raw_parts(first_event, event_count)
+        });
+        unsafe { core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events) };
+        let coordinates = crate::SharedVector::from(unsafe {
+            core::slice::from_raw_parts(first_coordinate, coordinate_count)
+        });
+        unsafe {
+            core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates)
+        };
     }
 }

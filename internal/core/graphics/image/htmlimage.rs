@@ -4,8 +4,8 @@
 use alloc::rc::Rc;
 
 use super::ImageCacheKey;
-use crate::graphics::IntSize;
 use crate::Property;
+use crate::graphics::IntSize;
 
 pub struct HTMLImage {
     pub dom_element: web_sys::HtmlImageElement,

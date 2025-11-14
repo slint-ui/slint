@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::graphics::{BitmapFont, BitmapGlyphs};
-use crate::software_renderer::fixed::Fixed;
 use crate::software_renderer::PhysicalLength;
+use crate::software_renderer::fixed::Fixed;
 use crate::textlayout::{FontMetrics, Glyph, TextShaper};
 
 use super::{GlyphRenderer, RenderableGlyph};

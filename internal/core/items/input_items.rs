@@ -396,10 +396,10 @@ impl Item for FocusScope {
             FocusEvent::FocusIn(reason) => {
                 match reason {
                     FocusReason::TabNavigation if !self.focus_on_tab_navigation() => {
-                        return FocusEventResult::FocusIgnored
+                        return FocusEventResult::FocusIgnored;
                     }
                     FocusReason::PointerClick if !self.focus_on_click() => {
-                        return FocusEventResult::FocusIgnored
+                        return FocusEventResult::FocusIgnored;
                     }
                     _ => (),
                 };
@@ -580,11 +580,7 @@ impl Item for SwipeGestureHandler {
                     swiping = true;
                 }
                 Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
-                if swiping {
-                    InputEventResult::GrabMouse
-                } else {
-                    InputEventResult::EventAccepted
-                }
+                if swiping { InputEventResult::GrabMouse } else { InputEventResult::EventAccepted }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
@@ -683,7 +679,9 @@ pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    s.cancel(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        s.cancel(window_adapter, &self_rc);
+    }
 }

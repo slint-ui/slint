@@ -3,6 +3,38 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.15.0] - Unreleased
+
+### General
+
+ - Adjust Android implementation of the window safe area to match the iOS implementation. This is a breaking change!
+ - When resizing the window, try to keep the focus item visible if it's in a Flickable.
+ - When focusing an element that's not fully visible, try to scroll a parent Flickable so that it is.
+ - winit: Do not enable the x11/wayland feature through accessibility feature
+ - Skia: Fixed colorized tile rendering (#9860)
+ - partial renderer: Fixed `BorrowMutError` panic if items gets destroyed during rendering (#9882)
+ - software renderer: Support for Path (with `std`)
+ - linuxkms: Added support for FB Renderer Format DrmFourcc(BA24) in LinuxKMS (#9862)
+
+### Slint Language
+
+ - Added ability to have two way binding to struct fields
+ - Added four new properties to the Window element for exposing the safe area to Slint.
+ - Added the `accessible-id` property
+ - Added `AccessibleRole.radio-button`
+ - Added `stroke-line-join` for Path (#9912)
+
+### Widgets
+
+ - Implemented increment, decrement and set-value accessibility actions on Slider (#9975)
+ - Added `font-family` property on `TextEdit`
+ - Inverted vertical slider direction
+
+### C++
+
+ - Fixed crash when binding is accessing a deleted parent (#3464)
+
+
 ## [1.14.1] - 2025-10-23
 
  - Updated xkbcommon and fsdm dependencies

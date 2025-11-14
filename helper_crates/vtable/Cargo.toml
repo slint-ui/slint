@@ -5,7 +5,7 @@
 name = "vtable"
 version = "0.3.0"
 authors = ["Slint Developers <info@slint.dev>"]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Helper crate to generate ffi-friendly virtual tables"
 repository = "https://github.com/slint-ui/slint"

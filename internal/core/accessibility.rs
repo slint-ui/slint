@@ -4,9 +4,9 @@
 // cSpell: ignore descendents
 
 use crate::{
+    SharedString,
     item_tree::ItemTreeVTable,
     items::{ItemRc, TextInput},
-    SharedString,
 };
 use alloc::{vec, vec::Vec};
 use bitflags::bitflags;
@@ -93,17 +93,20 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
         descendent_candidates.push(child);
     }
 
-    core::iter::from_fn(move || loop {
-        let candidate = descendent_candidates.pop()?;
+    core::iter::from_fn(move || {
+        loop {
+            let candidate = descendent_candidates.pop()?;
 
-        if let Some(next_candidate) = candidate.next_sibling() {
-            descendent_candidates.push(next_candidate);
-        }
+            if let Some(next_candidate) = candidate.next_sibling() {
+                descendent_candidates.push(next_candidate);
+            }
 
-        if let Some(descendent) =
-            try_candidate_or_find_next_accessible_descendent(candidate, &mut descendent_candidates)
-        {
-            return Some(descendent);
+            if let Some(descendent) = try_candidate_or_find_next_accessible_descendent(
+                candidate,
+                &mut descendent_candidates,
+            ) {
+                return Some(descendent);
+            }
         }
     })
 }

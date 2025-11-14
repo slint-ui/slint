@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
@@ -50,12 +50,12 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> blue_rect_ok: blue-rect.x == 0phx && blue-rect.y == 0phx && blue-rect.width == 100phx && blue-rect.height == 100phx;
-    property <bool> red_rect_ok: red-rect.x == 100phx && red-rect.y == 0phx && red-rect.width == 50phx && red-rect.height == 100phx;
-    property <bool> green_rect_ok: green-rect.x == 150phx && green-rect.y == 0phx && green-rect.width == 20phx && green-rect.height == 100phx;
-    property <bool> orange_rect_ok: orange-rect.x == 170phx && orange-rect.y == 0phx && orange-rect.width == 10phx && orange-rect.height == 100phx;
-    property <bool> yellow_rect_ok: yellow-rect.x == 180phx && yellow-rect.y == 0phx && yellow-rect.width == 120phx/3 && yellow-rect.height == 100phx;
-    property <bool> pink_rect_ok: pink-rect.x == 180phx + yellow-rect.width && pink-rect.y == 0phx && pink-rect.width == 120phx*2/3 && pink-rect.height == 100phx;
+    out property <bool> blue_rect_ok: blue-rect.x == 0phx && blue-rect.y == 0phx && blue-rect.width == 100phx && blue-rect.height == 100phx;
+    out property <bool> red_rect_ok: red-rect.x == 100phx && red-rect.y == 0phx && red-rect.width == 50phx && red-rect.height == 100phx;
+    out property <bool> green_rect_ok: green-rect.x == 150phx && green-rect.y == 0phx && green-rect.width == 20phx && green-rect.height == 100phx;
+    out property <bool> orange_rect_ok: orange-rect.x == 170phx && orange-rect.y == 0phx && orange-rect.width == 10phx && orange-rect.height == 100phx;
+    out property <bool> yellow_rect_ok: yellow-rect.x == 180phx && yellow-rect.y == 0phx && yellow-rect.width == 120phx/3 && yellow-rect.height == 100phx;
+    out property <bool> pink_rect_ok: pink-rect.x == 180phx + yellow-rect.width && pink-rect.y == 0phx && pink-rect.width == 120phx*2/3 && pink-rect.height == 100phx;
     out property <bool> test: blue_rect_ok && red_rect_ok && green_rect_ok && orange_rect_ok && yellow_rect_ok && pink_rect_ok;
 }
 

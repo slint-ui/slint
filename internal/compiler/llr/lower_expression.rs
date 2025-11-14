@@ -3,14 +3,13 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
-use std::num::NonZeroUsize;
 use std::rc::{Rc, Weak};
 
 use itertools::Either;
 use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
-use super::{Animation, PropertyIdx, PropertyReference, RepeatedElementIdx};
+use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
@@ -33,32 +32,28 @@ pub struct ExpressionLoweringCtx<'a> {
 }
 
 impl ExpressionLoweringCtx<'_> {
-    pub fn map_property_reference(&self, from: &NamedReference) -> PropertyReference {
+    pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         let element = from.element();
         let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
+        let mut level = 0;
+        let mut map = &self.inner;
         if !enclosing.is_global() {
-            let mut map = &self.inner;
-            let mut level = 0;
             while !Rc::ptr_eq(enclosing, map.component) {
                 map = map.parent.unwrap();
                 level += 1;
             }
-            if let Some(level) = NonZeroUsize::new(level) {
-                return PropertyReference::InParent {
-                    level,
-                    parent_reference: Box::new(
-                        map.mapping.map_property_reference(from, self.state),
-                    ),
-                };
-            }
         }
-        self.mapping.map_property_reference(from, self.state)
+        let mut r = map.mapping.map_property_reference(from, self.state);
+        if let MemberReference::Relative { parent_level, .. } = &mut r {
+            *parent_level += level;
+        }
+        r
     }
 }
 
 impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
-    fn property_ty(&self, _: &PropertyReference) -> &Type {
-        todo!()
+    fn property_ty(&self, _: &MemberReference) -> &Type {
+        unimplemented!()
     }
 }
 
@@ -233,7 +228,8 @@ pub fn lower_expression(
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
                 .collect::<_>(),
         },
-        tree_Expression::ConicGradient { stops } => llr_Expression::ConicGradient {
+        tree_Expression::ConicGradient { from_angle, stops } => llr_Expression::ConicGradient {
+            from_angle: Box::new(lower_expression(from_angle, ctx)),
             stops: stops
                 .iter()
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
@@ -334,7 +330,7 @@ fn lower_assignment(
                 repeater_special_property(element, ctx.component, PropertyIdx::REPEATER_DATA);
 
             let level = match &prop {
-                PropertyReference::InParent { level, .. } => (*level).into(),
+                MemberReference::Relative { parent_level, .. } => *parent_level,
                 _ => 0,
             };
 
@@ -377,10 +373,9 @@ pub fn repeater_special_property(
     element: &Weak<RefCell<Element>>,
     component: &Rc<crate::object_tree::Component>,
     property_index: PropertyIdx,
-) -> PropertyReference {
-    let mut r = PropertyReference::Local { sub_component_path: vec![], property_index };
+) -> MemberReference {
     let enclosing = element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-    let mut level = 0;
+    let mut parent_level = 0;
     let mut component = component.clone();
     while !Rc::ptr_eq(&enclosing, &component) {
         component = component
@@ -391,12 +386,15 @@ pub fn repeater_special_property(
             .enclosing_component
             .upgrade()
             .unwrap();
-        level += 1;
+        parent_level += 1;
     }
-    if let Some(level) = NonZeroUsize::new(level - 1) {
-        r = PropertyReference::InParent { level, parent_reference: Box::new(r) };
+    MemberReference::Relative {
+        parent_level: parent_level - 1,
+        local_reference: LocalMemberReference {
+            sub_component_path: vec![],
+            reference: property_index.into(),
+        },
     }
-    r
 }
 
 fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {

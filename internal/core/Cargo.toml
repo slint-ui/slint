@@ -6,7 +6,7 @@ name = "i-slint-core"
 description = "Internal Slint Runtime Library."
 authors.workspace = true
 documentation.workspace = true
-edition.workspace = true
+edition = "2024"
 homepage.workspace = true
 keywords.workspace = true
 license.workspace = true
@@ -74,6 +74,7 @@ unstable-wgpu-27 = ["dep:wgpu-27"]
 
 tr = ["dep:tr"]
 
+32-bit-color = []
 default = ["std", "unicode"]
 
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]

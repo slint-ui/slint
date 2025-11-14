@@ -349,11 +349,7 @@ impl ImageCacheKey {
             #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
             ImageInner::WGPUTexture(..) => return None,
         };
-        if matches!(key, ImageCacheKey::Invalid) {
-            None
-        } else {
-            Some(key)
-        }
+        if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
     }
 
     /// Returns a cache key for static embedded image data.
@@ -877,7 +873,7 @@ impl Image {
         texture_id: core::num::NonZeroU32,
         size: IntSize,
     ) -> Self {
-        BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size).build()
+        unsafe { BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size).build() }
     }
 
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
@@ -1223,7 +1219,7 @@ pub fn fit(
                 size: target,
                 offset: Default::default(),
                 tiled: None,
-            }
+            };
         }
         ImageFit::Preserve => scale_factor.get(),
         ImageFit::Contain => f32::min(target.width / o.width, target.height / o.height),
@@ -1340,10 +1336,13 @@ pub(crate) mod ffi {
     #[cfg(feature = "image-decoders")]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
-        core::ptr::write(
-            image,
-            Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or(Image::default()),
-        )
+        unsafe {
+            core::ptr::write(
+                image,
+                Image::load_from_path(std::path::Path::new(path.as_str()))
+                    .unwrap_or(Image::default()),
+            )
+        }
     }
 
     #[cfg(feature = "std")]
@@ -1353,7 +1352,7 @@ pub(crate) mod ffi {
         format: Slice<'static, u8>,
         image: *mut Image,
     ) {
-        core::ptr::write(image, super::load_image_from_embedded_data(data, format));
+        unsafe { core::ptr::write(image, super::load_image_from_embedded_data(data, format)) };
     }
 
     #[unsafe(no_mangle)]
@@ -1386,7 +1385,7 @@ pub(crate) mod ffi {
         textures: &'static StaticTextures,
         image: *mut Image,
     ) {
-        core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures)));
+        unsafe { core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures))) };
     }
 
     #[unsafe(no_mangle)]

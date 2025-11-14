@@ -32,15 +32,17 @@ fn compute_inner_layout<T>(capacity: usize) -> core::alloc::Layout {
 }
 
 unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
-    debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
-    let data_ptr = inner.as_mut().data.as_mut_ptr();
-    for x in 0..inner.as_ref().header.size {
-        core::ptr::drop_in_place(data_ptr.add(x));
+    unsafe {
+        debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
+        let data_ptr = inner.as_mut().data.as_mut_ptr();
+        for x in 0..inner.as_ref().header.size {
+            core::ptr::drop_in_place(data_ptr.add(x));
+        }
+        alloc::alloc::dealloc(
+            inner.as_ptr() as *mut u8,
+            compute_inner_layout::<T>(inner.as_ref().header.capacity),
+        )
     }
-    alloc::alloc::dealloc(
-        inner.as_ptr() as *mut u8,
-        compute_inner_layout::<T>(inner.as_ref().header.capacity),
-    )
 }
 
 /// Allocate the memory for the SharedVector with the given capacity. Return the inner with size and refcount set to 1
@@ -654,13 +656,15 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to allocate the backing vector of a SharedVector.
     pub unsafe extern "C" fn slint_shared_vector_allocate(size: usize, align: usize) -> *mut u8 {
-        alloc::alloc::alloc(alloc::alloc::Layout::from_size_align(size, align).unwrap())
+        unsafe { alloc::alloc::alloc(alloc::alloc::Layout::from_size_align(size, align).unwrap()) }
     }
 
     #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to deallocate the backing vector of a SharedVector
     pub unsafe extern "C" fn slint_shared_vector_free(ptr: *mut u8, size: usize, align: usize) {
-        alloc::alloc::dealloc(ptr, alloc::alloc::Layout::from_size_align(size, align).unwrap())
+        unsafe {
+            alloc::alloc::dealloc(ptr, alloc::alloc::Layout::from_size_align(size, align).unwrap())
+        }
     }
 
     #[unsafe(no_mangle)]

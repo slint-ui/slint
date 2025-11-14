@@ -9,9 +9,9 @@
 #![allow(clippy::result_unit_err)] // We have nothing better to report
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
+use crate::Property;
 use crate::items::PropertyAnimation;
 use crate::properties::InterpolatedPropertyValue;
-use crate::Property;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -192,7 +192,7 @@ where
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
-        let p2 = Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap());
+        let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };
         Property::link_two_way(p1, p2);
     }
 
@@ -334,7 +334,7 @@ where
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
-        let p2 = Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap());
+        let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };
         Property::link_two_way(p1, p2);
     }
 

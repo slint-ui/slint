@@ -10,8 +10,8 @@ use std::{cell::RefCell, collections::BTreeMap};
 use crate::items::ItemRc;
 use crate::lengths::RectLengths;
 use crate::{
-    lengths::{PhysicalPx, ScaleFactor},
     Color,
+    lengths::{PhysicalPx, ScaleFactor},
 };
 
 /// Struct to store options affecting the rendering of a box shadow

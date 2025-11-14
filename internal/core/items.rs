@@ -1185,6 +1185,10 @@ pub struct WindowItem {
     pub safe_area_inset_bottom: Property<LogicalLength>,
     pub safe_area_inset_left: Property<LogicalLength>,
     pub safe_area_inset_right: Property<LogicalLength>,
+    pub virtual_keyboard_x: Property<LogicalLength>,
+    pub virtual_keyboard_y: Property<LogicalLength>,
+    pub virtual_keyboard_width: Property<LogicalLength>,
+    pub virtual_keyboard_height: Property<LogicalLength>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
@@ -1308,29 +1312,17 @@ fn next_window_item(item: &ItemRc) -> Option<ItemRc> {
 impl WindowItem {
     pub fn font_family(self: Pin<&Self>) -> Option<SharedString> {
         let maybe_family = self.default_font_family();
-        if !maybe_family.is_empty() {
-            Some(maybe_family)
-        } else {
-            None
-        }
+        if !maybe_family.is_empty() { Some(maybe_family) } else { None }
     }
 
     pub fn font_size(self: Pin<&Self>) -> Option<LogicalLength> {
         let font_size = self.default_font_size();
-        if font_size.get() <= 0 as Coord {
-            None
-        } else {
-            Some(font_size)
-        }
+        if font_size.get() <= 0 as Coord { None } else { Some(font_size) }
     }
 
     pub fn font_weight(self: Pin<&Self>) -> Option<i32> {
         let font_weight = self.default_font_weight();
-        if font_weight == 0 {
-            None
-        } else {
-            Some(font_weight)
-        }
+        if font_weight == 0 { None } else { Some(font_weight) }
     }
 
     pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
@@ -1600,9 +1592,11 @@ pub unsafe extern "C" fn slint_contextmenu_close(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    s.close(window_adapter, &self_rc);
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        s.close(window_adapter, &self_rc);
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -1613,9 +1607,11 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) -> bool {
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    s.is_open(window_adapter, &self_rc)
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        s.is_open(window_adapter, &self_rc)
+    }
 }
 
 /// The implementation of the `BoxShadow` element

@@ -28,7 +28,7 @@ A `CheckBoxTile` is a control that combines a text label with a `CheckBox`. See 
 
 ### check-state
 <SlintProperty propName="check-state" typeName="enum" enumName="CheckState" propertyVisibility="in-out">
-The current state of the checkbox. Can be `unchecked`, `partially-checked`, or `checked`.
+The current state of the checkbox. Can be `unchecked`, `partially-checked`, or `checked`. If the state is `partially-checked`, the tristate property is set to true.
 
 ```slint no-test "check-state: CheckState.checked;"
 CheckBoxTile {
@@ -67,6 +67,3 @@ Invoked when the checkbox state changes.
 
 ### toggle()
 Toggles the checkbox state. In tristate mode, cycles through unchecked → partially checked → checked → unchecked.
-
-### set-check-state(check-state: CheckState)
-Sets the checkbox state. If the state is `partially-checked`, the tristate property is set to true.

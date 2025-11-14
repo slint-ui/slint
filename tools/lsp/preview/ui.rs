@@ -501,6 +501,7 @@ struct ValueMapping {
     name_prefix: SharedString,
     is_too_complex: bool,
     is_array: bool,
+    is_struct: bool,
     headers: Vec<SharedString>,
     current_values: Vec<PropertyValue>,
     array_values: Vec<Vec<PropertyValue>>,
@@ -822,6 +823,7 @@ fn map_value_and_type(
         }
         Type::Array(array_ty) => {
             mapping.is_array = true;
+
             let model = get_value::<ModelRc<slint_interpreter::Value>>(value);
 
             for (idx, sub_value) in model.iter().enumerate() {
@@ -829,10 +831,9 @@ fn map_value_and_type(
                     ValueMapping { name_prefix: mapping.name_prefix.clone(), ..Default::default() };
                 map_value_and_type(array_ty, &Some(sub_value), &mut sub_mapping);
 
-                let sub_mapping_too_complex = sub_mapping.is_array || sub_mapping.is_too_complex;
-                mapping.is_too_complex = mapping.is_too_complex || sub_mapping_too_complex;
+                mapping.is_too_complex = mapping.is_too_complex || sub_mapping.is_too_complex;
 
-                if sub_mapping_too_complex {
+                if sub_mapping.is_too_complex {
                     if idx == 0 {
                         mapping.headers.push(mapping.name_prefix.clone());
                     }
@@ -846,7 +847,7 @@ fn map_value_and_type(
             }
         }
         Type::Struct(s) => {
-            mapping.is_array = false;
+            mapping.is_struct = true;
 
             let struct_data = get_value::<slint_interpreter::Struct>(value);
 
@@ -866,11 +867,9 @@ fn map_value_and_type(
                     &mut sub_mapping,
                 );
 
-                let sub_mapping_too_complex = sub_mapping.is_array || sub_mapping.is_too_complex;
+                mapping.is_too_complex = mapping.is_too_complex || sub_mapping.is_too_complex;
 
-                mapping.is_too_complex = mapping.is_too_complex || sub_mapping_too_complex;
-
-                if sub_mapping_too_complex {
+                if sub_mapping.is_too_complex {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(std::mem::take(&mut sub_mapping.code_value));
                 } else {
@@ -952,17 +951,17 @@ fn map_preview_data_property(
     let mut mapping = ValueMapping::default();
     map_value_and_type(&value.ty, &value.value, &mut mapping);
 
-    let is_array = mapping.array_values.len() != 1 || mapping.array_values[0].len() != 1;
+    let is_table = mapping.is_array || mapping.is_struct;
     let is_too_complex = mapping.is_too_complex;
 
     Some(PreviewData {
         name: SharedString::from(&key.property_name),
         has_getter,
         has_setter,
-        kind: match (is_array, is_too_complex) {
+        kind: match (is_table, is_too_complex) {
             (false, false) => PreviewDataKind::Value,
             (true, false) => PreviewDataKind::Table,
-            _ => PreviewDataKind::Json,
+            (_, true) => PreviewDataKind::Json,
         },
     })
 }
@@ -1097,15 +1096,6 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
         Inner(BTreeMap<String, NodeKind>),
     }
 
-    if row.row_count() == 1 {
-        if let Some(v) = row.row_data(0) {
-            if v.accessor_path.is_empty() {
-                // bare value!
-                return Some(format!("{}{}", "  ".repeat(indent_level), v.code));
-            }
-        }
-    }
-
     fn structurize(row: ModelRc<PropertyValue>) -> Option<BTreeMap<String, NodeKind>> {
         let mut result = BTreeMap::default();
 
@@ -1152,7 +1142,12 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
         prefix: &str,
     ) -> Option<String> {
         let indent_step = "  ";
-        let mut result = format!("{}{prefix}{{\n", indent_step.repeat(indent_level));
+        let is_struct = structure.len() != 1 || !structure.contains_key("");
+        let mut result = if is_struct {
+            format!("{}{prefix}{{\n", indent_step.repeat(indent_level))
+        } else {
+            format!("{}{prefix}", indent_step.repeat(indent_level))
+        };
 
         let last_index = structure.len() - 1;
 
@@ -1160,17 +1155,25 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
             let comma = if index == last_index { "" } else { "," };
             match v {
                 NodeKind::Leaf(v) => {
-                    result +=
-                        &format!("{}\"{k}\": {v}{comma}\n", indent_step.repeat(indent_level + 1))
+                    if is_struct {
+                        result += &format!(
+                            "{}\"{k}\": {v}{comma}\n",
+                            indent_step.repeat(indent_level + 1)
+                        )
+                    } else {
+                        result += &format!("{v}{comma}\n")
+                    }
                 }
                 NodeKind::Inner(m) => {
-                    result += &structure_to_string(m, indent_level + 1, &format!("\"{k}\": "))?;
+                    let prefix = if is_struct { format!("\"{k}\": ") } else { String::new() };
+                    result += &structure_to_string(m, indent_level + 1, &prefix)?;
                     result += &format!("{comma}\n");
                 }
             }
         }
-
-        result += &format!("{}}}", indent_step.repeat(indent_level));
+        if is_struct {
+            result += &format!("{}}}", indent_step.repeat(indent_level));
+        }
 
         Some(result)
     }
@@ -1554,6 +1557,7 @@ export component Tester {{
         code: &str,
         expected_data: super::PreviewData,
         expected_value: super::PropertyValue,
+        header: &str,
     ) {
         let (_, value) = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
 
@@ -1563,7 +1567,7 @@ export component Tester {{
         let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&value);
         assert!(!is_array);
         assert!(headers.len() == 1);
-        assert!(headers[0].is_empty());
+        assert_eq!(headers[0], header);
         assert_eq!(values.len(), 1);
         assert_eq!(values.first().unwrap().len(), 1);
     }
@@ -1629,6 +1633,7 @@ export component Tester {{
                 value_string: "Test".into(),
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1662,6 +1667,7 @@ export component Tester {{
                 .into(),
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1695,6 +1701,7 @@ export component Tester {{
                 .into(),
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1722,6 +1729,7 @@ export component Tester {{
                 value_int: 1,
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1752,6 +1760,7 @@ export component Tester {{
                 .into(),
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1776,6 +1785,7 @@ export component Tester {{
                 visual_items: std::rc::Rc::new(VecModel::from(vec!["%".into()])).into(),
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1801,6 +1811,7 @@ export component Tester {{
                 )),
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1824,6 +1835,7 @@ export component Tester {{
                 value_int: 12,
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1847,6 +1859,7 @@ export component Tester {{
                 value_bool: true,
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1870,6 +1883,7 @@ export component Tester {{
                 value_bool: false,
                 ..Default::default()
             },
+            "",
         );
     }
 
@@ -1886,15 +1900,18 @@ export component Tester {{
                 name: "test".into(),
                 has_getter: true,
                 has_setter: true,
-                kind: super::PreviewDataKind::Json,
+                kind: super::PreviewDataKind::Table,
             },
             super::PropertyValue {
-                kind: super::PropertyValueKind::Code,
-                code:
-                    "{\n  \"first\": [\n    \"first of a kind\",\n    \"second of a kind\"\n  ]\n}"
-                        .into(),
+                accessor_path: "first".into(),
+                display_string: "\"first of a kind\"".into(),
+                code: "\"first of a kind\"".into(),
+                kind: super::PropertyValueKind::String,
+                value_string: "first of a kind".into(),
+                value_kind: PropertyValueKind::String,
                 ..Default::default()
             },
+            "first",
         );
     }
 
@@ -1949,17 +1966,18 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Table,
-                },
+            },
             "{\n  \"first\": {\n    \"c1-1\": \"first of a kind\",\n    \"c1-2\": 23\n  },\n  \"second\": {\n    \"c2-1\": \"second of a kind\",\n    \"c2-2\": 42\n  }\n}",
             false,
                 vec![
                     "first.c1-1".into(),
                     "first.c1-2".into(),
                     "second.c2-1".into(),
-                   "second.c2-2".into(),
+                    "second.c2-2".into(),
                 ],
-               vec![
-                    vec![super::PropertyValue {
+             vec![
+                    vec![
+                        super::PropertyValue {
                             display_string: "first of a kind".into(),
                             code: "\"first of a kind\"".into(),
                             kind: super::PropertyValueKind::String,
@@ -1987,7 +2005,7 @@ export component Tester {{
                             value_int: 42,
                             ..Default::default()
                         },
-                        ],
+                    ],
                 ]
         );
     }
@@ -2018,7 +2036,8 @@ export component Tester {{
                    "second.c2-2".into(),
                 ],
                vec![
-                    vec![super::PropertyValue {
+                    vec![
+                        super::PropertyValue {
                             display_string: "first of a kind".into(),
                             code: "\"first of a kind\"".into(),
                             kind: super::PropertyValueKind::String,
@@ -2047,7 +2066,8 @@ export component Tester {{
                             ..Default::default()
                         },
                     ],
-                    vec![super::PropertyValue {
+                    vec![
+                        super::PropertyValue {
                             display_string: "row 2, 1".into(),
                             code: "\"row 2, 1\"".into(),
                             kind: super::PropertyValueKind::String,
@@ -2135,10 +2155,10 @@ export component Tester {{
             }
         }
 
-        validate_array_row_to_struct(0, vec![bool_pv(true, "")], "true");
-        validate_array_row_to_struct(1, vec![bool_pv(true, "")], "  true");
-        validate_array_row_to_struct(2, vec![bool_pv(true, "")], "    true");
-        validate_array_row_to_struct(3, vec![bool_pv(true, "")], "      true");
+        validate_array_row_to_struct(0, vec![bool_pv(true, "")], "true\n");
+        validate_array_row_to_struct(1, vec![bool_pv(true, "")], "  true\n");
+        validate_array_row_to_struct(2, vec![bool_pv(true, "")], "    true\n");
+        validate_array_row_to_struct(3, vec![bool_pv(true, "")], "      true\n");
         validate_array_row_to_struct(
             1,
             vec![bool_pv(true, "test")],

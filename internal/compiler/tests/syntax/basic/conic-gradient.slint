@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X {
+    // Valid conic gradients
+    property<brush> g1: @conic-gradient();
+    property<brush> g2: @conic-gradient(blue 0deg, red 180deg);
+    property<brush> g3: @conic-gradient(blue 45deg, red 180deg, green 270deg);
+    property<brush> g4: @conic-gradient(from 90deg, blue 0deg, red 180deg);
+    property<brush> g5: @conic-gradient(from 90deg + 0.5turn, true ? blue : red 45deg, red 180deg);
+
+    // Angles outside 0-360deg range using expressions
+    property<brush> g6: @conic-gradient(blue 0deg - 45deg, red 180deg);
+    property<brush> g7: @conic-gradient(blue 450deg, red 720deg);
+    property<brush> g8: @conic-gradient(from 0deg - 90deg, blue 0deg, red 180deg);
+    property<brush> g9: @conic-gradient(from 450deg, blue 0deg, red 180deg);
+    property<angle> neg_angle: -45deg;
+    property<brush> g10: @conic-gradient(blue neg_angle, red 180deg);
+    property<brush> g11: @conic-gradient(from neg_angle, blue 0deg, red 180deg);
+
+    // Error cases for 'from' syntax
+    property<brush> g12: @conic-gradient(from 2, blue 45deg, red 180deg);
+//                       ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly}
+//                                            ^^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly}
+    property<brush> g13: @conic-gradient(from,);
+//                       ^error{Expected angle expression after 'from'}
+    property<brush> g14: @conic-gradient(from 90deg blue 0deg, red 180deg);
+//                       ^error{'from <angle>' must be followed by a comma}
+}

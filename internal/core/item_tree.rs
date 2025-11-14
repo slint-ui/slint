@@ -5,6 +5,7 @@
 
 //! This module contains the ItemTree and code that helps navigating it
 
+use crate::SharedString;
 use crate::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -13,7 +14,6 @@ use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
-use crate::SharedString;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use core::pin::Pin;
@@ -473,6 +473,10 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
+    pub(crate) fn map_from_window(&self, p: LogicalPoint) -> LogicalPoint {
+        self.map_from_item_tree_impl(p, |_| false)
+    }
+
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_item_tree(
@@ -515,6 +519,48 @@ impl ItemRc {
             }
             result += geometry.origin.to_vector();
             current = parent;
+        }
+        result
+    }
+
+    fn map_from_item_tree_impl(
+        &self,
+        p: LogicalPoint,
+        stop_condition: impl Fn(&Self) -> bool,
+    ) -> LogicalPoint {
+        let mut current = self.clone();
+        let mut result = p;
+        if stop_condition(&current) {
+            return result;
+        }
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
+
+        let mut full_transform = supports_transformations.then(ItemTransform::identity);
+        let mut offset = euclid::Vector2D::zero();
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            if stop_condition(&parent) {
+                break;
+            }
+            let geometry = parent.geometry();
+            if let (Some(transform), Some(children_transform)) =
+                (full_transform, parent.children_transform())
+            {
+                full_transform = Some(
+                    transform
+                        .then_translate(geometry.origin.to_vector().cast())
+                        .then(&children_transform),
+                );
+            }
+            offset += geometry.origin.to_vector();
+            current = parent;
+        }
+        full_transform = full_transform.and_then(|ft| ft.inverse());
+        if let Some(transform) = full_transform {
+            result = transform.transform_point(result.cast()).cast();
+        } else {
+            result -= offset;
         }
         result
     }
@@ -871,14 +917,14 @@ impl ItemRc {
                                 geo.origin.x - flickable.viewport_x().0,
                                 geo.origin.y - flickable.viewport_y().0,
                             ),
-                            &item_rc,
+                            item_rc,
                         ),
                         self.map_to_ancestor(
                             LogicalPoint::new(
                                 geo.max_x() - flickable.viewport_x().0,
                                 geo.max_y() - flickable.viewport_y().0,
                             ),
-                            &item_rc,
+                            item_rc,
                         ),
                     ],
                 );
@@ -952,11 +998,7 @@ impl VisitChildrenResult {
         self.0 != Self::CONTINUE.0
     }
     pub fn aborted_index(&self) -> Option<usize> {
-        if self.0 != Self::CONTINUE.0 {
-            Some((self.0 & 0xffff_ffff) as usize)
-        } else {
-            None
-        }
+        if self.0 != Self::CONTINUE.0 { Some((self.0 & 0xffff_ffff) as usize) } else { None }
     }
     pub fn aborted_indexes(&self) -> Option<(usize, usize)> {
         if self.0 != Self::CONTINUE.0 {
@@ -1260,8 +1302,10 @@ pub(crate) mod ffi {
         item_tree_rc: &ItemTreeRc,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let window_adapter = (window_handle as *const WindowAdapterRc).as_ref().cloned();
-        super::register_item_tree(item_tree_rc, window_adapter)
+        unsafe {
+            let window_adapter = (window_handle as *const WindowAdapterRc).as_ref().cloned();
+            super::register_item_tree(item_tree_rc, window_adapter)
+        }
     }
 
     /// Free the backend graphics resources allocated in the item array.
@@ -1271,13 +1315,15 @@ pub(crate) mod ffi {
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let window_adapter = &*(window_handle as *const WindowAdapterRc);
-        super::unregister_item_tree(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            core::pin::Pin::into_inner(component),
-            item_array.as_slice(),
-            window_adapter,
-        )
+        unsafe {
+            let window_adapter = &*(window_handle as *const WindowAdapterRc);
+            super::unregister_item_tree(
+                core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+                core::pin::Pin::into_inner(component),
+                item_array.as_slice(),
+                window_adapter,
+            )
+        }
     }
 
     /// Expose `crate::item_tree::visit_item_tree` to C++

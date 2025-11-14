@@ -6,7 +6,7 @@ This module contains image and caching related types for the run-time library.
 */
 
 use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
-use crate::{slice::Slice, SharedString};
+use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
 
@@ -198,10 +198,12 @@ mod tests {
         red_image.save(&test_path).unwrap();
         let red_slint_image = crate::graphics::Image::load_from_path(&test_path).unwrap();
         let buffer = red_slint_image.to_rgba8().unwrap();
-        assert!(buffer
-            .as_slice()
-            .iter()
-            .all(|pixel| *pixel == Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 }));
+        assert!(
+            buffer
+                .as_slice()
+                .iter()
+                .all(|pixel| *pixel == Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 })
+        );
 
         let green_image = image::RgbImage::from_pixel(10, 10, image::Rgb([0, 255, 0]));
 
@@ -221,9 +223,11 @@ mod tests {
 
         let green_slint_image = crate::graphics::Image::load_from_path(&test_path).unwrap();
         let buffer = green_slint_image.to_rgba8().unwrap();
-        assert!(buffer
-            .as_slice()
-            .iter()
-            .all(|pixel| *pixel == Rgba8Pixel { r: 0, g: 255, b: 0, a: 255 }));
+        assert!(
+            buffer
+                .as_slice()
+                .iter()
+                .all(|pixel| *pixel == Rgba8Pixel { r: 0, g: 255, b: 0, a: 255 })
+        );
     }
 }

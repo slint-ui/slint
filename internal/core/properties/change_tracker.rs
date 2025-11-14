@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    single_linked_list_pin::SingleLinkedListPinHead, BindingHolder, BindingResult, BindingVTable,
-    DependencyListHead, DependencyNode,
+    BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode,
+    single_linked_list_pin::SingleLinkedListPinHead,
 };
 use alloc::boxed::Box;
 use core::cell::{Cell, UnsafeCell};
@@ -117,50 +117,53 @@ impl ChangeTracker {
             _self: *const BindingHolder,
             _value: *mut (),
         ) -> BindingResult {
-            let pinned_holder = Pin::new_unchecked(&*_self);
-            let _self = _self as *const BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
-            let inner = core::ptr::addr_of!((*_self).binding).as_ref().unwrap();
-            (*core::ptr::addr_of!((*_self).dep_nodes)).take();
-            assert!(!inner.evaluating.get());
-            inner.evaluating.set(true);
-            let new_value =
-                super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data));
-            {
-                // Safety: We just set `evaluating` to true which means we can borrow
-                let inner_value = &mut *inner.value.get();
-                if new_value != *inner_value {
-                    *inner_value = new_value;
-                    (inner.notify_fn)(&inner.data, inner_value);
+            unsafe {
+                let pinned_holder = Pin::new_unchecked(&*_self);
+                let _self = _self as *const BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
+                let inner = core::ptr::addr_of!((*_self).binding).as_ref().unwrap();
+                (*core::ptr::addr_of!((*_self).dep_nodes)).take();
+                assert!(!inner.evaluating.get());
+                inner.evaluating.set(true);
+                let new_value = super::CURRENT_BINDING
+                    .set(Some(pinned_holder), || (inner.eval_fn)(&inner.data));
+                {
+                    // Safety: We just set `evaluating` to true which means we can borrow
+                    let inner_value = &mut *inner.value.get();
+                    if new_value != *inner_value {
+                        *inner_value = new_value;
+                        (inner.notify_fn)(&inner.data, inner_value);
+                    }
                 }
-            }
 
-            if !inner.evaluating.replace(false) {
-                // `drop` from the vtable was called while evaluating. Do it now.
-                core::mem::drop(Box::from_raw(
-                    _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>,
-                ));
+                if !inner.evaluating.replace(false) {
+                    // `drop` from the vtable was called while evaluating. Do it now.
+                    core::mem::drop(Box::from_raw(
+                        _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>,
+                    ));
+                }
+                BindingResult::KeepBinding
             }
-            BindingResult::KeepBinding
         }
 
         unsafe fn drop<T, EF, NF, Data>(_self: *mut BindingHolder) {
-            let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
-            let evaluating =
-                core::ptr::addr_of!((*_self).binding).as_ref().unwrap().evaluating.replace(false);
-            if !evaluating {
-                core::mem::drop(Box::from_raw(_self));
+            unsafe {
+                let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
+                let evaluating = core::ptr::addr_of!((*_self).binding)
+                    .as_ref()
+                    .unwrap()
+                    .evaluating
+                    .replace(false);
+                if !evaluating {
+                    core::mem::drop(Box::from_raw(_self));
+                }
             }
         }
 
         trait HasBindingVTable {
             const VT: &'static BindingVTable;
         }
-        impl<
-                T: PartialEq,
-                EF: Fn(&Data) -> T + 'static,
-                NF: Fn(&Data, &T) + 'static,
-                Data: 'static,
-            > HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
+        impl<T: PartialEq, EF: Fn(&Data) -> T + 'static, NF: Fn(&Data, &T) + 'static, Data: 'static>
+            HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
         {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,
@@ -242,7 +245,7 @@ impl ChangeTracker {
     }
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
-        let _self = _self.as_ref().unwrap();
+        let _self = unsafe { _self.as_ref().unwrap() };
         let node_head = _self.dep_nodes.take();
         if let Some(node) = node_head.iter().next() {
             node.remove();

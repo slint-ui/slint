@@ -590,6 +590,27 @@ impl Window {
         self.0.set_minimized(minimized);
     }
 
+    /// The area of the window covered by the software keyboard is changing (animated).
+    #[doc(hidden)]
+    pub fn set_virtual_keyboard(
+        &self,
+        origin: LogicalPosition,
+        size: LogicalSize,
+        _: crate::InternalToken,
+    ) {
+        self.0.set_window_item_virtual_keyboard(origin.to_euclid(), size.to_euclid());
+    }
+
+    #[doc(hidden)]
+    pub fn virtual_keyboard(
+        &self,
+        _: crate::InternalToken,
+    ) -> Option<(LogicalPosition, LogicalSize)> {
+        self.0.window_item_virtual_keyboard().map(|(origin, size)| {
+            (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
+        })
+    }
+
     /// Dispatch a window event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.

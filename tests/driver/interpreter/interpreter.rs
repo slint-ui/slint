@@ -20,6 +20,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler.set_library_paths(library_paths);
     compiler.set_style(testcase.requested_style.unwrap_or("fluent").into());
 
+    // Ensure we get consistent results on all platforms even for OS-dependent
+    // behavior like dialog button order.
+    i_slint_core::OPERATING_SYSTEM_OVERRIDE
+        .set(Some(i_slint_core::items::OperatingSystemType::Windows));
+
     let result =
         spin_on::spin_on(compiler.build_from_source(source, testcase.absolute_path.clone()));
 

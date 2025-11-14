@@ -20,6 +20,7 @@ name = "test-driver-interpreter"
 [dev-dependencies]
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"] }
 i-slint-backend-testing = { workspace = true }
+i-slint-core = { workspace = true }
 
 itertools = { workspace = true }
 spin_on = { version = "0.1" }

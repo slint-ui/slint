@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#![allow(unsafe_code)]
 #![warn(missing_docs)]
 /*!
     Graphics Abstractions.
@@ -8,10 +9,10 @@
     This module contains the abstractions and convenience types used for rendering.
 */
 extern crate alloc;
-use crate::api::PlatformError;
-use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
+use crate::api::PlatformError;
+use crate::lengths::LogicalLength;
 use alloc::boxed::Box;
 
 pub use euclid;

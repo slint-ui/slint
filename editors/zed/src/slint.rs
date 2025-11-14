@@ -30,6 +30,10 @@ impl SlintExtension {
             return Ok(SlintBinary { path, args: binary_args });
         }
 
+        if let Some(path) = worktree.which("slint-lsp") {
+            return Ok(SlintBinary { path, args: binary_args });
+        }
+
         if let Some(path) = &self.cached_binary_path {
             if fs::metadata(path).is_ok_and(|stat| stat.is_file()) {
                 zed::set_language_server_installation_status(
@@ -90,8 +94,10 @@ impl SlintExtension {
                 String::new()
             }
         );
-        // The directory in the tarball is usually named "slint-lsp", but it is different for the slint-lsp-*-linux-*
-        let subdir = if target_name == "slint-lsp-aarch64-unknown-linux-gnu" {
+        let subdir = if asset_file_type == DownloadedFileType::Zip {
+            ""
+        } else if target_name == "slint-lsp-aarch64-unknown-linux-gnu" {
+            // The directory in the tarball is usually named "slint-lsp", but it is different for the slint-lsp-*-linux-*
             target_name
         } else {
             "slint-lsp"

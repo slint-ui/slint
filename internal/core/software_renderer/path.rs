@@ -3,8 +3,8 @@
 
 //! Path rendering support for the software renderer using zeno
 
-use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use super::PhysicalRect;
+use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 #[cfg(feature = "std")]
 use crate::graphics::PathDataIterator;
 use alloc::vec::Vec;
