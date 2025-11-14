@@ -84,6 +84,7 @@ mod dynamic_type;
 mod eval;
 mod eval_layout;
 mod global_component;
+mod erased_item;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
 #[cfg(feature = "internal-json")]
