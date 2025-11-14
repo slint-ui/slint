@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::rc::Rc;
+#[cfg(supports_opengl)]
+use std::rc::Weak;
 use std::sync::Arc;
 
 use i_slint_core::renderer::Renderer;
@@ -23,6 +25,7 @@ mod glcontext;
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
     _requested_graphics_api: Option<RequestedGraphicsAPI>,
+    _shared_backend_data_weak: Weak<crate::SharedBackendData>,
 }
 
 #[cfg(supports_opengl)]
@@ -33,6 +36,7 @@ impl GlutinFemtoVGRenderer {
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
             _requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
+            _shared_backend_data_weak: Rc::downgrade(shared_backend_data),
         }))
     }
 }
@@ -69,20 +73,96 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             },
         )?);
 
+        #[cfg(target_family = "wasm")]
+        let html_canvas = winit_window
+            .canvas()
+            .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?;
+
         self.renderer.set_opengl_context(
             #[cfg(not(target_arch = "wasm32"))]
             opengl_context,
             #[cfg(target_arch = "wasm32")]
-            winit_window
-                .canvas()
-                .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?,
+            html_canvas.clone(),
         )?;
+
+        #[cfg(target_family = "wasm")]
+        self.setup_webgl_context_loss_handlers(winit_window.id(), html_canvas);
 
         Ok(winit_window)
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
         self.renderer.clear_graphics_context()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+#[cfg(all(supports_opengl, target_family = "wasm"))]
+impl GlutinFemtoVGRenderer {
+    fn setup_webgl_context_loss_handlers(
+        &self,
+        window_id: winit::window::WindowId,
+        html_canvas: web_sys::HtmlCanvasElement,
+    ) {
+        use wasm_bindgen::closure::Closure;
+        use wasm_bindgen::JsCast;
+
+        let add_listener = |name, closure: Closure<dyn Fn(web_sys::WebGlContextEvent)>| {
+            html_canvas
+                .add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())
+                .unwrap();
+            closure.forget();
+        };
+
+        add_listener(
+            "webglcontextlost",
+            Closure::wrap(Box::new({
+                let shared_backend_data_weak = self._shared_backend_data_weak.clone();
+                move |event: web_sys::WebGlContextEvent| {
+                    let Some(window_adapter) = shared_backend_data_weak
+                        .upgrade()
+                        .and_then(|backend_data| backend_data.window_by_id(window_id))
+                    else {
+                        return;
+                    };
+                    i_slint_core::debug_log!(
+                        "Slint: Suspending renderer due to WebGL context loss"
+                    );
+                    let this = window_adapter.renderer().as_any().downcast_ref::<Self>().unwrap();
+                    let _ = this.renderer.clear_graphics_context().ok();
+                    // Preventing default is the way to make sure the browser sends a webglcontextrestored event
+                    // when the context is back.
+                    event.prevent_default();
+                }
+            }) as Box<dyn Fn(web_sys::WebGlContextEvent)>),
+        );
+        add_listener(
+            "webglcontextrestored",
+            Closure::wrap(Box::new({
+                let shared_backend_data_weak = self._shared_backend_data_weak.clone();
+                let html_canvas = html_canvas.clone();
+                move |_event: web_sys::WebGlContextEvent| {
+                    let Some(window_adapter) = shared_backend_data_weak
+                        .upgrade()
+                        .and_then(|backend_data| backend_data.window_by_id(window_id))
+                    else {
+                        return;
+                    };
+                    i_slint_core::debug_log!(
+                        "Slint: Restoring renderer due to WebGL context restoration"
+                    );
+                    let this = window_adapter.renderer().as_any().downcast_ref::<Self>().unwrap();
+                    if this.renderer.set_opengl_context(html_canvas.clone()).is_ok() {
+                        use i_slint_core::platform::WindowAdapter;
+                        window_adapter.request_redraw();
+                        let _ = window_adapter.draw().ok();
+                    }
+                }
+            }) as Box<dyn Fn(web_sys::WebGlContextEvent)>),
+        );
     }
 }
 
@@ -147,5 +227,9 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         )?;
 
         Ok(winit_window)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
