@@ -91,6 +91,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sp::Image)),
+        Type::StyledText => Some(quote!(sp::StyledText)),
         Type::Struct(s) => {
             if let Some(name) = &s.name {
                 Some(struct_name_to_tokens(name))
@@ -3396,6 +3397,14 @@ fn compile_builtin_function_call(
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             quote!(sp::open_url(&#url))
+        }
+        BuiltinFunction::EscapeMarkdown => {
+            let text = a.next().unwrap();
+            quote!(sp::escape_markdown(&#text))
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let text = a.next().unwrap();
+            quote!(sp::parse_markdown(&#text))
         }
     }
 }

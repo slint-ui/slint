@@ -4211,6 +4211,14 @@ fn compile_builtin_function_call(
             let url = a.next().unwrap();
             format!("slint::cbindgen_private::open_url({})", url)
         }
+        BuiltinFunction::EscapeMarkdown => {
+            let text = a.next().unwrap();
+            format!("slint::cbindgen_private::escape_markdown({})", text)
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let text = a.next().unwrap();
+            format!("slint::cbindgen_private::parse_markdown({})", text)
+        }
     }
 }
 

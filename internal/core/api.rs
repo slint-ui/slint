@@ -1219,3 +1219,8 @@ pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformErr
         |ctx| ctx.set_xdg_app_id(app_id.into()),
     )
 }
+
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct StyledText {
+    inner: (),
+}

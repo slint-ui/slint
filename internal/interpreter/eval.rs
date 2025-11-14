@@ -1400,6 +1400,16 @@ fn call_builtin_function(
             corelib::open_url(&url);
             Value::Void
         }
+        BuiltinFunction::EscapeMarkdown => {
+            let text: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(corelib::escape_markdown(&text).into())
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let text: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(corelib::parse_markdown(&text).into())
+        }
     }
 }
 
@@ -1721,6 +1731,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         }
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
+        Type::StyledText => matches!(value, Value::StyledText(_)),
     }
 }
 
@@ -2021,6 +2032,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Function { .. } => {
             panic!("There can't be such property")
         }
+        Type::StyledText => Value::StyledText(Default::default()),
     }
 }
 

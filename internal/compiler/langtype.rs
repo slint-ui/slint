@@ -64,6 +64,8 @@ pub enum Type {
 
     /// This is a `SharedArray<f32>`
     LayoutCache,
+
+    StyledText,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -104,6 +106,7 @@ impl core::cmp::PartialEq for Type {
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::StyledText => matches!(other, Type::StyledText),
         }
     }
 }
@@ -178,6 +181,7 @@ impl Display for Type {
             }
             Type::ElementReference => write!(f, "element ref"),
             Type::LayoutCache => write!(f, "layout cache"),
+            Type::StyledText => write!(f, "styled-text"),
         }
     }
 }
@@ -213,6 +217,7 @@ impl Type {
                 | Self::Array(_)
                 | Self::Brush
                 | Self::InferredProperty
+                | Self::StyledText
         )
     }
 
@@ -314,6 +319,7 @@ impl Type {
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
+            Type::StyledText => None,
         }
     }
 
