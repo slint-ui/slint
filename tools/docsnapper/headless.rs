@@ -102,10 +102,6 @@ pub struct HeadlessWindow {
 }
 
 impl WindowAdapterInternal for HeadlessWindow {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
     }
