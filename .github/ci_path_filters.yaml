@@ -94,3 +94,7 @@ updater_test:
  - *internal
  - 'tests/cases/**'
  - 'tools/updater/**'
+
+servo_example:
+ - 'examples/servo/**'
+ - *ci_config

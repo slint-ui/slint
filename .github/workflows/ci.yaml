@@ -42,6 +42,7 @@ jobs:
         vsce : ${{ steps.filter.outputs.vsce }}
         slintpad : ${{ steps.filter.outputs.slintpad }}
         updater_test : ${{ steps.filter.outputs.updater_test }}
+        servo_example : ${{ steps.filter.outputs.servo_example }}
       steps:
         - uses: actions/checkout@v5
         - uses: dorny/paths-filter@v3
@@ -643,7 +644,7 @@ jobs:
 
     servo_example:
         needs: files-changed
-        if: needs.files-changed.outputs.examples == 'true'
+        if: needs.files-changed.outputs.servo_example == 'true'
         permissions:
             contents: read
             deployments: write
