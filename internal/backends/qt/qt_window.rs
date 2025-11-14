@@ -2045,10 +2045,6 @@ impl WindowAdapterInternal for QtWindow {
         }};
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn handle_focus_change(&self, _old: Option<ItemRc>, new: Option<ItemRc>) {
         let widget_ptr = self.widget_ptr();
         if let Some(ai) = accessible_item(new) {
@@ -2368,7 +2364,7 @@ pub(crate) mod ffi {
     ) -> *mut c_void {
         window_adapter
             .internal(i_slint_core::InternalToken)
-            .and_then(|wa| <dyn std::any::Any>::downcast_ref(wa.as_any()))
+            .and_then(|wa| <dyn std::any::Any>::downcast_ref(wa))
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })
