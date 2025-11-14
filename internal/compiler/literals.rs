@@ -94,7 +94,7 @@ pub fn parse_number_literal(s: SmolStr) -> Result<Expression, SmolStr> {
 #[test]
 fn test_parse_number_literal() {
     use crate::expression_tree::Unit;
-    use smol_str::{format_smolstr, ToSmolStr};
+    use smol_str::{ToSmolStr, format_smolstr};
 
     fn doit(s: &str) -> Result<(f64, Unit), SmolStr> {
         parse_number_literal(s.into()).map(|e| match e {

@@ -9,11 +9,11 @@
 //! elements property of the Path element. That way the generators have to deal
 //! with path embedding only as part of the property assignment.
 
+use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::{Struct, Type};
 use crate::object_tree::*;
-use crate::EmbedResourcesKind;
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::rc::Rc;

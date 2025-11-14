@@ -25,11 +25,7 @@ pub trait LexingRule {
 impl LexingRule for &str {
     #[inline]
     fn lex(&self, text: &str, _: &mut LexState) -> usize {
-        if text.starts_with(*self) {
-            self.len()
-        } else {
-            0
-        }
+        if text.starts_with(*self) { self.len() } else { 0 }
     }
 }
 

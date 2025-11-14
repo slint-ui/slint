@@ -7,7 +7,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
 use core::cell::RefCell;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -41,7 +41,9 @@ fn do_move_declarations(component: &Rc<Component>) {
             if let ElementType::Component(base) = &elem.borrow().base_type {
                 do_move_declarations(base);
             } else {
-                panic!("Repeated element should have a component as base because of the repeater_component.rs pass")
+                panic!(
+                    "Repeated element should have a component as base because of the repeater_component.rs pass"
+                )
             }
             debug_assert!(
                 elem.borrow().property_declarations.is_empty() && elem.borrow().children.is_empty(),

@@ -6,8 +6,8 @@
 use super::document::parse_qualified_name;
 use super::expressions::parse_expression;
 use super::prelude::*;
-use super::r#type::parse_type;
 use super::statements::parse_statement;
+use super::r#type::parse_type;
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Element

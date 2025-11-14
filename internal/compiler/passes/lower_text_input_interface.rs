@@ -5,7 +5,7 @@
 
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{visit_all_expressions, Component};
+use crate::object_tree::{Component, visit_all_expressions};
 use std::rc::Rc;
 
 pub fn lower_text_input_interface(component: &Rc<Component>) {

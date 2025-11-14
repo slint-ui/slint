@@ -6,7 +6,7 @@
 //!
 //! This is not helped by us using URLs in place of paths *sometimes*.
 
-use smol_str::{format_smolstr, SmolStr, SmolStrBuilder};
+use smol_str::{SmolStr, SmolStrBuilder, format_smolstr};
 use std::path::{Path, PathBuf};
 
 /// Check whether a `Path` is actually an URL.
@@ -427,11 +427,7 @@ fn dirname_string(path: &str) -> String {
         };
     }
 
-    if result.is_empty() {
-        String::from(".")
-    } else {
-        result
-    }
+    if result.is_empty() { String::from(".") } else { result }
 }
 
 #[test]

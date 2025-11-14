@@ -16,7 +16,7 @@ use crate::langtype::{
     Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
-use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
+use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 
 /// Parse the contents of builtins.slint and fill the builtin type registry

@@ -177,7 +177,9 @@ impl CompilerConfiguration {
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
         {
             #[cfg(not(feature = "software-renderer"))]
-            panic!("the software-renderer feature must be enabled in i-slint-compiler when embedding textures");
+            panic!(
+                "the software-renderer feature must be enabled in i-slint-compiler when embedding textures"
+            );
             #[cfg(feature = "software-renderer")]
             EmbedResourcesKind::EmbedTextures
         } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {

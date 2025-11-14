@@ -102,7 +102,7 @@ use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
 use i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::rc::{Rc, Weak};
 
 const HEIGHT: &str = "height";

@@ -16,7 +16,7 @@ use crate::layout::is_layout;
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use core::cell::RefCell;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
