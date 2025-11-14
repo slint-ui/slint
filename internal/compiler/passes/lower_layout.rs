@@ -181,6 +181,7 @@ fn lower_grid_layout(
         elems: Default::default(),
         geometry: LayoutGeometry::new(grid_layout_element),
         dialog_button_roles: None,
+        uses_auto: false,
     };
 
     let layout_organized_data_prop = create_new_prop(
@@ -264,6 +265,7 @@ fn lower_grid_layout(
         }
     }
     grid_layout_element.borrow_mut().children = collected_children;
+    grid.uses_auto = numbering_type == Some(RowColExpressionType::Auto);
     let span = grid_layout_element.borrow().to_source_location();
 
     layout_organized_data_prop.element().borrow_mut().bindings.insert(
@@ -630,6 +632,7 @@ fn lower_dialog_layout(
         elems: Default::default(),
         geometry: LayoutGeometry::new(dialog_element),
         dialog_button_roles: None,
+        uses_auto: true,
     };
     let metrics = &style_metrics.root_element;
     grid.geometry

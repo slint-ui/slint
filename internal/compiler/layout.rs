@@ -468,6 +468,9 @@ pub struct GridLayout {
     /// When this GridLayout is actually the layout of a Dialog, then the cells start with all the buttons,
     /// and this variable contains their roles. The string is actually one of the values from the i_slint_core::layout::DialogButtonRole
     pub dialog_button_roles: Option<Vec<SmolStr>>,
+
+    /// Whether any of the row/column expressions use 'auto'
+    pub uses_auto: bool,
 }
 
 impl GridLayout {
