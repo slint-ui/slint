@@ -36,6 +36,10 @@ than 1 to create multiple `.cpp` files. These can be compiled in parallel, which
 across multiple `.cpp` files decreases the compiler's visibility and thus ability to perform optimizations. You can also pass `COMPILATION_UNITS 0` to generate
 only one single `.h` file.
 
+```{caution}
+Compiling multiple .slint files with the same namespace may create conflicting symbols. Avoid this by putting each .slint file in its own namespace.
+```
+
 ## Resource Embedding
 
 By default, images from {{ '[`@image-url()`]({})'.format(slint_href_ImageType) }} or fonts that your Slint files reference are loaded from disk at run-time. This minimises build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
