@@ -1,0 +1,24 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+
+    lay1 := GridLayout {
+        spacing: 20px;
+        text1 := Text {
+//               ^error{Cannot set property 'col' on 'text1' because parent GridLayout uses auto-numbering}
+            row: 0;
+            col: 1;
+            text: "text 1";
+        }
+        text2 := Text {
+//               ^error{Cannot set property 'row' on 'text2' because parent GridLayout uses auto-numbering}
+            text: "text 2";
+        }
+    }
+
+    init => {
+        text1.col = 3; // should be an error
+        text2.row = 2; // too (making sure this is detected even when row is not set initially)
+    }
+}
