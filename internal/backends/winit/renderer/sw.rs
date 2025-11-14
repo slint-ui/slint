@@ -207,4 +207,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         drop(self._context.borrow_mut().take());
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

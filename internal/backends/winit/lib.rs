@@ -77,6 +77,9 @@ mod renderer {
             active_event_loop: &ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
+
+        #[cfg_attr(not(target_family = "wasm"), allow(unused))]
+        fn as_any(&self) -> &dyn std::any::Any;
     }
 
     #[cfg(any(
