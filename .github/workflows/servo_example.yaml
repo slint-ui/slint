@@ -55,10 +55,10 @@ jobs:
         uses: ./.github/actions/install-skia-dependencies
       - name: Install API level
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-      - name: Install build-tools
-        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
-      - name: Install NDK
-        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.2.13676358"
+      # - name: Install build-tools
+      #   run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
+      # - name: Install NDK
+      #   run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.2.13676358"
       - name: Install cargo-apk
         run: cargo install cargo-apk
       - name: Decode keystore
