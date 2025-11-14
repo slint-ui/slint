@@ -67,4 +67,5 @@ jobs:
       - name: Build
         working-directory: examples/servo
         run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           cargo apk build --target aarch64-linux-android --lib --release
