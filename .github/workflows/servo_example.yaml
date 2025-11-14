@@ -68,4 +68,4 @@ jobs:
         working-directory: examples/servo
         run: |
           export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
-          cargo apk build -p slint-servo --target aarch64-linux-android --lib --release
+          cargo apk build --target aarch64-linux-android --lib --release
