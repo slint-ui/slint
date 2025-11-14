@@ -199,4 +199,8 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
 
         Ok(winit_window)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
