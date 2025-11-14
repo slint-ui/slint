@@ -94,10 +94,6 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn suspend(&self) -> Result<(), PlatformError> {
         self.renderer.clear_graphics_context()
     }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 }
 
 #[cfg(all(supports_opengl, target_family = "wasm"))]
@@ -131,7 +127,9 @@ impl GlutinFemtoVGRenderer {
                     i_slint_core::debug_log!(
                         "Slint: Suspending renderer due to WebGL context loss"
                     );
-                    let this = window_adapter.renderer().as_any().downcast_ref::<Self>().unwrap();
+                    let this = (window_adapter.renderer() as &dyn std::any::Any)
+                        .downcast_ref::<Self>()
+                        .unwrap();
                     let _ = this.renderer.clear_graphics_context().ok();
                     // Preventing default is the way to make sure the browser sends a webglcontextrestored event
                     // when the context is back.
@@ -154,7 +152,9 @@ impl GlutinFemtoVGRenderer {
                     i_slint_core::debug_log!(
                         "Slint: Restoring renderer due to WebGL context restoration"
                     );
-                    let this = window_adapter.renderer().as_any().downcast_ref::<Self>().unwrap();
+                    let this = (window_adapter.renderer() as &dyn std::any::Any)
+                        .downcast_ref::<Self>()
+                        .unwrap();
                     if this.renderer.set_opengl_context(html_canvas.clone()).is_ok() {
                         use i_slint_core::platform::WindowAdapter;
                         window_adapter.request_redraw();
@@ -227,9 +227,5 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         )?;
 
         Ok(winit_window)
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
     }
 }
