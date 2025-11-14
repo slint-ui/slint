@@ -23,6 +23,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+        # required for servo
       - name: Install uv
         uses: astral-sh/setup-uv@v7
       - name: Install rust
@@ -43,6 +44,7 @@ jobs:
       CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
+        # required for servo
       - name: Install uv
         uses: astral-sh/setup-uv@v7
       - name: Install rust
@@ -53,8 +55,9 @@ jobs:
         uses: ./.github/actions/install-linux-dependencies
       - name: Install skia dependencies
         uses: ./.github/actions/install-skia-dependencies
-      # - name: Install API level
-      #   run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+        # required for anroid
+      - name: Install API level
+        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
       - name: Install cargo-apk
         run: cargo install cargo-apk
       - name: Decode keystore
