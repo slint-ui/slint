@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::cpp::{concatenate_ident, cpp_ast::*, ident, Config};
+use super::cpp::{Config, concatenate_ident, cpp_ast::*, ident};
+use crate::CompilerConfiguration;
 use crate::langtype::{EnumerationValue, Type};
 use crate::llr;
 use crate::object_tree::Document;
-use crate::CompilerConfiguration;
 use itertools::Itertools as _;
 use smol_str::format_smolstr;
 use std::io::BufWriter;
@@ -136,15 +136,31 @@ fn generate_public_component(
     }));
 
     let create_code = vec![
-        format!("slint::SharedVector<slint::SharedString> include_paths{{ {} }};", compiler_config.include_paths.iter().map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy()))).join(", ")),
-        format!("slint::SharedVector<slint::SharedString> library_paths{{ {} }};", compiler_config.library_paths.iter().map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy())).join(", ")),
+        format!(
+            "slint::SharedVector<slint::SharedString> include_paths{{ {} }};",
+            compiler_config
+                .include_paths
+                .iter()
+                .map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy())))
+                .join(", ")
+        ),
+        format!(
+            "slint::SharedVector<slint::SharedString> library_paths{{ {} }};",
+            compiler_config
+                .library_paths
+                .iter()
+                .map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy()))
+                .join(", ")
+        ),
         format!(
             "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?});",
             component.name,
             compiler_config.style.as_ref().unwrap_or(&String::new()),
             compiler_config.translation_domain.as_ref().unwrap_or(&String::new())
         ),
-        format!("auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"),
+        format!(
+            "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"
+        ),
         format!("return slint::ComponentHandle<{component_id}>(self_rc);"),
     ];
 
@@ -446,13 +462,18 @@ fn convert_to_value_fn(ty: &Type) -> String {
                     convert_to_value_fn(ty)
                 )
             });
-            format!("([](const auto &tuple) {{ slint::interpreter::Struct s; {}return slint::interpreter::Value(s); }})", init.join(""))
+            format!(
+                "([](const auto &tuple) {{ slint::interpreter::Struct s; {}return slint::interpreter::Value(s); }})",
+                init.join("")
+            )
         }
         // Array of anonymous struct
         Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
             let conf_fn = convert_to_value_fn(&a);
             let aty = a.cpp_type().unwrap();
-            format!("([](const auto &model) {{ return slint::interpreter::Value(std::make_shared<slint::MapModel<{aty}, slint::interpreter::Value>>(model, {conf_fn})); }})")
+            format!(
+                "([](const auto &model) {{ return slint::interpreter::Value(std::make_shared<slint::MapModel<{aty}, slint::interpreter::Value>>(model, {conf_fn})); }})"
+            )
         }
         _ => "into_slint_value".into(),
     }

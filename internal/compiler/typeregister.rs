@@ -3,7 +3,7 @@
 
 // cSpell: ignore imum
 
-use smol_str::{format_smolstr, SmolStr, StrExt, ToSmolStr};
+use smol_str::{SmolStr, StrExt, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;

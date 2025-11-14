@@ -202,7 +202,9 @@ fn compare_styles(base: &Style, mut other: Style, style_name: &str) -> bool {
             for (prop_name, p1) in c1.properties.iter() {
                 if let Some(p2) = c2.properties.remove(prop_name) {
                     if p1 != &p2 {
-                        eprintln!("Mismatch property info '{compo_name}::{prop_name}' in {style_name} : {p1} != {p2}",);
+                        eprintln!(
+                            "Mismatch property info '{compo_name}::{prop_name}' in {style_name} : {p1} != {p2}",
+                        );
                         ok = false;
                     }
                 } else if !ignore_extra {

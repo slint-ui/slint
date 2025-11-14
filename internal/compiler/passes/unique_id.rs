@@ -4,7 +4,7 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::ElementType;
 use crate::object_tree::*;
-use smol_str::{format_smolstr, SmolStr, ToSmolStr};
+use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::collections::HashMap;
 use std::rc::Rc;
 

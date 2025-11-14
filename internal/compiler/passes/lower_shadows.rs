@@ -9,7 +9,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::BindingExpression;
 use crate::{expression_tree::Expression, object_tree::*};
 use crate::{expression_tree::NamedReference, typeregister::TypeRegister};
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

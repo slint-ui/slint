@@ -3,7 +3,7 @@
 
 //! Pass that lowers synthetic `visible` properties to Clip element
 
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
 

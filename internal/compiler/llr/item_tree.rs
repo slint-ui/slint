@@ -121,11 +121,7 @@ pub enum LocalMemberIndex {
 }
 impl LocalMemberIndex {
     pub fn property(&self) -> Option<PropertyIdx> {
-        if let LocalMemberIndex::Property(p) = self {
-            Some(*p)
-        } else {
-            None
-        }
+        if let LocalMemberIndex::Property(p) = self { Some(*p) } else { None }
     }
 }
 

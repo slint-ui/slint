@@ -19,8 +19,8 @@
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
 //! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not maching that pattern
 
-use i_slint_compiler::diagnostics::{BuildDiagnostics, Diagnostic, DiagnosticLevel};
 use i_slint_compiler::ComponentSelection;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, Diagnostic, DiagnosticLevel};
 use std::path::{Path, PathBuf};
 
 #[test]
@@ -185,7 +185,9 @@ fn process_diagnostics(
             }
             None => {
                 success = false;
-                println!("{path:?}: {warning_or_error} not found at offset {offset}: {expected_message:?}");
+                println!(
+                    "{path:?}: {warning_or_error} not found at offset {offset}: {expected_message:?}"
+                );
             }
         }
     }

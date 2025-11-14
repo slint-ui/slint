@@ -9,7 +9,7 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use crate::typeregister;
 use core::cell::RefCell;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -830,11 +830,7 @@ impl Expression {
                     Type::Bool
                 } else if *op == '+' || *op == '-' {
                     let (rhs_ty, lhs_ty) = (rhs.ty(), lhs.ty());
-                    if rhs_ty == lhs_ty {
-                        rhs_ty
-                    } else {
-                        Type::Invalid
-                    }
+                    if rhs_ty == lhs_ty { rhs_ty } else { Type::Invalid }
                 } else {
                     debug_assert!(*op == '*' || *op == '/');
                     let unit_vec = |ty| {
@@ -1217,7 +1213,11 @@ impl Expression {
                     Expression::LinearGradient { .. }
                     | Expression::RadialGradient { .. }
                     | Expression::ConicGradient { .. } => {
-                        let message = format!("Narrowing conversion from {0} to {1}. This can lead to unexpected behavior because the {0} is a gradient", Type::Brush, Type::Color);
+                        let message = format!(
+                            "Narrowing conversion from {0} to {1}. This can lead to unexpected behavior because the {0} is a gradient",
+                            Type::Brush,
+                            Type::Color
+                        );
                         diag.push_warning(message, node);
                         self
                     }

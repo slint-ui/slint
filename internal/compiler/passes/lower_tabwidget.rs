@@ -12,7 +12,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 
 pub async fn lower_tabwidget(

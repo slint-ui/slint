@@ -8,7 +8,7 @@ use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
-use smol_str::{format_smolstr, SmolStr, ToSmolStr};
+use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
