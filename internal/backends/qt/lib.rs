@@ -337,7 +337,7 @@ impl QtWidgetAccessor for i_slint_core::api::Window {
         i_slint_core::window::WindowInner::from_pub(self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
-            .and_then(|wa| wa.as_any().downcast_ref::<qt_window::QtWindow>())
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<qt_window::QtWindow>())
             .map(qt_window::QtWindow::widget_ptr)
     }
 }
