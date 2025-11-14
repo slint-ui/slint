@@ -471,9 +471,8 @@ pub struct GridLayout {
 }
 
 impl GridLayout {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.item.constraints.visit_named_references(visitor);
             if let RowColExpr::Named(ref mut e) = cell.col_expr {
                 visitor(e);
             }
@@ -486,6 +485,13 @@ impl GridLayout {
             if let RowColExpr::Named(ref mut e) = cell.rowspan_expr {
                 visitor(e);
             }
+        }
+    }
+
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        self.visit_rowcol_named_references(visitor);
+        for cell in &mut self.elems {
+            cell.item.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
     }
