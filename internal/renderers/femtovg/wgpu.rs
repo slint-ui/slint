@@ -51,13 +51,25 @@ impl GraphicsBackend for WGPUBackend {
     fn begin_surface_rendering(
         &self,
     ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
-        let frame = self
-            .surface
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .get_current_texture()
-            .expect("unable to get next texture from swapchain");
+        let surface = self.surface.borrow();
+        let surface = surface.as_ref().unwrap();
+        let frame = match surface.get_current_texture() {
+            Ok(texture) => texture,
+            Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture()?,
+            // Outdated or lost: re-configure and try again
+            Err(_) => {
+                let mut device = self.device.borrow_mut();
+                let device = device.as_mut().unwrap();
+
+                self.surface
+                    .borrow_mut()
+                    .as_mut()
+                    .unwrap()
+                    .configure(device, self.surface_config.borrow().as_ref().unwrap());
+
+                surface.get_current_texture()?
+            }
+        };
         Ok(WGPUWindowSurface { surface_texture: frame })
     }
 

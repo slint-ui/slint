@@ -122,8 +122,21 @@ impl super::Surface for WGPUSurface {
     ) -> Result<(), PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let frame =
-            self.surface.get_current_texture().expect("unable to get next texture from swapchain");
+        let frame = match self.surface.get_current_texture() {
+            Ok(texture) => texture,
+            Err(wgpu::SurfaceError::Timeout) => {
+                self.surface.get_current_texture().map_err(|e| {
+                    format!("Error obtaining current surface texture after timeout: {e}")
+                })?
+            }
+            // Outdated or lost: re-configure and try again
+            Err(_) => {
+                self.surface.configure(&self.device, &*self.surface_config.borrow());
+                self.surface.get_current_texture().map_err(|e| {
+                    format!("Error obtaining current surface texture after initial error: {e}")
+                })?
+            }
+        };
 
         let skia_surface = self.backend.make_surface(size, gr_context, &frame);
 
