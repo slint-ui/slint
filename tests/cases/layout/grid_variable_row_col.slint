@@ -1,0 +1,92 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    property <int> blue_colspan: 2;
+    property <int> green_col: 1;
+    property <int> red_row: 0;
+    property <int> red_col: 0;
+    width: 400phx;
+    height: 400phx;
+
+    GridLayout {
+        spacing: 10phx;
+        padding: 50phx;
+
+        rb := Rectangle {
+            background: blue;
+            row: 1;
+            col: 0;
+            colspan: blue_colspan;
+            height: 40phx;
+        }
+        rg := Rectangle {
+            background: green;
+            row: 0;
+            col: green_col;
+            colspan: 1;
+            width: 40phx;
+            height: 40phx;
+        }
+        txt := Text {
+            text: txt.row + "," + txt.col;
+            row: 0;
+            col: green_col + 1;
+        }
+        rr := Rectangle {
+            background: red;
+            row: red_row;
+            col: red_col;
+            colspan: 1;
+            width: 40phx;
+            height: 40phx;
+        }
+    }
+    out property <bool> initial_grid_ok: {
+        // red is at (0, 0), green is at (row=0, col=1), txt is at (row=0, col=2),
+        // and blue is at (row=1, col=0) with colspan 2
+        rr.x == 50phx  && rr.y == 50phx  && rr.colspan == 1 &&
+        rg.x == 100phx && rg.y == 50phx  && rg.colspan == 1 &&
+        rb.x == 50phx  && rb.y == 100phx && rb.width == 90phx && rb.colspan == 2 &&
+        txt.text == "0,2"
+    }
+
+    public function change_grid() {
+        green_col = 0;
+        red_row = 1;
+        rb.row = 2;
+        blue_colspan = 1;
+    }
+
+    out property <bool> final_grid_ok: {
+        // now they are all at col 0, and in the order green, red, blue
+        // and txt is at (row=0, col=1)
+        rr.x == 50phx && rr.y == 100phx && rr.width == 40phx && rr.row == 1 && rr.colspan == 1 &&
+        rg.x == 50phx && rg.y == 50phx  && rg.width == 40phx && rg.row == 0 && rg.colspan == 1 &&
+        rb.x == 50phx && rb.y == 150phx && rb.width == 40phx && rb.row == 2 && rb.colspan == 1 &&
+        txt.text == "0,1"
+    }
+
+    init => {
+        if !initial_grid_ok { root.error = "!initial_grid_ok"; }
+        change_grid()
+    }
+    out property <string> error;
+    out property <bool> test: error == "" && final_grid_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

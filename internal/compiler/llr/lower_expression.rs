@@ -12,7 +12,7 @@ use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, Lowe
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{EnumerationValue, Struct, Type};
-use crate::layout::Orientation;
+use crate::layout::{Orientation, RowColExpr};
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
@@ -246,8 +246,17 @@ pub fn lower_expression(
                 repeater_index: repeater_index.as_ref().map(|e| lower_expression(e, ctx).into()),
             }
         }
+        tree_Expression::OrganizeGridLayout(l) => organize_grid_layout(l, ctx),
         tree_Expression::ComputeLayoutInfo(l, o) => compute_layout_info(l, *o, ctx),
+        tree_Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+        } => compute_grid_layout_info(layout_organized_data_prop, layout, *orientation, ctx),
         tree_Expression::SolveLayout(l, o) => solve_layout(l, *o, ctx),
+        tree_Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
+            solve_grid_layout(layout_organized_data_prop, layout, *orientation, ctx)
+        }
         tree_Expression::MinMax { ty, op, lhs, rhs } => llr_Expression::MinMax {
             ty: ty.clone(),
             op: *op,
@@ -589,20 +598,40 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     }
 }
 
+fn compute_grid_layout_info(
+    layout_organized_data_prop: &NamedReference,
+    layout: &crate::layout::GridLayout,
+    o: Orientation,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
+    let organized_cells = ctx.map_property_reference(layout_organized_data_prop);
+    let constraints = grid_layout_cell_constraints(layout, o, ctx);
+    let orientation_literal = llr_Expression::EnumerationValue(EnumerationValue {
+        value: o as _,
+        enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
+    });
+    llr_Expression::ExtraBuiltinFunctionCall {
+        function: "grid_layout_info".into(),
+        arguments: vec![
+            llr_Expression::PropertyReference(organized_cells),
+            constraints,
+            spacing,
+            padding,
+            orientation_literal,
+        ],
+        return_ty: crate::typeregister::layout_info_type().into(),
+    }
+}
+
 fn compute_layout_info(
     l: &crate::layout::Layout,
     o: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     match l {
-        crate::layout::Layout::GridLayout(layout) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
-            let cells = grid_layout_cell_data(layout, o, ctx);
-            llr_Expression::ExtraBuiltinFunctionCall {
-                function: "grid_layout_info".into(),
-                arguments: vec![cells, spacing, padding],
-                return_ty: crate::typeregister::layout_info_type().into(),
-            }
+        crate::layout::Layout::GridLayout(_) => {
+            panic!("compute_layout_info called on GridLayout, use compute_grid_layout_info");
         }
         crate::layout::Layout::BoxLayout(layout) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
@@ -634,77 +663,80 @@ fn compute_layout_info(
     }
 }
 
+fn organize_grid_layout(
+    layout: &crate::layout::GridLayout,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    let cells = grid_layout_input_data(layout, ctx);
+
+    if let Some(button_roles) = &layout.dialog_button_roles {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.DialogButtonRole.clone());
+        let roles = button_roles
+            .iter()
+            .map(|r| {
+                llr_Expression::EnumerationValue(EnumerationValue {
+                    value: e.values.iter().position(|x| x == r).unwrap() as _,
+                    enumeration: e.clone(),
+                })
+            })
+            .collect();
+        let roles_expr = llr_Expression::Array {
+            element_ty: Type::Enumeration(e),
+            values: roles,
+            as_model: false,
+        };
+        llr_Expression::ExtraBuiltinFunctionCall {
+            function: "organize_dialog_button_layout".into(),
+            arguments: vec![cells, roles_expr],
+            return_ty: Type::Array(Type::Int32.into()),
+        }
+    } else {
+        llr_Expression::ExtraBuiltinFunctionCall {
+            function: "organize_grid_layout".into(),
+            arguments: vec![cells],
+            return_ty: Type::Array(Type::Int32.into()),
+        }
+    }
+}
+
+fn solve_grid_layout(
+    layout_organized_data_prop: &NamedReference,
+    layout: &crate::layout::GridLayout,
+    o: Orientation,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
+    let cells = ctx.map_property_reference(layout_organized_data_prop);
+    let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
+    let orientation_expr = llr_Expression::EnumerationValue(EnumerationValue {
+        value: o as _,
+        enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
+    });
+    llr_Expression::ExtraBuiltinFunctionCall {
+        function: "solve_grid_layout".into(),
+        arguments: vec![
+            make_struct(
+                "GridLayoutData",
+                [
+                    ("size", Type::Float32, size),
+                    ("spacing", Type::Float32, spacing),
+                    ("padding", padding.ty(ctx), padding),
+                    ("organized_data", Type::LayoutCache, llr_Expression::PropertyReference(cells)),
+                ],
+            ),
+            grid_layout_cell_constraints(layout, o, ctx),
+            orientation_expr,
+        ],
+        return_ty: Type::LayoutCache,
+    }
+}
+
 fn solve_layout(
     l: &crate::layout::Layout,
     o: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     match l {
-        crate::layout::Layout::GridLayout(layout) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
-            let cells = grid_layout_cell_data(layout, o, ctx);
-            let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
-            if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, o)
-            {
-                let cells_ty = cells.ty(ctx);
-                let e = crate::typeregister::BUILTIN.with(|e| e.enums.DialogButtonRole.clone());
-                let roles = button_roles
-                    .iter()
-                    .map(|r| {
-                        llr_Expression::EnumerationValue(EnumerationValue {
-                            value: e.values.iter().position(|x| x == r).unwrap() as _,
-                            enumeration: e.clone(),
-                        })
-                    })
-                    .collect();
-                llr_Expression::CodeBlock(vec![
-                    llr_Expression::ComputeDialogLayoutCells {
-                        cells_variable: "cells".into(),
-                        roles: llr_Expression::Array {
-                            element_ty: Type::Enumeration(e),
-                            values: roles,
-                            as_model: false,
-                        }
-                        .into(),
-                        unsorted_cells: Box::new(cells),
-                    },
-                    llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "solve_grid_layout".into(),
-                        arguments: vec![make_struct(
-                            "GridLayoutData",
-                            [
-                                ("size", Type::Float32, size),
-                                ("spacing", Type::Float32, spacing),
-                                ("padding", padding.ty(ctx), padding),
-                                (
-                                    "cells",
-                                    cells_ty.clone(),
-                                    llr_Expression::ReadLocalVariable {
-                                        name: "cells".into(),
-                                        ty: cells_ty,
-                                    },
-                                ),
-                            ],
-                        )],
-                        return_ty: Type::LayoutCache,
-                    },
-                ])
-            } else {
-                llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "solve_grid_layout".into(),
-                    arguments: vec![make_struct(
-                        "GridLayoutData",
-                        [
-                            ("size", Type::Float32, size),
-                            ("spacing", Type::Float32, spacing),
-                            ("padding", padding.ty(ctx), padding),
-                            ("cells", cells.ty(ctx), cells),
-                        ],
-                    )],
-                    return_ty: Type::LayoutCache,
-                }
-            }
-        }
         crate::layout::Layout::BoxLayout(layout) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
             let bld = box_layout_data(layout, o, ctx);
@@ -756,6 +788,7 @@ fn solve_layout(
                 },
             }
         }
+        _ => panic!("solve_layout is only supported for BoxLayout"),
     }
 }
 
@@ -836,27 +869,51 @@ fn box_layout_data(
     }
 }
 
-fn grid_layout_cell_data(
+fn grid_layout_cell_constraints(
     layout: &crate::layout::GridLayout,
     orientation: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     llr_Expression::Array {
-        element_ty: grid_layout_cell_data_ty(),
+        element_ty: crate::typeregister::layout_info_type().into(),
+        values: layout
+            .elems
+            .iter()
+            .map(|c| get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation))
+            .collect(),
+        as_model: false,
+    }
+}
+
+fn grid_layout_input_data(
+    layout: &crate::layout::GridLayout,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    llr_Expression::Array {
+        element_ty: grid_layout_input_data_ty(),
         values: layout
             .elems
             .iter()
             .map(|c| {
-                let (col_or_row, span) = c.col_or_row_and_span(orientation);
-                let layout_info =
-                    get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation);
+                let propref_or_default = |named_ref: &RowColExpr| match named_ref {
+                    RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
+                    RowColExpr::Named(e) => {
+                        llr_Expression::PropertyReference(ctx.map_property_reference(e))
+                    }
+                };
+                let row_expr = propref_or_default(&c.row_expr);
+                let col_expr = propref_or_default(&c.col_expr);
+                let rowspan_expr = propref_or_default(&c.rowspan_expr);
+                let colspan_expr = propref_or_default(&c.colspan_expr);
 
                 make_struct(
-                    "GridLayoutCellData",
+                    "GridLayoutInputData",
                     [
-                        ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
-                        ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
-                        ("span", Type::Int32, llr_Expression::NumberLiteral(span as _)),
+                        ("new_row", Type::Bool, llr_Expression::BoolLiteral(c.new_row)),
+                        ("row", Type::Int32, row_expr),
+                        ("col", Type::Int32, col_expr),
+                        ("rowspan", Type::Int32, rowspan_expr),
+                        ("colspan", Type::Int32, colspan_expr),
                     ],
                 )
             })
@@ -865,15 +922,17 @@ fn grid_layout_cell_data(
     }
 }
 
-pub(super) fn grid_layout_cell_data_ty() -> Type {
+pub(super) fn grid_layout_input_data_ty() -> Type {
     Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
-            (SmolStr::new_static("col_or_row"), Type::Int32),
-            (SmolStr::new_static("span"), Type::Int32),
-            (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type().into()),
+            (SmolStr::new_static("new_row"), Type::Bool),
+            (SmolStr::new_static("row"), Type::Int32),
+            (SmolStr::new_static("col"), Type::Int32),
+            (SmolStr::new_static("rowspan"), Type::Int32),
+            (SmolStr::new_static("colspan"), Type::Int32),
         ])
         .collect(),
-        name: Some("GridLayoutCellData".into()),
+        name: Some("GridLayoutInputData".into()),
         node: None,
         rust_attributes: None,
     }))

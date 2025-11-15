@@ -186,15 +186,6 @@ pub enum Expression {
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
-
-    ComputeDialogLayoutCells {
-        /// The local variable where the slice of cells is going to be stored
-        cells_variable: String,
-        roles: Box<Expression>,
-        /// This is an Expression::Array
-        unsorted_cells: Box<Expression>,
-    },
-
     MinMax {
         ty: Type,
         op: MinMaxOp,
@@ -322,9 +313,6 @@ impl Expression {
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
-            Self::ComputeDialogLayoutCells { .. } => {
-                Type::Array(super::lower_expression::grid_layout_cell_data_ty().into())
-            }
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::TranslationReference { .. } => Type::String,
@@ -408,10 +396,6 @@ macro_rules! visit_impl {
             Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
-            }
-            Expression::ComputeDialogLayoutCells { roles, unsorted_cells, .. } => {
-                $visitor(roles);
-                $visitor(unsorted_cells);
             }
             Expression::MinMax { ty: _, op: _, lhs, rhs } => {
                 $visitor(lhs);

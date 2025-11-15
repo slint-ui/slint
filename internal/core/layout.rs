@@ -305,14 +305,35 @@ mod grid_internal {
         assert_eq!(my_items[2].size, 100.);
     }
 
-    /// Create a vector of LayoutData for an array of GridLayoutCellData
+    pub fn to_layout_cell_data(
+        organized_data: &GridLayoutOrganizedData,
+        constraints: Slice<LayoutInfo>,
+        orientation: Orientation,
+    ) -> Vec<GridLayoutCellData> {
+        assert!(organized_data.len() % 4 == 0);
+        assert!(constraints.len() * 4 == organized_data.len());
+
+        let mut cells: Vec<GridLayoutCellData> = Vec::with_capacity(organized_data.len() / 4);
+        let offset = if orientation == Orientation::Horizontal { 0 } else { 2 };
+        for (idx, constraint) in constraints.iter().enumerate() {
+            cells.push(GridLayoutCellData {
+                col_or_row: organized_data[idx * 4 + offset] as u16,
+                span: organized_data[idx * 4 + offset + 1] as u16,
+                constraint: *constraint,
+            });
+        }
+        cells
+    }
+
+    /// Create a vector of LayoutData (e.g. one per row if Vertical) for an array of GridLayoutCellData (one per cell)
+    /// Used by both solve_grid_layout() and grid_layout_info()
     pub fn to_layout_data(
-        data: &[GridLayoutCellData],
+        cells: &[GridLayoutCellData],
         spacing: Coord,
         size: Option<Coord>,
     ) -> Vec<LayoutData> {
         let mut num = 0usize;
-        for cell in data {
+        for cell in cells.iter() {
             num = num.max(cell.col_or_row as usize + cell.span.max(1) as usize);
         }
         if num < 1 {
@@ -321,7 +342,7 @@ mod grid_internal {
         let mut layout_data =
             alloc::vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num];
         let mut has_spans = false;
-        for cell in data {
+        for cell in cells.iter() {
             let constraint = &cell.constraint;
             let mut max = constraint.max;
             if let Some(size) = size {
@@ -347,7 +368,7 @@ mod grid_internal {
         }
         if has_spans {
             // Adjust minimum sizes
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let mut min = cell.constraint.min;
@@ -362,7 +383,7 @@ mod grid_internal {
                 }
             }
             // Adjust maximum sizes
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let mut max = cell.constraint.max;
@@ -377,7 +398,7 @@ mod grid_internal {
                 }
             }
             // Adjust preferred sizes
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 grid_internal::layout_items(span_data, 0 as _, cell.constraint.preferred, spacing);
@@ -386,7 +407,7 @@ mod grid_internal {
                 }
             }
             // Adjust stretches
-            for cell in data.iter().filter(|cell| cell.span > 1) {
+            for cell in cells.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let total_stretch: f32 = span_data.iter().map(|c| c.stretch).sum();
@@ -422,27 +443,186 @@ pub struct Padding {
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct GridLayoutData<'a> {
+/// The horizontal or vertical data for all cells of a GridLayout, used as input to solve_grid_layout()
+pub struct GridLayoutData {
     pub size: Coord,
     pub spacing: Coord,
     pub padding: Padding,
-    pub cells: Slice<'a, GridLayoutCellData>,
+    pub organized_data: GridLayoutOrganizedData,
 }
 
+/// The horizontal or vertical data for a cell of a GridLayout
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct GridLayoutCellData {
-    /// col, or row.
+    /// col or row (u16::MAX means auto).
     pub col_or_row: u16,
     /// colspan or rowspan
     pub span: u16,
     pub constraint: LayoutInfo,
 }
 
-/// return, an array which is of size `data.cells.len() * 2` which for each cell we give the pos, size
-pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
-    let mut layout_data =
-        grid_internal::to_layout_data(data.cells.as_slice(), data.spacing, Some(data.size));
+/// The input data for a cell of a GridLayout, before row/col determination and before H/V split
+/// Used as input to organize_grid_layout()
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
+pub struct GridLayoutInputData {
+    /// whether this cell is the first one in a Row element
+    pub new_row: bool,
+    /// col and row number (u16::MAX means auto).
+    pub col: u16,
+    pub row: u16,
+    /// colspan and rowspan
+    pub colspan: u16,
+    pub rowspan: u16,
+}
+
+/// The organized layout data for a GridLayout, after row/col determination:
+/// For each cell, stores col, colspan, row, rowspan
+pub type GridLayoutOrganizedData = SharedVector<Coord>;
+
+impl GridLayoutOrganizedData {
+    pub fn push_cell(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
+        self.push(col as Coord);
+        self.push(colspan as Coord);
+        self.push(row as Coord);
+        self.push(rowspan as Coord);
+    }
+}
+
+/// Given the cells of a layout of a Dialog, re-order the buttons according to the platform
+/// This function assume that the `roles` contains the roles of the button which are the first cells in `input_data`
+pub fn organize_dialog_button_layout(
+    input_data: Slice<GridLayoutInputData>,
+    dialog_button_roles: Slice<DialogButtonRole>,
+) -> GridLayoutOrganizedData {
+    let mut organized_data = GridLayoutOrganizedData::default();
+    organized_data.reserve(input_data.len() * 4);
+
+    #[cfg(feature = "std")]
+    fn is_kde() -> bool {
+        // assume some Unix, check if XDG_CURRENT_DESKTOP starts with K
+        std::env::var("XDG_CURRENT_DESKTOP")
+            .ok()
+            .and_then(|v| v.as_bytes().first().copied())
+            .is_some_and(|x| x.eq_ignore_ascii_case(&b'K'))
+    }
+    #[cfg(not(feature = "std"))]
+    let is_kde = || true;
+
+    let expected_order: &[DialogButtonRole] = match crate::detect_operating_system() {
+        crate::items::OperatingSystemType::Windows => {
+            &[
+                DialogButtonRole::Reset,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Accept,
+                DialogButtonRole::Action,
+                DialogButtonRole::Reject,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Help,
+            ]
+        }
+        crate::items::OperatingSystemType::Macos | crate::items::OperatingSystemType::Ios => {
+            &[
+                DialogButtonRole::Help,
+                DialogButtonRole::Reset,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Action,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Reject,
+                DialogButtonRole::Accept,
+            ]
+        }
+        _ if is_kde() => {
+            // KDE variant
+            &[
+                DialogButtonRole::Help,
+                DialogButtonRole::Reset,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Action,
+                DialogButtonRole::Accept,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Reject,
+            ]
+        }
+        _ => {
+            // GNOME variant and fallback for WASM build
+            &[
+                DialogButtonRole::Help,
+                DialogButtonRole::Reset,
+                DialogButtonRole::None, // spacer
+                DialogButtonRole::Action,
+                DialogButtonRole::Accept,
+                DialogButtonRole::Apply,
+                DialogButtonRole::Reject,
+            ]
+        }
+    };
+
+    // Reorder the actual buttons according to expected_order
+    let mut column_for_input: Vec<usize> = Vec::with_capacity(dialog_button_roles.len());
+    for role in expected_order.iter() {
+        if role == &DialogButtonRole::None {
+            column_for_input.push(usize::MAX); // empty column, ensure nothing will match
+            continue;
+        }
+        for (idx, r) in dialog_button_roles.as_slice().iter().enumerate() {
+            if *r == *role {
+                column_for_input.push(idx);
+            }
+        }
+    }
+
+    for (input_index, cell) in input_data.as_slice().iter().enumerate() {
+        let col = column_for_input.iter().position(|&x| x == input_index);
+        if let Some(col) = col {
+            organized_data.push_cell(col as u16, cell.colspan, cell.row, cell.rowspan);
+        } else {
+            // This is used for the main window (which is the only cell which isn't a button)
+            // Given lower_dialog_layout(), this will always be a single cell at 0,0 with a colspan of number_of_buttons
+            organized_data.push_cell(cell.col, cell.colspan, cell.row, cell.rowspan);
+        }
+    }
+    organized_data
+}
+
+// Implement "auto" behavior for row/col numbers (unless specified in the slint file).
+pub fn organize_grid_layout(input_data: Slice<GridLayoutInputData>) -> GridLayoutOrganizedData {
+    let mut organized_data = GridLayoutOrganizedData::default();
+    organized_data.reserve(input_data.len() * 4);
+    let mut row = 0;
+    let mut col = 0;
+    let mut first = true;
+    let auto = u16::MAX;
+    for cell in input_data.as_slice().iter() {
+        if cell.new_row && !first {
+            row += 1;
+            col = 0;
+        }
+        first = false;
+        if cell.row != auto && row != cell.row {
+            row = cell.row;
+            col = 0;
+        }
+        if cell.col != auto {
+            col = cell.col;
+        }
+
+        organized_data.push_cell(col, cell.colspan, row, cell.rowspan);
+        col += 1;
+    }
+    organized_data
+}
+
+/// return, an array which is of size `data.cells.len() * 2` which for each cell stores:
+/// pos (x or y), size (width or height)
+pub fn solve_grid_layout(
+    data: &GridLayoutData,
+    constraints: Slice<LayoutInfo>,
+    orientation: Orientation,
+) -> SharedVector<Coord> {
+    let cells = grid_internal::to_layout_cell_data(&data.organized_data, constraints, orientation);
+    let mut layout_data = grid_internal::to_layout_data(&cells, data.spacing, Some(data.size));
 
     if layout_data.is_empty() {
         return Default::default();
@@ -455,8 +635,8 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
         data.spacing,
     );
 
-    let mut result = SharedVector::with_capacity(4 * data.cells.len());
-    for cell in data.cells.iter() {
+    let mut result = SharedVector::with_capacity(2 * cells.len());
+    for cell in cells.as_slice().iter() {
         let cdata = &layout_data[cell.col_or_row as usize];
         result.push(cdata.pos);
         result.push(if cell.span > 0 {
@@ -471,11 +651,14 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
 }
 
 pub fn grid_layout_info(
-    cells: Slice<GridLayoutCellData>,
+    organized_data: GridLayoutOrganizedData, // not & because the code generator doesn't support it in ExtraBuiltinFunctionCall
+    constraints: Slice<LayoutInfo>,
     spacing: Coord,
     padding: &Padding,
+    orientation: Orientation,
 ) -> LayoutInfo {
-    let layout_data = grid_internal::to_layout_data(cells.as_slice(), spacing, None);
+    let cells = grid_internal::to_layout_cell_data(&organized_data, constraints, orientation);
+    let layout_data = grid_internal::to_layout_data(&cells, spacing, None);
     if layout_data.is_empty() {
         return Default::default();
     }
@@ -664,80 +847,6 @@ pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding)
     fold
 }
 
-/// Given the cells of a layout of a Dialog, re-order the button according to the platform
-///
-/// This function assume that the `roles` contains the roles of the button which are the first `cells`
-/// It will simply change the column field of the cell
-pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[DialogButtonRole]) {
-    fn add_buttons(
-        cells: &mut [GridLayoutCellData],
-        roles: &[DialogButtonRole],
-        idx: &mut u16,
-        role: DialogButtonRole,
-    ) {
-        for (cell, r) in cells.iter_mut().zip(roles.iter()) {
-            if *r == role {
-                cell.col_or_row = *idx;
-                *idx += 1;
-            }
-        }
-    }
-
-    #[cfg(feature = "std")]
-    fn is_kde() -> bool {
-        // assume some Unix, check if XDG_CURRENT_DESKTOP starts with K
-        std::env::var("XDG_CURRENT_DESKTOP")
-            .ok()
-            .and_then(|v| v.as_bytes().first().copied())
-            .is_some_and(|x| x.eq_ignore_ascii_case(&b'K'))
-    }
-    #[cfg(not(feature = "std"))]
-    let is_kde = || true;
-
-    let mut idx = 0;
-
-    match crate::detect_operating_system() {
-        crate::items::OperatingSystemType::Windows => {
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        }
-        crate::items::OperatingSystemType::Macos | crate::items::OperatingSystemType::Ios => {
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        }
-        _ if is_kde() => {
-            // KDE variant
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        }
-        _ => {
-            // GNOME variant and fallback for everything else
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-            idx += 1;
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-            add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        }
-    }
-}
-
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -745,20 +854,41 @@ pub(crate) mod ffi {
     use super::*;
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn slint_organize_grid_layout(
+        input_data: Slice<GridLayoutInputData>,
+        result: &mut GridLayoutOrganizedData,
+    ) {
+        *result = super::organize_grid_layout(input_data);
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_organize_dialog_button_layout(
+        input_data: Slice<GridLayoutInputData>,
+        dialog_button_roles: Slice<DialogButtonRole>,
+        result: &mut GridLayoutOrganizedData,
+    ) {
+        *result = super::organize_dialog_button_layout(input_data, dialog_button_roles);
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_grid_layout(
         data: &GridLayoutData,
+        constraints: Slice<LayoutInfo>,
+        orientation: Orientation,
         result: &mut SharedVector<Coord>,
     ) {
-        *result = super::solve_grid_layout(data)
+        *result = super::solve_grid_layout(data, constraints, orientation)
     }
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_grid_layout_info(
-        cells: Slice<GridLayoutCellData>,
+        organized_data: &GridLayoutOrganizedData,
+        constraints: Slice<LayoutInfo>,
         spacing: Coord,
         padding: &Padding,
+        orientation: Orientation,
     ) -> LayoutInfo {
-        super::grid_layout_info(cells, spacing, padding)
+        super::grid_layout_info(organized_data.clone(), constraints, spacing, padding, orientation)
     }
 
     #[unsafe(no_mangle)]
@@ -788,20 +918,5 @@ pub(crate) mod ffi {
         padding: &Padding,
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
-    }
-
-    /// Calls [`reorder_dialog_button_layout`].
-    ///
-    /// Safety: `cells` must be a pointer to a mutable array of cell data, the array must have at
-    /// least `roles.len()` elements.
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_reorder_dialog_button_layout(
-        cells: *mut GridLayoutCellData,
-        roles: Slice<DialogButtonRole>,
-    ) {
-        reorder_dialog_button_layout(
-            unsafe { core::slice::from_raw_parts_mut(cells, roles.len()) },
-            &roles,
-        );
     }
 }

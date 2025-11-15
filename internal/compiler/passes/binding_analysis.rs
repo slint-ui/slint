@@ -261,6 +261,31 @@ fn analyze_element(
         process_property(&h.clone().into(), P, context, reverse_aliases, diag);
         process_property(&v.clone().into(), P, context, reverse_aliases, diag);
     }
+
+    for info in elem.borrow().debug.iter() {
+        if let Some(crate::layout::Layout::GridLayout(grid)) = &info.layout {
+            if grid.uses_auto {
+                for rowcol_prop_name in ["row", "col"] {
+                    for it in grid.elems.iter() {
+                        let child = &it.item.element;
+                        if child
+                            .borrow()
+                            .property_analysis
+                            .borrow()
+                            .get(rowcol_prop_name)
+                            .is_some_and(|a| a.is_set || a.is_set_externally)
+                        {
+                            diag.push_error(
+                                            format!("Cannot set property '{}' on '{}' because parent GridLayout uses auto-numbering",
+                                             rowcol_prop_name, child.borrow().id),
+                                            &child.borrow().to_source_location(), // not ideal, the location of the property being set would be better
+                                        );
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
@@ -498,13 +523,13 @@ fn recurse_expression(
         Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveLayout(..)) {
-                if let Some(nr) = l.rect().size_reference(*o) {
+                if let Some(nr) = l.geometry().rect.size_reference(*o) {
                     vis(&nr.clone().into(), P);
                 }
             }
             match l {
-                crate::layout::Layout::GridLayout(l) => {
-                    visit_layout_items_dependencies(l.elems.iter().map(|it| &it.item), *o, vis)
+                crate::layout::Layout::GridLayout(_) => {
+                    panic!("GridLayout should use SolveGridLayout/ComputeGridLayoutInfo")
                 }
                 crate::layout::Layout::BoxLayout(l) => {
                     visit_layout_items_dependencies(l.elems.iter(), *o, vis)
@@ -512,6 +537,30 @@ fn recurse_expression(
             }
 
             let mut g = l.geometry().clone();
+            g.rect = Default::default(); // already visited;
+            g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
+        }
+        Expression::OrganizeGridLayout(layout) => {
+            let mut layout = layout.clone();
+            layout.visit_rowcol_named_references(&mut |nr: &mut NamedReference| {
+                vis(&nr.clone().into(), P)
+            });
+        }
+        Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
+        | Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+            // we should only visit the layout geometry for the orientation
+            if matches!(expr, Expression::SolveGridLayout { .. }) {
+                if let Some(nr) = layout.geometry.rect.size_reference(*orientation) {
+                    vis(&nr.clone().into(), P);
+                }
+            }
+            vis(&layout_organized_data_prop.clone().into(), P);
+            visit_layout_items_dependencies(
+                layout.elems.iter().map(|it| &it.item),
+                *orientation,
+                vis,
+            );
+            let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }

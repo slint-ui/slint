@@ -11,16 +11,17 @@ export X := Rectangle {
                 text: lay.foo + parent.width;
 //                                     ^error{Element 'Row' does not have a property 'width'}
                 colspan: 1 + 1;
-//                       ^error{'colspan' must be an integer literal}
                 rowspan: 2;
             }
             Text {
                 row: 3;
 //                   ^error{The 'row' property cannot be used for elements inside a Row}
                 col: -2;
-//                   ^error{'col' must be an integer literal}
+//                   ^error{'col' must be a positive integer}
                 rowspan: 2.2;
 //                       ^error{'rowspan' must be a positive integer}
+                colspan: -1;
+//                       ^error{'colspan' must be a positive integer}
                 y: 0;
 //                 ^error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
 
@@ -29,10 +30,10 @@ export X := Rectangle {
 
                 init => {
                     self.colspan = 45;
-//                  ^error{The property must be known at compile time and cannot be changed at runtime}
                 }
             }
         }
+
         Row {
             Text {
                 x: 12px;
@@ -43,6 +44,30 @@ export X := Rectangle {
 //               ^error{'row' must be a positive integer}
             Rectangle { row: 3; }
 //                           ^error{row used outside of a GridLayout's cell}
+        }
+    }
+
+    lay2 := GridLayout {
+        property<int> negative: -5;
+        property<int> last_row: 4;
+        Text {
+            row: lay2.last_row;
+            col: -lay2.negative; // check that a unary minus isn't necessary an error
+        }
+        Text {
+//      ^error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
+            row: 0; // mixing runtime expr and literal is ok
+        }
+    }
+
+    lay3 := GridLayout {
+        Text {
+            row: lay2.last_row;
+            col: lay2.last_row;
+        }
+        Text {
+//      ^error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
+            col: 1;
         }
     }
 

@@ -275,21 +275,28 @@ impl LayoutConstraints {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum RowColExpr {
+    Named(NamedReference),
+    Literal(u16),
+}
+
 /// An element in a GridLayout
 #[derive(Debug, Clone)]
 pub struct GridLayoutElement {
-    pub col: u16,
-    pub row: u16,
-    pub colspan: u16,
-    pub rowspan: u16,
+    pub new_row: bool,
+    pub col_expr: RowColExpr,
+    pub row_expr: RowColExpr,
+    pub colspan_expr: RowColExpr,
+    pub rowspan_expr: RowColExpr,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
-    pub fn col_or_row_and_span(&self, orientation: Orientation) -> (u16, u16) {
+    pub fn span(&self, orientation: Orientation) -> &RowColExpr {
         match orientation {
-            Orientation::Horizontal => (self.col, self.colspan),
-            Orientation::Vertical => (self.row, self.rowspan),
+            Orientation::Horizontal => &self.colspan_expr,
+            Orientation::Vertical => &self.rowspan_expr,
         }
     }
 }
@@ -425,7 +432,7 @@ fn find_binding<R>(
 }
 
 /// Return a named reference to a property if a binding is set on that property
-fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
+pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
     find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
 }
 
@@ -461,10 +468,31 @@ pub struct GridLayout {
     /// When this GridLayout is actually the layout of a Dialog, then the cells start with all the buttons,
     /// and this variable contains their roles. The string is actually one of the values from the i_slint_core::layout::DialogButtonRole
     pub dialog_button_roles: Option<Vec<SmolStr>>,
+
+    /// Whether any of the row/column expressions use 'auto'
+    pub uses_auto: bool,
 }
 
 impl GridLayout {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        for cell in &mut self.elems {
+            if let RowColExpr::Named(ref mut e) = cell.col_expr {
+                visitor(e);
+            }
+            if let RowColExpr::Named(ref mut e) = cell.row_expr {
+                visitor(e);
+            }
+            if let RowColExpr::Named(ref mut e) = cell.colspan_expr {
+                visitor(e);
+            }
+            if let RowColExpr::Named(ref mut e) = cell.rowspan_expr {
+                visitor(e);
+            }
+        }
+    }
+
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        self.visit_rowcol_named_references(visitor);
         for cell in &mut self.elems {
             cell.item.constraints.visit_named_references(visitor);
         }
