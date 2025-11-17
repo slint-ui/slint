@@ -24,7 +24,7 @@ catalog:
   "@astrojs/check": 0.9.5
   "@astrojs/starlight": 0.36.2
   "starlight-links-validator": 0.19.1
-  "astro": 5.15.4
+  "astro": 5.15.6
   "astro-embed": 0.9.1
   "sharp": 0.34.5
   "@expressive-code/plugin-line-numbers": 0.41.3
