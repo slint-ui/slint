@@ -289,7 +289,7 @@ pub struct StaticTextures {
 /// time of the file it points to.
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
 #[repr(C)]
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "ffi"))]
 pub struct CachedPath {
     path: SharedString,
     /// SystemTime since UNIX_EPOC as secs
@@ -318,7 +318,7 @@ pub enum ImageCacheKey {
     /// This variant indicates that no image cache key can be created for the image.
     /// For example this is the case for programmatically created images.
     Invalid = 0,
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "std", feature = "ffi"))]
     /// The image is identified by its path on the file system and the last modification time stamp.
     Path(CachedPath) = 1,
     /// The image is identified by a URL.
