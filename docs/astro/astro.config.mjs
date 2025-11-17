@@ -160,8 +160,15 @@ export default defineConfig({
                                 items: [
                                     "guide/platforms/desktop",
                                     "guide/platforms/embedded",
-                                    "guide/platforms/android",
-                                    "guide/platforms/ios",
+                                    {
+                                        label: "Mobile",
+                                        collapsed: true,
+                                        items: [
+                                            "guide/platforms/mobile/overview",
+                                            "guide/platforms/mobile/android",
+                                            "guide/platforms/mobile/ios",
+                                        ],
+                                    },
                                     "guide/platforms/web",
                                     "guide/platforms/other",
                                 ],

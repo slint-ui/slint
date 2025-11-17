@@ -59,3 +59,5 @@ The dev-platform tabs should be in the following order:
 - Windows
 - macOS
 - Linux
+- Android
+- iOS
