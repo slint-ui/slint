@@ -64,6 +64,8 @@ function(SLINT_TARGET_SOURCES target)
         set(translation_domain_arg "$<IF:$<STREQUAL:${translation_domain_prop},>,${target},${translation_domain_prop}>")
 
         if (compilation_units GREATER 0)
+            # We need to set this to empty, as this variable is reused in every foreach iteration.
+            set(cpp_files "")
             foreach(cpp_num RANGE 1 ${compilation_units})
                 list(APPEND cpp_files "${CMAKE_CURRENT_BINARY_DIR}/slint_generated_${_SLINT_BASE_NAME}_${cpp_num}.cpp")
             endforeach()

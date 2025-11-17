@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, Callable, Expression};
-use crate::object_tree::{visit_all_expressions, Component};
+use crate::object_tree::{Component, visit_all_expressions};
 
 /// Check the validity of expressions
 ///

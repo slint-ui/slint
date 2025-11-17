@@ -312,7 +312,7 @@ pub(crate) enum WindowVisibility {
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct WinitWindowAdapter {
     pub shared_backend_data: Rc<SharedBackendData>,
-    window: OnceCell<corelib::api::Window>,
+    window: corelib::api::Window,
     pub(crate) self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
     color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
@@ -381,7 +381,7 @@ impl WinitWindowAdapter {
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
-            window: OnceCell::from(corelib::api::Window::new(self_weak.clone() as _)),
+            window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
             color_scheme: Default::default(),
@@ -423,7 +423,7 @@ impl WinitWindowAdapter {
         self_rc
     }
 
-    fn renderer(&self) -> &dyn WinitCompatibleRenderer {
+    pub(crate) fn renderer(&self) -> &dyn WinitCompatibleRenderer {
         self.renderer.as_ref()
     }
 
@@ -1084,7 +1084,7 @@ impl WinitWindowAdapter {
 
 impl WindowAdapter for WinitWindowAdapter {
     fn window(&self) -> &corelib::api::Window {
-        self.window.get().unwrap()
+        &self.window
     }
 
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
@@ -1155,9 +1155,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     #[allow(clippy::unnecessary_cast)] // Coord is used!
     fn update_window_properties(&self, properties: corelib::window::WindowProperties<'_>) {
-        let Some(window_item) =
-            self.window.get().and_then(|w| WindowInner::from_pub(w).window_item())
-        else {
+        let Some(window_item) = WindowInner::from_pub(&self.window).window_item() else {
             return;
         };
         let window_item = window_item.as_pin_ref();

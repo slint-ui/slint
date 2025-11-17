@@ -12,6 +12,7 @@ Some convention used in the generated code:
    this is usually a local variable to the init code that shouldn't be relied upon by the binding code.
 */
 
+use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
@@ -21,7 +22,6 @@ use crate::llr::{
 };
 use crate::object_tree::Document;
 use crate::typeloader::LibraryInfo;
-use crate::CompilerConfiguration;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};
@@ -107,11 +107,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         }
         Type::Enumeration(e) => {
             let i = ident(&e.name);
-            if e.node.is_some() {
-                Some(quote!(#i))
-            } else {
-                Some(quote!(sp::#i))
-            }
+            if e.node.is_some() { Some(quote!(#i)) } else { Some(quote!(sp::#i)) }
         }
         Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(
@@ -552,11 +548,7 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
 
     let enum_values = (0..en.values.len()).map(|value| {
         let i = ident(&EnumerationValue { value, enumeration: en.clone() }.to_pascal_case());
-        if value == en.default_value {
-            quote!(#[default] #i)
-        } else {
-            quote!(#i)
-        }
+        if value == en.default_value { quote!(#[default] #i) } else { quote!(#i) }
     });
     let rust_attr = en.node.as_ref().and_then(|node| {
         node.AtRustAttr().map(|attr| {
@@ -2818,8 +2810,11 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [Expression::NumberLiteral(popup_index), close_policy, Expression::PropertyReference(parent_ref)] =
-                arguments
+            if let [
+                Expression::NumberLiteral(popup_index),
+                close_policy,
+                Expression::PropertyReference(parent_ref),
+            ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {
@@ -2879,8 +2874,10 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ClosePopupWindow => {
-            if let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =
-                arguments
+            if let [
+                Expression::NumberLiteral(popup_index),
+                Expression::PropertyReference(parent_ref),
+            ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {
@@ -3134,10 +3131,12 @@ fn compile_builtin_function_call(
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            quote!(sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
-                &_self.self_weak.get().unwrap().upgrade().unwrap()
-            ))
-            .get())
+            quote!(
+                sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
+                    &_self.self_weak.get().unwrap().upgrade().unwrap()
+                ))
+                .get()
+            )
         }
         BuiltinFunction::AnimationTick => {
             quote!(sp::animation_tick())
@@ -3257,8 +3256,14 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            let [Expression::PropertyReference(entries_r), Expression::PropertyReference(sub_menu_r), Expression::PropertyReference(activated_r), Expression::NumberLiteral(tree_index), Expression::BoolLiteral(no_native), rest @ ..] =
-                arguments
+            let [
+                Expression::PropertyReference(entries_r),
+                Expression::PropertyReference(sub_menu_r),
+                Expression::PropertyReference(activated_r),
+                Expression::NumberLiteral(tree_index),
+                Expression::BoolLiteral(no_native),
+                rest @ ..,
+            ] = arguments
             else {
                 panic!("internal error: incorrect arguments to SetupMenuBar")
             };

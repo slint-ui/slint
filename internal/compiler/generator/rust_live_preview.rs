@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::rust::{ident, rust_primitive_type};
+use crate::CompilerConfiguration;
 use crate::langtype::{Struct, Type};
 use crate::llr;
 use crate::object_tree::Document;
-use crate::CompilerConfiguration;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 

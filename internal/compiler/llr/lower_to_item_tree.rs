@@ -4,13 +4,13 @@
 use by_address::ByAddress;
 
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
+use crate::CompilerConfiguration;
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Struct, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
-use crate::CompilerConfiguration;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use typed_index_collections::TiVec;

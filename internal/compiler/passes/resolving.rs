@@ -13,7 +13,7 @@ use crate::expression_tree::*;
 use crate::langtype::{ElementType, Struct, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
-use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
@@ -79,7 +79,10 @@ fn resolve_expression(
                 }
             }
             SyntaxKind::TwoWayBinding => {
-                assert!(diag.has_errors(), "Two way binding should have been resolved already  (property: {property_name:?})");
+                assert!(
+                    diag.has_errors(),
+                    "Two way binding should have been resolved already  (property: {property_name:?})"
+                );
                 Expression::Invalid
             }
             _ => {
@@ -1174,7 +1177,7 @@ impl Expression {
                                 lhs: Box::new(lhs),
                                 rhs: Box::new(rhs),
                                 op,
-                            }
+                            };
                         }
                         (true, false) => {
                             return Expression::BinaryExpression {
@@ -1185,7 +1188,7 @@ impl Expression {
                                     ctx.diag,
                                 )),
                                 op,
-                            }
+                            };
                         }
                         (false, true) => {
                             return Expression::BinaryExpression {
@@ -1196,7 +1199,7 @@ impl Expression {
                                 )),
                                 rhs: Box::new(rhs),
                                 op,
-                            }
+                            };
                         }
                         (false, false) => Type::Float32,
                     }
@@ -1664,7 +1667,10 @@ fn continue_lookup_within_element(
         ))))
     } else if let Type::Function(fun) = lookup_result.property_type {
         if lookup_result.property_visibility == PropertyVisibility::Private && !local_to_component {
-            let message = format!("The function '{}' is private. Annotate it with 'public' to make it accessible from other components", second.text());
+            let message = format!(
+                "The function '{}' is private. Annotate it with 'public' to make it accessible from other components",
+                second.text()
+            );
             if !lookup_result.is_local_to_component {
                 ctx.diag.push_error(message, &second);
             } else {
@@ -1788,7 +1794,10 @@ fn maybe_lookup_object(
                                     ) =>
                             {
                                 // usually something like `0..foo`
-                                format!(" of float. Range expressions are not supported in Slint, but you can use an integer as a model to repeat something multiple time. Eg: `for i in {}`", next.text())
+                                format!(
+                                    " of float. Range expressions are not supported in Slint, but you can use an integer as a model to repeat something multiple time. Eg: `for i in {}`",
+                                    next.text()
+                                )
                             }
 
                             ty => format!(" of {ty}"),

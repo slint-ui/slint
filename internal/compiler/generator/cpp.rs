@@ -11,7 +11,7 @@ use std::fmt::Write;
 use std::io::BufWriter;
 use std::sync::OnceLock;
 
-use smol_str::{format_smolstr, SmolStr, StrExt};
+use smol_str::{SmolStr, StrExt, format_smolstr};
 
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -58,11 +58,7 @@ pub fn ident(ident: &str) -> SmolStr {
 }
 
 pub fn concatenate_ident(ident: &str) -> SmolStr {
-    if ident.contains('-') {
-        ident.replace_smolstr("-", "_")
-    } else {
-        ident.into()
-    }
+    if ident.contains('-') { ident.replace_smolstr("-", "_") } else { ident.into() }
 }
 
 /// Given a property reference to a native item (eg, the property name is empty)
@@ -108,7 +104,7 @@ pub mod cpp_ast {
     use std::cell::Cell;
     use std::fmt::{Display, Error, Formatter};
 
-    use smol_str::{format_smolstr, SmolStr};
+    use smol_str::{SmolStr, format_smolstr};
 
     thread_local!(static INDENTATION : Cell<u32> = Cell::new(0));
     fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -460,6 +456,7 @@ pub mod cpp_ast {
     }
 }
 
+use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
 use crate::langtype::{Enumeration, EnumerationValue, NativeClass, Type};
 use crate::layout::Orientation;
@@ -469,7 +466,6 @@ use crate::llr::{
 };
 use crate::object_tree::Document;
 use crate::parser::syntax_nodes;
-use crate::CompilerConfiguration;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
@@ -3072,7 +3068,10 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => f(&t),
             MemberAccess::Option(t) => {
-                format!("slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))", f("x"))
+                format!(
+                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
+                    f("x")
+                )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
@@ -3161,13 +3160,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
-        Expression::PropertyReference(nr) => {
-            access_member(nr, ctx).get_property()
-        }
+        Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
-        Expression::CallBackCall{ callback, arguments } => {
+        Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
@@ -3176,7 +3173,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 f.map_or_default(|f| format!("{f}.call({})", a.join(",")))
             }
         }
-        Expression::FunctionCall{ function, arguments } => {
+        Expression::FunctionCall { function, arguments } => {
             let f = access_member(function, ctx);
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
@@ -3190,11 +3187,19 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let item_rc = access_item_rc(function, ctx);
             let window = access_window_field(ctx);
             let (native, name) = native_prop_info(function, ctx);
-            let function_name = format!("slint_{}_{}", native.class_name.to_lowercase(), ident(&name).to_lowercase());
+            let function_name = format!(
+                "slint_{}_{}",
+                native.class_name.to_lowercase(),
+                ident(&name).to_lowercase()
+            );
             if expr.ty(ctx) == Type::Void {
-                item.then(|item| format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})"))
+                item.then(|item| {
+                    format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+                })
             } else {
-                item.map_or_default(|item| format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})"))
+                item.map_or_default(|item| {
+                    format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+                })
             }
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
@@ -3207,17 +3212,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
-            Type::Struct(s)=> {
-                struct_field_access(compile_expression(base, ctx), &s, name)
-            }
+            Type::Struct(s) => struct_field_access(compile_expression(base, ctx), &s, name),
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
         Expression::ArrayIndex { array, index } => {
             format!(
                 "slint::private_api::access_array_index({}, {})",
-                compile_expression(array, ctx), compile_expression(index, ctx)
+                compile_expression(array, ctx),
+                compile_expression(index, ctx)
             )
-        },
+        }
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
@@ -3228,7 +3232,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     format!("slint::SharedString::from_number({f})")
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!("std::make_shared<slint::private_api::UIntModel>(std::max<int>(0, {f}))")
+                    format!(
+                        "std::make_shared<slint::private_api::UIntModel>(std::max<int>(0, {f}))"
+                    )
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {
@@ -3241,14 +3247,22 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     format!("{f}.color()")
                 }
                 (Type::Struct(lhs), Type::Struct(rhs)) => {
-                    debug_assert_eq!(lhs.fields, rhs.fields, "cast of struct with deferent fields should be handled before llr");
+                    debug_assert_eq!(
+                        lhs.fields, rhs.fields,
+                        "cast of struct with deferent fields should be handled before llr"
+                    );
                     match (&lhs.name, &rhs.name) {
                         (None, Some(_)) => {
                             // Convert from an anonymous struct to a named one
                             format!(
                                 "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
                                 struct_name = to.cpp_type().unwrap(),
-                                fields = lhs.fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
+                                fields = lhs
+                                    .fields
+                                    .keys()
+                                    .enumerate()
+                                    .map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i))
+                                    .join(""),
                                 obj = f,
                             )
                         }
@@ -3261,7 +3275,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         }
                         _ => f,
                     }
-
                 }
                 (Type::Array(..), Type::PathData)
                     if matches!(
@@ -3270,26 +3283,37 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     ) =>
                 {
                     let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, as_model: _ } => values
-                            .iter()
-                            .map(|path_elem_expr| {
-                                let (field_count, qualified_elem_type_name) = match path_elem_expr.ty(ctx) {
-                                    Type::Struct(s) if s.name.is_some() => (s.fields.len(), s.name.as_ref().unwrap().clone()),
-                                    _ => unreachable!()
-                                };
+                        Expression::Array { element_ty: _, values, as_model: _ } => {
+                            values.iter().map(|path_elem_expr| {
+                                let (field_count, qualified_elem_type_name) =
+                                    match path_elem_expr.ty(ctx) {
+                                        Type::Struct(s) if s.name.is_some() => {
+                                            (s.fields.len(), s.name.as_ref().unwrap().clone())
+                                        }
+                                        _ => unreachable!(),
+                                    };
                                 // Turn slint::private_api::PathLineTo into `LineTo`
-                                let elem_type_name = qualified_elem_type_name.split("::").last().unwrap().strip_prefix("Path").unwrap();
+                                let elem_type_name = qualified_elem_type_name
+                                    .split("::")
+                                    .last()
+                                    .unwrap()
+                                    .strip_prefix("Path")
+                                    .unwrap();
                                 let elem_init = if field_count > 0 {
                                     compile_expression(path_elem_expr, ctx)
                                 } else {
                                     String::new()
                                 };
-                                format!("slint::private_api::PathElement::{elem_type_name}({elem_init})")
-                            }),
+                                format!(
+                                    "slint::private_api::PathElement::{elem_type_name}({elem_init})"
+                                )
+                            })
+                        }
                         _ => {
                             unreachable!()
                         }
-                    }.collect::<Vec<_>>();
+                    }
+                    .collect::<Vec<_>>();
                     if !path_elements.is_empty() {
                         format!(
                             r#"[&](){{
@@ -3306,10 +3330,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     }
                 }
                 (Type::Struct { .. }, Type::PathData)
-                    if matches!(
-                        from.as_ref(),
-                        Expression::Struct { .. }
-                    ) =>
+                    if matches!(from.as_ref(), Expression::Struct { .. }) =>
                 {
                     let (events, points) = match from.as_ref() {
                         Expression::Struct { ty: _, values } => (
@@ -3328,39 +3349,47 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 (Type::Enumeration(e), Type::String) => {
                     let mut cases = e.values.iter().enumerate().map(|(idx, v)| {
-                        let c = compile_expression(&Expression::EnumerationValue(EnumerationValue{ value: idx, enumeration: e.clone() }), ctx);
+                        let c = compile_expression(
+                            &Expression::EnumerationValue(EnumerationValue {
+                                value: idx,
+                                enumeration: e.clone(),
+                            }),
+                            ctx,
+                        );
                         format!("case {c}: return {v:?};")
                     });
-                    format!("[&]() -> slint::SharedString {{ switch ({f}) {{ {} default: return {{}}; }} }}()", cases.join(" "))
+                    format!(
+                        "[&]() -> slint::SharedString {{ switch ({f}) {{ {} default: return {{}}; }} }}()",
+                        cases.join(" ")
+                    )
                 }
                 _ => f,
             }
         }
-        Expression::CodeBlock(sub) => {
-            match sub.len() {
-                0 => String::new(),
-                1 => compile_expression(&sub[0], ctx),
-                len => {
-                    let mut x = sub.iter().enumerate().map(|(i, e)| {
-                        if i == len - 1 {
-                            return_compile_expression(e, ctx, None) + ";"
-                        }
-                        else {
-                            compile_expression(e, ctx)
-                        }
-                    });
-                   format!("[&]{{ {} }}()", x.join(";"))
-                }
+        Expression::CodeBlock(sub) => match sub.len() {
+            0 => String::new(),
+            1 => compile_expression(&sub[0], ctx),
+            len => {
+                let mut x = sub.iter().enumerate().map(|(i, e)| {
+                    if i == len - 1 {
+                        return_compile_expression(e, ctx, None) + ";"
+                    } else {
+                        compile_expression(e, ctx)
+                    }
+                });
+                format!("[&]{{ {} }}()", x.join(";"))
             }
-        }
-        Expression::PropertyAssignment { property, value} => {
+        },
+        Expression::PropertyAssignment { property, value } => {
             let value = compile_expression(value, ctx);
             property_set_value_code(property, &value, ctx)
         }
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
             let mut path = "self".to_string();
-            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
+            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+                unreachable!()
+            };
             let mut repeater_index = None;
             for _ in 0..=*level {
                 let x = par.unwrap();
@@ -3370,8 +3399,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 write!(path, "->parent.lock().value()").unwrap();
             }
             let repeater_index = repeater_index.unwrap();
-            let local_reference = ctx.compilation_unit.sub_components[sc].repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
+            let local_reference = ctx.compilation_unit.sub_components[sc].repeated[repeater_index]
+                .index_prop
+                .unwrap()
+                .into();
+            let index_prop =
+                llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
             write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
             format!("{path}.model_set_row_data({index_access}, {value})")
@@ -3381,7 +3414,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let base_e = compile_expression(array, ctx);
             let index_e = compile_expression(index, ctx);
             let value_e = compile_expression(value, ctx);
-            format!("[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})")
+            format!(
+                "[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})"
+            )
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_str = compile_expression(lhs, ctx);
@@ -3391,8 +3426,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
 
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let op = if *op == '=' { "<" } else { ">=" };
-                format!("(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())")
-            }  else {
+                format!(
+                    "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
+                )
+            } else {
                 let mut buffer = [0; 3];
                 format!(
                     "({lhs_str} {op} {rhs_str})",
@@ -3413,21 +3450,31 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
-        Expression::ImageReference { resource_ref, nine_slice }  => {
+        Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#, escape_string(path.as_str())),
+                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(
+                    r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
+                    escape_string(path.as_str())
+                ),
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("slint_embedded_resource_{resource_id}");
-                    format!(r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#, escape_string(extension))
+                    format!(
+                        r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#,
+                        escape_string(extension)
+                    )
                 }
-                crate::expression_tree::ImageReference::EmbeddedTexture{resource_id} => {
-                    format!("slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})")
-                },
+                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                    format!(
+                        "slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})"
+                    )
+                }
             };
             match &nine_slice {
                 Some([a, b, c, d]) => {
-                    format!("([&] {{ auto image = {image}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()")
+                    format!(
+                        "([&] {{ auto image = {image}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
+                    )
                 }
                 None => image,
             }
@@ -3446,7 +3493,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::Array { element_ty, values, as_model } => {
             let ty = element_ty.cpp_type().unwrap();
-            let mut val = values.iter().map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
+            let mut val = values
+                .iter()
+                .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             if *as_model {
                 format!(
                     "std::make_shared<slint::private_api::ArrayModel<{count},{ty}>>({val})",
@@ -3464,39 +3513,61 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::Struct { ty, values } => {
-            if ty.name.is_none()  {
+            if ty.name.is_none() {
                 let mut elem = ty.fields.iter().map(|(k, t)| {
                     values
                         .get(k)
                         .map(|e| compile_expression(e, ctx))
                         .map(|e| {
                             // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
-                            if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
+                            if t.as_unit_product().is_some() {
+                                format!("{}({e})", t.cpp_type().unwrap())
+                            } else {
+                                e
+                            }
                         })
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
                 format!("std::make_tuple({})", elem.join(", "))
-            }else {
+            } else {
                 format!(
                     "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
                     args = (0..values.len()).map(|i| format!("const auto &a_{i}")).join(", "),
                     ty = Type::Struct(ty.clone()).cpp_type().unwrap(),
-                    fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
+                    fields = values
+                        .keys()
+                        .enumerate()
+                        .map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i))
+                        .join(""),
                     vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
                 )
             }
         }
-        Expression::EasingCurve(EasingCurve::Linear) => "slint::cbindgen_private::EasingCurve()".into(),
+        Expression::EasingCurve(EasingCurve::Linear) => {
+            "slint::cbindgen_private::EasingCurve()".into()
+        }
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
             "slint::cbindgen_private::EasingCurve(slint::cbindgen_private::EasingCurve::Tag::CubicBezier, {a}, {b}, {c}, {d})"
         ),
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => "slint::cbindgen_private::EasingCurve::Tag::EaseInElastic".into(),
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into(),
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into(),
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => "slint::cbindgen_private::EasingCurve::Tag::EaseInBounce".into(),
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into(),
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into(),
-        Expression::LinearGradient{angle, stops} => {
+        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
+            "slint::cbindgen_private::EasingCurve::Tag::EaseInElastic".into()
+        }
+        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
+            "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into()
+        }
+        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
+            "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into()
+        }
+        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
+            "slint::cbindgen_private::EasingCurve::Tag::EaseInBounce".into()
+        }
+        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
+            "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into()
+        }
+        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
+            "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into()
+        }
+        Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
@@ -3505,10 +3576,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             });
             format!(
                 "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::LinearGradientBrush({}, stops, {})); }}()",
-                stops_it.join(", "), angle, stops.len()
+                stops_it.join(", "),
+                angle,
+                stops.len()
             )
         }
-        Expression::RadialGradient{ stops } => {
+        Expression::RadialGradient { stops } => {
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
@@ -3516,10 +3589,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             });
             format!(
                 "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::RadialGradientBrush(stops, {})); }}()",
-                stops_it.join(", "), stops.len()
+                stops_it.join(", "),
+                stops.len()
             )
         }
-        Expression::ConicGradient{ from_angle, stops } => {
+        Expression::ConicGradient { from_angle, stops } => {
             let from_angle = compile_expression(from_angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
@@ -3528,22 +3602,30 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             });
             format!(
                 "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::ConicGradientBrush(float({}), stops, {})); }}()",
-                stops_it.join(", "), from_angle, stops.len()
+                stops_it.join(", "),
+                from_angle,
+                stops.len()
             )
         }
         Expression::EnumerationValue(value) => {
-            let prefix = if value.enumeration.node.is_some() { "" } else {"slint::cbindgen_private::"};
+            let prefix =
+                if value.enumeration.node.is_some() { "" } else { "slint::cbindgen_private::" };
             format!(
                 "{prefix}{}::{}",
                 ident(&value.enumeration.name),
                 ident(&value.to_pascal_case()),
             )
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } =>  {
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = access_member(layout_cache_prop, ctx);
             cache.map_or_default(|cache| {
                 if let Some(ri) = repeater_index {
-                    format!("slint::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, ctx))
+                    format!(
+                        "slint::private_api::layout_cache_access({}.get(), {}, {})",
+                        cache,
+                        index,
+                        compile_expression(ri, ctx)
+                    )
                 } else {
                     format!("{cache}.get()[{index}]")
                 }
@@ -3571,14 +3653,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 _ => panic!("dialog layout unsorted cells not an array"),
             };
-            format!("slint::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
+            format!(
+                "slint::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
                     slint::cbindgen_private::slint_reorder_dialog_button_layout({cv}_array, {r});\
                     slint::cbindgen_private::Slice<slint::cbindgen_private::GridLayoutCellData> {cv} = slint::private_api::make_slice(std::span({cv}_array))",
-                    r = compile_expression(roles, ctx),
-                    cv = cells_variable,
-                    c = cells.join(", "),
-                )
-
+                r = compile_expression(roles, ctx),
+                cv = cells_variable,
+                c = cells.join(", "),
+            )
         }
         Expression::MinMax { ty, op, lhs, rhs } => {
             let ident = match op {
@@ -3601,11 +3683,15 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             match plural {
                 Some(plural) => {
                     let plural = compile_expression(plural, ctx);
-                    format!("slint::private_api::translate_from_bundle_with_plural(slint_translation_bundle_plural_{string_index}_str, slint_translation_bundle_plural_{string_index}_idx,  slint_translated_plural_rules, {args}, {plural})")
+                    format!(
+                        "slint::private_api::translate_from_bundle_with_plural(slint_translation_bundle_plural_{string_index}_str, slint_translation_bundle_plural_{string_index}_idx,  slint_translated_plural_rules, {args}, {plural})"
+                    )
                 }
-                None => format!("slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"),
+                None => format!(
+                    "slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"
+                ),
             }
-        },
+        }
     }
 }
 

@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
-use crate::EmbedResourcesKind;
 #[cfg(feature = "software-renderer")]
 use image::GenericImageView;
 use smol_str::SmolStr;
@@ -283,11 +283,7 @@ fn generate_texture(
                 }
                 ColorState::Rgb([a, b, c]) => {
                     let abs_diff = |t, u| {
-                        if t < u {
-                            u - t
-                        } else {
-                            t - u
-                        }
+                        if t < u { u - t } else { t - u }
                     };
                     let px = get_pixel();
                     if abs_diff(a, px[0]) > 2 || abs_diff(b, px[1]) > 2 || abs_diff(c, px[2]) > 2 {

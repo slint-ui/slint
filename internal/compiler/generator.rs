@@ -13,11 +13,11 @@ use smol_str::SmolStr;
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
+use crate::CompilerConfiguration;
 use crate::expression_tree::{BindingExpression, Expression};
 use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
-use crate::CompilerConfiguration;
 
 #[cfg(feature = "cpp")]
 pub mod cpp;

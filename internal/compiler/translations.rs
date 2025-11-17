@@ -4,8 +4,8 @@
 use crate::llr::Expression;
 use core::ops::Not;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -436,7 +436,10 @@ mod plural_rule_parser {
             "((arg_0 = 0.0) ? 0.0 : ((arg_0 = 1.0) ? 1.0 : ((arg_0 = 2.0) ? 2.0 : (((Mod(arg_0, 100.0) ≥ 3.0) & (Mod(arg_0, 100.0) ≤ 10.0)) ? 3.0 : ((Mod(arg_0, 100.0) ≥ 11.0) ? 4.0 : 5.0)))))"
         );
         // ga
-        assert_eq!(p("n==1 ? 0 : n==2 ? 1 : (n>2 && n<7) ? 2 :(n>6 && n<11) ? 3 : 4"), "((arg_0 = 1.0) ? 0.0 : ((arg_0 = 2.0) ? 1.0 : (((arg_0 > 2.0) & (arg_0 < 7.0)) ? 2.0 : (((arg_0 > 6.0) & (arg_0 < 11.0)) ? 3.0 : 4.0))))");
+        assert_eq!(
+            p("n==1 ? 0 : n==2 ? 1 : (n>2 && n<7) ? 2 :(n>6 && n<11) ? 3 : 4"),
+            "((arg_0 = 1.0) ? 0.0 : ((arg_0 = 2.0) ? 1.0 : (((arg_0 > 2.0) & (arg_0 < 7.0)) ? 2.0 : (((arg_0 > 6.0) & (arg_0 < 11.0)) ? 3.0 : 4.0))))"
+        );
         // ja
         assert_eq!(p("0"), "0.0");
         // pl

@@ -7,7 +7,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::object_tree::*;
 use std::cell::RefCell;
-use std::collections::{btree_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet, btree_map::Entry};
 use std::rc::Rc;
 
 // The property in the key is to be removed, and replaced by the property in the value
@@ -241,11 +241,7 @@ fn best_property(p1: NamedReference, p2: NamedReference) -> NamedReference {
         }};
     }
 
-    if canonical_order!(p1) < canonical_order!(p2) {
-        p1
-    } else {
-        p2
-    }
+    if canonical_order!(p1) < canonical_order!(p2) { p1 } else { p2 }
 }
 
 /// Remove the `to` from the two_way_bindings

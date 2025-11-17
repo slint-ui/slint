@@ -14,11 +14,11 @@ use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::ElementType;
 use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{find_parent_element, Document, ElementRc, PropertyAnimation};
+use crate::object_tree::{Document, ElementRc, PropertyAnimation, find_parent_element};
 use derive_more as dm;
 
-use crate::expression_tree::Callable;
 use crate::CompilerConfiguration;
+use crate::expression_tree::Callable;
 use smol_str::{SmolStr, ToSmolStr};
 
 /// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``

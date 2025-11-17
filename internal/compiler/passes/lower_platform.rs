@@ -4,7 +4,7 @@
 //! This pass lowers the access to the global Platform to constants and builtin function calls.
 
 use crate::expression_tree::{BuiltinFunction, Expression};
-use crate::object_tree::{visit_all_expressions, Component};
+use crate::object_tree::{Component, visit_all_expressions};
 use std::rc::Rc;
 
 pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typeloader::TypeLoader) {

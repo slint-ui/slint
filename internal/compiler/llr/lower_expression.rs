@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::{Rc, Weak};
 
 use itertools::Either;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx, RepeatedElementIdx};

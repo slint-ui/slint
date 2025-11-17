@@ -104,7 +104,10 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
                 let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::MemberAccess);
                 p.consume(); // '.'
                 if possible_range && p.peek().kind() == SyntaxKind::NumberLiteral {
-                    let error = format!("Parse error. Range expressions are not supported in Slint. You can use an integer as a model to repeat something multiple time. Eg: `for i in {} : ...`", p.peek().as_str());
+                    let error = format!(
+                        "Parse error. Range expressions are not supported in Slint. You can use an integer as a model to repeat something multiple time. Eg: `for i in {} : ...`",
+                        p.peek().as_str()
+                    );
                     p.error(error);
                     p.consume();
                     return false;

@@ -10,7 +10,7 @@ use crate::expression_tree::{
 };
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
-use smol_str::{format_smolstr, ToSmolStr};
+use smol_str::{ToSmolStr, format_smolstr};
 
 /// Used for uniquely name some variables
 static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
@@ -312,7 +312,9 @@ fn debug_macro(
     }
     Expression::FunctionCall {
         function: BuiltinFunction::Debug.into(),
-        arguments: vec![string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String))],
+        arguments: vec![
+            string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String)),
+        ],
         source_location: Some(node.to_source_location()),
     }
 }

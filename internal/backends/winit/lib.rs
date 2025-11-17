@@ -62,7 +62,7 @@ mod renderer {
     use i_slint_core::platform::PlatformError;
     use winit::event_loop::ActiveEventLoop;
 
-    pub trait WinitCompatibleRenderer {
+    pub trait WinitCompatibleRenderer: std::any::Any {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;

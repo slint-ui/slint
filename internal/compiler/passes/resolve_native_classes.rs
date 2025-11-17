@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use crate::langtype::{ElementType, NativeClass};
-use crate::object_tree::{recurse_elem_including_sub_components, Component};
+use crate::object_tree::{Component, recurse_elem_including_sub_components};
 
 pub fn resolve_native_classes(component: &Component) {
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {

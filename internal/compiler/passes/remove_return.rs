@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -112,11 +112,7 @@ fn process_expression(
 
 /// Return the expression, unless it is an empty codeblock, then return None
 fn cleanup_empty_block(te: Expression) -> Option<Expression> {
-    if matches!(&te, Expression::CodeBlock(stmts) if stmts.is_empty()) {
-        None
-    } else {
-        Some(te)
-    }
+    if matches!(&te, Expression::CodeBlock(stmts) if stmts.is_empty()) { None } else { Some(te) }
 }
 
 fn process_codeblock(
