@@ -13,6 +13,7 @@ use super::{
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
     VoidArg, WindowItem,
 };
+use crate::api;
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -225,10 +226,10 @@ impl ComplexText {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct MarkdownText {
+pub struct StyledText {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub text: Property<SharedString>,
+    pub text: Property<api::StyledText>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
     pub color: Property<Brush>,
@@ -248,7 +249,7 @@ pub struct MarkdownText {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for MarkdownText {
+impl Item for StyledText {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -368,14 +369,14 @@ impl Item for MarkdownText {
     }
 }
 
-impl ItemConsts for MarkdownText {
+impl ItemConsts for StyledText {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        MarkdownText,
+        StyledText,
         CachedRenderingData,
-    > = MarkdownText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = StyledText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl HasFont for MarkdownText {
+impl HasFont for StyledText {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
@@ -388,13 +389,13 @@ impl HasFont for MarkdownText {
     }
 }
 
-impl RenderString for MarkdownText {
+impl RenderString for StyledText {
     fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
+        panic!()
     }
 }
 
-impl RenderText for MarkdownText {
+impl RenderText for StyledText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
     }
@@ -430,7 +431,7 @@ impl RenderText for MarkdownText {
     }
 }
 
-impl MarkdownText {
+impl StyledText {
     pub fn font_metrics(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,

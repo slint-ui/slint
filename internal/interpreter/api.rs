@@ -18,8 +18,10 @@ use std::rc::Rc;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
-
-pub use i_slint_core::api::*;
+pub use i_slint_core::api::{
+    self, ComponentHandle, EventLoopError, Global, JoinHandle, PlatformError, SharedString, Weak,
+    Window,
+};
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_backend_selector::api::*;
 pub use i_slint_core::graphics::{
@@ -129,7 +131,7 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
-    StyledText(StyledText) = 13,
+    StyledText(api::StyledText) = 13,
 }
 
 impl Value {
@@ -245,7 +247,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
-declare_value_conversion!(StyledText => [StyledText] );
+declare_value_conversion!(StyledText => [api::StyledText] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {

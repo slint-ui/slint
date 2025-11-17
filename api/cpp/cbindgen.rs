@@ -305,7 +305,7 @@ fn gen_corelib(
         "Flickable",
         "SimpleText",
         "ComplexText",
-        "MarkdownText",
+        "StyledText",
         "Path",
         "WindowItem",
         "TextInput",
