@@ -638,7 +638,6 @@ pub struct NativeClass {
     pub properties: HashMap<SmolStr, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     pub cpp_type: Option<SmolStr>,
-    pub rust_type_constructor: Option<SmolStr>,
 }
 
 impl NativeClass {
