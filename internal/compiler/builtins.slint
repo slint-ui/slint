@@ -442,7 +442,6 @@ component MoveTo {
     in property <float> x;
     in property <float> y;
 
-    //-rust_type_constructor:slint::re_exports::PathElement::MoveTo(PathMoveTo{{}})
     //-cpp_type:slint::private_api::PathMoveTo
     //-is_non_item_type
 }
@@ -451,7 +450,6 @@ component LineTo {
     in property <float> x;
     in property <float> y;
 
-    //-rust_type_constructor:slint::re_exports::PathElement::LineTo(PathLineTo{{}})
     //-cpp_type:slint::private_api::PathLineTo
     //-is_non_item_type
 }
@@ -465,7 +463,6 @@ component ArcTo {
     in property <bool> large_arc;
     in property <bool> sweep;
 
-    //-rust_type_constructor:slint::re_exports::PathElement::ArcTo(PathArcTo{{}})
     //-cpp_type:slint::private_api::PathArcTo
     //-is_non_item_type
 }
@@ -478,7 +475,6 @@ component CubicTo {
     in property <float> x;
     in property <float> y;
 
-    //-rust_type_constructor:slint::re_exports::PathElement::CubicTo(PathCubicTo{{}})
     //-cpp_type:slint::private_api::PathCubicTo
     //-is_non_item_type
 }
@@ -489,13 +485,11 @@ component QuadraticTo {
     in property <float> x;
     in property <float> y;
 
-    //-rust_type_constructor:slint::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
     //-cpp_type:slint::private_api::PathQuadraticTo
     //-is_non_item_type
 }
 
 component Close {
-    //-rust_type_constructor:slint::re_exports::PathElement::Close
     //-cpp_type:slint::private_api::PathClose
     //-is_non_item_type
 }

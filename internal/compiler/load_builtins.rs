@@ -141,7 +141,6 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             })
             .collect();
         n.cpp_type = parse_annotation("cpp_type", &e).map(|x| x.unwrap());
-        n.rust_type_constructor = parse_annotation("rust_type_constructor", &e).map(|x| x.unwrap());
         enum Base {
             None,
             Global,
