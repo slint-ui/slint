@@ -376,7 +376,7 @@ impl FlickableData {
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
-                    InputEventFilterResult::DelayForwarding(FORWARD_DELAY.as_millis() as _)
+                    InputEventFilterResult::ForwardAndInterceptGrab
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
