@@ -75,7 +75,7 @@ pub fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::
     corelib::api::PhysicalSize::new(size.width, size.height)
 }
 
-fn logical_size_to_winit(s: LogicalSize) -> winit::dpi::LogicalSize<f64> {
+fn logical_size_to_winit(s: i_slint_core::api::LogicalSize) -> winit::dpi::LogicalSize<f64> {
     winit::dpi::LogicalSize::new(s.width as f64, s.height as f64)
 }
 
@@ -147,10 +147,13 @@ fn icon_to_winit(
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
 }
 
-fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSize>) -> bool {
+fn window_is_resizable(
+    min_size: Option<corelib::api::LogicalSize>,
+    max_size: Option<corelib::api::LogicalSize>,
+) -> bool {
     if let Some((
-        LogicalSize { width: min_width, height: min_height, .. },
-        LogicalSize { width: max_width, height: max_height, .. },
+        corelib::api::LogicalSize { width: min_width, height: min_height, .. },
+        corelib::api::LogicalSize { width: max_width, height: max_height, .. },
     )) = min_size.zip(max_size)
     {
         min_width < max_width || min_height < max_height
@@ -511,6 +514,8 @@ impl WinitWindowAdapter {
                 &content_view,
                 move |rect| {
                     if let Some(this) = keyboard_curve_self.upgrade() {
+                        use i_slint_core::api::{LogicalPosition, LogicalSize};
+
                         this.window().set_virtual_keyboard(
                             LogicalPosition::new(rect.origin.x as _, rect.origin.y as _),
                             LogicalSize::new(rect.size.width as _, rect.size.height as _),
@@ -1110,8 +1115,11 @@ impl WindowAdapter for WinitWindowAdapter {
                         }
                         winit::dpi::Position::Logical(logical_pos) => {
                             // Best effort: Use the last known scale factor
-                            LogicalPosition::new(logical_pos.x as _, logical_pos.y as _)
-                                .to_physical(self.window().scale_factor())
+                            corelib::api::LogicalPosition::new(
+                                logical_pos.x as _,
+                                logical_pos.y as _,
+                            )
+                            .to_physical(self.window().scale_factor())
                         }
                     }
                 })
@@ -1220,7 +1228,9 @@ impl WindowAdapter for WinitWindowAdapter {
 
         if must_resize {
             self.window()
-                .try_dispatch_event(WindowEvent::Resized { size: LogicalSize::new(width, height) })
+                .try_dispatch_event(WindowEvent::Resized {
+                    size: i_slint_core::api::LogicalSize::new(width, height),
+                })
                 .unwrap();
             self.window()
                 .try_dispatch_event(WindowEvent::SafeAreaChanged {
