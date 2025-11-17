@@ -878,11 +878,22 @@ fn check_no_layout_properties(
                 prop.as_ref(),
                 "padding" | "padding-left" | "padding-right" | "padding-top" | "padding-bottom"
             )
+            && !check_inherits_layout(item)
         {
             diag.push_warning(
                 format!("{prop} only has effect on layout elements"),
                 &*expr.borrow(),
             );
+        }
+    }
+
+    /// Check if the element inherits from a layout that was lowered
+    fn check_inherits_layout(item: &ElementRc) -> bool {
+        if let ElementType::Component(c) = &item.borrow().base_type {
+            c.root_element.borrow().debug.iter().any(|d| d.layout.is_some())
+                || check_inherits_layout(&c.root_element)
+        } else {
+            false
         }
     }
 }
