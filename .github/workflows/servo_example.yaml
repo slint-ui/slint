@@ -8,9 +8,9 @@ on:
   workflow_call:
     secrets:
       ANDROID_KEYSTORE_BASE64:
-        required: true
+        required: false
       ANDROID_KEYSTORE_PASSWORD:
-        required: true
+        required: false
 
 jobs:
   matrix_build:
