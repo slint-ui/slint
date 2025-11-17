@@ -646,6 +646,4 @@ jobs:
         needs: files-changed
         if: needs.files-changed.outputs.servo_example == 'true'
         uses: ./.github/workflows/servo_example.yaml
-        secrets:
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        secrets: inherit
