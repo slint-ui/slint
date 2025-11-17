@@ -36,6 +36,14 @@ pub trait RendererSealed {
         text_wrap: TextWrap,
     ) -> LogicalSize;
 
+    fn styled_text_size(
+        &self,
+        text_item: Pin<&crate::items::StyledText>,
+        item_rc: &crate::item_tree::ItemRc,
+        max_width: Option<LogicalLength>,
+        text_wrap: TextWrap,
+    ) -> LogicalSize;
+
     /// Returns the size of the individual character in logical pixels.
     fn char_size(
         &self,

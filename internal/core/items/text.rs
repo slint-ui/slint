@@ -258,7 +258,7 @@ impl Item for StyledText {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
-        text_layout_info(
+        styled_text_layout_info(
             self,
             &self_rc,
             window_adapter,
@@ -351,7 +351,7 @@ impl Item for StyledText {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_text(self, self_rc, size, &self.cached_rendering_data);
+        (*backend).draw_styled_text(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
     }
 
@@ -386,48 +386,6 @@ impl HasFont for StyledText {
             self.letter_spacing(),
             self.font_italic(),
         )
-    }
-}
-
-impl RenderString for StyledText {
-    fn text(self: Pin<&Self>) -> SharedString {
-        panic!()
-    }
-}
-
-impl RenderText for StyledText {
-    fn target_size(self: Pin<&Self>) -> LogicalSize {
-        LogicalSize::from_lengths(self.width(), self.height())
-    }
-
-    fn color(self: Pin<&Self>) -> Brush {
-        self.color()
-    }
-
-    fn link_color(self: Pin<&Self>) -> Color {
-        self.link_color()
-    }
-
-    fn alignment(
-        self: Pin<&Self>,
-    ) -> (super::TextHorizontalAlignment, super::TextVerticalAlignment) {
-        (self.horizontal_alignment(), self.vertical_alignment())
-    }
-
-    fn wrap(self: Pin<&Self>) -> TextWrap {
-        self.wrap()
-    }
-
-    fn overflow(self: Pin<&Self>) -> TextOverflow {
-        self.overflow()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        (self.stroke(), self.stroke_width(), self.stroke_style())
-    }
-
-    fn is_markdown(self: Pin<&Self>) -> bool {
-        true
     }
 }
 
@@ -627,6 +585,50 @@ fn text_layout_info(
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
+    };
+
+    // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
+    // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
+    // letters will be cut off, apply the ceiling here.
+    match orientation {
+        Orientation::Horizontal => {
+            let implicit_size = implicit_size(None, TextWrap::NoWrap);
+            let min = match text.overflow() {
+                TextOverflow::Elide => implicit_size
+                    .width
+                    .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
+                TextOverflow::Clip => match text.wrap() {
+                    TextWrap::NoWrap => implicit_size.width,
+                    TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
+                },
+            };
+            LayoutInfo {
+                min: min.ceil(),
+                preferred: implicit_size.width.ceil(),
+                ..LayoutInfo::default()
+            }
+        }
+        Orientation::Vertical => {
+            let h = match text.wrap() {
+                TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
+                TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
+                TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
+            }
+            .ceil();
+            LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
+        }
+    }
+}
+
+fn styled_text_layout_info(
+    text: Pin<&StyledText>,
+    self_rc: &ItemRc,
+    window_adapter: &Rc<dyn WindowAdapter>,
+    orientation: Orientation,
+    width: Pin<&Property<LogicalLength>>,
+) -> LayoutInfo {
+    let implicit_size = |max_width, text_wrap| {
+        window_adapter.renderer().styled_text_size(text, self_rc, max_width, text_wrap)
     };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes

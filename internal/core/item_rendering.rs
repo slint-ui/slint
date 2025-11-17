@@ -8,6 +8,7 @@ use super::items::*;
 use crate::graphics::{Color, FontRequest, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
+use crate::items::StyledText;
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
 };
@@ -403,6 +404,13 @@ pub trait ItemRenderer {
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+        _cache: &CachedRenderingData,
+    );
+    fn draw_styled_text(
+        &mut self,
+        text: Pin<&StyledText>,
         _self_rc: &ItemRc,
         _size: LogicalSize,
         _cache: &CachedRenderingData,

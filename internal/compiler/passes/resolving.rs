@@ -848,8 +848,9 @@ impl Expression {
                 pos = end + 1;
                 literal_start_pos = pos;
             }
-            {
-                let trailing = Expression::StringLiteral((&string[literal_start_pos..]).into());
+            let trailing = &string[literal_start_pos..];
+            if !trailing.is_empty() {
+                let trailing = Expression::StringLiteral(trailing.into());
                 expr = Some(match expr {
                     None => trailing,
                     Some(expr) => Expression::BinaryExpression {

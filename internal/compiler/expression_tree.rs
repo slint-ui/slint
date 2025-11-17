@@ -378,7 +378,7 @@ impl BuiltinFunction {
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => true,
+            BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => false,
         }
     }
 

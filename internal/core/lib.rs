@@ -204,6 +204,6 @@ pub fn escape_markdown(text: &str) -> std::string::String {
     out
 }
 
-pub fn parse_markdown(text: &str) -> std::string::String {
-    text.into()
+pub fn parse_markdown(text: &str) -> crate::api::StyledText {
+    crate::api::StyledText::parse(text).unwrap()
 }

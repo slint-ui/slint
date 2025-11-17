@@ -1220,7 +1220,353 @@ pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformErr
     )
 }
 
+#[cfg(feature = "experimental-rich-text")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum Style {
+    Emphasis,
+    Strong,
+    Strikethrough,
+    Code,
+    Link,
+    Underline,
+    Color(crate::Color),
+}
+
+#[cfg(feature = "experimental-rich-text")]
+#[derive(Clone, Debug, PartialEq)]
+pub struct FormattedSpan {
+    pub range: std::ops::Range<usize>,
+    pub style: Style,
+}
+
+#[cfg(feature = "experimental-rich-text")]
+#[derive(Clone, Debug)]
+enum ListItemType {
+    Ordered(u64),
+    Unordered,
+}
+
+#[cfg(feature = "experimental-rich-text")]
+#[derive(Clone, Debug, PartialEq)]
+pub struct StyledTextParagraph {
+    pub text: std::string::String,
+    pub formatting: std::vec::Vec<FormattedSpan>,
+    pub links: std::vec::Vec<(std::ops::Range<usize>, std::string::String)>,
+}
+
+#[cfg(feature = "experimental-rich-text")]
+#[derive(Debug, thiserror::Error)]
+pub enum StyledTextError<'a> {
+    #[error("Spans are unbalanced: stack already empty when popped")]
+    Pop,
+    #[error("Spans are unbalanced: stack contained items at end of function")]
+    NotEmpty,
+    #[error("Paragraph not started")]
+    ParagraphNotStarted,
+    #[error("Unimplemented: {:?}", .0)]
+    UnimplementedTag(pulldown_cmark::Tag<'a>),
+    #[error("Unimplemented: {:?}", .0)]
+    UnimplementedEvent(pulldown_cmark::Event<'a>),
+    #[error("Unimplemented: {}", .0)]
+    UnimplementedHtmlEvent(std::string::String),
+    #[error("Unimplemented html tag: {}", .0)]
+    UnimplementedHtmlTag(std::string::String),
+    #[error("Unexpected {} attribute in html {}", .0, .1)]
+    UnexpectedAttribute(std::string::String, std::string::String),
+    #[error("Missing color attribute in html {}", .0)]
+    MissingColor(std::string::String),
+    #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
+    ClosingTagMismatch(&'a str, std::string::String),
+}
+
+/// Internal styled text type
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
-    inner: (),
+    #[cfg(feature = "experimental-rich-text")]
+    pub paragraphs: std::vec::Vec<StyledTextParagraph>,
+}
+
+#[cfg(feature = "experimental-rich-text")]
+impl StyledText {
+    fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
+        let mut text = std::string::String::with_capacity(indentation as usize * 4);
+        for _ in 0..indentation {
+            text.push_str("    ");
+        }
+        match list_item_type {
+            Some(ListItemType::Unordered) => {
+                if indentation % 3 == 0 {
+                    text.push_str("• ")
+                } else if indentation % 3 == 1 {
+                    text.push_str("◦ ")
+                } else {
+                    text.push_str("▪ ")
+                }
+            }
+            Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
+            None => {}
+        };
+        self.paragraphs.push(StyledTextParagraph {
+            text,
+            formatting: Default::default(),
+            links: Default::default(),
+        });
+    }
+
+    pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
+        let parser =
+            pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+
+        let mut styled_text = StyledText::default();
+        let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
+        let mut style_stack = std::vec::Vec::new();
+        let mut current_url = None;
+
+        for event in parser {
+            let indentation = list_state_stack.len().saturating_sub(1) as _;
+
+            match event {
+                pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
+                    styled_text.begin_paragraph(indentation, None);
+                }
+                pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
+                    if list_state_stack.pop().is_none() {
+                        return Err(StyledTextError::Pop);
+                    }
+                }
+                pulldown_cmark::Event::End(
+                    pulldown_cmark::TagEnd::Paragraph | pulldown_cmark::TagEnd::Item,
+                ) => {}
+                pulldown_cmark::Event::Start(tag) => {
+                    let style = match tag {
+                        pulldown_cmark::Tag::Paragraph => {
+                            styled_text.begin_paragraph(indentation, None);
+                            continue;
+                        }
+                        pulldown_cmark::Tag::Item => {
+                            styled_text.begin_paragraph(
+                                indentation,
+                                Some(match list_state_stack.last().copied() {
+                                    Some(Some(index)) => ListItemType::Ordered(index),
+                                    _ => ListItemType::Unordered,
+                                }),
+                            );
+                            if let Some(state) = list_state_stack.last_mut() {
+                                *state = state.map(|state| state + 1);
+                            }
+                            continue;
+                        }
+                        pulldown_cmark::Tag::List(index) => {
+                            list_state_stack.push(index);
+                            continue;
+                        }
+                        pulldown_cmark::Tag::Strong => Style::Strong,
+                        pulldown_cmark::Tag::Emphasis => Style::Emphasis,
+                        pulldown_cmark::Tag::Strikethrough => Style::Strikethrough,
+                        pulldown_cmark::Tag::Link { dest_url, .. } => {
+                            current_url = Some(dest_url);
+                            Style::Link
+                        }
+
+                        pulldown_cmark::Tag::Heading { .. }
+                        | pulldown_cmark::Tag::Image { .. }
+                        | pulldown_cmark::Tag::DefinitionList
+                        | pulldown_cmark::Tag::DefinitionListTitle
+                        | pulldown_cmark::Tag::DefinitionListDefinition
+                        | pulldown_cmark::Tag::TableHead
+                        | pulldown_cmark::Tag::TableRow
+                        | pulldown_cmark::Tag::TableCell
+                        | pulldown_cmark::Tag::HtmlBlock
+                        | pulldown_cmark::Tag::Superscript
+                        | pulldown_cmark::Tag::Subscript
+                        | pulldown_cmark::Tag::Table(_)
+                        | pulldown_cmark::Tag::MetadataBlock(_)
+                        | pulldown_cmark::Tag::BlockQuote(_)
+                        | pulldown_cmark::Tag::CodeBlock(_)
+                        | pulldown_cmark::Tag::FootnoteDefinition(_) => {
+                            return Err(StyledTextError::UnimplementedTag(tag));
+                        }
+                    };
+
+                    style_stack.push((
+                        style,
+                        styled_text
+                            .paragraphs
+                            .last()
+                            .ok_or(StyledTextError::ParagraphNotStarted)?
+                            .text
+                            .len(),
+                    ));
+                }
+                pulldown_cmark::Event::Text(text) => {
+                    styled_text
+                        .paragraphs
+                        .last_mut()
+                        .ok_or(StyledTextError::ParagraphNotStarted)?
+                        .text
+                        .push_str(&text);
+                }
+                pulldown_cmark::Event::End(_) => {
+                    let (style, start) = if let Some(value) = style_stack.pop() {
+                        value
+                    } else {
+                        return Err(StyledTextError::Pop);
+                    };
+
+                    let paragraph = styled_text
+                        .paragraphs
+                        .last_mut()
+                        .ok_or(StyledTextError::ParagraphNotStarted)?;
+                    let end = paragraph.text.len();
+
+                    if let Some(url) = current_url.take() {
+                        paragraph.links.push((start..end, url.into()));
+                    }
+
+                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                }
+                pulldown_cmark::Event::Code(text) => {
+                    let paragraph = styled_text
+                        .paragraphs
+                        .last_mut()
+                        .ok_or(StyledTextError::ParagraphNotStarted)?;
+                    let start = paragraph.text.len();
+                    paragraph.text.push_str(&text);
+                    paragraph.formatting.push(FormattedSpan {
+                        range: start..paragraph.text.len(),
+                        style: Style::Code,
+                    });
+                }
+                pulldown_cmark::Event::InlineHtml(html) => {
+                    if html.starts_with("</") {
+                        let (style, start) = if let Some(value) = style_stack.pop() {
+                            value
+                        } else {
+                            return Err(StyledTextError::Pop);
+                        };
+
+                        let expected_tag = match &style {
+                            Style::Color(_) => "</font>",
+                            Style::Underline => "</u>",
+                            other => std::unreachable!(
+                                "Got unexpected closing style {:?} with html {}. This error should have been caught earlier.",
+                                other,
+                                html
+                            ),
+                        };
+
+                        if (&*html) != expected_tag {
+                            return Err(StyledTextError::ClosingTagMismatch(
+                                expected_tag,
+                                (&*html).into(),
+                            ));
+                        }
+
+                        let paragraph = styled_text
+                            .paragraphs
+                            .last_mut()
+                            .ok_or(StyledTextError::ParagraphNotStarted)?;
+                        let end = paragraph.text.len();
+                        paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                    } else {
+                        let mut expecting_color_attribute = false;
+
+                        for token in htmlparser::Tokenizer::from(&*html) {
+                            match token {
+                                Ok(htmlparser::Token::ElementStart { local: tag_type, .. }) => {
+                                    match &*tag_type {
+                                        "u" => {
+                                            style_stack.push((
+                                                Style::Underline,
+                                                styled_text
+                                                    .paragraphs
+                                                    .last()
+                                                    .ok_or(StyledTextError::ParagraphNotStarted)?
+                                                    .text
+                                                    .len(),
+                                            ));
+                                        }
+                                        "font" => {
+                                            expecting_color_attribute = true;
+                                        }
+                                        _ => {
+                                            return Err(StyledTextError::UnimplementedHtmlTag(
+                                                (&*tag_type).into(),
+                                            ));
+                                        }
+                                    }
+                                }
+                                Ok(htmlparser::Token::Attribute {
+                                    local: key,
+                                    value: Some(value),
+                                    ..
+                                }) => match &*key {
+                                    "color" => {
+                                        if !expecting_color_attribute {
+                                            return Err(StyledTextError::UnexpectedAttribute(
+                                                (&*key).into(),
+                                                (&*html).into(),
+                                            ));
+                                        }
+                                        expecting_color_attribute = false;
+
+                                        let value =
+                                            i_slint_common::color_parsing::parse_color_literal(
+                                                &*value,
+                                            )
+                                            .or_else(|| {
+                                                i_slint_common::color_parsing::named_colors()
+                                                    .get(&*value)
+                                                    .copied()
+                                            })
+                                            .expect("invalid color value");
+
+                                        style_stack.push((
+                                            Style::Color(crate::Color::from_argb_encoded(value)),
+                                            styled_text
+                                                .paragraphs
+                                                .last()
+                                                .ok_or(StyledTextError::ParagraphNotStarted)?
+                                                .text
+                                                .len(),
+                                        ));
+                                    }
+                                    _ => {
+                                        return Err(StyledTextError::UnexpectedAttribute(
+                                            (&*key).into(),
+                                            (&*html).into(),
+                                        ));
+                                    }
+                                },
+                                Ok(htmlparser::Token::ElementEnd { .. }) => {}
+                                _ => {
+                                    return Err(StyledTextError::UnimplementedHtmlEvent(
+                                        std::format!("{:?}", token),
+                                    ));
+                                }
+                            }
+                        }
+
+                        if expecting_color_attribute {
+                            return Err(StyledTextError::MissingColor((&*html).into()));
+                        }
+                    }
+                }
+                pulldown_cmark::Event::Rule
+                | pulldown_cmark::Event::TaskListMarker(_)
+                | pulldown_cmark::Event::FootnoteReference(_)
+                | pulldown_cmark::Event::InlineMath(_)
+                | pulldown_cmark::Event::DisplayMath(_)
+                | pulldown_cmark::Event::Html(_) => {
+                    return Err(StyledTextError::UnimplementedEvent(event));
+                }
+            }
+        }
+
+        if !style_stack.is_empty() {
+            return Err(StyledTextError::NotEmpty);
+        }
+
+        Ok(styled_text)
+    }
 }

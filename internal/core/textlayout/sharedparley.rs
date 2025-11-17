@@ -225,9 +225,11 @@ impl LayoutWithoutLineBreaksBuilder {
         &self,
         text: &str,
         selection: Option<(Range<usize>, Color)>,
-        formatting: impl IntoIterator<Item = FormattedSpan>,
+        formatting: impl IntoIterator<Item = crate::api::FormattedSpan>,
         link_color: Option<Color>,
     ) -> parley::Layout<Brush> {
+        use crate::api::Style;
+
         CONTEXTS.with_borrow_mut(|contexts| {
             let mut builder = self.ranged_builder(contexts.as_mut(), text);
 
@@ -306,7 +308,7 @@ impl LayoutWithoutLineBreaksBuilder {
 enum Text<'a> {
     PlainText(&'a str),
     #[cfg(feature = "experimental-rich-text")]
-    RichText(RichText<'a>),
+    StyledText(crate::api::StyledText),
 }
 
 fn create_text_paragraphs(
@@ -318,7 +320,7 @@ fn create_text_paragraphs(
     let paragraph_from_text =
         |text: &str,
          range: std::ops::Range<usize>,
-         formatting: Vec<FormattedSpan>,
+         formatting: Vec<crate::api::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>| {
             let selection = selection.clone().and_then(|(selection, selection_color)| {
                 let sel_start = selection.start.max(range.start);
@@ -373,17 +375,13 @@ fn create_text_paragraphs(
             }
         }
         #[cfg(feature = "experimental-rich-text")]
-        Text::RichText(rich_text) => {
+        Text::StyledText(rich_text) => {
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
                     &paragraph.text,
                     0..0,
                     paragraph.formatting,
-                    paragraph
-                        .links
-                        .into_iter()
-                        .map(|(range, link)| (range, link.into_string()))
-                        .collect(),
+                    paragraph.links.into_iter().collect(),
                 ));
             }
         }
@@ -838,352 +836,6 @@ impl Layout {
     }
 }
 
-#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
-#[derive(Debug, PartialEq)]
-enum Style {
-    Emphasis,
-    Strong,
-    Strikethrough,
-    Code,
-    Link,
-    Underline,
-    Color(Color),
-}
-
-#[derive(Debug, PartialEq)]
-struct FormattedSpan {
-    range: Range<usize>,
-    style: Style,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug)]
-enum ListItemType {
-    Ordered(u64),
-    Unordered,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug, PartialEq)]
-struct RichTextParagraph<'a> {
-    text: std::string::String,
-    formatting: Vec<FormattedSpan>,
-    #[cfg(feature = "experimental-rich-text")]
-    links: std::vec::Vec<(Range<usize>, pulldown_cmark::CowStr<'a>)>,
-    #[cfg(not(feature = "experimental-rich-text"))]
-    _phantom: std::marker::PhantomData<&'a ()>,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug, Default)]
-struct RichText<'a> {
-    paragraphs: Vec<RichTextParagraph<'a>>,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-impl<'a> RichText<'a> {
-    fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
-        let mut text = std::string::String::with_capacity(indentation as usize * 4);
-        for _ in 0..indentation {
-            text.push_str("    ");
-        }
-        match list_item_type {
-            Some(ListItemType::Unordered) => {
-                if indentation % 3 == 0 {
-                    text.push_str("• ")
-                } else if indentation % 3 == 1 {
-                    text.push_str("◦ ")
-                } else {
-                    text.push_str("▪ ")
-                }
-            }
-            Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
-            None => {}
-        };
-        self.paragraphs.push(RichTextParagraph {
-            text,
-            formatting: Default::default(),
-            links: Default::default(),
-        });
-    }
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug, thiserror::Error)]
-enum RichTextError<'a> {
-    #[error("Spans are unbalanced: stack already empty when popped")]
-    Pop,
-    #[error("Spans are unbalanced: stack contained items at end of function")]
-    NotEmpty,
-    #[error("Paragraph not started")]
-    ParagraphNotStarted,
-    #[error("Unimplemented: {:?}", .0)]
-    UnimplementedTag(pulldown_cmark::Tag<'a>),
-    #[error("Unimplemented: {:?}", .0)]
-    UnimplementedEvent(pulldown_cmark::Event<'a>),
-    #[error("Unimplemented: {}", .0)]
-    UnimplementedHtmlEvent(std::string::String),
-    #[error("Unimplemented html tag: {}", .0)]
-    UnimplementedHtmlTag(std::string::String),
-    #[error("Unexpected {} attribute in html {}", .0, .1)]
-    UnexpectedAttribute(std::string::String, std::string::String),
-    #[error("Missing color attribute in html {}", .0)]
-    MissingColor(std::string::String),
-    #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
-    ClosingTagMismatch(&'a str, std::string::String),
-}
-
-#[cfg(feature = "experimental-rich-text")]
-fn parse_markdown(string: &str) -> Result<RichText<'_>, RichTextError<'_>> {
-    let parser =
-        pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
-
-    let mut rich_text = RichText::default();
-    let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
-    let mut style_stack = std::vec::Vec::new();
-    let mut current_url = None;
-
-    for event in parser {
-        let indentation = list_state_stack.len().saturating_sub(1) as _;
-
-        match event {
-            pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                rich_text.begin_paragraph(indentation, None);
-            }
-            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
-                if list_state_stack.pop().is_none() {
-                    return Err(RichTextError::Pop);
-                }
-            }
-            pulldown_cmark::Event::End(
-                pulldown_cmark::TagEnd::Paragraph | pulldown_cmark::TagEnd::Item,
-            ) => {}
-            pulldown_cmark::Event::Start(tag) => {
-                let style = match tag {
-                    pulldown_cmark::Tag::Paragraph => {
-                        rich_text.begin_paragraph(indentation, None);
-                        continue;
-                    }
-                    pulldown_cmark::Tag::Item => {
-                        rich_text.begin_paragraph(
-                            indentation,
-                            Some(match list_state_stack.last().copied() {
-                                Some(Some(index)) => ListItemType::Ordered(index),
-                                _ => ListItemType::Unordered,
-                            }),
-                        );
-                        if let Some(state) = list_state_stack.last_mut() {
-                            *state = state.map(|state| state + 1);
-                        }
-                        continue;
-                    }
-                    pulldown_cmark::Tag::List(index) => {
-                        list_state_stack.push(index);
-                        continue;
-                    }
-                    pulldown_cmark::Tag::Strong => Style::Strong,
-                    pulldown_cmark::Tag::Emphasis => Style::Emphasis,
-                    pulldown_cmark::Tag::Strikethrough => Style::Strikethrough,
-                    pulldown_cmark::Tag::Link { dest_url, .. } => {
-                        current_url = Some(dest_url);
-                        Style::Link
-                    }
-
-                    pulldown_cmark::Tag::Heading { .. }
-                    | pulldown_cmark::Tag::Image { .. }
-                    | pulldown_cmark::Tag::DefinitionList
-                    | pulldown_cmark::Tag::DefinitionListTitle
-                    | pulldown_cmark::Tag::DefinitionListDefinition
-                    | pulldown_cmark::Tag::TableHead
-                    | pulldown_cmark::Tag::TableRow
-                    | pulldown_cmark::Tag::TableCell
-                    | pulldown_cmark::Tag::HtmlBlock
-                    | pulldown_cmark::Tag::Superscript
-                    | pulldown_cmark::Tag::Subscript
-                    | pulldown_cmark::Tag::Table(_)
-                    | pulldown_cmark::Tag::MetadataBlock(_)
-                    | pulldown_cmark::Tag::BlockQuote(_)
-                    | pulldown_cmark::Tag::CodeBlock(_)
-                    | pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                        return Err(RichTextError::UnimplementedTag(tag));
-                    }
-                };
-
-                style_stack.push((
-                    style,
-                    rich_text
-                        .paragraphs
-                        .last()
-                        .ok_or(RichTextError::ParagraphNotStarted)?
-                        .text
-                        .len(),
-                ));
-            }
-            pulldown_cmark::Event::Text(text) => {
-                rich_text
-                    .paragraphs
-                    .last_mut()
-                    .ok_or(RichTextError::ParagraphNotStarted)?
-                    .text
-                    .push_str(&text);
-            }
-            pulldown_cmark::Event::End(_) => {
-                let (style, start) = if let Some(value) = style_stack.pop() {
-                    value
-                } else {
-                    return Err(RichTextError::Pop);
-                };
-
-                let paragraph =
-                    rich_text.paragraphs.last_mut().ok_or(RichTextError::ParagraphNotStarted)?;
-                let end = paragraph.text.len();
-
-                if let Some(url) = current_url.take() {
-                    paragraph.links.push((start..end, url));
-                }
-
-                paragraph.formatting.push(FormattedSpan { range: start..end, style });
-            }
-            pulldown_cmark::Event::Code(text) => {
-                let paragraph =
-                    rich_text.paragraphs.last_mut().ok_or(RichTextError::ParagraphNotStarted)?;
-                let start = paragraph.text.len();
-                paragraph.text.push_str(&text);
-                paragraph
-                    .formatting
-                    .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
-            }
-            pulldown_cmark::Event::InlineHtml(html) => {
-                if html.starts_with("</") {
-                    let (style, start) = if let Some(value) = style_stack.pop() {
-                        value
-                    } else {
-                        return Err(RichTextError::Pop);
-                    };
-
-                    let expected_tag = match &style {
-                        Style::Color(_) => "</font>",
-                        Style::Underline => "</u>",
-                        other => std::unreachable!(
-                            "Got unexpected closing style {:?} with html {}. This error should have been caught earlier.",
-                            other,
-                            html
-                        ),
-                    };
-
-                    if (&*html) != expected_tag {
-                        return Err(RichTextError::ClosingTagMismatch(
-                            expected_tag,
-                            (&*html).into(),
-                        ));
-                    }
-
-                    let paragraph = rich_text
-                        .paragraphs
-                        .last_mut()
-                        .ok_or(RichTextError::ParagraphNotStarted)?;
-                    let end = paragraph.text.len();
-                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
-                } else {
-                    let mut expecting_color_attribute = false;
-
-                    for token in htmlparser::Tokenizer::from(&*html) {
-                        match token {
-                            Ok(htmlparser::Token::ElementStart { local: tag_type, .. }) => {
-                                match &*tag_type {
-                                    "u" => {
-                                        style_stack.push((
-                                            Style::Underline,
-                                            rich_text
-                                                .paragraphs
-                                                .last()
-                                                .ok_or(RichTextError::ParagraphNotStarted)?
-                                                .text
-                                                .len(),
-                                        ));
-                                    }
-                                    "font" => {
-                                        expecting_color_attribute = true;
-                                    }
-                                    _ => {
-                                        return Err(RichTextError::UnimplementedHtmlTag(
-                                            (&*tag_type).into(),
-                                        ));
-                                    }
-                                }
-                            }
-                            Ok(htmlparser::Token::Attribute {
-                                local: key,
-                                value: Some(value),
-                                ..
-                            }) => match &*key {
-                                "color" => {
-                                    if !expecting_color_attribute {
-                                        return Err(RichTextError::UnexpectedAttribute(
-                                            (&*key).into(),
-                                            (&*html).into(),
-                                        ));
-                                    }
-                                    expecting_color_attribute = false;
-
-                                    let value =
-                                        i_slint_common::color_parsing::parse_color_literal(&*value)
-                                            .or_else(|| {
-                                                i_slint_common::color_parsing::named_colors()
-                                                    .get(&*value)
-                                                    .copied()
-                                            })
-                                            .expect("invalid color value");
-
-                                    style_stack.push((
-                                        Style::Color(Color::from_argb_encoded(value)),
-                                        rich_text
-                                            .paragraphs
-                                            .last()
-                                            .ok_or(RichTextError::ParagraphNotStarted)?
-                                            .text
-                                            .len(),
-                                    ));
-                                }
-                                _ => {
-                                    return Err(RichTextError::UnexpectedAttribute(
-                                        (&*key).into(),
-                                        (&*html).into(),
-                                    ));
-                                }
-                            },
-                            Ok(htmlparser::Token::ElementEnd { .. }) => {}
-                            _ => {
-                                return Err(RichTextError::UnimplementedHtmlEvent(std::format!(
-                                    "{:?}", token
-                                )));
-                            }
-                        }
-                    }
-
-                    if expecting_color_attribute {
-                        return Err(RichTextError::MissingColor((&*html).into()));
-                    }
-                }
-            }
-            pulldown_cmark::Event::Rule
-            | pulldown_cmark::Event::TaskListMarker(_)
-            | pulldown_cmark::Event::FootnoteReference(_)
-            | pulldown_cmark::Event::InlineMath(_)
-            | pulldown_cmark::Event::DisplayMath(_)
-            | pulldown_cmark::Event::Html(_) => {
-                return Err(RichTextError::UnimplementedEvent(event));
-            }
-        }
-    }
-
-    if !style_stack.is_empty() {
-        return Err(RichTextError::NotEmpty);
-    }
-
-    Ok(rich_text)
-}
-
 #[cfg(feature = "experimental-rich-text")]
 #[test]
 fn markdown_parsing() {
@@ -1393,17 +1045,7 @@ pub fn draw_text(
     let str = text.text();
 
     #[cfg(feature = "experimental-rich-text")]
-    let layout_text = if text.is_markdown() {
-        Text::RichText(match parse_markdown(&str) {
-            Ok(rich_text) => rich_text,
-            Err(error) => {
-                crate::debug_log!("{}", error);
-                return;
-            }
-        })
-    } else {
-        Text::PlainText(&str)
-    };
+    let layout_text = { Text::PlainText(&str) };
 
     #[cfg(not(feature = "experimental-rich-text"))]
     let layout_text = Text::PlainText(&str);
@@ -1455,34 +1097,124 @@ pub fn draw_text(
     }
 }
 
+pub fn draw_styled_text(
+    item_renderer: &mut impl GlyphRenderer,
+    text: Pin<&crate::items::StyledText>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
+    size: LogicalSize,
+) {
+    let max_width = size.width_length();
+    let max_height = size.height_length();
+
+    if max_width.get() <= 0. || max_height.get() <= 0. {
+        return;
+    }
+
+    let Some(platform_fill_brush) = item_renderer.platform_text_fill_brush(text.color(), size)
+    else {
+        // Nothing to draw
+        return;
+    };
+
+    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+
+    let (stroke_brush, stroke_width, stroke_style) =
+        (text.stroke(), text.stroke_width(), text.stroke_style());
+    let platform_stroke_brush = if !stroke_brush.is_transparent() {
+        let stroke_width = if stroke_width.get() != 0.0 {
+            (stroke_width * scale_factor).get()
+        } else {
+            // Hairline stroke
+            1.0
+        };
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => stroke_width * 2.0,
+            TextStrokeStyle::Center => stroke_width,
+        };
+        item_renderer.platform_text_stroke_brush(stroke_brush, stroke_width, size)
+    } else {
+        None
+    };
+
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        None, //item_rc.map(|item_rc| text.font_request(item_rc)),
+        text.wrap(),
+        platform_stroke_brush.is_some().then_some(stroke_style),
+        scale_factor,
+    );
+
+    let layout_text = { Text::StyledText(text.text()) };
+
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+
+    let (horizontal_align, vertical_align) =
+        (text.horizontal_alignment(), text.vertical_alignment());
+    let text_overflow = text.overflow();
+
+    let layout = layout(
+        &layout_builder,
+        paragraphs_without_linebreaks,
+        scale_factor,
+        LayoutOptions {
+            horizontal_align,
+            vertical_align,
+            max_height: Some(max_height),
+            max_width: Some(max_width),
+            text_overflow: text.overflow(),
+        },
+    );
+
+    let render = if text_overflow == TextOverflow::Clip {
+        item_renderer.save_state();
+
+        item_renderer.combine_clip(
+            LogicalRect::new(LogicalPoint::default(), size),
+            LogicalBorderRadius::zero(),
+            LogicalLength::zero(),
+        )
+    } else {
+        true
+    };
+
+    if render {
+        layout.draw(
+            item_renderer,
+            platform_fill_brush,
+            platform_stroke_brush,
+            &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
+                item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
+            },
+        );
+    }
+
+    if text_overflow == TextOverflow::Clip {
+        item_renderer.restore_state();
+    }
+}
+
 #[cfg(feature = "experimental-rich-text")]
 pub fn link_under_cursor(
     scale_factor: ScaleFactor,
-    text: Pin<&dyn crate::item_rendering::RenderText>,
+    text: Pin<&crate::items::StyledText>,
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     cursor: PhysicalPoint,
 ) -> Option<std::string::String> {
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(text.font_request(item_rc)),
+        None, //Some(text.font_request(item_rc)),
         text.wrap(),
         None,
         scale_factor,
     );
 
-    let str = text.text();
-    let layout_text = Text::RichText(match parse_markdown(&str) {
-        Ok(rich_text) => rich_text,
-        Err(error) => {
-            crate::debug_log!("{}", error);
-            return None;
-        }
-    });
+    let layout_text = { Text::StyledText(text.text()) };
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
 
-    let (horizontal_align, vertical_align) = text.alignment();
+    let (horizontal_align, vertical_align) =
+        (text.horizontal_alignment(), text.vertical_alignment());
 
     let layout = layout(
         &layout_builder,
@@ -1647,6 +1379,44 @@ pub fn text_size(
         None,
         Color::default(),
     );
+
+    let layout = layout(
+        &layout_builder,
+        paragraphs_without_linebreaks,
+        scale_factor,
+        LayoutOptions {
+            max_width,
+            max_height: None,
+            horizontal_align: TextHorizontalAlignment::Left,
+            vertical_align: TextVerticalAlignment::Top,
+            text_overflow: TextOverflow::Clip,
+        },
+    );
+    PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
+}
+
+pub fn styled_text_size(
+    renderer: &dyn RendererSealed,
+    text_item: Pin<&crate::items::StyledText>,
+    item_rc: &crate::item_tree::ItemRc,
+    max_width: Option<LogicalLength>,
+    text_wrap: TextWrap,
+) -> LogicalSize {
+    let Some(scale_factor) = renderer.scale_factor() else {
+        return LogicalSize::default();
+    };
+
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        None, //Some(text_item.font_request(item_rc)),
+        text_wrap,
+        None,
+        scale_factor,
+    );
+
+    let layout_text = { Text::StyledText(text_item.text()) };
+
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, layout_text, None, Color::default());
 
     let layout = layout(
         &layout_builder,

@@ -686,6 +686,16 @@ impl ItemRenderer for QtItemRenderer<'_> {
         sharedparley::draw_text(self, text, Some(self_rc), size);
     }
 
+    fn draw_styled_text(
+        &mut self,
+        text: Pin<&i_slint_core::items::StyledText>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        sharedparley::draw_styled_text(self, text, Some(self_rc), size);
+    }
+
     fn draw_text_input(
         &mut self,
         text_input: Pin<&items::TextInput>,
@@ -2093,6 +2103,16 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text_wrap: TextWrap,
     ) -> LogicalSize {
         sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+    }
+
+    fn styled_text_size(
+        &self,
+        text_item: Pin<&i_slint_core::items::StyledText>,
+        item_rc: &ItemRc,
+        max_width: Option<LogicalLength>,
+        text_wrap: TextWrap,
+    ) -> LogicalSize {
+        sharedparley::styled_text_size(self, text_item, item_rc, max_width, text_wrap)
     }
 
     fn char_size(

@@ -1408,7 +1408,7 @@ fn call_builtin_function(
         BuiltinFunction::ParseMarkdown => {
             let text: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::String(corelib::parse_markdown(&text).into())
+            Value::StyledText(corelib::parse_markdown(&text))
         }
     }
 }

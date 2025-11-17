@@ -774,6 +774,16 @@ impl RendererSealed for SoftwareRenderer {
         }
     }
 
+    fn styled_text_size(
+        &self,
+        text_item: Pin<&crate::items::StyledText>,
+        item_rc: &crate::item_tree::ItemRc,
+        max_width: Option<LogicalLength>,
+        text_wrap: TextWrap,
+    ) -> LogicalSize {
+        panic!()
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn crate::item_rendering::HasFont>,
@@ -2619,6 +2629,16 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
         }
+    }
+
+    fn draw_styled_text(
+        &mut self,
+        text: Pin<&crate::items::StyledText>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        panic!()
     }
 
     fn draw_text_input(
