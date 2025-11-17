@@ -353,7 +353,18 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                 Some(contents.map(|c| (None, c)))
             })
         })),
-        ..Default::default()
+        format: if init_param
+            .capabilities
+            .general
+            .as_ref()
+            .and_then(|x| x.position_encodings.as_ref())
+            .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
+        {
+            common::ByteFormat::Utf8
+        } else {
+            common::ByteFormat::Utf16
+        },
+        resource_url_mapper: None,
     };
 
     let ctx = Rc::new(Context {

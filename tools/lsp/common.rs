@@ -13,6 +13,7 @@ use std::{collections::HashMap, path::PathBuf};
 pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::{DocumentCache, SourceFileVersion};
+pub use i_slint_compiler::diagnostics::ByteFormat;
 pub mod rename_component;
 pub mod rename_element_id;
 #[cfg(test)]
@@ -537,6 +538,7 @@ pub struct PreviewConfig {
     pub style: String,
     pub include_paths: Vec<PathBuf>,
     pub library_paths: HashMap<String, PathBuf>,
+    pub format_utf8: bool,
 }
 
 /// The Component to preview

@@ -57,22 +57,21 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 
 fn lsp_element_node_position(
     element: &common::ElementRcNode,
+    format: common::ByteFormat,
 ) -> Option<(String, lsp_types::Range)> {
-    let location = element.with_element_node(|n| {
+    let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
             .map_or_else(
-                || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
-                |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
+                || n.source_file.text_size_to_file_line_column(n.text_range().start(), format),
+                |p| p.source_file.text_size_to_file_line_column(p.text_range().start(), format),
             )
     });
-    location.map(|(f, sl, sc, el, ec)| {
-        use lsp_types::{Position, Range};
-        let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
-        let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
 
-        (f, Range::new(start, end))
-    })
+    use lsp_types::{Position, Range};
+    let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
+    let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
+    Some((f, Range::new(start, end)))
 }
 
 fn element_covers_point(
@@ -171,7 +170,9 @@ fn select_element_node(
         SelectionNotification::Never, // We update directly;-)
     );
 
-    if let Some(document_position) = lsp_element_node_position(selected_element) {
+    let format = preview::PREVIEW_STATE.with_borrow(|ps| ps.format());
+
+    if let Some(document_position) = lsp_element_node_position(selected_element, format) {
         let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
         to_lsp
             .ask_editor_to_show_document(&document_position.0, document_position.1, false)

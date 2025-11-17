@@ -162,11 +162,17 @@ pub fn get_semantic_tokens(
             SyntaxKind::At => Some((self::MACRO, 0)),
             _ => None,
         };
+        let len = |txt: &str| -> u32 {
+            match document_cache.format {
+                crate::common::ByteFormat::Utf8 => txt.len() as u32,
+                crate::common::ByteFormat::Utf16 => txt.encode_utf16().count() as u32,
+            }
+        };
         if let Some((token_type, token_modifiers_bitset)) = t_m {
             data.push(SemanticToken {
                 delta_line,
                 delta_start,
-                length: token.text().encode_utf16().count() as u32,
+                length: len(token.text()),
                 token_type,
                 token_modifiers_bitset,
             });
@@ -176,10 +182,10 @@ pub fn get_semantic_tokens(
         let text = token.text();
         let l = text.bytes().filter(|x| *x == b'\n').count();
         if l == 0 {
-            delta_start += text.encode_utf16().count() as u32;
+            delta_start += len(text);
         } else {
             delta_line += l as u32;
-            delta_start = text[(text.rfind('\n').unwrap() + 1)..].encode_utf16().count() as u32;
+            delta_start = len(&text[(text.rfind('\n').unwrap() + 1)..]);
         }
         token = match token.next_token() {
             None => break,

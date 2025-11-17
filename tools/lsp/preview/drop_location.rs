@@ -564,12 +564,16 @@ pub fn add_new_component(
     let source_file = document.source_file.clone();
     let path = source_file.path().to_path_buf();
 
-    let start_pos =
-        util::text_size_to_lsp_position(&source_file, insert_position.insertion_position.offset());
+    let start_pos = util::text_size_to_lsp_position(
+        &source_file,
+        insert_position.insertion_position.offset(),
+        document_cache.format,
+    );
     let end_pos = util::text_size_to_lsp_position(
         &source_file,
         insert_position.insertion_position.offset()
             + TextSize::new(insert_position.replacement_range),
+        document_cache.format,
     );
     let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
 
@@ -891,6 +895,7 @@ pub fn can_move_to(
                     &element_node,
                     instance_index,
                     position,
+                    document_cache.format,
                 ) {
                     workspace_edit_compiles(document_cache, &edit)
                         == preview::CompilationResult::ChangeCompiles
@@ -956,6 +961,7 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
 fn drop_ignored_elements_from_node(
     node: &common::ElementRcNode,
     source_file: &SourceFile,
+    format: common::ByteFormat,
 ) -> Vec<lsp_types::TextEdit> {
     node.with_element_node(|node| {
         node.children()
@@ -963,7 +969,7 @@ fn drop_ignored_elements_from_node(
                 let e = common::extract_element(c.clone())?;
                 if common::is_element_node_ignored(&e) {
                     pretty_node_removal_range(&e)
-                        .map(|range| util::text_range_to_lsp_range(source_file, range))
+                        .map(|range| util::text_range_to_lsp_range(source_file, range, format))
                         .map(|range| lsp_types::TextEdit::new(range, String::new()))
                 } else {
                     None
@@ -1054,8 +1060,11 @@ fn node_removal_text_edit(
     node: &SyntaxNode,
     replace_with: String,
 ) -> Option<common::SingleTextEdit> {
-    let range =
-        util::text_range_to_lsp_range(&node.source_file.clone(), pretty_node_removal_range(node)?);
+    let range = util::text_range_to_lsp_range(
+        &node.source_file.clone(),
+        pretty_node_removal_range(node)?,
+        document_cache.format,
+    );
     common::SingleTextEdit::from_path(
         document_cache,
         node.source_file.path(),
@@ -1106,31 +1115,41 @@ pub fn create_drop_element_workspace_edit(
 
     let mut edits = Vec::with_capacity(3);
     let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
-    if let Some(edit) = completion::create_import_edit(doc, &component.name, &import_file) {
+    if let Some(edit) =
+        completion::create_import_edit(doc, &component.name, &import_file, document_cache.format)
+    {
         if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
             selection_offset =
-                text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
+                text_edit::TextOffsetAdjustment::new(&edit, sf, document_cache.format)
+                    .adjust(selection_offset);
         }
         edits.push(edit);
     }
 
     edits.extend(
-        drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
-            .drain(..)
-            .inspect(|te| {
-                selection_offset =
-                    text_edit::TextOffsetAdjustment::new(te, &source_file).adjust(selection_offset);
-            }),
+        drop_ignored_elements_from_node(
+            &drop_info.target_element_node,
+            &source_file,
+            document_cache.format,
+        )
+        .drain(..)
+        .inspect(|te| {
+            selection_offset =
+                text_edit::TextOffsetAdjustment::new(te, &source_file, document_cache.format)
+                    .adjust(selection_offset);
+        }),
     );
 
     let start_pos = util::text_size_to_lsp_position(
         &source_file,
         drop_info.insert_info.insertion_position.offset(),
+        document_cache.format,
     );
     let end_pos = util::text_size_to_lsp_position(
         &source_file,
         drop_info.insert_info.insertion_position.offset()
             + TextSize::new(drop_info.insert_info.replacement_range),
+        document_cache.format,
     );
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
@@ -1146,6 +1165,7 @@ pub fn create_move_element_workspace_edit(
     element: &common::ElementRcNode,
     instance_index: usize,
     position: LogicalPoint,
+    format: common::ByteFormat,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let parent_of_element = element.parent();
 
@@ -1184,13 +1204,14 @@ pub fn create_move_element_workspace_edit(
         String::new()
     };
 
-    create_swap_element_workspace_edit(drop_info, element, placeholder_text)
+    create_swap_element_workspace_edit(drop_info, element, placeholder_text, format)
 }
 
 pub fn create_swap_element_workspace_edit(
     drop_info: &DropInformation,
     element: &common::ElementRcNode,
     placeholder_text: String,
+    format: common::ByteFormat,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = element.component_type();
     let new_text = {
@@ -1240,18 +1261,21 @@ pub fn create_swap_element_workspace_edit(
         node_removal_text_edit(&document_cache, &node, placeholder_text)
     })?;
     if remove_me.url.to_file_path().as_ref().map(|p| p.as_path()) == Ok(source_file.path()) {
-        selection_offset = text_edit::TextOffsetAdjustment::new(&remove_me.edit, &source_file)
-            .adjust(selection_offset);
+        selection_offset =
+            text_edit::TextOffsetAdjustment::new(&remove_me.edit, &source_file, format)
+                .adjust(selection_offset);
     }
     edits.push(remove_me);
 
     if let Some(component_info) = preview::get_component_info(&component_type) {
         let import_file =
             component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
-        if let Some(edit) = completion::create_import_edit(doc, &component_type, &import_file) {
+        if let Some(edit) =
+            completion::create_import_edit(doc, &component_type, &import_file, format)
+        {
             if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
-                selection_offset =
-                    text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
+                selection_offset = text_edit::TextOffsetAdjustment::new(&edit, sf, format)
+                    .adjust(selection_offset);
             }
             edits.push(common::SingleTextEdit::from_path(
                 &document_cache,
@@ -1262,11 +1286,11 @@ pub fn create_swap_element_workspace_edit(
     }
 
     edits.extend(
-        drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
+        drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file, format)
             .drain(..)
             .filter_map(|te| {
                 // Abuse map somewhat...
-                selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file)
+                selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file, format)
                     .adjust(selection_offset);
                 common::SingleTextEdit::from_path(&document_cache, source_file.path(), te)
             }),
@@ -1275,11 +1299,13 @@ pub fn create_swap_element_workspace_edit(
     let start_pos = util::text_size_to_lsp_position(
         &source_file,
         drop_info.insert_info.insertion_position.offset(),
+        format,
     );
     let end_pos = util::text_size_to_lsp_position(
         &source_file,
         drop_info.insert_info.insertion_position.offset()
             + TextSize::new(drop_info.insert_info.replacement_range),
+        format,
     );
     edits.push(common::SingleTextEdit::from_path(
         &document_cache,
@@ -1320,6 +1346,7 @@ pub fn move_element_to(
         &element,
         instance_index,
         position,
+        document_cache.format,
     )
     .and_then(|(e, d)| {
         (workspace_edit_compiles(document_cache, &e) == preview::CompilationResult::ChangeCompiles)
@@ -1388,6 +1415,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
                 let range = util::text_range_to_lsp_range(
                     source_file,
                     TextRange::new(TextSize::new(*so as u32), TextSize::new(*eo as u32)),
+                    document_cache.format,
                 );
                 common::SingleTextEdit::from_path(
                     &document_cache,

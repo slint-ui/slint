@@ -95,14 +95,24 @@ impl SourceFileInner {
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
-    pub fn line_column(&self, offset: usize) -> (usize, usize) {
+    pub fn line_column(&self, offset: usize, format: ByteFormat) -> (usize, usize) {
+        let adjust_utf16 = |line_begin, col| {
+            if format == ByteFormat::Utf8 {
+                col
+            } else {
+                let Some(source) = &self.source else { return col };
+                source[line_begin..][..col].encode_utf16().count()
+            }
+        };
+
         let line_offsets = self.line_offsets();
         line_offsets.binary_search(&offset).map_or_else(
             |line| {
                 if line == 0 {
-                    (1, offset + 1)
+                    (1, adjust_utf16(0, offset) + 1)
                 } else {
-                    (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x + 1))
+                    let line_begin = *line_offsets.get(line - 1).unwrap_or(&0);
+                    (line + 1, adjust_utf16(line_begin, offset - line_begin) + 1)
                 }
             },
             |line| (line + 2, 1),
@@ -112,22 +122,40 @@ impl SourceFileInner {
     pub fn text_size_to_file_line_column(
         &self,
         size: TextSize,
+        format: ByteFormat,
     ) -> (String, usize, usize, usize, usize) {
         let file_name = self.path().to_string_lossy().to_string();
-        let (start_line, start_column) = self.line_column(size.into());
+        let (start_line, start_column) = self.line_column(size.into(), format);
         (file_name, start_line, start_column, start_line, start_column)
     }
 
     /// Returns the offset that corresponds to the line/column
-    pub fn offset(&self, line: usize, column: usize) -> usize {
+    pub fn offset(&self, line: usize, column: usize, format: ByteFormat) -> usize {
+        let adjust_utf16 = |line_begin, col| {
+            if format == ByteFormat::Utf8 {
+                col
+            } else {
+                let Some(source) = &self.source else { return col };
+                let mut utf16_counter = 0;
+                for (utf8_index, c) in source[line_begin..].char_indices() {
+                    if utf16_counter >= col {
+                        return utf8_index;
+                    }
+                    utf16_counter += c.len_utf16();
+                }
+                col
+            }
+        };
+
         let col_offset = column.saturating_sub(1);
         if line <= 1 {
             // line == 0 is actually invalid!
-            return col_offset;
+            return adjust_utf16(0, col_offset);
         }
         let offsets = self.line_offsets();
         let index = std::cmp::min(line.saturating_sub(1), offsets.len());
-        offsets.get(index.saturating_sub(1)).unwrap_or(&0).saturating_add(col_offset)
+        let line_offset = *offsets.get(index.saturating_sub(1)).unwrap_or(&0);
+        line_offset.saturating_add(adjust_utf16(line_offset, col_offset))
     }
 
     fn line_offsets(&self) -> &[usize] {
@@ -149,6 +177,13 @@ impl SourceFileInner {
     pub fn source(&self) -> Option<&str> {
         self.source.as_deref()
     }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+/// When converting between line/columns to offset, specify if the format of the column is UTF-8 or UTF-16
+pub enum ByteFormat {
+    Utf8,
+    Utf16,
 }
 
 pub type SourceFile = Rc<SourceFileInner>;
@@ -268,7 +303,7 @@ impl Diagnostic {
 
         match &self.span.source_file {
             None => (0, 0),
-            Some(sl) => sl.line_column(offset),
+            Some(sl) => sl.line_column(offset, ByteFormat::Utf8),
         }
     }
 
@@ -287,6 +322,14 @@ impl std::fmt::Display for Diagnostic {
             write!(f, "{}", self.message)
         }
     }
+}
+
+pub fn diagnostic_line_column_with_format(
+    diagnostic: &Diagnostic,
+    format: ByteFormat,
+) -> (usize, usize) {
+    let Some(sf) = &diagnostic.span.source_file else { return (0, 0) };
+    sf.line_column(diagnostic.span.span.offset, format)
 }
 
 #[derive(Default)]
@@ -586,8 +629,8 @@ component MainWindow inherits Window {
         for offset in 0..content.len() {
             let b = *content.as_bytes().get(offset).unwrap();
 
-            assert_eq!(sf.offset(line, column), offset);
-            assert_eq!(sf.line_column(offset), (line, column));
+            assert_eq!(sf.offset(line, column, ByteFormat::Utf8), offset);
+            assert_eq!(sf.line_column(offset, ByteFormat::Utf8), (line, column));
 
             if b == b'\n' {
                 line += 1;

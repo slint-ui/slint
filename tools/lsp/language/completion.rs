@@ -857,6 +857,7 @@ fn add_components_to_import(
 /// correct location to enter more components into the existing import statement.
 fn find_import_locations(
     document: &syntax_nodes::Document,
+    format: common::ByteFormat,
 ) -> (Position, HashMap<String, Position>) {
     let mut import_locations = HashMap::new();
     let mut last = 0u32;
@@ -865,7 +866,7 @@ fn find_import_locations(
             let node = list.ImportIdentifier().last()?;
             let id = crate::util::last_non_ws_token(&node).or_else(|| node.first_token())?;
             Some((
-                text_size_to_lsp_position(id.source_file()?, id.text_range().end()),
+                text_size_to_lsp_position(id.source_file()?, id.text_range().end(), format),
                 import.child_token(SyntaxKind::StringLiteral)?,
             ))
         }) {
@@ -908,9 +909,12 @@ fn find_import_locations(
                 }
             }
         }
-        text_size_to_lsp_position(&document.source_file, offset.unwrap_or_default())
+        text_size_to_lsp_position(&document.source_file, offset.unwrap_or_default(), format)
     } else {
-        Position::new(text_size_to_lsp_position(&document.source_file, last.into()).line + 1, 0)
+        Position::new(
+            text_size_to_lsp_position(&document.source_file, last.into(), format).line + 1,
+            0,
+        )
     };
 
     (new_import_position, import_locations)
@@ -939,6 +943,7 @@ pub fn create_import_edit(
     document: &i_slint_compiler::object_tree::Document,
     component: &str,
     import_path: &Option<String>,
+    format: common::ByteFormat,
 ) -> Option<TextEdit> {
     let import_path = import_path.as_ref()?;
     let doc_node = document.node.as_ref().unwrap();
@@ -946,7 +951,8 @@ pub fn create_import_edit(
     if document.local_registry.lookup_element(component).is_ok() {
         None // already known, no import needed
     } else {
-        let (missing_import_location, known_import_locations) = find_import_locations(doc_node);
+        let (missing_import_location, known_import_locations) =
+            find_import_locations(doc_node, format);
 
         Some(create_import_edit_impl(
             component,
@@ -973,7 +979,8 @@ pub fn build_import_statements_edits(
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
     let current_doc =
         document_cache.get_document_for_source_file(&token.source_file)?.node.as_ref()?;
-    let (missing_import_location, known_import_locations) = find_import_locations(current_doc);
+    let (missing_import_location, known_import_locations) =
+        find_import_locations(current_doc, document_cache.format);
 
     let exports = {
         let mut tmp = Vec::new();
