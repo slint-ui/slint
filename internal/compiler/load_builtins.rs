@@ -13,7 +13,7 @@ use std::rc::Rc;
 use crate::expression_tree::Expression;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, DefaultSizeBinding, ElementType,
-    Function, NativeClass, Type,
+    Function, NativeClass, NativePrivateType, NativeType, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -140,7 +140,8 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 }
             })
             .collect();
-        n.cpp_type = parse_annotation("cpp_type", &e).map(|x| x.unwrap());
+        n.native_type = parse_annotation("native_type", &e)
+            .map(|x| NativeType::Private(x.unwrap().parse::<NativePrivateType>().unwrap()));
         enum Base {
             None,
             Global,

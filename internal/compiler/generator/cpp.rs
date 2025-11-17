@@ -458,7 +458,10 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
-use crate::langtype::{Enumeration, EnumerationValue, NativeClass, Type};
+use crate::langtype::{
+    Enumeration, EnumerationValue, NativeClass, NativePrivateType, NativePublicType, NativeType,
+    StructName, Type,
+};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
@@ -488,6 +491,47 @@ struct CppGeneratorContext<'a> {
 
 type EvaluationContext<'a> = llr_EvaluationContext<'a, CppGeneratorContext<'a>>;
 
+impl CppType for StructName {
+    fn cpp_type(&self) -> Option<SmolStr> {
+        match self {
+            StructName::None => return None,
+            StructName::User(user_struct) => Some(ident(user_struct)),
+            StructName::Native(native) => native.cpp_type(),
+        }
+    }
+}
+
+impl CppType for NativeType {
+    fn cpp_type(&self) -> Option<SmolStr> {
+        match self {
+            NativeType::Private(native_private_type) => native_private_type.cpp_type(),
+            NativeType::Public(native_public_type) => native_public_type.cpp_type(),
+        }
+    }
+}
+
+impl CppType for NativePrivateType {
+    fn cpp_type(&self) -> Option<SmolStr> {
+        let name: &'static str = self.into();
+        match self {
+            NativePrivateType::PathMoveTo
+            | NativePrivateType::PathLineTo
+            | NativePrivateType::PathArcTo
+            | NativePrivateType::PathCubicTo
+            | NativePrivateType::PathQuadraticTo
+            | NativePrivateType::PathClose => Some(format_smolstr!("slint::private_api::{}", name)),
+            _ => Some(format_smolstr!("slint::cbindgen_private::{}", name)),
+        }
+    }
+}
+
+impl CppType for NativePublicType {
+    fn cpp_type(&self) -> Option<SmolStr> {
+        let name: &'static str = self.into();
+        Some(format_smolstr!("slint::{}", name))
+    }
+}
+
 impl CppType for Type {
     fn cpp_type(&self) -> Option<SmolStr> {
         match self {
@@ -503,20 +547,11 @@ impl CppType for Type {
             Type::Rem => Some("float".into()),
             Type::Percent => Some("float".into()),
             Type::Bool => Some("bool".into()),
-            Type::Struct(s) => match (&s.name, &s.node) {
-                (Some(name), Some(_)) => Some(ident(name)),
-                (Some(name), None) => Some(if name.starts_with("slint::") {
-                    name.clone()
-                } else {
-                    format_smolstr!("slint::cbindgen_private::{}", ident(name))
-                }),
-                _ => {
-                    let elem =
-                        s.fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+            Type::Struct(s) => s.name.cpp_type().or_else(|| {
+                let elem = s.fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
 
-                    Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
-                }
-            },
+                Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
+            }),
             Type::Array(i) => {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
@@ -887,12 +922,7 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
     for ty in used_types {
         match ty {
             Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                generate_struct(
-                    &mut file,
-                    s.name.as_ref().unwrap(),
-                    &s.fields,
-                    s.node.as_ref().unwrap(),
-                );
+                generate_struct(&mut file, &s.name, &s.fields, s.node.as_ref().unwrap());
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -1129,11 +1159,11 @@ fn embed_resource(
 
 fn generate_struct(
     file: &mut File,
-    name: &str,
+    name: &StructName,
     fields: &BTreeMap<SmolStr, Type>,
     node: &syntax_nodes::ObjectType,
 ) {
-    let name = ident(name);
+    let name = name.cpp_type().expect("internal error: Cannot generate anonymous struct");
     let mut members = node
         .ObjectTypeMember()
         .map(|n| crate::parser::identifier_text(&n).unwrap())
@@ -3252,7 +3282,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         "cast of struct with deferent fields should be handled before llr"
                     );
                     match (&lhs.name, &rhs.name) {
-                        (None, Some(_)) => {
+                        (StructName::None, targetstruct) if targetstruct.is_some() => {
                             // Convert from an anonymous struct to a named one
                             format!(
                                 "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
@@ -3266,7 +3296,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                 obj = f,
                             )
                         }
-                        (Some(_), None) => {
+                        (sourcestruct, StructName::None) if sourcestruct.is_some() => {
                             // Convert from a named struct to an anonymous one
                             format!(
                                 "[&](const auto &o){{ return std::make_tuple({}); }}({f})",
@@ -3288,7 +3318,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                 let (field_count, qualified_elem_type_name) =
                                     match path_elem_expr.ty(ctx) {
                                         Type::Struct(s) if s.name.is_some() => {
-                                            (s.fields.len(), s.name.as_ref().unwrap().clone())
+                                            (s.fields.len(), s.name.cpp_type().unwrap().clone())
                                         }
                                         _ => unreachable!(),
                                     };
@@ -4311,21 +4341,21 @@ pub fn generate_type_aliases(file: &mut File, doc: &Document) {
         .iter()
         .filter_map(|export| match &export.1 {
             Either::Left(component) if !component.is_global() => {
-                Some((&export.0.name, &component.id))
+                Some((&export.0.name, component.id.clone()))
             }
             Either::Right(ty) => match &ty {
                 Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                    Some((&export.0.name, s.name.as_ref().unwrap()))
+                    Some((&export.0.name, s.name.cpp_type().unwrap()))
                 }
-                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
+                Type::Enumeration(en) => Some((&export.0.name, en.name.clone())),
                 _ => None,
             },
             _ => None,
         })
-        .filter(|(export_name, type_name)| export_name != type_name)
+        .filter(|(export_name, type_name)| *export_name != type_name)
         .map(|(export_name, type_name)| {
             Declaration::TypeAlias(TypeAlias {
-                old_name: ident(type_name),
+                old_name: ident(&type_name),
                 new_name: ident(export_name),
             })
         });

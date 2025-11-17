@@ -115,7 +115,7 @@ impl JsComponentCompiler {
         fn convert_type(env: &Env, ty: &Type) -> Option<(String, JsUnknown)> {
             match ty {
                 Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                    let name = s.name.as_ref().unwrap();
+                    let name = s.name.slint_name().unwrap();
                     let struct_instance = to_js_unknown(
                         env,
                         &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(

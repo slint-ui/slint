@@ -195,7 +195,7 @@ impl CompilationResult {
                         ));
 
                     structs.insert(
-                        s.name.as_ref().unwrap().to_string(),
+                        s.name.slint_name().unwrap().to_string(),
                         struct_instance.into_bound_py_any(py).unwrap(),
                     );
                 }

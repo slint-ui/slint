@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
-use crate::langtype::{Struct, Type};
+use crate::langtype::{Struct, StructName, Type};
 
 pub fn remove_return(doc: &crate::object_tree::Document) {
     doc.visit_all_used_components(|component| {
@@ -493,7 +493,12 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     codeblock_with_expr(
         voids,
         Expression::Struct {
-            ty: Rc::new(Struct { fields, name: None, node: None, rust_attributes: None }),
+            ty: Rc::new(Struct {
+                fields,
+                name: StructName::None,
+                node: None,
+                rust_attributes: None,
+            }),
             values,
         },
     )
