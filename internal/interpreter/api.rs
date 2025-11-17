@@ -19,11 +19,11 @@ use std::rc::Rc;
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 pub use i_slint_core::api::{
-    self, ComponentHandle, EventLoopError, Global, JoinHandle, PlatformError, SharedString, Weak,
-    Window,
+    ComponentHandle, EventLoopError, Global, JoinHandle, PlatformError, SharedString, Weak, Window,
 };
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_backend_selector::api::*;
+use i_slint_core::api;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
@@ -53,6 +53,7 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
+    /// Correspond to `styled-text` type in .slint.
     StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
@@ -78,6 +79,7 @@ impl From<LangType> for ValueType {
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
             LangType::Image => Self::Image,
+            LangType::StyledText => Self::StyledText,
             _ => Self::Other,
         }
     }
@@ -131,6 +133,7 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
+    /// Correspond to the `styled-text` type in .slint
     StyledText(api::StyledText) = 13,
 }
 

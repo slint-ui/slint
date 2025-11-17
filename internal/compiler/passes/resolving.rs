@@ -876,7 +876,7 @@ impl Expression {
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                expr.unwrap_or_else(|| Expression::default_value_for_type(&Type::String)),
+                expr.unwrap_or_else(|| Expression::default_value_for_type(&Type::String))
             ],
             source_location: Some(node.to_source_location()),
         }
