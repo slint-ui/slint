@@ -30,10 +30,14 @@ pub async fn lower_tabwidget(
         .import_component("std-widgets.slint", "TabImpl", &mut build_diags_to_ignore)
         .await
         .expect("can't load TabImpl from std-widgets.slint");
-    let tabbar_impl = type_loader
-        .import_component("std-widgets.slint", "TabBarImpl", &mut build_diags_to_ignore)
+    let tabbar_horizontal_impl = type_loader
+        .import_component("std-widgets.slint", "TabBarHorizontalImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabBarImpl from std-widgets.slint");
+        .expect("can't load TabBarHorizontalImpl from std-widgets.slint");
+    let tabbar_vertical_impl = type_loader
+        .import_component("std-widgets.slint", "TabBarVerticalImpl", &mut build_diags_to_ignore)
+        .await
+        .expect("can't load TabBarVerticalImpl from std-widgets.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
     doc.visit_all_used_components(|component| {
@@ -43,7 +47,8 @@ pub async fn lower_tabwidget(
                     elem,
                     ElementType::Component(tabwidget_impl.clone()),
                     ElementType::Component(tab_impl.clone()),
-                    ElementType::Component(tabbar_impl.clone()),
+                    ElementType::Component(tabbar_horizontal_impl.clone()),
+                    ElementType::Component(tabbar_vertical_impl.clone()),
                     &empty_type,
                     diag,
                 );
@@ -56,7 +61,8 @@ fn process_tabwidget(
     elem: &ElementRc,
     tabwidget_impl: ElementType,
     tab_impl: ElementType,
-    tabbar_impl: ElementType,
+    tabbar_horizontal_impl: ElementType,
+    tabbar_vertical_impl: ElementType,
     empty_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
@@ -175,6 +181,14 @@ fn process_tabwidget(
         tabs.push(Element::make_rc(tab));
     }
 
+    let mut tabbar_impl = tabbar_horizontal_impl;
+    if let Some(orientation) = elem.borrow().bindings.get("orientation") {
+        if let Expression::EnumerationValue(val) = &orientation.borrow().expression {
+            if val.value == 1 {
+                tabbar_impl = tabbar_vertical_impl;
+            }
+        }
+    }
     let tabbar = Element {
         id: format_smolstr!("{}-tabbar", elem.borrow().id),
         base_type: tabbar_impl,
