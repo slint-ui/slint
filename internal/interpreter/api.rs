@@ -271,7 +271,7 @@ macro_rules! declare_value_struct_conversion {
     ($(
         $(#[$struct_attr:meta])*
         struct $Name:ident {
-            @name = $inner_name:literal
+            @name = $inner_name:expr,
             export {
                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
             }
@@ -2092,7 +2092,7 @@ fn lang_type_to_value_type() {
     assert_eq!(
         ValueType::from(LangType::Struct(Rc::new(LangStruct {
             fields: BTreeMap::default(),
-            name: None,
+            name: i_slint_compiler::langtype::StructName::None,
             node: None,
             rust_attributes: None
         }))),

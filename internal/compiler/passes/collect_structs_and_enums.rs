@@ -4,7 +4,7 @@
 //! This pass fills the root component's used_types.structs_and_enums
 
 use crate::expression_tree::Expression;
-use crate::langtype::Type;
+use crate::langtype::{StructName, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
@@ -69,13 +69,7 @@ fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMa
 fn sort_types(hash: &mut BTreeMap<SmolStr, Type>, vec: &mut Vec<Type>, key: &str) {
     let ty = if let Some(ty) = hash.remove(key) { ty } else { return };
     if let Type::Struct(s) = &ty {
-        if let Some(name) = &s.name {
-            if name.contains("::") {
-                // This is a builtin type.
-                // FIXME! there should be a better way to handle builtin struct
-                return;
-            }
-
+        if let StructName::User(_) = &s.name {
             for sub_ty in s.fields.values() {
                 visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, vec, name));
             }
@@ -89,7 +83,7 @@ fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
     match ty {
         Type::Struct(s) => {
             if s.node.is_some() {
-                if let Some(struct_name) = s.name.as_ref() {
+                if let StructName::User(struct_name) = &s.name {
                     visitor(struct_name, ty);
                 }
             }

@@ -5,8 +5,7 @@
 
 use super::GlobalAnalysis;
 use crate::expression_tree::*;
-use crate::langtype::ElementType;
-use crate::langtype::Type;
+use crate::langtype::{ElementType, NativePrivateType, NativeType, StructName, Type};
 use crate::object_tree::*;
 use smol_str::{ToSmolStr, format_smolstr};
 
@@ -26,7 +25,10 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             if nr.is_constant()
                 && !match nr.ty() {
                     Type::Struct(s) => {
-                        s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo"))
+                        matches!(
+                            s.name,
+                            StructName::Native(NativeType::Private(NativePrivateType::StateInfo))
+                        )
                     }
                     _ => false,
                 }

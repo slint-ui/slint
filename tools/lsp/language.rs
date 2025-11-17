@@ -1262,7 +1262,7 @@ fn get_document_symbols(
                 &s.node.as_ref().unwrap().parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
                 document_cache.format,
             ),
-            name: s.name.as_ref().unwrap().to_string(),
+            name: s.name.slint_name().unwrap().to_string(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
         }),

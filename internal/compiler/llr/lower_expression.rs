@@ -11,7 +11,7 @@ use smol_str::{SmolStr, format_smolstr};
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
-use crate::langtype::{EnumerationValue, Struct, Type};
+use crate::langtype::{EnumerationValue, NativePrivateType, NativeType, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
@@ -526,7 +526,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     fn animation_ty() -> Rc<Struct> {
         Rc::new(Struct {
             fields: animation_fields().collect(),
-            name: Some("slint::private_api::PropertyAnimation".into()),
+            name: StructName::Native(NativeType::Private(NativePrivateType::PropertyAnimation)),
             node: None,
             rust_attributes: None,
         })
@@ -564,7 +564,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                         (SmolStr::new_static("1"), Type::Invalid),
                     ])
                     .collect(),
-                    name: None,
+                    name: StructName::None,
                     node: None,
                     rust_attributes: None,
                 }),
@@ -671,7 +671,7 @@ fn solve_layout(
                     llr_Expression::ExtraBuiltinFunctionCall {
                         function: "solve_grid_layout".into(),
                         arguments: vec![make_struct(
-                            "GridLayoutData",
+                            NativeType::Private(NativePrivateType::GridLayoutData),
                             [
                                 ("size", Type::Float32, size),
                                 ("spacing", Type::Float32, spacing),
@@ -693,7 +693,7 @@ fn solve_layout(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_grid_layout".into(),
                     arguments: vec![make_struct(
-                        "GridLayoutData",
+                        NativeType::Private(NativePrivateType::GridLayoutData),
                         [
                             ("size", Type::Float32, size),
                             ("spacing", Type::Float32, spacing),
@@ -710,7 +710,7 @@ fn solve_layout(
             let bld = box_layout_data(layout, o, ctx);
             let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
             let data = make_struct(
-                "BoxLayoutData",
+                NativeType::Private(NativePrivateType::BoxLayoutData),
                 [
                     ("size", Type::Float32, size),
                     ("spacing", Type::Float32, spacing),
@@ -796,7 +796,7 @@ fn box_layout_data(
                     let layout_info =
                         get_layout_info(&li.element, ctx, &li.constraints, orientation);
                     make_struct(
-                        "BoxLayoutCellData",
+                        NativeType::Private(NativePrivateType::BoxLayoutCellData),
                         [(
                             "constraint",
                             crate::typeregister::layout_info_type().into(),
@@ -823,7 +823,7 @@ fn box_layout_data(
                 let layout_info =
                     get_layout_info(&item.element, ctx, &item.constraints, orientation);
                 elements.push(Either::Left(make_struct(
-                    "BoxLayoutCellData",
+                    NativeType::Private(NativePrivateType::BoxLayoutCellData),
                     [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
                 )));
             }
@@ -852,7 +852,7 @@ fn grid_layout_cell_data(
                     get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation);
 
                 make_struct(
-                    "GridLayoutCellData",
+                    NativeType::Private(NativePrivateType::GridLayoutCellData),
                     [
                         ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
@@ -873,7 +873,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
             (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type().into()),
         ])
         .collect(),
-        name: Some("GridLayoutCellData".into()),
+        name: StructName::Native(NativeType::Private(NativePrivateType::GridLayoutCellData)),
         node: None,
         rust_attributes: None,
     }))
@@ -895,7 +895,7 @@ fn generate_layout_padding_and_spacing(
     let (begin, end) = layout_geometry.padding.begin_end(orientation);
 
     let padding = make_struct(
-        "Padding",
+        NativeType::Private(NativePrivateType::Padding),
         [("begin", Type::Float32, padding_prop(begin)), ("end", Type::Float32, padding_prop(end))],
     );
 
@@ -989,7 +989,14 @@ fn compile_path(
                             .iter()
                             .map(|(k, v)| (k.clone(), v.ty.clone()))
                             .collect(),
-                        name: element.element_type.native_class.cpp_type.clone(),
+                        name: StructName::Native(
+                            element
+                                .element_type
+                                .native_class
+                                .native_type
+                                .clone()
+                                .expect("Unknown path element encountered"),
+                        ),
                         node: None,
                         rust_attributes: None,
                     });
@@ -1041,7 +1048,7 @@ fn compile_path(
                             (SmolStr::new_static("points"), Type::Array(point_type.clone().into())),
                         ])
                         .collect(),
-                        name: None,
+                        name: StructName::None,
                         node: None,
                         rust_attributes: None,
                     }),
@@ -1077,7 +1084,7 @@ fn compile_path(
 }
 
 pub fn make_struct(
-    name: &str,
+    name: NativeType,
     it: impl IntoIterator<Item = (&'static str, Type, llr_Expression)>,
 ) -> llr_Expression {
     let mut fields = BTreeMap::<SmolStr, Type>::new();
@@ -1090,7 +1097,7 @@ pub fn make_struct(
     llr_Expression::Struct {
         ty: Rc::new(Struct {
             fields,
-            name: Some(format_smolstr!("slint::private_api::{name}")),
+            name: StructName::Native(name),
             node: None,
             rust_attributes: None,
         }),

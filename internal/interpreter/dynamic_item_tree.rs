@@ -7,7 +7,7 @@ use crate::{dynamic_type, eval};
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{NativePrivateType, NativeType, StructName, Type};
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
@@ -951,7 +951,11 @@ pub async fn load(
             }
             Either::Right(ty) => match &ty {
                 Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                    Some((&export.0.name, s.name.as_ref().unwrap()))
+                    if let StructName::User(user_name) = &s.name {
+                        Some((&export.0.name, user_name))
+                    } else {
+                        None
+                    }
                 }
                 Type::Enumeration(en) => Some((&export.0.name, &en.name)),
                 _ => None,
@@ -1227,7 +1231,10 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Bool => property_info::<bool>(),
             Type::ComponentFactory => property_info::<ComponentFactory>(),
             Type::Struct(s)
-                if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")) =>
+                if matches!(
+                    s.name,
+                    StructName::Native(NativeType::Private(NativePrivateType::StateInfo))
+                ) =>
             {
                 property_info::<i_slint_core::properties::StateInfo>()
             }
@@ -1629,7 +1636,7 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 description.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let is_state_info = matches!(&property_type, Type::Struct (s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")));
+                let is_state_info = matches!(&property_type, Type::Struct (s) if matches!(s.name, StructName::Native(NativeType::Private(NativePrivateType::StateInfo))));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)

@@ -630,6 +630,92 @@ impl Default for ElementType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+pub enum NativePrivateType {
+    PathMoveTo,
+    PathLineTo,
+    PathArcTo,
+    PathCubicTo,
+    PathQuadraticTo,
+    PathClose,
+    Size,
+    StateInfo,
+    Point,
+    PropertyAnimation,
+    GridLayoutCellData,
+    GridLayoutData,
+    BoxLayoutData,
+    BoxLayoutCellData,
+    Padding,
+    LayoutInfo,
+    FontMetrics,
+    PathElement,
+    KeyboardModifiers,
+    PointerEvent,
+    PointerScrollEvent,
+    KeyEvent,
+    DropEvent,
+    TableColumn,
+    MenuEntry,
+}
+
+impl NativePrivateType {
+    pub fn is_layout_data(&self) -> bool {
+        matches!(self, NativePrivateType::GridLayoutData | NativePrivateType::BoxLayoutData)
+    }
+    pub fn slint_name(&self) -> Option<SmolStr> {
+        match self {
+            // These are public types in the Slint language
+            NativePrivateType::Point
+            | NativePrivateType::FontMetrics
+            | NativePrivateType::TableColumn
+            | NativePrivateType::MenuEntry
+            | NativePrivateType::KeyEvent
+            | NativePrivateType::KeyboardModifiers
+            | NativePrivateType::PointerEvent
+            | NativePrivateType::PointerScrollEvent => {
+                let name: &'static str = self.into();
+                Some(SmolStr::new_static(name))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
+pub enum NativePublicType {
+    Color,
+    LogicalPosition,
+    StandardListViewItem,
+}
+
+impl NativePublicType {
+    pub fn slint_name(&self) -> Option<SmolStr> {
+        match self {
+            NativePublicType::Color => Some(SmolStr::new_static("color")),
+            NativePublicType::LogicalPosition => Some(SmolStr::new_static("Point")),
+            NativePublicType::StandardListViewItem => {
+                Some(SmolStr::new_static("StandardListViewItem"))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NativeType {
+    Private(NativePrivateType),
+    Public(NativePublicType),
+}
+
+impl NativeType {
+    pub fn slint_name(&self) -> Option<SmolStr> {
+        match self {
+            NativeType::Private(native_private_type) => native_private_type.slint_name(),
+            NativeType::Public(native_public_type) => native_public_type.slint_name(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
@@ -637,7 +723,9 @@ pub struct NativeClass {
     pub cpp_vtable_getter: String,
     pub properties: HashMap<SmolStr, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
-    pub cpp_type: Option<SmolStr>,
+    /// Type override if class_name is not equal to the name to be used in the
+    /// target language API.
+    pub native_type: Option<NativeType>,
 }
 
 impl NativeClass {
@@ -776,12 +864,43 @@ pub struct Function {
     pub arg_names: Vec<SmolStr>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum StructName {
+    None,
+    /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
+    User(SmolStr),
+    Native(NativeType),
+}
+
+impl StructName {
+    pub fn slint_name(&self) -> Option<SmolStr> {
+        match self {
+            StructName::None => None,
+            StructName::User(name) => Some(name.clone()),
+            StructName::Native(native_type) => native_type.slint_name(),
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    pub fn is_some(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+
+    pub fn or(self, other: Self) -> Self {
+        match self {
+            Self::None => other,
+            this @ _ => this,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
-    /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
-    /// When there is no node, but there is a name, then it is a builtin type
-    pub name: Option<SmolStr>,
+    pub name: StructName,
     /// When declared in .slint, this is the node of the declaration.
     pub node: Option<syntax_nodes::ObjectType>,
     /// derived
@@ -790,13 +909,8 @@ pub struct Struct {
 
 impl Display for Struct {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(name) = &self.name {
-            if let Some(separator_pos) = name.rfind("::") {
-                // write the slint type and not the native type
-                write!(f, "{}", &name[separator_pos + 2..])
-            } else {
-                write!(f, "{name}")
-            }
+        if let Some(name) = &self.name.slint_name() {
+            write!(f, "{name}")
         } else {
             write!(f, "{{ ")?;
             for (k, v) in &self.fields {
