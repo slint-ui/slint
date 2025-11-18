@@ -1253,13 +1253,13 @@ fn get_document_symbols(
         .collect::<Vec<_>>();
 
     r.extend(inner_types.iter().filter_map(|c| match c {
-        Type::Struct(s) if s.node.is_some() => Some(DocumentSymbol {
+        Type::Struct(s) if s.node().is_some() => Some(DocumentSymbol {
             range: util::node_to_lsp_range(
-                s.node.as_ref().unwrap().parent().as_ref()?,
+                s.node().unwrap().parent().as_ref()?,
                 document_cache.format,
             ),
             selection_range: util::node_to_lsp_range(
-                &s.node.as_ref().unwrap().parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
+                &s.node().unwrap().parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
                 document_cache.format,
             ),
             name: s.name.slint_name().unwrap().to_string(),

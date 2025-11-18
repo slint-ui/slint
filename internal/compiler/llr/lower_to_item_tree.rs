@@ -616,7 +616,7 @@ fn lower_geometry(
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
     super::Expression::Struct {
-        ty: Rc::new(Struct { fields, name: StructName::None, node: None, rust_attributes: None }),
+        ty: Rc::new(Struct { fields, name: StructName::None, rust_attributes: None }),
         values,
     }
 }

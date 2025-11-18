@@ -2031,8 +2031,7 @@ pub fn type_struct_from_node(
         .collect();
     Type::Struct(Rc::new(Struct {
         fields,
-        name: name.map_or(StructName::None, StructName::User),
-        node: Some(object_node),
+        name: name.map_or(StructName::None, |name| StructName::User { name, node: object_node }),
         rust_attributes,
     }))
 }

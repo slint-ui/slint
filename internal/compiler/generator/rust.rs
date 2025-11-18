@@ -280,15 +280,16 @@ pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct {
-                    fields,
-                    name: StructName::User(user_name),
-                    node: Some(_),
-                    rust_attributes,
-                } => Some((
-                    ident(user_name),
-                    generate_struct(&StructName::User(user_name.clone()), fields, rust_attributes),
-                )),
+                Struct { fields, name: StructName::User { name, node }, rust_attributes } => {
+                    Some((
+                        ident(name),
+                        generate_struct(
+                            &StructName::User { name: name.clone(), node: node.clone() },
+                            fields,
+                            rust_attributes,
+                        ),
+                    ))
+                }
                 _ => None,
             },
             Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
@@ -3407,7 +3408,7 @@ fn compile_builtin_function_call(
 fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> {
     match name {
         StructName::None => None,
-        StructName::User(name) => Some(proc_macro2::TokenTree::from(ident(name)).into()),
+        StructName::User { name, .. } => Some(proc_macro2::TokenTree::from(ident(name)).into()),
         StructName::Native(native_type) => match native_type {
             crate::langtype::NativeType::Private(native_private_type) => {
                 let name: &'static str = native_private_type.into();
@@ -3645,9 +3646,9 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
                 }
             }
             Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.node.is_some() => {
-                    if let StructName::User(user_name) = &s.name
-                        && *user_name == export.0.name
+                Type::Struct(s) if s.node().is_some() => {
+                    if let StructName::User { name, .. } = &s.name
+                        && *name == export.0.name
                     {
                         None
                     } else {

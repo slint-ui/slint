@@ -864,19 +864,36 @@ pub struct Function {
     pub arg_names: Vec<SmolStr>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum StructName {
     None,
     /// When declared in .slint as  `struct Foo { }`, then the name is "Foo"
-    User(SmolStr),
+    User {
+        name: SmolStr,
+        /// When declared in .slint, this is the node of the declaration.
+        node: syntax_nodes::ObjectType,
+    },
     Native(NativeType),
+}
+
+impl PartialEq for StructName {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::User { name: l_user_name, node: _ },
+                Self::User { name: r_user_name, node: _ },
+            ) => l_user_name == r_user_name,
+            (Self::Native(l0), Self::Native(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl StructName {
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {
             StructName::None => None,
-            StructName::User(name) => Some(name.clone()),
+            StructName::User { name, .. } => Some(name.clone()),
             StructName::Native(native_type) => native_type.slint_name(),
         }
     }
@@ -913,10 +930,17 @@ impl From<NativePublicType> for StructName {
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
     pub name: StructName,
-    /// When declared in .slint, this is the node of the declaration.
-    pub node: Option<syntax_nodes::ObjectType>,
     /// derived
     pub rust_attributes: Option<Vec<SmolStr>>,
+}
+
+impl Struct {
+    pub fn node(&self) -> Option<&syntax_nodes::ObjectType> {
+        match &self.name {
+            StructName::User { node, .. } => Some(node),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Struct {
