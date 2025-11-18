@@ -690,7 +690,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     self.scale_factor,
                 );
 
-                self.canvas.borrow_mut().fill_path(&layer_path, &layer_image_paint);
+                self.canvas.borrow_mut().save_with(|canvas| {
+                    canvas.translate(layer_origin.x, layer_origin.y);
+                    canvas.fill_path(&layer_path, &layer_image_paint);
+                });
             }
 
             RenderingResult::ContinueRenderingWithoutChildren
