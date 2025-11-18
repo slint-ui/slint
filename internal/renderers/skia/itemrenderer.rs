@@ -39,6 +39,7 @@ pub struct SkiaItemRenderer<'a> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
+    layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
 }
@@ -49,6 +50,7 @@ impl<'a> SkiaItemRenderer<'a> {
         window: &'a i_slint_core::api::Window,
         surface: Option<&'a dyn crate::Surface>,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
+        layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
@@ -60,6 +62,7 @@ impl<'a> SkiaItemRenderer<'a> {
             state_stack: vec![],
             current_state: RenderState { alpha: 1.0, translation: Default::default() },
             image_cache,
+            layer_cache,
             path_cache,
             box_shadow_cache,
         }
@@ -321,7 +324,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {
         let current_clip = self.get_current_clip();
-        if let Some(layer_image) = self.render_layer(item_rc, &|| {
+        if let Some((layer_offset, layer_image)) = self.render_layer(item_rc, &|| {
             // We don't need to include the size of the "layer" item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                 item_rc.geometry().union(
@@ -332,9 +335,10 @@ impl<'a> SkiaItemRenderer<'a> {
                     ),
                 )
             });
-            children_rect.size_length()
+            children_rect
         }) {
             let _saved_canvas = self.pixel_align_origin();
+            self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
             self.canvas.draw_image_with_sampling_options(
                 layer_image,
                 skia_safe::Point::default(),
@@ -348,10 +352,12 @@ impl<'a> SkiaItemRenderer<'a> {
     fn render_layer(
         &mut self,
         item_rc: &ItemRc,
-        layer_logical_size_fn: &dyn Fn() -> LogicalSize,
-    ) -> Option<skia_safe::Image> {
-        self.image_cache.get_or_update_cache_entry(item_rc, || {
-            let layer_size = layer_logical_size_fn() * self.scale_factor;
+        layer_bounding_rect_fn: &dyn Fn() -> LogicalRect,
+    ) -> Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)> {
+        self.layer_cache.get_or_update_cache_entry(item_rc, || {
+            let bounding_rect = layer_bounding_rect_fn();
+            let physical_origin = bounding_rect.origin * self.scale_factor;
+            let layer_size = bounding_rect.size * self.scale_factor;
 
             let image_info = skia_safe::ImageInfo::new(
                 to_skia_size(&layer_size).to_ceil(),
@@ -368,9 +374,11 @@ impl<'a> SkiaItemRenderer<'a> {
                 self.window,
                 self.surface,
                 self.image_cache,
+                self.layer_cache,
                 self.path_cache,
                 self.box_shadow_cache,
             );
+            sub_renderer.translate(-bounding_rect.origin.to_vector());
 
             i_slint_core::item_rendering::render_item_children(
                 &mut sub_renderer,
@@ -379,7 +387,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 &WindowInner::from_pub(self.window).window_adapter(),
             );
 
-            Some(surface.image_snapshot())
+            Some((physical_origin.to_vector(), surface.image_snapshot()))
         })
     }
 
