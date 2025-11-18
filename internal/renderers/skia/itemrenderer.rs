@@ -326,16 +326,13 @@ impl<'a> SkiaItemRenderer<'a> {
         let current_clip = self.get_current_clip();
         if let Some((layer_offset, layer_image)) = self.render_layer(item_rc, &|| {
             // We don't need to include the size of the "layer" item itself, since it has no content.
-            let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                item_rc.geometry().union(
-                    &i_slint_core::item_rendering::item_children_bounding_rect(
-                        item_rc.item_tree(),
-                        item_rc.index() as isize,
-                        &current_clip,
-                    ),
+            i_slint_core::properties::evaluate_no_tracking(|| {
+                i_slint_core::item_rendering::item_children_bounding_rect(
+                    item_rc.item_tree(),
+                    item_rc.index() as isize,
+                    &current_clip,
                 )
-            });
-            children_rect
+            })
         }) {
             let _saved_canvas = self.pixel_align_origin();
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
