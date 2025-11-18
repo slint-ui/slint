@@ -25,7 +25,10 @@ use i_slint_core::api;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
-use i_slint_core::items::{MenuEntry, ItemTreeVTable, FontMetrics,StateInfo,TableColumn,StandardListViewItem,DropEvent,KeyEvent,PointerEvent,PointerScrollEvent,KeyboardModifiers};
+use i_slint_core::items::{
+    DropEvent, FontMetrics, ItemTreeVTable, KeyEvent, KeyboardModifiers, MenuEntry, PointerEvent,
+    PointerScrollEvent, StandardListViewItem, StateInfo, TableColumn,
+};
 
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 
