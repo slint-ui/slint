@@ -468,7 +468,6 @@ use crate::llr::{
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
-use crate::parser::syntax_nodes;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
@@ -922,7 +921,7 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
     for ty in used_types {
         match ty {
             Type::Struct(s) if s.node().is_some() => {
-                generate_struct(&mut file, &s.name, &s.fields, s.node().unwrap());
+                generate_struct(&mut file, &s.name, &s.fields);
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -1157,13 +1156,11 @@ fn embed_resource(
     }
 }
 
-fn generate_struct(
-    file: &mut File,
-    name: &StructName,
-    fields: &BTreeMap<SmolStr, Type>,
-    node: &syntax_nodes::ObjectType,
-) {
-    let name = name.cpp_type().expect("internal error: Cannot generate anonymous struct");
+fn generate_struct(file: &mut File, name: &StructName, fields: &BTreeMap<SmolStr, Type>) {
+    let StructName::User { name: user_name, node } = name else {
+        panic!("internal error: Cannot generate anonymous struct");
+    };
+    let name = ident(user_name);
     let mut members = node
         .ObjectTypeMember()
         .map(|n| crate::parser::identifier_text(&n).unwrap())
