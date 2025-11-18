@@ -42,15 +42,15 @@ pub fn main() {
         });
 
         slint::BackendSelector::new()
-        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual { 
-            instance, 
-            adapter, 
-            device: device.clone(), 
-            queue: queue.clone() 
+        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
+            instance,
+            adapter,
+            device: device.clone(),
+            queue: queue.clone()
         })
         .select()
         .expect("Failed to create Slint backend with WGPU based renderer - ensure your system supports WGPU");
-        
+
         (device, queue)
     };
 
@@ -58,13 +58,13 @@ pub fn main() {
     let app_weak = app.as_weak();
 
     let url = "https://slint.dev";
-    
+
     #[cfg(not(target_os = "android"))]
     let _adapter = init_servo(app_weak.clone(), url.into(), device, queue);
-    
+
     #[cfg(target_os = "android")]
     let _adapter = init_servo(app_weak.clone(), url.into());
-    
+
     app.run().expect("Application failed to run - check for runtime errors");
 }
 
