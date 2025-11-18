@@ -867,7 +867,7 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StructName {
     None,
-    /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
+    /// When declared in .slint as  `struct Foo { }`, then the name is "Foo"
     User(SmolStr),
     Native(NativeType),
 }
