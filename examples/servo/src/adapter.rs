@@ -37,9 +37,9 @@ pub struct SlintServoAdapterInner {
     webview: Option<WebView>,
     rendering_adapter: Option<Box<dyn ServoRenderingAdapter>>,
     #[cfg(not(target_os = "android"))]
-    device: Option<wgpu::Device>,
+    device: wgpu::Device,
     #[cfg(not(target_os = "android"))]
-    queue: Option<wgpu::Queue>,
+    queue: wgpu::Queue,
 }
 
 impl SlintServoAdapter {
@@ -47,10 +47,8 @@ impl SlintServoAdapter {
         app: slint::Weak<MyApp>,
         waker_sender: Sender<()>,
         waker_receiver: Receiver<()>,
-        #[cfg(not(target_os = "android"))]
-        device: wgpu::Device,
-        #[cfg(not(target_os = "android"))]
-        queue: wgpu::Queue,
+        #[cfg(not(target_os = "android"))] device: wgpu::Device,
+        #[cfg(not(target_os = "android"))] queue: wgpu::Queue,
     ) -> Self {
         Self {
             app,
@@ -62,9 +60,9 @@ impl SlintServoAdapter {
                 scale_factor: 1.0,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
-                device: Some(device),
+                device: device,
                 #[cfg(not(target_os = "android"))]
-                queue: Some(queue),
+                queue: queue,
             }),
         }
     }
@@ -95,12 +93,12 @@ impl SlintServoAdapter {
 
     #[cfg(not(target_os = "android"))]
     pub fn wgpu_device(&self) -> wgpu::Device {
-        self.inner().device.as_ref().expect("Device not initialized yet").clone()
+        self.inner().device.clone()
     }
 
     #[cfg(not(target_os = "android"))]
     pub fn wgpu_queue(&self) -> wgpu::Queue {
-        self.inner().queue.as_ref().expect("Queue not initialized yet").clone()
+        self.inner().queue.clone()
     }
 
     pub fn webview(&self) -> WebView {
@@ -120,7 +118,6 @@ impl SlintServoAdapter {
         inner.scale_factor = scale_factor;
         inner.rendering_adapter = Some(rendering_adapter);
     }
-
 
     /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.
     /// This bridges the rendering output from Servo to the Slint display surface.
