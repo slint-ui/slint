@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import test from "ava";
+import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,7 +14,7 @@ import {
     Model,
 } from "../dist/index.js";
 
-test("MapModel notify rowChanged", (t) => {
+test("MapModel notify rowChanged", () => {
     const source = `
     export component App {
 
@@ -60,5 +60,5 @@ test("MapModel notify rowChanged", (t) => {
 
     private_api.send_mouse_click(instance, 5, 5);
 
-    t.is(instance.changed_items, "Goffart, OlivierHausmann, Simon");
+    expect(instance.changed_items).toBe("Goffart, OlivierHausmann, Simon");
 });

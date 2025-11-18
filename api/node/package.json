@@ -65,7 +65,8 @@
     "files": [
       "**/*.spec.mts",
       "!**/window.spec.mts",
-      "!**/types.spec.mts"
+      "!**/types.spec.mts",
+      "!**/models.spec.mts"
     ]
   },
   "dependencies": {
