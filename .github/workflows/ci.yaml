@@ -646,4 +646,3 @@ jobs:
         needs: files-changed
         if: needs.files-changed.outputs.servo_example == 'true'
         uses: ./.github/workflows/servo_example.yaml
-        secrets: inherit
