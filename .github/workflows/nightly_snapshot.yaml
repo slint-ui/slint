@@ -197,7 +197,7 @@ jobs:
               run: brew install gnu-sed
             - uses: actions/setup-node@v6
               with:
-                  node-version: "22.x"
+                  node-version: 22
                   package-manager-cache: false
             - uses: actions/download-artifact@v6
               with:
@@ -275,7 +275,7 @@ jobs:
             - uses: actions/checkout@v5
             - uses: actions/setup-node@v6
               with:
-                node-version: "22.x"
+                node-version: 22
                 package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.2.0

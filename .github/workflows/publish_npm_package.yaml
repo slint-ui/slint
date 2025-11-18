@@ -32,7 +32,7 @@ jobs:
                 version: 10.18.2
             - uses: actions/setup-node@v6
               with:
-                node-version: "22.x"
+                node-version: 22
                 package-manager-cache: false
             - name: Determine version
               id: mkversion
@@ -94,7 +94,7 @@ jobs:
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v6
               with:
-                  node-version: "22.x"
+                  node-version: 22
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
             - uses: pnpm/action-setup@v4.2.0
@@ -159,7 +159,7 @@ jobs:
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v6
               with:
-                  node-version: "22.x"
+                  node-version: 22
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
             - name: Set version
