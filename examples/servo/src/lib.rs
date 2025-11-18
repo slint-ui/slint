@@ -27,18 +27,31 @@ use crate::{
 
 slint::include_modules!();
 
-#[cfg(not(target_os = "android"))]
-use slint::wgpu_27::{WGPUConfiguration, WGPUSettings, wgpu};
-
 pub fn main() {
     let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
     #[cfg(not(target_os = "android"))]
     {
-        let mut wgpu_settings = WGPUSettings::default();
+        use slint::wgpu_27::{WGPUConfiguration, wgpu};
+
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+
+        let adapter = smol::block_on(async {
+            instance
+                .request_adapter(&wgpu::RequestAdapterOptions::default())
+                .await
+                .expect("Failed to find an appropriate WGPU adapter")
+        });
+
+        let (device, queue) = smol::block_on(async {
+            adapter
+                .request_device(&wgpu::DeviceDescriptor::default())
+                .await
+                .expect("Failed to create WGPU device")
+        });
 
         slint::BackendSelector::new()
-        .require_wgpu_27(WGPUConfiguration::Automatic(wgpu_settings))
+        .require_wgpu_27(WGPUConfiguration::Manual { instance, adapter, device, queue })
         .select()
         .expect("Failed to create Slint backend with WGPU based renderer - ensure your system supports WGPU");
     }
