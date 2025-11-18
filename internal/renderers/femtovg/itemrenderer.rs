@@ -22,14 +22,14 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     RectLengths, ScaleFactor,
 };
-use i_slint_core::textlayout::sharedparley::{self, parley, GlyphRenderer};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
 use crate::images::TextureImporter;
 
-use super::images::{Texture, TextureCacheKey};
 use super::PhysicalSize;
-use super::{font_cache, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect};
+use super::images::{Texture, TextureCacheKey};
+use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, font_cache};
 
 type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 

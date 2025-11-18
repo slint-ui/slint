@@ -10,10 +10,11 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontique;
+use i_slint_core::Brush;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::SharedPixelBuffer;
-use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
+use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::{ItemRc, TextWrap};
@@ -22,7 +23,6 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::Brush;
 use images::TextureImporter;
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -491,7 +491,9 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
 
         if let Some(canvas) = self.canvas.borrow_mut().take() {
             if Rc::strong_count(&canvas) != 1 {
-                i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
+                i_slint_core::debug_log!(
+                    "internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked."
+                )
             }
         }
 
