@@ -1253,18 +1253,17 @@ fn get_document_symbols(
         .collect::<Vec<_>>();
 
     r.extend(inner_types.iter().filter_map(|c| match c {
-        Type::Struct(s) if s.node().is_some() => Some(DocumentSymbol {
-            range: util::node_to_lsp_range(
-                s.node().unwrap().parent().as_ref()?,
-                document_cache.format,
-            ),
-            selection_range: util::node_to_lsp_range(
-                &s.node().unwrap().parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
-                document_cache.format,
-            ),
-            name: s.name.slint_name().unwrap().to_string(),
-            kind: lsp_types::SymbolKind::STRUCT,
-            ..ds.clone()
+        Type::Struct(s) => s.node().and_then(|node| {
+            Some(DocumentSymbol {
+                range: util::node_to_lsp_range(node.parent().as_ref()?, document_cache.format),
+                selection_range: util::node_to_lsp_range(
+                    &node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
+                    document_cache.format,
+                ),
+                name: s.name.slint_name().unwrap().to_string(),
+                kind: lsp_types::SymbolKind::STRUCT,
+                ..ds.clone()
+            })
         }),
         Type::Enumeration(enumeration) => enumeration.node.as_ref().map(|node| DocumentSymbol {
             range: util::node_to_lsp_range(node, document_cache.format),
