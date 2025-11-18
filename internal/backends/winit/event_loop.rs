@@ -10,7 +10,7 @@
 use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WindowVisibility;
-use crate::{SharedBackendData, SlintEvent};
+use crate::SharedBackendData;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
 use corelib::items::{ColorScheme, PointerEventButton};
@@ -63,7 +63,6 @@ pub struct EventLoopState {
     // last seen cursor position
     cursor_pos: LogicalPoint,
     pressed: bool,
-    current_touch_id: Option<u64>,
 
     loop_error: Option<PlatformError>,
     current_resize_direction: Option<ResizeDirection>,
@@ -83,7 +82,6 @@ impl EventLoopState {
             shared_backend_data,
             cursor_pos: Default::default(),
             pressed: Default::default(),
-            current_touch_id: Default::default(),
             loop_error: Default::default(),
             current_resize_direction: Default::default(),
             pumping_events_instantly: Default::default(),
@@ -108,12 +106,18 @@ impl EventLoopState {
     }
 }
 
-impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+impl winit::application::ApplicationHandler for EventLoopState {
+    fn resumed(&mut self, event_loop: &dyn ActiveEventLoop) {
+        if let Some(handler) = self.custom_application_handler.as_mut() {
+            handler.resumed(event_loop);
+        }
+    }
+
+    fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
         if matches!(
-            self.custom_application_handler
-                .as_mut()
-                .map_or(EventResult::Propagate, |handler| { handler.resumed(event_loop) }),
+            self.custom_application_handler.as_mut().map_or(EventResult::Propagate, |handler| {
+                handler.can_create_surfaces(event_loop)
+            }),
             EventResult::PreventDefault
         ) {
             return;
@@ -126,7 +130,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn window_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        event_loop: &dyn ActiveEventLoop,
         window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
@@ -179,7 +183,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::RedrawRequested => {
                 self.loop_error = window.draw().err();
             }
-            WindowEvent::Resized(size) => {
+            WindowEvent::SurfaceResized(size) => {
                 self.loop_error = window.resize_event(size).err();
 
                 // Entering fullscreen, maximizing or minimizing the window will
@@ -223,9 +227,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                     match key_code {
                         winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control) => {
-                            winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super)
+                            winit::keyboard::Key::Named(winit::keyboard::NamedKey::Meta)
                         }
-                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super) => {
+                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Meta) => {
                             winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control)
                         }
                         code => code,
@@ -269,7 +273,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                                 use winit::keyboard::{Key::Named, NamedKey as N};
                                 if !matches!(
                                     key_code,
-                                    Named(N::Control | N::Shift | N::Super | N::Alt | N::AltGraph),
+                                    Named(N::Control | N::Shift | N::Meta | N::Alt | N::AltGraph),
                                 ) {
                                     return;
                                 }
@@ -299,9 +303,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
                 runtime_window.process_key_input(event);
             }
-            WindowEvent::CursorMoved { position, .. } => {
+            WindowEvent::PointerMoved { position, source, primary: true, .. } => {
                 self.current_resize_direction = handle_cursor_move_for_resize(
-                    &window.winit_window().unwrap(),
+                    &*window.winit_window().unwrap(),
                     position,
                     self.current_resize_direction,
                     runtime_window
@@ -312,10 +316,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 self.cursor_pos = euclid::point2(position.x, position.y);
                 runtime_window.process_mouse_input(MouseEvent::Moved {
                     position: self.cursor_pos,
-                    is_touch: false,
+                    is_touch: matches!(source, winit::event::PointerSource::Touch { .. }),
                 });
             }
-            WindowEvent::CursorLeft { .. } => {
+            WindowEvent::PointerLeft { primary: true, .. } => {
                 // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
                 if cfg!(target_arch = "wasm32") || !self.pressed {
                     self.pressed = false;
@@ -336,22 +340,30 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     delta_y,
                 });
             }
-            WindowEvent::MouseInput { state, button, .. } => {
+            WindowEvent::PointerButton { state, button, primary: true, .. } => {
+                use winit::event::{ButtonSource as S, MouseButton as B};
+
+                let is_touch = matches!(button, S::Touch { .. });
+
                 let button = match button {
-                    winit::event::MouseButton::Left => PointerEventButton::Left,
-                    winit::event::MouseButton::Right => PointerEventButton::Right,
-                    winit::event::MouseButton::Middle => PointerEventButton::Middle,
-                    winit::event::MouseButton::Back => PointerEventButton::Back,
-                    winit::event::MouseButton::Forward => PointerEventButton::Forward,
-                    winit::event::MouseButton::Other(_) => PointerEventButton::Other,
+                    S::Mouse(B::Left) => PointerEventButton::Left,
+                    S::Mouse(B::Right) => PointerEventButton::Right,
+                    S::Mouse(B::Middle) => PointerEventButton::Middle,
+                    S::Mouse(B::Back) => PointerEventButton::Back,
+                    S::Mouse(B::Forward) => PointerEventButton::Forward,
+                    S::Mouse(_) => PointerEventButton::Other,
+                    S::Touch { .. } => PointerEventButton::Left,
+                    S::TabletTool { .. } => PointerEventButton::Other,
+                    S::Unknown(_) => PointerEventButton::Other,
                 };
+
                 let ev = match state {
                     winit::event::ElementState::Pressed => {
                         if button == PointerEventButton::Left
                             && self.current_resize_direction.is_some()
                         {
                             handle_resize(
-                                &window.winit_window().unwrap(),
+                                &*window.winit_window().unwrap(),
                                 self.current_resize_direction,
                             );
                             return;
@@ -362,7 +374,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                             position: self.cursor_pos,
                             button,
                             click_count: 0,
-                            is_touch: false,
+                            is_touch,
                         }
                     }
                     winit::event::ElementState::Released => {
@@ -371,47 +383,13 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                             position: self.cursor_pos,
                             button,
                             click_count: 0,
-                            is_touch: false,
+                            is_touch,
                         }
                     }
                 };
                 runtime_window.process_mouse_input(ev);
             }
-            WindowEvent::Touch(touch) => {
-                if Some(touch.id) == self.current_touch_id || self.current_touch_id.is_none() {
-                    let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
-                    let position = euclid::point2(location.x, location.y);
-                    let ev = match touch.phase {
-                        winit::event::TouchPhase::Started => {
-                            self.pressed = true;
-                            if self.current_touch_id.is_none() {
-                                self.current_touch_id = Some(touch.id);
-                            }
-                            MouseEvent::Pressed {
-                                position,
-                                button: PointerEventButton::Left,
-                                click_count: 0,
-                                is_touch: true,
-                            }
-                        }
-                        winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                            self.pressed = false;
-                            self.current_touch_id = None;
-                            MouseEvent::Released {
-                                position,
-                                button: PointerEventButton::Left,
-                                click_count: 0,
-                                is_touch: true,
-                            }
-                        }
-                        winit::event::TouchPhase::Moved => {
-                            MouseEvent::Moved { position, is_touch: true }
-                        }
-                    };
-                    runtime_window.process_mouse_input(ev);
-                }
-            }
-            WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
+            WindowEvent::ScaleFactorChanged { scale_factor, surface_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.loop_error = window
                         .window()
@@ -441,52 +419,62 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
-        match event.0 {
-            CustomEvent::UserEvent(user_callback) => user_callback(),
-            CustomEvent::Exit => {
-                self.suspend_all_hidden_windows();
-                event_loop.exit()
+    fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        if let Some(handler) = self.custom_application_handler.as_mut() {
+            if matches!(handler.proxy_wake_up(event_loop), EventResult::PreventDefault) {
+                return;
             }
-            #[cfg(enable_accesskit)]
-            CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
-                if let Some(window) = self.shared_backend_data.window_by_id(window_id) {
-                    let deferred_action = window
-                        .accesskit_adapter()
-                        .expect("internal error: accesskit adapter must exist when window exists")
-                        .borrow_mut()
-                        .process_accesskit_event(window_event);
-                    // access kit adapter not borrowed anymore, now invoke the deferred action
-                    if let Some(deferred_action) = deferred_action {
-                        deferred_action.invoke(window.window());
+        }
+        let events = std::mem::take(&mut *self.shared_backend_data.event_queue.lock().unwrap());
+        for event in events {
+            match event {
+                CustomEvent::UserEvent(user_callback) => user_callback(),
+                CustomEvent::Exit => {
+                    self.suspend_all_hidden_windows();
+                    event_loop.exit()
+                }
+                #[cfg(enable_accesskit)]
+                CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
+                    if let Some(window) = self.shared_backend_data.window_by_id(window_id) {
+                        let deferred_action = window
+                            .accesskit_adapter()
+                            .expect(
+                                "internal error: accesskit adapter must exist when window exists",
+                            )
+                            .borrow_mut()
+                            .process_accesskit_event(window_event);
+                        // access kit adapter not borrowed anymore, now invoke the deferred action
+                        if let Some(deferred_action) = deferred_action {
+                            deferred_action.invoke(window.window());
+                        }
                     }
                 }
-            }
-            #[cfg(target_arch = "wasm32")]
-            CustomEvent::WakeEventLoopWorkaround => {
-                event_loop.set_control_flow(ControlFlow::Poll);
-            }
-            #[cfg(muda)]
-            CustomEvent::Muda(event) => {
-                if let Some((window, eid, muda_type)) =
-                    event.id().0.split_once('|').and_then(|(w, e)| {
-                        let (e, muda_type) = e.split_once('|')?;
-                        Some((
-                            self.shared_backend_data.window_by_id(
-                                winit::window::WindowId::from(w.parse::<u64>().ok()?),
-                            )?,
-                            e.parse::<usize>().ok()?,
-                            muda_type.parse::<crate::muda::MudaType>().ok()?,
-                        ))
-                    })
-                {
-                    window.muda_event(eid, muda_type);
-                };
+                #[cfg(target_arch = "wasm32")]
+                CustomEvent::WakeEventLoopWorkaround => {
+                    event_loop.set_control_flow(ControlFlow::Poll);
+                }
+                #[cfg(muda)]
+                CustomEvent::Muda(event) => {
+                    if let Some((window, eid, muda_type)) =
+                        event.id().0.split_once('|').and_then(|(w, e)| {
+                            let (e, muda_type) = e.split_once('|')?;
+                            Some((
+                                self.shared_backend_data.window_by_id(
+                                    winit::window::WindowId::from(w.parse::<u64>().ok()?),
+                                )?,
+                                e.parse::<usize>().ok()?,
+                                muda_type.parse::<crate::muda::MudaType>().ok()?,
+                            ))
+                        })
+                    {
+                        window.muda_event(eid, muda_type);
+                    };
+                }
             }
         }
     }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+    fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, cause: winit::event::StartCause) {
         if matches!(
             self.custom_application_handler.as_mut().map_or(EventResult::Propagate, |handler| {
                 handler.new_events(event_loop, cause)
@@ -501,7 +489,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         corelib::platform::update_timers_and_animations();
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
         if matches!(
             self.custom_application_handler
                 .as_mut()
@@ -542,8 +530,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn device_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
-        device_id: winit::event::DeviceId,
+        event_loop: &dyn ActiveEventLoop,
+        device_id: Option<winit::event::DeviceId>,
         event: winit::event::DeviceEvent,
     ) {
         if let Some(handler) = self.custom_application_handler.as_mut() {
@@ -551,19 +539,19 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
     }
 
-    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+    fn suspended(&mut self, event_loop: &dyn ActiveEventLoop) {
         if let Some(handler) = self.custom_application_handler.as_mut() {
             handler.suspended(event_loop);
         }
     }
 
-    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+    fn destroy_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
         if let Some(handler) = self.custom_application_handler.as_mut() {
-            handler.exiting(event_loop);
+            handler.destroy_surfaces(event_loop);
         }
     }
 
-    fn memory_warning(&mut self, event_loop: &ActiveEventLoop) {
+    fn memory_warning(&mut self, event_loop: &dyn ActiveEventLoop) {
         if let Some(handler) = self.custom_application_handler.as_mut() {
             handler.memory_warning(event_loop);
         }
@@ -590,9 +578,7 @@ impl EventLoopState {
                 // This can't really happen, as run() doesn't return
                 Ok(Self::new(self.shared_backend_data.clone(), None))
             } else {
-                use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
-                winit_loop
-                    .run_app_on_demand(&mut self)
+                winit::event_loop::run_on_demand::EventLoopExtRunOnDemand::run_app_on_demand(&mut winit_loop, &mut self)
                     .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
                 // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
@@ -613,9 +599,9 @@ impl EventLoopState {
     pub fn pump_events(
         mut self,
         timeout: Option<std::time::Duration>,
-    ) -> Result<(Self, winit::platform::pump_events::PumpStatus), corelib::platform::PlatformError>
+    ) -> Result<(Self, winit::event_loop::pump_events::PumpStatus), corelib::platform::PlatformError>
     {
-        use winit::platform::pump_events::EventLoopExtPumpEvents;
+        use winit::event_loop::pump_events::EventLoopExtPumpEvents as _;
 
         let not_running_loop_instance = self
             .shared_backend_data

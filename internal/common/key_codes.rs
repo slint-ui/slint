@@ -49,10 +49,10 @@ macro_rules! for_each_keys {
 
 // Use custom codes instead of DOM_VK_META for meta, because the Mozilla defined code is a regular character (E0; LATIN SMALL LETTER A WITH GRAVE)
 // which makes those keys appear as text.
-'\u{0017}'  # Meta        # => Qt_Key_Key_Meta         # Super(Left)  # Meta_L     ;
-'\u{0018}'  # MetaR       # =>                         # Super(Right) # Meta_R     ;
+'\u{0017}'  # Meta        # => Qt_Key_Key_Meta         # Meta(Left)  # Meta_L     ;
+'\u{0018}'  # MetaR       # =>                         # Meta(Right) # Meta_R     ;
 
-'\u{0020}'  # Space       # => Qt_Key_Key_Space        # Space # space     ;
+'\u{0020}'  # Space       # => Qt_Key_Key_Space        #             # space     ;
 
 '\u{F700}'	# UpArrow     # => Qt_Key_Key_Up           # ArrowUp           # Up         ;
 '\u{F701}'	# DownArrow   # => Qt_Key_Key_Down         # ArrowDown         # Down       ;

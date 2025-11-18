@@ -74,7 +74,7 @@ lyon_path = "1.0"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
-winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
+winit = { version = "0.31.0-beta.2", default-features = false }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 

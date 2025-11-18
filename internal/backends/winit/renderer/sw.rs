@@ -18,9 +18,9 @@ use super::WinitCompatibleRenderer;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
-    _context: RefCell<Option<softbuffer::Context<Arc<winit::window::Window>>>>,
+    _context: RefCell<Option<softbuffer::Context<Arc<dyn winit::window::Window>>>>,
     surface: RefCell<
-        Option<softbuffer::Surface<Arc<winit::window::Window>, Arc<winit::window::Window>>>,
+        Option<softbuffer::Surface<Arc<dyn winit::window::Window>, Arc<dyn winit::window::Window>>>,
     >,
 }
 
@@ -177,16 +177,16 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
     fn resume(
         &self,
-        active_event_loop: &ActiveEventLoop,
+        active_event_loop: &dyn ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         let winit_window =
             active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 PlatformError::from(format!(
                     "Error creating native window for software rendering: {winit_os_error}"
                 ))
             })?;
-        let winit_window = Arc::new(winit_window);
+        let winit_window = Arc::new(*winit_window);
 
         let context = softbuffer::Context::new(winit_window.clone())
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;

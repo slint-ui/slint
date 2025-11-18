@@ -107,16 +107,16 @@ fn apply_scale_factor_to_logical_sizes_in_attributes(
         }
     };
 
-    fixup(&mut attributes.inner_size);
-    fixup(&mut attributes.min_inner_size);
-    fixup(&mut attributes.max_inner_size);
-    fixup(&mut attributes.resize_increments);
+    fixup(&mut attributes.surface_size);
+    fixup(&mut attributes.min_surface_size);
+    fixup(&mut attributes.max_surface_size);
+    fixup(&mut attributes.surface_resize_increments);
 }
 
 fn icon_to_winit(
     icon: corelib::graphics::Image,
     size: euclid::Size2D<Coord, PhysicalPx>,
-) -> Option<winit::window::Icon> {
+) -> Option<winit::icon::Icon> {
     let image_inner: &ImageInner = (&icon).into();
 
     let Some(pixel_buffer) = image_inner.render_to_buffer(Some(size.cast())) else {
@@ -144,7 +144,11 @@ fn icon_to_winit(
             .collect(),
     };
 
-    winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
+    Some(
+        winit::icon::RgbaIcon::new(rgba_pixels, pixel_buffer.width(), pixel_buffer.height())
+            .ok()?
+            .into(),
+    )
 }
 
 fn window_is_resizable(
@@ -164,7 +168,7 @@ fn window_is_resizable(
 
 enum WinitWindowOrNone {
     HasWindow {
-        window: Arc<winit::window::Window>,
+        window: Arc<dyn winit::window::Window>,
         #[cfg(enable_accesskit)]
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
         #[cfg(muda)]
@@ -178,14 +182,14 @@ enum WinitWindowOrNone {
 }
 
 impl WinitWindowOrNone {
-    fn as_window(&self) -> Option<Arc<winit::window::Window>> {
+    fn as_window(&self) -> Option<Arc<dyn winit::window::Window>> {
         match self {
             Self::HasWindow { window, .. } => Some(window.clone()),
             Self::None { .. } => None,
         }
     }
 
-    fn set_window_icon(&self, icon: Option<winit::window::Icon>) {
+    fn set_window_icon(&self, icon: Option<winit::icon::Icon>) {
         match self {
             Self::HasWindow { window, .. } => {
                 #[cfg(target_family = "windows")]
@@ -210,14 +214,14 @@ impl WinitWindowOrNone {
         }
     }
 
-    fn fullscreen(&self) -> Option<winit::window::Fullscreen> {
+    fn fullscreen(&self) -> Option<winit::monitor::Fullscreen> {
         match self {
             Self::HasWindow { window, .. } => window.fullscreen(),
             Self::None(attributes) => attributes.borrow().fullscreen.clone(),
         }
     }
 
-    fn set_fullscreen(&self, fullscreen: Option<winit::window::Fullscreen>) {
+    fn set_fullscreen(&self, fullscreen: Option<winit::monitor::Fullscreen>) {
         match self {
             Self::HasWindow { window, .. } => window.set_fullscreen(fullscreen),
             Self::None(attributes) => attributes.borrow_mut().fullscreen = fullscreen,
@@ -262,38 +266,20 @@ impl WinitWindowOrNone {
         }
     }
 
-    fn set_min_inner_size(
-        &self,
-        min_inner_size: Option<winit::dpi::LogicalSize<f64>>,
-        scale_factor: f64,
-    ) {
+    fn set_min_surface_size(&self, min_surface_size: Option<winit::dpi::Size>) {
         match self {
-            Self::HasWindow { window, .. } => {
-                // Store as physical size to make sure that our potentially overriding scale factor is applied.
-                window
-                    .set_min_inner_size(min_inner_size.map(|s| s.to_physical::<u32>(scale_factor)))
-            }
+            Self::HasWindow { window, .. } => window.set_min_surface_size(min_surface_size),
             Self::None(attributes) => {
-                // Store as logical size, so that we can apply the real window scale factor later when it's known.
-                attributes.borrow_mut().min_inner_size = min_inner_size.map(|s| s.into());
+                attributes.borrow_mut().min_surface_size = min_surface_size;
             }
         }
     }
 
-    fn set_max_inner_size(
-        &self,
-        max_inner_size: Option<winit::dpi::LogicalSize<f64>>,
-        scale_factor: f64,
-    ) {
+    fn set_max_surface_size(&self, max_surface_size: Option<winit::dpi::Size>) {
         match self {
-            Self::HasWindow { window, .. } => {
-                // Store as physical size to make sure that our potentially overriding scale factor is applied.
-                window
-                    .set_max_inner_size(max_inner_size.map(|s| s.to_physical::<u32>(scale_factor)))
-            }
+            Self::HasWindow { window, .. } => window.set_max_surface_size(max_surface_size),
             Self::None(attributes) => {
-                // Store as logical size, so that we can apply the real window scale factor later when it's known.
-                attributes.borrow_mut().max_inner_size = max_inner_size.map(|s| s.into())
+                attributes.borrow_mut().max_surface_size = max_surface_size;
             }
         }
     }
@@ -325,7 +311,7 @@ pub struct WinitWindowAdapter {
     fullscreen: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
-    /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
+    /// We cache the size because winit_window.surface_size() can return different value between calls (eg, on X11)
     /// And we wan see the newer value before the Resized event was received, leading to inconsistencies
     size: Cell<PhysicalSize>,
     /// We requested a size to be set, but we didn't get the resize event from winit yet
@@ -340,9 +326,6 @@ pub struct WinitWindowAdapter {
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
-
-    #[cfg(any(enable_accesskit, muda))]
-    event_loop_proxy: EventLoopProxy<SlintEvent>,
 
     pub(crate) window_event_filter: Cell<
         Option<Box<dyn FnMut(&corelib::api::Window, &winit::event::WindowEvent) -> EventResult>>,
@@ -376,7 +359,6 @@ impl WinitWindowAdapter {
         shared_backend_data: Rc<SharedBackendData>,
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
-        #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintEvent>,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
@@ -400,8 +382,6 @@ impl WinitWindowAdapter {
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
-            #[cfg(any(enable_accesskit, muda))]
-            event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
             #[cfg(not(use_winit_theme))]
             xdg_settings_watcher: Default::default(),
@@ -429,8 +409,8 @@ impl WinitWindowAdapter {
 
     pub fn ensure_window(
         &self,
-        active_event_loop: &ActiveEventLoop,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+        active_event_loop: &dyn ActiveEventLoop,
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         #[allow(unused_mut)]
         let mut window_attributes = match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => return Ok(window.clone()),
@@ -580,7 +560,7 @@ impl WinitWindowAdapter {
                 let last_window_rc = window.clone();
 
                 let mut attributes = Self::window_attributes().unwrap_or_default();
-                attributes.inner_size = Some(physical_size_to_winit(self.size.get()).into());
+                attributes.surface_size = Some(physical_size_to_winit(self.size.get()).into());
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
@@ -643,12 +623,12 @@ impl WinitWindowAdapter {
 
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             // on macOS we sometimes don't get a resize event after calling
-            // request_inner_size(), it returning None (promising a resize event), and then delivering RedrawRequested. To work around this,
+            // request_surface_size(), it returning None (promising a resize event), and then delivering RedrawRequested. To work around this,
             // catch up here to ensure the renderer can resize the surface correctly.
             // Note: On displays with a scale factor != 1, we get a scale factor change
             // event and a resize event, so all is good.
             if self.pending_resize_event_after_show.take() {
-                self.resize_event(winit_window.inner_size())?;
+                self.resize_event(winit_window.surface_size())?;
             }
         }
 
@@ -658,7 +638,7 @@ impl WinitWindowAdapter {
         Ok(())
     }
 
-    pub fn winit_window(&self) -> Option<Arc<winit::window::Window>> {
+    pub fn winit_window(&self) -> Option<Arc<dyn winit::window::Window>> {
         self.winit_window_or_none.borrow().as_window()
     }
 
@@ -739,7 +719,7 @@ impl WinitWindowAdapter {
     fn resize_window(&self, size: winit::dpi::Size) -> Result<bool, PlatformError> {
         match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => {
-                if let Some(size) = window.request_inner_size(size) {
+                if let Some(size) = window.request_surface_size(size) {
                     // On wayland we might not get a WindowEvent::Resized, so resize the EGL surface right away.
                     self.resize_event(size)?;
                     Ok(true)
@@ -754,7 +734,7 @@ impl WinitWindowAdapter {
                 // Avoid storing the physical size in the attributes. When creating a new window, we don't know the scale
                 // factor, so we've computed the desired size based on a factor of 1 and provided the physical size
                 // will be wrong when the window is created. So stick to a logical size.
-                attributes.borrow_mut().inner_size =
+                attributes.borrow_mut().surface_size =
                     Some(size.to_logical::<f64>(scale_factor).into());
                 self.resize_event(size.to_physical(scale_factor))?;
                 Ok(true)
@@ -1058,7 +1038,7 @@ impl WinitWindowAdapter {
 
     pub async fn async_winit_window(
         self_weak: Weak<Self>,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         std::future::poll_fn(move |context| {
             let Some(self_) = self_weak.upgrade() else {
                 return std::task::Poll::Ready(Err(format!(
@@ -1240,7 +1220,7 @@ impl WindowAdapter for WinitWindowAdapter {
             if m {
                 if winit_window_or_none.fullscreen().is_none() {
                     winit_window_or_none
-                        .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                        .set_fullscreen(Some(winit::monitor::Fullscreen::Borderless(None)));
                 }
             } else {
                 winit_window_or_none.set_fullscreen(None);
@@ -1282,10 +1262,10 @@ impl WindowAdapter for WinitWindowAdapter {
         // the client-side rendering ends up passing a zero width/height to the renderer.
         let winit_min_inner =
             new_constraints.min.map(logical_size_to_winit).map(filter_out_zero_width_or_height);
-        winit_window_or_none.set_min_inner_size(winit_min_inner, sf as f64);
+        winit_window_or_none.set_min_surface_size(winit_min_inner.map(Into::into));
         let winit_max_inner =
             new_constraints.max.map(logical_size_to_winit).map(filter_out_zero_width_or_height);
-        winit_window_or_none.set_max_inner_size(winit_max_inner, sf as f64);
+        winit_window_or_none.set_max_surface_size(winit_max_inner.map(Into::into));
 
         // On ios, etc. apps are fullscreen and need to be responsive.
         #[cfg(not(ios_and_friends))]
@@ -1313,41 +1293,42 @@ impl WindowAdapter for WinitWindowAdapter {
 
 impl WindowAdapterInternal for WinitWindowAdapter {
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        use winit::cursor::CursorIcon;
         let winit_cursor = match cursor {
-            MouseCursor::Default => winit::window::CursorIcon::Default,
-            MouseCursor::None => winit::window::CursorIcon::Default,
-            MouseCursor::Help => winit::window::CursorIcon::Help,
-            MouseCursor::Pointer => winit::window::CursorIcon::Pointer,
-            MouseCursor::Progress => winit::window::CursorIcon::Progress,
-            MouseCursor::Wait => winit::window::CursorIcon::Wait,
-            MouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
-            MouseCursor::Text => winit::window::CursorIcon::Text,
-            MouseCursor::Alias => winit::window::CursorIcon::Alias,
-            MouseCursor::Copy => winit::window::CursorIcon::Copy,
-            MouseCursor::Move => winit::window::CursorIcon::Move,
-            MouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
-            MouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
-            MouseCursor::Grab => winit::window::CursorIcon::Grab,
-            MouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
-            MouseCursor::ColResize => winit::window::CursorIcon::ColResize,
-            MouseCursor::RowResize => winit::window::CursorIcon::RowResize,
-            MouseCursor::NResize => winit::window::CursorIcon::NResize,
-            MouseCursor::EResize => winit::window::CursorIcon::EResize,
-            MouseCursor::SResize => winit::window::CursorIcon::SResize,
-            MouseCursor::WResize => winit::window::CursorIcon::WResize,
-            MouseCursor::NeResize => winit::window::CursorIcon::NeResize,
-            MouseCursor::NwResize => winit::window::CursorIcon::NwResize,
-            MouseCursor::SeResize => winit::window::CursorIcon::SeResize,
-            MouseCursor::SwResize => winit::window::CursorIcon::SwResize,
-            MouseCursor::EwResize => winit::window::CursorIcon::EwResize,
-            MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
-            MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
-            MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
+            MouseCursor::Default => CursorIcon::Default,
+            MouseCursor::None => CursorIcon::Default,
+            MouseCursor::Help => CursorIcon::Help,
+            MouseCursor::Pointer => CursorIcon::Pointer,
+            MouseCursor::Progress => CursorIcon::Progress,
+            MouseCursor::Wait => CursorIcon::Wait,
+            MouseCursor::Crosshair => CursorIcon::Crosshair,
+            MouseCursor::Text => CursorIcon::Text,
+            MouseCursor::Alias => CursorIcon::Alias,
+            MouseCursor::Copy => CursorIcon::Copy,
+            MouseCursor::Move => CursorIcon::Move,
+            MouseCursor::NoDrop => CursorIcon::NoDrop,
+            MouseCursor::NotAllowed => CursorIcon::NotAllowed,
+            MouseCursor::Grab => CursorIcon::Grab,
+            MouseCursor::Grabbing => CursorIcon::Grabbing,
+            MouseCursor::ColResize => CursorIcon::ColResize,
+            MouseCursor::RowResize => CursorIcon::RowResize,
+            MouseCursor::NResize => CursorIcon::NResize,
+            MouseCursor::EResize => CursorIcon::EResize,
+            MouseCursor::SResize => CursorIcon::SResize,
+            MouseCursor::WResize => CursorIcon::WResize,
+            MouseCursor::NeResize => CursorIcon::NeResize,
+            MouseCursor::NwResize => CursorIcon::NwResize,
+            MouseCursor::SeResize => CursorIcon::SeResize,
+            MouseCursor::SwResize => CursorIcon::SwResize,
+            MouseCursor::EwResize => CursorIcon::EwResize,
+            MouseCursor::NsResize => CursorIcon::NsResize,
+            MouseCursor::NeswResize => CursorIcon::NeswResize,
+            MouseCursor::NwseResize => CursorIcon::NwseResize,
             _ => winit::window::CursorIcon::Default,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             winit_window.set_cursor_visible(cursor != MouseCursor::None);
-            winit_window.set_cursor(winit_cursor);
+            winit_window.set_cursor(winit_cursor.into());
         }
     }
 
@@ -1541,15 +1522,15 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 let outer_position = window.outer_position().ok()?;
                 let inner_position = window.inner_position().ok()?;
                 let outer_size = window.outer_size();
-                let inner_size = window.inner_size();
+                let surface_size = window.surface_size();
                 Some(i_slint_core::lengths::PhysicalEdges::new(
                     inner_position.y - outer_position.y,
                     outer_size.height as i32
-                        - (inner_size.height as i32)
+                        - (surface_size.height as i32)
                         - (inner_position.y - outer_position.y),
                     inner_position.x - outer_position.x,
                     outer_size.width as i32
-                        - (inner_size.width as i32)
+                        - (surface_size.width as i32)
                         - (inner_position.x - outer_position.x),
                 ))
             })
