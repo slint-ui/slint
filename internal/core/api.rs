@@ -1574,3 +1574,179 @@ impl StyledText {
         Ok(styled_text)
     }
 }
+
+#[cfg(feature = "experimental-rich-text")]
+#[test]
+fn markdown_parsing() {
+    assert_eq!(
+        StyledText::parse("hello *world*").unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
+            links: std::vec![]
+        }]
+    );
+
+    assert_eq!(
+        StyledText::parse(
+            "
+- line 1
+- line 2
+            "
+        )
+        .unwrap()
+        .paragraphs,
+        [
+            StyledTextParagraph {
+                text: "• line 1".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "• line 2".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            }
+        ]
+    );
+
+    assert_eq!(
+        StyledText::parse(
+            "
+1. a
+2. b
+4. c
+        "
+        )
+        .unwrap()
+        .paragraphs,
+        [
+            StyledTextParagraph {
+                text: "1. a".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "2. b".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "3. c".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            }
+        ]
+    );
+
+    assert_eq!(
+        StyledText::parse(
+            "
+Normal _italic_ **strong** ~~strikethrough~~ `code`
+new *line*
+"
+        )
+        .unwrap()
+        .paragraphs,
+        [
+            StyledTextParagraph {
+                text: "Normal italic strong strikethrough code".into(),
+                formatting: std::vec![
+                    FormattedSpan { range: 7..13, style: Style::Emphasis },
+                    FormattedSpan { range: 14..20, style: Style::Strong },
+                    FormattedSpan { range: 21..34, style: Style::Strikethrough },
+                    FormattedSpan { range: 35..39, style: Style::Code }
+                ],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "new line".into(),
+                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
+                links: std::vec![]
+            }
+        ]
+    );
+
+    assert_eq!(
+        StyledText::parse(
+            "
+- root
+  - child
+    - grandchild
+      - great grandchild
+"
+        )
+        .unwrap()
+        .paragraphs,
+        [
+            StyledTextParagraph {
+                text: "• root".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "    ◦ child".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "        ▪ grandchild".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+            StyledTextParagraph {
+                text: "            • great grandchild".into(),
+                formatting: std::vec![],
+                links: std::vec![]
+            },
+        ]
+    );
+
+    assert_eq!(
+        StyledText::parse("hello [*world*](https://example.com)").unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![
+                FormattedSpan { range: 6..11, style: Style::Emphasis },
+                FormattedSpan { range: 6..11, style: Style::Link }
+            ],
+            links: std::vec![(6..11, "https://example.com".into())]
+        }]
+    );
+
+    assert_eq!(
+        StyledText::parse("<u>hello world</u>").unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
+            links: std::vec![]
+        }]
+    );
+
+    assert_eq!(
+        StyledText::parse(r#"<font color="blue">hello world</font>"#).unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![FormattedSpan {
+                range: 0..11,
+                style: Style::Color(crate::Color::from_rgb_u8(0, 0, 255))
+            },],
+            links: std::vec![]
+        }]
+    );
+
+    assert_eq!(
+        StyledText::parse(r#"<u><font color="red">hello world</font></u>"#).unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "hello world".into(),
+            formatting: std::vec![
+                FormattedSpan {
+                    range: 0..11,
+                    style: Style::Color(crate::Color::from_rgb_u8(255, 0, 0))
+                },
+                FormattedSpan { range: 0..11, style: Style::Underline },
+            ],
+            links: std::vec![]
+        }]
+    );
+}
