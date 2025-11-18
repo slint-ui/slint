@@ -54,15 +54,14 @@ pub fn main() {
     };
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
-    let app_weak = app.as_weak();
 
     let url = "https://slint.dev";
 
     #[cfg(not(target_os = "android"))]
-    let _adapter = init_servo(app_weak.clone(), url.into(), device, queue);
+    let _adapter = init_servo(app.clone_strong(), url.into(), device, queue);
 
     #[cfg(target_os = "android")]
-    let _adapter = init_servo(app_weak.clone(), url.into());
+    let _adapter = init_servo(app.clone_strong(), url.into());
 
     app.run().expect("Application failed to run - check for runtime errors");
 }

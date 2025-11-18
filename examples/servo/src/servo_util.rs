@@ -24,11 +24,12 @@ use crate::{
 };
 
 pub fn init_servo(
-    app_weak: slint::Weak<MyApp>,
+    app: MyApp,
     initial_url: SharedString,
     #[cfg(not(target_os = "android"))] device: slint::wgpu_27::wgpu::Device,
     #[cfg(not(target_os = "android"))] queue: slint::wgpu_27::wgpu::Queue,
 ) -> Rc<SlintServoAdapter> {
+    let app_weak = app.as_weak();
     let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
     #[cfg(not(target_os = "android"))]
@@ -41,13 +42,17 @@ pub fn init_servo(
     ));
 
     #[cfg(target_os = "android")]
-    let adapter =
-        Rc::new(SlintServoAdapter::new(app_weak, waker_sender.clone(), waker_receiver.clone()));
+    let adapter = Rc::new(SlintServoAdapter::new(
+        app_weak,
+        waker_sender.clone(),
+        waker_receiver.clone(),
+    ));
 
     let state_weak = Rc::downgrade(&adapter);
 
     slint::spawn_local({
         async move {
+            
             let state = upgrade_adapter(&state_weak);
 
             let (rendering_adapter, physical_size, scale_factor) =
@@ -65,6 +70,7 @@ pub fn init_servo(
     on_app_callbacks(adapter.clone());
 
     adapter
+
 }
 
 fn init_rendering_adpater(
@@ -150,7 +156,7 @@ fn init_webview(
     adapter.set_inner(servo, webview, scale_factor, rendering_adapter_box);
 }
 
-pub fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
+fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
     let state_weak = Rc::downgrade(&state);
 
     slint::spawn_local({
