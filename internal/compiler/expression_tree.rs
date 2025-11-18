@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{
-    BuiltinElement, EnumerationValue, Function, NativePublicType, NativeType, Struct, StructName,
-    Type,
-};
+use crate::langtype::{BuiltinElement, EnumerationValue, Function, NativePublicType, Struct, Type};
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
@@ -218,7 +215,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Int32),
         ])
         .collect(),
-        name: StructName::Native(NativeType::Public(NativePublicType::Color)),
+        name: NativePublicType::Color.into(),
         node: None,
         rust_attributes: None,
     })),
@@ -230,7 +227,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
         .collect(),
-        name: StructName::Native(NativeType::Public(NativePublicType::Color)),
+        name: NativePublicType::Color.into(),
         node: None,
         rust_attributes: None,
     })),
@@ -245,7 +242,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("height"), Type::Int32),
         ])
         .collect(),
-        name: StructName::Native(NativeType::Private(crate::langtype::NativePrivateType::Size)),
+        name: crate::langtype::NativePrivateType::Size.into(),
         node: None,
         rust_attributes: None,
     })),
