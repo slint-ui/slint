@@ -18,16 +18,14 @@ use std::rc::Rc;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
-pub use i_slint_core::api::{
-    ComponentHandle, EventLoopError, Global, JoinHandle, PlatformError, SharedString, Weak, Window,
-};
+pub use i_slint_core::api::*;
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_backend_selector::api::*;
 use i_slint_core::api;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
-use i_slint_core::items::*;
+use i_slint_core::items::{MenuEntry, ItemTreeVTable, FontMetrics,StateInfo,TableColumn,StandardListViewItem,DropEvent,KeyEvent,PointerEvent,PointerScrollEvent,KeyboardModifiers};
 
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 
