@@ -14,7 +14,7 @@ Some convention used in the generated code:
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{Enumeration, EnumerationValue, NativeType, Struct, StructName, Type};
+use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression, ParentScope,
@@ -2593,7 +2593,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
                 let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::Native(NativeType::Private(private_type)) if private_type.is_layout_data()) {
+                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data()) {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
@@ -3409,18 +3409,16 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
     match name {
         StructName::None => None,
         StructName::User { name, .. } => Some(proc_macro2::TokenTree::from(ident(name)).into()),
-        StructName::Native(native_type) => match native_type {
-            crate::langtype::NativeType::Private(native_private_type) => {
-                let name: &'static str = native_private_type.into();
-                let name = format_ident!("{}", name);
-                Some(quote!(sp::#name))
-            }
-            crate::langtype::NativeType::Public(native_public_type) => {
-                let name: &'static str = native_public_type.into();
-                let name = format_ident!("{}", name);
-                Some(quote!(slint::#name))
-            }
-        },
+        StructName::BuiltinPrivate(builtin_private_struct) => {
+            let name: &'static str = builtin_private_struct.into();
+            let name = format_ident!("{}", name);
+            Some(quote!(sp::#name))
+        }
+        StructName::BuiltinPublic(builtin_public_struct) => {
+            let name: &'static str = builtin_public_struct.into();
+            let name = format_ident!("{}", name);
+            Some(quote!(slint::#name))
+        }
     }
 }
 

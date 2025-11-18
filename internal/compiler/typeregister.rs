@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
-    Function, NativePrivateType, NativePublicType, PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
+    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -101,7 +101,7 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: NativePrivateType::LayoutInfo.into(),
+            name: BuiltinPrivateStruct::LayoutInfo.into(),
             rust_attributes: None,
         });
         Self {
@@ -112,7 +112,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: crate::langtype::NativePublicType::LogicalPosition.into(),
+                name: BuiltinPublicStruct::LogicalPosition.into(),
                 rust_attributes: None,
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
@@ -123,7 +123,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: NativePrivateType::FontMetrics.into(),
+                name: BuiltinPrivateStruct::FontMetrics.into(),
                 rust_attributes: None,
             })),
             noarg_callback_type: Type::Callback(Rc::new(Function {
@@ -139,13 +139,13 @@ impl BuiltinTypes {
             layout_info_type: layout_info_type.clone(),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
-                name: NativePrivateType::PathElement.into(),
+                name: BuiltinPrivateStruct::PathElement.into(),
                 rust_attributes: None,
             })),
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
-                name: NativePrivateType::BoxLayoutCellData.into(),
+                name: BuiltinPrivateStruct::BoxLayoutCellData.into(),
                 rust_attributes: None,
             })),
         }

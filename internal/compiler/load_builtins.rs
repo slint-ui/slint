@@ -12,8 +12,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::Expression;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, DefaultSizeBinding, ElementType,
-    Function, NativeClass, NativePrivateType, NativeType, Type,
+    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
+    DefaultSizeBinding, ElementType, Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -140,8 +140,8 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 }
             })
             .collect();
-        n.native_type = parse_annotation("native_type", &e)
-            .map(|x| NativeType::Private(x.unwrap().parse::<NativePrivateType>().unwrap()));
+        n.builtin_struct = parse_annotation("builtin_struct", &e)
+            .map(|x| x.unwrap().parse::<BuiltinPrivateStruct>().unwrap());
         enum Base {
             None,
             Global,

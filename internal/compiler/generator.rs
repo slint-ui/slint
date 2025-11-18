@@ -15,7 +15,7 @@ use std::rc::{Rc, Weak};
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{ElementType, NativePrivateType, NativeType, StructName};
+use crate::langtype::{BuiltinPrivateStruct, ElementType, StructName};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
@@ -423,7 +423,7 @@ pub fn for_each_const_properties(
                     .iter()
                     .filter(|(_, x)| {
                         x.property_type.is_property_type() &&
-                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if matches!(s.name, StructName::Native(NativeType::Private(NativePrivateType::StateInfo))))
+                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if matches!(s.name, StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo)))
                     })
                     .map(|(k, _)| k.clone()),
             );

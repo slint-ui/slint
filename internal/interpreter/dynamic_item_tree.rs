@@ -7,7 +7,7 @@ use crate::{dynamic_type, eval};
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
-use i_slint_compiler::langtype::{NativePrivateType, NativeType, StructName, Type};
+use i_slint_compiler::langtype::{BuiltinPrivateStruct, StructName, Type};
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
@@ -1233,7 +1233,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(s)
                 if matches!(
                     s.name,
-                    StructName::Native(NativeType::Private(NativePrivateType::StateInfo))
+                    StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo)
                 ) =>
             {
                 property_info::<i_slint_core::properties::StateInfo>()
@@ -1636,7 +1636,7 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 description.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let is_state_info = matches!(&property_type, Type::Struct (s) if matches!(s.name, StructName::Native(NativeType::Private(NativePrivateType::StateInfo))));
+                let is_state_info = matches!(&property_type, Type::Struct (s) if matches!(s.name, StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo)));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)

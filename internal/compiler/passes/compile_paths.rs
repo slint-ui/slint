@@ -12,7 +12,7 @@
 use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{NativePrivateType, Struct, Type};
+use crate::langtype::{BuiltinPrivateStruct, Struct, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -163,7 +163,7 @@ fn compile_path_from_string_literal(
             (SmolStr::new_static("y"), Type::Float32),
         ])
         .collect(),
-        name: NativePrivateType::Point.into(),
+        name: BuiltinPrivateStruct::Point.into(),
         rust_attributes: None,
     });
 

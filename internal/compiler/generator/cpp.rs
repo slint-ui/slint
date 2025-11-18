@@ -459,7 +459,7 @@ pub mod cpp_ast {
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
 use crate::langtype::{
-    Enumeration, EnumerationValue, NativeClass, NativePrivateType, NativePublicType, NativeType,
+    BuiltinPrivateStruct, BuiltinPublicStruct, Enumeration, EnumerationValue, NativeClass,
     StructName, Type,
 };
 use crate::layout::Orientation;
@@ -495,36 +495,28 @@ impl CppType for StructName {
         match self {
             StructName::None => return None,
             StructName::User { name, .. } => Some(ident(name)),
-            StructName::Native(native) => native.cpp_type(),
+            StructName::BuiltinPrivate(builtin_private) => builtin_private.cpp_type(),
+            StructName::BuiltinPublic(builtin_public) => builtin_public.cpp_type(),
         }
     }
 }
 
-impl CppType for NativeType {
-    fn cpp_type(&self) -> Option<SmolStr> {
-        match self {
-            NativeType::Private(native_private_type) => native_private_type.cpp_type(),
-            NativeType::Public(native_public_type) => native_public_type.cpp_type(),
-        }
-    }
-}
-
-impl CppType for NativePrivateType {
+impl CppType for BuiltinPrivateStruct {
     fn cpp_type(&self) -> Option<SmolStr> {
         let name: &'static str = self.into();
         match self {
-            NativePrivateType::PathMoveTo
-            | NativePrivateType::PathLineTo
-            | NativePrivateType::PathArcTo
-            | NativePrivateType::PathCubicTo
-            | NativePrivateType::PathQuadraticTo
-            | NativePrivateType::PathClose => Some(format_smolstr!("slint::private_api::{}", name)),
+            Self::PathMoveTo
+            | Self::PathLineTo
+            | Self::PathArcTo
+            | Self::PathCubicTo
+            | Self::PathQuadraticTo
+            | Self::PathClose => Some(format_smolstr!("slint::private_api::{}", name)),
             _ => Some(format_smolstr!("slint::cbindgen_private::{}", name)),
         }
     }
 }
 
-impl CppType for NativePublicType {
+impl CppType for BuiltinPublicStruct {
     fn cpp_type(&self) -> Option<SmolStr> {
         let name: &'static str = self.into();
         Some(format_smolstr!("slint::{}", name))
