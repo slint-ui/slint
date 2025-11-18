@@ -23,62 +23,78 @@ test("get/set global properties", () => {
     instance!.setGlobalProperty("Global", "name", "Hello");
     expect(instance!.getGlobalProperty("Global", "name")).toBe("Hello");
 
-    let thrownError: any;
-    try {
-        instance!.getGlobalProperty("MyGlobal", "name");
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.getGlobalProperty("MyGlobal", "name");
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Global MyGlobal not found");
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe("Global MyGlobal not found");
 
-    try {
-        instance!.setGlobalProperty("MyGlobal", "name", "hello");
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.setGlobalProperty("MyGlobal", "name", "hello");
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Global MyGlobal not found");
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe("Global MyGlobal not found");
 
-    try {
-        instance!.getGlobalProperty("Global", "age");
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.getGlobalProperty("Global", "age");
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("no such property");
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe("no such property");
 
-    try {
-        instance!.setGlobalProperty("Global", "age", 42);
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.setGlobalProperty("Global", "age", 42);
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe(
+            "Property age of global Global not found in the component",
+        );
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe(
-        "Property age of global Global not found in the component",
-    );
+    {
+        let thrownError: any;
+        try {
+            instance!.setGlobalProperty("Global", "name", 42);
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect String, got: Number");
+    }
 
-    try {
-        instance!.setGlobalProperty("Global", "name", 42);
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.setGlobalProperty("Global", "name", { blah: "foo" });
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect String, got: Object");
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("InvalidArg");
-    expect(thrownError.message).toBe("expect String, got: Number");
-
-    try {
-        instance!.setGlobalProperty("Global", "name", { blah: "foo" });
-    } catch (error) {
-        thrownError = error;
-    }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("InvalidArg");
-    expect(thrownError.message).toBe("expect String, got: Object");
 });
 
 test("invoke global callback", () => {
@@ -114,24 +130,29 @@ test("invoke global callback", () => {
     const instance = definition.App!.create();
     expect(instance).not.toBeNull();
 
-    let thrownError: any;
-    try {
-        instance!.setGlobalCallback("MyGlobal", "great", () => {});
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.setGlobalCallback("MyGlobal", "great", () => { });
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Global MyGlobal not found");
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe("Global MyGlobal not found");
 
-    try {
-        instance!.invokeGlobal("MyGlobal", "great", []);
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.invokeGlobal("MyGlobal", "great", []);
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Global MyGlobal not found");
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe("Global MyGlobal not found");
 
     let speakTest: string;
     instance!.setGlobalCallback(
@@ -143,27 +164,33 @@ test("invoke global callback", () => {
         },
     );
 
-    try {
-        instance!.setGlobalCallback("Global", "bye", () => {});
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.setGlobalCallback("Global", "bye", () => { });
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe(
+            "Callback bye of global Global not found in the component",
+        );
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe(
-        "Callback bye of global Global not found in the component",
-    );
 
-    try {
-        instance!.invokeGlobal("Global", "bye", []);
-    } catch (error) {
-        thrownError = error;
+    {
+        let thrownError: any;
+        try {
+            instance!.invokeGlobal("Global", "bye", []);
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe(
+            "Callback bye of global Global not found in the component",
+        );
     }
-    expect(thrownError).toBeDefined();
-    expect(thrownError.code).toBe("GenericFailure");
-    expect(thrownError.message).toBe(
-        "Callback bye of global Global not found in the component",
-    );
 
     instance!.invokeGlobal("Global", "great", [
         "simon",
