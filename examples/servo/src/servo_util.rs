@@ -52,7 +52,7 @@ pub fn init_servo(
 
     slint::spawn_local({
         async move {
-            
+
             let state = upgrade_adapter(&state_weak);
 
             let (rendering_adapter, physical_size, scale_factor) =
