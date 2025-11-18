@@ -992,7 +992,7 @@ fn compile_path(
                                 .native_class
                                 .builtin_struct
                                 .clone()
-                                .expect("Unknown path element encountered"),
+                                .expect("path elements should have a native_type"),
                         ),
                         rust_attributes: None,
                     });
