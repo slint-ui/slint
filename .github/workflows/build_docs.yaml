@@ -99,7 +99,7 @@ jobs:
                 version: 10.18.2
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: "22.x"
                 package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
@@ -190,7 +190,7 @@ jobs:
                 version: 10.18.2
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: "22.x"
                 package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust

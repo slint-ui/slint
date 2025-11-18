@@ -35,7 +35,7 @@ jobs:
               uses: pyvista/setup-headless-display-action@v4
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: "22.x"
                 package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.2.0
