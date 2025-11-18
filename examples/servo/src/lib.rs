@@ -24,20 +24,24 @@ slint::include_modules!();
 pub fn main() {
     #[cfg(not(target_os = "android"))]
     let (device, queue) = {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let backends = wgpu::Backends::from_env().unwrap_or_default();
+
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends,
+            flags: Default::default(),
+            backend_options: Default::default(),
+            memory_budget_thresholds: Default::default(),
+        });
 
         let adapter = spin_on::spin_on(async {
             instance
-                .request_adapter(&wgpu::RequestAdapterOptions::default())
+                .request_adapter(&Default::default())
                 .await
                 .expect("Failed to find an appropriate WGPU adapter")
         });
 
         let (device, queue) = spin_on::spin_on(async {
-            adapter
-                .request_device(&wgpu::DeviceDescriptor::default())
-                .await
-                .expect("Failed to create WGPU device")
+            adapter.request_device(&Default::default()).await.expect("Failed to create WGPU device")
         });
 
         slint::BackendSelector::new()
