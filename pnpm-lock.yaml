@@ -51,6 +51,9 @@ catalogs:
     vite:
       specifier: 7.2.2
       version: 7.2.2
+    vitest:
+      specifier: 4.0.10
+      version: 4.0.10
 
 overrides:
   js-yaml@<4.1.1: '>=4.1.1'
@@ -93,6 +96,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.10(@types/debug@4.1.12)(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(terser@5.39.0)(yaml@2.8.1)
 
   demos/home-automation/node:
     dependencies:
@@ -298,7 +304,7 @@ importers:
         specifier: 2.3.0
         version: 2.3.0(rollup@4.52.5)(vite@7.2.2(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(terser@5.39.0)(yaml@2.8.1))
       vitest:
-        specifier: 4.0.10
+        specifier: 'catalog:'
         version: 4.0.10(@types/debug@4.1.12)(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.3)(terser@5.39.0)(yaml@2.8.1)
 
   tools/slintpad:
