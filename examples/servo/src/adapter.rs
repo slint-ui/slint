@@ -47,6 +47,10 @@ impl SlintServoAdapter {
         app: slint::Weak<MyApp>,
         waker_sender: Sender<()>,
         waker_receiver: Receiver<()>,
+        #[cfg(not(target_os = "android"))]
+        device: wgpu::Device,
+        #[cfg(not(target_os = "android"))]
+        queue: wgpu::Queue,
     ) -> Self {
         Self {
             app,
@@ -58,9 +62,9 @@ impl SlintServoAdapter {
                 scale_factor: 1.0,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
-                device: None,
+                device: Some(device),
                 #[cfg(not(target_os = "android"))]
-                queue: None,
+                queue: Some(queue),
             }),
         }
     }
@@ -117,12 +121,6 @@ impl SlintServoAdapter {
         inner.rendering_adapter = Some(rendering_adapter);
     }
 
-    #[cfg(not(target_os = "android"))]
-    pub fn set_wgpu_device_queue(&self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        let mut inner = self.inner_mut();
-        inner.device = Some(device.clone());
-        inner.queue = Some(queue.clone());
-    }
 
     /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.
     /// This bridges the rendering output from Servo to the Slint display surface.
