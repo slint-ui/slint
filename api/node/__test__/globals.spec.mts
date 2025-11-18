@@ -133,7 +133,7 @@ test("invoke global callback", () => {
     {
         let thrownError: any;
         try {
-            instance!.setGlobalCallback("MyGlobal", "great", () => { });
+            instance!.setGlobalCallback("MyGlobal", "great", () => {});
         } catch (error) {
             thrownError = error;
         }
@@ -167,7 +167,7 @@ test("invoke global callback", () => {
     {
         let thrownError: any;
         try {
-            instance!.setGlobalCallback("Global", "bye", () => { });
+            instance!.setGlobalCallback("Global", "bye", () => {});
         } catch (error) {
             thrownError = error;
         }
