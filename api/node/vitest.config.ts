@@ -7,6 +7,6 @@ export default defineConfig({
     test: {
         include: ["**/window.spec.mts"],
         globals: true, // Enable global test/expect/describe
-        pool: "forks", // Use separate processes for isolation (matching ava's workerThreads: false)
+        isolate: true // Use separate processes for isolation (matching ava's workerThreads: false)
     },
 });
