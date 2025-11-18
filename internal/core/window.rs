@@ -165,7 +165,7 @@ pub trait WindowAdapter {
 /// users to call or re-implement these functions.
 // TODO: add events for window receiving and loosing focus
 #[doc(hidden)]
-pub trait WindowAdapterInternal {
+pub trait WindowAdapterInternal: core::any::Any {
     /// This function is called by the generated code when a component and therefore its tree of items are created.
     fn register_item_tree(&self) {}
 
@@ -194,12 +194,6 @@ pub trait WindowAdapterInternal {
 
     /// This method allow editable input field to communicate with the platform about input methods
     fn input_method_request(&self, _: InputMethodRequest) {}
-
-    /// Return self as any so the backend can upcast
-    // TODO: consider using the as_any crate, or deriving the trait from Any to provide a better default
-    fn as_any(&self) -> &dyn core::any::Any {
-        &()
-    }
 
     /// Handle focus change
     // used for accessibility

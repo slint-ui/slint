@@ -7,7 +7,9 @@ use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
-use i_slint_core::api::{LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window};
+use i_slint_core::api::{
+    LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
+};
 use i_slint_core::items::ColorScheme;
 use i_slint_core::lengths::PhysicalInset;
 use i_slint_core::platform::{
@@ -168,15 +170,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         if self.fullscreen.get() {
             Default::default()
         } else {
-            let (offset, size) =
-                self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e));
-            let win_size = self.size();
-            PhysicalInset {
-                left: offset.x.max(0),
-                top: offset.y.max(0),
-                right: win_size.width.saturating_sub(size.width + (offset.x as u32)) as i32,
-                bottom: win_size.height.saturating_sub(size.height + (offset.y as u32)) as i32,
-            }
+            self.java_helper.get_safe_area().unwrap_or_else(|e| print_jni_error(&self.app, e))
         }
     }
 }
@@ -515,6 +509,57 @@ impl AndroidWindowAdapter {
         requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     ) {
         *self.requested_graphics_api.borrow_mut() = requested_graphics_api;
+    }
+
+    pub(super) fn update_window_insets(
+        &self,
+        window_origin: PhysicalPosition,
+        window_size: PhysicalSize,
+        safe_area: PhysicalInset,
+        keyboard: PhysicalInset,
+    ) {
+        let scale_factor = self.window.scale_factor();
+        self.window.dispatch_event(WindowEvent::SafeAreaChanged {
+            inset: safe_area.to_logical(scale_factor),
+            token: i_slint_core::InternalToken,
+        });
+
+        let window_origin = window_origin.to_logical(scale_factor);
+        let window_size = window_size.to_logical(scale_factor);
+        let keyboard = keyboard.to_logical(scale_factor);
+
+        // Assume that the keyboard is only on one side.
+        let rect = if keyboard.bottom > (0 as i_slint_core::Coord) {
+            (
+                LogicalPosition::new(
+                    window_origin.x,
+                    window_origin.y + window_size.height - keyboard.bottom as i_slint_core::Coord,
+                ),
+                LogicalSize::new(window_size.width, keyboard.bottom as _),
+            )
+        } else if keyboard.top > (0 as i_slint_core::Coord) {
+            (
+                LogicalPosition::new(window_origin.x, window_origin.y),
+                LogicalSize::new(window_size.width, keyboard.top as _),
+            )
+        } else if keyboard.left > (0 as i_slint_core::Coord) {
+            (
+                LogicalPosition::new(window_origin.x, window_origin.y),
+                LogicalSize::new(keyboard.left as _, window_size.height),
+            )
+        } else if keyboard.right > (0 as i_slint_core::Coord) {
+            (
+                LogicalPosition::new(
+                    window_origin.x + window_size.width - keyboard.right as i_slint_core::Coord,
+                    window_origin.y,
+                ),
+                LogicalSize::new(keyboard.right as _, window_size.height),
+            )
+        } else {
+            Default::default()
+        };
+
+        self.window.set_virtual_keyboard(rect.0, rect.1, i_slint_core::InternalToken);
     }
 }
 

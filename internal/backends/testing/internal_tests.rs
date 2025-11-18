@@ -76,7 +76,7 @@ pub fn access_testing_window<R>(
     i_slint_core::window::WindowInner::from_pub(window)
         .window_adapter()
         .internal(i_slint_core::InternalToken)
-        .and_then(|wa| wa.as_any().downcast_ref::<TestingWindow>())
+        .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<TestingWindow>())
         .map(callback)
         .expect("access_testing_window called without testing backend/adapter")
 }

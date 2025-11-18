@@ -663,7 +663,7 @@ fn call_builtin_function(
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
-                    component,
+                    enclosing_component,
                     popup,
                     |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
