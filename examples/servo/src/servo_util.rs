@@ -3,6 +3,7 @@
 
 use std::rc::Rc;
 
+use smol::channel;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
@@ -11,84 +12,100 @@ use euclid::{Scale, Size2D};
 use i_slint_core::items::ColorScheme;
 use slint::{ComponentHandle, SharedString};
 
-use servo::{
-    RenderingContext, Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel,
-};
+use servo::{Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel};
 
 use crate::{
-    Palette, WebviewLogic,
+    MyApp, Palette, WebviewLogic,
     adapter::{SlintServoAdapter, upgrade_adapter},
     delegate::AppDelegate,
+    on_events::on_app_callbacks,
     rendering_context::ServoRenderingAdapter,
     waker::Waker,
 };
 
-#[cfg(not(target_os = "android"))]
-use crate::rendering_context::try_create_gpu_context;
+pub fn init_servo(
+    app_weak: slint::Weak<MyApp>,
+    initial_url: SharedString,
+    #[cfg(not(target_os = "android"))] device: slint::wgpu_27::wgpu::Device,
+    #[cfg(not(target_os = "android"))] queue: slint::wgpu_27::wgpu::Queue,
+) -> Rc<SlintServoAdapter> {
+    let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
-#[cfg(target_os = "android")]
-use crate::rendering_context::create_software_context;
+    #[cfg(not(target_os = "android"))]
+    let adapter = Rc::new(SlintServoAdapter::new(
+        app_weak,
+        waker_sender.clone(),
+        waker_receiver.clone(),
+        device,
+        queue,
+    ));
 
-pub fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
-    let state_weak = Rc::downgrade(&state);
+    #[cfg(target_os = "android")]
+    let adapter =
+        Rc::new(SlintServoAdapter::new(app_weak, waker_sender.clone(), waker_receiver.clone()));
 
-    slint::spawn_local({
-        async move {
-            let state = upgrade_adapter(&state_weak);
-
-            loop {
-                let _ = state.waker_reciver().recv().await;
-                if let Some(ref servo) = *state.servo.borrow() {
-                    servo.spin_event_loop();
-                }
-            }
-        }
-    })
-    .expect("Failed to spawn servo event loop task");
-}
-
-pub fn init_servo_webview(adapter: Rc<SlintServoAdapter>, initial_url: SharedString) {
     let state_weak = Rc::downgrade(&adapter);
 
     slint::spawn_local({
         async move {
             let state = upgrade_adapter(&state_weak);
 
-            let app = state.app();
+            let (rendering_adapter, physical_size, scale_factor) =
+                init_rendering_adpater(state.clone());
 
-            let scale_factor = app.window().scale_factor() as f32;
-
-            let width = app.global::<WebviewLogic>().get_viewport_width();
-            let height = app.global::<WebviewLogic>().get_viewport_height();
-
-            let size: Size2D<f32, DevicePixel> = Size2D::new(width, height) * scale_factor;
-
-            let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
-
-            #[cfg(not(target_os = "android"))]
-            let rendering_adapter = {
-                let wgpu_device = state.wgpu_device();
-                let wgpu_queue = state.wgpu_queue();
-                try_create_gpu_context(wgpu_device, wgpu_queue, physical_size).unwrap()
-            };
-
-            #[cfg(target_os = "android")]
-            let rendering_adapter = create_software_context(physical_size);
-
-            let rendering_context = rendering_adapter.get_rendering_context();
-
-            let servo = intit_servo(state.clone(), rendering_context);
+            let servo = intit_servo_builder(state.clone(), rendering_adapter.clone());
 
             init_webview(scale_factor, physical_size, initial_url, state, servo, rendering_adapter);
         }
     })
     .unwrap();
+
+    spin_servo_event_loop(adapter.clone());
+
+    on_app_callbacks(adapter.clone());
+
+    adapter
 }
 
-fn intit_servo(state: Rc<SlintServoAdapter>, rendering_context: Rc<dyn RenderingContext>) -> Servo {
-    let waker = Waker::new(state.waker_sender());
+fn init_rendering_adpater(
+    state: Rc<SlintServoAdapter>,
+) -> (Rc<Box<dyn ServoRenderingAdapter>>, PhysicalSize<u32>, f32) {
+    let app = state.app();
+
+    let scale_factor = app.window().scale_factor() as f32;
+
+    let width = app.global::<WebviewLogic>().get_viewport_width();
+    let height = app.global::<WebviewLogic>().get_viewport_height();
+
+    let size: Size2D<f32, DevicePixel> = Size2D::new(width, height) * scale_factor;
+
+    let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
+
+    #[cfg(not(target_os = "android"))]
+    let rendering_adapter = {
+        let wgpu_device = state.wgpu_device();
+        let wgpu_queue = state.wgpu_queue();
+        crate::rendering_context::try_create_gpu_context(wgpu_device, wgpu_queue, physical_size)
+            .unwrap()
+    };
+
+    #[cfg(target_os = "android")]
+    let rendering_adapter = crate::rendering_context::create_software_context(physical_size);
+
+    let rendering_adapter_rc = Rc::new(rendering_adapter);
+
+    (rendering_adapter_rc, physical_size, scale_factor)
+}
+
+fn intit_servo_builder(
+    adapter: Rc<SlintServoAdapter>,
+    rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
+) -> Servo {
+    let waker = Waker::new(adapter.waker_sender());
 
     let event_loop_waker = Box::new(waker);
+
+    let rendering_context = rendering_adapter.get_rendering_context();
 
     ServoBuilder::new(rendering_context).event_loop_waker(event_loop_waker).build()
 }
@@ -99,7 +116,7 @@ fn init_webview(
     initial_url: SharedString,
     adapter: Rc<SlintServoAdapter>,
     servo: Servo,
-    rendering_adapter: Box<dyn ServoRenderingAdapter>,
+    rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
 ) {
     let scale = Scale::new(scale_factor);
 
@@ -126,5 +143,30 @@ fn init_webview(
 
     webview.notify_theme_change(theme);
 
-    adapter.set_inner(servo, webview, scale_factor, rendering_adapter);
+    // Extract the Box from Rc - this requires the Rc to have a strong count of 1
+    let rendering_adapter_box = Rc::try_unwrap(rendering_adapter)
+        .unwrap_or_else(|_| panic!("Rendering adapter has multiple references"));
+
+    adapter.set_inner(servo, webview, scale_factor, rendering_adapter_box);
+}
+
+pub fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
+    let state_weak = Rc::downgrade(&state);
+
+    slint::spawn_local({
+        async move {
+            loop {
+                let state = match state_weak.upgrade() {
+                    Some(s) => s,
+                    None => break,
+                };
+
+                let _ = state.waker_reciver().recv().await;
+                if let Some(ref servo) = *state.servo.borrow() {
+                    servo.spin_event_loop();
+                }
+            }
+        }
+    })
+    .expect("Failed to spawn servo event loop task");
 }

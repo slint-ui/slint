@@ -16,23 +16,14 @@ mod gl_bindings {
 }
 
 use slint::ComponentHandle;
-use smol::channel;
-use std::rc::Rc;
 
-use crate::{
-    adapter::SlintServoAdapter,
-    on_events::on_app_callbacks,
-    servo_util::{init_servo_webview, spin_servo_event_loop},
-};
+use crate::servo_util::init_servo;
 
 slint::include_modules!();
 
 pub fn main() {
-    let (waker_sender, waker_receiver) = channel::unbounded::<()>();
-
     #[cfg(not(target_os = "android"))]
     let (device, queue) = {
-        use slint::wgpu_27::{WGPUConfiguration, wgpu};
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
@@ -51,7 +42,7 @@ pub fn main() {
         });
 
         slint::BackendSelector::new()
-        .require_wgpu_27(WGPUConfiguration::Manual { 
+        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual { 
             instance, 
             adapter, 
             device: device.clone(), 
@@ -64,31 +55,16 @@ pub fn main() {
     };
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
-
     let app_weak = app.as_weak();
 
+    let url = "https://slint.dev";
+    
     #[cfg(not(target_os = "android"))]
-    let adapter = Rc::new(SlintServoAdapter::new(
-        app_weak,
-        waker_sender.clone(),
-        waker_receiver.clone(),
-        device,
-        queue,
-    ));
-
+    let _adapter = init_servo(app_weak.clone(), url.into(), device, queue);
+    
     #[cfg(target_os = "android")]
-    let adapter = Rc::new(SlintServoAdapter::new(
-        app_weak,
-        waker_sender.clone(),
-        waker_receiver.clone(),
-    ));
-
-    init_servo_webview(adapter.clone(), "https://slint.dev".into());
-
-    spin_servo_event_loop(adapter.clone());
-
-    on_app_callbacks(adapter.clone());
-
+    let _adapter = init_servo(app_weak.clone(), url.into());
+    
     app.run().expect("Application failed to run - check for runtime errors");
 }
 
