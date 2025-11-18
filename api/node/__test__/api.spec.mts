@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import test from "ava";
+import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,7 +12,7 @@ const dirname = path.dirname(
 );
 
 // loadFile api
-test("loadFile", (t) => {
+test("loadFile", () => {
     // Test the URL variant here, to ensure that it works (esp. on Windows)
     const demo = loadFile(
         new URL(
@@ -21,30 +21,31 @@ test("loadFile", (t) => {
         ),
     ) as any;
     const test = new demo.Test();
-    t.is(test.check, "Test");
+    expect(test.check).toBe("Test");
 
     const errorPath = path.join(dirname, "resources/error.slint");
 
-    const error = t.throws(
-        () => {
-            loadFile(errorPath);
-        },
-        { instanceOf: CompileError },
-    );
+    let error: any;
+    try {
+        loadFile(errorPath);
+    } catch (e) {
+        error = e;
+    }
+    expect(error).toBeDefined();
+    expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error?.diagnostics
+    const formattedDiagnostics = error.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    t.is(
-        error?.message,
+    expect(error.message).toBe(
         "Could not compile " +
             errorPath +
             `\nDiagnostics:\n${formattedDiagnostics}`,
     );
-    t.deepEqual(error?.diagnostics, [
+    expect(error.diagnostics).toStrictEqual([
         {
             columnNumber: 18,
             level: 0,
@@ -70,7 +71,7 @@ test("loadFile", (t) => {
     ]);
 });
 
-test("loadFile constructor parameters", (t) => {
+test("loadFile constructor parameters", () => {
     const demo = loadFile(
         path.join(dirname, "resources/test-constructor.slint"),
     ) as any;
@@ -84,64 +85,73 @@ test("loadFile constructor parameters", (t) => {
 
     test.say_hello();
 
-    t.is(test.check, "test");
-    t.is(hello, "hello");
+    expect(test.check).toBe("test");
+    expect(hello).toBe("hello");
 });
 
-test("loadFile component instances and modules are sealed", (t) => {
+test("loadFile component instances and modules are sealed", () => {
     const demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             demo.no_such_property = 42;
-        },
-        { instanceOf: TypeError },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError).toBeInstanceOf(TypeError);
+    }
 
     const test = new demo.Test();
-    t.is(test.check, "Test");
+    expect(test.check).toBe("Test");
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             test.no_such_callback = () => {};
-        },
-        { instanceOf: TypeError },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError).toBeInstanceOf(TypeError);
+    }
 });
 
 // loadSource api
-test("loadSource", (t) => {
+test("loadSource", () => {
     const source = `export component Test {
         out property <string> check: "Test";
     }`;
     const path = "api.spec.ts";
     const demo = loadSource(source, path) as any;
     const test = new demo.Test();
-    t.is(test.check, "Test");
+    expect(test.check).toBe("Test");
 
     const errorSource = `export component Error {
         out property bool> check: "Test";
     }`;
 
-    const error = t.throws(
-        () => {
-            loadSource(errorSource, path);
-        },
-        { instanceOf: CompileError },
-    );
+    let error: any;
+    try {
+        loadSource(errorSource, path);
+    } catch (e) {
+        error = e;
+    }
+    expect(error).toBeDefined();
+    expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error?.diagnostics
+    const formattedDiagnostics = error.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    t.is(
-        error?.message,
+    expect(error.message).toBe(
         "Could not compile " + path + `\nDiagnostics:\n${formattedDiagnostics}`,
     );
     // console.log(error?.diagnostics)
-    t.deepEqual(error?.diagnostics, [
+    expect(error.diagnostics).toStrictEqual([
         {
             columnNumber: 22,
             level: 0,
@@ -167,7 +177,7 @@ test("loadSource", (t) => {
     ]);
 });
 
-test("loadSource constructor parameters", (t) => {
+test("loadSource constructor parameters", () => {
     const source = `export component Test {
         callback say_hello();
         in-out property <string> check;
@@ -184,36 +194,44 @@ test("loadSource constructor parameters", (t) => {
 
     test.say_hello();
 
-    t.is(test.check, "test");
-    t.is(hello, "hello");
+    expect(test.check).toBe("test");
+    expect(hello).toBe("hello");
 });
 
-test("loadSource component instances and modules are sealed", (t) => {
+test("loadSource component instances and modules are sealed", () => {
     const source = `export component Test {
         out property <string> check: "Test";
     }`;
     const path = "api.spec.ts";
     const demo = loadSource(source, path) as any;
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             demo.no_such_property = 42;
-        },
-        { instanceOf: TypeError },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError).toBeInstanceOf(TypeError);
+    }
 
     const test = new demo.Test();
-    t.is(test.check, "Test");
+    expect(test.check).toBe("Test");
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             test.no_such_callback = () => {};
-        },
-        { instanceOf: TypeError },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError).toBeInstanceOf(TypeError);
+    }
 });
 
-test("loadFile struct", (t) => {
+test("loadFile struct", () => {
     const demo = loadFile(
         path.join(dirname, "resources/test-struct.slint"),
     ) as any;
@@ -222,10 +240,10 @@ test("loadFile struct", (t) => {
         check: new demo.TestStruct(),
     });
 
-    t.deepEqual(test.check, { text: "", flag: false, value: 0 });
+    expect(test.check).toStrictEqual({ text: "", flag: false, value: 0 });
 });
 
-test("loadFile struct constructor parameters", (t) => {
+test("loadFile struct constructor parameters", () => {
     const demo = loadFile(
         path.join(dirname, "resources/test-struct.slint"),
     ) as any;
@@ -234,17 +252,21 @@ test("loadFile struct constructor parameters", (t) => {
         check: new demo.TestStruct({ text: "text", flag: true, value: 12 }),
     });
 
-    t.deepEqual(test.check, { text: "text", flag: true, value: 12 });
+    expect(test.check).toStrictEqual({ text: "text", flag: true, value: 12 });
 
     test.check = new demo.TestStruct({
         text: "hello world",
         flag: false,
         value: 8,
     });
-    t.deepEqual(test.check, { text: "hello world", flag: false, value: 8 });
+    expect(test.check).toStrictEqual({
+        text: "hello world",
+        flag: false,
+        value: 8,
+    });
 });
 
-test("loadFile struct constructor more parameters", (t) => {
+test("loadFile struct constructor more parameters", () => {
     const demo = loadFile(
         path.join(dirname, "resources/test-struct.slint"),
     ) as any;
@@ -258,10 +280,10 @@ test("loadFile struct constructor more parameters", (t) => {
         }),
     });
 
-    t.deepEqual(test.check, { text: "text", flag: true, value: 12 });
+    expect(test.check).toStrictEqual({ text: "text", flag: true, value: 12 });
 });
 
-test("loadFile enum", (t) => {
+test("loadFile enum", () => {
     const demo = loadFile(
         path.join(dirname, "resources/test-enum.slint"),
     ) as any;
@@ -270,14 +292,14 @@ test("loadFile enum", (t) => {
         check: demo.TestEnum.b,
     });
 
-    t.deepEqual(test.check, "b");
+    expect(test.check).toStrictEqual("b");
 
     test.check = demo.TestEnum.c;
 
-    t.deepEqual(test.check, "c");
+    expect(test.check).toStrictEqual("c");
 });
 
-test("file loader", (t) => {
+test("file loader", () => {
     const testSource = `export component Test {
        in-out property <string> text: "Hello World";
     }`;
@@ -295,5 +317,5 @@ test("file loader", (t) => {
 
     const test = new demo.App();
 
-    t.deepEqual(test.test_text, "Hello World");
+    expect(test.test_text).toStrictEqual("Hello World");
 });

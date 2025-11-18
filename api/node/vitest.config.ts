@@ -11,6 +11,7 @@ export default defineConfig({
             "**/models.spec.mts",
             "**/globals.spec.mts",
             "**/compiler.spec.mts",
+            "**/api.spec.mts",
         ],
         globals: true, // Enable global test/expect/describe
         isolate: true, // Use separate processes for isolation (matching ava's workerThreads: false)

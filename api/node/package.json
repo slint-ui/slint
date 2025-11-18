@@ -68,7 +68,8 @@
       "!**/types.spec.mts",
       "!**/models.spec.mts",
       "!**/globals.spec.mts",
-      "!**/compiler.spec.mts"
+      "!**/compiler.spec.mts",
+      "!**/api.spec.mts"
     ]
   },
   "dependencies": {
