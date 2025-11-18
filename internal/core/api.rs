@@ -1220,7 +1220,6 @@ pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformErr
     )
 }
 
-#[cfg(feature = "experimental-rich-text")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Style {
     Emphasis,
@@ -1232,7 +1231,6 @@ pub enum Style {
     Color(crate::Color),
 }
 
-#[cfg(feature = "experimental-rich-text")]
 #[derive(Clone, Debug, PartialEq)]
 pub struct FormattedSpan {
     pub range: std::ops::Range<usize>,

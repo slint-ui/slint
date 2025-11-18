@@ -22,7 +22,8 @@ use crate::api::PlatformError;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
-    CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage, RenderRectangle,
+    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
+    RenderRectangle,
 };
 use crate::item_tree::ItemTreeWeak;
 use crate::items::{ItemRc, TextOverflow, TextWrap};
@@ -743,15 +744,14 @@ impl RendererSealed for SoftwareRenderer {
         let font_request = text_item.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
-        match (font, parley_disabled()) {
+        match (font, parley_disabled(), text_item.text()) {
             #[cfg(feature = "software-renderer-systemfonts")]
-            (fonts::Font::VectorFont(_), false) => {
+            (fonts::Font::VectorFont(_), false, _) => {
                 sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
             }
             #[cfg(feature = "software-renderer-systemfonts")]
-            (fonts::Font::VectorFont(vf), true) => {
+            (fonts::Font::VectorFont(vf), true, PlainOrStyledText::Plain(text)) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
-                let text = text_item.text();
                 let (longest_line_width, height) = layout.text_size(
                     text.as_str(),
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
@@ -760,9 +760,8 @@ impl RendererSealed for SoftwareRenderer {
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
-            (fonts::Font::PixelFont(pf), _) => {
+            (fonts::Font::PixelFont(pf), _, PlainOrStyledText::Plain(text)) => {
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
-                let text = text_item.text();
                 let (longest_line_width, height) = layout.text_size(
                     text.as_str(),
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
@@ -770,18 +769,12 @@ impl RendererSealed for SoftwareRenderer {
                 );
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
+            }
+            (_, true, PlainOrStyledText::Styled(_))
+            | (fonts::Font::PixelFont(_), _, PlainOrStyledText::Styled(_)) => {
+                panic!("Unable to get text size of styled text without parley")
             }
         }
-    }
-
-    fn styled_text_size(
-        &self,
-        text_item: Pin<&crate::items::StyledText>,
-        item_rc: &crate::item_tree::ItemRc,
-        max_width: Option<LogicalLength>,
-        text_wrap: TextWrap,
-    ) -> LogicalSize {
-        panic!()
     }
 
     fn char_size(
@@ -2540,14 +2533,13 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        match (font, parley_disabled()) {
+        match (font, parley_disabled(), text.text()) {
             #[cfg(feature = "software-renderer-systemfonts")]
-            (fonts::Font::VectorFont(_), false) => {
+            (fonts::Font::VectorFont(_), false, _) => {
                 sharedparley::draw_text(self, text, Some(self_rc), size);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
-            (fonts::Font::VectorFont(vf), true) => {
-                let string = text.text();
+            (fonts::Font::VectorFont(vf), true, PlainOrStyledText::Plain(string)) => {
                 if string.trim().is_empty() {
                     return;
                 }
@@ -2587,8 +2579,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
-            (fonts::Font::PixelFont(pf), _) => {
-                let string = text.text();
+            (fonts::Font::PixelFont(pf), _, PlainOrStyledText::Plain(string)) => {
                 if string.trim().is_empty() {
                     return;
                 }
@@ -2628,17 +2619,11 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
+            (_, true, PlainOrStyledText::Styled(_))
+            | (fonts::Font::PixelFont(_), _, PlainOrStyledText::Styled(_)) => {
+                panic!("Unable to get draw styled text without parley")
+            }
         }
-    }
-
-    fn draw_styled_text(
-        &mut self,
-        text: Pin<&crate::items::StyledText>,
-        self_rc: &ItemRc,
-        size: LogicalSize,
-        _cache: &CachedRenderingData,
-    ) {
-        panic!()
     }
 
     fn draw_text_input(

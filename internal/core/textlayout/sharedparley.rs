@@ -13,6 +13,7 @@ use std::cell::RefCell;
 use crate::{
     Color, SharedString,
     graphics::FontRequest,
+    item_rendering::PlainOrStyledText,
     items::TextStrokeStyle,
     lengths::{
         LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
@@ -305,15 +306,9 @@ impl LayoutWithoutLineBreaksBuilder {
     }
 }
 
-enum Text<'a> {
-    PlainText(&'a str),
-    #[cfg(feature = "experimental-rich-text")]
-    StyledText(crate::api::StyledText),
-}
-
 fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
-    text: Text,
+    text: PlainOrStyledText,
     selection: Option<(Range<usize>, Color)>,
     link_color: Color,
 ) -> Vec<TextParagraph> {
@@ -343,7 +338,7 @@ fn create_text_paragraphs(
     let mut paragraphs = Vec::with_capacity(1);
 
     match text {
-        Text::PlainText(text) => {
+        PlainOrStyledText::Plain(ref text) => {
             let paragraph_ranges = core::iter::from_fn({
                 let mut start = 0;
                 let mut char_it = text.char_indices().peekable();
@@ -374,14 +369,15 @@ fn create_text_paragraphs(
                 ));
             }
         }
-        #[cfg(feature = "experimental-rich-text")]
-        Text::StyledText(rich_text) => {
+        PlainOrStyledText::Styled(rich_text) =>
+        {
+            #[cfg(feature = "experimental-rich-text")]
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
                     &paragraph.text,
                     0..0,
                     paragraph.formatting,
-                    paragraph.links.into_iter().collect(),
+                    paragraph.links,
                 ));
             }
         }
@@ -1042,114 +1038,10 @@ pub fn draw_text(
         scale_factor,
     );
 
-    let str = text.text();
-
-    #[cfg(feature = "experimental-rich-text")]
-    let layout_text = { Text::PlainText(&str) };
-
-    #[cfg(not(feature = "experimental-rich-text"))]
-    let layout_text = Text::PlainText(&str);
-
     let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+        create_text_paragraphs(&layout_builder, text.text(), None, Default::default());
 
     let (horizontal_align, vertical_align) = text.alignment();
-    let text_overflow = text.overflow();
-
-    let layout = layout(
-        &layout_builder,
-        paragraphs_without_linebreaks,
-        scale_factor,
-        LayoutOptions {
-            horizontal_align,
-            vertical_align,
-            max_height: Some(max_height),
-            max_width: Some(max_width),
-            text_overflow: text.overflow(),
-        },
-    );
-
-    let render = if text_overflow == TextOverflow::Clip {
-        item_renderer.save_state();
-
-        item_renderer.combine_clip(
-            LogicalRect::new(LogicalPoint::default(), size),
-            LogicalBorderRadius::zero(),
-            LogicalLength::zero(),
-        )
-    } else {
-        true
-    };
-
-    if render {
-        layout.draw(
-            item_renderer,
-            platform_fill_brush,
-            platform_stroke_brush,
-            &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
-                item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
-            },
-        );
-    }
-
-    if text_overflow == TextOverflow::Clip {
-        item_renderer.restore_state();
-    }
-}
-
-pub fn draw_styled_text(
-    item_renderer: &mut impl GlyphRenderer,
-    text: Pin<&crate::items::StyledText>,
-    item_rc: Option<&crate::item_tree::ItemRc>,
-    size: LogicalSize,
-) {
-    let max_width = size.width_length();
-    let max_height = size.height_length();
-
-    if max_width.get() <= 0. || max_height.get() <= 0. {
-        return;
-    }
-
-    let Some(platform_fill_brush) = item_renderer.platform_text_fill_brush(text.color(), size)
-    else {
-        // Nothing to draw
-        return;
-    };
-
-    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
-
-    let (stroke_brush, stroke_width, stroke_style) =
-        (text.stroke(), text.stroke_width(), text.stroke_style());
-    let platform_stroke_brush = if !stroke_brush.is_transparent() {
-        let stroke_width = if stroke_width.get() != 0.0 {
-            (stroke_width * scale_factor).get()
-        } else {
-            // Hairline stroke
-            1.0
-        };
-        let stroke_width = match stroke_style {
-            TextStrokeStyle::Outside => stroke_width * 2.0,
-            TextStrokeStyle::Center => stroke_width,
-        };
-        item_renderer.platform_text_stroke_brush(stroke_brush, stroke_width, size)
-    } else {
-        None
-    };
-
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        None, //item_rc.map(|item_rc| text.font_request(item_rc)),
-        text.wrap(),
-        platform_stroke_brush.is_some().then_some(stroke_style),
-        scale_factor,
-    );
-
-    let layout_text = { Text::StyledText(text.text()) };
-
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
-
-    let (horizontal_align, vertical_align) =
-        (text.horizontal_alignment(), text.vertical_alignment());
     let text_overflow = text.overflow();
 
     let layout = layout(
@@ -1196,25 +1088,24 @@ pub fn draw_styled_text(
 #[cfg(feature = "experimental-rich-text")]
 pub fn link_under_cursor(
     scale_factor: ScaleFactor,
-    text: Pin<&crate::items::StyledText>,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     cursor: PhysicalPoint,
 ) -> Option<std::string::String> {
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        None, //Some(text.font_request(item_rc)),
+        Some(text.font_request(item_rc)),
         text.wrap(),
         None,
         scale_factor,
     );
 
-    let layout_text = { Text::StyledText(text.text()) };
+    let layout_text = text.text();
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
 
-    let (horizontal_align, vertical_align) =
-        (text.horizontal_alignment(), text.vertical_alignment());
+    let (horizontal_align, vertical_align) = text.alignment();
 
     let layout = layout(
         &layout_builder,
@@ -1306,7 +1197,7 @@ pub fn draw_text_input(
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
-        Text::PlainText(&text),
+        PlainOrStyledText::Plain(text),
         selection_and_color,
         Color::default(),
     );
@@ -1373,50 +1264,8 @@ pub fn text_size(
 
     let text = text_item.text();
 
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        Text::PlainText(text.as_str()),
-        None,
-        Color::default(),
-    );
-
-    let layout = layout(
-        &layout_builder,
-        paragraphs_without_linebreaks,
-        scale_factor,
-        LayoutOptions {
-            max_width,
-            max_height: None,
-            horizontal_align: TextHorizontalAlignment::Left,
-            vertical_align: TextVerticalAlignment::Top,
-            text_overflow: TextOverflow::Clip,
-        },
-    );
-    PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
-}
-
-pub fn styled_text_size(
-    renderer: &dyn RendererSealed,
-    text_item: Pin<&crate::items::StyledText>,
-    item_rc: &crate::item_tree::ItemRc,
-    max_width: Option<LogicalLength>,
-    text_wrap: TextWrap,
-) -> LogicalSize {
-    let Some(scale_factor) = renderer.scale_factor() else {
-        return LogicalSize::default();
-    };
-
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        None, //Some(text_item.font_request(item_rc)),
-        text_wrap,
-        None,
-        scale_factor,
-    );
-
-    let layout_text = { Text::StyledText(text_item.text()) };
-
     let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, layout_text, None, Color::default());
+        create_text_paragraphs(&layout_builder, text, None, Color::default());
 
     let layout = layout(
         &layout_builder,
@@ -1512,8 +1361,12 @@ pub fn text_input_byte_offset_for_position(
     );
 
     let text = text_input.text();
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        PlainOrStyledText::Plain(text),
+        None,
+        Color::default(),
+    );
 
     let layout = layout(
         &layout_builder,
@@ -1553,8 +1406,12 @@ pub fn text_input_cursor_rect_for_byte_offset(
     }
 
     let text = text_input.text();
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        PlainOrStyledText::Plain(text),
+        None,
+        Color::default(),
+    );
 
     let layout = layout(
         &layout_builder,

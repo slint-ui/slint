@@ -23,9 +23,7 @@ use crate::item_rendering::{
 use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
 #[cfg(feature = "std")]
 use crate::items::Path;
-use crate::items::{
-    BoxShadow, Clip, ItemRc, ItemRef, Opacity, RenderingResult, StyledText, TextInput,
-};
+use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Opacity, RenderingResult, TextInput};
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect,
     LogicalSize, LogicalVector,
@@ -669,7 +667,6 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     forward_rendering_call2!(fn draw_window_background(dyn RenderRectangle));
     forward_rendering_call2!(fn draw_image(dyn RenderImage));
     forward_rendering_call2!(fn draw_text(dyn RenderText));
-    forward_rendering_call2!(fn draw_styled_text(StyledText));
     forward_rendering_call!(fn draw_text_input(TextInput));
     #[cfg(feature = "std")]
     forward_rendering_call!(fn draw_path(Path));

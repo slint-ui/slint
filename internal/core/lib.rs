@@ -197,6 +197,7 @@ pub fn escape_markdown(text: &str) -> std::string::String {
             '#' => out.push_str("\\#"),
             '-' => out.push_str("\\-"),
             '`' => out.push_str("\\`"),
+            '&' => out.push_str("\\&"),
             _ => out.push(c),
         }
     }
@@ -204,6 +205,12 @@ pub fn escape_markdown(text: &str) -> std::string::String {
     out
 }
 
+#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
 pub fn parse_markdown(text: &str) -> crate::api::StyledText {
-    crate::api::StyledText::parse(text).unwrap()
+    #[cfg(feature = "experimental-rich-text")]
+    {
+        crate::api::StyledText::parse(text).unwrap()
+    }
+    #[cfg(not(feature = "experimental-rich-text"))]
+    Default::default()
 }

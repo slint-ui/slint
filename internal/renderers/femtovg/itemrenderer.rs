@@ -340,16 +340,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         sharedparley::draw_text(self, text, Some(self_rc), size);
     }
 
-    fn draw_styled_text(
-        &mut self,
-        text: Pin<&i_slint_core::items::StyledText>,
-        self_rc: &ItemRc,
-        size: LogicalSize,
-        _cache: &CachedRenderingData,
-    ) {
-        panic!()
-    }
-
     fn draw_text_input(
         &mut self,
         text_input: Pin<&items::TextInput>,
