@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::common::ByteFormat;
 use i_slint_compiler::parser::{
     syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange,
 };
@@ -83,13 +84,14 @@ pub fn find_element_ids(token: &SyntaxToken, parent: &SyntaxNode) -> Option<Vec<
 pub fn rename_element_id(
     element: syntax_nodes::SubElement,
     new_name: &str,
+    format: ByteFormat,
 ) -> Option<Vec<TextEdit>> {
     let edits = if let Some(current_id) = element.child_token(SyntaxKind::Identifier) {
         let all_ids = find_element_ids(&current_id, &element)?;
         all_ids
             .into_iter()
             .map(|r| TextEdit {
-                range: crate::util::text_range_to_lsp_range(&element.source_file, r),
+                range: crate::util::text_range_to_lsp_range(&element.source_file, r, format),
                 new_text: new_name.into(),
             })
             .collect::<Vec<_>>()
@@ -97,6 +99,7 @@ pub fn rename_element_id(
         let position = crate::util::text_size_to_lsp_position(
             &element.source_file,
             element.text_range().start(),
+            format,
         );
         element.text_range().start();
         vec![TextEdit {
@@ -143,7 +146,7 @@ component Foo inherits Rectangle {
         let edit = crate::common::create_workspace_edit(
             uri.clone(),
             None,
-            rename_element_id(rect_x, "name-for-x").unwrap(),
+            rename_element_id(rect_x, "name-for-x", dc.format).unwrap(),
         );
         let renamed = crate::common::text_edit::apply_workspace_edit(&dc, &edit)
             .unwrap()
@@ -182,7 +185,7 @@ component Foo inherits Rectangle {
         let edit = crate::common::create_workspace_edit(
             uri.clone(),
             None,
-            rename_element_id(rect_y, "name-for-y").unwrap(),
+            rename_element_id(rect_y, "name-for-y", dc.format).unwrap(),
         );
         let renamed = crate::common::text_edit::apply_workspace_edit(&dc, &edit)
             .unwrap()
@@ -221,7 +224,7 @@ component Foo inherits Rectangle {
         let edit = crate::common::create_workspace_edit(
             uri.clone(),
             None,
-            rename_element_id(t_a, "toucharea").unwrap(),
+            rename_element_id(t_a, "toucharea", dc.format).unwrap(),
         );
         let renamed = crate::common::text_edit::apply_workspace_edit(&dc, &edit)
             .unwrap()
@@ -260,7 +263,7 @@ component Foo inherits Rectangle {
         let edit = crate::common::create_workspace_edit(
             uri.clone(),
             None,
-            rename_element_id(rect_z, "zzz").unwrap(),
+            rename_element_id(rect_z, "zzz", dc.format).unwrap(),
         );
         let renamed = crate::common::text_edit::apply_workspace_edit(&dc, &edit)
             .unwrap()

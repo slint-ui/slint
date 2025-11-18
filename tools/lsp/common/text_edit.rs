@@ -18,15 +18,20 @@ impl TextOffsetAdjustment {
     pub fn new(
         edit: &lsp_types::TextEdit,
         source_file: &i_slint_compiler::diagnostics::SourceFile,
+        format: common::ByteFormat,
     ) -> Self {
         let new_text_length = edit.new_text.len() as u32;
         let (start_offset, end_offset) = {
             let so = source_file.offset(
                 edit.range.start.line as usize + 1,
                 edit.range.start.character as usize + 1,
+                format,
             );
-            let eo = source_file
-                .offset(edit.range.end.line as usize + 1, edit.range.end.character as usize + 1);
+            let eo = source_file.offset(
+                edit.range.end.line as usize + 1,
+                edit.range.end.character as usize + 1,
+                format,
+            );
             (
                 TextSize::new(std::cmp::min(so, eo) as u32),
                 TextSize::new(std::cmp::max(so, eo) as u32),
@@ -195,9 +200,13 @@ impl TextEditor {
         })
     }
 
-    pub fn apply(&mut self, text_edit: &lsp_types::TextEdit) -> crate::Result<()> {
+    pub fn apply(
+        &mut self,
+        text_edit: &lsp_types::TextEdit,
+        format: common::ByteFormat,
+    ) -> crate::Result<()> {
         let current_range =
-            crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range);
+            crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range, format);
         let adjusted_range = self.adjustments.adjust_range(current_range);
 
         if self.contents.len() < adjusted_range.end().into() {
@@ -212,7 +221,11 @@ impl TextEditor {
         let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
         self.contents.replace_range(r, &text_edit.new_text);
 
-        self.adjustments.add_adjustment(TextOffsetAdjustment::new(text_edit, &self.source_file));
+        self.adjustments.add_adjustment(TextOffsetAdjustment::new(
+            text_edit,
+            &self.source_file,
+            format,
+        ));
 
         Ok(())
     }
@@ -255,7 +268,10 @@ pub fn apply_workspace_edit(
             processing.insert(doc.uri.clone(), editor);
         }
 
-        processing.get_mut(&doc.uri).expect("just added if missing").apply(edit)?;
+        processing
+            .get_mut(&doc.uri)
+            .expect("just added if missing")
+            .apply(edit, document_cache.format)?;
     }
 
     Ok(processing
@@ -309,7 +325,11 @@ pub fn reversed_edit(
             .edits
             .into_iter()
             .map(|e| {
-                let orig_range = crate::util::lsp_range_to_text_range(&helper.source_file, e.range);
+                let orig_range = crate::util::lsp_range_to_text_range(
+                    &helper.source_file,
+                    e.range,
+                    document_cache.format,
+                );
                 let orig_string = source[orig_range].to_string();
 
                 // Count the number of \n in the original string and the replaced string
@@ -937,7 +957,7 @@ fn test_texteditor_edit_out_of_range() {
         ),
         new_text: "Foobar".to_string(),
     };
-    assert!(editor.apply(&edit).is_err());
+    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_err());
 }
 
 #[test]
@@ -961,7 +981,7 @@ geh"#
         ),
         new_text: "".to_string(),
     };
-    assert!(editor.apply(&edit).is_ok());
+    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
 
     let result = editor.finalize().unwrap();
     assert!(result.0.is_empty());
@@ -991,7 +1011,7 @@ geh"#
         ),
         new_text: "REPLACEMENT".to_string(),
     };
-    assert!(editor.apply(&edit).is_ok());
+    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
 
     let result = editor.finalize().unwrap();
     assert_eq!(
@@ -1026,7 +1046,7 @@ geh"#
         ),
         new_text: "".to_string(),
     };
-    assert!(editor.apply(&edit).is_ok());
+    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
     let edit = lsp_types::TextEdit {
         range: lsp_types::Range::new(
             lsp_types::Position::new(0, 0),
@@ -1034,7 +1054,7 @@ geh"#
         ),
         new_text: "REPLACEMENT".to_string(),
     };
-    assert!(editor.apply(&edit).is_ok());
+    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
 
     let result = editor.finalize().unwrap();
     assert_eq!(&result.0, "REPLACEMENT");

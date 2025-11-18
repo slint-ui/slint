@@ -77,7 +77,7 @@ pub fn get_tooltip(
 
     Some(Hover {
         contents: HoverContents::Markup(contents),
-        range: Some(util::token_to_lsp_range(&token)),
+        range: Some(util::token_to_lsp_range(&token, document_cache.format)),
     })
 }
 

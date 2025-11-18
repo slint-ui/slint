@@ -341,6 +341,7 @@ fn drop_edit(
             &drop_info,
             &moving_element,
             Default::default(),
+            document_cache.format,
         )?
     } else if let Ok(library_index) = data.parse::<usize>() {
         let component = super::PREVIEW_STATE.with(|preview_state| {

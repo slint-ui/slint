@@ -116,7 +116,10 @@ fn visit_node(node: SyntaxNode, results: &mut Messages, current_context: Option<
                 let update = |msg: &mut dyn polib::message::MessageMutView| {
                     let span = node.span();
                     if span.is_valid() {
-                        let (line, _) = node.source_file.line_column(span.offset);
+                        let (line, _) = node.source_file.line_column(
+                            span.offset,
+                            i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                        );
                         if line > 0 {
                             let source = msg.source_mut();
                             let path = node.source_file.path().to_string_lossy();

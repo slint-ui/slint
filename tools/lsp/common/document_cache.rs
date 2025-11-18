@@ -47,6 +47,7 @@ pub struct CompilerConfiguration {
     pub open_import_fallback: Option<OpenImportFallback>,
     pub resource_url_mapper:
         Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+    pub format: super::ByteFormat,
 }
 
 impl Default for CompilerConfiguration {
@@ -59,6 +60,7 @@ impl Default for CompilerConfiguration {
             style: std::mem::take(&mut cc.style),
             open_import_fallback: None,
             resource_url_mapper: std::mem::take(&mut cc.resource_url_mapper),
+            format: super::ByteFormat::Utf8,
         }
     }
 }
@@ -80,6 +82,7 @@ pub struct DocumentCache {
     type_loader: TypeLoader,
     open_import_fallback: Option<OpenImportFallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
+    pub format: super::ByteFormat,
 }
 
 #[cfg(feature = "preview-engine")]
@@ -129,6 +132,7 @@ impl DocumentCache {
     }
 
     pub fn new(config: CompilerConfiguration) -> Self {
+        let format = config.format;
         let (mut compiler_config, open_import_fallback) = config.build();
 
         let (open_import_fallback, source_file_versions) = Self::wire_up_import_fallback(
@@ -145,6 +149,7 @@ impl DocumentCache {
             ),
             open_import_fallback,
             source_file_versions,
+            format,
         }
     }
 
@@ -152,6 +157,7 @@ impl DocumentCache {
         mut type_loader: TypeLoader,
         open_import_fallback: Option<OpenImportFallback>,
         source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
+        format: super::ByteFormat,
     ) -> Self {
         let (open_import_fallback, source_file_versions) = Self::wire_up_import_fallback(
             &mut type_loader.compiler_config,
@@ -159,15 +165,16 @@ impl DocumentCache {
             source_file_versions,
         );
 
-        Self { type_loader, open_import_fallback, source_file_versions }
+        Self { type_loader, open_import_fallback, source_file_versions, format }
     }
 
     pub fn snapshot(&self) -> Option<Self> {
         let open_import_fallback = self.open_import_fallback.clone();
         let source_file_versions =
             Rc::new(RefCell::new(self.source_file_versions.borrow().clone()));
-        i_slint_compiler::typeloader::snapshot(&self.type_loader)
-            .map(|tl| Self::new_from_raw_parts(tl, open_import_fallback, source_file_versions))
+        i_slint_compiler::typeloader::snapshot(&self.type_loader).map(|tl| {
+            Self::new_from_raw_parts(tl, open_import_fallback, source_file_versions, self.format)
+        })
     }
 
     pub fn resolve_import_path(
@@ -243,11 +250,11 @@ impl DocumentCache {
         pos: &'_ lsp_types::Position,
     ) -> Option<(&'a i_slint_compiler::object_tree::Document, TextSize)> {
         let doc = self.get_document(text_document_uri)?;
-        let o = (doc
-            .node
-            .as_ref()?
-            .source_file
-            .offset(pos.line as usize + 1, pos.character as usize + 1) as u32)
+        let o = (doc.node.as_ref()?.source_file.offset(
+            pos.line as usize + 1,
+            pos.character as usize + 1,
+            self.format,
+        ) as u32)
             .into();
         doc.node.as_ref()?.text_range().contains_inclusive(o).then_some((doc, o))
     }
@@ -358,6 +365,7 @@ impl DocumentCache {
             style: self.type_loader.compiler_config.style.clone(),
             open_import_fallback: None, // We need to re-generate this anyway
             resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
+            format: self.format,
         }
     }
 
