@@ -64,7 +64,8 @@
     "workerThreads": false,
     "files": [
       "**/*.spec.mts",
-      "!**/window.spec.mts"
+      "!**/window.spec.mts",
+      "!**/types.spec.mts"
     ]
   },
   "dependencies": {
