@@ -369,6 +369,7 @@ fn create_text_paragraphs(
                 ));
             }
         }
+        #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
         PlainOrStyledText::Styled(rich_text) =>
         {
             #[cfg(feature = "experimental-rich-text")]

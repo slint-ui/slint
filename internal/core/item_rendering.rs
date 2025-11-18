@@ -8,7 +8,6 @@ use super::items::*;
 use crate::graphics::{Color, FontRequest, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
-use crate::items::StyledText;
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
 };
@@ -293,6 +292,7 @@ pub trait HasFont {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest;
 }
 
+#[allow(missing_docs)]
 pub enum PlainOrStyledText {
     Plain(SharedString),
     Styled(crate::api::StyledText),

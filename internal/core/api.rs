@@ -1221,6 +1221,7 @@ pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformErr
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[allow(missing_docs)]
 pub enum Style {
     Emphasis,
     Strong,
@@ -1232,6 +1233,7 @@ pub enum Style {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[allow(missing_docs)]
 pub struct FormattedSpan {
     pub range: std::ops::Range<usize>,
     pub style: Style,
@@ -1246,6 +1248,7 @@ enum ListItemType {
 
 #[cfg(feature = "experimental-rich-text")]
 #[derive(Clone, Debug, PartialEq)]
+#[allow(missing_docs)]
 pub struct StyledTextParagraph {
     pub text: std::string::String,
     pub formatting: std::vec::Vec<FormattedSpan>,
@@ -1254,6 +1257,7 @@ pub struct StyledTextParagraph {
 
 #[cfg(feature = "experimental-rich-text")]
 #[derive(Debug, thiserror::Error)]
+#[allow(missing_docs)]
 pub enum StyledTextError<'a> {
     #[error("Spans are unbalanced: stack already empty when popped")]
     Pop,
@@ -1279,12 +1283,14 @@ pub enum StyledTextError<'a> {
 
 /// Internal styled text type
 #[derive(Debug, PartialEq, Clone, Default)]
+#[allow(missing_docs)]
 pub struct StyledText {
     #[cfg(feature = "experimental-rich-text")]
     pub paragraphs: std::vec::Vec<StyledTextParagraph>,
 }
 
 #[cfg(feature = "experimental-rich-text")]
+#[allow(missing_docs)]
 impl StyledText {
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = std::string::String::with_capacity(indentation as usize * 4);
