@@ -163,6 +163,10 @@ pub fn render_item_children(
                || item.as_ref().clips_children()
                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
                || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
+               // Transform and Opacity should also be applied regardless if the item itself is clipped or not
+               || ItemRef::downcast_pin::<Transform>(item).is_some()
+               || ItemRef::downcast_pin::<Opacity>(item).is_some()
+               || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
                 item.as_ref().render(
                     &mut (renderer as &mut dyn ItemRenderer),
