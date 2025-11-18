@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import test from "ava";
+import { test, expect } from "vitest";
 
 import { private_api } from "../dist/index.js";
 
-test("get/set global properties", (t) => {
+test("get/set global properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -13,78 +13,75 @@ test("get/set global properties", (t) => {
     export component App {}`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.is(instance!.getGlobalProperty("Global", "name"), "Initial");
+    expect(instance!.getGlobalProperty("Global", "name")).toBe("Initial");
 
     instance!.setGlobalProperty("Global", "name", "Hello");
-    t.is(instance!.getGlobalProperty("Global", "name"), "Hello");
+    expect(instance!.getGlobalProperty("Global", "name")).toBe("Hello");
 
-    t.throws(
-        () => {
-            instance!.getGlobalProperty("MyGlobal", "name");
-        },
-        {
-            code: "GenericFailure",
-            message: "Global MyGlobal not found",
-        },
+    let thrownError: any;
+    try {
+        instance!.getGlobalProperty("MyGlobal", "name");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("Global MyGlobal not found");
+
+    try {
+        instance!.setGlobalProperty("MyGlobal", "name", "hello");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("Global MyGlobal not found");
+
+    try {
+        instance!.getGlobalProperty("Global", "age");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("no such property");
+
+    try {
+        instance!.setGlobalProperty("Global", "age", 42);
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe(
+        "Property age of global Global not found in the component",
     );
 
-    t.throws(
-        () => {
-            instance!.setGlobalProperty("MyGlobal", "name", "hello");
-        },
-        {
-            code: "GenericFailure",
-            message: "Global MyGlobal not found",
-        },
-    );
+    try {
+        instance!.setGlobalProperty("Global", "name", 42);
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("InvalidArg");
+    expect(thrownError.message).toBe("expect String, got: Number");
 
-    t.throws(
-        () => {
-            instance!.getGlobalProperty("Global", "age");
-        },
-        {
-            code: "GenericFailure",
-            message: "no such property",
-        },
-    );
-
-    t.throws(
-        () => {
-            instance!.setGlobalProperty("Global", "age", 42);
-        },
-        {
-            code: "GenericFailure",
-            message: "Property age of global Global not found in the component",
-        },
-    );
-
-    t.throws(
-        () => {
-            instance!.setGlobalProperty("Global", "name", 42);
-        },
-        {
-            code: "InvalidArg",
-            message: "expect String, got: Number",
-        },
-    );
-
-    t.throws(
-        () => {
-            instance!.setGlobalProperty("Global", "name", { blah: "foo" });
-        },
-        {
-            code: "InvalidArg",
-            message: "expect String, got: Object",
-        },
-    );
+    try {
+        instance!.setGlobalProperty("Global", "name", { blah: "foo" });
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("InvalidArg");
+    expect(thrownError.message).toBe("expect String, got: Object");
 });
 
-test("invoke global callback", (t) => {
+test("invoke global callback", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -112,30 +109,29 @@ test("invoke global callback", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.throws(
-        () => {
-            instance!.setGlobalCallback("MyGlobal", "great", () => {});
-        },
-        {
-            code: "GenericFailure",
-            message: "Global MyGlobal not found",
-        },
-    );
+    let thrownError: any;
+    try {
+        instance!.setGlobalCallback("MyGlobal", "great", () => {});
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("Global MyGlobal not found");
 
-    t.throws(
-        () => {
-            instance!.invokeGlobal("MyGlobal", "great", []);
-        },
-        {
-            code: "GenericFailure",
-            message: "Global MyGlobal not found",
-        },
-    );
+    try {
+        instance!.invokeGlobal("MyGlobal", "great", []);
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("Global MyGlobal not found");
 
     let speakTest: string;
     instance!.setGlobalCallback(
@@ -147,24 +143,26 @@ test("invoke global callback", (t) => {
         },
     );
 
-    t.throws(
-        () => {
-            instance!.setGlobalCallback("Global", "bye", () => {});
-        },
-        {
-            code: "GenericFailure",
-            message: "Callback bye of global Global not found in the component",
-        },
+    try {
+        instance!.setGlobalCallback("Global", "bye", () => {});
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe(
+        "Callback bye of global Global not found in the component",
     );
 
-    t.throws(
-        () => {
-            instance!.invokeGlobal("Global", "bye", []);
-        },
-        {
-            code: "GenericFailure",
-            message: "Callback bye of global Global not found in the component",
-        },
+    try {
+        instance!.invokeGlobal("Global", "bye", []);
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe(
+        "Callback bye of global Global not found in the component",
     );
 
     instance!.invokeGlobal("Global", "great", [
@@ -174,20 +172,24 @@ test("invoke global callback", (t) => {
         "tobias",
         "florian",
     ]);
-    t.deepEqual(speakTest, "hello simon, olivier, auri, tobias and florian");
+    expect(speakTest).toStrictEqual(
+        "hello simon, olivier, auri, tobias and florian",
+    );
 
     instance!.setGlobalCallback("Global", "great-person", (p: any) => {
         speakTest = "hello " + p.name;
     });
 
     instance!.invokeGlobal("Global", "great-person", [{ name: "simon" }]);
-    t.deepEqual(speakTest, "hello simon");
+    expect(speakTest).toStrictEqual("hello simon");
 
     instance!.invokeGlobal("Global", "great-person", [{ hello: "simon" }]);
-    t.deepEqual(speakTest, "hello ");
+    expect(speakTest).toStrictEqual("hello ");
 
-    t.deepEqual(instance!.invokeGlobal("Global", "get-string", []), "string");
-    t.deepEqual(instance!.invokeGlobal("Global", "person", []), {
+    expect(instance!.invokeGlobal("Global", "get-string", [])).toStrictEqual(
+        "string",
+    );
+    expect(instance!.invokeGlobal("Global", "person", [])).toStrictEqual({
         name: "florian",
     });
 });

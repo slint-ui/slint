@@ -9,6 +9,7 @@ export default defineConfig({
             "**/window.spec.mts",
             "**/types.spec.mts",
             "**/models.spec.mts",
+            "**/globals.spec.mts",
         ],
         globals: true, // Enable global test/expect/describe
         isolate: true, // Use separate processes for isolation (matching ava's workerThreads: false)
