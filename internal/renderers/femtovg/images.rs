@@ -4,13 +4,13 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use i_slint_core::graphics::euclid;
 #[cfg(not(target_arch = "wasm32"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
 use i_slint_core::items::ImageTiling;
 use i_slint_core::lengths::PhysicalPx;
-use i_slint_core::{items::ImageRendering, ImageInner};
+use i_slint_core::{ImageInner, items::ImageRendering};
 
 use super::itemrenderer::CanvasRc;
 
