@@ -185,8 +185,8 @@ pub fn open_url(url: &str) {
     }
 }
 
-pub fn escape_markdown(text: &str) -> std::string::String {
-    let mut out = std::string::String::with_capacity(text.len());
+pub fn escape_markdown(text: &str) -> alloc::string::String {
+    let mut out = alloc::string::String::with_capacity(text.len());
 
     for c in text.chars() {
         match c {

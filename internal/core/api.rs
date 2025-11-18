@@ -1235,7 +1235,7 @@ pub enum Style {
 #[derive(Clone, Debug, PartialEq)]
 #[allow(missing_docs)]
 pub struct FormattedSpan {
-    pub range: std::ops::Range<usize>,
+    pub range: core::ops::Range<usize>,
     pub style: Style,
 }
 
