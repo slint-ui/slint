@@ -348,7 +348,6 @@ export component Test { // not docs
         );
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("row-pointer-event", 0.into())),
-            // Fixme: this uses LogicalPoint instead of Point because of implementation details
             "```slint\ncallback row-pointer-event(row: int, event: PointerEvent, position: Point)\n```",
         );
         assert_tooltip(
