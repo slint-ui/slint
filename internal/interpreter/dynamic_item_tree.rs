@@ -950,7 +950,7 @@ pub async fn load(
                 Some((&export.0.name, &component.id))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                Type::Struct(s) if s.node.is_some() => {
                     if let StructName::User(user_name) = &s.name {
                         Some((&export.0.name, user_name))
                     } else {

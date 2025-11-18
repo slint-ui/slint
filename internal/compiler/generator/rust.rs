@@ -3645,7 +3645,7 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
                 }
             }
             Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                Type::Struct(s) if s.node.is_some() => {
                     if let StructName::User(user_name) = &s.name
                         && *user_name == export.0.name
                     {
