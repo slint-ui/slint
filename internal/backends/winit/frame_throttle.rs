@@ -12,7 +12,7 @@ use crate::winitwindowadapter::WinitWindowAdapter;
 
 pub fn create_frame_throttle(
     window_adapter: Weak<WinitWindowAdapter>,
-    _winit_window: &winit::window::Window,
+    _winit_window: &dyn winit::window::Window,
     _is_wayland: bool,
 ) -> Box<dyn FrameThrottle> {
     if _is_wayland {
@@ -29,7 +29,7 @@ pub fn create_frame_throttle(
 }
 
 pub trait FrameThrottle {
-    fn request_throttled_redraw(&self, winit_window: &winit::window::Window);
+    fn request_throttled_redraw(&self, winit_window: &dyn winit::window::Window);
 }
 
 struct TimerBasedFrameThrottle {
@@ -44,14 +44,15 @@ impl TimerBasedFrameThrottle {
 }
 
 impl FrameThrottle for TimerBasedFrameThrottle {
-    fn request_throttled_redraw(&self, winit_window: &winit::window::Window) {
+    fn request_throttled_redraw(&self, winit_window: &dyn winit::window::Window) {
         if self.timer.running() {
             return;
         }
         let refresh_interval_millihertz = winit_window
             .current_monitor()
-            .and_then(|monitor| monitor.refresh_rate_millihertz())
-            .unwrap_or(60000) as u64;
+            .and_then(|monitor| monitor.current_video_mode())
+            .and_then(|mode| mode.refresh_rate_millihertz())
+            .map_or(60000, |rate| rate.get()) as u64;
         let window_adapter = self.window_adapter.clone();
         let timer = Rc::downgrade(&self.timer);
         let interval =
@@ -92,7 +93,7 @@ impl WinitBasedFrameThrottle {
 }
 
 impl FrameThrottle for WinitBasedFrameThrottle {
-    fn request_throttled_redraw(&self, winit_window: &winit::window::Window) {
+    fn request_throttled_redraw(&self, winit_window: &dyn winit::window::Window) {
         winit_window.request_redraw();
     }
 }

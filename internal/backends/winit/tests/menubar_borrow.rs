@@ -21,7 +21,7 @@ fn main() {
         }
         }
     }
-    use slint::winit_030::WinitWindowAccessor;
+    use slint::winit_031::WinitWindowAccessor;
     slint::BackendSelector::new().backend_name("winit".into()).select().unwrap();
     slint::spawn_local(async move {
         let app = App::new().unwrap();
