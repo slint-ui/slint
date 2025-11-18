@@ -102,7 +102,6 @@ impl BuiltinTypes {
                 )
                 .collect(),
             name: NativePrivateType::LayoutInfo.into(),
-            node: None,
             rust_attributes: None,
         });
         Self {
@@ -114,7 +113,6 @@ impl BuiltinTypes {
                 ])
                 .collect(),
                 name: crate::langtype::NativePublicType::LogicalPosition.into(),
-                node: None,
                 rust_attributes: None,
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
@@ -126,7 +124,6 @@ impl BuiltinTypes {
                 ])
                 .collect(),
                 name: NativePrivateType::FontMetrics.into(),
-                node: None,
                 rust_attributes: None,
             })),
             noarg_callback_type: Type::Callback(Rc::new(Function {
@@ -143,14 +140,12 @@ impl BuiltinTypes {
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
                 name: NativePrivateType::PathElement.into(),
-                node: None,
                 rust_attributes: None,
             })),
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
                 name: NativePrivateType::BoxLayoutCellData.into(),
-                node: None,
                 rust_attributes: None,
             })),
         }
@@ -452,7 +447,6 @@ impl TypeRegister {
                         $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
                     ]),
                     name: $inner_name.into(),
-                    node: None,
                     rust_attributes: None,
                 }));
                 register.insert_type_with_name(maybe_clone!($Name, $Name), SmolStr::new(stringify!($Name)));

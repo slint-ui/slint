@@ -216,7 +216,6 @@ declare_builtin_function_types!(
         ])
         .collect(),
         name: NativePublicType::Color.into(),
-        node: None,
         rust_attributes: None,
     })),
     ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
@@ -228,7 +227,6 @@ declare_builtin_function_types!(
         ])
         .collect(),
         name: NativePublicType::Color.into(),
-        node: None,
         rust_attributes: None,
     })),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
@@ -243,7 +241,6 @@ declare_builtin_function_types!(
         ])
         .collect(),
         name: crate::langtype::NativePrivateType::Size.into(),
-        node: None,
         rust_attributes: None,
     })),
     ArrayLength: (Type::Model) -> Type::Int32,

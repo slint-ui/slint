@@ -500,8 +500,8 @@ fn convert_from_value_fn(ty: &Type) -> String {
 fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
     for ty in structs_and_enums {
         match ty {
-            Type::Struct(s) if s.node.is_some() => {
-                let StructName::User(struct_name) = &s.name else {
+            Type::Struct(s) if s.node().is_some() => {
+                let StructName::User { name: struct_name, .. } = &s.name else {
                     return;
                 };
                 let name = ident(&struct_name);

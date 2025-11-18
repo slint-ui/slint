@@ -164,7 +164,6 @@ fn compile_path_from_string_literal(
         ])
         .collect(),
         name: NativePrivateType::Point.into(),
-        node: None,
         rust_attributes: None,
     });
 

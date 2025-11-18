@@ -396,7 +396,7 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: StructName::User(name), node: Some(_), .. } => {
+                Struct { fields, name: StructName::User { name, .. }, .. } => {
                     let ty = ident(name);
                     let convert_to_value = fields.values().map(convert_to_value_fn);
                     let convert_from_value = fields.values().map(convert_from_value_fn);
