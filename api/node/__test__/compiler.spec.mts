@@ -1,25 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import test from "ava";
+import { test, expect } from "vitest";
 
 import { private_api } from "../dist/index.js";
+import * as napi from "../rust-module.cjs";
 
-test("get/set include paths", (t) => {
+test("get/set include paths", () => {
     const compiler = new private_api.ComponentCompiler();
 
-    t.is(compiler.includePaths.length, 0);
+    expect(compiler.includePaths.length).toBe(0);
 
     compiler.includePaths = ["path/one/", "path/two/", "path/three/"];
 
-    t.deepEqual(compiler.includePaths, [
+    expect(compiler.includePaths).toStrictEqual([
         "path/one/",
         "path/two/",
         "path/three/",
     ]);
 });
 
-test("get/set library paths", (t) => {
+test("get/set library paths", () => {
     const compiler = new private_api.ComponentCompiler();
 
     compiler.libraryPaths = {
@@ -27,47 +28,53 @@ test("get/set library paths", (t) => {
         libdir: "third_party/libbar/ui/",
     };
 
-    t.deepEqual(compiler.libraryPaths, {
+    expect(compiler.libraryPaths).toStrictEqual({
         "libfile.slint": "third_party/libfoo/ui/lib.slint",
         libdir: "third_party/libbar/ui/",
     });
 });
 
-test("get/set style", (t) => {
+test("get/set style", () => {
     const compiler = new private_api.ComponentCompiler();
 
-    t.is(compiler.style, null);
+    expect(compiler.style).toBeNull();
 
     compiler.style = "fluent";
-    t.is(compiler.style, "fluent");
+    expect(compiler.style).toBe("fluent");
 });
 
-test("get/set build from source", (t) => {
+test("get/set build from source", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(`export component App {}`, "");
-    t.not(definition.App, null);
-    t.is(definition.App!.name, "App");
+    expect(definition.App).not.toBeNull();
+    expect(definition.App!.name).toBe("App");
 });
 
-test("constructor error ComponentDefinition and ComponentInstance", (t) => {
-    const componentDefinitionError = t.throws(() => {
+test("constructor error ComponentDefinition and ComponentInstance", () => {
+    let componentDefinitionError: any;
+    try {
         new private_api.ComponentDefinition();
-    });
-    t.is(
-        componentDefinitionError?.message,
+    } catch (error) {
+        componentDefinitionError = error;
+    }
+    expect(componentDefinitionError).toBeDefined();
+    expect(componentDefinitionError.message).toBe(
         "ComponentDefinition can only be created by using ComponentCompiler.",
     );
 
-    const componentInstanceError = t.throws(() => {
+    let componentInstanceError: any;
+    try {
         new private_api.ComponentInstance();
-    });
-    t.is(
-        componentInstanceError?.message,
+    } catch (error) {
+        componentInstanceError = error;
+    }
+    expect(componentInstanceError).toBeDefined();
+    expect(componentInstanceError.message).toBe(
         "ComponentInstance can only be created by using ComponentCompiler.",
     );
 });
 
-test("properties ComponentDefinition", (t) => {
+test("properties ComponentDefinition", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `export struct Struct {}
@@ -84,10 +91,10 @@ test("properties ComponentDefinition", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const properties = definition.App!.properties;
-    t.is(properties.length, 9);
+    expect(properties.length).toBe(9);
 
     properties.sort((a, b) => {
         const nameA = a.name.toUpperCase(); // ignore upper and lowercase
@@ -104,27 +111,27 @@ test("properties ComponentDefinition", (t) => {
         return 0;
     });
 
-    t.is(properties[0].name, "bool-property");
-    t.is(properties[0].valueType, private_api.ValueType.Bool);
-    t.is(properties[1].name, "brush-property");
-    t.is(properties[1].valueType, private_api.ValueType.Brush);
-    t.is(properties[2].name, "color-property");
-    t.is(properties[2].valueType, private_api.ValueType.Brush);
-    t.is(properties[3].name, "float-property");
-    t.is(properties[3].valueType, private_api.ValueType.Number);
-    t.is(properties[4].name, "image-property");
-    t.is(properties[4].valueType, private_api.ValueType.Image);
-    t.is(properties[5].name, "int-property");
-    t.is(properties[5].valueType, private_api.ValueType.Number);
-    t.is(properties[6].name, "model-property");
-    t.is(properties[6].valueType, private_api.ValueType.Model);
-    t.is(properties[7].name, "string-property");
-    t.is(properties[7].valueType, private_api.ValueType.String);
-    t.is(properties[8].name, "struct-property");
-    t.is(properties[8].valueType, private_api.ValueType.Struct);
+    expect(properties[0].name).toBe("bool-property");
+    expect(properties[0].valueType).toBe(napi.ValueType.Bool);
+    expect(properties[1].name).toBe("brush-property");
+    expect(properties[1].valueType).toBe(napi.ValueType.Brush);
+    expect(properties[2].name).toBe("color-property");
+    expect(properties[2].valueType).toBe(napi.ValueType.Brush);
+    expect(properties[3].name).toBe("float-property");
+    expect(properties[3].valueType).toBe(napi.ValueType.Number);
+    expect(properties[4].name).toBe("image-property");
+    expect(properties[4].valueType).toBe(napi.ValueType.Image);
+    expect(properties[5].name).toBe("int-property");
+    expect(properties[5].valueType).toBe(napi.ValueType.Number);
+    expect(properties[6].name).toBe("model-property");
+    expect(properties[6].valueType).toBe(napi.ValueType.Model);
+    expect(properties[7].name).toBe("string-property");
+    expect(properties[7].valueType).toBe(napi.ValueType.String);
+    expect(properties[8].name).toBe("struct-property");
+    expect(properties[8].valueType).toBe(napi.ValueType.Struct);
 });
 
-test("callbacks ComponentDefinition", (t) => {
+test("callbacks ComponentDefinition", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -134,18 +141,18 @@ test("callbacks ComponentDefinition", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const callbacks = definition.App!.callbacks;
-    t.is(callbacks.length, 2);
+    expect(callbacks.length).toBe(2);
 
     callbacks.sort();
 
-    t.is(callbacks[0], "first-callback");
-    t.is(callbacks[1], "second-callback");
+    expect(callbacks[0]).toBe("first-callback");
+    expect(callbacks[1]).toBe("second-callback");
 });
 
-test("globalProperties ComponentDefinition", (t) => {
+test("globalProperties ComponentDefinition", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `export struct Struct {}
@@ -167,14 +174,14 @@ test("globalProperties ComponentDefinition", (t) => {
         "",
     );
 
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
-    t.is(definition.App!.globalProperties("NonExistent"), null);
+    expect(definition.App!.globalProperties("NonExistent")).toBeNull();
 
     const properties = definition.App!.globalProperties("TestGlobal");
-    t.not(properties, null);
+    expect(properties).not.toBeNull();
 
-    t.is(properties!.length, 9);
+    expect(properties!.length).toBe(9);
 
     properties!.sort((a, b) => {
         const nameA = a.name.toUpperCase(); // ignore upper and lowercase
@@ -191,27 +198,27 @@ test("globalProperties ComponentDefinition", (t) => {
         return 0;
     });
 
-    t.is(properties![0].name, "bool-property");
-    t.is(properties![0].valueType, private_api.ValueType.Bool);
-    t.is(properties![1].name, "brush-property");
-    t.is(properties![1].valueType, private_api.ValueType.Brush);
-    t.is(properties![2].name, "color-property");
-    t.is(properties![2].valueType, private_api.ValueType.Brush);
-    t.is(properties![3].name, "float-property");
-    t.is(properties![3].valueType, private_api.ValueType.Number);
-    t.is(properties![4].name, "image-property");
-    t.is(properties![4].valueType, private_api.ValueType.Image);
-    t.is(properties![5].name, "int-property");
-    t.is(properties![5].valueType, private_api.ValueType.Number);
-    t.is(properties![6].name, "model-property");
-    t.is(properties![6].valueType, private_api.ValueType.Model);
-    t.is(properties![7].name, "string-property");
-    t.is(properties![7].valueType, private_api.ValueType.String);
-    t.is(properties![8].name, "struct-property");
-    t.is(properties![8].valueType, private_api.ValueType.Struct);
+    expect(properties![0].name).toBe("bool-property");
+    expect(properties![0].valueType).toBe(napi.ValueType.Bool);
+    expect(properties![1].name).toBe("brush-property");
+    expect(properties![1].valueType).toBe(napi.ValueType.Brush);
+    expect(properties![2].name).toBe("color-property");
+    expect(properties![2].valueType).toBe(napi.ValueType.Brush);
+    expect(properties![3].name).toBe("float-property");
+    expect(properties![3].valueType).toBe(napi.ValueType.Number);
+    expect(properties![4].name).toBe("image-property");
+    expect(properties![4].valueType).toBe(napi.ValueType.Image);
+    expect(properties![5].name).toBe("int-property");
+    expect(properties![5].valueType).toBe(napi.ValueType.Number);
+    expect(properties![6].name).toBe("model-property");
+    expect(properties![6].valueType).toBe(napi.ValueType.Model);
+    expect(properties![7].name).toBe("string-property");
+    expect(properties![7].valueType).toBe(napi.ValueType.String);
+    expect(properties![8].name).toBe("struct-property");
+    expect(properties![8].valueType).toBe(napi.ValueType.Struct);
 });
 
-test("globalCallbacks ComponentDefinition", (t) => {
+test("globalCallbacks ComponentDefinition", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -223,35 +230,34 @@ test("globalCallbacks ComponentDefinition", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
-    t.is(definition.App!.globalCallbacks("NonExistent"), null);
+    expect(definition.App!.globalCallbacks("NonExistent")).toBeNull();
 
     const callbacks = definition.App!.globalCallbacks("TestGlobal");
-    t.not(callbacks, null);
-    t.is(callbacks!.length, 2);
+    expect(callbacks).not.toBeNull();
+    expect(callbacks!.length).toBe(2);
 
     callbacks!.sort();
 
-    t.is(callbacks![0], "first-callback");
-    t.is(callbacks![1], "second-callback");
+    expect(callbacks![0]).toBe("first-callback");
+    expect(callbacks![1]).toBe("second-callback");
 });
 
-test("compiler diagnostics", (t) => {
+test("compiler diagnostics", () => {
     const compiler = new private_api.ComponentCompiler();
-    t.deepEqual(
+    expect(
         compiler.buildFromSource(
             `export component App {
     garbage
   }`,
             "testsource.slint",
         ),
-        {},
-    );
+    ).toStrictEqual({});
 
     const diags = compiler.diagnostics;
-    t.is(diags.length, 1);
-    t.deepEqual(diags[0], {
+    expect(diags.length).toBe(1);
+    expect(diags[0]).toStrictEqual({
         level: 0,
         message: "Parse error",
         lineNumber: 2,
@@ -260,7 +266,7 @@ test("compiler diagnostics", (t) => {
     });
 });
 
-test("non-existent properties and callbacks", (t) => {
+test("non-existent properties and callbacks", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -269,23 +275,32 @@ test("non-existent properties and callbacks", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    const prop_err = t.throws(() => {
+    let prop_err: any;
+    try {
         instance!.setProperty("non-existent", 42);
-    }) as any;
-    t.is(prop_err!.code, "GenericFailure");
-    t.is(prop_err!.message, "Property non-existent not found in the component");
+    } catch (error) {
+        prop_err = error;
+    }
+    expect(prop_err).toBeDefined();
+    expect(prop_err.code).toBe("GenericFailure");
+    expect(prop_err.message).toBe(
+        "Property non-existent not found in the component",
+    );
 
-    const callback_err = t.throws(() => {
+    let callback_err: any;
+    try {
         instance!.setCallback("non-existent-callback", () => {});
-    }) as any;
-    t.is(callback_err!.code, "GenericFailure");
-    t.is(
-        callback_err!.message,
+    } catch (error) {
+        callback_err = error;
+    }
+    expect(callback_err).toBeDefined();
+    expect(callback_err.code).toBe("GenericFailure");
+    expect(callback_err.message).toBe(
         "Callback non-existent-callback not found in the component",
     );
 });
