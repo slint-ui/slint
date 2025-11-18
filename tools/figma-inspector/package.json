@@ -34,7 +34,7 @@
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.3.0",
-    "vitest": "4.0.10"
+    "vitest": "catalog:"
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.19",
