@@ -921,7 +921,7 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
 
     for ty in used_types {
         match ty {
-            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+            Type::Struct(s) if s.node.is_some() => {
                 generate_struct(&mut file, &s.name, &s.fields, s.node.as_ref().unwrap());
             }
             Type::Enumeration(en) => {
@@ -4344,7 +4344,7 @@ pub fn generate_type_aliases(file: &mut File, doc: &Document) {
                 Some((&export.0.name, component.id.clone()))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                Type::Struct(s) if s.node.is_some() => {
                     Some((&export.0.name, s.name.cpp_type().unwrap()))
                 }
                 Type::Enumeration(en) => Some((&export.0.name, en.name.clone())),
