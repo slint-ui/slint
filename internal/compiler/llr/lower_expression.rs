@@ -526,7 +526,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     fn animation_ty() -> Rc<Struct> {
         Rc::new(Struct {
             fields: animation_fields().collect(),
-            name: StructName::Native(NativeType::Private(NativePrivateType::PropertyAnimation)),
+            name: NativePrivateType::PropertyAnimation.into(),
             node: None,
             rust_attributes: None,
         })
@@ -671,7 +671,7 @@ fn solve_layout(
                     llr_Expression::ExtraBuiltinFunctionCall {
                         function: "solve_grid_layout".into(),
                         arguments: vec![make_struct(
-                            NativeType::Private(NativePrivateType::GridLayoutData),
+                            NativePrivateType::GridLayoutData,
                             [
                                 ("size", Type::Float32, size),
                                 ("spacing", Type::Float32, spacing),
@@ -693,7 +693,7 @@ fn solve_layout(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_grid_layout".into(),
                     arguments: vec![make_struct(
-                        NativeType::Private(NativePrivateType::GridLayoutData),
+                        NativePrivateType::GridLayoutData,
                         [
                             ("size", Type::Float32, size),
                             ("spacing", Type::Float32, spacing),
@@ -710,7 +710,7 @@ fn solve_layout(
             let bld = box_layout_data(layout, o, ctx);
             let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
             let data = make_struct(
-                NativeType::Private(NativePrivateType::BoxLayoutData),
+                NativePrivateType::BoxLayoutData,
                 [
                     ("size", Type::Float32, size),
                     ("spacing", Type::Float32, spacing),
@@ -796,7 +796,7 @@ fn box_layout_data(
                     let layout_info =
                         get_layout_info(&li.element, ctx, &li.constraints, orientation);
                     make_struct(
-                        NativeType::Private(NativePrivateType::BoxLayoutCellData),
+                        NativePrivateType::BoxLayoutCellData,
                         [(
                             "constraint",
                             crate::typeregister::layout_info_type().into(),
@@ -823,7 +823,7 @@ fn box_layout_data(
                 let layout_info =
                     get_layout_info(&item.element, ctx, &item.constraints, orientation);
                 elements.push(Either::Left(make_struct(
-                    NativeType::Private(NativePrivateType::BoxLayoutCellData),
+                    NativePrivateType::BoxLayoutCellData,
                     [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
                 )));
             }
@@ -852,7 +852,7 @@ fn grid_layout_cell_data(
                     get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation);
 
                 make_struct(
-                    NativeType::Private(NativePrivateType::GridLayoutCellData),
+                    NativePrivateType::GridLayoutCellData,
                     [
                         ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
@@ -873,7 +873,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
             (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type().into()),
         ])
         .collect(),
-        name: StructName::Native(NativeType::Private(NativePrivateType::GridLayoutCellData)),
+        name: NativePrivateType::GridLayoutCellData.into(),
         node: None,
         rust_attributes: None,
     }))
@@ -895,7 +895,7 @@ fn generate_layout_padding_and_spacing(
     let (begin, end) = layout_geometry.padding.begin_end(orientation);
 
     let padding = make_struct(
-        NativeType::Private(NativePrivateType::Padding),
+        NativePrivateType::Padding,
         [("begin", Type::Float32, padding_prop(begin)), ("end", Type::Float32, padding_prop(end))],
     );
 
@@ -1084,7 +1084,7 @@ fn compile_path(
 }
 
 pub fn make_struct(
-    name: NativeType,
+    name: impl Into<NativeType>,
     it: impl IntoIterator<Item = (&'static str, Type, llr_Expression)>,
 ) -> llr_Expression {
     let mut fields = BTreeMap::<SmolStr, Type>::new();
@@ -1097,7 +1097,7 @@ pub fn make_struct(
     llr_Expression::Struct {
         ty: Rc::new(Struct {
             fields,
-            name: StructName::Native(name),
+            name: StructName::Native(name.into()),
             node: None,
             rust_attributes: None,
         }),

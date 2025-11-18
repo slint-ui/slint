@@ -11,8 +11,7 @@ use std::rc::Rc;
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
-    Function, NativePrivateType, NativePublicType, NativeType, PropertyLookupResult, Struct,
-    StructName, Type,
+    Function, NativePrivateType, NativePublicType, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -102,7 +101,7 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: StructName::Native(NativeType::Private(NativePrivateType::LayoutInfo)),
+            name: NativePrivateType::LayoutInfo.into(),
             node: None,
             rust_attributes: None,
         });
@@ -114,9 +113,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: StructName::Native(NativeType::Public(
-                    crate::langtype::NativePublicType::LogicalPosition,
-                )),
+                name: crate::langtype::NativePublicType::LogicalPosition.into(),
                 node: None,
                 rust_attributes: None,
             }),
@@ -128,7 +125,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: StructName::Native(NativeType::Private(NativePrivateType::FontMetrics)),
+                name: NativePrivateType::FontMetrics.into(),
                 node: None,
                 rust_attributes: None,
             })),
@@ -145,14 +142,14 @@ impl BuiltinTypes {
             layout_info_type: layout_info_type.clone(),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
-                name: StructName::Native(NativeType::Private(NativePrivateType::PathElement)),
+                name: NativePrivateType::PathElement.into(),
                 node: None,
                 rust_attributes: None,
             })),
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
-                name: StructName::Native(NativeType::Private(NativePrivateType::BoxLayoutCellData)),
+                name: NativePrivateType::BoxLayoutCellData.into(),
                 node: None,
                 rust_attributes: None,
             })),
@@ -454,7 +451,7 @@ impl TypeRegister {
                     fields: BTreeMap::from([
                         $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
                     ]),
-                    name: StructName::Native($inner_name),
+                    name: $inner_name.into(),
                     node: None,
                     rust_attributes: None,
                 }));

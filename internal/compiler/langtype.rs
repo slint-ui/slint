@@ -701,7 +701,7 @@ impl NativePublicType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, derive_more::From)]
 pub enum NativeType {
     Private(NativePrivateType),
     Public(NativePublicType),
@@ -894,6 +894,18 @@ impl StructName {
             Self::None => other,
             this @ _ => this,
         }
+    }
+}
+
+impl From<NativePrivateType> for StructName {
+    fn from(value: NativePrivateType) -> Self {
+        Self::Native(value.into())
+    }
+}
+
+impl From<NativePublicType> for StructName {
+    fn from(value: NativePublicType) -> Self {
+        Self::Native(value.into())
     }
 }
 

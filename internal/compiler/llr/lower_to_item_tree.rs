@@ -703,7 +703,7 @@ fn lower_popup_component(
     let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
     use super::Expression::PropertyReference as PR;
     let position = super::lower_expression::make_struct(
-        NativeType::Public(NativePublicType::LogicalPosition),
+        NativePublicType::LogicalPosition,
         [
             ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
             ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
