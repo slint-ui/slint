@@ -35,7 +35,7 @@ pub struct SlintServoAdapter {
 pub struct SlintServoAdapterInner {
     scale_factor: f32,
     webview: Option<WebView>,
-    rendering_adapter: Option<Box<dyn ServoRenderingAdapter>>,
+    rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
     #[cfg(not(target_os = "android"))]
     device: wgpu::Device,
     #[cfg(not(target_os = "android"))]
@@ -110,7 +110,7 @@ impl SlintServoAdapter {
         servo: Servo,
         webview: WebView,
         scale_factor: f32,
-        rendering_adapter: Box<dyn ServoRenderingAdapter>,
+        rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
     ) {
         *self.servo.borrow_mut() = Some(servo);
         let mut inner = self.inner_mut();

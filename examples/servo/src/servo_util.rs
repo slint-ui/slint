@@ -58,7 +58,7 @@ pub fn init_servo(
             let (rendering_adapter, physical_size, scale_factor) =
                 init_rendering_adpater(state.clone());
 
-            let servo = intit_servo_builder(state.clone(), rendering_adapter.clone());
+            let servo = init_servo_builder(state.clone(), rendering_adapter.clone());
 
             init_webview(scale_factor, physical_size, initial_url, state, servo, rendering_adapter);
         }
@@ -103,7 +103,7 @@ fn init_rendering_adpater(
     (rendering_adapter_rc, physical_size, scale_factor)
 }
 
-fn intit_servo_builder(
+fn init_servo_builder(
     adapter: Rc<SlintServoAdapter>,
     rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
 ) -> Servo {
@@ -149,11 +149,7 @@ fn init_webview(
 
     webview.notify_theme_change(theme);
 
-    // Extract the Box from Rc - this requires the Rc to have a strong count of 1
-    let rendering_adapter_box = Rc::try_unwrap(rendering_adapter)
-        .unwrap_or_else(|_| panic!("Rendering adapter has multiple references"));
-
-    adapter.set_inner(servo, webview, scale_factor, rendering_adapter_box);
+    adapter.set_inner(servo, webview, scale_factor, rendering_adapter);
 }
 
 fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
