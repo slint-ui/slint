@@ -631,7 +631,7 @@ impl Default for ElementType {
 }
 
 #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
-pub enum NativePrivateType {
+pub enum BuiltinPrivateStruct {
     PathMoveTo,
     PathLineTo,
     PathArcTo,
@@ -659,21 +659,21 @@ pub enum NativePrivateType {
     MenuEntry,
 }
 
-impl NativePrivateType {
+impl BuiltinPrivateStruct {
     pub fn is_layout_data(&self) -> bool {
-        matches!(self, NativePrivateType::GridLayoutData | NativePrivateType::BoxLayoutData)
+        matches!(self, Self::GridLayoutData | Self::BoxLayoutData)
     }
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {
             // These are public types in the Slint language
-            NativePrivateType::Point
-            | NativePrivateType::FontMetrics
-            | NativePrivateType::TableColumn
-            | NativePrivateType::MenuEntry
-            | NativePrivateType::KeyEvent
-            | NativePrivateType::KeyboardModifiers
-            | NativePrivateType::PointerEvent
-            | NativePrivateType::PointerScrollEvent => {
+            Self::Point
+            | Self::FontMetrics
+            | Self::TableColumn
+            | Self::MenuEntry
+            | Self::KeyEvent
+            | Self::KeyboardModifiers
+            | Self::PointerEvent
+            | Self::PointerScrollEvent => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
             }
@@ -683,35 +683,33 @@ impl NativePrivateType {
 }
 
 #[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
-pub enum NativePublicType {
+pub enum BuiltinPublicStruct {
     Color,
     LogicalPosition,
     StandardListViewItem,
 }
 
-impl NativePublicType {
+impl BuiltinPublicStruct {
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {
-            NativePublicType::Color => Some(SmolStr::new_static("color")),
-            NativePublicType::LogicalPosition => Some(SmolStr::new_static("Point")),
-            NativePublicType::StandardListViewItem => {
-                Some(SmolStr::new_static("StandardListViewItem"))
-            }
+            Self::Color => Some(SmolStr::new_static("color")),
+            Self::LogicalPosition => Some(SmolStr::new_static("Point")),
+            Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, derive_more::From)]
-pub enum NativeType {
-    Private(NativePrivateType),
-    Public(NativePublicType),
+pub enum BuiltinStruct {
+    Private(BuiltinPrivateStruct),
+    Public(BuiltinPublicStruct),
 }
 
-impl NativeType {
+impl BuiltinStruct {
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {
-            NativeType::Private(native_private_type) => native_private_type.slint_name(),
-            NativeType::Public(native_public_type) => native_public_type.slint_name(),
+            Self::Private(native_private_type) => native_private_type.slint_name(),
+            Self::Public(native_public_type) => native_public_type.slint_name(),
         }
     }
 }
@@ -725,7 +723,7 @@ pub struct NativeClass {
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
-    pub native_type: Option<NativeType>,
+    pub builtin_struct: Option<BuiltinPrivateStruct>,
 }
 
 impl NativeClass {
@@ -873,7 +871,8 @@ pub enum StructName {
         /// When declared in .slint, this is the node of the declaration.
         node: syntax_nodes::ObjectType,
     },
-    Native(NativeType),
+    BuiltinPublic(BuiltinPublicStruct),
+    BuiltinPrivate(BuiltinPrivateStruct),
 }
 
 impl PartialEq for StructName {
@@ -883,7 +882,8 @@ impl PartialEq for StructName {
                 Self::User { name: l_user_name, node: _ },
                 Self::User { name: r_user_name, node: _ },
             ) => l_user_name == r_user_name,
-            (Self::Native(l0), Self::Native(r0)) => l0 == r0,
+            (Self::BuiltinPublic(l0), Self::BuiltinPublic(r0)) => l0 == r0,
+            (Self::BuiltinPrivate(l0), Self::BuiltinPrivate(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -894,7 +894,8 @@ impl StructName {
         match self {
             StructName::None => None,
             StructName::User { name, .. } => Some(name.clone()),
-            StructName::Native(native_type) => native_type.slint_name(),
+            StructName::BuiltinPublic(builtin_public) => builtin_public.slint_name(),
+            StructName::BuiltinPrivate(builtin_private) => builtin_private.slint_name(),
         }
     }
 
@@ -914,15 +915,15 @@ impl StructName {
     }
 }
 
-impl From<NativePrivateType> for StructName {
-    fn from(value: NativePrivateType) -> Self {
-        Self::Native(value.into())
+impl From<BuiltinPrivateStruct> for StructName {
+    fn from(value: BuiltinPrivateStruct) -> Self {
+        Self::BuiltinPrivate(value)
     }
 }
 
-impl From<NativePublicType> for StructName {
-    fn from(value: NativePublicType) -> Self {
-        Self::Native(value.into())
+impl From<BuiltinPublicStruct> for StructName {
+    fn from(value: BuiltinPublicStruct) -> Self {
+        Self::BuiltinPublic(value)
     }
 }
 
