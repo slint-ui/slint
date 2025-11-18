@@ -13,6 +13,7 @@ export default defineConfig({
             "**/compiler.spec.mts",
             "**/api.spec.mts",
             "**/js_value_conversion.spec.mts",
+            "**/eventloop.spec.mts",
         ],
         globals: true, // Enable global test/expect/describe
         isolate: true, // Use separate processes for isolation (matching ava's workerThreads: false)
