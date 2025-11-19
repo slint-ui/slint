@@ -5,8 +5,7 @@ import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Jimp } from "jimp";
-import { captureStderr } from "capture-console";
-
+import { captureLogs } from "./helpers/utils.js";
 import {
     private_api,
     type ImageData,
@@ -1049,7 +1048,7 @@ test("wrong global callback return type ", () => {
     expect(person).toStrictEqual({ name: "", age: 0 });
 });
 
-test("throw exception in callback", () => {
+test("throw exception in callback", async () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -1069,22 +1068,18 @@ test("throw exception in callback", () => {
         throw new Error("I'm an error");
     });
 
-    const output = captureStderr(() => {
+    const logs = captureLogs();
+    try {
         instance!.invoke("throw-something", []);
-    });
-
-    if (output) {
-        expect(
-            output.includes(
-                "Node.js: Invoking callback 'throw-something' failed",
-            ),
-        ).toBe(true);
-        expect(output.includes("I'm an error")).toBe(true);
-    } else {
-        // If captureStderr doesn't work in Vitest, we at least verify the callback was invoked
-        // The error will be visible in the test output
-        expect(true).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+        logs.restore();
     }
+    const output = logs.getLogs().stderr;
+    expect(
+        output.includes("Node.js: Invoking callback 'throw-something' failed"),
+    ).toBe(true);
+    expect(output.includes("I'm an error")).toBe(true);
 });
 
 test("throw exception set color", () => {

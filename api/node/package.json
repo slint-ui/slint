@@ -48,7 +48,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "test": "tsc --build __test__/tsconfig.json && (ava || true) && vitest run"
+    "test": "vitest run"
   },
   "ava": {
     "typescript": {
@@ -75,6 +75,7 @@
     ]
   },
   "dependencies": {
-    "@napi-rs/cli": "2.18.4"
+    "@napi-rs/cli": "2.18.4",
+    "strip-ansi": "7.1.2"
   }
 }
