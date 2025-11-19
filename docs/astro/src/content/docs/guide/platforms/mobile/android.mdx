@@ -5,6 +5,7 @@ description: Android Platform Guide
 ---
 
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import { Image } from 'astro:assets';
 
 :::note[Note]
 When developing Slint applications for Android, you can only use Rust as the programming language.
@@ -70,7 +71,9 @@ that enables you to download and install all SDK versions you need. Usually it's
 latest version available, because they can be configured to be backwards-compatible with older versions
 of Android. This manager is available in the settings in "Languages & Frameworks" > "Android SDK".
 
-![Android SDK Manager](android_sdk_manager.png)
+import androidSdkManager from '/src/assets/android/android_sdk_manager.png';
+
+<Image src={androidSdkManager} style={{width: "500px"}} alt="Screenshot Android SDK Manager" />
 
 Also note the SDK location on top, this path might have to be used for the `ANDROID_HOME` environment
 variable if the build tools can't detect it automatically.
@@ -103,11 +106,15 @@ touch screen and to check if all text is large enough, etc.
 To create and run a virtual device, use the Virtual Device Manager available in Android Studio. You
 can open it from its main screen under "More Actions":
 
-![Virtual Device Manager Menu Item](android_virtual_device_manager_menu.png)
+import virtualDeviceManagerMenuItem from '/src/assets/android/android_virtual_device_manager_menu.png';
+
+<Image src={virtualDeviceManagerMenuItem} style={{width: "500px"}} alt="Screenshot Virtual Device Manager Menu Item" />
 
 You can create any number of devices with different configurations here:
 
-![Virtual Device Manager](android_virtual_device_manager.png)
+import virtualDeviceManager from '/src/assets/android/android_virtual_device_manager.png';
+
+<Image src={virtualDeviceManager} style={{width: "500px"}} alt="Screenshot Virtual Device Manager" />
 
 A good approach is to have one device with the minimum API level supported by your application and
 another one with the latest release to make sure it runs on both.
@@ -127,11 +134,15 @@ save the file.
 
 The next challenge is that there is still no keyboard:
 
-![Stylus](android_virtual_keyboard_stylus.png)
+import virtualKeyboardStylus from '/src/assets/android/android_virtual_keyboard_stylus.png';
+
+<Image src={virtualKeyboardStylus} style={{width: "300px"}} alt="Screenshot Stylus Support" />
 
 You have to disable the stylus input. Go to the keyboard settings:
 
-![Keyboard Settings Menu Item](android_keyboard_settings.png)
+import keyboardSettings from '/src/assets/android/android_keyboard_settings.png';
+
+<Image src={keyboardSettings} style={{width: "300px"}} alt="Screenshot Keyboard Settings" />
 
 Select "Write in textfields" in the list and then disable that feature. This should enable the
 regular virtual keyboard.
