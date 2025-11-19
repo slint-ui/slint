@@ -20,11 +20,9 @@
   ],
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
-    "@ava/typescript": "6.0.0",
     "@biomejs/biome": "catalog:",
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
-    "ava": "6.4.1",
     "capture-console": "1.0.2",
     "jimp": "1.6.0",
     "typedoc": "0.28.14",
@@ -48,29 +46,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "test": "tsc --build __test__/tsconfig.json && ava && vitest run"
-  },
-  "ava": {
-    "typescript": {
-      "rewritePaths": {
-        "__test__/": "build/"
-      },
-      "compile": false,
-      "extensions": [
-        "mts"
-      ]
-    },
-    "timeout": "2m",
-    "workerThreads": false,
-    "files": [
-      "**/*.spec.mts",
-      "!**/window.spec.mts",
-      "!**/types.spec.mts",
-      "!**/models.spec.mts",
-      "!**/globals.spec.mts",
-      "!**/compiler.spec.mts",
-      "!**/api.spec.mts"
-    ]
+    "test": "vitest run"
   },
   "dependencies": {
     "@napi-rs/cli": "2.18.4"

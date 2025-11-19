@@ -3,12 +3,16 @@
 
 // Test that the Slint event loop processes libuv's events.
 
-import test from "ava";
+import { test, expect, afterEach } from "vitest";
 import * as http from "node:http";
 
 import { runEventLoop, quitEventLoop, private_api } from "../dist/index.js";
 
-test.serial("merged event loops with timer", async (t) => {
+afterEach(() => {
+    quitEventLoop();
+});
+
+test.sequential("merged event loops with timer", async () => {
     let invoked = false;
 
     await runEventLoop(() => {
@@ -17,10 +21,10 @@ test.serial("merged event loops with timer", async (t) => {
             quitEventLoop();
         }, 2);
     });
-    t.true(invoked);
+    expect(invoked).toBe(true);
 });
 
-test.serial("merged event loops with networking", async (t) => {
+test.sequential("merged event loops with networking", async () => {
     const listener = (request, result) => {
         result.writeHead(200);
         result.end("Hello World");
@@ -48,32 +52,29 @@ test.serial("merged event loops with networking", async (t) => {
         });
     });
 
-    t.is(received_response, "Hello World");
+    expect(received_response).toBe("Hello World");
 });
 
-test.serial(
-    "quit event loop on last window closed with callback",
-    async (t) => {
-        const compiler = new private_api.ComponentCompiler();
-        const definition = compiler.buildFromSource(
-            `
+test.sequential("quit event loop on last window closed with callback", async () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
 
     export component App inherits Window {
         width: 300px;
         height: 300px;
     }`,
-            "",
-        );
-        t.not(definition.App, null);
+        "",
+    );
+    expect(definition.App).not.toBeNull();
 
-        const instance = definition.App!.create() as any;
-        t.not(instance, null);
+    const instance = definition.App!.create() as any;
+    expect(instance).not.toBeNull();
 
-        instance.window().show();
-        await runEventLoop(() => {
-            setTimeout(() => {
-                instance.window().hide();
-            }, 2);
-        });
-    },
-);
+    instance.window().show();
+    await runEventLoop(() => {
+        setTimeout(() => {
+            instance.window().hide();
+        }, 2);
+    });
+});

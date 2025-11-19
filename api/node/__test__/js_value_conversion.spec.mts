@@ -1,12 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import test from "ava";
+import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Jimp } from "jimp";
-import { captureStderr } from "capture-console";
-
+import { captureAsyncStderr } from "./helpers/utils.js";
 import {
     private_api,
     type ImageData,
@@ -17,44 +16,48 @@ import {
 const filename = fileURLToPath(import.meta.url).replace("build", "__test__");
 const dirname = path.dirname(filename);
 
-test("get/set string properties", (t) => {
+test("get/set string properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `export component App { in-out property <string> name: "Initial"; }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.is(instance!.getProperty("name"), "Initial");
+    expect(instance!.getProperty("name")).toBe("Initial");
 
     instance!.setProperty("name", "Hello");
-    t.is(instance!.getProperty("name"), "Hello");
+    expect(instance!.getProperty("name")).toBe("Hello");
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("name", 42);
-        },
-        {
-            code: "InvalidArg",
-            message: "expect String, got: Number",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect String, got: Number");
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("name", { blah: "foo" });
-        },
-        {
-            code: "InvalidArg",
-            message: "expect String, got: Object",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect String, got: Object");
+    }
 });
 
-test("get/set number properties", (t) => {
+test("get/set number properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -63,75 +66,83 @@ test("get/set number properties", (t) => {
     }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.is(instance!.getProperty("age"), 42);
+    expect(instance!.getProperty("age")).toBe(42);
 
     instance!.setProperty("age", 100);
-    t.is(instance!.getProperty("age"), 100);
+    expect(instance!.getProperty("age")).toBe(100);
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("age", "Hello");
-        },
-        {
-            code: "InvalidArg",
-            message: "expect Number, got: String",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect Number, got: String");
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("age", { blah: "foo" });
-        },
-        {
-            code: "InvalidArg",
-            message: "expect Number, got: Object",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect Number, got: Object");
+    }
 });
 
-test("get/set bool properties", (t) => {
+test("get/set bool properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `export component App { in-out property <bool> ready: true; }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.is(instance!.getProperty("ready"), true);
+    expect(instance!.getProperty("ready")).toBe(true);
 
     instance!.setProperty("ready", false);
-    t.is(instance!.getProperty("ready"), false);
+    expect(instance!.getProperty("ready")).toBe(false);
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("ready", "Hello");
-        },
-        {
-            code: "InvalidArg",
-            message: "expect Boolean, got: String",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect Boolean, got: String");
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("ready", { blah: "foo" });
-        },
-        {
-            code: "InvalidArg",
-            message: "expect Boolean, got: Object",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect Boolean, got: Object");
+    }
 });
 
-test("set struct properties", (t) => {
+test("set struct properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -150,12 +161,12 @@ test("set struct properties", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.deepEqual(instance!.getProperty("player"), {
+    expect(instance!.getProperty("player")).toStrictEqual({
         name: "Florian",
         age: 20,
         energy_level: 0.4,
@@ -167,7 +178,7 @@ test("set struct properties", (t) => {
         energy_level: 0.8,
     });
 
-    t.deepEqual(instance!.getProperty("player"), {
+    expect(instance!.getProperty("player")).toStrictEqual({
         name: "Simon",
         age: 22,
         energy_level: 0.8,
@@ -180,7 +191,7 @@ test("set struct properties", (t) => {
         energy_level: 0.8,
         weight: 200,
     });
-    t.deepEqual(instance!.getProperty("player"), {
+    expect(instance!.getProperty("player")).toStrictEqual({
         name: "Excessive Player",
         age: 100,
         energy_level: 0.8,
@@ -188,14 +199,14 @@ test("set struct properties", (t) => {
 
     // Missing properties are defaulted
     instance!.setProperty("player", { age: 39 });
-    t.deepEqual(instance!.getProperty("player"), {
+    expect(instance!.getProperty("player")).toStrictEqual({
         name: "",
         age: 39,
         energy_level: 0.0,
     });
 });
 
-test("get/set image properties", async (t) => {
+test("get/set image properties", async () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -206,79 +217,96 @@ test("get/set image properties", async (t) => {
   }`,
         filename,
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     const slintImage = instance!.getProperty("image");
-    if (t.true(slintImage instanceof private_api.SlintImageData)) {
-        t.deepEqual((slintImage as private_api.SlintImageData).width, 64);
-        t.deepEqual((slintImage as private_api.SlintImageData).height, 64);
-        t.true((slintImage as ImageData).path.endsWith("rgb.png"));
+    if (slintImage instanceof private_api.SlintImageData) {
+        expect((slintImage as private_api.SlintImageData).width).toStrictEqual(
+            64,
+        );
+        expect((slintImage as private_api.SlintImageData).height).toStrictEqual(
+            64,
+        );
+        expect((slintImage as ImageData).path.endsWith("rgb.png")).toBe(true);
 
         const image = await Jimp.read(path.join(dirname, "resources/rgb.png"));
 
         // Sanity check: setProperty fails when passed definitely a non-image
-        t.throws(
-            () => {
+        {
+            let thrownError: any;
+            try {
                 instance!.setProperty("external-image", 42);
-            },
-            {
-                message:
-                    "Cannot convert object to image, because the provided object does not have an u32 `width` property",
-            },
-        );
-        t.throws(
-            () => {
+            } catch (error) {
+                thrownError = error;
+            }
+            expect(thrownError).toBeDefined();
+            expect(thrownError.message).toBe(
+                "Cannot convert object to image, because the provided object does not have an u32 `width` property",
+            );
+        }
+        {
+            let thrownError: any;
+            try {
                 instance!.setProperty("external-image", { garbage: true });
-            },
-            {
-                message:
-                    "Cannot convert object to image, because the provided object does not have an u32 `width` property",
-            },
-        );
-        t.throws(
-            () => {
+            } catch (error) {
+                thrownError = error;
+            }
+            expect(thrownError).toBeDefined();
+            expect(thrownError.message).toBe(
+                "Cannot convert object to image, because the provided object does not have an u32 `width` property",
+            );
+        }
+        {
+            let thrownError: any;
+            try {
                 instance!.setProperty("external-image", { width: [1, 2, 3] });
-            },
-            {
-                message:
-                    "Cannot convert object to image, because the provided object does not have an u32 `height` property",
-            },
-        );
-        t.throws(
-            () => {
+            } catch (error) {
+                thrownError = error;
+            }
+            expect(thrownError).toBeDefined();
+            expect(thrownError.message).toBe(
+                "Cannot convert object to image, because the provided object does not have an u32 `height` property",
+            );
+        }
+        {
+            let thrownError: any;
+            try {
                 instance!.setProperty("external-image", {
                     width: 1,
                     height: 1,
                     data: new Uint8ClampedArray(1),
                 });
-            },
-            {
-                message:
-                    "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 1; got 4",
-            },
-        );
+            } catch (error) {
+                thrownError = error;
+            }
+            expect(thrownError).toBeDefined();
+            expect(thrownError.message).toBe(
+                "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 1; got 4",
+            );
+        }
 
-        t.is(image.bitmap.width, 64);
-        t.is(image.bitmap.height, 64);
+        expect(image.bitmap.width).toBe(64);
+        expect(image.bitmap.height).toBe(64);
         // Duck typing: The `image.bitmap` object that Jump returns, has the shape of the official ImageData, so
         // it should be possible to use it with Slint:
         instance!.setProperty("external-image", image.bitmap);
-        t.is(instance!.getProperty("external-image-ok"), true);
+        expect(instance!.getProperty("external-image-ok")).toBe(true);
 
-        t.is(image.bitmap.data.length, (slintImage as ImageData).data.length);
-        t.deepEqual(image.bitmap.data, (slintImage as ImageData).data);
-
-        t.deepEqual(
-            (instance!.getProperty("external-image") as ImageData).path,
-            undefined,
+        expect(image.bitmap.data.length).toBe(
+            (slintImage as ImageData).data.length,
         );
+        expect(image.bitmap.data).toStrictEqual((slintImage as ImageData).data);
+
+        expect(
+            (instance!.getProperty("external-image") as ImageData).path,
+        ).toStrictEqual(undefined);
     }
 });
 
-test("get/set brush properties", (t) => {
+test("get/set brush properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -293,36 +321,38 @@ test("get/set brush properties", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     const black = instance!.getProperty("black");
 
-    t.is((black as private_api.SlintBrush).toString(), "#000000");
+    expect((black as private_api.SlintBrush).toString()).toBe("#000000");
 
-    if (t.true(black instanceof private_api.SlintBrush)) {
+    if (black instanceof private_api.SlintBrush) {
         const blackSlintRgbaColor = (black as private_api.SlintBrush).color;
-        t.deepEqual(blackSlintRgbaColor.red, 0);
-        t.deepEqual(blackSlintRgbaColor.green, 0);
-        t.deepEqual(blackSlintRgbaColor.blue, 0);
+        expect(blackSlintRgbaColor.red).toStrictEqual(0);
+        expect(blackSlintRgbaColor.green).toStrictEqual(0);
+        expect(blackSlintRgbaColor.blue).toStrictEqual(0);
     }
 
     instance?.setProperty("black", "#ffffff");
     const white = instance!.getProperty("black");
 
-    if (t.true(white instanceof private_api.SlintBrush)) {
+    if (white instanceof private_api.SlintBrush) {
         const whiteSlintRgbaColor = (white as private_api.SlintBrush).color;
-        t.deepEqual(whiteSlintRgbaColor.red, 255);
-        t.deepEqual(whiteSlintRgbaColor.green, 255);
-        t.deepEqual(whiteSlintRgbaColor.blue, 255);
+        expect(whiteSlintRgbaColor.red).toStrictEqual(255);
+        expect(whiteSlintRgbaColor.green).toStrictEqual(255);
+        expect(whiteSlintRgbaColor.blue).toStrictEqual(255);
     }
 
     const transparent = instance!.getProperty("trans");
 
-    if (t.true(black instanceof private_api.SlintBrush)) {
-        t.assert((transparent as private_api.SlintBrush).isTransparent);
+    if (black instanceof private_api.SlintBrush) {
+        expect((transparent as private_api.SlintBrush).isTransparent).toBe(
+            true,
+        );
     }
 
     const ref = new private_api.SlintBrush({
@@ -335,12 +365,12 @@ test("get/set brush properties", (t) => {
 
     let instance_ref = instance!.getProperty("ref");
 
-    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+    if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
-        t.deepEqual(ref_color.red, 100);
-        t.deepEqual(ref_color.green, 110);
-        t.deepEqual(ref_color.blue, 120);
-        t.deepEqual(ref_color.alpha, 255);
+        expect(ref_color.red).toStrictEqual(100);
+        expect(ref_color.green).toStrictEqual(110);
+        expect(ref_color.blue).toStrictEqual(120);
+        expect(ref_color.alpha).toStrictEqual(255);
     }
 
     instance!.setProperty("ref", {
@@ -349,12 +379,12 @@ test("get/set brush properties", (t) => {
 
     instance_ref = instance!.getProperty("ref");
 
-    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+    if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
-        t.deepEqual(ref_color.red, 110);
-        t.deepEqual(ref_color.green, 120);
-        t.deepEqual(ref_color.blue, 125);
-        t.deepEqual(ref_color.alpha, 255);
+        expect(ref_color.red).toStrictEqual(110);
+        expect(ref_color.green).toStrictEqual(120);
+        expect(ref_color.blue).toStrictEqual(125);
+        expect(ref_color.alpha).toStrictEqual(255);
     }
 
     instance!.setProperty("ref", {
@@ -366,198 +396,222 @@ test("get/set brush properties", (t) => {
 
     instance_ref = instance!.getProperty("ref");
 
-    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+    if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
-        t.deepEqual(ref_color.red, 110);
-        t.deepEqual(ref_color.green, 120);
-        t.deepEqual(ref_color.blue, 125);
-        t.deepEqual(ref_color.alpha, 255);
+        expect(ref_color.red).toStrictEqual(110);
+        expect(ref_color.green).toStrictEqual(120);
+        expect(ref_color.blue).toStrictEqual(125);
+        expect(ref_color.alpha).toStrictEqual(255);
     }
 
     instance!.setProperty("ref", {});
 
     instance_ref = instance!.getProperty("ref");
 
-    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+    if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
-        t.deepEqual(ref_color.red, 0);
-        t.deepEqual(ref_color.green, 0);
-        t.deepEqual(ref_color.blue, 0);
-        t.deepEqual(ref_color.alpha, 0);
+        expect(ref_color.red).toStrictEqual(0);
+        expect(ref_color.green).toStrictEqual(0);
+        expect(ref_color.blue).toStrictEqual(0);
+        expect(ref_color.alpha).toStrictEqual(0);
     }
 
     const radialGradient = instance!.getProperty("radial-gradient");
 
-    if (t.true(radialGradient instanceof private_api.SlintBrush)) {
-        t.is(
-            (radialGradient as private_api.SlintBrush).toString(),
+    if (radialGradient instanceof private_api.SlintBrush) {
+        expect((radialGradient as private_api.SlintBrush).toString()).toBe(
             "radial-gradient(circle, rgba(255, 0, 0, 255) 0%, rgba(0, 255, 0, 255) 50%, rgba(0, 0, 255, 255) 100%)",
         );
     }
 
     const linearGradient = instance!.getProperty("linear-gradient");
 
-    if (t.true(linearGradient instanceof private_api.SlintBrush)) {
-        t.is(
-            (linearGradient as private_api.SlintBrush).toString(),
+    if (linearGradient instanceof private_api.SlintBrush) {
+        expect((linearGradient as private_api.SlintBrush).toString()).toBe(
             "linear-gradient(90deg, rgba(63, 135, 166, 255) 0%, rgba(235, 248, 225, 255) 50%, rgba(246, 157, 60, 255) 100%)",
         );
     }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance.setProperty("ref-color", {
                 red: "abc",
                 blue: 0,
                 green: 0,
                 alpha: 0,
             });
-        },
-        {
-            code: "NumberExpected",
-            message: "Failed to convert napi value String into rust type `f64`",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toBe(
+            "Failed to convert napi value String into rust type `f64`",
+        );
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance.setProperty("ref-color", {
                 red: 0,
                 blue: true,
                 green: 0,
                 alpha: 0,
             });
-        },
-        {
-            code: "NumberExpected",
-            message:
-                "Failed to convert napi value Boolean into rust type `f64`",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toBe(
+            "Failed to convert napi value Boolean into rust type `f64`",
+        );
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance.setProperty("ref-color", {
                 red: 0,
                 blue: 0,
                 green: true,
                 alpha: 0,
             });
-        },
-        {
-            code: "NumberExpected",
-            message:
-                "Failed to convert napi value Boolean into rust type `f64`",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toBe(
+            "Failed to convert napi value Boolean into rust type `f64`",
+        );
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance.setProperty("ref-color", {
                 red: 0,
                 blue: 0,
                 green: 0,
                 alpha: new private_api.SlintRgbaColor(),
             });
-        },
-        {
-            code: "NumberExpected",
-            message: "Failed to convert napi value Object into rust type `f64`",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toBe(
+            "Failed to convert napi value Object into rust type `f64`",
+        );
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance.setProperty("ref-color", { blue: 0, green: 0, alpha: 0 });
-        },
-        {
-            code: "GenericFailure",
-            message: "Property red is missing",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Property red is missing");
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance.setProperty("ref-color", { red: 0, green: 0, alpha: 0 });
-        },
-        {
-            code: "GenericFailure",
-            message: "Property blue is missing",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Property blue is missing");
+    }
 
     instance.setProperty("ref-color", { red: 0, green: 0, blue: 0 });
     instance_ref = instance!.getProperty("ref-color");
 
-    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+    if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
-        t.deepEqual(ref_color.red, 0);
-        t.deepEqual(ref_color.green, 0);
-        t.deepEqual(ref_color.blue, 0);
-        t.deepEqual(ref_color.alpha, 255);
+        expect(ref_color.red).toStrictEqual(0);
+        expect(ref_color.green).toStrictEqual(0);
+        expect(ref_color.blue).toStrictEqual(0);
+        expect(ref_color.alpha).toStrictEqual(255);
     }
 
     // ref is a brush, but setting to a color should not throw, but take the brush's color.
     instance!.setProperty("ref-color", ref);
     instance_ref = instance!.getProperty("ref-color");
-    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+    if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
-        t.deepEqual(ref_color.red, ref.color.red);
-        t.deepEqual(ref_color.green, ref.color.green);
-        t.deepEqual(ref_color.blue, ref.color.blue);
-        t.deepEqual(ref_color.alpha, ref.color.alpha);
+        expect(ref_color.red).toStrictEqual(ref.color.red);
+        expect(ref_color.green).toStrictEqual(ref.color.green);
+        expect(ref_color.blue).toStrictEqual(ref.color.blue);
+        expect(ref_color.alpha).toStrictEqual(ref.color.alpha);
     }
 });
 
-test("get/set enum properties", (t) => {
+test("get/set enum properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `export enum Direction { up, down }
          export component App { in-out property <Direction> direction: up; }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.is(instance!.getProperty("direction"), "up");
+    expect(instance!.getProperty("direction")).toBe("up");
 
     instance!.setProperty("direction", "down");
-    t.is(instance!.getProperty("direction"), "down");
+    expect(instance!.getProperty("direction")).toBe("down");
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("direction", 42);
-        },
-        {
-            code: "InvalidArg",
-            message: "expect String, got: Number",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect String, got: Number");
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("direction", { blah: "foo" });
-        },
-        {
-            code: "InvalidArg",
-            message: "expect String, got: Object",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("InvalidArg");
+        expect(thrownError.message).toBe("expect String, got: Object");
+    }
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("direction", "left");
-        },
-        {
-            code: "GenericFailure",
-            message: "left is not a value of enum Direction",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe(
+            "left is not a value of enum Direction",
+        );
+    }
 });
 
-test("ArrayModel", (t) => {
+test("ArrayModel", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -573,20 +627,22 @@ test("ArrayModel", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.deepEqual(Array.from(new ArrayModel([3, 2, 1])), [3, 2, 1]);
+    expect(Array.from(new ArrayModel([3, 2, 1]))).toStrictEqual([3, 2, 1]);
 
     instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
 
     const intArrayModel = instance!.getProperty(
         "int-model",
     ) as ArrayModel<number>;
-    t.deepEqual(intArrayModel.rowCount(), 3);
-    t.deepEqual(intArrayModel.values(), new ArrayModel([10, 9, 8]).values());
+    expect(intArrayModel.rowCount()).toStrictEqual(3);
+    expect(intArrayModel.values()).toStrictEqual(
+        new ArrayModel([10, 9, 8]).values(),
+    );
 
     instance!.setProperty(
         "string-model",
@@ -596,8 +652,7 @@ test("ArrayModel", (t) => {
     const stringArrayModel = instance!.getProperty(
         "string-model",
     ) as ArrayModel<number>;
-    t.deepEqual(
-        stringArrayModel.values(),
+    expect(stringArrayModel.values()).toStrictEqual(
         new ArrayModel([
             "Simon",
             "Olivier",
@@ -618,8 +673,7 @@ test("ArrayModel", (t) => {
     const structArrayModel = instance!.getProperty(
         "struct-model",
     ) as ArrayModel<object>;
-    t.deepEqual(
-        structArrayModel.values(),
+    expect(structArrayModel.values()).toStrictEqual(
         new ArrayModel([
             { name: "simon", age: 22 },
             { name: "florian", age: 22 },
@@ -627,7 +681,7 @@ test("ArrayModel", (t) => {
     );
 });
 
-test("MapModel", (t) => {
+test("MapModel", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -636,10 +690,10 @@ test("MapModel", (t) => {
     }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     interface Name {
         first: string;
@@ -662,12 +716,12 @@ test("MapModel", (t) => {
     nameModel.setRowData(1, { first: "Olivier", last: "Goffart" });
 
     const checkModel = instance!.getProperty("model") as Model<string>;
-    t.is(checkModel.rowData(0), "Hausmann, Simon");
-    t.is(checkModel.rowData(1), "Goffart, Olivier");
-    t.is(checkModel.rowData(2), "Tisch, Roman");
+    expect(checkModel.rowData(0)).toBe("Hausmann, Simon");
+    expect(checkModel.rowData(1)).toBe("Goffart, Olivier");
+    expect(checkModel.rowData(2)).toBe("Tisch, Roman");
 });
 
-test("MapModel undefined rowData sourcemodel", (t) => {
+test("MapModel undefined rowData sourcemodel", () => {
     const nameModel: ArrayModel<number> = new ArrayModel([1, 2, 3]);
 
     let mapFunctionCallCount = 0;
@@ -682,15 +736,15 @@ test("MapModel undefined rowData sourcemodel", (t) => {
     for (let i = 0; i < mapModel.rowCount(); ++i) {
         mapModel.rowData(i);
     }
-    t.deepEqual(mapFunctionCallCount, mapModel.rowCount());
+    expect(mapFunctionCallCount).toStrictEqual(mapModel.rowCount());
     mapFunctionCallCount = 0;
-    t.is(nameModel.rowData(nameModel.rowCount()), undefined);
-    t.deepEqual(mapFunctionCallCount, 0);
-    t.is(mapModel.rowData(mapModel.rowCount()), undefined);
-    t.deepEqual(mapFunctionCallCount, 0);
+    expect(nameModel.rowData(nameModel.rowCount())).toBeUndefined();
+    expect(mapFunctionCallCount).toStrictEqual(0);
+    expect(mapModel.rowData(mapModel.rowCount())).toBeUndefined();
+    expect(mapFunctionCallCount).toStrictEqual(0);
 });
 
-test("ArrayModel rowCount", (t) => {
+test("ArrayModel rowCount", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -700,19 +754,19 @@ test("ArrayModel rowCount", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     const model = new ArrayModel([10, 9, 8]);
 
     instance!.setProperty("model", model);
-    t.is(3, model.rowCount());
-    t.is(3, instance?.getProperty("model-length") as number);
+    expect(model.rowCount()).toBe(3);
+    expect(instance?.getProperty("model-length") as number).toBe(3);
 });
 
-test("ArrayModel rowData/setRowData", (t) => {
+test("ArrayModel rowData/setRowData", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -727,23 +781,23 @@ test("ArrayModel rowData/setRowData", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     const model = new ArrayModel([10, 9, 8]);
 
     instance!.setProperty("model", model);
-    t.is(9, model.rowData(1));
-    t.deepEqual(instance!.invoke("data", [1]), 9);
+    expect(model.rowData(1)).toBe(9);
+    expect(instance!.invoke("data", [1])).toStrictEqual(9);
 
     model.setRowData(1, 4);
-    t.is(4, model.rowData(1));
-    t.deepEqual(instance!.invoke("data", [1]), 4);
+    expect(model.rowData(1)).toBe(4);
+    expect(instance!.invoke("data", [1])).toStrictEqual(4);
 });
 
-test("Model notify", (t) => {
+test("Model notify", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -768,24 +822,24 @@ test("Model notify", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     const model = new ArrayModel([100, 0]);
 
     instance!.setProperty("fixed-height-model", model);
-    t.is(100, instance!.getProperty("layout-height") as number);
+    expect(instance!.getProperty("layout-height") as number).toBe(100);
     model.setRowData(1, 50);
-    t.is(150, instance!.getProperty("layout-height") as number);
+    expect(instance!.getProperty("layout-height") as number).toBe(150);
     model.push(75);
-    t.is(225, instance!.getProperty("layout-height") as number);
+    expect(instance!.getProperty("layout-height") as number).toBe(225);
     model.remove(1, 2);
-    t.is(100, instance!.getProperty("layout-height") as number);
+    expect(instance!.getProperty("layout-height") as number).toBe(100);
 });
 
-test("model from array", (t) => {
+test("model from array", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -795,21 +849,21 @@ test("model from array", (t) => {
   }`,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
     instance!.setProperty("int-array", [10, 9, 8]);
     const wrapped_int_model = instance!.getProperty(
         "int-array",
     ) as Model<number>;
-    t.deepEqual(Array.from(wrapped_int_model), [10, 9, 8]);
-    t.deepEqual(wrapped_int_model.rowCount(), 3);
-    t.deepEqual(wrapped_int_model.rowData(0), 10);
-    t.deepEqual(wrapped_int_model.rowData(1), 9);
-    t.deepEqual(wrapped_int_model.rowData(2), 8);
-    t.deepEqual(Array.from(wrapped_int_model), [10, 9, 8]);
+    expect(Array.from(wrapped_int_model)).toStrictEqual([10, 9, 8]);
+    expect(wrapped_int_model.rowCount()).toStrictEqual(3);
+    expect(wrapped_int_model.rowData(0)).toStrictEqual(10);
+    expect(wrapped_int_model.rowData(1)).toStrictEqual(9);
+    expect(wrapped_int_model.rowData(2)).toStrictEqual(8);
+    expect(Array.from(wrapped_int_model)).toStrictEqual([10, 9, 8]);
 
     instance!.setProperty("string-array", [
         "Simon",
@@ -821,15 +875,15 @@ test("model from array", (t) => {
     const wrapped_string_model = instance!.getProperty(
         "string-array",
     ) as Model<string>;
-    t.deepEqual(wrapped_string_model.rowCount(), 5);
-    t.deepEqual(wrapped_string_model.rowData(0), "Simon");
-    t.deepEqual(wrapped_string_model.rowData(1), "Olivier");
-    t.deepEqual(wrapped_string_model.rowData(2), "Auri");
-    t.deepEqual(wrapped_string_model.rowData(3), "Tobias");
-    t.deepEqual(wrapped_string_model.rowData(4), "Florian");
+    expect(wrapped_string_model.rowCount()).toStrictEqual(5);
+    expect(wrapped_string_model.rowData(0)).toStrictEqual("Simon");
+    expect(wrapped_string_model.rowData(1)).toStrictEqual("Olivier");
+    expect(wrapped_string_model.rowData(2)).toStrictEqual("Auri");
+    expect(wrapped_string_model.rowData(3)).toStrictEqual("Tobias");
+    expect(wrapped_string_model.rowData(4)).toStrictEqual("Florian");
 });
 
-test("invoke callback", (t) => {
+test("invoke callback", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -855,10 +909,10 @@ test("invoke callback", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
     let speakTest: string;
 
     instance!.setCallback(
@@ -876,23 +930,25 @@ test("invoke callback", (t) => {
         "tobias",
         "florian",
     ]);
-    t.deepEqual(speakTest, "hello simon, olivier, auri, tobias and florian");
+    expect(speakTest).toStrictEqual(
+        "hello simon, olivier, auri, tobias and florian",
+    );
 
     instance!.setCallback("great-person", (p: any) => {
         speakTest = "hello " + p.name;
     });
 
     instance!.invoke("great-person", [{ name: "simon" }]);
-    t.deepEqual(speakTest, "hello simon");
+    expect(speakTest).toStrictEqual("hello simon");
 
     instance!.invoke("great-person", [{ hello: "simon" }]);
-    t.deepEqual(speakTest, "hello ");
+    expect(speakTest).toStrictEqual("hello ");
 
-    t.deepEqual(instance!.invoke("get-string", []), "string");
-    t.deepEqual(instance!.invoke("person", []), { name: "florian" });
+    expect(instance!.invoke("get-string", [])).toStrictEqual("string");
+    expect(instance!.invoke("person", [])).toStrictEqual({ name: "florian" });
 });
 
-test("wrong callback return type ", (t) => {
+test("wrong callback return type ", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -910,10 +966,10 @@ test("wrong callback return type ", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
     let speakTest: string;
 
     instance!.setCallback("get-string", () => {
@@ -921,31 +977,31 @@ test("wrong callback return type ", (t) => {
     });
 
     const string = instance!.invoke("get-string", []);
-    t.deepEqual(string, "");
+    expect(string).toStrictEqual("");
 
     instance!.setCallback("get-int", () => {
         return "string";
     });
 
     const int = instance!.invoke("get-int", []);
-    t.deepEqual(int, 0);
+    expect(int).toStrictEqual(0);
 
     instance!.setCallback("get-bool", () => {
         return "string";
     });
 
     const bool = instance!.invoke("get-bool", []);
-    t.deepEqual(bool, false);
+    expect(bool).toStrictEqual(false);
 
     instance!.setCallback("get-person", () => {
         return "string";
     });
 
     const person = instance!.invoke("get-person", []);
-    t.deepEqual(person, { name: "", age: 0 });
+    expect(person).toStrictEqual({ name: "", age: 0 });
 });
 
-test("wrong global callback return type ", (t) => {
+test("wrong global callback return type ", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -964,10 +1020,10 @@ test("wrong global callback return type ", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
     let speakTest: string;
 
     instance!.setGlobalCallback("Global", "get-string", () => {
@@ -975,24 +1031,24 @@ test("wrong global callback return type ", (t) => {
     });
 
     const string = instance!.invokeGlobal("Global", "get-string", []);
-    t.deepEqual(string, "");
+    expect(string).toStrictEqual("");
 
     instance!.setGlobalCallback("Global", "get-bool", () => {
         return "string";
     });
 
     const bool = instance!.invokeGlobal("Global", "get-bool", []);
-    t.deepEqual(bool, false);
+    expect(bool).toStrictEqual(false);
 
     instance!.setGlobalCallback("Global", "get-person", () => {
         return "string";
     });
 
     const person = instance!.invokeGlobal("Global", "get-person", []);
-    t.deepEqual(person, { name: "", age: 0 });
+    expect(person).toStrictEqual({ name: "", age: 0 });
 });
 
-test("throw exception in callback", (t) => {
+test("throw exception in callback", async () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -1002,27 +1058,32 @@ test("throw exception in callback", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
-    let speakTest: string;
+    expect(instance).not.toBeNull();
 
     instance!.setCallback("throw-something", () => {
         throw new Error("I'm an error");
     });
 
-    const output = captureStderr(() => {
+    const stderrCapture = captureAsyncStderr();
+    try {
         instance!.invoke("throw-something", []);
-    });
-    t.assert(
-        output.includes("Node.js: Invoking callback 'throw-something' failed:"),
-        `Output was ${output}`,
-    );
-    t.assert(output.includes("I'm an error"), `Output was ${output}`);
+        // Vitest runs these tests in workers and the native binding writes to
+        // stderr on the next macrotask, so yield once before restoring writers.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+        stderrCapture.restore();
+    }
+    const output = stderrCapture.output();
+    expect(
+        output.includes("Node.js: Invoking callback 'throw-something' failed"),
+    ).toBe(true);
+    expect(output.includes("I'm an error")).toBe(true);
 });
 
-test("throw exception set color", (t) => {
+test("throw exception set color", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `
@@ -1032,18 +1093,20 @@ test("throw exception set color", (t) => {
   `,
         "",
     );
-    t.not(definition.App, null);
+    expect(definition.App).not.toBeNull();
 
     const instance = definition.App!.create();
-    t.not(instance, null);
+    expect(instance).not.toBeNull();
 
-    t.throws(
-        () => {
+    {
+        let thrownError: any;
+        try {
             instance!.setProperty("test", { garbage: true });
-        },
-        {
-            code: "GenericFailure",
-            message: "Property red is missing",
-        },
-    );
+        } catch (error) {
+            thrownError = error;
+        }
+        expect(thrownError).toBeDefined();
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("Property red is missing");
+    }
 });
