@@ -211,17 +211,20 @@ compile_error!(
 
 pub use slint_macros::slint;
 
-pub use i_slint_core::api::*;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
+pub use i_slint_core::translations::{select_bundled_translation, SelectBundledTranslationError};
+
 // keep in sync with internal/interpreter/api.rs
+pub use i_slint_backend_selector::api::*;
 #[cfg(feature = "std")]
 pub use i_slint_common::sharedfontique::{
     register_font_from_memory, FontHandle, RegisterFontError,
 };
+pub use i_slint_core::api::*;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
@@ -231,7 +234,6 @@ pub use i_slint_core::model::{
 };
 pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::timers::{Timer, TimerMode};
-pub use i_slint_core::translations::{select_bundled_translation, SelectBundledTranslationError};
 pub use i_slint_core::{
     format,
     string::{SharedString, ToSharedString},
@@ -433,8 +435,6 @@ pub mod platform {
     )
 ))]
 pub mod android;
-
-pub use i_slint_backend_selector::api::*;
 
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
