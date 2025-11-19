@@ -40,6 +40,7 @@ pub enum ItemGraphicsCacheEntry<R: femtovg::Renderer + TextureImporter> {
     Texture(Rc<Texture<R>>),
     TextureWithOrigin {
         texture: Rc<Texture<R>>,
+        /// Designated point where to draw the texture, relative to the item this cache entry is associated with.
         origin: PhysicalPoint,
     },
     ColorizedImage {
