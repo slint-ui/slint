@@ -1729,7 +1729,7 @@ declare_item_vtable! {
 }
 
 declare_item_vtable! {
-    fn slint_get_StyledTextVTable() -> StyledTextVTable for StyledText
+    fn slint_get_StyledTextItemVTable() -> StyledTextItemVTable for StyledTextItem
 }
 
 declare_item_vtable! {

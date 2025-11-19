@@ -228,7 +228,7 @@ impl ComplexText {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct StyledText {
+pub struct StyledTextItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub text: Property<api::StyledText>,
@@ -251,7 +251,7 @@ pub struct StyledText {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for StyledText {
+impl Item for StyledTextItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -371,14 +371,14 @@ impl Item for StyledText {
     }
 }
 
-impl ItemConsts for StyledText {
+impl ItemConsts for StyledTextItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        StyledText,
+        StyledTextItem,
         CachedRenderingData,
-    > = StyledText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = StyledTextItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl HasFont for StyledText {
+impl HasFont for StyledTextItem {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
@@ -391,13 +391,13 @@ impl HasFont for StyledText {
     }
 }
 
-impl RenderString for StyledText {
+impl RenderString for StyledTextItem {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Styled(self.text())
     }
 }
 
-impl RenderText for StyledText {
+impl RenderText for StyledTextItem {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
     }
@@ -433,7 +433,7 @@ impl RenderText for StyledText {
     }
 }
 
-impl StyledText {
+impl StyledTextItem {
     pub fn font_metrics(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
