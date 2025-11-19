@@ -69,7 +69,8 @@
       "!**/models.spec.mts",
       "!**/globals.spec.mts",
       "!**/compiler.spec.mts",
-      "!**/api.spec.mts"
+      "!**/api.spec.mts",
+      "!**/js_value_conversion.spec.mts"
     ]
   },
   "dependencies": {
