@@ -29,11 +29,9 @@ pub fn init_servo(
     #[cfg(not(target_os = "android"))] device: slint::wgpu_27::wgpu::Device,
     #[cfg(not(target_os = "android"))] queue: slint::wgpu_27::wgpu::Queue,
 ) -> Rc<SlintServoAdapter> {
-    let app_weak = app.as_weak();
     let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
     let adapter = Rc::new(SlintServoAdapter::new(
-        app_weak,
         waker_sender.clone(),
         waker_receiver.clone(),
         #[cfg(not(target_os = "android"))]
@@ -46,24 +44,23 @@ pub fn init_servo(
 
     let state = upgrade_adapter(&state_weak);
 
-    let (rendering_adapter, physical_size) = init_rendering_adpater(state.clone());
+    let (rendering_adapter, physical_size) = init_rendering_adpater(&app, state.clone());
 
     let servo = init_servo_builder(state.clone(), rendering_adapter.clone());
 
-    init_webview(physical_size, initial_url, state, servo, rendering_adapter);
+    init_webview(&app, physical_size, initial_url, state, servo, rendering_adapter);
 
     spin_servo_event_loop(adapter.clone());
 
-    on_app_callbacks(adapter.clone());
+    on_app_callbacks(&app, adapter.clone());
 
     adapter
 }
 
 fn init_rendering_adpater(
-    state: Rc<SlintServoAdapter>,
+    app: &MyApp,
+    adapter: Rc<SlintServoAdapter>,
 ) -> (Rc<Box<dyn ServoRenderingAdapter>>, PhysicalSize<u32>) {
-    let app = state.app();
-
     let width = app.global::<WebviewLogic>().get_viewport_width();
     let height = app.global::<WebviewLogic>().get_viewport_height();
 
@@ -72,9 +69,9 @@ fn init_rendering_adpater(
 
     let rendering_adapter = crate::rendering_context::try_create_gpu_context(
         #[cfg(not(target_os = "android"))]
-        state.wgpu_device(),
+        adapter.wgpu_device(),
         #[cfg(not(target_os = "android"))]
-        state.wgpu_queue(),
+        adapter.wgpu_queue(),
         physical_size,
     )
     .unwrap();
@@ -98,19 +95,18 @@ fn init_servo_builder(
 }
 
 fn init_webview(
+    app: &MyApp,
     physical_size: PhysicalSize<u32>,
     initial_url: SharedString,
     adapter: Rc<SlintServoAdapter>,
     servo: Servo,
     rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
 ) {
-    let app = adapter.app();
-
     app.global::<WebviewLogic>().set_current_url(initial_url.clone());
 
     let url = Url::parse(&initial_url).expect("Failed to parse url");
 
-    let delegate = Rc::new(AppDelegate::new(adapter.clone()));
+    let delegate = Rc::new(AppDelegate::new(adapter.clone(), app.as_weak()));
 
     let webview =
         WebViewBuilder::new(&servo).url(url).size(physical_size).delegate(delegate).build();

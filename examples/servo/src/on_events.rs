@@ -18,22 +18,20 @@ use servo::{
 };
 
 use crate::{
-    WebviewLogic,
+    MyApp, WebviewLogic,
     adapter::{SlintServoAdapter, upgrade_adapter},
 };
 
-pub fn on_app_callbacks(adapter: Rc<SlintServoAdapter>) {
-    on_url(adapter.clone());
-    on_theme(adapter.clone());
-    on_resize(adapter.clone());
-    on_scroll(adapter.clone());
-    on_buttons(adapter.clone());
-    on_pointer(adapter.clone());
+pub fn on_app_callbacks(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
+    on_url(app, adapter.clone());
+    on_theme(app, adapter.clone());
+    on_resize(app, adapter.clone());
+    on_scroll(app, adapter.clone());
+    on_buttons(app, adapter.clone());
+    on_pointer(app, adapter.clone());
 }
 
-fn on_url(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_url(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
 
     app.global::<WebviewLogic>().on_loadUrl(move |url| {
@@ -44,9 +42,7 @@ fn on_url(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_theme(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_theme(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
 
     app.global::<WebviewLogic>().on_theme(move |color_scheme| {
@@ -63,16 +59,16 @@ fn on_theme(adapter: Rc<SlintServoAdapter>) {
 }
 
 // This will always called when slint window show first times and when resize so to set scale factor here
-fn on_resize(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_resize(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
+    let app_weak = app.as_weak();
     app.global::<WebviewLogic>().on_resize(move |width, height| {
         let adapter = upgrade_adapter(&adapter_weak);
 
         let webview = adapter.webview();
 
-        let scale_factor = adapter.app().window().scale_factor();
+        let scale_factor =
+            app_weak.upgrade().expect("Failed to upgrade app").window().scale_factor();
 
         adapter.set_scale_factor(scale_factor);
 
@@ -91,9 +87,7 @@ fn on_resize(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_scroll(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_scroll(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
     app.global::<WebviewLogic>().on_scroll(move |initial_x, initial_y, delta_x, delta_y| {
         let adapter = upgrade_adapter(&adapter_weak);
@@ -113,9 +107,7 @@ fn on_scroll(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_buttons(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_buttons(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
     app.on_back(move || {
         let adapter = upgrade_adapter(&adapter_weak);
@@ -144,9 +136,7 @@ fn on_buttons(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_pointer(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_pointer(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
     app.global::<WebviewLogic>().on_pointer(move |pointer_event, x, y| {
         let adapter = upgrade_adapter(&adapter_weak);
