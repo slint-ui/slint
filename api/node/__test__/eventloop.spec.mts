@@ -3,10 +3,14 @@
 
 // Test that the Slint event loop processes libuv's events.
 
-import { test, expect } from "vitest";
+import { test, expect, afterEach } from "vitest";
 import * as http from "node:http";
 
 import { runEventLoop, quitEventLoop, private_api } from "../dist/index.js";
+
+afterEach(() => {
+    quitEventLoop();
+});
 
 test.sequential("merged event loops with timer", async () => {
     let invoked = false;
