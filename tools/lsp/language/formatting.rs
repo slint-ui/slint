@@ -60,8 +60,11 @@ pub fn format_document(
             }
             Chunk::Delete(text) => {
                 let len = TextSize::of(text);
-                let deleted_range =
-                    text_range_to_lsp_range(&doc.source_file, TextRange::at(pos, len));
+                let deleted_range = text_range_to_lsp_range(
+                    &doc.source_file,
+                    TextRange::at(pos, len),
+                    document_cache.format,
+                );
                 edits.push(TextEdit { range: deleted_range, new_text: String::new() });
                 last_was_deleted = true;
                 pos += len;
@@ -75,7 +78,7 @@ pub fn format_document(
                 }
 
                 let range = TextRange::empty(pos);
-                let range = text_range_to_lsp_range(&doc.source_file, range);
+                let range = text_range_to_lsp_range(&doc.source_file, range, document_cache.format);
                 edits.push(TextEdit { range, new_text: text.into() });
             }
         }

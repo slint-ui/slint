@@ -48,7 +48,7 @@ pub fn loaded_document_cache_with_file_name(
     let (extra_files, diag) =
         spin_on::spin_on(reload_document_impl(None, content, url.clone(), Some(42), &mut dc));
 
-    let diag = convert_diagnostics(&extra_files, diag);
+    let diag = convert_diagnostics(&extra_files, diag, dc.format);
     (dc, url, diag)
 }
 
@@ -127,7 +127,7 @@ pub fn load(
         document_cache,
     ));
 
-    (url, convert_diagnostics(&main_file, diag))
+    (url, convert_diagnostics(&main_file, diag, document_cache.format))
 }
 
 #[test]

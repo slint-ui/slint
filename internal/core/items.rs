@@ -1784,7 +1784,7 @@ macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
         struct $Name:ident {
-            @name = $inner_name:literal
+            @name = $inner_name:expr,
             export {
                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
             }

@@ -182,7 +182,7 @@ pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             struct $Name:ident {
-                @name = $inner_name:literal
+                @name = $inner_name:expr,
                 export {
                     $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
                 }

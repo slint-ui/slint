@@ -1,45 +1,45 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import test from "ava";
+import { test, expect } from "vitest";
 
 import { private_api, ArrayModel } from "../dist/index.js";
 
-test("SlintColor from fromRgb", (t) => {
+test("SlintColor from fromRgb", () => {
     const color = private_api.SlintRgbaColor.fromRgb(100, 110, 120);
 
-    t.deepEqual(color.red, 100);
-    t.deepEqual(color.green, 110);
-    t.deepEqual(color.blue, 120);
+    expect(color.red).toStrictEqual(100);
+    expect(color.green).toStrictEqual(110);
+    expect(color.blue).toStrictEqual(120);
 });
 
-test("SlintColor from fromArgb", (t) => {
+test("SlintColor from fromArgb", () => {
     const color = private_api.SlintRgbaColor.fromArgb(120, 100, 110, 120);
 
-    t.deepEqual(color.red, 100);
-    t.deepEqual(color.green, 110);
-    t.deepEqual(color.blue, 120);
+    expect(color.red).toStrictEqual(100);
+    expect(color.green).toStrictEqual(110);
+    expect(color.blue).toStrictEqual(120);
 });
 
-test("SlintColor brighter", (t) => {
+test("SlintColor brighter", () => {
     const color = private_api.SlintRgbaColor.fromRgb(100, 110, 120).brighter(
         0.1,
     );
 
-    t.deepEqual(color.red, 110);
-    t.deepEqual(color.green, 121);
-    t.deepEqual(color.blue, 132);
+    expect(color.red).toStrictEqual(110);
+    expect(color.green).toStrictEqual(121);
+    expect(color.blue).toStrictEqual(132);
 });
 
-test("SlintColor darker", (t) => {
+test("SlintColor darker", () => {
     const color = private_api.SlintRgbaColor.fromRgb(100, 110, 120).darker(0.1);
 
-    t.deepEqual(color.red, 91);
-    t.deepEqual(color.green, 100);
-    t.deepEqual(color.blue, 109);
+    expect(color.red).toStrictEqual(91);
+    expect(color.green).toStrictEqual(100);
+    expect(color.blue).toStrictEqual(109);
 });
 
-test("private_api.SlintBrush from RgbaColor", (t) => {
+test("private_api.SlintBrush from RgbaColor", () => {
     const brush = new private_api.SlintBrush({
         red: 100,
         green: 110,
@@ -47,78 +47,78 @@ test("private_api.SlintBrush from RgbaColor", (t) => {
         alpha: 255,
     });
 
-    t.deepEqual(brush.color.red, 100);
-    t.deepEqual(brush.color.green, 110);
-    t.deepEqual(brush.color.blue, 120);
+    expect(brush.color.red).toStrictEqual(100);
+    expect(brush.color.green).toStrictEqual(110);
+    expect(brush.color.blue).toStrictEqual(120);
 
-    t.throws(
-        () => {
-            new private_api.SlintBrush({
-                red: -100,
-                green: 110,
-                blue: 120,
-                alpha: 255,
-            });
-        },
-        {
-            code: "GenericFailure",
-            message: "A channel of Color cannot be negative",
-        },
-    );
+    let thrownError: any;
+    try {
+        new private_api.SlintBrush({
+            red: -100,
+            green: 110,
+            blue: 120,
+            alpha: 255,
+        });
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("A channel of Color cannot be negative");
 });
 
-test("private_api.SlintBrush from Brush", (t) => {
+test("private_api.SlintBrush from Brush", () => {
     const brush = private_api.SlintBrush.fromBrush({
         color: { red: 100, green: 110, blue: 120, alpha: 255 },
     });
 
-    t.deepEqual(brush.color.red, 100);
-    t.deepEqual(brush.color.green, 110);
-    t.deepEqual(brush.color.blue, 120);
+    expect(brush.color.red).toStrictEqual(100);
+    expect(brush.color.green).toStrictEqual(110);
+    expect(brush.color.blue).toStrictEqual(120);
 
-    t.throws(
-        () => {
-            private_api.SlintBrush.fromBrush({
-                color: { red: -100, green: 110, blue: 120, alpha: 255 },
-            });
-        },
-        {
-            code: "GenericFailure",
-            message: "A channel of Color cannot be negative",
-        },
-    );
+    let thrownError: any;
+    try {
+        private_api.SlintBrush.fromBrush({
+            color: { red: -100, green: 110, blue: 120, alpha: 255 },
+        });
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.code).toBe("GenericFailure");
+    expect(thrownError.message).toBe("A channel of Color cannot be negative");
 });
 
-test("ArrayModel push", (t) => {
+test("ArrayModel push", () => {
     const arrayModel = new ArrayModel([0]);
 
-    t.is(arrayModel.rowCount(), 1);
-    t.is(arrayModel.rowData(0), 0);
+    expect(arrayModel.rowCount()).toBe(1);
+    expect(arrayModel.rowData(0)).toBe(0);
 
     arrayModel.push(2);
-    t.is(arrayModel.rowCount(), 2);
-    t.is(arrayModel.rowData(1), 2);
+    expect(arrayModel.rowCount()).toBe(2);
+    expect(arrayModel.rowData(1)).toBe(2);
 });
 
-test("ArrayModel setRowData", (t) => {
+test("ArrayModel setRowData", () => {
     const arrayModel = new ArrayModel([0]);
 
-    t.is(arrayModel.rowCount(), 1);
-    t.is(arrayModel.rowData(0), 0);
+    expect(arrayModel.rowCount()).toBe(1);
+    expect(arrayModel.rowData(0)).toBe(0);
 
     arrayModel.setRowData(0, 2);
-    t.is(arrayModel.rowCount(), 1);
-    t.is(arrayModel.rowData(0), 2);
+    expect(arrayModel.rowCount()).toBe(1);
+    expect(arrayModel.rowData(0)).toBe(2);
 });
 
-test("ArrayModel remove", (t) => {
+test("ArrayModel remove", () => {
     const arrayModel = new ArrayModel([0, 2, 1]);
 
-    t.is(arrayModel.rowCount(), 3);
-    t.is(arrayModel.rowData(0), 0);
-    t.is(arrayModel.rowData(1), 2);
+    expect(arrayModel.rowCount()).toBe(3);
+    expect(arrayModel.rowData(0)).toBe(0);
+    expect(arrayModel.rowData(1)).toBe(2);
 
     arrayModel.remove(0, 2);
-    t.is(arrayModel.rowCount(), 1);
-    t.is(arrayModel.rowData(0), 1);
+    expect(arrayModel.rowCount()).toBe(1);
+    expect(arrayModel.rowData(0)).toBe(1);
 });

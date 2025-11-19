@@ -10,7 +10,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, Struct, Type};
+use crate::langtype::{ElementType, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -1454,8 +1454,7 @@ impl Expression {
             .collect();
         let ty = Rc::new(Struct {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
-            name: None,
-            node: None,
+            name: StructName::None,
             rust_attributes: None,
         });
         Expression::Struct { ty, values }
@@ -1534,9 +1533,8 @@ impl Expression {
                             }
                         }
                         Type::Struct(Rc::new(Struct {
-                            name: result.name.as_ref().or(elem.name.as_ref()).cloned(),
+                            name: result.name.clone().or(elem.name.clone()),
                             fields,
-                            node: result.node.as_ref().or(elem.node.as_ref()).cloned(),
                             rust_attributes: result
                                 .rust_attributes
                                 .as_ref()
@@ -1588,7 +1586,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
     fn merge_struct(origin: &Struct, other: &Struct) -> Type {
         let mut fields = other.fields.clone();
         fields.extend(origin.fields.iter().map(|(k, v)| (k.clone(), v.clone())));
-        Rc::new(Struct { fields, name: None, node: None, rust_attributes: None }).into()
+        Rc::new(Struct { fields, name: StructName::None, rust_attributes: None }).into()
     }
 
     if let Expression::Struct { ty, values } = true_expr {
@@ -1608,8 +1606,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
             }
             return Type::Struct(Rc::new(Struct {
                 fields,
-                name: None,
-                node: None,
+                name: StructName::None,
                 rust_attributes: None,
             }));
         } else if let Type::Struct(false_ty) = false_expr.ty() {

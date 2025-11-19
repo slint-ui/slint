@@ -140,7 +140,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             struct $Name:ident {
-                @name = $inner_name:literal
+                @name = $inner_name:expr,
                 export {
                     $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
                 }

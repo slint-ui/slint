@@ -1,15 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::model::{Model, ModelExt, ModelRc};
+use i_slint_core::items::*;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
-use i_slint_core::{PathData, SharedVector};
+use i_slint_core::PathData;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::future::Future;
@@ -18,19 +19,26 @@ use std::rc::Rc;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
-pub use i_slint_core::api::*;
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_backend_selector::api::*;
-use i_slint_core::api;
+#[cfg(feature = "std")]
+pub use i_slint_common::sharedfontique::{
+    register_font_from_memory, FontHandle, RegisterFontError,
+};
+pub use i_slint_core::api::*;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
-use i_slint_core::items::{
-    DropEvent, FontMetrics, ItemTreeVTable, KeyEvent, KeyboardModifiers, MenuEntry, PointerEvent,
-    PointerScrollEvent, StandardListViewItem, StateInfo, TableColumn,
+pub use i_slint_core::model::{
+    FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
+    ReverseModel, SortModel, StandardListViewItem, TableColumn, VecModel,
 };
-
-use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
+pub use i_slint_core::sharedvector::SharedVector;
+pub use i_slint_core::timers::{Timer, TimerMode};
+pub use i_slint_core::{
+    format,
+    string::{SharedString, ToSharedString},
+};
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -135,7 +143,7 @@ pub enum Value {
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
     /// Correspond to the `styled-text` type in .slint
-    StyledText(api::StyledText) = 13,
+    StyledText(i_slint_core::api::StyledText) = 13,
 }
 
 impl Value {
@@ -251,7 +259,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
-declare_value_conversion!(StyledText => [api::StyledText] );
+declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -284,7 +292,7 @@ macro_rules! declare_value_struct_conversion {
     ($(
         $(#[$struct_attr:meta])*
         struct $Name:ident {
-            @name = $inner_name:literal
+            @name = $inner_name:expr,
             export {
                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
             }
@@ -2105,8 +2113,7 @@ fn lang_type_to_value_type() {
     assert_eq!(
         ValueType::from(LangType::Struct(Rc::new(LangStruct {
             fields: BTreeMap::default(),
-            name: None,
-            node: None,
+            name: i_slint_compiler::langtype::StructName::None,
             rust_attributes: None
         }))),
         ValueType::Struct

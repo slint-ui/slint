@@ -3,7 +3,7 @@
 
 use super::cpp::{Config, concatenate_ident, cpp_ast::*, ident};
 use crate::CompilerConfiguration;
-use crate::langtype::{EnumerationValue, Type};
+use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::llr;
 use crate::object_tree::Document;
 use itertools::Itertools as _;
@@ -500,8 +500,11 @@ fn convert_from_value_fn(ty: &Type) -> String {
 fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
     for ty in structs_and_enums {
         match ty {
-            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                let name = ident(&s.name.as_ref().unwrap());
+            Type::Struct(s) if s.node().is_some() => {
+                let StructName::User { name: struct_name, .. } = &s.name else {
+                    return;
+                };
+                let name = ident(&struct_name);
                 let mut to_statements = vec![
                     "using slint::private_api::live_preview::into_slint_value;".into(),
                     "slint::interpreter::Struct s;".into(),

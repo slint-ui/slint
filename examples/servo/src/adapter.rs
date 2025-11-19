@@ -35,11 +35,11 @@ pub struct SlintServoAdapter {
 pub struct SlintServoAdapterInner {
     scale_factor: f32,
     webview: Option<WebView>,
-    rendering_adapter: Option<Box<dyn ServoRenderingAdapter>>,
+    rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
     #[cfg(not(target_os = "android"))]
-    device: Option<wgpu::Device>,
+    device: wgpu::Device,
     #[cfg(not(target_os = "android"))]
-    queue: Option<wgpu::Queue>,
+    queue: wgpu::Queue,
 }
 
 impl SlintServoAdapter {
@@ -47,6 +47,8 @@ impl SlintServoAdapter {
         app: slint::Weak<MyApp>,
         waker_sender: Sender<()>,
         waker_receiver: Receiver<()>,
+        #[cfg(not(target_os = "android"))] device: wgpu::Device,
+        #[cfg(not(target_os = "android"))] queue: wgpu::Queue,
     ) -> Self {
         Self {
             app,
@@ -58,9 +60,9 @@ impl SlintServoAdapter {
                 scale_factor: 1.0,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
-                device: None,
+                device: device,
                 #[cfg(not(target_os = "android"))]
-                queue: None,
+                queue: queue,
             }),
         }
     }
@@ -91,12 +93,12 @@ impl SlintServoAdapter {
 
     #[cfg(not(target_os = "android"))]
     pub fn wgpu_device(&self) -> wgpu::Device {
-        self.inner().device.as_ref().expect("Device not initialized yet").clone()
+        self.inner().device.clone()
     }
 
     #[cfg(not(target_os = "android"))]
     pub fn wgpu_queue(&self) -> wgpu::Queue {
-        self.inner().queue.as_ref().expect("Queue not initialized yet").clone()
+        self.inner().queue.clone()
     }
 
     pub fn webview(&self) -> WebView {
@@ -108,20 +110,13 @@ impl SlintServoAdapter {
         servo: Servo,
         webview: WebView,
         scale_factor: f32,
-        rendering_adapter: Box<dyn ServoRenderingAdapter>,
+        rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
     ) {
         *self.servo.borrow_mut() = Some(servo);
         let mut inner = self.inner_mut();
         inner.webview = Some(webview);
         inner.scale_factor = scale_factor;
         inner.rendering_adapter = Some(rendering_adapter);
-    }
-
-    #[cfg(not(target_os = "android"))]
-    pub fn set_wgpu_device_queue(&self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        let mut inner = self.inner_mut();
-        inner.device = Some(device.clone());
-        inner.queue = Some(queue.clone());
     }
 
     /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.

@@ -3,15 +3,15 @@
 
 // cSpell: ignore imum
 
-use smol_str::{SmolStr, StrExt, ToSmolStr, format_smolstr};
+use smol_str::{SmolStr, StrExt, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
-    Function, PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
+    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -101,8 +101,7 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: Some("slint::private_api::LayoutInfo".into()),
-            node: None,
+            name: BuiltinPrivateStruct::LayoutInfo.into(),
             rust_attributes: None,
         });
         Self {
@@ -113,8 +112,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: Some("slint::LogicalPosition".into()),
-                node: None,
+                name: BuiltinPublicStruct::LogicalPosition.into(),
                 rust_attributes: None,
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
@@ -125,8 +123,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: Some("slint::private_api::FontMetrics".into()),
-                node: None,
+                name: BuiltinPrivateStruct::FontMetrics.into(),
                 rust_attributes: None,
             })),
             noarg_callback_type: Type::Callback(Rc::new(Function {
@@ -142,15 +139,13 @@ impl BuiltinTypes {
             layout_info_type: layout_info_type.clone(),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
-                name: Some("PathElement".into()),
-                node: None,
+                name: BuiltinPrivateStruct::PathElement.into(),
                 rust_attributes: None,
             })),
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
-                name: Some("BoxLayoutCellData".into()),
-                node: None,
+                name: BuiltinPrivateStruct::BoxLayoutCellData.into(),
                 rust_attributes: None,
             })),
         }
@@ -438,7 +433,7 @@ impl TypeRegister {
             ($(
                 $(#[$attr:meta])*
                 struct $Name:ident {
-                    @name = $inner_name:literal
+                    @name = $inner_name:expr,
                     export {
                         $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
                     }
@@ -452,8 +447,7 @@ impl TypeRegister {
                     fields: BTreeMap::from([
                         $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
                     ]),
-                    name: Some(format_smolstr!("{}", $inner_name)),
-                    node: None,
+                    name: $inner_name.into(),
                     rust_attributes: None,
                 }));
                 register.insert_type_with_name(maybe_clone!($Name, $Name), SmolStr::new(stringify!($Name)));
