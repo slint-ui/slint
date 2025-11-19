@@ -32,7 +32,6 @@ pub struct SlintServoAdapter {
 }
 
 pub struct SlintServoAdapterInner {
-    scale_factor: f32,
     webview: Option<WebView>,
     rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
     #[cfg(not(target_os = "android"))]
@@ -54,7 +53,6 @@ impl SlintServoAdapter {
             servo: RefCell::new(None),
             inner: RefCell::new(SlintServoAdapterInner {
                 webview: None,
-                scale_factor: 1.0,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
                 device: device,
@@ -78,10 +76,6 @@ impl SlintServoAdapter {
 
     pub fn waker_reciver(&self) -> Receiver<()> {
         self.waker_receiver.clone()
-    }
-
-    pub fn scale_factor(&self) -> f32 {
-        self.inner().scale_factor
     }
 
     #[cfg(not(target_os = "android"))]
@@ -108,10 +102,6 @@ impl SlintServoAdapter {
         let mut inner = self.inner_mut();
         inner.webview = Some(webview);
         inner.rendering_adapter = Some(rendering_adapter);
-    }
-
-    pub fn set_scale_factor(&self, scale_factor: f32) {
-        self.inner_mut().scale_factor = scale_factor;
     }
 
     /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.

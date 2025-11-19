@@ -7,9 +7,9 @@ export global WebviewLogic {
 
     callback loadUrl(url: string);
     callback theme(scheme: ColorScheme);
-    callback resize(width: length, height: length);
-    callback pointer(event: PointerEvent, x: length, y: length);
-    callback scroll(initital_x: length, initital_y: length, delta_x: length, delta_y: length);
+    callback resize(width: physical-length, height: physical-length);
+    callback pointer(event: PointerEvent, x: physical-length, y: physical-length);
+    callback scroll(initital_x: physical-length, initital_y: physical-length, delta_x: length, delta_y: length);
 
     in property <image> web_content;
     in-out property <string> current_url;
