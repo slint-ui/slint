@@ -67,14 +67,16 @@ fn init_rendering_adpater(
     let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
     let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
+    #[cfg(not(target_os = "android"))]
     let rendering_adapter = crate::rendering_context::try_create_gpu_context(
-        #[cfg(not(target_os = "android"))]
         adapter.wgpu_device(),
-        #[cfg(not(target_os = "android"))]
         adapter.wgpu_queue(),
         physical_size,
     )
     .unwrap();
+
+    #[cfg(target_os = "android")]
+    let rendering_adapter = crate::rendering_context::create_software_context(physical_size);
 
     let rendering_adapter_rc = Rc::new(rendering_adapter);
 
