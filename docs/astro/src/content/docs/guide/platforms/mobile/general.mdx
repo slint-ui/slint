@@ -116,9 +116,9 @@ into the visual style.
 Usually, applications don't have to use these properties, due to the behavior explained in the next section.
 
 :::note[Note]
-The way the virtual keyboard overlay is defined differs between iOS and Android. iOS supplies a rectangle while Android
-defines an inset of the window (just like the safe area definition above). Slint unifies this to behave the same on
-both platforms, but since these are not mathematically equivalent, there might be certain edge cases with custom
+The way the virtual keyboard overlay is defined differs between Android and iOS. Android defines an inset of the
+window (just like the safe area definition above) while iOS supplies a rectangle. Slint unifies this to behave the same
+on both platforms, but since these are not mathematically equivalent, there might be certain edge cases with custom
 virtual keyboards that might not be handled correctly. It is expected that most keyboards just take up a section of
 the bottom of the screen.
 :::
