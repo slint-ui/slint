@@ -192,7 +192,6 @@ CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="pro
 
 ### STM32U5G9J-DK2
 
- cargo build -p mcu-board-support --target=thumbv8m.main-none-eabihf --features stm32u5g9j-dk2 --no-default-features
 Using [probe-rs](https://probe.rs).
 
 ```sh

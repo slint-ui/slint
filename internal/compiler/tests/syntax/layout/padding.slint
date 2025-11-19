@@ -7,6 +7,12 @@ component MyLayout inherits VerticalLayout {
 //                       ^warning{padding only has effect on layout elements}
 }
 
+component MyLayout2 inherits VerticalLayout {
+    padding-top: 5px;
+}
+
+component MyLayoutDerived inherits MyLayout2 {}
+
 export component MyDialog inherits Dialog {
     padding: 5px;
     Rectangle { padding: 5px; }
@@ -50,8 +56,10 @@ export component Test {
     }
 
     if false: MyDialog{ padding-left: 10px; }
-//                                    ^warning{padding-left only has effect on layout elements}
 
-
+    MyLayout2 { padding-right: 10px; }
+    MyLayout2 { padding-top: 10px; }
+    MyLayoutDerived { padding-right: 10px; }
+    MyLayoutDerived { padding-top: 10px; }
 }
 

@@ -642,9 +642,10 @@ fn create_text_document_edit_for_set_binding_on_existing_property(
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
+    format: common::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     property.defined_at.as_ref().map(|defined_at| {
-        let range = util::node_to_lsp_range(&defined_at.code_block_or_expression);
+        let range = util::node_to_lsp_range(&defined_at.code_block_or_expression, format);
         let edit = lsp_types::TextEdit { range, new_text: new_expression };
         common::create_text_document_edit(uri, version, vec![edit])
     })
@@ -705,6 +706,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
+    format: common::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     let block_range = find_block_range(element);
 
@@ -713,7 +715,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
             let source_file = element.with_element_node(|n| n.source_file.clone());
             let indent = util::find_element_indent(element).unwrap_or_default();
             let edit = lsp_types::TextEdit {
-                range: util::text_range_to_lsp_range(&source_file, range),
+                range: util::text_range_to_lsp_range(&source_file, range, format),
                 new_text: match insert_type {
                     InsertPosition::Before => {
                         format!("{property_name}: {new_expression};\n{indent}    ")
@@ -734,8 +736,9 @@ pub fn set_binding(
     element: &common::ElementRcNode,
     property_name: &str,
     new_expression: String,
+    format: common::ByteFormat,
 ) -> Option<lsp_types::WorkspaceEdit> {
-    set_binding_impl(uri, version, element, property_name, new_expression)
+    set_binding_impl(uri, version, element, property_name, new_expression, format)
         .map(|edit| common::create_workspace_edit_from_text_document_edits(vec![edit]))
 }
 
@@ -745,6 +748,7 @@ pub fn set_binding_impl(
     element: &common::ElementRcNode,
     property_name: &str,
     new_expression: String,
+    format: common::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
@@ -756,6 +760,7 @@ pub fn set_binding_impl(
             version,
             &property,
             new_expression,
+            format,
         )
     } else {
         // Add a new definition to a known property:
@@ -766,6 +771,7 @@ pub fn set_binding_impl(
             &properties,
             property_name,
             &new_expression,
+            format,
         )
     }
 }
@@ -776,10 +782,13 @@ pub fn set_bindings(
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     properties: &[crate::common::PropertyChange],
+    format: common::ByteFormat,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let edits = properties
         .iter()
-        .filter_map(|p| set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone()))
+        .filter_map(|p| {
+            set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone(), format)
+        })
         .collect::<Vec<_>>();
 
     (edits.len() == properties.len())
@@ -804,7 +813,8 @@ fn element_at_source_code_position(
         .as_ref()
         .map(|n| n.source_file.clone())
         .ok_or_else(|| "Document had no node".to_string())?;
-    let element_position = util::text_size_to_lsp_position(&source_file, position.offset());
+    let element_position =
+        util::text_size_to_lsp_position(&source_file, position.offset(), document_cache.format);
 
     Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
         format!("No element found at the given start position {:?}", &element_position)
@@ -819,7 +829,13 @@ pub fn update_element_properties(
 ) -> Option<lsp_types::WorkspaceEdit> {
     let element = element_at_source_code_position(document_cache, &position).ok()?;
 
-    set_bindings(position.url().clone(), *position.version(), &element, &properties)
+    set_bindings(
+        position.url().clone(),
+        *position.version(),
+        &element,
+        &properties,
+        document_cache.format,
+    )
 }
 
 fn create_workspace_edit_for_remove_binding(
@@ -836,6 +852,7 @@ pub fn remove_binding(
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     property_name: &str,
+    format: common::ByteFormat,
 ) -> Result<lsp_types::WorkspaceEdit> {
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
@@ -856,14 +873,16 @@ pub fn remove_binding(
             let start = colon.text_range().start();
             if let Some(semi_colon) = binding.child_token(SyntaxKind::Semicolon) {
                 let end = semi_colon.text_range().start();
-                let range = util::text_range_to_lsp_range(&source_file, TextRange::new(start, end));
+                let range =
+                    util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: String::new() };
                 return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
             } else if let Some(closing_brace) =
                 binding.CodeBlock().and_then(|cb| cb.child_token(SyntaxKind::RBrace))
             {
                 let end = closing_brace.text_range().end();
-                let range = util::text_range_to_lsp_range(&source_file, TextRange::new(start, end));
+                let range =
+                    util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: ";".into() };
                 return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
             } else {
@@ -903,7 +922,8 @@ pub fn remove_binding(
                     .unwrap_or(end)
             };
 
-            let range = util::text_range_to_lsp_range(&source_file, TextRange::new(start, end));
+            let range =
+                util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
             return Ok(create_workspace_edit_for_remove_binding(uri, version, range));
         }
         if ancestor.kind() == SyntaxKind::Element {
@@ -973,11 +993,11 @@ pub mod tests {
         assert!(find_property(&result, "accessible-action-default").is_none());
 
         // Poke deeper:
-        let (_, result, _, _) = properties_at_position(21, 30).unwrap();
+        let (_, result, dc, _) = properties_at_position(21, 30).unwrap();
         let property = find_property(&result, "background").unwrap();
 
         let def_at = property.defined_at.as_ref().unwrap();
-        let def_range = util::node_to_lsp_range(&def_at.code_block_or_expression);
+        let def_range = util::node_to_lsp_range(&def_at.code_block_or_expression, dc.format);
         assert_eq!(def_range.end.line, def_range.start.line);
         // -1 because the lsp range end location is exclusive.
         assert_eq!(
@@ -1007,6 +1027,7 @@ pub mod tests {
         let o = util::text_size_to_lsp_position(
             &element.with_element_node(|n| n.source_file.clone()),
             result.offset,
+            document_cache.format,
         );
         assert_eq!(o.line, 32);
         assert_eq!(o.character, 12);
@@ -1059,7 +1080,8 @@ pub mod tests {
 
         assert_eq!(&definition.code_block_or_expression.text(), "\"text\"");
 
-        let sel_range = util::text_range_to_lsp_range(&source_file, definition.selection_range);
+        let sel_range =
+            util::text_range_to_lsp_range(&source_file, definition.selection_range, dc.format);
         println!("Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
             sel_range.start.line,
             sel_range.start.character,
@@ -1516,7 +1538,8 @@ component MainWindow inherits Window {
 
         let doc = dc.get_document(&url).unwrap();
         let source = &doc.node.as_ref().unwrap().source_file;
-        let (l, c) = source.line_column(source.source().unwrap().find("base2 :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("base2 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
 
         let foo_property = find_property(&result, "foo").unwrap();
@@ -1524,7 +1547,8 @@ component MainWindow inherits Window {
         assert_eq!(foo_property.ty, Type::Int32);
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
-        let start_position = util::text_size_to_lsp_position(source, declaration.start_position);
+        let start_position =
+            util::text_size_to_lsp_position(source, declaration.start_position, dc.format);
         assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of
@@ -1563,7 +1587,8 @@ component MainWindow inherits Window {
 
         let doc = dc.get_document(&url).unwrap();
         let source = &doc.node.as_ref().unwrap().source_file;
-        let (l, c) = source.line_column(source.source().unwrap().find("lay1 :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("lay1 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         let property = find_property(&result, "padding").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
@@ -1572,7 +1597,8 @@ component MainWindow inherits Window {
         let property = find_property(&result, "padding-top").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
 
-        let (l, c) = source.line_column(source.source().unwrap().find("lay2 :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("lay2 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         let property = find_property(&result, "padding").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
@@ -1581,7 +1607,8 @@ component MainWindow inherits Window {
         let property = find_property(&result, "padding-top").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
 
-        let (l, c) = source.line_column(source.source().unwrap().find("lay3 :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("lay3 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         let property = find_property(&result, "padding").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
@@ -1590,19 +1617,22 @@ component MainWindow inherits Window {
         let property = find_property(&result, "padding-top").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
 
-        let (l, c) = source.line_column(source.source().unwrap().find("rect1 :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("rect1 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         assert!(find_property(&result, "padding").is_none());
         assert!(find_property(&result, "padding-left").is_none());
         assert!(find_property(&result, "padding-top").is_none());
 
-        let (l, c) = source.line_column(source.source().unwrap().find("slider2 :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("slider2 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         assert!(find_property(&result, "padding").is_none());
         assert!(find_property(&result, "padding-left").is_none());
         assert!(find_property(&result, "padding-top").is_none());
 
-        let (l, c) = source.line_column(source.source().unwrap().find("err :=").unwrap());
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("err :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         assert!(dbg!(find_property(&result, "padding")).is_none());
         assert!(find_property(&result, "padding-left").is_none());
@@ -1633,7 +1663,8 @@ component SomeRect inherits Rectangle {
         let glob_property = find_property(&result, "glob").unwrap();
         assert_eq!(glob_property.ty, Type::Int32);
         let declaration = glob_property.declared_at.as_ref().unwrap();
-        let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
+        let start_position =
+            util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
         assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
@@ -1643,7 +1674,8 @@ component SomeRect inherits Rectangle {
         let abcd_property = find_property(&result, "abcd").unwrap();
         assert_eq!(abcd_property.ty, Type::Int32);
         let declaration = abcd_property.declared_at.as_ref().unwrap();
-        let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
+        let start_position =
+            util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
         assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 7);
         assert_eq!(abcd_property.group, "");
@@ -1656,7 +1688,8 @@ component SomeRect inherits Rectangle {
         let width_property = find_property(&result, "width").unwrap();
         assert_eq!(width_property.ty, Type::LogicalLength);
         let definition = width_property.defined_at.as_ref().unwrap();
-        let expression_range = util::node_to_lsp_range(&definition.code_block_or_expression);
+        let expression_range =
+            util::node_to_lsp_range(&definition.code_block_or_expression, dc.format);
         assert_eq!(expression_range.start.line, 8);
         assert_eq!(width_property.group, "geometry");
     }
@@ -1877,8 +1910,8 @@ component MyComp {
         property_name: &str,
         new_value: &str,
     ) -> Option<lsp_types::WorkspaceEdit> {
-        let (element, _, _, url) = properties_at_position(18, 15).unwrap();
-        set_binding(url, None, &element, property_name, new_value.to_string())
+        let (element, _, dc, url) = properties_at_position(18, 15).unwrap();
+        set_binding(url, None, &element, property_name, new_value.to_string(), dc.format)
     }
 
     #[test]
@@ -1951,7 +1984,7 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "background").unwrap();
+        let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
 
         let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
@@ -1967,7 +2000,7 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Foo {").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "background").unwrap();
+        let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
 
         let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
@@ -1998,7 +2031,7 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "test1").unwrap();
+        let edit = remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap();
         let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
@@ -2014,7 +2047,7 @@ component Foo inherits Window {
 "#
         );
 
-        let edit = remove_binding(uri.clone(), None, &elem, "test2").unwrap();
+        let edit = remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap();
         let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
@@ -2028,7 +2061,7 @@ component Foo inherits Window {
 "#
         );
 
-        let edit = remove_binding(uri.clone(), None, &elem, "test3").unwrap();
+        let edit = remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap();
         let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,

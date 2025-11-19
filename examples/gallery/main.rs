@@ -8,17 +8,27 @@ use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn load_font_from_bytes(font_data: &[u8]) -> Result<(), JsValue> {
+    slint::register_font_from_memory(font_data.to_vec())
+        .map(|_| ())
+        .map_err(|e| JsValue::from_str(&format!("Failed to register font: {}", e)))
+}
+
 use std::rc::Rc;
 
 use slint::{Model, ModelExt, ModelRc, SharedString, StandardListViewItem, VecModel};
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn main() {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    // For native builds, initialize gettext translations
+    #[cfg(not(target_arch = "wasm32"))]
     slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
 
     let app = App::new().unwrap();

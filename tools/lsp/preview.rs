@@ -162,6 +162,10 @@ impl PreviewState {
             }
         }
     }
+
+    pub fn format(&self) -> common::ByteFormat {
+        self.document_cache.borrow().as_ref().map_or(common::ByteFormat::Utf8, |dc| dc.format)
+    }
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -475,7 +479,14 @@ fn evaluate_binding(
     let element = document_cache.element_at_offset(&element_url, element_offset)?;
 
     if property_value.is_empty() {
-        properties::remove_binding(element_url, element_version, &element, &property_name).ok()
+        properties::remove_binding(
+            element_url,
+            element_version,
+            &element,
+            &property_name,
+            document_cache.format,
+        )
+        .ok()
     } else {
         properties::set_binding(
             element_url,
@@ -483,6 +494,7 @@ fn evaluate_binding(
             &element,
             &property_name,
             property_value,
+            document_cache.format,
         )
     }
 }
@@ -609,9 +621,9 @@ fn set_element_id(
     };
 
     let Some(edits) = element.with_element_node(|node| {
-        node.parent()
-            .and_then(syntax_nodes::SubElement::new)
-            .and_then(|node| common::rename_element_id::rename_element_id(node, &new_id))
+        node.parent().and_then(syntax_nodes::SubElement::new).and_then(|node| {
+            common::rename_element_id::rename_element_id(node, &new_id, document_cache.format)
+        })
     }) else {
         return;
     };
@@ -646,8 +658,11 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let start =
-        util::text_size_to_lsp_position(&identifier.source_file, identifier.text_range().start());
+    let start = util::text_size_to_lsp_position(
+        &identifier.source_file,
+        identifier.text_range().start(),
+        document_cache.format,
+    );
     let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
     lsp.ask_editor_to_show_document(
         &file.to_string_lossy(),
@@ -673,8 +688,16 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
         let document = document_cache.get_document(&url)?;
         let document = document.node.as_ref()?;
 
-        let start = util::text_size_to_lsp_position(&document.source_file, start.into());
-        let end = util::text_size_to_lsp_position(&document.source_file, end.into());
+        let start = util::text_size_to_lsp_position(
+            &document.source_file,
+            start.into(),
+            document_cache.format,
+        );
+        let end = util::text_size_to_lsp_position(
+            &document.source_file,
+            end.into(),
+            document_cache.format,
+        );
 
         Some((file, start, end))
     }
@@ -780,7 +803,10 @@ fn delete_selected_element() {
         return;
     };
 
-    let range = selected_node.with_decorated_node(|n| util::node_to_lsp_range(&n));
+    let Some(document_cache) = document_cache() else { return };
+
+    let range =
+        selected_node.with_decorated_node(|n| util::node_to_lsp_range(&n, document_cache.format));
 
     // Insert a placeholder node into layouts if those end up empty:
     let new_text = placeholder_node_text(&selected_node);
@@ -1270,9 +1296,13 @@ async fn reload_timer_function() {
                     else {
                         return;
                     };
+                    let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
                     let (path, pos) = element_node.with_element_node(|node| {
                         let sf = &node.source_file;
-                        (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset))
+                        (
+                            sf.path().to_owned(),
+                            util::text_size_to_lsp_position(sf, se.offset, format),
+                        )
                     });
                     let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
                     lsp.ask_editor_to_show_document(
@@ -1443,7 +1473,9 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
+    let format =
+        if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
+    update_preview_area(compiled, behavior, open_import_fallback, source_file_versions, format)?;
 
     finish_parsing(&component.url, loaded_component_name, success);
     Ok(())
@@ -1463,7 +1495,7 @@ fn set_preview_factory(
         |location, text| {
             let location = location.as_ref().and_then(|l| {
                 l.source_file.as_ref().map(|f| {
-                    let (line, column) = f.line_column(l.span.offset);
+                    let (line, column) = f.line_column(l.span.offset, common::ByteFormat::Utf8);
 
                     (f.clone(), line, column)
                 })
@@ -1580,7 +1612,7 @@ fn convert_diagnostics(
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
                     continue;
                 }
-                data.1.push(crate::util::to_lsp_diag(d));
+                data.1.push(crate::util::to_lsp_diag(d, preview_state.format()));
             }
         }
     });
@@ -1643,7 +1675,7 @@ fn set_selected_element(
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
 
-    let lsp = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    let (lsp, format) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
         let is_interactive = {
@@ -1723,7 +1755,7 @@ fn set_selected_element(
         preview_state.notify_editor_about_selection_after_update =
             notify_editor_about_selection_after_update;
 
-        preview_state.to_lsp.borrow().clone().unwrap()
+        (preview_state.to_lsp.borrow().clone().unwrap(), preview_state.format())
     });
 
     if editor_notification == SelectionNotification::Now {
@@ -1732,7 +1764,7 @@ fn set_selected_element(
                 let sf = &node.source_file;
                 (
                     sf.path().to_owned(),
-                    util::text_size_to_lsp_position(sf, node.text_range().start()),
+                    util::text_size_to_lsp_position(sf, node.text_range().start(), format),
                 )
             });
             lsp.ask_editor_to_show_document(
@@ -1814,6 +1846,7 @@ fn update_preview_area(
     behavior: LoadBehavior,
     open_import_fallback: Option<common::document_cache::OpenImportFallback>,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
+    format: common::ByteFormat,
 ) -> Result<(), PlatformError> {
     PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
@@ -1837,6 +1870,7 @@ fn update_preview_area(
                                 rtl,
                                 open_import_fallback.clone(),
                                 source_file_versions.clone(),
+                                format,
                             ),
                         )));
                     }

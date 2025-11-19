@@ -11,7 +11,7 @@
 ///     ($(
 ///         $(#[$struct_attr:meta])*
 ///         struct $Name:ident {
-///             @name = $inner_name:literal
+///             @name = $inner_name:expr,
 ///             export {
 ///                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
 ///             }
@@ -39,7 +39,7 @@ macro_rules! for_each_builtin_structs {
             /// On Windows, the Windows key is mapped to the meta modifier.
             #[derive(Copy, Eq)]
             struct KeyboardModifiers {
-                @name = "slint::private_api::KeyboardModifiers"
+                @name = BuiltinPrivateStruct::KeyboardModifiers,
                 export {
                     /// Indicates the Alt key on a keyboard.
                     alt: bool,
@@ -57,7 +57,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents a Pointer event sent by the windowing system.
             /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
             struct PointerEvent {
-                @name = "slint::private_api::PointerEvent"
+                @name = BuiltinPrivateStruct::PointerEvent,
                 export {
                     /// The button that was pressed or released
                     button: PointerEventButton,
@@ -75,7 +75,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents a Pointer scroll (or wheel) event sent by the windowing system.
             /// This structure is passed to the `scroll-event` callback of the `TouchArea` element.
             struct PointerScrollEvent {
-                @name = "slint::private_api::PointerScrollEvent"
+                @name = BuiltinPrivateStruct::PointerScrollEvent,
                 export {
                     /// The amount of pixel in the horizontal direction
                     delta_x: Coord,
@@ -90,7 +90,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
             struct KeyEvent {
-                @name = "slint::private_api::KeyEvent"
+                @name = BuiltinPrivateStruct::KeyEvent,
                 export {
                     /// The unicode representation of the key pressed.
                     text: SharedString,
@@ -119,7 +119,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is passed to the callbacks of the `DropArea` element
             struct DropEvent {
-                @name = "slint::private_api::DropEvent"
+                @name = BuiltinPrivateStruct::DropEvent,
                 export {
                     /// The mime type of the data being dragged
                     mime_type: SharedString,
@@ -135,7 +135,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents an item in a StandardListView and a StandardTableView.
             #[non_exhaustive]
             struct StandardListViewItem {
-                @name = "slint::StandardListViewItem"
+                @name = BuiltinPublicStruct::StandardListViewItem,
                 export {
                     /// The text content of the item
                     text: SharedString,
@@ -147,7 +147,7 @@ macro_rules! for_each_builtin_structs {
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
             struct TableColumn {
-                @name = "slint::private_api::TableColumn"
+                @name = BuiltinPrivateStruct::TableColumn,
                 export {
                     /// The title of the column header
                     title: SharedString,
@@ -167,7 +167,7 @@ macro_rules! for_each_builtin_structs {
             /// Value of the state property
             /// A state is just the current state, but also has information about the previous state and the moment it changed
             struct StateInfo {
-                @name = "slint::private_api::StateInfo"
+                @name = BuiltinPrivateStruct::StateInfo,
                 export {
                     /// The current state value
                     current_state: i32,
@@ -182,7 +182,7 @@ macro_rules! for_each_builtin_structs {
 
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
-                @name = "slint::private_api::FontMetrics"
+                @name = BuiltinPrivateStruct::FontMetrics,
                 export {
                     /// The distance between the baseline and the top of the tallest glyph in the font.
                     ascent: Coord,
@@ -202,7 +202,7 @@ macro_rules! for_each_builtin_structs {
 
             /// An item in the menu of a menu bar or context menu
             struct MenuEntry {
-                @name = "slint::private_api::MenuEntry"
+                @name = BuiltinPrivateStruct::MenuEntry,
                 export {
                     /// The text of the menu entry
                     title: SharedString,

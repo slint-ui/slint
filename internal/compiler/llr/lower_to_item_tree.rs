@@ -6,7 +6,9 @@ use by_address::ByAddress;
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use crate::CompilerConfiguration;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{ElementType, Struct, Type};
+use crate::langtype::{
+    BuiltinPrivateStruct, BuiltinPublicStruct, ElementType, Struct, StructName, Type,
+};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -444,7 +446,7 @@ fn lower_sub_component(
 
             let is_state_info = matches!(
                 e.borrow().lookup_property(p).property_type,
-                Type::Struct(s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo"))
+                Type::Struct(s) if matches!(s.name, StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo))
             );
 
             sub_component.property_init.push((
@@ -614,7 +616,7 @@ fn lower_geometry(
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
     super::Expression::Struct {
-        ty: Rc::new(Struct { fields, name: None, node: None, rust_attributes: None }),
+        ty: Rc::new(Struct { fields, name: StructName::None, rust_attributes: None }),
         values,
     }
 }
@@ -701,7 +703,7 @@ fn lower_popup_component(
     let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
     use super::Expression::PropertyReference as PR;
     let position = super::lower_expression::make_struct(
-        "LogicalPosition",
+        BuiltinPublicStruct::LogicalPosition,
         [
             ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
             ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),

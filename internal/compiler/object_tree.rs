@@ -11,7 +11,7 @@ use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Callable, Expression, Unit};
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, Enumeration, EnumerationValue, Function, NativeClass,
-    Struct, Type,
+    Struct, StructName, Type,
 };
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -2029,7 +2029,11 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct(Rc::new(Struct { fields, name, node: Some(object_node), rust_attributes }))
+    Type::Struct(Rc::new(Struct {
+        fields,
+        name: name.map_or(StructName::None, |name| StructName::User { name, node: object_node }),
+        rust_attributes,
+    }))
 }
 
 fn animation_element_from_node(

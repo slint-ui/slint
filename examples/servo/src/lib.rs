@@ -16,65 +16,56 @@ mod gl_bindings {
 }
 
 use slint::ComponentHandle;
-use smol::channel;
-use std::rc::Rc;
 
-use crate::{
-    adapter::{SlintServoAdapter, upgrade_adapter},
-    on_events::on_app_callbacks,
-    servo_util::{init_servo_webview, spin_servo_event_loop},
-};
+use crate::servo_util::init_servo;
 
 slint::include_modules!();
 
-#[cfg(not(target_os = "android"))]
-use slint::wgpu_27::{WGPUConfiguration, WGPUSettings, wgpu};
-
 pub fn main() {
-    let (waker_sender, waker_receiver) = channel::unbounded::<()>();
-
     #[cfg(not(target_os = "android"))]
-    {
-        let mut wgpu_settings = WGPUSettings::default();
-        wgpu_settings.device_required_features = wgpu::Features::PUSH_CONSTANTS;
-        wgpu_settings.device_required_limits.max_push_constant_size = 16; // Maximum push size
+    let (device, queue) = {
+        let backends = wgpu::Backends::from_env().unwrap_or_default();
+
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends,
+            flags: Default::default(),
+            backend_options: Default::default(),
+            memory_budget_thresholds: Default::default(),
+        });
+
+        let adapter = spin_on::spin_on(async {
+            instance
+                .request_adapter(&Default::default())
+                .await
+                .expect("Failed to find an appropriate WGPU adapter")
+        });
+
+        let (device, queue) = spin_on::spin_on(async {
+            adapter.request_device(&Default::default()).await.expect("Failed to create WGPU device")
+        });
 
         slint::BackendSelector::new()
-        .require_wgpu_27(WGPUConfiguration::Automatic(wgpu_settings))
+        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
+            instance,
+            adapter,
+            device: device.clone(),
+            queue: queue.clone()
+        })
         .select()
         .expect("Failed to create Slint backend with WGPU based renderer - ensure your system supports WGPU");
-    }
+
+        (device, queue)
+    };
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
 
-    let app_weak = app.as_weak();
-
-    let adapter =
-        Rc::new(SlintServoAdapter::new(app_weak, waker_sender.clone(), waker_receiver.clone()));
-
-    let adapter_weak = Rc::downgrade(&adapter);
+    let url = "https://slint.dev";
 
     #[cfg(not(target_os = "android"))]
-    app.window()
-        .set_rendering_notifier(move |rendering_state, graphics_api| match rendering_state {
-            slint::RenderingState::RenderingSetup => {
-                if let slint::GraphicsAPI::WGPU27 { device, queue, .. } = graphics_api {
-                    let adpater = upgrade_adapter(&adapter_weak);
-                    adpater.set_wgpu_device_queue(device, queue);
-                }
-            }
-            slint::RenderingState::BeforeRendering => {}
-            slint::RenderingState::AfterRendering => {}
-            slint::RenderingState::RenderingTeardown => {}
-            _ => {}
-        })
-        .expect("Failed to set rendering notifier - WGPU integration may not be available");
+    let _adapter = init_servo(app.clone_strong(), url.into(), device, queue);
 
-    init_servo_webview(adapter.clone(), "https://slint.dev".into());
-
-    spin_servo_event_loop(adapter.clone());
-
-    on_app_callbacks(adapter.clone());
+    #[cfg(target_os = "android")]
+    let _adapter = init_servo(app.clone_strong(), url.into());
 
     app.run().expect("Application failed to run - check for runtime errors");
 }

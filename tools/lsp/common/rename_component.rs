@@ -121,8 +121,16 @@ fn fix_specifier(
         y: &SyntaxToken,
         new_type: &str,
     ) -> common::SingleTextEdit {
-        let start_position = util::text_size_to_lsp_position(source_file, x.text_range().start());
-        let end_position = util::text_size_to_lsp_position(source_file, y.text_range().end());
+        let start_position = util::text_size_to_lsp_position(
+            source_file,
+            x.text_range().start(),
+            document_cache.format,
+        );
+        let end_position = util::text_size_to_lsp_position(
+            source_file,
+            y.text_range().end(),
+            document_cache.format,
+        );
         common::SingleTextEdit::from_path(
             document_cache,
             source_file.path(),
@@ -165,7 +173,7 @@ fn fix_specifier(
                         document_cache,
                         source_file.path(),
                         lsp_types::TextEdit {
-                            range: util::token_to_lsp_range(&type_name),
+                            range: util::token_to_lsp_range(&type_name, document_cache.format),
                             new_text: new_type.to_string(),
                         },
                     )
@@ -185,7 +193,7 @@ fn fix_specifier(
                     document_cache,
                     source_file.path(),
                     lsp_types::TextEdit {
-                        range: util::token_to_lsp_range(&type_name),
+                        range: util::token_to_lsp_range(&type_name, document_cache.format),
                         new_text: new_type.to_string(),
                     },
                 )
@@ -223,7 +231,7 @@ fn fix_specifier(
                         document_cache,
                         source_file.path(),
                         lsp_types::TextEdit {
-                            range: util::token_to_lsp_range(&renamed_to),
+                            range: util::token_to_lsp_range(&renamed_to, document_cache.format),
                             new_text: new_type.to_string(),
                         },
                     )
@@ -392,7 +400,7 @@ fn rename_local_symbols(
                     document_cache,
                     current.source_file.path(),
                     lsp_types::TextEdit {
-                        range: util::token_to_lsp_range(&current),
+                        range: util::token_to_lsp_range(&current, document_cache.format),
                         new_text: new_type.to_string(),
                     },
                 )

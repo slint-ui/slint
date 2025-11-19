@@ -5,6 +5,7 @@ use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{euclid, Color};
 use i_slint_core::items::{ColorScheme, InputType};
+use i_slint_core::lengths::PhysicalInset;
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
 use jni::objects::{JClass, JObject, JString, JValue};
@@ -111,6 +112,11 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             name: "popupMenuAction".into(),
             sig: "(I)V".into(),
             fn_ptr: Java_SlintAndroidJavaHelper_popupMenuAction as *mut _,
+        },
+        jni::NativeMethod {
+            name: "setInsets".into(),
+            sig: "(IIIIIIIIIIII)V".into(),
+            fn_ptr: Java_SlintAndroidJavaHelper_setInsets as *mut _,
         },
     ];
     env.register_native_methods(&helper_class, &methods)?;
@@ -252,6 +258,19 @@ impl JavaHelper {
             let width = env.get_field(&rect, "right", "I")?.i()? - x;
             let height = env.get_field(&rect, "bottom", "I")?.i()? - y;
             Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
+        })
+    }
+
+    pub fn get_safe_area(&self) -> Result<PhysicalInset, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let rect =
+                env.call_method(helper, "get_safe_area", "()Landroid/graphics/Rect;", &[])?.l()?;
+            let rect = env.auto_local(rect);
+            let left = env.get_field(&rect, "left", "I")?.i()?;
+            let top = env.get_field(&rect, "top", "I")?.i()?;
+            let right = env.get_field(&rect, "right", "I")?.i()?;
+            let bottom = env.get_field(&rect, "bottom", "I")?.i()?;
+            Ok(PhysicalInset::new(top, bottom, left, right))
         })
     }
 
@@ -507,6 +526,49 @@ extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
                     }
                 }
             }
+        }
+    })
+    .unwrap()
+}
+
+#[unsafe(no_mangle)]
+extern "system" fn Java_SlintAndroidJavaHelper_setInsets(
+    _env: JNIEnv,
+    _class: JClass,
+    window_top: jint,
+    window_left: jint,
+    window_bottom: jint,
+    window_right: jint,
+    safe_area_top: jint,
+    safe_area_left: jint,
+    safe_area_bottom: jint,
+    safe_area_right: jint,
+    keyboard_top: jint,
+    keyboard_left: jint,
+    keyboard_bottom: jint,
+    keyboard_right: jint,
+) {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            w.update_window_insets(
+                PhysicalPosition::new(window_left as _, window_top as _),
+                PhysicalSize::new(
+                    (window_right - window_left) as _,
+                    (window_bottom - window_top) as _,
+                ),
+                PhysicalInset::new(
+                    safe_area_top as _,
+                    safe_area_bottom as _,
+                    safe_area_left as _,
+                    safe_area_right as _,
+                ),
+                PhysicalInset::new(
+                    keyboard_top as _,
+                    keyboard_bottom as _,
+                    keyboard_left as _,
+                    keyboard_right as _,
+                ),
+            );
         }
     })
     .unwrap()

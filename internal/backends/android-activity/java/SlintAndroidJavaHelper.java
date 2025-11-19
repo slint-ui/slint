@@ -8,7 +8,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
+import android.view.WindowInsetsAnimation;
+import android.view.WindowMetrics;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.ClipData;
@@ -18,6 +21,7 @@ import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.graphics.BlendMode;
 import android.graphics.BlendModeColorFilter;
+import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -31,6 +35,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.view.inputmethod.BaseInputConnection;
+import android.os.Build;
 
 class InputHandle extends ImageView {
     private PopupWindow mPopupWindow;
@@ -413,6 +418,87 @@ public class SlintAndroidJavaHelper {
                 mInputView.setVisibility(View.VISIBLE);
             }
         });
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.getWindow().getDecorView().getRootView()
+                    .setWindowInsetsAnimationCallback(
+                            new WindowInsetsAnimation.Callback(
+                                    WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                                @Override
+                                public WindowInsets onProgress(WindowInsets insets,
+                                        java.util.List<WindowInsetsAnimation> runningAnimations) {
+                                    mActivity.runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Insets safeAreaInsets = insets.getInsets(WindowInsets.Type.systemBars());
+                                            Insets keyboardAreaInsets = insets.getInsets(WindowInsets.Type.ime());
+                                            Rect windowRect = get_view_rect();
+
+                                            SlintAndroidJavaHelper.setInsets(
+                                                    windowRect.top, windowRect.left,
+                                                    windowRect.bottom, windowRect.right,
+                                                    safeAreaInsets.top, safeAreaInsets.left,
+                                                    safeAreaInsets.bottom, safeAreaInsets.right,
+                                                    keyboardAreaInsets.top, keyboardAreaInsets.left,
+                                                    keyboardAreaInsets.bottom, keyboardAreaInsets.right);
+                                        }
+                                    });
+                                    return insets;
+                                }
+                            });
+        } else {
+            activity.getWindow().getDecorView().getRootView().getViewTreeObserver()
+                    .addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                        @Override
+                        public void onGlobalLayout() {
+                            mActivity.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Rect windowRect = get_view_rect();
+                                    Rect safeAreaRect = get_safe_area();
+
+                                    // This is only an approximation, because SDK level < 30 doesn't provide
+                                    // a way to get the keyboard area directly.
+                                    Rect visibleRect = new Rect();
+                                    mActivity.getWindow().getDecorView().getRootView()
+                                            .getWindowVisibleDisplayFrame(visibleRect);
+                                    int keyboardBottom = windowRect.bottom - visibleRect.bottom;
+                                    int keyboardLeft = windowRect.left - visibleRect.left;
+                                    int keyboardTop = windowRect.top - visibleRect.top;
+                                    int keyboardRight = windowRect.right - visibleRect.right;
+                                    int max = Math.max(keyboardBottom, Math.max(keyboardLeft,
+                                            Math.max(keyboardTop, keyboardRight)));
+
+                                    // only take the largest value (it's probably always going to be bottom)
+                                    if (max == keyboardBottom) {
+                                        keyboardTop = 0;
+                                        keyboardLeft = 0;
+                                        keyboardRight = 0;
+                                    } else if (max == keyboardLeft) {
+                                        keyboardTop = 0;
+                                        keyboardRight = 0;
+                                        keyboardBottom = 0;
+                                    } else if (max == keyboardTop) {
+                                        keyboardLeft = 0;
+                                        keyboardRight = 0;
+                                        keyboardBottom = 0;
+                                    } else {
+                                        keyboardTop = 0;
+                                        keyboardLeft = 0;
+                                        keyboardBottom = 0;
+                                    }
+
+                                    SlintAndroidJavaHelper.setInsets(
+                                            windowRect.top, windowRect.left,
+                                            windowRect.bottom, windowRect.right,
+                                            safeAreaRect.top, safeAreaRect.left,
+                                            safeAreaRect.bottom, safeAreaRect.right,
+                                            keyboardTop, keyboardLeft,
+                                            keyboardBottom, keyboardRight);
+                                }
+                            });
+                        }
+                    });
+        }
     }
 
     public void show_keyboard() {
@@ -446,6 +532,10 @@ public class SlintAndroidJavaHelper {
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
     static public native void popupMenuAction(int id);
+
+    static public native void setInsets(int window_top, int window_left, int window_bottom, int window_right,
+            int safe_area_top, int safe_area_left, int safe_area_bottom, int safe_area_right,
+            int keyboard_top, int keyboard_left, int keyboard_bottom, int keyboard_right);
 
     public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
             int cur_x, int cur_y, int anchor_x, int anchor_y, int cursor_height, int input_type,
@@ -485,22 +575,39 @@ public class SlintAndroidJavaHelper {
         return nightModeFlags;
     }
 
-    // Get the geometry of the view minus the system bars and the keyboard
+    // Get the size of the window
     public Rect get_view_rect() {
-        Rect rect = new Rect();
-        mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
-        // Note: `View.getRootWindowInsets` requires API level 23 or above
-        WindowInsets insets = mActivity.getWindow().getDecorView().getRootView().getRootWindowInsets();
-        if (insets != null) {
-            int dx = rect.left - insets.getSystemWindowInsetLeft();
-            int dy = rect.top - insets.getSystemWindowInsetTop();
-
-            rect.left -= dx;
-            rect.right -= dx;
-            rect.top -= dy;
-            rect.bottom -= dy;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // On Android 11 and above, we can get the window bounds directly
+            WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
+            return metrics.getBounds();
+        } else {
+            View rootView = mActivity.getWindow().getDecorView().getRootView();
+            return new Rect(rootView.getLeft(), rootView.getTop(), rootView.getRight(), rootView.getBottom());
         }
-        return rect;
+    }
+
+    // On SDK level < 30, returns the inset for the safe area and the keyboard.
+    // On SDK level >= 30, returns the inset for the safe area only.
+    public Rect get_safe_area() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
+            WindowInsets insets = metrics.getWindowInsets();
+            Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
+            return new Rect(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+        } else {
+            View decorView = mActivity.getWindow().getDecorView();
+            // Note: `View.getRootWindowInsets` requires API level 23 or above
+            WindowInsets insets = decorView.getRootView().getRootWindowInsets();
+            if (insets != null) {
+                return new Rect(
+                        insets.getStableInsetLeft(),
+                        insets.getStableInsetTop(),
+                        insets.getStableInsetRight(),
+                        insets.getStableInsetBottom());
+            }
+            return new Rect(0, 0, 0, 0);
+        }
     }
 
     public void show_action_menu() {

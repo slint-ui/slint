@@ -14,7 +14,7 @@ Some convention used in the generated code:
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{Enumeration, EnumerationValue, Struct, Type};
+use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression, ParentScope,
@@ -92,14 +92,12 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sp::Image)),
         Type::Struct(s) => {
-            if let Some(name) = &s.name {
-                Some(struct_name_to_tokens(name))
-            } else {
+            struct_name_to_tokens(&s.name).or_else(|| {
                 let elem =
                     s.fields.values().map(rust_primitive_type).collect::<Option<Vec<_>>>()?;
                 // This will produce a tuple
                 Some(quote!((#(#elem,)*)))
-            }
+            })
         }
         Type::Array(o) => {
             let inner = rust_primitive_type(o)?;
@@ -282,8 +280,15 @@ pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
-                    Some((ident(name), generate_struct(name, fields, rust_attributes)))
+                Struct { fields, name: StructName::User { name, node }, rust_attributes } => {
+                    Some((
+                        ident(name),
+                        generate_struct(
+                            &StructName::User { name: name.clone(), node: node.clone() },
+                            fields,
+                            rust_attributes,
+                        ),
+                    ))
                 }
                 _ => None,
             },
@@ -515,11 +520,11 @@ fn generate_shared_globals(
 }
 
 fn generate_struct(
-    name: &str,
+    name: &StructName,
     fields: &BTreeMap<SmolStr, Type>,
     rust_attributes: &Option<Vec<SmolStr>>,
 ) -> TokenStream {
-    let component_id = struct_name_to_tokens(name);
+    let component_id = struct_name_to_tokens(&name).unwrap();
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
         fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
 
@@ -2295,17 +2300,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Struct (lhs), Type::Struct (rhs)) => {
                     debug_assert_eq!(lhs.fields, rhs.fields, "cast of struct with deferent fields should be handled before llr");
                     match (&lhs.name, &rhs.name) {
-                        (None, Some(struct_name)) => {
+                        (StructName::None, targetstruct) if targetstruct.is_some() => {
                             // Convert from an anonymous struct to a named one
                             let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
                                 let index = proc_macro2::Literal::usize_unsuffixed(index);
                                 let name = ident(name);
                                 quote!(the_struct.#name =  obj.#index as _;)
                             });
-                            let id = struct_name_to_tokens(struct_name);
+                            let id = struct_name_to_tokens(targetstruct).unwrap();
                             quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
                         }
-                        (Some(_), None) => {
+                        (sourcestruct, StructName::None) if sourcestruct.is_some() => {
                             // Convert from a named struct to an anonymous one
                             let fields = lhs.fields.keys().map(|name| ident(name));
                             quote!({ let obj = #f; (#(obj.#fields,)*) })
@@ -2585,10 +2590,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::Struct { ty, values } => {
             let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
-            if let Some(name) = &ty.name {
-                let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
+            if ty.name.is_some() {
+                let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
                 let keys = ty.fields.keys().map(|k| ident(k));
-                if name.starts_with("slint::private_api::") && name.ends_with("LayoutData") {
+                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data()) {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
@@ -3400,14 +3405,21 @@ fn compile_builtin_function_call(
     }
 }
 
-/// Return a TokenStream for a name (as in [`Type::Struct::name`])
-fn struct_name_to_tokens(name: &str) -> TokenStream {
-    // the name match the C++ signature so we need to change that to the rust namespace
-    let mut name = name.replace("slint::private_api::", "sp::").replace('-', "_");
-    if !name.contains("::") {
-        name.insert_str(0, "r#")
+fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> {
+    match name {
+        StructName::None => None,
+        StructName::User { name, .. } => Some(proc_macro2::TokenTree::from(ident(name)).into()),
+        StructName::BuiltinPrivate(builtin_private_struct) => {
+            let name: &'static str = builtin_private_struct.into();
+            let name = format_ident!("{}", name);
+            Some(quote!(sp::#name))
+        }
+        StructName::BuiltinPublic(builtin_public_struct) => {
+            let name: &'static str = builtin_public_struct.into();
+            let name = format_ident!("{}", name);
+            Some(quote!(slint::#name))
+        }
     }
-    name.parse().unwrap()
 }
 
 fn box_layout_function(
@@ -3622,20 +3634,37 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
         .iter()
         .filter_map(|export| match &export.1 {
             Either::Left(component) if !component.is_global() => {
-                Some((&export.0.name, &component.id))
+                if export.0.name != component.id {
+                    Some((
+                        &export.0.name,
+                        proc_macro2::TokenTree::from(ident(&component.id)).into(),
+                    ))
+                } else {
+                    None
+                }
             }
             Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                    Some((&export.0.name, s.name.as_ref().unwrap()))
+                Type::Struct(s) if s.node().is_some() => {
+                    if let StructName::User { name, .. } = &s.name
+                        && *name == export.0.name
+                    {
+                        None
+                    } else {
+                        Some((&export.0.name, struct_name_to_tokens(&s.name).unwrap()))
+                    }
                 }
-                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
+                Type::Enumeration(en) => {
+                    if export.0.name != en.name {
+                        Some((&export.0.name, proc_macro2::TokenTree::from(ident(&en.name)).into()))
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             },
             _ => None,
         })
-        .filter(|(export_name, type_name)| export_name != type_name)
-        .map(|(export_name, type_name)| {
-            let type_id = ident(type_name);
+        .map(|(export_name, type_id)| {
             let export_id = ident(export_name);
             quote!(#type_id as #export_id)
         })

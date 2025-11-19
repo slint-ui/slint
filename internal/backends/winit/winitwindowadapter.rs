@@ -1407,10 +1407,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         };
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn color_scheme(&self) -> ColorScheme {
         self.color_scheme
             .get_or_init(|| {

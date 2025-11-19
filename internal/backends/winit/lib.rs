@@ -968,7 +968,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
         i_slint_core::window::WindowInner::from_pub(self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
-            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
             .is_some_and(|adapter| adapter.winit_window().is_some())
     }
 
@@ -979,7 +979,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
         i_slint_core::window::WindowInner::from_pub(self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
-            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
             .and_then(|adapter| adapter.winit_window().map(|w| callback(&w)))
     }
 
@@ -990,7 +990,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             let adapter_weak = i_slint_core::window::WindowInner::from_pub(self)
                 .window_adapter()
                 .internal(i_slint_core::InternalToken)
-                .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+                .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
                 .map(|wa| wa.self_weak.clone())
                 .ok_or_else(|| {
                     PlatformError::OtherError(
@@ -1009,7 +1009,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
         if let Some(adapter) = i_slint_core::window::WindowInner::from_pub(self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
-            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
         {
             adapter
                 .window_event_filter

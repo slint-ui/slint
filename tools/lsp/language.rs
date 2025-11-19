@@ -227,7 +227,6 @@ impl RequestHandler {
 pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeResult {
     InitializeResult {
         capabilities: ServerCapabilities {
-            // Note: we only support UTF8 at the moment (which is a bug, as the spec says that support for utf-16 is mandatory)
             position_encoding: client_cap
                 .general
                 .as_ref()
@@ -294,7 +293,6 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
             name: env!("CARGO_PKG_NAME").to_string(),
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
         }),
-        offset_encoding: Some("utf-8".to_string()),
     }
 }
 
@@ -433,14 +431,14 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     offset: element.text_range().start().into(),
                 });
 
-                let range = util::node_to_lsp_range(&p);
+                let range = util::node_to_lsp_range(&p, document_cache.format);
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
 
             if p.kind() == SyntaxKind::QualifiedName
                 && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
             {
-                let range = util::node_to_lsp_range(&p);
+                let range = util::node_to_lsp_range(&p, document_cache.format);
 
                 if gp
                     .as_ref()
@@ -466,7 +464,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     value
                         .into_iter()
                         .map(|r| lsp_types::DocumentHighlight {
-                            range: util::text_range_to_lsp_range(&p.source_file, r),
+                            range: util::text_range_to_lsp_range(
+                                &p.source_file,
+                                r,
+                                document_cache.format,
+                            ),
                             kind: None,
                         })
                         .collect(),
@@ -489,7 +491,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
-                        range: util::text_range_to_lsp_range(&p.source_file, r),
+                        range: util::text_range_to_lsp_range(
+                            &p.source_file,
+                            r,
+                            document_cache.format,
+                        ),
                         new_text: params.new_name.clone(),
                     })
                     .collect();
@@ -518,10 +524,16 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let uri = params.text_document.uri;
         if let Some((tk, _)) = token_descr(&mut document_cache, &uri, &params.position) {
             if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
-                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(&tk))));
+                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
+                    &tk,
+                    document_cache.format,
+                ))));
             }
             if common::rename_component::find_declaration_node(&document_cache, &tk).is_some() {
-                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(&tk))));
+                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
+                    &tk,
+                    document_cache.format,
+                ))));
             }
         }
         Ok(None)
@@ -575,7 +587,10 @@ pub fn show_preview_command(
     Ok(())
 }
 
-fn populate_command_range(node: &SyntaxNode) -> Option<lsp_types::Range> {
+fn populate_command_range(
+    node: &SyntaxNode,
+    format: common::ByteFormat,
+) -> Option<lsp_types::Range> {
     let range = node.text_range();
 
     let start_offset = node
@@ -588,6 +603,7 @@ fn populate_command_range(node: &SyntaxNode) -> Option<lsp_types::Range> {
     (start_offset <= end_offset).then_some(util::text_range_to_lsp_range(
         &node.source_file,
         TextRange::new(start_offset, end_offset),
+        format,
     ))
 }
 
@@ -657,7 +673,7 @@ pub async fn populate_command(
             });
         };
 
-        let Some(range) = populate_command_range(node) else {
+        let Some(range) = populate_command_range(node, document_cache.format) else {
             return Err(LspError {
                 code: LspErrorCode::InvalidParameter,
                 message: "No slint code range in document".into(),
@@ -797,6 +813,7 @@ pub async fn reload_document(
 pub fn convert_diagnostics(
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
+    format: common::ByteFormat,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
@@ -812,7 +829,7 @@ pub fn convert_diagnostics(
             continue;
         }
         let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
+        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d, format));
     }
 
     lsp_diags
@@ -824,7 +841,7 @@ fn send_diagnostics(
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
 ) {
-    let lsp_diags = convert_diagnostics(extra_files, diag);
+    let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
     for (uri, _diagnostics) in lsp_diags {
         let _version = document_cache.document_version(&uri);
 
@@ -953,7 +970,11 @@ fn get_code_actions(
     }
 
     if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
-        let r = util::text_range_to_lsp_range(&token.source_file, node.text_range());
+        let r = util::text_range_to_lsp_range(
+            &token.source_file,
+            node.text_range(),
+            document_cache.format,
+        );
         let edits = vec![
             TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
             TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
@@ -1005,6 +1026,7 @@ fn get_code_actions(
             let r = util::text_range_to_lsp_range(
                 &token.source_file,
                 node.parent().unwrap().text_range(),
+                document_cache.format,
             );
             let element = document_cache.element_at_position(&uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
@@ -1162,7 +1184,7 @@ fn get_document_color(
     loop {
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
-                let range = util::token_to_lsp_range(&token);
+                let range = util::token_to_lsp_range(&token, document_cache.format);
                 let col = i_slint_common::color_parsing::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
@@ -1206,14 +1228,17 @@ fn get_document_symbols(
             let root_element = c.root_element.borrow();
             let element_node = &root_element.debug.first()?.node;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
-            let selection_range = util::node_to_lsp_range(&component_node.DeclaredIdentifier());
+            let selection_range = util::node_to_lsp_range(
+                &component_node.DeclaredIdentifier(),
+                document_cache.format,
+            );
             if c.id.is_empty() {
                 // Symbols with empty names are invalid
                 return None;
             }
 
             Some(DocumentSymbol {
-                range: util::node_to_lsp_range(&component_node),
+                range: util::node_to_lsp_range(&component_node, document_cache.format),
                 selection_range,
                 name: c.id.to_string(),
                 kind: if c.is_global() {
@@ -1221,25 +1246,31 @@ fn get_document_symbols(
                 } else {
                     lsp_types::SymbolKind::CLASS
                 },
-                children: gen_children(&c.root_element, &ds),
+                children: gen_children(&c.root_element, &ds, document_cache.format),
                 ..ds.clone()
             })
         })
         .collect::<Vec<_>>();
 
     r.extend(inner_types.iter().filter_map(|c| match c {
-        Type::Struct(s) if s.name.is_some() && s.node.is_some() => Some(DocumentSymbol {
-            range: util::node_to_lsp_range(s.node.as_ref().unwrap().parent().as_ref()?),
-            selection_range: util::node_to_lsp_range(
-                &s.node.as_ref().unwrap().parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
-            ),
-            name: s.name.as_ref().unwrap().to_string(),
-            kind: lsp_types::SymbolKind::STRUCT,
-            ..ds.clone()
+        Type::Struct(s) => s.node().and_then(|node| {
+            Some(DocumentSymbol {
+                range: util::node_to_lsp_range(node.parent().as_ref()?, document_cache.format),
+                selection_range: util::node_to_lsp_range(
+                    &node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
+                    document_cache.format,
+                ),
+                name: s.name.slint_name().unwrap().to_string(),
+                kind: lsp_types::SymbolKind::STRUCT,
+                ..ds.clone()
+            })
         }),
         Type::Enumeration(enumeration) => enumeration.node.as_ref().map(|node| DocumentSymbol {
-            range: util::node_to_lsp_range(node),
-            selection_range: util::node_to_lsp_range(&node.DeclaredIdentifier()),
+            range: util::node_to_lsp_range(node, document_cache.format),
+            selection_range: util::node_to_lsp_range(
+                &node.DeclaredIdentifier(),
+                document_cache.format,
+            ),
             name: enumeration.name.to_string(),
             kind: lsp_types::SymbolKind::ENUM,
             ..ds.clone()
@@ -1247,7 +1278,11 @@ fn get_document_symbols(
         _ => None,
     }));
 
-    fn gen_children(elem: &ElementRc, ds: &DocumentSymbol) -> Option<Vec<DocumentSymbol>> {
+    fn gen_children(
+        elem: &ElementRc,
+        ds: &DocumentSymbol,
+        format: common::ByteFormat,
+    ) -> Option<Vec<DocumentSymbol>> {
         let r = elem
             .borrow()
             .children
@@ -1258,14 +1293,15 @@ fn get_document_symbols(
                 let sub_element_node = element_node.parent()?;
                 debug_assert_eq!(sub_element_node.kind(), SyntaxKind::SubElement);
                 Some(DocumentSymbol {
-                    range: util::node_to_lsp_range(&sub_element_node),
+                    range: util::node_to_lsp_range(&sub_element_node, format),
                     selection_range: util::node_to_lsp_range(
                         element_node.QualifiedName().as_ref()?,
+                        format,
                     ),
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.to_string()),
                     kind: lsp_types::SymbolKind::VARIABLE,
-                    children: gen_children(child, ds),
+                    children: gen_children(child, ds, format),
                     ..ds.clone()
                 })
             })
@@ -1311,9 +1347,9 @@ fn get_code_lenses(
             let component_node = c.root_element.borrow().debug.first()?.node.parent()?;
             let range = match component_node.parent() {
                 Some(parent) if parent.kind() == SyntaxKind::ExportsList => {
-                    util::node_to_lsp_range(&parent)
+                    util::node_to_lsp_range(&parent, document_cache.format)
                 }
-                _ => util::node_to_lsp_range(&component_node),
+                _ => util::node_to_lsp_range(&component_node, document_cache.format),
             };
             let command =
                 Some(create_show_preview_command(true, &text_document.uri, c.id.as_str()));
@@ -1326,7 +1362,7 @@ fn get_code_lenses(
             .children_with_tokens()
             .any(|nt| nt.kind() != SyntaxKind::Whitespace && nt.kind() != SyntaxKind::Eof);
         if !has_non_ws_token {
-            if let Some(range) = populate_command_range(node) {
+            if let Some(range) = populate_command_range(node, document_cache.format) {
                 result.push(CodeLens {
                     range,
                     command: Some(create_populate_command(
@@ -1432,6 +1468,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
+        format_utf8: cc.format == common::ByteFormat::Utf8,
     };
     *ctx.preview_config.borrow_mut() = config.clone();
     let mut diag = BuildDiagnostics::default();
