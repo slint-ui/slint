@@ -4,6 +4,8 @@ title: Android
 description: Android Platform Guide
 ---
 
+// cSpell: ignore xbuild textfields
+
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 import { Image } from 'astro:assets';
 
@@ -16,7 +18,7 @@ Also see the documentation of the <LangRefLink lang="rust-slint" relpath="androi
 ## Project Setup
 
 Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as the interface to
-the operating system, which is re-exported as `slint::android::android_activity`. So, you need to follow the same steps to get started.
+the operating system, which is re-exported as `slint::android::android_activity`. To get started, follow these steps:
 
 First, your project needs to be a library crate. Add the following to your `Cargo.toml`:
 
@@ -25,20 +27,12 @@ First, your project needs to be a library crate. Add the following to your `Carg
 crate_type = ["cdylib"]
 ```
 
-You also need to select the version of android-activity you want to use. This is done by selecting one of these
-two features on the Slint crate:
-
-* `backend-android-activity-06` (version 0.6.x)
-* `backend-android-activity-05` (version 0.5.x)
-
-For example:
+You also need to select the version of android-activity you want to use:
 
 ```toml
 [dependencies]
 slint = { version = "...", features = ["backend-android-activity-06"] }
 ```
-
-Unless you depend on version 0.5 due to some other crate, we recommend to use `backend-android-activity-06`.
 
 This feature is ignored for any target\_os that is not Android. So, it can safely be enabled anywhere.
 
@@ -58,18 +52,19 @@ You can also add an Android event
 ([`android_activity::PollEvent`](https://docs.rs/android-activity/latest/android_activity/enum.PollEvent.html))
 listener by replacing the call to `slint::android::init` with `slint::android::init_with_event_listener`.
 
-That's it!
+That's all of the necessary code changes! In the next section, we're going to set up the environment to
+build the project.
 
 ## Android Setup
 
-The Android development workflow centers around the `adb` command line tool. With it, you can connect to
+The Android development workflow centers around the `adb` command line tool. Use it to connect to
 Android devices and emulators to upload and run applications (and do other things not relevant here).
 
 The easiest way to install the Android development environment is to download and install
-[Android Studio](https://developer.android.com/studio). It contains an SDK manager in its settings pane
-that enables you to download and install all SDK versions you need. Usually it's recommended to use the
-latest version available, because they can be configured to be backwards-compatible with older versions
-of Android. This manager is available in the settings in "Languages & Frameworks" > "Android SDK".
+[Android Studio](https://developer.android.com/studio). In the settings pane, navigate to the Android
+SDK page and install all SDK versions you need. We recommend to use the latest version available,
+because it can be configured to be backwards-compatible with older versions of Android. This manager
+is available in the settings in "Languages & Frameworks" > "Android SDK".
 
 import androidSdkManager from '/src/assets/android/android_sdk_manager.png';
 
@@ -78,9 +73,8 @@ import androidSdkManager from '/src/assets/android/android_sdk_manager.png';
 Also note the SDK location on top, this path might have to be used for the `ANDROID_HOME` environment
 variable if the build tools can't detect it automatically.
 
-Also, the directory platform-tools in that location contains the adb tool mentioned above, and so
-should be added to your PATH (the way to do this depends on your development platform and is outside
-the scope of this guide).
+Add the `platform-tools` directory to your `PATH` so that the `adb` tool is available on the command
+line.
 
 To get the list of Android devices, simulators and emulators currently attached to your machine, run
 
@@ -99,7 +93,7 @@ this.
 
 ### Virtual Device Setup
 
-We recommand developing using a virtual device first, because it speeds up the development cycle.
+We recommend developing using a virtual device first, because it speeds up the development cycle.
 However, eventually you have to also test on a device to make sure that the interface is usable on a
 touch screen and to check if all text is large enough, etc.
 
@@ -119,7 +113,7 @@ import virtualDeviceManager from '/src/assets/android/android_virtual_device_man
 A good approach is to have one device with the minimum API level supported by your application and
 another one with the latest release to make sure it runs on both.
 
-Running virtual devices should be connected to `adb` automatically.
+Running virtual devices connect to `adb` automatically.
 
 #### Virtual Keyboard
 
@@ -138,23 +132,27 @@ import virtualKeyboardStylus from '/src/assets/android/android_virtual_keyboard_
 
 <Image src={virtualKeyboardStylus} style={{width: "300px"}} alt="Screenshot Stylus Support" />
 
-You have to disable the stylus input. Go to the keyboard settings:
+Disable the stylus input in the keyboard settings:
 
 import keyboardSettings from '/src/assets/android/android_keyboard_settings.png';
 
 <Image src={keyboardSettings} style={{width: "300px"}} alt="Screenshot Keyboard Settings" />
 
-Select "Write in textfields" in the list and then disable that feature. This should enable the
+Select "Write in textfields" in the list and then disable that feature. This enables the
 regular virtual keyboard.
 
 ### Running the Application
 
 There are multiple ways to build, upload and run Android apps written in Rust. This page describes using
-[xbuild](https://github.com/rust-mobile/xbuild). This does not use Android Studio at all.
+[xbuild](https://github.com/rust-mobile/xbuild). This doesn't use Android Studio at all.
 
-At the time of this writing, the current version of xbuild (0.2.0) is severly outdated and contains
+At the time of this writing, the current version of xbuild (0.2.0) is severely outdated and contains
 relevant bugs that have been fixed in the master branch. So, don't use `cargo install xbuild` to
-install it, clone the repository and use `cargo install --path .` while in the clone.
+install it, use the git version instead:
+
+```sh
+cargo install --git https://github.com/rust-mobile/xbuild.git
+```
 
 The command line tool for xbuild is simply called `x`. For example, to get a list of devices connected,
 use
