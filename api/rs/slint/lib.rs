@@ -218,6 +218,10 @@ pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 // keep in sync with internal/interpreter/api.rs
+#[cfg(feature = "std")]
+pub use i_slint_common::sharedfontique::{
+    register_font_from_memory, FontHandle, RegisterFontError,
+};
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
@@ -232,39 +236,6 @@ pub use i_slint_core::{
     format,
     string::{SharedString, ToSharedString},
 };
-
-/// Register a custom font from byte data at runtime.
-///
-/// **This is an experimental API.** The API may change in future versions.
-///
-/// Returns a [`FontHandle`] on success, or a [`RegisterFontError`] on failure.
-///
-/// This API is available when the `std` feature is enabled.
-///
-/// # Example
-///
-/// ```ignore
-/// # use slint::*;
-/// let font_data = include_bytes!("path/to/font.ttf");
-/// match register_font_from_memory(font_data.to_vec()) {
-///     Ok(handle) => println!("Registered {} font families", handle.family_ids.len()),
-///     Err(e) => eprintln!("Failed to register font: {}", e),
-/// }
-/// ```
-#[cfg(feature = "std")]
-pub use i_slint_core::register_font_from_memory;
-
-/// Handle to a registered font that can be used for future operations.
-///
-/// **This is an experimental API.** The API may change in future versions.
-#[cfg(feature = "std")]
-pub use i_slint_core::FontHandle;
-
-/// Error type for font registration failures.
-///
-/// **This is an experimental API.** The API may change in future versions.
-#[cfg(feature = "std")]
-pub use i_slint_core::RegisterFontError;
 
 pub mod private_unstable_api;
 
