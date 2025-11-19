@@ -1622,7 +1622,7 @@ pub fn store_property(
     component_instance: InstanceRef,
     element: &ElementRc,
     name: &str,
-    value: Value,
+    mut value: Value,
 ) -> Result<(), SetPropertyError> {
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(
@@ -1653,7 +1653,7 @@ pub fn store_property(
                         .get(name)
                     {
                         // Do an extra type checking because PropertyInfo::set won't do it for custom structures or array
-                        if !check_value_type(&value, &orig_decl.property_type) {
+                        if !check_value_type(&mut value, &orig_decl.property_type) {
                             return Err(SetPropertyError::WrongType);
                         }
                     }
@@ -1682,7 +1682,7 @@ pub fn store_property(
 }
 
 /// Return true if the Value can be used for a property of the given type
-fn check_value_type(value: &Value, ty: &Type) -> bool {
+fn check_value_type(value: &mut Value, ty: &Type) -> bool {
     match ty {
         Type::Void => true,
         Type::Invalid
@@ -1711,10 +1711,21 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Easing => matches!(value, Value::EasingCurve(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
         Type::Array(inner) => {
-            matches!(value, Value::Model(m) if m.iter().all(|v| check_value_type(&v, inner)))
+            matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
         }
         Type::Struct(s) => {
-            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| s.fields.get(k).is_some_and(|ty| check_value_type(v, ty))))
+            let Value::Struct(str) = value else { return false };
+            if !str
+                .0
+                .iter_mut()
+                .all(|(k, v)| s.fields.get(k).is_some_and(|ty| check_value_type(v, ty)))
+            {
+                return false;
+            }
+            for (k, v) in &s.fields {
+                str.0.entry(k.clone()).or_insert_with(|| default_value_for_type(v));
+            }
+            true
         }
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())

@@ -1418,7 +1418,7 @@ impl ComponentInstance {
             .get_global(comp.borrow(), &&normalize_identifier(global))
             .map_err(|()| SetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
-            .set_property(&&normalize_identifier(property), value)
+            .set_property(&normalize_identifier(property), value)
     }
 
     /// Set a handler for the callback in the exported global singleton. A callback with that
