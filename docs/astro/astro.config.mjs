@@ -164,7 +164,7 @@ export default defineConfig({
                                         label: "Mobile",
                                         collapsed: true,
                                         items: [
-                                            "guide/platforms/mobile/overview",
+                                            "guide/platforms/mobile/general",
                                             "guide/platforms/mobile/android",
                                             "guide/platforms/mobile/ios",
                                         ],
