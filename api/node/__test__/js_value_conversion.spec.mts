@@ -5,7 +5,7 @@ import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Jimp } from "jimp";
-import { captureLogs } from "./helpers/utils.js";
+import { captureAsyncStderr } from "./helpers/utils.js";
 import {
     private_api,
     type ImageData,
@@ -1062,23 +1062,21 @@ test("throw exception in callback", async () => {
 
     const instance = definition.App!.create();
     expect(instance).not.toBeNull();
-    let speakTest: string;
 
     instance!.setCallback("throw-something", () => {
         throw new Error("I'm an error");
     });
 
-    const logs = captureLogs();
+    const stderrCapture = captureAsyncStderr();
     try {
         instance!.invoke("throw-something", []);
         // Vitest runs these tests in workers and the native binding writes to
         // stderr on the next macrotask, so yield once before restoring writers.
-        // https://github.com/vitest-dev/vitest/discussions/5366
         await new Promise((resolve) => setTimeout(resolve, 0));
     } finally {
-        logs.restore();
+        stderrCapture.restore();
     }
-    const output = logs.getLogs().stderr;
+    const output = stderrCapture.output();
     expect(
         output.includes("Node.js: Invoking callback 'throw-something' failed"),
     ).toBe(true);

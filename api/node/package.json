@@ -49,7 +49,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@napi-rs/cli": "2.18.4",
-    "strip-ansi": "7.1.2"
+    "@napi-rs/cli": "2.18.4"
   }
 }

@@ -68,9 +68,6 @@ importers:
       '@napi-rs/cli':
         specifier: 2.18.4
         version: 2.18.4
-      strip-ansi:
-        specifier: 7.1.2
-        version: 7.1.2
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
