@@ -782,7 +782,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             cached_image
         });
         let image_id = match cache_entry {
-            Some(ItemGraphicsCacheEntry::Texture(image)) => image.id,
+            Some(ItemGraphicsCacheEntry::Texture(texture)) => texture.id,
             Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture, .. }) => texture.id,
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             None => return,
