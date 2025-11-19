@@ -32,18 +32,15 @@ pub fn init_servo(
     let app_weak = app.as_weak();
     let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
-    #[cfg(not(target_os = "android"))]
     let adapter = Rc::new(SlintServoAdapter::new(
         app_weak,
         waker_sender.clone(),
         waker_receiver.clone(),
+        #[cfg(not(target_os = "android"))]
         device,
+        #[cfg(not(target_os = "android"))]
         queue,
     ));
-
-    #[cfg(target_os = "android")]
-    let adapter =
-        Rc::new(SlintServoAdapter::new(app_weak, waker_sender.clone(), waker_receiver.clone()));
 
     let state_weak = Rc::downgrade(&adapter);
 
@@ -73,16 +70,14 @@ fn init_rendering_adpater(
     let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
     let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
-    #[cfg(not(target_os = "android"))]
-    let rendering_adapter = {
-        let wgpu_device = state.wgpu_device();
-        let wgpu_queue = state.wgpu_queue();
-        crate::rendering_context::try_create_gpu_context(wgpu_device, wgpu_queue, physical_size)
-            .unwrap()
-    };
-
-    #[cfg(target_os = "android")]
-    let rendering_adapter = crate::rendering_context::create_software_context(physical_size);
+    let rendering_adapter = crate::rendering_context::try_create_gpu_context(
+        #[cfg(not(target_os = "android"))]
+        state.wgpu_device(),
+        #[cfg(not(target_os = "android"))]
+        state.wgpu_queue(),
+        physical_size,
+    )
+    .unwrap();
 
     let rendering_adapter_rc = Rc::new(rendering_adapter);
 

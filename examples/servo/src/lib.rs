@@ -62,10 +62,14 @@ pub fn main() {
     let url = "https://slint.dev";
 
     #[cfg(not(target_os = "android"))]
-    let _adapter = init_servo(app.clone_strong(), url.into(), device, queue);
-
-    #[cfg(target_os = "android")]
-    let _adapter = init_servo(app.clone_strong(), url.into());
+    let _adapter = init_servo(
+        app.clone_strong(),
+        url.into(),
+        #[cfg(not(target_os = "android"))]
+        device,
+        #[cfg(not(target_os = "android"))]
+        queue,
+    );
 
     app.run().expect("Application failed to run - check for runtime errors");
 }
