@@ -37,3 +37,5 @@ MODULE.bazel.lock
 
 perf.data
 perf.data.old
+
+api/cpp/dir
