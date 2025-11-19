@@ -1071,6 +1071,9 @@ test("throw exception in callback", async () => {
     const logs = captureLogs();
     try {
         instance!.invoke("throw-something", []);
+        // Vitest runs these tests in workers and the native binding writes to
+        // stderr on the next macrotask, so yield once before restoring writers.
+        // https://github.com/vitest-dev/vitest/discussions/5366
         await new Promise((resolve) => setTimeout(resolve, 0));
     } finally {
         logs.restore();
