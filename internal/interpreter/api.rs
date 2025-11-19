@@ -2105,7 +2105,6 @@ fn lang_type_to_value_type() {
         ValueType::from(LangType::Struct(Rc::new(LangStruct {
             fields: BTreeMap::default(),
             name: i_slint_compiler::langtype::StructName::None,
-            rust_attributes: None
         }))),
         ValueType::Struct
     );

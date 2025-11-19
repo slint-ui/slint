@@ -931,8 +931,6 @@ impl From<BuiltinPublicStruct> for StructName {
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
     pub name: StructName,
-    /// derived
-    pub rust_attributes: Option<Vec<SmolStr>>,
 }
 
 impl Struct {

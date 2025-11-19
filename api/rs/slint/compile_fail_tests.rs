@@ -26,6 +26,31 @@ mod x {
 #[cfg(doctest)]
 const basic: u32 = 0;
 
+/**
+Test that invalid rust-attr result in warnings.
+
+This should work (with a warning):
+```
+use slint::*;
+slint!{
+    export { Foo } from "tests/invalid_rust_attr.slint";
+    export component Hello inherits Window { }
+}
+```
+
+Test that there is indeed a warning:
+
+```compile_fail
+#![deny(deprecated)]
+use slint::*;
+slint!{
+    export { Foo } from "tests/invalid_rust_attr.slint";
+    export component Hello inherits Window { }
+}
+```
+*/
+const INVALID_RUST_ATTR: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();

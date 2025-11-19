@@ -164,7 +164,6 @@ fn compile_path_from_string_literal(
         ])
         .collect(),
         name: BuiltinPrivateStruct::Point.into(),
-        rust_attributes: None,
     });
 
     let mut points = Vec::new();

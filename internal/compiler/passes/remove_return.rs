@@ -492,10 +492,7 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     }
     codeblock_with_expr(
         voids,
-        Expression::Struct {
-            ty: Rc::new(Struct { fields, name: StructName::None, rust_attributes: None }),
-            values,
-        },
+        Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values },
     )
 }
 
