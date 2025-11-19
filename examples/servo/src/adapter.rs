@@ -109,14 +109,16 @@ impl SlintServoAdapter {
         &self,
         servo: Servo,
         webview: WebView,
-        scale_factor: f32,
         rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
     ) {
         *self.servo.borrow_mut() = Some(servo);
         let mut inner = self.inner_mut();
         inner.webview = Some(webview);
-        inner.scale_factor = scale_factor;
         inner.rendering_adapter = Some(rendering_adapter);
+    }
+
+    pub fn set_scale_factor(&self, scale_factor: f32) {
+        self.inner_mut().scale_factor = scale_factor;
     }
 
     /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.

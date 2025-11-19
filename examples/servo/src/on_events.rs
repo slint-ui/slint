@@ -6,7 +6,7 @@ use std::rc::Rc;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
-use euclid::{Box2D, Point2D, Size2D};
+use euclid::{Box2D, Point2D, Scale, Size2D};
 
 use i_slint_core::items::{ColorScheme, PointerEvent, PointerEventKind};
 use slint::{ComponentHandle, platform::PointerEventButton};
@@ -62,6 +62,7 @@ fn on_theme(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
+// This will always called when slint window show first times and when resize so to set scale factor here
 fn on_resize(adapter: Rc<SlintServoAdapter>) {
     let app = adapter.app();
 
@@ -71,7 +72,13 @@ fn on_resize(adapter: Rc<SlintServoAdapter>) {
 
         let webview = adapter.webview();
 
-        let scale_factor = adapter.scale_factor();
+        let scale_factor = adapter.app().window().scale_factor();
+
+        adapter.set_scale_factor(scale_factor);
+
+        let scale = Scale::new(scale_factor);
+
+        webview.set_hidpi_scale_factor(scale);
 
         let size = Size2D::new(width, height) * scale_factor;
 
