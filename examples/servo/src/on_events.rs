@@ -6,7 +6,7 @@ use std::rc::Rc;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
-use euclid::{Box2D, Point2D, Size2D};
+use euclid::{Box2D, Point2D, Scale, Size2D};
 
 use i_slint_core::items::{ColorScheme, PointerEvent, PointerEventKind};
 use slint::{ComponentHandle, platform::PointerEventButton};
@@ -18,24 +18,21 @@ use servo::{
 };
 
 use crate::{
-    WebviewLogic,
+    MyApp, WebviewLogic,
     adapter::{SlintServoAdapter, upgrade_adapter},
 };
 
-pub fn on_app_callbacks(adapter: Rc<SlintServoAdapter>) {
-    on_url(adapter.clone());
-    on_theme(adapter.clone());
-    on_resize(adapter.clone());
-    on_scroll(adapter.clone());
-    on_buttons(adapter.clone());
-    on_pointer(adapter.clone());
+pub fn on_app_callbacks(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
+    on_url(app, adapter.clone());
+    on_theme(app, adapter.clone());
+    on_resize(app, adapter.clone());
+    on_scroll(app, adapter.clone());
+    on_buttons(app, adapter.clone());
+    on_pointer(app, adapter.clone());
 }
 
-fn on_url(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_url(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
-
     app.global::<WebviewLogic>().on_loadUrl(move |url| {
         let adapter = upgrade_adapter(&adapter_weak);
         let webview = adapter.webview();
@@ -44,11 +41,8 @@ fn on_url(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_theme(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_theme(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
-
     app.global::<WebviewLogic>().on_theme(move |color_scheme| {
         let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };
 
@@ -56,24 +50,29 @@ fn on_theme(adapter: Rc<SlintServoAdapter>) {
 
         let webview = adapter.webview();
 
-        // Theme not updating its the issue with servo itself until mouse move over it
+        // Theme not updating until mouse move over it
         // https://github.com/servo/servo/issues/40268
         webview.notify_theme_change(theme);
     });
 }
 
-fn on_resize(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+// This will always called when slint window show first time and when resize so set scale factor here
+fn on_resize(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
+    let app_weak = app.as_weak();
     app.global::<WebviewLogic>().on_resize(move |width, height| {
         let adapter = upgrade_adapter(&adapter_weak);
 
         let webview = adapter.webview();
 
-        let scale_factor = adapter.scale_factor();
+        let scale_factor =
+            app_weak.upgrade().expect("Failed to upgrade app").window().scale_factor();
 
-        let size = Size2D::new(width, height) * scale_factor;
+        let scale = Scale::new(scale_factor);
+
+        webview.set_hidpi_scale_factor(scale);
+
+        let size = Size2D::new(width, height);
 
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
@@ -84,18 +83,14 @@ fn on_resize(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_scroll(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_scroll(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
     app.global::<WebviewLogic>().on_scroll(move |initial_x, initial_y, delta_x, delta_y| {
         let adapter = upgrade_adapter(&adapter_weak);
 
         let webview = adapter.webview();
 
-        let scale_factor = adapter.scale_factor();
-
-        let point = DevicePoint::new(initial_x * scale_factor, initial_y * scale_factor);
+        let point = DevicePoint::new(initial_x, initial_y);
 
         let moved_by = DeviceVector2D::new(delta_x, delta_y);
 
@@ -106,9 +101,7 @@ fn on_scroll(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_buttons(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_buttons(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
     app.on_back(move || {
         let adapter = upgrade_adapter(&adapter_weak);
@@ -137,18 +130,14 @@ fn on_buttons(adapter: Rc<SlintServoAdapter>) {
     });
 }
 
-fn on_pointer(adapter: Rc<SlintServoAdapter>) {
-    let app = adapter.app();
-
+fn on_pointer(app: &MyApp, adapter: Rc<SlintServoAdapter>) {
     let adapter_weak = Rc::downgrade(&adapter);
     app.global::<WebviewLogic>().on_pointer(move |pointer_event, x, y| {
         let adapter = upgrade_adapter(&adapter_weak);
 
         let webview = adapter.webview();
 
-        let scale_factor = adapter.scale_factor();
-
-        let point = DevicePoint::new(x * scale_factor, y * scale_factor);
+        let point = DevicePoint::new(x, y);
 
         let input_event =
             convert_slint_pointer_event_to_servo_input_event(&pointer_event, point.into());
@@ -166,7 +155,7 @@ fn convert_slint_pointer_event_to_servo_input_event(
     if pointer_event.is_touch {
         handle_touch_events(pointer_event, point)
     } else {
-        _handle_mouse_events(pointer_event, point)
+        handle_mouse_events(pointer_event, point)
     }
 }
 
@@ -180,8 +169,8 @@ fn handle_touch_events(pointer_event: &PointerEvent, point: WebViewPoint) -> Inp
     InputEvent::Touch(touch_event)
 }
 
-fn _handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
-    let button = _get_mouse_button(pointer_event);
+fn handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
+    let button = get_mouse_button(pointer_event);
     match pointer_event.kind {
         PointerEventKind::Down => {
             let mouse_event = MouseButtonEvent::new(MouseButtonAction::Down, button, point);
@@ -195,7 +184,7 @@ fn _handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> In
     }
 }
 
-fn _get_mouse_button(point_event: &PointerEvent) -> MouseButton {
+fn get_mouse_button(point_event: &PointerEvent) -> MouseButton {
     match point_event.button {
         PointerEventButton::Left => MouseButton::Left,
         PointerEventButton::Right => MouseButton::Right,

@@ -5,15 +5,16 @@ use std::rc::Rc;
 
 use servo::{WebView, WebViewDelegate};
 
-use crate::adapter::SlintServoAdapter;
+use crate::{MyApp, adapter::SlintServoAdapter};
 
 pub struct AppDelegate {
     pub state: Rc<SlintServoAdapter>,
+    pub app: slint::Weak<MyApp>,
 }
 
 impl AppDelegate {
-    pub fn new(state: Rc<SlintServoAdapter>) -> Self {
-        Self { state }
+    pub fn new(state: Rc<SlintServoAdapter>, app: slint::Weak<MyApp>) -> Self {
+        Self { state, app }
     }
 }
 
@@ -22,6 +23,8 @@ impl WebViewDelegate for AppDelegate {
     /// Triggers painting and updates the Slint UI with the new frame.
     fn notify_new_frame_ready(&self, webview: WebView) {
         webview.paint();
-        self.state.update_web_content_with_latest_frame();
+        if let Some(app) = self.app.upgrade() {
+            self.state.update_web_content_with_latest_frame(&app);
+        }
     }
 }

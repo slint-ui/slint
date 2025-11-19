@@ -23,7 +23,6 @@ pub fn upgrade_adapter(weak_ref: &Weak<SlintServoAdapter>) -> Rc<SlintServoAdapt
 /// Bridge between Slint UI and Servo browser engine.
 /// Manages the lifecycle and communication between the UI and browser components.
 pub struct SlintServoAdapter {
-    app: slint::Weak<MyApp>,
     /// Channel sender to wake the event loop
     waker_sender: Sender<()>,
     /// Channel receiver for event loop wake signals
@@ -33,7 +32,6 @@ pub struct SlintServoAdapter {
 }
 
 pub struct SlintServoAdapterInner {
-    scale_factor: f32,
     webview: Option<WebView>,
     rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
     #[cfg(not(target_os = "android"))]
@@ -44,20 +42,17 @@ pub struct SlintServoAdapterInner {
 
 impl SlintServoAdapter {
     pub fn new(
-        app: slint::Weak<MyApp>,
         waker_sender: Sender<()>,
         waker_receiver: Receiver<()>,
         #[cfg(not(target_os = "android"))] device: wgpu::Device,
         #[cfg(not(target_os = "android"))] queue: wgpu::Queue,
     ) -> Self {
         Self {
-            app,
             waker_sender,
             waker_receiver,
             servo: RefCell::new(None),
             inner: RefCell::new(SlintServoAdapterInner {
                 webview: None,
-                scale_factor: 1.0,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
                 device: device,
@@ -75,20 +70,12 @@ impl SlintServoAdapter {
         self.inner.borrow_mut()
     }
 
-    pub fn app(&self) -> MyApp {
-        self.app.upgrade().expect("Failed to upgrade MyApp")
-    }
-
     pub fn waker_sender(&self) -> Sender<()> {
         self.waker_sender.clone()
     }
 
     pub fn waker_reciver(&self) -> Receiver<()> {
         self.waker_receiver.clone()
-    }
-
-    pub fn scale_factor(&self) -> f32 {
-        self.inner().scale_factor
     }
 
     #[cfg(not(target_os = "android"))]
@@ -109,29 +96,22 @@ impl SlintServoAdapter {
         &self,
         servo: Servo,
         webview: WebView,
-        scale_factor: f32,
         rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
     ) {
         *self.servo.borrow_mut() = Some(servo);
         let mut inner = self.inner_mut();
         inner.webview = Some(webview);
-        inner.scale_factor = scale_factor;
         inner.rendering_adapter = Some(rendering_adapter);
     }
 
     /// Captures the current Servo framebuffer and updates the Slint UI with the rendered content.
     /// This bridges the rendering output from Servo to the Slint display surface.
-    pub fn update_web_content_with_latest_frame(&self) {
+    pub fn update_web_content_with_latest_frame(&self, app: &MyApp) {
         let inner = self.inner();
         let rendering_adapter = inner.rendering_adapter.as_ref().unwrap();
 
         // Convert framebuffer to Slint image format
         let slint_image = rendering_adapter.current_framebuffer_as_image();
-
-        let app = self
-            .app
-            .upgrade()
-            .expect("Application reference is no longer valid - UI may have been destroyed");
 
         app.global::<WebviewLogic>().set_web_content(slint_image);
         app.window().request_redraw();

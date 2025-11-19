@@ -7,7 +7,7 @@ use smol::channel;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
-use euclid::{Scale, Size2D};
+use euclid::Size2D;
 
 use i_slint_core::items::ColorScheme;
 use slint::{ComponentHandle, SharedString};
@@ -29,78 +29,58 @@ pub fn init_servo(
     #[cfg(not(target_os = "android"))] device: slint::wgpu_27::wgpu::Device,
     #[cfg(not(target_os = "android"))] queue: slint::wgpu_27::wgpu::Queue,
 ) -> Rc<SlintServoAdapter> {
-    let app_weak = app.as_weak();
     let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
-    #[cfg(not(target_os = "android"))]
     let adapter = Rc::new(SlintServoAdapter::new(
-        app_weak,
         waker_sender.clone(),
         waker_receiver.clone(),
+        #[cfg(not(target_os = "android"))]
         device,
+        #[cfg(not(target_os = "android"))]
         queue,
-    ));
-
-    #[cfg(target_os = "android")]
-    let adapter = Rc::new(SlintServoAdapter::new(
-        app_weak,
-        waker_sender.clone(),
-        waker_receiver.clone(),
     ));
 
     let state_weak = Rc::downgrade(&adapter);
 
-    slint::spawn_local({
-        async move {
+    let state = upgrade_adapter(&state_weak);
 
-            let state = upgrade_adapter(&state_weak);
+    let (rendering_adapter, physical_size) = init_rendering_adpater(&app, state.clone());
 
-            let (rendering_adapter, physical_size, scale_factor) =
-                init_rendering_adpater(state.clone());
+    let servo = init_servo_builder(state.clone(), rendering_adapter.clone());
 
-            let servo = init_servo_builder(state.clone(), rendering_adapter.clone());
-
-            init_webview(scale_factor, physical_size, initial_url, state, servo, rendering_adapter);
-        }
-    })
-    .unwrap();
+    init_webview(&app, physical_size, initial_url, state, servo, rendering_adapter);
 
     spin_servo_event_loop(adapter.clone());
 
-    on_app_callbacks(adapter.clone());
+    on_app_callbacks(&app, adapter.clone());
 
     adapter
-
 }
 
 fn init_rendering_adpater(
-    state: Rc<SlintServoAdapter>,
-) -> (Rc<Box<dyn ServoRenderingAdapter>>, PhysicalSize<u32>, f32) {
-    let app = state.app();
-
-    let scale_factor = app.window().scale_factor() as f32;
-
+    app: &MyApp,
+    adapter: Rc<SlintServoAdapter>,
+) -> (Rc<Box<dyn ServoRenderingAdapter>>, PhysicalSize<u32>) {
     let width = app.global::<WebviewLogic>().get_viewport_width();
     let height = app.global::<WebviewLogic>().get_viewport_height();
 
-    let size: Size2D<f32, DevicePixel> = Size2D::new(width, height) * scale_factor;
-
+    let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
     let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
     #[cfg(not(target_os = "android"))]
-    let rendering_adapter = {
-        let wgpu_device = state.wgpu_device();
-        let wgpu_queue = state.wgpu_queue();
-        crate::rendering_context::try_create_gpu_context(wgpu_device, wgpu_queue, physical_size)
-            .unwrap()
-    };
+    let rendering_adapter = crate::rendering_context::try_create_gpu_context(
+        adapter.wgpu_device(),
+        adapter.wgpu_queue(),
+        physical_size,
+    )
+    .unwrap();
 
     #[cfg(target_os = "android")]
     let rendering_adapter = crate::rendering_context::create_software_context(physical_size);
 
     let rendering_adapter_rc = Rc::new(rendering_adapter);
 
-    (rendering_adapter_rc, physical_size, scale_factor)
+    (rendering_adapter_rc, physical_size)
 }
 
 fn init_servo_builder(
@@ -117,29 +97,21 @@ fn init_servo_builder(
 }
 
 fn init_webview(
-    scale_factor: f32,
+    app: &MyApp,
     physical_size: PhysicalSize<u32>,
     initial_url: SharedString,
     adapter: Rc<SlintServoAdapter>,
     servo: Servo,
     rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
 ) {
-    let scale = Scale::new(scale_factor);
-
-    let app = adapter.app();
-
     app.global::<WebviewLogic>().set_current_url(initial_url.clone());
 
     let url = Url::parse(&initial_url).expect("Failed to parse url");
 
-    let delegate = Rc::new(AppDelegate::new(adapter.clone()));
+    let delegate = Rc::new(AppDelegate::new(adapter.clone(), app.as_weak()));
 
-    let webview = WebViewBuilder::new(&servo)
-        .url(url)
-        .size(physical_size)
-        .delegate(delegate)
-        .hidpi_scale_factor(scale)
-        .build();
+    let webview =
+        WebViewBuilder::new(&servo).url(url).size(physical_size).delegate(delegate).build();
 
     webview.show(true);
 
@@ -149,7 +121,7 @@ fn init_webview(
 
     webview.notify_theme_change(theme);
 
-    adapter.set_inner(servo, webview, scale_factor, rendering_adapter);
+    adapter.set_inner(servo, webview, rendering_adapter);
 }
 
 fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
