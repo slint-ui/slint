@@ -285,7 +285,7 @@ SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/mate
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ["docs/astro/src/content/docs/guide/platforms/mobile/**.png"]
+path = ["docs/astro/src/assets/android/**.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "Unlicense"
