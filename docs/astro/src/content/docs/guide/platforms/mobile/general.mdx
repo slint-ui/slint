@@ -22,7 +22,7 @@ issues on top of these.
 
 ## Scrolling
 
-By default, Slint [`ScrollView`](../../../../reference/std-widgets/views/scrollview/)s only scroll by dragging the scrollbar or the mouse wheel. This is fine for desktop, but
+By default, Slint <Link type="ScrollView"/>s only scroll by dragging the scrollbar or the mouse wheel. This is fine for desktop, but
 touch interfaces are expected to scroll while panning the whole view.
 
 Enable it in Slint like this:
@@ -54,12 +54,12 @@ border inside the application's window which should only contain background elem
 color). This safe area can also change in size at runtime, for example on Android when the navigation buttons at the
 bottom are shown and hidden.
 
-In Slint, this area is exposed with four properties on the [`Window`](../../../../reference/window/window/) element:
+In Slint, this area is exposed with four properties on the <Link type="Window"/> element:
 
-* [`safe-area-inset-top`](../../../../reference/window/window/#safe-area-inset-top)
-* [`safe-area-inset-bottom`](../../../../reference/window/window/#safe-area-inset-bottom)
-* [`safe-area-inset-left`](../../../../reference/window/window/#safe-area-inset-left)
-* [`safe-area-inset-right`](../../../../reference/window/window/#safe-area-inset-right)
+* <Link type="Window.safe-area-inset-top"/>
+* <Link type="Window.safe-area-inset-bottom"/>
+* <Link type="Window.safe-area-inset-left"/>
+* <Link type="Window.safe-area-inset-right"/>
 
 They default to 0 and stay on that value on other platforms. Usually, mobile platforms only set top and bottom to greater
 than zero, but this is not guaranteed.
@@ -92,13 +92,12 @@ The virtual keyboard is placed on top of the application that requires text inpu
 space even further. While there are split keyboards, floating keyboards, and more, operating systems always treat the
 virtual keyboard as a single rectangle overlaying the application window.
 
-The way Slint exposes this is by these four properties defining a rectangle on the
-[`Window`](../../../../reference/window/window/) element:
+The way Slint exposes this is by these four properties defining a rectangle on the <Link type="Window"/> element:
 
-* [`virtual-keyboard-x`](../../../../reference/window/window/#virtual-keyboard-x)
-* [`virtual-keyboard-y`](../../../../reference/window/window/#virtual-keyboard-y)
-* [`virtual-keyboard-width`](../../../../reference/window/window/#virtual-keyboard-width)
-* [`virtual-keyboard-height`](../../../../reference/window/window/#virtual-keyboard-height)
+* <Link type="Window.virtual-keyboard-x"/>
+* <Link type="Window.virtual-keyboard-y"/>
+* <Link type="Window.virtual-keyboard-width"/>
+* <Link type="Window.virtual-keyboard-height"/>
 
 Slint calls on the operating system to open and hide the virtual keyboard transparently when focusing a text input element.
 The operating system decides whether to actually show it, which depends on system settings and whether a hardware keyboard
@@ -130,11 +129,10 @@ Slint can automatically handle this by scrolling, but the application has to be 
 work.
 
 When the keyboard is shown, the element currently in focus tries to stay visible. It does that by searching for a
-scrollable area ([`Flickable`](../../../../reference/gestures/flickable/)) in its parent element chain (up to the
-window). If it finds one, that area is instructed to scroll in a way that it doesn't overlap the keyboard with the
-minimal offset possible. The bounds check of the scroll area is reduced by the overlap with the keyboard, which means
-that the area can be scrolled further than normal. This overscroll is automatically fixed when the keyboard is hidden
-again.
+scrollable area (<Link type="Flickable"/>) in its parent element chain (up to the window). If it finds one, that area is
+instructed to scroll in a way that it doesn't overlap the keyboard with the minimal offset possible. The bounds check
+of the scroll area is reduced by the overlap with the keyboard, which means that the area can be scrolled further than
+normal. This overscroll is automatically fixed when the keyboard is hidden again.
 
 So to summarize, if you want to keep a text field in view while the virtual keyboard is shown, put it inside a scroll
 area like this:
@@ -160,9 +158,8 @@ export component MyView {
 }
 ```
 
-As you can see, the [`ScrollView`](../../../../reference/std-widgets/views/scrollview/) doesn't need to be the direct
-parent of the [`LineEdit`](../../../../reference/std-widgets/views/lineedit/). Note that having multiple nested
-`ScrollView`s is not supported.
+As you can see, the <Link type="ScrollView"/> doesn't need to be the direct parent of the <Link type="LineEdit"/>.
+Note that having multiple nested `ScrollView`s is not supported.
 
 ## Application Layout Considerations
 
