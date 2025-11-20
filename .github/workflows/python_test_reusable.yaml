@@ -50,10 +50,7 @@ jobs:
             - name: Install uv
               uses: astral-sh/setup-uv@v7
             - uses: fjwillemsen/setup-nox2@v3.0.0
-            - name: Run python tests
-              working-directory: api/python/slint
-              run: nox --default-venv-backend uv
-            - name: Install dev dependencies for ty
+            - name: Build and sync environment
               working-directory: api/python/slint
               run: uv sync
             - name: Run ty
@@ -65,5 +62,8 @@ jobs:
             - name: Run ruff linter
               working-directory: api/python/briefcase
               run: uv tool run ruff check
+            - name: Run python tests
+              working-directory: api/python/slint
+              run: uv run pytest -s -v
             - name: Run python test driver
               run: cargo test -p test-driver-python
