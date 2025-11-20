@@ -62,3 +62,5 @@ jobs:
             - name: Run ruff linter
               working-directory: api/python/briefcase
               run: uv tool run ruff check
+            - name: Run python test driver
+              run: cargo test -p test-driver-python
