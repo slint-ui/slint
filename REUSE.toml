@@ -288,4 +288,4 @@ SPDX-License-Identifier = "Apache-2.0"
 path = ["docs/astro/src/assets/android/**.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
-SPDX-License-Identifier = "Unlicense"
+SPDX-License-Identifier = "CC-BY-4.0"
