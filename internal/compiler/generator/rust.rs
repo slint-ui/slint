@@ -530,7 +530,7 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
                 let error = format!(
                     "Error parsing @rust-attr for struct '{name}' declared at {source_location}"
                 );
-                quote!(#[deprecated(note = #error)])
+                quote!(compile_error!(#error);)
             }
         });
 

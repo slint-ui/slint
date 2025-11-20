@@ -27,10 +27,10 @@ mod x {
 const basic: u32 = 0;
 
 /**
-Test that invalid rust-attr result in warnings.
+Test that invalid rust-attr are compilation error
 
-This should work (with a warning):
-```
+This should result in a `compile_error!("Error parsing @rust-attr for struct 'Foo' declared at tests/invalid_rust_attr.slint:4:12"`
+```compile_fail
 use slint::*;
 slint!{
     export { Foo } from "tests/invalid_rust_attr.slint";
@@ -38,13 +38,12 @@ slint!{
 }
 ```
 
-Test that there is indeed a warning:
-
-```compile_fail
-#![deny(deprecated)]
+But Foo is not used/generated, then we do not detect the error
+(Having the test here to test that the previous test would otherwise work, but it would also be ok to detect the error and make it an actual slint compile error)
+```
 use slint::*;
 slint!{
-    export { Foo } from "tests/invalid_rust_attr.slint";
+    import { Foo } from "tests/invalid_rust_attr.slint";
     export component Hello inherits Window { }
 }
 ```
