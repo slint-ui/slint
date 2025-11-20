@@ -15,7 +15,7 @@ use objc2_metal::{MTLPixelFormat, MTLTextureDescriptor, MTLTextureType, MTLTextu
 use foreign_types_shared::ForeignType;
 use winit::dpi::PhysicalSize;
 
-use crate::rendering_context::metal::ServoTextureImporter;
+use super::ServoTextureImporter;
 
 /// WGPU texture wrapper for Metal IOSurface textures.
 ///
@@ -28,10 +28,7 @@ pub struct WPGPUTextureFromMetal {
 
 impl WPGPUTextureFromMetal {
     pub fn new(size: PhysicalSize<u32>, wgpu_device: &wgpu::Device) -> Self {
-        Self {
-            size,
-            texture_importer: ServoTextureImporter::new(wgpu_device),
-        }
+        Self { size, texture_importer: ServoTextureImporter::new(wgpu_device) }
     }
 
     pub fn get(

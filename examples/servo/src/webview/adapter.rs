@@ -12,7 +12,7 @@ use slint::ComponentHandle;
 #[cfg(not(target_os = "android"))]
 use slint::wgpu_27::wgpu;
 
-use crate::{MyApp, WebviewLogic, rendering_context::ServoRenderingAdapter};
+use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
 
 /// Upgrades a weak reference to SlintServoAdapter to a strong reference.
 /// Panics if the adapter has been dropped.

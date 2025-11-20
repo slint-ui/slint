@@ -34,7 +34,7 @@ pub enum VulkanTextureError {
     OpenGL(String),
 }
 
-use crate::rendering_context::surfman_context::SurfmanRenderingContext;
+use super::surfman_context::SurfmanRenderingContext;
 
 pub struct GPURenderingContext {
     pub size: Cell<PhysicalSize<u32>>,
@@ -69,11 +69,7 @@ impl GPURenderingContext {
 
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
-        Ok(Self {
-            swap_chain,
-            size: Cell::new(size),
-            surfman_rendering_info,
-        })
+        Ok(Self { swap_chain, size: Cell::new(size), surfman_rendering_info })
     }
 
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
@@ -84,7 +80,7 @@ impl GPURenderingContext {
         wgpu_device: &wgpu::Device,
         wgpu_queue: &wgpu::Queue,
     ) -> Result<wgpu::Texture, surfman::Error> {
-        use crate::rendering_context::metal::WPGPUTextureFromMetal;
+        use super::metal::WPGPUTextureFromMetal;
 
         let device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
@@ -93,15 +89,15 @@ impl GPURenderingContext {
 
         let size = self.size.get();
 
-        let wgpu_texture = WPGPUTextureFromMetal::new(
-            size,
+        let wgpu_texture = WPGPUTextureFromMetal::new(size, wgpu_device).get(
             wgpu_device,
-        )
-        .get(wgpu_device, wgpu_queue, device, &surface);
+            wgpu_queue,
+            device,
+            &surface,
+        );
 
-        let _ = device
-            .bind_surface_to_context(&mut context, surface)
-            .map_err(|(err, mut surface)| {
+        let _ =
+            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
                 let _ = device.destroy_surface(&mut context, &mut surface);
                 err
             });
@@ -129,9 +125,7 @@ impl GPURenderingContext {
             .map_err(VulkanTextureError::Surfman)?
             .ok_or(VulkanTextureError::NoSurface)?;
 
-        device
-            .make_context_current(&mut context)
-            .map_err(VulkanTextureError::Surfman)?;
+        device.make_context_current(&mut context).map_err(VulkanTextureError::Surfman)?;
 
         let surface_info = device.surface_info(&surface);
 
@@ -153,11 +147,7 @@ impl GPURenderingContext {
                 &vk::ImageCreateInfo::default()
                     .image_type(vk::ImageType::TYPE_2D)
                     .format(vk::Format::R8G8B8A8_UNORM)
-                    .extent(vk::Extent3D {
-                        width: size.width,
-                        height: size.height,
-                        depth: 1,
-                    })
+                    .extent(vk::Extent3D { width: size.width, height: size.height, depth: 1 })
                     .mip_levels(1)
                     .array_layers(1)
                     .samples(vk::SampleCountFlags::TYPE_1)
@@ -239,12 +229,9 @@ impl GPURenderingContext {
 
             // Blit Servo's framebuffer to the imported texture
 
-            let draw_framebuffer = gl
-                .create_framebuffer()
-                .map_err(VulkanTextureError::OpenGL)?;
-            let read_framebuffer = surface_info
-                .framebuffer_object
-                .ok_or(VulkanTextureError::NoFramebuffer)?;
+            let draw_framebuffer = gl.create_framebuffer().map_err(VulkanTextureError::OpenGL)?;
+            let read_framebuffer =
+                surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
             // todo: tried using gl.named_framebuffer_texture instead but it errored.
             gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
             gl.framebuffer_texture_2d(
@@ -320,9 +307,8 @@ impl GPURenderingContext {
             )
         };
 
-        let _ = device
-            .bind_surface_to_context(&mut context, surface)
-            .map_err(|(err, mut surface)| {
+        let _ =
+            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
                 let _ = device.destroy_surface(&mut context, &mut surface);
                 err
             });
@@ -360,9 +346,7 @@ impl RenderingContext for GPURenderingContext {
     fn present(&self) {
         let mut device = self.surfman_rendering_info.device.borrow_mut();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
-        let _ = self
-            .swap_chain
-            .swap_buffers(&mut *device, &mut *context, PreserveBuffer::No);
+        let _ = self.swap_chain.swap_buffers(&mut *device, &mut *context, PreserveBuffer::No);
     }
 
     fn make_current(&self) -> std::result::Result<(), surfman::Error> {

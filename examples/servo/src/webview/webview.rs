@@ -15,12 +15,11 @@ use slint::{ComponentHandle, SharedString};
 use servo::{Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel};
 
 use crate::{
-    MyApp, Palette, WebviewLogic,
-    adapter::{SlintServoAdapter, upgrade_adapter},
-    delegate::AppDelegate,
-    rendering_context::ServoRenderingAdapter,
-    waker::Waker,
+    MyApp, Palette, WebviewLogic, webview::Waker, webview::delegate::AppDelegate,
+    webview::rendering_context::ServoRenderingAdapter,
 };
+
+use super::adapter::{SlintServoAdapter, upgrade_adapter};
 
 pub struct WebView {}
 
@@ -74,7 +73,7 @@ impl WebView {
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
         #[cfg(not(target_os = "android"))]
-        let rendering_adapter = crate::rendering_context::try_create_gpu_context(
+        let rendering_adapter = super::rendering_context::try_create_gpu_context(
             adapter.wgpu_device(),
             adapter.wgpu_queue(),
             physical_size,
@@ -82,7 +81,7 @@ impl WebView {
         .unwrap();
 
         #[cfg(target_os = "android")]
-        let rendering_adapter = crate::rendering_context::create_software_context(physical_size);
+        let rendering_adapter = super::rendering_context::create_software_context(physical_size);
 
         let rendering_adapter_rc = Rc::new(rendering_adapter);
 

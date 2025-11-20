@@ -10,7 +10,7 @@ use winit::dpi::PhysicalSize;
 use servo::{RenderingContext, SoftwareRenderingContext, webrender_api::units::DeviceIntRect};
 
 #[cfg(not(target_os = "android"))]
-use {crate::rendering_context::GPURenderingContext, slint::wgpu_27::wgpu};
+use {super::GPURenderingContext, slint::wgpu_27::wgpu};
 
 pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderingAdapter> {
     let rendering_context = Rc::new(

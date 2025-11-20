@@ -17,10 +17,9 @@ use servo::{
     webrender_api::units::{DevicePixel, DevicePoint, DeviceVector2D},
 };
 
-use crate::{
-    MyApp, WebviewLogic,
-    adapter::{SlintServoAdapter, upgrade_adapter},
-};
+use crate::{MyApp, WebviewLogic};
+
+use super::adapter::{SlintServoAdapter, upgrade_adapter};
 
 pub struct WebViewEvents<'a> {
     app: &'a MyApp,

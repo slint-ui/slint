@@ -3,7 +3,8 @@
 
 use std::rc::Rc;
 
-use crate::{MyApp, adapter::SlintServoAdapter};
+use super::adapter::SlintServoAdapter;
+use crate::MyApp;
 use servo::{WebView, WebViewDelegate};
 
 pub struct AppDelegate {
