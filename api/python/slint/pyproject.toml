@@ -41,7 +41,6 @@ dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15"]
 
 [dependency-groups]
 dev = [
-  "mypy>=1.15.0",
   "nox>=2024.10.9",
   "pdoc>=15.0.1",
   "pytest>=8.3.4",
@@ -56,7 +55,3 @@ dev = [
 cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
-
-[tool.mypy]
-strict = true
-disallow_subclassing_any = false

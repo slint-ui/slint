@@ -451,7 +451,7 @@ def _callback_decorator(
     callable: typing.Callable[..., Any], info: typing.Dict[str, Any]
 ) -> typing.Callable[..., Any]:
     if "name" not in info:
-        info["name"] = callable.__name__
+        info["name"] = typing.cast(Any, callable).__name__
     setattr(callable, "slint.callback", info)
 
     try:

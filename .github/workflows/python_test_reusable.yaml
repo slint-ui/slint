@@ -53,9 +53,12 @@ jobs:
             - name: Run python tests
               working-directory: api/python/slint
               run: nox --default-venv-backend uv
-            - name: Run mypy
+            - name: Install dev dependencies for ty
               working-directory: api/python/slint
-              run: uv run mypy -p tests -p slint
+              run: uv sync
+            - name: Run ty
+              working-directory: api/python/slint
+              run: uvx ty check
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check
