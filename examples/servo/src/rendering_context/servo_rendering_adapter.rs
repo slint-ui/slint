@@ -4,14 +4,13 @@
 use std::rc::Rc;
 
 use euclid::Point2D;
-use winit::dpi::PhysicalSize;
-
 use slint::{Image, SharedPixelBuffer};
+use winit::dpi::PhysicalSize;
 
 use servo::{RenderingContext, SoftwareRenderingContext, webrender_api::units::DeviceIntRect};
 
 #[cfg(not(target_os = "android"))]
-use crate::rendering_context::GPURenderingContext;
+use {crate::rendering_context::GPURenderingContext, slint::wgpu_27::wgpu};
 
 pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderingAdapter> {
     let rendering_context = Rc::new(
@@ -74,10 +73,8 @@ impl ServoRenderingAdapter for ServoGPURenderingContext {
             );
 
         #[cfg(target_vendor = "apple")]
-        let texture = self
-            .rendering_context
-            .get_wgpu_texture_from_metal(&self.device, &self.queue)
-            .expect(
+        let texture =
+            self.rendering_context.get_wgpu_texture_from_metal(&self.device, &self.queue).expect(
                 "Failed to get WGPU texture from Metal texture - ensure rendering context is valid",
             );
 
