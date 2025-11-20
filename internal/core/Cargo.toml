@@ -47,6 +47,7 @@ std = [
   "dep:pulldown-cmark",
   "dep:thiserror",
   "dep:htmlparser",
+  "i-slint-common/color-parsing"
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -84,7 +85,7 @@ default = ["std", "unicode"]
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default", "color-parsing"] }
+i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 
 const-field-offset = { version = "0.1.5", path = "../../helper_crates/const-field-offset" }
