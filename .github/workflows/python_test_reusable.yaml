@@ -49,7 +49,6 @@ jobs:
                   python-version: "3.12"
             - name: Install uv
               uses: astral-sh/setup-uv@v7
-            - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Build and sync environment
               working-directory: api/python/slint
               run: uv sync
