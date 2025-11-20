@@ -186,7 +186,7 @@ export component ScrollView {
         width: 14px;
         x: flickable.width + flickable.x - self.width;
         y: flickable.y;
-        height:  flickable.height - horizontal-bar.height;
+        height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
         maximum:  flickable.viewport-height - flickable.height;
         page-size:  flickable.height;
@@ -196,7 +196,7 @@ export component ScrollView {
 
     horizontal-bar := ScrollBar {
         enabled: root.enabled;
-        width:  flickable.width - vertical-bar.width;
+        width: vertical-bar.visible ? parent.width - vertical-bar.width : parent.width;
         height: 14px;
         y: flickable.height + flickable.y - self.height;
         x: flickable.x;
