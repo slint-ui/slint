@@ -31,13 +31,6 @@ jobs:
         steps:
             - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Qt
-              if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v4
-              with:
-                  version: "5.15.2"
-                  setup-python: false
-                  cache: true
             - name: Setup headless display
               if: runner.os != 'macOS'
               uses: pyvista/setup-headless-display-action@v4
