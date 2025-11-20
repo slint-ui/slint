@@ -126,6 +126,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     };
 
     let o = std::process::Command::new("uvx")
+        .arg("--python")
+        .arg("3.12")
         .arg("ty")
         .arg("check")
         .arg(&python_file)
@@ -183,6 +185,8 @@ static PYTHON_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 
     // builds the slint python package
     let o = std::process::Command::new("uvx")
+        .arg("--python")
+        .arg("3.12")
         .arg("maturin")
         .arg("develop")
         .arg("--uv")
