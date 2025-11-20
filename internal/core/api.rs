@@ -15,9 +15,7 @@ use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
 
-#[cfg(feature = "experimental-rich-text")]
 mod styled_text;
-#[cfg(feature = "experimental-rich-text")]
 pub use styled_text::*;
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
