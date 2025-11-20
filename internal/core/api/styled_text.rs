@@ -33,13 +33,14 @@ enum ListItemType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledTextParagraph {
     /// The raw paragraph text
-    pub text: std::string::String,
+    pub text: alloc::string::String,
     /// Formatting styles and spans
-    pub formatting: std::vec::Vec<FormattedSpan>,
+    pub formatting: alloc::vec::Vec<FormattedSpan>,
     /// Locations of clickable links within the paragraph
-    pub links: std::vec::Vec<(std::ops::Range<usize>, std::string::String)>,
+    pub links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
 }
 
+#[cfg(feature = "std")]
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 #[non_exhaustive]
@@ -55,27 +56,27 @@ pub enum StyledTextError<'a> {
     #[error("Unimplemented: {:?}", .0)]
     UnimplementedEvent(pulldown_cmark::Event<'a>),
     #[error("Unimplemented: {}", .0)]
-    UnimplementedHtmlEvent(std::string::String),
+    UnimplementedHtmlEvent(alloc::string::String),
     #[error("Unimplemented html tag: {}", .0)]
-    UnimplementedHtmlTag(std::string::String),
+    UnimplementedHtmlTag(alloc::string::String),
     #[error("Unexpected {} attribute in html {}", .0, .1)]
-    UnexpectedAttribute(std::string::String, std::string::String),
+    UnexpectedAttribute(alloc::string::String, alloc::string::String),
     #[error("Missing color attribute in html {}", .0)]
-    MissingColor(std::string::String),
+    MissingColor(alloc::string::String),
     #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
-    ClosingTagMismatch(&'a str, std::string::String),
+    ClosingTagMismatch(&'a str, alloc::string::String),
 }
 
 /// Internal styled text type
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
     /// Paragraphs of styled text
-    pub paragraphs: std::vec::Vec<StyledTextParagraph>,
+    pub paragraphs: alloc::vec::Vec<StyledTextParagraph>,
 }
 
 impl StyledText {
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
-        let mut text = std::string::String::with_capacity(indentation as usize * 4);
+        let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
         for _ in 0..indentation {
             text.push_str("    ");
         }
@@ -89,7 +90,7 @@ impl StyledText {
                     text.push_str("▪ ")
                 }
             }
-            Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
+            Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
             None => {}
         };
         self.paragraphs.push(StyledTextParagraph {
@@ -100,13 +101,14 @@ impl StyledText {
     }
 
     /// Parse a markdown string as styled text
+    #[cfg(feature = "std")]
     pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
         let parser =
             pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
 
         let mut styled_text = StyledText::default();
-        let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
-        let mut style_stack = std::vec::Vec::new();
+        let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
+        let mut style_stack = alloc::vec::Vec::new();
         let mut current_url = None;
 
         for event in parser {
@@ -328,7 +330,7 @@ impl StyledText {
                                 Ok(htmlparser::Token::ElementEnd { .. }) => {}
                                 _ => {
                                     return Err(StyledTextError::UnimplementedHtmlEvent(
-                                        std::format!("{:?}", token),
+                                        alloc::format!("{:?}", token),
                                     ));
                                 }
                             }
@@ -364,8 +366,8 @@ fn markdown_parsing() {
         StyledText::parse("hello *world*").unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
-            links: std::vec![]
+            formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
+            links: alloc::vec![]
         }]
     );
 
@@ -381,13 +383,13 @@ fn markdown_parsing() {
         [
             StyledTextParagraph {
                 text: "• line 1".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "• line 2".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             }
         ]
     );
@@ -405,18 +407,18 @@ fn markdown_parsing() {
         [
             StyledTextParagraph {
                 text: "1. a".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "2. b".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "3. c".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             }
         ]
     );
@@ -433,18 +435,18 @@ new *line*
         [
             StyledTextParagraph {
                 text: "Normal italic strong strikethrough code".into(),
-                formatting: std::vec![
+                formatting: alloc::vec![
                     FormattedSpan { range: 7..13, style: Style::Emphasis },
                     FormattedSpan { range: 14..20, style: Style::Strong },
                     FormattedSpan { range: 21..34, style: Style::Strikethrough },
                     FormattedSpan { range: 35..39, style: Style::Code }
                 ],
-                links: std::vec![]
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "new line".into(),
-                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
-                links: std::vec![]
+                formatting: alloc::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
+                links: alloc::vec![]
             }
         ]
     );
@@ -463,23 +465,23 @@ new *line*
         [
             StyledTextParagraph {
                 text: "• root".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "    ◦ child".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "        ▪ grandchild".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
             StyledTextParagraph {
                 text: "            • great grandchild".into(),
-                formatting: std::vec![],
-                links: std::vec![]
+                formatting: alloc::vec![],
+                links: alloc::vec![]
             },
         ]
     );
@@ -488,11 +490,11 @@ new *line*
         StyledText::parse("hello [*world*](https://example.com)").unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![
+            formatting: alloc::vec![
                 FormattedSpan { range: 6..11, style: Style::Emphasis },
                 FormattedSpan { range: 6..11, style: Style::Link }
             ],
-            links: std::vec![(6..11, "https://example.com".into())]
+            links: alloc::vec![(6..11, "https://example.com".into())]
         }]
     );
 
@@ -500,8 +502,8 @@ new *line*
         StyledText::parse("<u>hello world</u>").unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
-            links: std::vec![]
+            formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
+            links: alloc::vec![]
         }]
     );
 
@@ -509,11 +511,11 @@ new *line*
         StyledText::parse(r#"<font color="blue">hello world</font>"#).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![FormattedSpan {
+            formatting: alloc::vec![FormattedSpan {
                 range: 0..11,
                 style: Style::Color(crate::Color::from_rgb_u8(0, 0, 255))
             },],
-            links: std::vec![]
+            links: alloc::vec![]
         }]
     );
 
@@ -521,14 +523,14 @@ new *line*
         StyledText::parse(r#"<u><font color="red">hello world</font></u>"#).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
-            formatting: std::vec![
+            formatting: alloc::vec![
                 FormattedSpan {
                     range: 0..11,
                     style: Style::Color(crate::Color::from_rgb_u8(255, 0, 0))
                 },
                 FormattedSpan { range: 0..11, style: Style::Underline },
             ],
-            links: std::vec![]
+            links: alloc::vec![]
         }]
     );
 }
