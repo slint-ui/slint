@@ -108,21 +108,21 @@ jobs:
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Linux"
           os: "ubuntu-22.04"
     python_test_macos:
         needs: files-changed
-        if: needs.files-changed.outputs.api_python == 'true'
+        if: needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
         needs: files-changed
-        if: needs.files-changed.outputs.api_python == 'true'
+        if: needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
