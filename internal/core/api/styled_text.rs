@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #[derive(Clone, Debug, PartialEq)]
+/// Styles that can be applied to text spans
 #[allow(missing_docs)]
 pub enum Style {
     Emphasis,
@@ -14,31 +15,34 @@ pub enum Style {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[allow(missing_docs)]
+/// A style and a text span
 pub struct FormattedSpan {
+    /// Span of text to style
     pub range: core::ops::Range<usize>,
+    /// The style to apply
     pub style: Style,
 }
 
-#[cfg(feature = "experimental-rich-text")]
 #[derive(Clone, Debug)]
 enum ListItemType {
     Ordered(u64),
     Unordered,
 }
 
-#[cfg(feature = "experimental-rich-text")]
+/// A section of styled text, split up by a linebreak
 #[derive(Clone, Debug, PartialEq)]
-#[allow(missing_docs)]
 pub struct StyledTextParagraph {
+    /// The raw paragraph text
     pub text: std::string::String,
+    /// Formatting styles and spans
     pub formatting: std::vec::Vec<FormattedSpan>,
+    /// Locations of clickable links within the paragraph
     pub links: std::vec::Vec<(std::ops::Range<usize>, std::string::String)>,
 }
 
-#[cfg(feature = "experimental-rich-text")]
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
+#[non_exhaustive]
 pub enum StyledTextError<'a> {
     #[error("Spans are unbalanced: stack already empty when popped")]
     Pop,
@@ -64,14 +68,11 @@ pub enum StyledTextError<'a> {
 
 /// Internal styled text type
 #[derive(Debug, PartialEq, Clone, Default)]
-#[allow(missing_docs)]
 pub struct StyledText {
-    #[cfg(feature = "experimental-rich-text")]
+    /// Paragraphs of styled text
     pub paragraphs: std::vec::Vec<StyledTextParagraph>,
 }
 
-#[cfg(feature = "experimental-rich-text")]
-#[allow(missing_docs)]
 impl StyledText {
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = std::string::String::with_capacity(indentation as usize * 4);
@@ -98,6 +99,7 @@ impl StyledText {
         });
     }
 
+    /// Parse a markdown string as styled text
     pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
         let parser =
             pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
@@ -356,7 +358,6 @@ impl StyledText {
     }
 }
 
-#[cfg(feature = "experimental-rich-text")]
 #[test]
 fn markdown_parsing() {
     assert_eq!(
