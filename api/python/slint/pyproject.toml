@@ -40,15 +40,7 @@ Tracker = "https://github.com/slint-ui/slint/issues"
 dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15"]
 
 [dependency-groups]
-dev = [
-  "nox>=2024.10.9",
-  "pdoc>=15.0.1",
-  "pytest>=8.3.4",
-  "ruff>=0.9.6",
-  "pillow>=11.3.0",
-  "numpy>=2.3.2",
-  "aiohttp>=3.12.15",
-]
+dev = ["pdoc>=15.0.1", "pytest>=8.3.4", "ruff>=0.9.6", "pillow>=11.3.0", "numpy>=2.3.2", "aiohttp>=3.12.15"]
 
 [tool.uv]
 # Rebuild package when any rust files change
