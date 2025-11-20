@@ -23,6 +23,7 @@ pub struct FormattedSpan {
     pub style: Style,
 }
 
+#[cfg(feature = "std")]
 #[derive(Clone, Debug)]
 enum ListItemType {
     Ordered(u64),
@@ -74,6 +75,7 @@ pub struct StyledText {
     pub paragraphs: alloc::vec::Vec<StyledTextParagraph>,
 }
 
+#[cfg(feature = "std")]
 impl StyledText {
     fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
         let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
@@ -101,7 +103,6 @@ impl StyledText {
     }
 
     /// Parse a markdown string as styled text
-    #[cfg(feature = "std")]
     pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
         let parser =
             pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
