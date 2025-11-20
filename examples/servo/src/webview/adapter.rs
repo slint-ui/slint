@@ -27,11 +27,11 @@ pub struct SlintServoAdapter {
     waker_sender: Sender<()>,
     /// Channel receiver for event loop wake signals
     waker_receiver: Receiver<()>,
-    pub servo: RefCell<Option<Servo>>,
     inner: RefCell<SlintServoAdapterInner>,
 }
 
 pub struct SlintServoAdapterInner {
+    servo: Option<Servo>,
     webview: Option<WebView>,
     rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
     #[cfg(not(target_os = "android"))]
@@ -50,8 +50,8 @@ impl SlintServoAdapter {
         Self {
             waker_sender,
             waker_receiver,
-            servo: RefCell::new(None),
             inner: RefCell::new(SlintServoAdapterInner {
+                servo: None,
                 webview: None,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
@@ -88,6 +88,10 @@ impl SlintServoAdapter {
         self.inner().queue.clone()
     }
 
+    pub fn servo(&self) -> Ref<'_, Servo> {
+        Ref::map(self.inner(), |inner| inner.servo.as_ref().expect("Servo not initialized yet"))
+    }
+
     pub fn webview(&self) -> WebView {
         self.inner().webview.as_ref().expect("Webview not initialized yet").clone()
     }
@@ -98,8 +102,8 @@ impl SlintServoAdapter {
         webview: WebView,
         rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
     ) {
-        *self.servo.borrow_mut() = Some(servo);
         let mut inner = self.inner_mut();
+        inner.servo = Some(servo);
         inner.webview = Some(webview);
         inner.rendering_adapter = Some(rendering_adapter);
     }

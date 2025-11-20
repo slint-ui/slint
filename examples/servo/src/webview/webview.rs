@@ -138,9 +138,7 @@ impl WebView {
                     };
 
                     let _ = state.waker_reciver().recv().await;
-                    if let Some(ref servo) = *state.servo.borrow() {
-                        servo.spin_event_loop();
-                    }
+                    state.servo().spin_event_loop();
                 }
             }
         })
