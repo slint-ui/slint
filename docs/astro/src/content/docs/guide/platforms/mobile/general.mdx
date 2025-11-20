@@ -28,6 +28,7 @@ touch interfaces are expected to scroll while panning the whole view.
 Enable it in Slint like this:
 
 ```slint
+import { ScrollView } from "std-widgets.slint";
 ScrollView {
     mouse-drag-pan-enabled: true;
 
@@ -135,6 +136,7 @@ So to summarize, if you want to keep a text field in view while the virtual keyb
 area like this:
 
 ```slint
+import { LineEdit, ScrollView } from "std-widgets.slint";
 export component MyView {
     ScrollView {
         mouse-drag-pan-enabled: true;
