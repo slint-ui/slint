@@ -88,6 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tests_file.flush()?;
 
+    println!("cargo:rerun-if-changed=../../docs/astro/astro.config.mjs"); // This file is changed when new docs are added
     println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 
