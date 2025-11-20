@@ -48,4 +48,44 @@ instance.set_dash(With_dash::Hallo);
 instance.set_dash(With_dash::HelloWorld);
 ```
 
+```pyi
+class Foo(enum.StrEnum):
+    bli = "bli"
+    bla = "bla"
+    blu = "blu"
+
+
+class InputType(enum.StrEnum):
+    Xxx = "Xxx"
+    Yyy = "Yyy"
+    Zzz = "Zzz"
+
+
+class With_dash(enum.StrEnum):
+    hallo = "hallo"
+    hello_world = "hello-world"
+    halloWorld = "halloWorld"
+
+
+class TestCase(slint.Component):
+    dash: With_dash
+    default: Foo
+    foo: Foo
+    input_type: InputType
+    test: bool
+```
+
+```python
+instance = TestCase()
+
+assert instance.foo == Foo.bla
+assert instance.test
+instance.foo = Foo.blu
+assert not instance.test
+
+assert instance.dash == With_dash.halloWorld
+instance.dash = With_dash.hallo
+instance.dash = With_dash.hello_world
+```
+
 */

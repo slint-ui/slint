@@ -1,8 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
 //include_path: ../../helper_components
 import { TestButton, TheWindow } from "re_export2.slint";
 export component TestCase inherits TheWindow {
-    TestButton {}
+    TestButton { }
 }

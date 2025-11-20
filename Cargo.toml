@@ -59,6 +59,7 @@ members = [
   'tests/driver/driverlib',
   'tests/driver/interpreter',
   'tests/driver/nodejs',
+  'tests/driver/python',
   'tests/driver/rust',
   'tests/screenshots',
   'tests/manual/windowattributes',

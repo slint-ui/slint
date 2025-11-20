@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
 use pyo3::{prelude::*, PyVisit};
 use pyo3::{IntoPyObjectExt, PyTraverseError};
@@ -216,17 +217,14 @@ impl TypeCollection {
                                 en.name.to_string(),
                                 en.values
                                     .iter()
-                                    .map(|val| {
-                                        let val = val.to_string();
-                                        (val.clone(), val)
-                                    })
+                                    .map(|val| (ident(&val).to_string(), val.to_string()))
                                     .collect::<Vec<_>>(),
                             ),
                             None,
                         )
                         .unwrap();
 
-                    enum_classes.insert(en.name.to_string(), enum_type);
+                    enum_classes.insert(ident(&en.name).into(), enum_type);
                 }
                 _ => {}
             }
@@ -250,7 +248,7 @@ impl TypeCollection {
         enum_value: &str,
         py: Python<'_>,
     ) -> Result<Py<PyAny>, PyErr> {
-        let enum_cls = self.enum_classes.get(enum_name).ok_or_else(|| {
+        let enum_cls = self.enum_classes.get(ident(enum_name).as_str()).ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
                 "Slint provided enum {enum_name} is unknown"
             ))

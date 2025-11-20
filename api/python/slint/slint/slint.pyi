@@ -223,6 +223,7 @@ class CompilationResult:
     diagnostics: list[PyDiagnostic]
     named_exports: list[typing.Tuple[str, str]]
     structs_and_enums: typing.Tuple[typing.Dict[str, PyStruct], typing.Dict[str, Enum]]
+    generated_api: GeneratedAPI
     def component(self, name: str) -> ComponentDefinition: ...
 
 class Compiler:
@@ -244,3 +245,12 @@ class AsyncAdapter:
     ) -> "AsyncAdapter": ...
     def wait_for_readable(self, callback: typing.Callable[[int], None]) -> None: ...
     def wait_for_writable(self, callback: typing.Callable[[int], None]) -> None: ...
+
+class GeneratedAPI:
+    def __new__(
+        cls, path: str | os.PathLike[Any] | pathlib.Path, json: str
+    ) -> "GeneratedAPI": ...
+    @staticmethod
+    def compare_generated_vs_actual(
+        generated: "GeneratedAPI", actual: "GeneratedAPI"
+    ) -> None: ...

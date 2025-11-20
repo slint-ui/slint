@@ -340,6 +340,60 @@ For the common use case of interacting with REST APIs, we recommend the [`aiohtt
 
 - Pipes and sub-processes are only supported on Unix-like platforms.
 
+## Type Hints
+
+[PEP 484](https://peps.python.org/pep-0484/) introduces a standard syntax for type annotations to Python, enabling static analysis for
+type checking, refactoring, and code completion. Popular type checkers include [mypy](http://mypy-lang.org/), [Pyre](https://pyre-check.org),
+and Astral's [ty](https://docs.astral.sh/ty/).
+
+Use Slint's [slint-compiler](https://pypi.org/project/slint-compiler/) to generate stub `.py` files for `.slint` files, which are annotated with
+type information. These replace the need to call `load_file` or any use of `slint.loader`.
+
+1. Create a new project with `uv init`.
+2. Add the Slint Python package to your Python project: `uv add slint`
+3. Create a file called `app-window.slint`:
+
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    in-out property<int> counter: 42;
+    callback request-increase-value();
+    VerticalBox {
+        Text {
+            text: "Counter: \{root.counter}";
+        }
+        Button {
+            text: "Increase value";
+            clicked => {
+                root.request-increase-value();
+            }
+        }
+    }
+}
+```
+
+4. Run the [slint-compiler](https://pypi.org/project/slint-compiler/) to generate `app_window.py`:
+    `uvx slint-compiler -f python -o app_window.py app-window.slint`
+
+5. Create a file called `main.py`:
+
+```python
+import slint
+import app_window
+
+class App(app_window.AppWindow):
+    @slint.callback
+    def request_increase_value(self):
+        self.counter = self.counter + 1
+
+app = App()
+app.run()
+```
+
+5. Run it with `uv run main.py`
+
+
 ## Third-Party Licenses
 
 For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](thirdparty.html).
