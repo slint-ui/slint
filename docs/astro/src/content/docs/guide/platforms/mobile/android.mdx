@@ -34,7 +34,7 @@ You also need to select the version of android-activity you want to use:
 slint = { version = "...", features = ["backend-android-activity-06"] }
 ```
 
-This feature is ignored for any target\_os that is not Android. So, it can safely be enabled anywhere.
+This feature compiles with any target\_os and can safely be enabled anywhere.
 
 Second, in your `lib.rs`, add this function:
 
@@ -52,7 +52,7 @@ You can also add an Android event
 ([`android_activity::PollEvent`](https://docs.rs/android-activity/latest/android_activity/enum.PollEvent.html))
 listener by replacing the call to `slint::android::init` with `slint::android::init_with_event_listener`.
 
-That's all of the necessary code changes! In the next section, we're going to set up the environment to
+That's all of the necessary code changes. In the next section, we're going to set up the environment to
 build the project.
 
 ## Android Setup
@@ -79,13 +79,13 @@ line.
 To get the list of Android devices, simulators and emulators currently attached to your machine, run
 
 ```sh
-> adb devices
+adb devices
 ```
 
 You can connect to a physical device on the network by using
 
 ```sh
-> adb connect <host>
+adb connect <host>
 ```
 
 The `host` is the IP address of the device. Note that it has to have development mode enabled for
@@ -143,8 +143,8 @@ regular virtual keyboard.
 
 ### Running the Application
 
-There are multiple ways to build, upload and run Android apps written in Rust. This page describes using
-[xbuild](https://github.com/rust-mobile/xbuild). This doesn't use Android Studio at all.
+There are multiple ways to build, upload and run Android apps written in Rust. This page describes a
+way using [xbuild](https://github.com/rust-mobile/xbuild). This doesn't use Android Studio at all.
 
 At the time of this writing, the current version of xbuild (0.2.0) is severely outdated and contains
 relevant bugs that have been fixed in the master branch. So, don't use `cargo install xbuild` to
