@@ -169,10 +169,10 @@ fn check_output(o: std::process::Output) {
 static PYTHON_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     let python_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/python/slint");
 
-    // Init venv for maturin
+    // Sync env and build Slint
     check_output(
         std::process::Command::new("uv")
-            .arg("venv")
+            .arg("sync")
             .current_dir(python_dir.clone())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -182,22 +182,6 @@ static PYTHON_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
             })
             .unwrap(),
     );
-
-    // builds the slint python package
-    let o = std::process::Command::new("uvx")
-        .arg("--python")
-        .arg("3.12")
-        .arg("maturin")
-        .arg("develop")
-        .arg("--uv")
-        .current_dir(python_dir.clone())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .output()
-        .map_err(|err| format!("Could not launch uv build to build wheel: {err}"))
-        .unwrap();
-
-    check_output(o);
 
     python_dir
 });
