@@ -218,7 +218,6 @@ declare_builtin_function_types!(
         ])
         .collect(),
         name: BuiltinPublicStruct::Color.into(),
-        rust_attributes: None,
     })),
     ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -229,7 +228,6 @@ declare_builtin_function_types!(
         ])
         .collect(),
         name: BuiltinPublicStruct::Color.into(),
-        rust_attributes: None,
     })),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
@@ -243,7 +241,6 @@ declare_builtin_function_types!(
         ])
         .collect(),
         name: crate::langtype::BuiltinPrivateStruct::Size.into(),
-        rust_attributes: None,
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,

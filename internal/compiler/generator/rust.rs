@@ -280,15 +280,8 @@ pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: StructName::User { name, node }, rust_attributes } => {
-                    Some((
-                        ident(name),
-                        generate_struct(
-                            &StructName::User { name: name.clone(), node: node.clone() },
-                            fields,
-                            rust_attributes,
-                        ),
-                    ))
+                Struct { fields, name: struct_name @ StructName::User { name, .. } } => {
+                    Some((ident(name), generate_struct(struct_name, fields)))
                 }
                 _ => None,
             },
@@ -519,25 +512,27 @@ fn generate_shared_globals(
     }
 }
 
-fn generate_struct(
-    name: &StructName,
-    fields: &BTreeMap<SmolStr, Type>,
-    rust_attributes: &Option<Vec<SmolStr>>,
-) -> TokenStream {
+fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> TokenStream {
     let component_id = struct_name_to_tokens(&name).unwrap();
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
         fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
 
-    let attributes = if let Some(feature) = rust_attributes {
-        let attr =
-            feature.iter().map(|f| match TokenStream::from_str(format!(r#"#[{f}]"#).as_str()) {
-                Ok(eval) => eval,
-                Err(_) => quote! {},
-            });
-        quote! { #(#attr)* }
-    } else {
-        quote! {}
-    };
+    let StructName::User { name, node } = name else { unreachable!("generating non-user struct") };
+
+    let attributes = node
+        .parent()
+        .and_then(crate::parser::syntax_nodes::StructDeclaration::new)
+        .and_then(|d| d.AtRustAttr())
+        .map(|n| match TokenStream::from_str(&n.text().to_string()) {
+            Ok(t) => quote!(#[#t]),
+            Err(_) => {
+                let source_location = crate::diagnostics::Spanned::to_source_location(&n);
+                let error = format!(
+                    "Error parsing @rust-attr for struct '{name}' declared at {source_location}"
+                );
+                quote!(compile_error!(#error);)
+            }
+        });
 
     quote! {
         #attributes

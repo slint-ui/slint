@@ -1317,7 +1317,6 @@ impl Expression {
         let ty = Rc::new(Struct {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             name: StructName::None,
-            rust_attributes: None,
         });
         Expression::Struct { ty, values }
     }
@@ -1397,11 +1396,6 @@ impl Expression {
                         Type::Struct(Rc::new(Struct {
                             name: result.name.clone().or(elem.name.clone()),
                             fields,
-                            rust_attributes: result
-                                .rust_attributes
-                                .as_ref()
-                                .or(elem.rust_attributes.as_ref())
-                                .cloned(),
                         }))
                     }
                     (Type::Array(lhs), Type::Array(rhs)) => Type::Array(if *lhs == Type::Void {
@@ -1448,7 +1442,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
     fn merge_struct(origin: &Struct, other: &Struct) -> Type {
         let mut fields = other.fields.clone();
         fields.extend(origin.fields.iter().map(|(k, v)| (k.clone(), v.clone())));
-        Rc::new(Struct { fields, name: StructName::None, rust_attributes: None }).into()
+        Rc::new(Struct { fields, name: StructName::None }).into()
     }
 
     if let Expression::Struct { ty, values } = true_expr {
@@ -1466,11 +1460,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
                     fields.insert(k.clone(), v.ty());
                 }
             }
-            return Type::Struct(Rc::new(Struct {
-                fields,
-                name: StructName::None,
-                rust_attributes: None,
-            }));
+            return Type::Struct(Rc::new(Struct { fields, name: StructName::None }));
         } else if let Type::Struct(false_ty) = false_expr.ty() {
             return merge_struct(&false_ty, &ty);
         }

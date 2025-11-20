@@ -98,12 +98,10 @@ impl Document {
                               diag: &mut BuildDiagnostics,
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
-            let rust_attributes = n.AtRustAttr().map(|child| vec![child.text().to_smolstr()]);
             let ty = type_struct_from_node(
                 n.ObjectType(),
                 diag,
                 local_registry,
-                rust_attributes,
                 parser::identifier_text(&n.DeclaredIdentifier()),
             );
             assert!(matches!(ty, Type::Struct(_)));
@@ -2003,7 +2001,7 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
-        type_struct_from_node(object_node, diag, tr, None, None)
+        type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
@@ -2017,7 +2015,6 @@ pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
-    rust_attributes: Option<Vec<SmolStr>>,
     name: Option<SmolStr>,
 ) -> Type {
     let fields = object_node
@@ -2032,7 +2029,6 @@ pub fn type_struct_from_node(
     Type::Struct(Rc::new(Struct {
         fields,
         name: name.map_or(StructName::None, |name| StructName::User { name, node: object_node }),
-        rust_attributes,
     }))
 }
 

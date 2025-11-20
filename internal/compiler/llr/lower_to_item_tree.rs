@@ -615,10 +615,7 @@ fn lower_geometry(
         values
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
-    super::Expression::Struct {
-        ty: Rc::new(Struct { fields, name: StructName::None, rust_attributes: None }),
-        values,
-    }
+    super::Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values }
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {

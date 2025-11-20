@@ -527,7 +527,6 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
         Rc::new(Struct {
             fields: animation_fields().collect(),
             name: BuiltinPrivateStruct::PropertyAnimation.into(),
-            rust_attributes: None,
         })
     }
 
@@ -564,7 +563,6 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                     ])
                     .collect(),
                     name: StructName::None,
-                    rust_attributes: None,
                 }),
                 values: IntoIterator::into_iter([
                     (SmolStr::new_static("0"), get_anim),
@@ -872,7 +870,6 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
         ])
         .collect(),
         name: BuiltinPrivateStruct::GridLayoutCellData.into(),
-        rust_attributes: None,
     }))
 }
 
@@ -994,7 +991,6 @@ fn compile_path(
                                 .clone()
                                 .expect("path elements should have a native_type"),
                         ),
-                        rust_attributes: None,
                     });
 
                     llr_Expression::Struct {
@@ -1045,7 +1041,6 @@ fn compile_path(
                         ])
                         .collect(),
                         name: StructName::None,
-                        rust_attributes: None,
                     }),
                     values: IntoIterator::into_iter([
                         (
@@ -1089,8 +1084,5 @@ pub fn make_struct(
         values.insert(SmolStr::new(name), expr);
     }
 
-    llr_Expression::Struct {
-        ty: Rc::new(Struct { fields, name: name.into(), rust_attributes: None }),
-        values,
-    }
+    llr_Expression::Struct { ty: Rc::new(Struct { fields, name: name.into() }), values }
 }
