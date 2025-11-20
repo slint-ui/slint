@@ -47,6 +47,9 @@ jobs:
                   sed -i 's/GIT_TAG v[0-9]*\.[0-9]*\.[0-9]*/GIT_TAG v${{ github.event.inputs.new_version }}/' api/cpp/esp-idf/slint/CMakeLists.txt
                   sed -i 's/find_package(Slint [0-9]*\.[0-9]*\.[0-9]*)/find_package(Slint ${{ github.event.inputs.new_version }})/' api/cpp/esp-idf/slint/CMakeLists.txt
 
+                  # Version in the Android docs
+                  sed -i 's/^slint = { version = "\*"/slint = { version = "${{ github.event.inputs.new_version }}"/' docs/astro/src/content/docs/guide/platforms/mobile/android.mdx
+
                   echo "Note that the version is not updated in the documentation and README yet"
 
             - name: Commit
@@ -68,34 +71,34 @@ jobs:
               id: app-token
               uses: actions/create-github-app-token@v2
               with:
-                app-id: ${{ vars.READ_WRITE_APP_ID }}
-                private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-                repositories: www-releases
+                  app-id: ${{ vars.READ_WRITE_APP_ID }}
+                  private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                  repositories: www-releases
             - name: Clone www-releases directory
               uses: actions/checkout@v5
               with:
-                repository: slint-ui/www-releases
-                sparse-checkout: |
-                  releases/versions.json
-                path: www-releases
-                token: ${{ steps.app-token.outputs.token }}
+                  repository: slint-ui/www-releases
+                  sparse-checkout: |
+                      releases/versions.json
+                  path: www-releases
+                  token: ${{ steps.app-token.outputs.token }}
             - name: Update version in versions.json
               run: |
-                sed -i '0,/"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"/s//"version": "${{ github.event.inputs.new_version }}"/' www-releases/releases/versions.json
+                  sed -i '0,/"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"/s//"version": "${{ github.event.inputs.new_version }}"/' www-releases/releases/versions.json
             - name: Adjust redirections
               run: |
-                sed -i "/\/[0-9]*\.[0-9]*\.[0-9]*\/* https:\/\/snapshots\.slint\.dev\/master\/:splat/ s/[0-9]*\.[0-9]*\.[0-9]*/${{ github.event.inputs.new_version }}/" www-releases/releases/_redirects
+                  sed -i "/\/[0-9]*\.[0-9]*\.[0-9]*\/* https:\/\/snapshots\.slint\.dev\/master\/:splat/ s/[0-9]*\.[0-9]*\.[0-9]*/${{ github.event.inputs.new_version }}/" www-releases/releases/_redirects
             - name: Get GitHub App User ID
               id: get-user-id
               run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
               env:
-                GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
             - name: commit and push
               working-directory: ./www-releases
               run: |
-                git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
-                git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
-                git add .
-                git add -u .
-                git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Update versions.json"
-                git push
+                  git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+                  git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
+                  git add .
+                  git add -u .
+                  git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Update versions.json"
+                  git push
