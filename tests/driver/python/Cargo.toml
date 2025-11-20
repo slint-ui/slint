@@ -22,7 +22,7 @@ tempfile = "3"
 
 [dev-dependencies]
 test_driver_lib = { path = "../driverlib" }
-i-slint-compiler = { workspace = true, features = ["default", "python", "display-diagnostics"] }
+i-slint-compiler = { workspace = true, features = ["default", "python", "display-diagnostics", "bundle-translations"] }
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }
