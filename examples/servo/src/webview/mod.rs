@@ -17,7 +17,7 @@
 //! - **`rendering_context`**: Platform-specific rendering backends (GPU/software)
 //! - **`waker`**: Event loop integration for async Servo operations
 //! - **`webview_events`**: UI event handlers for user interactions (clicks, scrolls, etc.)
-//! 
+//!
 //! # Platform Support
 //!
 //! - **Desktop (Linux, macOS)**: GPU-accelerated rendering via WGPU
