@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-mod webview;
+pub mod webview;
 
 #[cfg(target_os = "linux")]
 mod gl_bindings {

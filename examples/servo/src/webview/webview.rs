@@ -39,7 +39,6 @@ use super::adapter::{SlintServoAdapter, upgrade_adapter};
 ///
 /// - **Non-Android platforms**: Uses GPU-accelerated rendering via WGPU
 /// - **Android**: Falls back to software rendering
-/// ```
 pub struct WebView {}
 
 impl WebView {
@@ -64,7 +63,6 @@ impl WebView {
     /// - The initial URL cannot be parsed
     /// - GPU rendering context creation fails (on non-Android platforms)
     /// - Servo event loop task cannot be spawned
-    /// ```
     pub fn new(
         app: MyApp,
         initial_url: SharedString,

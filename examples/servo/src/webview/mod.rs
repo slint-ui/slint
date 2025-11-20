@@ -17,6 +17,16 @@
 //! - **`rendering_context`**: Platform-specific rendering backends (GPU/software)
 //! - **`waker`**: Event loop integration for async Servo operations
 //! - **`webview_events`**: UI event handlers for user interactions (clicks, scrolls, etc.)
+//! 
+//! # Platform Support
+//!
+//! - **Desktop (Linux, macOS)**: GPU-accelerated rendering via WGPU
+//! - **Android**: Software rendering fallback
+//!
+//! # Threading Model
+//!
+//! The WebView runs Servo's event loop asynchronously using `slint::spawn_local()`.
+//! All UI interactions are marshaled through async channels to maintain thread safety.
 //!
 //! # Example
 //!
@@ -24,6 +34,7 @@
 //! use slint::ComponentHandle;
 //! use crate::webview::WebView;
 //!
+//! pub fn main() {
 //! // Create Slint application
 //! let app = MyApp::new().unwrap();
 //!
@@ -42,17 +53,43 @@
 //!
 //! // Run the application
 //! app.run().unwrap();
+//! }
+//!
+//! #[cfg(not(target_os = "android"))]
+//! fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
+//!     let backends = wgpu::Backends::from_env().unwrap_or_default();
+
+//!     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+//!         backends,
+//!         flags: Default::default(),
+//!         backend_options: Default::default(),
+//!         memory_budget_thresholds: Default::default(),
+//!     });
+//!
+//!     let adapter = spin_on::spin_on(async {
+//!         instance
+//!             .request_adapter(&Default::default())
+//!             .await
+//!             .unwrap()
+//!     });
+//!
+//!     let (device, queue) = spin_on::spin_on(async {
+//!         adapter.request_device(&Default::default()).await.unwrap()
+//!     });
+//!
+//!     slint::BackendSelector::new()
+//!         .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
+//!             instance,
+//!             adapter,
+//!             device: device.clone(),
+//!             queue: queue.clone()
+//!         })
+//!         .select()
+//!         .unwrap();
+//!
+//!     (device, queue)
+//! }
 //! ```
-//!
-//! # Platform Support
-//!
-//! - **Desktop (Linux, macOS)**: GPU-accelerated rendering via WGPU
-//! - **Android**: Software rendering fallback
-//!
-//! # Threading Model
-//!
-//! The WebView runs Servo's event loop asynchronously using `slint::spawn_local()`.
-//! All UI interactions are marshaled through async channels to maintain thread safety.
 
 mod adapter;
 mod delegate;
