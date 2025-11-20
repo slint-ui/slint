@@ -14,14 +14,37 @@ use slint::wgpu_27::wgpu;
 
 use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
 
-/// Upgrades a weak reference to SlintServoAdapter to a strong reference.
-/// Panics if the adapter has been dropped.
+/// Upgrades a weak reference to `SlintServoAdapter` to a strong reference.
+///
+/// # Arguments
+///
+/// * `weak_ref` - Weak reference to upgrade
+///
+/// # Panics
+///
+/// Panics if the adapter has been dropped (weak reference cannot be upgraded).
 pub fn upgrade_adapter(weak_ref: &Weak<SlintServoAdapter>) -> Rc<SlintServoAdapter> {
     weak_ref.upgrade().expect("Failed to upgrade SlintServoAdapter")
 }
 
 /// Bridge between Slint UI and Servo browser engine.
-/// Manages the lifecycle and communication between the UI and browser components.
+///
+/// `SlintServoAdapter` manages the lifecycle and communication between the Slint UI
+/// framework and the Servo browser engine. It holds references to both systems and
+/// facilitates bidirectional data flow.
+///
+/// # Responsibilities
+///
+/// - **State Management**: Holds Servo and WebView instances
+/// - **Event Communication**: Manages async channels for event loop waking
+/// - **Rendering Coordination**: Bridges Servo's framebuffer to Slint's display
+/// - **Resource Management**: Manages WGPU device and queue (non-Android)
+///
+/// # Thread Safety
+///
+/// This type uses `RefCell` for interior mutability and is designed to be used
+/// within a single-threaded context (Slint's main thread). Access is coordinated
+/// via `Rc` reference counting.
 pub struct SlintServoAdapter {
     /// Channel sender to wake the event loop
     waker_sender: Sender<()>,
@@ -30,6 +53,10 @@ pub struct SlintServoAdapter {
     inner: RefCell<SlintServoAdapterInner>,
 }
 
+/// Internal state for `SlintServoAdapter`.
+///
+/// Holds the WebView instance, rendering adapter, and platform-specific
+/// GPU resources. Wrapped in `RefCell` for interior mutability.
 pub struct SlintServoAdapterInner {
     servo: Option<Servo>,
     webview: Option<WebView>,

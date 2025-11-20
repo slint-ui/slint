@@ -21,9 +21,50 @@ use crate::{
 
 use super::adapter::{SlintServoAdapter, upgrade_adapter};
 
+/// A web browser component powered by the Servo engine.
+///
+/// `WebView` provides a high-level interface for embedding a full-featured web browser
+/// into Slint applications. It handles the initialization and lifecycle management of
+/// the Servo browser engine, rendering pipeline, and event handling.
+///
+/// # Architecture
+///
+/// The WebView orchestrates several subsystems:
+/// - **Rendering**: Platform-specific GPU or software rendering
+/// - **Event Loop**: Async Servo event processing
+/// - **UI Integration**: Bidirectional communication with Slint
+/// - **Input Handling**: Mouse, touch, and keyboard events
+///
+/// # Platform Differences
+///
+/// - **Non-Android platforms**: Uses GPU-accelerated rendering via WGPU
+/// - **Android**: Falls back to software rendering
+/// ```
 pub struct WebView {}
 
 impl WebView {
+    /// Creates and initializes a new WebView instance.
+    ///
+    /// This method sets up the complete web browser infrastructure including:
+    /// - Servo browser engine initialization
+    /// - Rendering context (GPU or software)
+    /// - Event loop for async operations
+    /// - UI event handlers for user interactions
+    ///
+    /// # Arguments
+    ///
+    /// * `app` - The Slint application instance to integrate with
+    /// * `initial_url` - The URL to load when the browser starts
+    /// * `device` - WGPU device for GPU rendering (non-Android only)
+    /// * `queue` - WGPU command queue for GPU operations (non-Android only)
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// - The initial URL cannot be parsed
+    /// - GPU rendering context creation fails (on non-Android platforms)
+    /// - Servo event loop task cannot be spawned
+    /// ```
     pub fn new(
         app: MyApp,
         initial_url: SharedString,
@@ -62,6 +103,16 @@ impl WebView {
         super::webview_events::WebViewEvents::new(&app, adapter.clone());
     }
 
+    /// Initializes the rendering adapter based on platform capabilities.
+    ///
+    /// Creates either a GPU-accelerated or software rendering context depending on
+    /// the platform and availability. The viewport size is extracted from the Slint UI.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing:
+    /// - The rendering adapter (GPU or software)
+    /// - The physical size of the viewport in pixels
     fn init_rendering_adapter(
         app: &MyApp,
         adapter: Rc<SlintServoAdapter>,
@@ -88,6 +139,19 @@ impl WebView {
         (rendering_adapter_rc, physical_size)
     }
 
+    /// Initializes and builds the Servo browser engine instance.
+    ///
+    /// Configures Servo with the rendering context and event loop waker for
+    /// async operation integration.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter` - The Slint-Servo adapter for state management
+    /// * `rendering_adapter` - The rendering backend to use
+    ///
+    /// # Returns
+    ///
+    /// A configured Servo instance ready for use
     fn init_servo_builder(
         adapter: Rc<SlintServoAdapter>,
         rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
@@ -99,6 +163,22 @@ impl WebView {
         ServoBuilder::new(rendering_context).event_loop_waker(event_loop_waker).build()
     }
 
+    /// Initializes the Servo WebView with the initial URL and configuration.
+    ///
+    /// Sets up the WebView with:
+    /// - Initial URL to load
+    /// - Viewport size
+    /// - Delegate for frame update callbacks
+    /// - Theme (light/dark mode) based on Slint settings
+    ///
+    /// # Arguments
+    ///
+    /// * `app` - The Slint application instance
+    /// * `physical_size` - Initial viewport dimensions
+    /// * `initial_url` - URL to navigate to on startup
+    /// * `adapter` - The Slint-Servo adapter
+    /// * `servo` - The Servo engine instance
+    /// * `rendering_adapter` - The rendering backend
     fn init_webview(
         app: &MyApp,
         physical_size: PhysicalSize<u32>,
@@ -126,6 +206,18 @@ impl WebView {
         adapter.set_inner(servo, webview, rendering_adapter);
     }
 
+    /// Spawns the async event loop for Servo operations.
+    ///
+    /// Creates a background task that continuously processes Servo events.
+    /// The loop runs until the adapter is dropped (weak reference becomes invalid).
+    ///
+    /// # Arguments
+    ///
+    /// * `state` - The Slint-Servo adapter containing the event channel
+    ///
+    /// # Panics
+    ///
+    /// Panics if the async task cannot be spawned
     fn spin_servo_event_loop(state: Rc<SlintServoAdapter>) {
         let state_weak = Rc::downgrade(&state);
 
