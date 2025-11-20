@@ -29,10 +29,12 @@ Enable it in Slint like this:
 
 ```slint
 import { ScrollView } from "std-widgets.slint";
-ScrollView {
-    mouse-drag-pan-enabled: true;
+export component MyComponent {
+    ScrollView {
+        mouse-drag-pan-enabled: true;
 
-    // Your own elements here
+        // Your own elements here
+    }
 }
 ```
 
