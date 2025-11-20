@@ -206,8 +206,8 @@ def test_subprocess() -> None:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
                 "--version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                stdout=asyncio.subprocess.PIPE,  # type: ignore
+                stderr=asyncio.subprocess.STDOUT,  # type: ignore
             )
 
             stdout, _ = await proc.communicate()

@@ -8,6 +8,7 @@ import typing
 
 
 def base_dir() -> Path:
+    assert __spec__
     origin = __spec__.origin
     assert origin is not None
     base_dir = Path(origin).parent

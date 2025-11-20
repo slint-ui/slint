@@ -4,9 +4,11 @@
 import pytest
 from slint import load_file, CompileError
 from pathlib import Path
+import typing
 
 
 def base_dir() -> Path:
+    assert __spec__
     origin = __spec__.origin
     assert origin is not None
     base_dir = Path(origin).parent
@@ -54,7 +56,7 @@ def test_load_file_fail() -> None:
 def test_compile_error() -> None:
     with pytest.raises(CompileError) as excinfo:
         load_file(base_dir() / "test-file-error.slint")
-    err = excinfo.value
+    err = typing.cast(CompileError, excinfo.value)
     diagnostics = err.diagnostics
     assert len(diagnostics) == 2
     assert diagnostics[0].message == "Unknown type 'garbage'"
