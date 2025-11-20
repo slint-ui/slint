@@ -48,7 +48,7 @@ jobs:
                   sed -i 's/find_package(Slint [0-9]*\.[0-9]*\.[0-9]*)/find_package(Slint ${{ github.event.inputs.new_version }})/' api/cpp/esp-idf/slint/CMakeLists.txt
 
                   # Version in the Android docs
-                  sed -i 's/^slint = { version = "\*"/slint = { version = "${{ github.event.inputs.new_version }}"/' docs/astro/src/content/docs/guide/platforms/mobile/android.mdx
+                  sed -i 's/^slint = { version = "[^"]+"/slint = { version = "${{ github.event.inputs.new_version }}"/' docs/astro/src/content/docs/guide/platforms/mobile/android.mdx
 
                   echo "Note that the version is not updated in the documentation and README yet"
 
