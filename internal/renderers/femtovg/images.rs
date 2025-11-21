@@ -332,14 +332,14 @@ pub fn base_image_flags(
     tiling: (ImageTiling, ImageTiling),
 ) -> femtovg::ImageFlags {
     let image_flags = match scaling {
-        ImageRendering::Smooth => femtovg::ImageFlags::empty(),
         ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
+        ImageRendering::Smooth | _ => femtovg::ImageFlags::empty(),
     } | match tiling.0 {
-        ImageTiling::None => femtovg::ImageFlags::empty(),
         ImageTiling::Repeat | ImageTiling::Round => femtovg::ImageFlags::REPEAT_X,
+        ImageTiling::None | _ => femtovg::ImageFlags::empty(),
     } | match tiling.1 {
-        ImageTiling::None => femtovg::ImageFlags::empty(),
         ImageTiling::Repeat | ImageTiling::Round => femtovg::ImageFlags::REPEAT_Y,
+        ImageTiling::None | _ => femtovg::ImageFlags::empty(),
     };
     image_flags
 }
