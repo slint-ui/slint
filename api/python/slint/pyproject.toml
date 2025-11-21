@@ -47,3 +47,6 @@ dev = ["pdoc>=15.0.1", "pytest>=8.3.4", "ruff>=0.9.6", "pillow>=11.3.0", "numpy>
 cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
+
+[tool.maturin]
+editable-profile = "dev"
