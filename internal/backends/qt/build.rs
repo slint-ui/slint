@@ -6,6 +6,7 @@
 #[cfg(feature = "enable")]
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(no_qt)");
+    println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
 
     println!("cargo:rerun-if-env-changed=SLINT_NO_QT");
     if std::env::var("TARGET").is_ok_and(|t| t.starts_with("wasm"))

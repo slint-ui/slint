@@ -216,6 +216,7 @@ impl AndroidWindowAdapter {
                 Event::Other(o) => o(),
             }
         }
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         match event {
             PollEvent::Main(MainEvent::InputAvailable) => self.process_inputs()?,
             PollEvent::Main(MainEvent::InitWindow { .. }) => {
@@ -286,6 +287,7 @@ impl AndroidWindowAdapter {
     }
 
     fn try_dispatch_key_event(&self, ev: WindowEvent) -> i_slint_core::input::KeyEventResult {
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         match ev {
             WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(i_slint_core::input::KeyEvent {
@@ -419,6 +421,8 @@ impl AndroidWindowAdapter {
                     }
                     MotionAction::Scroll => todo!(),
                     MotionAction::HoverEnter | MotionAction::HoverExit => InputStatus::Unhandled,
+                    // Multi-touch not yet supported
+                    MotionAction::PointerDown | MotionAction::PointerUp => InputStatus::Unhandled,
                     _ => InputStatus::Unhandled,
                 },
                 InputEvent::TextEvent(state) => {
@@ -622,6 +626,7 @@ fn button_for_event(
     //
     let cur_pressed_state = motion_event.button_state();
     let last_pressed_state = last_pressed_cell.get();
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
     let toggled = match motion_event.action() {
         MotionAction::ButtonPress => {
             last_pressed_cell.set(cur_pressed_state);

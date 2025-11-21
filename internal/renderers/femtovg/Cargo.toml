@@ -47,5 +47,8 @@ wgpu-27 = { workspace = true, optional = true, default-features = true }
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_nightly_test)"] }
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

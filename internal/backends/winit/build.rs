@@ -16,4 +16,5 @@ fn main() {
     }
     // This uses `web_sys_unstable_api`, which is typically set via `RUST_FLAGS`
     println!("cargo:rustc-check-cfg=cfg(web_sys_unstable_apis)");
+    println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
 }

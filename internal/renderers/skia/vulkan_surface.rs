@@ -315,6 +315,7 @@ impl super::Surface for VulkanSurface {
 
         let swapchain = self.swapchain.borrow().clone();
 
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         let (image_index, suboptimal, acquire_future) =
             match vulkano::swapchain::acquire_next_image(swapchain.clone(), None)
                 .map_err(Validated::unwrap)
@@ -400,6 +401,7 @@ impl super::Surface for VulkanSurface {
             )
             .then_signal_fence_and_flush();
 
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         match future.map_err(Validated::unwrap) {
             Ok(future) => {
                 *self.previous_frame_end.borrow_mut() = Some(future.boxed());
@@ -418,6 +420,7 @@ impl super::Surface for VulkanSurface {
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         Ok(match self.swapchain.borrow().image_format() {
             vulkano::format::Format::B8G8R8A8_UNORM => 32,
             fmt @ _ => {
@@ -440,6 +443,7 @@ fn create_surface(
     window_handle: raw_window_handle::WindowHandle<'_>,
     display_handle: raw_window_handle::DisplayHandle<'_>,
 ) -> Result<Arc<Surface>, vulkano::Validated<vulkano::VulkanError>> {
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
     match (window_handle.as_raw(), display_handle.as_raw()) {
         #[cfg(target_vendor = "apple")]
         (raw_window_handle::RawWindowHandle::AppKit(handle), _) => unsafe {

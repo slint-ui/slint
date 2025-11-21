@@ -3,6 +3,8 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
+#![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
 #[cfg(any(target_vendor = "apple", skia_backend_vulkan))]
 use std::cell::OnceCell;
@@ -723,21 +725,18 @@ impl SkiaRenderer {
             if let Some(window_item_rc) = window_inner.window_item_rc() {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                match window_item.as_pin_ref().background() {
-                    Brush::SolidColor(clear_color) => {
-                        skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
-                    }
-                    _ => {
-                        // Draws the window background as gradient
-                        item_renderer.draw_rectangle(
-                            window_item.as_pin_ref(),
-                            &window_item_rc,
-                            i_slint_core::lengths::logical_size_from_api(
-                                window.size().to_logical(window_inner.scale_factor()),
-                            ),
-                            &window_item.as_pin_ref().cached_rendering_data,
-                        );
-                    }
+                if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
+                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                } else {
+                    // Draws the window background as gradient
+                    item_renderer.draw_rectangle(
+                        window_item.as_pin_ref(),
+                        &window_item_rc,
+                        i_slint_core::lengths::logical_size_from_api(
+                            window.size().to_logical(window_inner.scale_factor()),
+                        ),
+                        &window_item.as_pin_ref().cached_rendering_data,
+                    );
                 }
             }
 

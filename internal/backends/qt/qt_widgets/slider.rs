@@ -201,6 +201,7 @@ impl Item for NativeSlider {
             option.rect = { QPoint{}, size };
             return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, widget);
         });
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         let result = match event {
             _ if !enabled => {
                 data.pressed = 0;
