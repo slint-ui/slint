@@ -3,8 +3,8 @@
 
 #[derive(Clone, Debug, PartialEq)]
 /// Styles that can be applied to text spans
-#[allow(missing_docs)]
-pub enum Style {
+#[allow(missing_docs,dead_code)]
+pub(crate) enum Style {
     Emphasis,
     Strong,
     Strikethrough,
@@ -16,11 +16,11 @@ pub enum Style {
 
 #[derive(Clone, Debug, PartialEq)]
 /// A style and a text span
-pub struct FormattedSpan {
+pub(crate) struct FormattedSpan {
     /// Span of text to style
-    pub range: core::ops::Range<usize>,
+    pub(crate) range: core::ops::Range<usize>,
     /// The style to apply
-    pub style: Style,
+    pub(crate) style: Style,
 }
 
 #[cfg(feature = "std")]
@@ -32,13 +32,13 @@ enum ListItemType {
 
 /// A section of styled text, split up by a linebreak
 #[derive(Clone, Debug, PartialEq)]
-pub struct StyledTextParagraph {
+pub(crate) struct StyledTextParagraph {
     /// The raw paragraph text
-    pub text: alloc::string::String,
+    pub(crate) text: alloc::string::String,
     /// Formatting styles and spans
-    pub formatting: alloc::vec::Vec<FormattedSpan>,
+    pub(crate) formatting: alloc::vec::Vec<FormattedSpan>,
     /// Locations of clickable links within the paragraph
-    pub links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
+    pub(crate) links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
 }
 
 #[cfg(feature = "std")]
@@ -72,7 +72,7 @@ pub enum StyledTextError<'a> {
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
     /// Paragraphs of styled text
-    pub paragraphs: alloc::vec::Vec<StyledTextParagraph>,
+    pub(crate) paragraphs: alloc::vec::Vec<StyledTextParagraph>,
 }
 
 #[cfg(feature = "std")]
