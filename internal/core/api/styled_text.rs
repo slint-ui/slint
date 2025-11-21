@@ -3,7 +3,7 @@
 
 #[derive(Clone, Debug, PartialEq)]
 /// Styles that can be applied to text spans
-#[allow(missing_docs,dead_code)]
+#[allow(missing_docs, dead_code)]
 pub(crate) enum Style {
     Emphasis,
     Strong,
