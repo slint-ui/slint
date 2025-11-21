@@ -8,3 +8,17 @@ export interface HelloInterface {
 export interface DeprecatedInterface := {
 //                                   ^warning{':=' to declare an interface is deprecated. Remove the ':='}
 }
+
+export interface LineEditInterface {
+    in-out property <string> text;
+}
+
+export component LineEditBase implements LineEditInterface {
+    text <=> text-input.text;
+    color <=> text-input.color;
+//  ^error{Unknown property color in LineEditInterface}
+    text-input := TextInput { }
+}
+
+export component Foo implements Bar {}
+//                              ^error{Unknown element 'Bar'}
