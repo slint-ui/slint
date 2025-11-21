@@ -24,6 +24,7 @@ type IntArg = (i32,);
 #[pin]
 pub struct NativeSpinBox {
     pub enabled: Property<bool>,
+    pub read_only: Property<bool>,
     pub has_focus: Property<bool>,
     pub value: Property<i32>,
     pub minimum: Property<i32>,
@@ -38,14 +39,14 @@ pub struct NativeSpinBox {
 }
 
 cpp! {{
-void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled, int active_controls) {
+void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled, bool read_only, int active_controls) {
 auto style = qApp->style();
 option.activeSubControls = QStyle::SC_None;
 option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
 if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
     option.subControls |= QStyle::SC_SpinBoxFrame;
 option.activeSubControls = {active_controls};
-if (enabled) {
+if (enabled || !read_only) {
     option.state |= QStyle::State_Enabled;
 } else {
     option.palette.setCurrentColorGroup(QPalette::Disabled);
@@ -80,6 +81,7 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
         let enabled = self.enabled();
+        let read_only = self.read_only();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
@@ -87,13 +89,14 @@ impl Item for NativeSpinBox {
             active_controls as "int",
             pressed as "bool",
             enabled as "bool",
+            read_only as "bool",
             widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             auto style = qApp->style();
 
             QStyleOptionSpinBox option;
-            initQSpinBoxOptions(option, pressed, enabled, active_controls);
+            initQSpinBoxOptions(option, pressed, enabled, read_only, active_controls);
 
             QStyleOptionFrame frame;
             frame.state = option.state;
@@ -138,6 +141,7 @@ impl Item for NativeSpinBox {
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();
+        let read_only = self.read_only();
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -153,6 +157,7 @@ impl Item for NativeSpinBox {
             pos as "QPoint",
             size as "QSize",
             enabled as "bool",
+            read_only as "bool",
             active_controls as "int",
             pressed as "bool",
             widget as "QWidget*"
@@ -162,7 +167,7 @@ impl Item for NativeSpinBox {
 
             QStyleOptionSpinBox option;
             option.rect = { QPoint{}, size };
-            initQSpinBoxOptions(option, pressed, enabled, active_controls);
+            initQSpinBoxOptions(option, pressed, enabled, read_only, active_controls);
 
             return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, widget);
         });
@@ -206,22 +211,23 @@ impl Item for NativeSpinBox {
                 }
                 MouseEvent::Moved { .. } => false,
                 MouseEvent::Wheel { delta_y, .. } => {
-                    if *delta_y > 0. {
-                        let v = self.value();
-                        if v < self.maximum() {
-                            let new_val = v + step_size;
-                            self.value.set(new_val);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
-                        }
-                    } else if *delta_y < 0. {
-                        let v = self.value();
-                        if v > self.minimum() {
-                            let new_val = v - step_size;
-                            self.value.set(new_val);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                    if !self.read_only() {
+                        if *delta_y > 0. {
+                            let v = self.value();
+                            if v < self.maximum() {
+                                let new_val = v + step_size;
+                                self.value.set(new_val);
+                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                            }
+                        } else if *delta_y < 0. {
+                            let v = self.value();
+                            if v > self.minimum() {
+                                let new_val = v - step_size;
+                                self.value.set(new_val);
+                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                            }
                         }
                     }
-
                     true
                 }
                 MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
@@ -232,7 +238,7 @@ impl Item for NativeSpinBox {
         }
 
         if let MouseEvent::Pressed { .. } = event {
-            if !self.has_focus() {
+            if !self.has_focus() && !self.read_only() {
                 WindowInner::from_pub(window_adapter.window()).set_focus_item(
                     self_rc,
                     true,
@@ -258,7 +264,7 @@ impl Item for NativeSpinBox {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
-        if !self.enabled() || event.event_type != KeyEventType::KeyPressed {
+        if !self.enabled() || self.read_only() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
         if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
@@ -306,6 +312,7 @@ impl Item for NativeSpinBox {
         let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let read_only = this.read_only();
 
         let horizontal_alignment = match this.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -318,6 +325,7 @@ impl Item for NativeSpinBox {
             widget as "QWidget*",
             value as "int",
             enabled as "bool",
+            read_only as "bool",
             has_focus as "bool",
             size as "QSize",
             active_controls as "int",
@@ -333,8 +341,11 @@ impl Item for NativeSpinBox {
             if (enabled && has_focus) {
                 option.state |= QStyle::State_HasFocus;
             }
+            if (read_only) {
+                option.state |= QStyle::State_ReadOnly;
+            }
             option.rect = QRect(QPoint(), size / dpr);
-            initQSpinBoxOptions(option, pressed, enabled, active_controls);
+            initQSpinBoxOptions(option, pressed, enabled, read_only, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, painter->get(), widget);
 
             static_cast<QAbstractSpinBox*>(widget)->setAlignment(Qt::AlignRight);
