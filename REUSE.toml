@@ -283,3 +283,9 @@ path = ["ui-libraries/material/src/ui/icons/**.svg", "ui-libraries/material/exam
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["docs/astro/src/assets/android/**.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "CC-BY-4.0"

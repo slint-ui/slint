@@ -1,0 +1,177 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: General Mobile Development
+description: Mobile development guide
+---
+
+import { Code } from '@astrojs/starlight/components';
+import Link from '@slint/common-files/src/components/Link.astro';
+import { Image } from 'astro:assets';
+
+:::note[Note]
+When developing Slint applications for Android or iOS, you can only use Rust as the programming language for now.
+:::
+
+While Slint is used in the same way for mobile and desktop applications, there are a few things that have to be kept in
+mind during development. Mobile platforms usually feature a small screen and no hardware keyboard, which have direct
+consequences that can't be handled by the user interface framework, but are specific to the application. Touch
+interfaces also need special handling as opposed to mouse-based interaction.
+
+This page describes considerations that apply to all mobile platforms. The next pages dive into platform-specific
+issues on top of these.
+
+## Scrolling
+
+By default, Slint <Link type="ScrollView"/>s only scroll by dragging the scrollbar or the mouse wheel. This is fine for desktop, but
+touch interfaces are expected to scroll while panning the whole view.
+
+Enable it in Slint like this:
+
+```slint
+import { ScrollView } from "std-widgets.slint";
+export component MyComponent {
+    ScrollView {
+        mouse-drag-pan-enabled: true;
+
+        // Your own elements here
+    }
+}
+```
+
+Note that this also enables the behavior when a mouse is attached, which might not be desired. This will be fixed in
+a future version of Slint.
+
+## Safe Area
+
+Operating system developers for mobile devices try to improve the limitations of the small screen by reducing the amount
+of system-level overlays to a bare minimum. This means that applications usually have access to the entire screen, but
+there are a few system items overlaid, for example the cell tower reception and battery status. On Android, this also
+includes navigation buttons. Also, many cellphone devices embed the front-facing camera into the display, leaving only a
+small non-rectangular area inaccessible ("the notch").
+
+Apps can usually draw onto the entire screen and underneath certain overlay areas, but user interaction is not allowed
+everywhere. For example, buttons drawn underneath the front-facing camera area can't be tapped. Therefore, Android and
+iOS describe what's called a "safe area": A rectangular region where an application can expect users to be able to
+interact with interface elements. It is defined by an inset, meaning that it defines the thickness of an invisible
+border inside the application's window which should only contain background elements (like background images, patterns,
+color). This safe area can also change in size at runtime, for example on Android when the navigation buttons at the
+bottom are shown and hidden.
+
+In Slint, this area is exposed with four properties on the <Link type="Window"/> element:
+
+* <Link type="Window.safe-area-inset-top"/>
+* <Link type="Window.safe-area-inset-bottom"/>
+* <Link type="Window.safe-area-inset-left"/>
+* <Link type="Window.safe-area-inset-right"/>
+
+If you want to place a rectangle to visualize the safe area, for example for debugging, you can do it like this:
+
+```slint
+export component MainWindow inherits Window {
+    Rectangle {
+        background: yellow;
+        x: root.safe-area-inset-left;
+        y: root.safe-area-inset-top;
+        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
+        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+    }
+}
+```
+
+## Keyboard Handling
+
+Since the introduction of the iPhone, modern smartphones usually don't feature a hardware keyboard for text input. There are
+accessories like Bluetooth or USB keyboards and special phone cases that do provide such a feature, but there always has to
+be a software fallback, the "virtual keyboard".
+
+Note that the keyboard is not always comprised of rows of buttons, it can also be a handwriting recognition area, voice
+input, or a camera viewer for capturing text or bar codes that are then inserted. All of these are handled transparently
+though, so the application doesn't have to care about that, unless the application provides a virtual keyboard itself.
+
+The virtual keyboard is placed on top of the application that requires text input, reducing the already limited screen
+space even further. While there are split keyboards, floating keyboards, and more, operating systems always treat the
+virtual keyboard as a single rectangle overlaying the application window.
+
+The way Slint exposes this is by these four properties defining a rectangle on the <Link type="Window"/> element:
+
+* <Link type="Window.virtual-keyboard-x"/>
+* <Link type="Window.virtual-keyboard-y"/>
+* <Link type="Window.virtual-keyboard-width"/>
+* <Link type="Window.virtual-keyboard-height"/>
+
+Slint calls on the operating system to open and hide the virtual keyboard transparently when focusing a text input element.
+The operating system decides whether to actually show it, which depends on system settings and whether a hardware keyboard
+is detected. This might also change at runtime, for example if the user attaches a hardware keyboard while the virtual
+keyboard is visible (in this case, the operating system might hide the virtual keyboard by itself). In any case, if there
+is a non-floating virtual keyboard visible, Slint exposes this to the application.
+
+You can detect if the keyboard is shown by checking whether `virtual-keyboard-width * virtual-keyboard-height` is
+greater than 0.
+
+Some virtual keyboards are translucent, which means that the area below the keyboard can be visible to some extend. So,
+the application can display basic visual elements like a solid color there to let the keyboard appear to be integrated
+into the visual style.
+
+Usually, applications don't have to use these properties, due to the behavior explained in the next section.
+
+:::note[Note]
+The way the virtual keyboard overlay is defined differs between Android and iOS. Android defines an inset of the
+window (just like the safe area definition above) while iOS supplies a rectangle. Slint unifies this to behave the same
+on both platforms, but since these are not mathematically equivalent, there might be certain edge cases with custom
+virtual keyboards that might not be handled correctly. It is expected that most keyboards just take up a section of
+the bottom of the screen.
+:::
+
+### Keeping the Editing Area Visible
+
+A common issue is that the text field the user wants to edit ends up below the virtual keyboard, making it invisible.
+Slint can automatically handle this by scrolling, but the application has to be structured in a certain way for this to
+work.
+
+When the keyboard is shown, the element currently in focus tries to stay visible. It does that by searching for a
+scrollable area (<Link type="Flickable"/>) in its parent element chain (up to the window). If it finds one, that area is
+instructed to scroll in a way that it doesn't overlap the keyboard with the minimal offset possible. The bounds check
+of the scroll area is reduced by the overlap with the keyboard, which means that the area can be scrolled further than
+normal. This overscroll is automatically fixed when the keyboard is hidden again.
+
+So to summarize, if you want to keep a text field in view while the virtual keyboard is shown, put it inside a scroll
+area like this:
+
+```slint
+import { LineEdit, ScrollView } from "std-widgets.slint";
+export component MyView {
+    ScrollView {
+        mouse-drag-pan-enabled: true;
+
+        VerticalLayout {
+            label := Text {
+                text: "Text input";
+                horizontal-alignment: left;
+                overflow: elide;
+            }
+
+            LineEdit {
+                placeholder-text: "Write your text";
+                accessible-label: label.text;
+            }
+        }
+    }
+}
+```
+
+As you can see, the <Link type="ScrollView"/> doesn't need to be the direct parent of the <Link type="LineEdit"/>.
+Note that having multiple nested `ScrollView`s is not supported.
+
+## Application Layout Considerations
+
+While stylus and mouse input can be pixel-accurate, touch input is not, especially with capacitive touch screens. So,
+touch-ready applications have to take care to make interactive areas as large as possible and there has to be
+enough spacing between touch areas. Also, certain parts of the screen are more easily accessible with the thumb of
+the hand that holds the device than others.
+
+Slint is not able to provide any help with this aspect, so you as the application developers have to keep this in
+mind, especially while developing using a device simulator or in a UI design application like Figma.
+
+We highly recommend reading Apple's
+[Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) and Google's
+[Design for Android](https://developer.android.com/design/ui) page.
