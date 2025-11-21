@@ -438,10 +438,10 @@ impl Component {
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
-                if node.child_text(SyntaxKind::Identifier).is_some_and(|t| t == "global") {
-                    ElementType::Global
-                } else {
-                    ElementType::Error
+                match node.child_text(SyntaxKind::Identifier) {
+                    Some(t) if t == "global" => ElementType::Global,
+                    Some(t) if t == "interface" => ElementType::Interface,
+                    _ => ElementType::Error,
                 },
                 &mut child_insertion_point,
                 is_legacy_syntax,
@@ -1027,10 +1027,15 @@ impl Element {
                     ElementType::Error
                 }
             }
-        } else if parent_type == ElementType::Global {
-            // This must be a global component it can only have properties and callback
+        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
+            // This must be a global component or interface. It can only have properties and callbacks
             let mut error_on = |node: &dyn Spanned, what: &str| {
-                diag.push_error(format!("A global component cannot have {what}"), node);
+                let element_type = match parent_type {
+                    ElementType::Global => "A global component",
+                    ElementType::Interface => "An interface",
+                    _ => "An unexpected type",
+                };
+                diag.push_error(format!("{element_type} cannot have {what}"), node);
             };
             node.SubElement().for_each(|n| error_on(&n, "sub elements"));
             node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
@@ -1051,7 +1056,7 @@ impl Element {
                 }
             });
 
-            ElementType::Global
+            parent_type
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
             assert!(diag.has_errors());
