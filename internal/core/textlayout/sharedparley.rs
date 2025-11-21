@@ -13,6 +13,7 @@ use std::cell::RefCell;
 use crate::{
     Color, SharedString,
     graphics::FontRequest,
+    item_rendering::PlainOrStyledText,
     items::TextStrokeStyle,
     lengths::{
         LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
@@ -225,9 +226,11 @@ impl LayoutWithoutLineBreaksBuilder {
         &self,
         text: &str,
         selection: Option<(Range<usize>, Color)>,
-        formatting: impl IntoIterator<Item = FormattedSpan>,
+        formatting: impl IntoIterator<Item = crate::api::FormattedSpan>,
         link_color: Option<Color>,
     ) -> parley::Layout<Brush> {
+        use crate::api::Style;
+
         CONTEXTS.with_borrow_mut(|contexts| {
             let mut builder = self.ranged_builder(contexts.as_mut(), text);
 
@@ -303,22 +306,16 @@ impl LayoutWithoutLineBreaksBuilder {
     }
 }
 
-enum Text<'a> {
-    PlainText(&'a str),
-    #[cfg(feature = "experimental-rich-text")]
-    RichText(RichText<'a>),
-}
-
 fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
-    text: Text,
+    text: PlainOrStyledText,
     selection: Option<(Range<usize>, Color)>,
     link_color: Color,
 ) -> Vec<TextParagraph> {
     let paragraph_from_text =
         |text: &str,
          range: std::ops::Range<usize>,
-         formatting: Vec<FormattedSpan>,
+         formatting: Vec<crate::api::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>| {
             let selection = selection.clone().and_then(|(selection, selection_color)| {
                 let sel_start = selection.start.max(range.start);
@@ -341,7 +338,7 @@ fn create_text_paragraphs(
     let mut paragraphs = Vec::with_capacity(1);
 
     match text {
-        Text::PlainText(text) => {
+        PlainOrStyledText::Plain(ref text) => {
             let paragraph_ranges = core::iter::from_fn({
                 let mut start = 0;
                 let mut char_it = text.char_indices().peekable();
@@ -372,18 +369,16 @@ fn create_text_paragraphs(
                 ));
             }
         }
-        #[cfg(feature = "experimental-rich-text")]
-        Text::RichText(rich_text) => {
+        #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+        PlainOrStyledText::Styled(rich_text) =>
+        {
+            #[cfg(feature = "experimental-rich-text")]
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
                     &paragraph.text,
                     0..0,
                     paragraph.formatting,
-                    paragraph
-                        .links
-                        .into_iter()
-                        .map(|(range, link)| (range, link.into_string()))
-                        .collect(),
+                    paragraph.links,
                 ));
             }
         }
@@ -838,513 +833,6 @@ impl Layout {
     }
 }
 
-#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
-#[derive(Debug, PartialEq)]
-enum Style {
-    Emphasis,
-    Strong,
-    Strikethrough,
-    Code,
-    Link,
-    Underline,
-    Color(Color),
-}
-
-#[derive(Debug, PartialEq)]
-struct FormattedSpan {
-    range: Range<usize>,
-    style: Style,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug)]
-enum ListItemType {
-    Ordered(u64),
-    Unordered,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug, PartialEq)]
-struct RichTextParagraph<'a> {
-    text: std::string::String,
-    formatting: Vec<FormattedSpan>,
-    #[cfg(feature = "experimental-rich-text")]
-    links: std::vec::Vec<(Range<usize>, pulldown_cmark::CowStr<'a>)>,
-    #[cfg(not(feature = "experimental-rich-text"))]
-    _phantom: std::marker::PhantomData<&'a ()>,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug, Default)]
-struct RichText<'a> {
-    paragraphs: Vec<RichTextParagraph<'a>>,
-}
-
-#[cfg(feature = "experimental-rich-text")]
-impl<'a> RichText<'a> {
-    fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
-        let mut text = std::string::String::with_capacity(indentation as usize * 4);
-        for _ in 0..indentation {
-            text.push_str("    ");
-        }
-        match list_item_type {
-            Some(ListItemType::Unordered) => {
-                if indentation % 3 == 0 {
-                    text.push_str("• ")
-                } else if indentation % 3 == 1 {
-                    text.push_str("◦ ")
-                } else {
-                    text.push_str("▪ ")
-                }
-            }
-            Some(ListItemType::Ordered(num)) => text.push_str(&std::format!("{}. ", num)),
-            None => {}
-        };
-        self.paragraphs.push(RichTextParagraph {
-            text,
-            formatting: Default::default(),
-            links: Default::default(),
-        });
-    }
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[derive(Debug, thiserror::Error)]
-enum RichTextError<'a> {
-    #[error("Spans are unbalanced: stack already empty when popped")]
-    Pop,
-    #[error("Spans are unbalanced: stack contained items at end of function")]
-    NotEmpty,
-    #[error("Paragraph not started")]
-    ParagraphNotStarted,
-    #[error("Unimplemented: {:?}", .0)]
-    UnimplementedTag(pulldown_cmark::Tag<'a>),
-    #[error("Unimplemented: {:?}", .0)]
-    UnimplementedEvent(pulldown_cmark::Event<'a>),
-    #[error("Unimplemented: {}", .0)]
-    UnimplementedHtmlEvent(std::string::String),
-    #[error("Unimplemented html tag: {}", .0)]
-    UnimplementedHtmlTag(std::string::String),
-    #[error("Unexpected {} attribute in html {}", .0, .1)]
-    UnexpectedAttribute(std::string::String, std::string::String),
-    #[error("Missing color attribute in html {}", .0)]
-    MissingColor(std::string::String),
-    #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
-    ClosingTagMismatch(&'a str, std::string::String),
-}
-
-#[cfg(feature = "experimental-rich-text")]
-fn parse_markdown(string: &str) -> Result<RichText<'_>, RichTextError<'_>> {
-    let parser =
-        pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
-
-    let mut rich_text = RichText::default();
-    let mut list_state_stack: std::vec::Vec<Option<u64>> = std::vec::Vec::new();
-    let mut style_stack = std::vec::Vec::new();
-    let mut current_url = None;
-
-    for event in parser {
-        let indentation = list_state_stack.len().saturating_sub(1) as _;
-
-        match event {
-            pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                rich_text.begin_paragraph(indentation, None);
-            }
-            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
-                if list_state_stack.pop().is_none() {
-                    return Err(RichTextError::Pop);
-                }
-            }
-            pulldown_cmark::Event::End(
-                pulldown_cmark::TagEnd::Paragraph | pulldown_cmark::TagEnd::Item,
-            ) => {}
-            pulldown_cmark::Event::Start(tag) => {
-                let style = match tag {
-                    pulldown_cmark::Tag::Paragraph => {
-                        rich_text.begin_paragraph(indentation, None);
-                        continue;
-                    }
-                    pulldown_cmark::Tag::Item => {
-                        rich_text.begin_paragraph(
-                            indentation,
-                            Some(match list_state_stack.last().copied() {
-                                Some(Some(index)) => ListItemType::Ordered(index),
-                                _ => ListItemType::Unordered,
-                            }),
-                        );
-                        if let Some(state) = list_state_stack.last_mut() {
-                            *state = state.map(|state| state + 1);
-                        }
-                        continue;
-                    }
-                    pulldown_cmark::Tag::List(index) => {
-                        list_state_stack.push(index);
-                        continue;
-                    }
-                    pulldown_cmark::Tag::Strong => Style::Strong,
-                    pulldown_cmark::Tag::Emphasis => Style::Emphasis,
-                    pulldown_cmark::Tag::Strikethrough => Style::Strikethrough,
-                    pulldown_cmark::Tag::Link { dest_url, .. } => {
-                        current_url = Some(dest_url);
-                        Style::Link
-                    }
-
-                    pulldown_cmark::Tag::Heading { .. }
-                    | pulldown_cmark::Tag::Image { .. }
-                    | pulldown_cmark::Tag::DefinitionList
-                    | pulldown_cmark::Tag::DefinitionListTitle
-                    | pulldown_cmark::Tag::DefinitionListDefinition
-                    | pulldown_cmark::Tag::TableHead
-                    | pulldown_cmark::Tag::TableRow
-                    | pulldown_cmark::Tag::TableCell
-                    | pulldown_cmark::Tag::HtmlBlock
-                    | pulldown_cmark::Tag::Superscript
-                    | pulldown_cmark::Tag::Subscript
-                    | pulldown_cmark::Tag::Table(_)
-                    | pulldown_cmark::Tag::MetadataBlock(_)
-                    | pulldown_cmark::Tag::BlockQuote(_)
-                    | pulldown_cmark::Tag::CodeBlock(_)
-                    | pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                        return Err(RichTextError::UnimplementedTag(tag));
-                    }
-                };
-
-                style_stack.push((
-                    style,
-                    rich_text
-                        .paragraphs
-                        .last()
-                        .ok_or(RichTextError::ParagraphNotStarted)?
-                        .text
-                        .len(),
-                ));
-            }
-            pulldown_cmark::Event::Text(text) => {
-                rich_text
-                    .paragraphs
-                    .last_mut()
-                    .ok_or(RichTextError::ParagraphNotStarted)?
-                    .text
-                    .push_str(&text);
-            }
-            pulldown_cmark::Event::End(_) => {
-                let (style, start) = if let Some(value) = style_stack.pop() {
-                    value
-                } else {
-                    return Err(RichTextError::Pop);
-                };
-
-                let paragraph =
-                    rich_text.paragraphs.last_mut().ok_or(RichTextError::ParagraphNotStarted)?;
-                let end = paragraph.text.len();
-
-                if let Some(url) = current_url.take() {
-                    paragraph.links.push((start..end, url));
-                }
-
-                paragraph.formatting.push(FormattedSpan { range: start..end, style });
-            }
-            pulldown_cmark::Event::Code(text) => {
-                let paragraph =
-                    rich_text.paragraphs.last_mut().ok_or(RichTextError::ParagraphNotStarted)?;
-                let start = paragraph.text.len();
-                paragraph.text.push_str(&text);
-                paragraph
-                    .formatting
-                    .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
-            }
-            pulldown_cmark::Event::InlineHtml(html) => {
-                if html.starts_with("</") {
-                    let (style, start) = if let Some(value) = style_stack.pop() {
-                        value
-                    } else {
-                        return Err(RichTextError::Pop);
-                    };
-
-                    let expected_tag = match &style {
-                        Style::Color(_) => "</font>",
-                        Style::Underline => "</u>",
-                        other => std::unreachable!(
-                            "Got unexpected closing style {:?} with html {}. This error should have been caught earlier.",
-                            other,
-                            html
-                        ),
-                    };
-
-                    if (&*html) != expected_tag {
-                        return Err(RichTextError::ClosingTagMismatch(
-                            expected_tag,
-                            (&*html).into(),
-                        ));
-                    }
-
-                    let paragraph = rich_text
-                        .paragraphs
-                        .last_mut()
-                        .ok_or(RichTextError::ParagraphNotStarted)?;
-                    let end = paragraph.text.len();
-                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
-                } else {
-                    let mut expecting_color_attribute = false;
-
-                    for token in htmlparser::Tokenizer::from(&*html) {
-                        match token {
-                            Ok(htmlparser::Token::ElementStart { local: tag_type, .. }) => {
-                                match &*tag_type {
-                                    "u" => {
-                                        style_stack.push((
-                                            Style::Underline,
-                                            rich_text
-                                                .paragraphs
-                                                .last()
-                                                .ok_or(RichTextError::ParagraphNotStarted)?
-                                                .text
-                                                .len(),
-                                        ));
-                                    }
-                                    "font" => {
-                                        expecting_color_attribute = true;
-                                    }
-                                    _ => {
-                                        return Err(RichTextError::UnimplementedHtmlTag(
-                                            (&*tag_type).into(),
-                                        ));
-                                    }
-                                }
-                            }
-                            Ok(htmlparser::Token::Attribute {
-                                local: key,
-                                value: Some(value),
-                                ..
-                            }) => match &*key {
-                                "color" => {
-                                    if !expecting_color_attribute {
-                                        return Err(RichTextError::UnexpectedAttribute(
-                                            (&*key).into(),
-                                            (&*html).into(),
-                                        ));
-                                    }
-                                    expecting_color_attribute = false;
-
-                                    let value =
-                                        i_slint_common::color_parsing::parse_color_literal(&*value)
-                                            .or_else(|| {
-                                                i_slint_common::color_parsing::named_colors()
-                                                    .get(&*value)
-                                                    .copied()
-                                            })
-                                            .expect("invalid color value");
-
-                                    style_stack.push((
-                                        Style::Color(Color::from_argb_encoded(value)),
-                                        rich_text
-                                            .paragraphs
-                                            .last()
-                                            .ok_or(RichTextError::ParagraphNotStarted)?
-                                            .text
-                                            .len(),
-                                    ));
-                                }
-                                _ => {
-                                    return Err(RichTextError::UnexpectedAttribute(
-                                        (&*key).into(),
-                                        (&*html).into(),
-                                    ));
-                                }
-                            },
-                            Ok(htmlparser::Token::ElementEnd { .. }) => {}
-                            _ => {
-                                return Err(RichTextError::UnimplementedHtmlEvent(std::format!(
-                                    "{:?}", token
-                                )));
-                            }
-                        }
-                    }
-
-                    if expecting_color_attribute {
-                        return Err(RichTextError::MissingColor((&*html).into()));
-                    }
-                }
-            }
-            pulldown_cmark::Event::Rule
-            | pulldown_cmark::Event::TaskListMarker(_)
-            | pulldown_cmark::Event::FootnoteReference(_)
-            | pulldown_cmark::Event::InlineMath(_)
-            | pulldown_cmark::Event::DisplayMath(_)
-            | pulldown_cmark::Event::Html(_) => {
-                return Err(RichTextError::UnimplementedEvent(event));
-            }
-        }
-    }
-
-    if !style_stack.is_empty() {
-        return Err(RichTextError::NotEmpty);
-    }
-
-    Ok(rich_text)
-}
-
-#[cfg(feature = "experimental-rich-text")]
-#[test]
-fn markdown_parsing() {
-    assert_eq!(
-        parse_markdown("hello *world*").unwrap().paragraphs,
-        [RichTextParagraph {
-            text: "hello world".into(),
-            formatting: std::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
-            links: std::vec![]
-        }]
-    );
-
-    assert_eq!(
-        parse_markdown(
-            "
-- line 1
-- line 2
-            "
-        )
-        .unwrap()
-        .paragraphs,
-        [
-            RichTextParagraph {
-                text: "• line 1".into(),
-                formatting: std::vec![],
-                links: std::vec![]
-            },
-            RichTextParagraph {
-                text: "• line 2".into(),
-                formatting: std::vec![],
-                links: std::vec![]
-            }
-        ]
-    );
-
-    assert_eq!(
-        parse_markdown(
-            "
-1. a
-2. b
-4. c
-        "
-        )
-        .unwrap()
-        .paragraphs,
-        [
-            RichTextParagraph { text: "1. a".into(), formatting: std::vec![], links: std::vec![] },
-            RichTextParagraph { text: "2. b".into(), formatting: std::vec![], links: std::vec![] },
-            RichTextParagraph { text: "3. c".into(), formatting: std::vec![], links: std::vec![] }
-        ]
-    );
-
-    assert_eq!(
-        parse_markdown(
-            "
-Normal _italic_ **strong** ~~strikethrough~~ `code`
-new *line*
-"
-        )
-        .unwrap()
-        .paragraphs,
-        [
-            RichTextParagraph {
-                text: "Normal italic strong strikethrough code".into(),
-                formatting: std::vec![
-                    FormattedSpan { range: 7..13, style: Style::Emphasis },
-                    FormattedSpan { range: 14..20, style: Style::Strong },
-                    FormattedSpan { range: 21..34, style: Style::Strikethrough },
-                    FormattedSpan { range: 35..39, style: Style::Code }
-                ],
-                links: std::vec![]
-            },
-            RichTextParagraph {
-                text: "new line".into(),
-                formatting: std::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
-                links: std::vec![]
-            }
-        ]
-    );
-
-    assert_eq!(
-        parse_markdown(
-            "
-- root
-  - child
-    - grandchild
-      - great grandchild
-"
-        )
-        .unwrap()
-        .paragraphs,
-        [
-            RichTextParagraph {
-                text: "• root".into(),
-                formatting: std::vec![],
-                links: std::vec![]
-            },
-            RichTextParagraph {
-                text: "    ◦ child".into(),
-                formatting: std::vec![],
-                links: std::vec![]
-            },
-            RichTextParagraph {
-                text: "        ▪ grandchild".into(),
-                formatting: std::vec![],
-                links: std::vec![]
-            },
-            RichTextParagraph {
-                text: "            • great grandchild".into(),
-                formatting: std::vec![],
-                links: std::vec![]
-            },
-        ]
-    );
-
-    assert_eq!(
-        parse_markdown("hello [*world*](https://example.com)").unwrap().paragraphs,
-        [RichTextParagraph {
-            text: "hello world".into(),
-            formatting: std::vec![
-                FormattedSpan { range: 6..11, style: Style::Emphasis },
-                FormattedSpan { range: 6..11, style: Style::Link }
-            ],
-            links: std::vec![(6..11, pulldown_cmark::CowStr::Borrowed("https://example.com"))]
-        }]
-    );
-
-    assert_eq!(
-        parse_markdown("<u>hello world</u>").unwrap().paragraphs,
-        [RichTextParagraph {
-            text: "hello world".into(),
-            formatting: std::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
-            links: std::vec![]
-        }]
-    );
-
-    assert_eq!(
-        parse_markdown(r#"<font color="blue">hello world</font>"#).unwrap().paragraphs,
-        [RichTextParagraph {
-            text: "hello world".into(),
-            formatting: std::vec![FormattedSpan {
-                range: 0..11,
-                style: Style::Color(Color::from_rgb_u8(0, 0, 255))
-            },],
-            links: std::vec![]
-        }]
-    );
-
-    assert_eq!(
-        parse_markdown(r#"<u><font color="red">hello world</font></u>"#).unwrap().paragraphs,
-        [RichTextParagraph {
-            text: "hello world".into(),
-            formatting: std::vec![
-                FormattedSpan { range: 0..11, style: Style::Color(Color::from_rgb_u8(255, 0, 0)) },
-                FormattedSpan { range: 0..11, style: Style::Underline },
-            ],
-            links: std::vec![]
-        }]
-    );
-}
-
 pub fn draw_text(
     item_renderer: &mut impl GlyphRenderer,
     text: Pin<&dyn crate::item_rendering::RenderText>,
@@ -1390,26 +878,8 @@ pub fn draw_text(
         scale_factor,
     );
 
-    let str = text.text();
-
-    #[cfg(feature = "experimental-rich-text")]
-    let layout_text = if text.is_markdown() {
-        Text::RichText(match parse_markdown(&str) {
-            Ok(rich_text) => rich_text,
-            Err(error) => {
-                crate::debug_log!("{}", error);
-                return;
-            }
-        })
-    } else {
-        Text::PlainText(&str)
-    };
-
-    #[cfg(not(feature = "experimental-rich-text"))]
-    let layout_text = Text::PlainText(&str);
-
     let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+        create_text_paragraphs(&layout_builder, text.text(), None, Default::default());
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
@@ -1470,14 +940,7 @@ pub fn link_under_cursor(
         scale_factor,
     );
 
-    let str = text.text();
-    let layout_text = Text::RichText(match parse_markdown(&str) {
-        Ok(rich_text) => rich_text,
-        Err(error) => {
-            crate::debug_log!("{}", error);
-            return None;
-        }
-    });
+    let layout_text = text.text();
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
@@ -1574,7 +1037,7 @@ pub fn draw_text_input(
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
-        Text::PlainText(&text),
+        PlainOrStyledText::Plain(text),
         selection_and_color,
         Color::default(),
     );
@@ -1641,12 +1104,8 @@ pub fn text_size(
 
     let text = text_item.text();
 
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        Text::PlainText(text.as_str()),
-        None,
-        Color::default(),
-    );
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, text, None, Color::default());
 
     let layout = layout(
         &layout_builder,
@@ -1742,8 +1201,12 @@ pub fn text_input_byte_offset_for_position(
     );
 
     let text = text_input.text();
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        PlainOrStyledText::Plain(text),
+        None,
+        Color::default(),
+    );
 
     let layout = layout(
         &layout_builder,
@@ -1783,8 +1246,12 @@ pub fn text_input_cursor_rect_for_byte_offset(
     }
 
     let text = text_input.text();
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, Text::PlainText(&text), None, Color::default());
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        PlainOrStyledText::Plain(text),
+        None,
+        Color::default(),
+    );
 
     let layout = layout(
         &layout_builder,

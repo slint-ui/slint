@@ -986,7 +986,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<ImageItem>(),
             rtti_for::<ClippedImage>(),
             rtti_for::<ComplexText>(),
-            rtti_for::<MarkdownText>(),
+            rtti_for::<StyledTextItem>(),
             rtti_for::<SimpleText>(),
             rtti_for::<Rectangle>(),
             rtti_for::<BasicBorderRectangle>(),

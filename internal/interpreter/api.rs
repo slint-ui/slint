@@ -19,7 +19,6 @@ use std::rc::Rc;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
-
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_backend_selector::api::*;
 #[cfg(feature = "std")]
