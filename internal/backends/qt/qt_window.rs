@@ -4,7 +4,7 @@
 // cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz
 
 use cpp::*;
-use i_slint_common::sharedfontique;
+use i_slint_common::sharedfontique::{self, HashedBlob};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -1163,7 +1163,7 @@ impl QRawFont {
 
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
-    fonts: HashMap<(u64, u32), Option<QRawFont>>,
+    fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
 }
 
 impl Default for FontCache {
@@ -1175,7 +1175,7 @@ impl Default for FontCache {
 impl FontCache {
     pub fn font(&mut self, font: &parley::FontData) -> Option<QRawFont> {
         self.fonts
-            .entry((font.data.id(), font.index))
+            .entry((font.data.clone().into(), font.index))
             .or_insert_with(move || {
                 let mut raw_font = QRawFont::default();
                 raw_font.load_from_data(font.data.as_ref(), 12.0);
