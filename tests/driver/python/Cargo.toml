@@ -18,6 +18,7 @@ path = "main.rs"
 name = "test-driver-python"
 
 [dependencies]
+spin_on = { workspace = true }
 tempfile = "3"
 
 [dev-dependencies]
