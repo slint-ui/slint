@@ -41,34 +41,44 @@ pub(crate) struct StyledTextParagraph {
     pub(crate) links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
 }
 
+/// Error type returned by `StyledText::parse`
 #[cfg(feature = "std")]
 #[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
 #[non_exhaustive]
 pub enum StyledTextError<'a> {
+    /// Spans are unbalanced: stack already empty when popped
     #[error("Spans are unbalanced: stack already empty when popped")]
     Pop,
+    /// Spans are unbalanced: stack contained items at end of function
     #[error("Spans are unbalanced: stack contained items at end of function")]
     NotEmpty,
+    /// Paragraph not started
     #[error("Paragraph not started")]
     ParagraphNotStarted,
+    /// Unimplemented markdown tag
     #[error("Unimplemented: {:?}", .0)]
     UnimplementedTag(pulldown_cmark::Tag<'a>),
+    /// Unimplemented markdown event
     #[error("Unimplemented: {:?}", .0)]
     UnimplementedEvent(pulldown_cmark::Event<'a>),
+    /// Unimplemented html event
     #[error("Unimplemented: {}", .0)]
     UnimplementedHtmlEvent(alloc::string::String),
+    /// Unimplemented html tag
     #[error("Unimplemented html tag: {}", .0)]
     UnimplementedHtmlTag(alloc::string::String),
+    /// Unimplemented html attribute
     #[error("Unexpected {} attribute in html {}", .0, .1)]
     UnexpectedAttribute(alloc::string::String, alloc::string::String),
+    /// Missing color attribute in html
     #[error("Missing color attribute in html {}", .0)]
     MissingColor(alloc::string::String),
+    /// Closing html tag doesn't match the opening tag
     #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
     ClosingTagMismatch(&'a str, alloc::string::String),
 }
 
-/// Internal styled text type
+/// Styled text that has been parsed and seperated into paragraphs
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
     /// Paragraphs of styled text
