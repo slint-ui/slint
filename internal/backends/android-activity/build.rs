@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use android_build::{Dexer, JavaBuild};
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
     if !env::var("TARGET").unwrap().contains("android") {
         return;
     }

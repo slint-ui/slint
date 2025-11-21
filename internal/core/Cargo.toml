@@ -165,7 +165,7 @@ tempfile = { version = "3.12.0" }
 fontique = { workspace = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)"] }
 
 [lints.clippy]
 # Coord is an alias for f32 in most architectures, but not always, so the cast

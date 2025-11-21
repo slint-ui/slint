@@ -504,7 +504,7 @@ impl NodeCollection {
                                     i_slint_core::items::InputType::Decimal
                                     | i_slint_core::items::InputType::Number => Role::NumberInput,
                                     i_slint_core::items::InputType::Password => Role::PasswordInput,
-                                    _ => Role::TextInput,
+                                    i_slint_core::items::InputType::Text | _ => Role::TextInput,
                                 }
                             }
                         } else {

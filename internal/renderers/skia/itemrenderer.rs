@@ -272,7 +272,7 @@ impl<'a> SkiaItemRenderer<'a> {
             let filter_mode: skia_safe::sampling_options::SamplingOptions =
                 match item.rendering() {
                     ImageRendering::Pixelated => skia_safe::sampling_options::FilterMode::Nearest,
-                    ImageRendering::Smooth | _  => skia_safe::sampling_options::FilterMode::Linear,
+                    ImageRendering::Smooth | _ => skia_safe::sampling_options::FilterMode::Linear,
                 }
                 .into();
 
