@@ -158,3 +158,34 @@ impl DesignFontMetrics {
         }
     }
 }
+
+/// Wraper around fontique::Blob to permit use of the blob as a key in the cache in the different renderers,
+/// to map the blob to the native type face representation (skia_safe::Typeface, femtovg::FontId, QRawFont, etc.).
+/// The use as key also ensures the blob remains strongly referenced, so that it doesn't vanish from the
+/// shared SourceCache (parley prunes it).
+pub struct HashedBlob(fontique::Blob<u8>);
+impl core::hash::Hash for HashedBlob {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.0.id().hash(state);
+    }
+}
+
+impl PartialEq for HashedBlob {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.id() == other.0.id()
+    }
+}
+
+impl Eq for HashedBlob {}
+
+impl From<fontique::Blob<u8>> for HashedBlob {
+    fn from(value: fontique::Blob<u8>) -> Self {
+        Self(value)
+    }
+}
+
+impl AsRef<fontique::Blob<u8>> for HashedBlob {
+    fn as_ref(&self) -> &fontique::Blob<u8> {
+        &self.0
+    }
+}
