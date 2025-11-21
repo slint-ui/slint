@@ -258,6 +258,7 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::ComponentFactory => Expression::EmptyComponentFactory,
+            Type::StyledText => return None,
         })
     }
 

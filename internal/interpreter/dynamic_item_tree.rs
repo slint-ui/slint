@@ -14,7 +14,7 @@ use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
-use i_slint_core::api::LogicalPosition;
+use i_slint_core::api::{LogicalPosition, StyledText};
 use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::item_tree::{
     IndexRange, ItemRc, ItemTree, ItemTreeNode, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable,
@@ -1261,7 +1261,7 @@ pub(crate) fn generate_item_tree<'id>(
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
-
+            Type::StyledText => property_info::<StyledText>(),
             // These can't be used in properties
             Type::Invalid
             | Type::Void

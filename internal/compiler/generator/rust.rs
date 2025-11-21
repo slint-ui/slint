@@ -91,6 +91,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sp::Image)),
+        Type::StyledText => Some(quote!(sp::StyledText)),
         Type::Struct(s) => {
             struct_name_to_tokens(&s.name).or_else(|| {
                 let elem =

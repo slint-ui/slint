@@ -44,6 +44,10 @@ std = [
   "dep:sys-locale",
   "dep:webbrowser",
   "shared-fontique",
+  "dep:pulldown-cmark",
+  "dep:thiserror",
+  "dep:htmlparser",
+  "i-slint-common/color-parsing",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -68,7 +72,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental = []
 
-experimental-rich-text = ["dep:pulldown-cmark", "dep:htmlparser", "dep:thiserror", "i-slint-common/color-parsing"]
+experimental-rich-text = []
 
 unstable-wgpu-26 = ["dep:wgpu-26"]
 unstable-wgpu-27 = ["dep:wgpu-27"]

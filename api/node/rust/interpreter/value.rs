@@ -25,6 +25,7 @@ pub enum JsValueType {
     Struct,
     Brush,
     Image,
+    StyledText,
 }
 
 impl From<slint_interpreter::ValueType> for JsValueType {
@@ -37,6 +38,7 @@ impl From<slint_interpreter::ValueType> for JsValueType {
             slint_interpreter::ValueType::Struct => JsValueType::Struct,
             slint_interpreter::ValueType::Brush => JsValueType::Brush,
             slint_interpreter::ValueType::Image => JsValueType::Image,
+            slint_interpreter::ValueType::StyledText => JsValueType::StyledText,
             _ => JsValueType::Void,
         }
     }
@@ -290,7 +292,8 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         | Type::Easing
         | Type::PathData
         | Type::LayoutCache
-        | Type::ElementReference => Err(napi::Error::from_reason("reason")),
+        | Type::ElementReference
+        | Type::StyledText => Err(napi::Error::from_reason("reason")),
     }
 }
 
