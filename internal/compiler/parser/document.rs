@@ -100,6 +100,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// component C { property<int> xx; }
 /// component C inherits D { }
 /// interface I { property<int> xx; }
+/// component E implements I { }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
@@ -134,6 +135,8 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             drop(p.start_node(SyntaxKind::Element));
             return false;
         }
+    } else if p.peek().as_str() == "implements" {
+        p.consume();
     } else if p.peek().as_str() == "inherits" {
         p.consume();
     } else if p.peek().kind() == SyntaxKind::LBrace {
@@ -142,7 +145,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         parse_element_content(&mut *p);
         return p.expect(SyntaxKind::RBrace);
     } else {
-        p.error("Expected '{' or keyword 'inherits'");
+        p.error("Expected '{', keyword 'implements' or keyword 'inherits'");
         drop(p.start_node(SyntaxKind::Element));
         return false;
     }
