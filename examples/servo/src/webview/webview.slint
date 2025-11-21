@@ -11,6 +11,10 @@ export global WebviewLogic {
     callback pointer(event: PointerEvent, x: physical-length, y: physical-length);
     callback scroll(initital_x: physical-length, initital_y: physical-length, delta_x: length, delta_y: length);
 
+    callback back();
+    callback forward();
+    callback reload();
+
     in property <image> web_content;
     in-out property <string> current_url;
 
@@ -24,6 +28,18 @@ export global WebviewLogic {
 export component Webview {
 
     out property <string> current_url: WebviewLogic.current_url;
+
+    public function back() {
+        WebviewLogic.back();
+    }
+
+    public function forward() {
+        WebviewLogic.forward();
+    }
+
+    public function reload() {
+        WebviewLogic.reload();
+    }
 
     public function loadUrl(url: string) {
         WebviewLogic.loadUrl(url);

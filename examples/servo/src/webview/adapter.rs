@@ -12,26 +12,53 @@ use slint::ComponentHandle;
 #[cfg(not(target_os = "android"))]
 use slint::wgpu_27::wgpu;
 
-use crate::{MyApp, WebviewLogic, rendering_context::ServoRenderingAdapter};
+use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
 
-/// Upgrades a weak reference to SlintServoAdapter to a strong reference.
-/// Panics if the adapter has been dropped.
+/// Upgrades a weak reference to `SlintServoAdapter` to a strong reference.
+///
+/// # Arguments
+///
+/// * `weak_ref` - Weak reference to upgrade
+///
+/// # Panics
+///
+/// Panics if the adapter has been dropped (weak reference cannot be upgraded).
 pub fn upgrade_adapter(weak_ref: &Weak<SlintServoAdapter>) -> Rc<SlintServoAdapter> {
     weak_ref.upgrade().expect("Failed to upgrade SlintServoAdapter")
 }
 
 /// Bridge between Slint UI and Servo browser engine.
-/// Manages the lifecycle and communication between the UI and browser components.
+///
+/// `SlintServoAdapter` manages the lifecycle and communication between the Slint UI
+/// framework and the Servo browser engine. It holds references to both systems and
+/// facilitates bidirectional data flow.
+///
+/// # Responsibilities
+///
+/// - **State Management**: Holds Servo and WebView instances
+/// - **Event Communication**: Manages async channels for event loop waking
+/// - **Rendering Coordination**: Bridges Servo's framebuffer to Slint's display
+/// - **Resource Management**: Manages WGPU device and queue (non-Android)
+///
+/// # Thread Safety
+///
+/// This type uses `RefCell` for interior mutability and is designed to be used
+/// within a single-threaded context (Slint's main thread). Access is coordinated
+/// via `Rc` reference counting.
 pub struct SlintServoAdapter {
     /// Channel sender to wake the event loop
     waker_sender: Sender<()>,
     /// Channel receiver for event loop wake signals
     waker_receiver: Receiver<()>,
-    pub servo: RefCell<Option<Servo>>,
     inner: RefCell<SlintServoAdapterInner>,
 }
 
+/// Internal state for `SlintServoAdapter`.
+///
+/// Holds the WebView instance, rendering adapter, and platform-specific
+/// GPU resources. Wrapped in `RefCell` for interior mutability.
 pub struct SlintServoAdapterInner {
+    servo: Option<Servo>,
     webview: Option<WebView>,
     rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
     #[cfg(not(target_os = "android"))]
@@ -50,8 +77,8 @@ impl SlintServoAdapter {
         Self {
             waker_sender,
             waker_receiver,
-            servo: RefCell::new(None),
             inner: RefCell::new(SlintServoAdapterInner {
+                servo: None,
                 webview: None,
                 rendering_adapter: None,
                 #[cfg(not(target_os = "android"))]
@@ -88,6 +115,10 @@ impl SlintServoAdapter {
         self.inner().queue.clone()
     }
 
+    pub fn servo(&self) -> Ref<'_, Servo> {
+        Ref::map(self.inner(), |inner| inner.servo.as_ref().expect("Servo not initialized yet"))
+    }
+
     pub fn webview(&self) -> WebView {
         self.inner().webview.as_ref().expect("Webview not initialized yet").clone()
     }
@@ -98,8 +129,8 @@ impl SlintServoAdapter {
         webview: WebView,
         rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
     ) {
-        *self.servo.borrow_mut() = Some(servo);
         let mut inner = self.inner_mut();
+        inner.servo = Some(servo);
         inner.webview = Some(webview);
         inner.rendering_adapter = Some(rendering_adapter);
     }
