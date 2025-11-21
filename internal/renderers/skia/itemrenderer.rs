@@ -271,8 +271,8 @@ impl<'a> SkiaItemRenderer<'a> {
 
             let filter_mode: skia_safe::sampling_options::SamplingOptions =
                 match item.rendering() {
-                    ImageRendering::Smooth => skia_safe::sampling_options::FilterMode::Linear,
                     ImageRendering::Pixelated => skia_safe::sampling_options::FilterMode::Nearest,
+                    ImageRendering::Smooth | _  => skia_safe::sampling_options::FilterMode::Linear,
                 }
                 .into();
 
@@ -646,14 +646,14 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             border_paint.set_anti_alias(anti_alias);
             border_paint.set_stroke_width((path.stroke_width() * self.scale_factor).get());
             border_paint.set_stroke_cap(match path.stroke_line_cap() {
-                i_slint_core::items::LineCap::Butt => skia_safe::PaintCap::Butt,
                 i_slint_core::items::LineCap::Round => skia_safe::PaintCap::Round,
                 i_slint_core::items::LineCap::Square => skia_safe::PaintCap::Square,
+                i_slint_core::items::LineCap::Butt | _ => skia_safe::PaintCap::Butt,
             });
             border_paint.set_stroke_join(match path.stroke_line_join() {
-                i_slint_core::items::LineJoin::Miter => skia_safe::PaintJoin::Miter,
                 i_slint_core::items::LineJoin::Round => skia_safe::PaintJoin::Round,
                 i_slint_core::items::LineJoin::Bevel => skia_safe::PaintJoin::Bevel,
+                i_slint_core::items::LineJoin::Miter | _ => skia_safe::PaintJoin::Miter,
             });
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);

@@ -708,19 +708,21 @@ impl ItemRenderer for QtItemRenderer<'_> {
             LineCap::Butt => 0x00,
             LineCap::Round => 0x20,
             LineCap::Square => 0x10,
+            _ => 0x00,
         };
         let stroke_pen_join_style: i32 = match path.stroke_line_join() {
             LineJoin::Miter => 0x00,
             LineJoin::Round => 0x80,
             LineJoin::Bevel => 0x40,
+            _ => 0x00,
         };
 
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
 
         painter_path.set_fill_rule(match path.fill_rule() {
-            FillRule::Nonzero => key_generated::Qt_FillRule_WindingFill,
             FillRule::Evenodd => key_generated::Qt_FillRule_OddEvenFill,
+            FillRule::Nonzero | _ => key_generated::Qt_FillRule_WindingFill,
         });
 
         for x in path_events.iter() {
@@ -1998,6 +2000,7 @@ impl WindowAdapterInternal for QtWindow {
             MouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
             MouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
             MouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            _ => key_generated::Qt_CursorShape_ArrowCursor,
         };
         cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
             widget_ptr->setCursor(QCursor{cursor_shape});

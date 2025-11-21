@@ -441,8 +441,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let fill_paint = self.brush_to_paint(path.fill(), &femtovg_path).map(|mut fill_paint| {
             fill_paint.set_fill_rule(match path.fill_rule() {
-                FillRule::Nonzero => femtovg::FillRule::NonZero,
                 FillRule::Evenodd => femtovg::FillRule::EvenOdd,
+                FillRule::Nonzero | _ => femtovg::FillRule::NonZero,
             });
             fill_paint.set_anti_alias(anti_alias);
             fill_paint
@@ -451,14 +451,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let border_paint = self.brush_to_paint(path.stroke(), &femtovg_path).map(|mut paint| {
             paint.set_line_width((path.stroke_width() * self.scale_factor).get());
             paint.set_line_cap(match path.stroke_line_cap() {
-                items::LineCap::Butt => femtovg::LineCap::Butt,
                 items::LineCap::Round => femtovg::LineCap::Round,
                 items::LineCap::Square => femtovg::LineCap::Square,
+                items::LineCap::Butt | _ => femtovg::LineCap::Butt,
             });
             paint.set_line_join(match path.stroke_line_join() {
-                items::LineJoin::Miter => femtovg::LineJoin::Miter,
                 items::LineJoin::Round => femtovg::LineJoin::Round,
                 items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
+                items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
             });
             paint.set_anti_alias(anti_alias);
             paint
@@ -1355,10 +1355,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             let (image_id, origin, texture_size) =
                 if fit.tiled.is_some() && fit.clip_rect.size.cast() != orig_size {
                     let scaling_flags = match item.rendering() {
-                        ImageRendering::Smooth => femtovg::ImageFlags::empty(),
-                        ImageRendering::Pixelated => {
-                            femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST
-                        }
+                        ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
+                        ImageRendering::Smooth | _ => femtovg::ImageFlags::empty(),
                     };
                     let texture_size = euclid::size2(
                         scale_w * fit.clip_rect.width() as f32,

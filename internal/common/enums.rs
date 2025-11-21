@@ -21,6 +21,7 @@ macro_rules! for_each_enums {
     ($macro:ident) => {
         $macro![
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` element.
+            #[non_exhaustive]
             enum TextHorizontalAlignment {
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
@@ -31,6 +32,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the different types of alignment of text along the vertical axis of a `Text` element.
+            #[non_exhaustive]
             enum TextVerticalAlignment {
                 /// The text will be aligned to the top of the containing box.
                 Top,
@@ -41,6 +43,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the how the text wrap if it is too wide to fit in the `Text` width.
+            #[non_exhaustive]
             enum TextWrap {
                 /// The text won't wrap, but instead will overflow.
                 NoWrap,
@@ -51,6 +54,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the how the text appear if it is too wide to fit in the `Text` width.
+            #[non_exhaustive]
             enum TextOverflow {
                 /// The text will simply be clipped.
                 Clip,
@@ -59,6 +63,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text`.
+            #[non_exhaustive]
             enum TextStrokeStyle {
                 /// The inside edge of the stroke is at the outer edge of the text.
                 Outside,
@@ -67,6 +72,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes whether an event was rejected or accepted by an event handler.
+            #[non_exhaustive]
             enum EventResult {
                 /// The event is rejected by this event handler and may then be handled by the parent item
                 Reject,
@@ -75,6 +81,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the different ways of deciding what the inside of a shape described by a path shall be.
+            #[non_exhaustive]
             enum FillRule {
                 /// The ["nonzero" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#nonzero).
                 Nonzero,
@@ -85,6 +92,7 @@ macro_rules! for_each_enums {
             /// Use this enum to add standard buttons to a `Dialog`. The look and positioning
             /// of these `StandardButton`s depends on the environment
             /// (OS, UI environment, etc.) the application runs in.
+            #[non_exhaustive]
             enum StandardButtonKind {
                 /// A "OK" button that accepts a `Dialog`, closing it when clicked.
                 Ok,
@@ -114,6 +122,7 @@ macro_rules! for_each_enums {
             /// This enum represents the value of the `dialog-button-role` property which can be added to
             /// any element within a `Dialog` to put that item in the button row, and its exact position
             /// depends on the role and the platform.
+            #[non_exhaustive]
             enum DialogButtonRole {
                 /// This isn't a button meant to go into the bottom row
                 None,
@@ -147,6 +156,7 @@ macro_rules! for_each_enums {
             }
 
             /// The enum reports what happened to the `PointerEventButton` in the event
+            #[non_exhaustive]
             enum PointerEventKind {
                 /// The action was cancelled.
                 Cancel,
@@ -180,6 +190,7 @@ macro_rules! for_each_enums {
             /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
+            #[non_exhaustive]
             enum MouseCursor {
                 /// The systems default cursor.
                 Default,
@@ -248,6 +259,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum defines how the source image shall fit into an `Image` element.
+            #[non_exhaustive]
             enum ImageFit {
                 /// Scales and stretches the source image to fit the width and height of the `Image` element.
                 Fill,
@@ -263,6 +275,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum specifies the horizontal alignment of the source image.
+            #[non_exhaustive]
             enum ImageHorizontalAlignment {
                 /// Aligns the source image at the center of the `Image` element.
                 Center,
@@ -273,6 +286,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum specifies the vertical alignment of the source image.
+            #[non_exhaustive]
             enum ImageVerticalAlignment {
                 /// Aligns the source image at the center of the `Image` element.
                 Center,
@@ -283,6 +297,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum specifies how the source image will be scaled.
+            #[non_exhaustive]
             enum ImageRendering {
                 /// The image is scaled with a linear interpolation algorithm.
                 Smooth,
@@ -291,6 +306,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum specifies how the source image will be tiled.
+            #[non_exhaustive]
             enum ImageTiling {
                 /// The source image will not be tiled.
                 None,
@@ -316,6 +332,7 @@ macro_rules! for_each_enums {
             /// Enum representing the `alignment` property of a
             /// `HorizontalBox`, a `VerticalBox`,
             /// a `HorizontalLayout`, or `VerticalLayout`.
+            #[non_exhaustive]
             enum LayoutAlignment {
                 /// Use the minimum size of all elements in a layout, distribute remaining space
                 /// based on `*-stretch` among all elements.
@@ -341,6 +358,7 @@ macro_rules! for_each_enums {
 
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is
             /// generated at compile time from a higher-level description, such as SVG commands.
+            #[non_exhaustive]
             enum PathEvent {
                 /// The beginning of the path.
                 Begin,
@@ -405,6 +423,7 @@ macro_rules! for_each_enums {
 
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
+            #[non_exhaustive]
             enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
@@ -417,6 +436,7 @@ macro_rules! for_each_enums {
             }
 
             /// Represents the orientation of an element or widget such as the `Slider`.
+            // (on purpose not #[non_exhaustive])
             enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
@@ -426,6 +446,7 @@ macro_rules! for_each_enums {
 
             /// This enum indicates the color scheme used by the widget style. Use this to explicitly switch
             /// between dark and light schemes, or choose Unknown to fall back to the system default.
+            #[non_exhaustive]
             enum ColorScheme {
                 /// The scheme is not known and a system wide setting configures this. This could mean that
                 /// the widgets are shown in a dark or light scheme, but it could also be a custom color scheme.
@@ -437,6 +458,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the direction of an animation.
+            #[non_exhaustive]
             enum AnimationDirection {
                 /// The ["normal" direction as defined in CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/animation-direction#normal).
                 Normal,
@@ -449,6 +471,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the scrollbar visibility
+            #[non_exhaustive]
             enum ScrollBarPolicy {
                 /// Scrollbar will be visible only when needed
                 AsNeeded,
@@ -459,6 +482,7 @@ macro_rules! for_each_enums {
             }
 
             // This enum describes the close behavior of `PopupWindow`
+            #[non_exhaustive]
             enum PopupClosePolicy {
                 /// Closes the `PopupWindow` when user clicks or presses the escape key.
                 CloseOnClick,
@@ -471,6 +495,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the appearance of the ends of stroked paths.
+            #[non_exhaustive]
             enum LineCap {
                 /// The stroke ends with a flat edge that is perpendicular to the path.
                 Butt,
@@ -481,6 +506,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the appearance of the joins between segments of stroked paths.
+            #[non_exhaustive]
             enum LineJoin {
                 /// The stroke joins with a sharp corner or a clipped corner, depending on the miter limit.
                 Miter,
