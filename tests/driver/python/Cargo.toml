@@ -18,9 +18,6 @@ path = "main.rs"
 name = "test-driver-python"
 
 [dependencies]
-slint = { workspace = true, features = ["std", "compat-1-2"] }
-i-slint-backend-testing = { workspace = true, features = ["internal"] }
-slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
 spin_on = { workspace = true }
 tempfile = "3"
 
