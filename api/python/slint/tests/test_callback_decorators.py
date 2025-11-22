@@ -54,12 +54,20 @@ def test_callback_decorators_async() -> None:
             value = await self.in_queue.get()
             await self.out_queue.put(value + 1)
 
+        @slint.callback()
+        async def call_void2(self) -> None:
+            value = await self.in_queue.get()
+            await self.out_queue.put(value + 2)
+
     async def main(
         instance: SubClass, in_queue: asyncio.Queue[int], out_queue: asyncio.Queue[int]
     ) -> None:
         await in_queue.put(42)
         instance.invoke_call_void()
         assert await out_queue.get() == 43
+        await in_queue.put(43)
+        instance.invoke_call_void2()
+        assert await out_queue.get() == 45
         slint.quit_event_loop()
 
     in_queue: asyncio.Queue[int] = asyncio.Queue()

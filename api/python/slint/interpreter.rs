@@ -307,7 +307,7 @@ impl ComponentDefinition {
         self.definition
             .properties_and_callbacks()
             .find_map(|(name, (ty, _))| {
-                if name == callback_name {
+                if normalize_identifier(&name) == callback_name {
                     if let Type::Callback(signature) = ty {
                         return Some(signature.return_type == Type::Void);
                     }
@@ -324,7 +324,7 @@ impl ComponentDefinition {
             .global_properties_and_callbacks(&global_name)
             .and_then(|mut props| {
                 props.find_map(|(name, (ty, _))| {
-                    if name == callback_name {
+                    if normalize_identifier(&name) == callback_name {
                         if let Type::Callback(signature) = ty {
                             return Some(signature.return_type == Type::Void);
                         }
