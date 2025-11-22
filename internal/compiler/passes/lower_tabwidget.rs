@@ -183,10 +183,17 @@ fn process_tabwidget(
 
     let mut tabbar_impl = tabbar_horizontal_impl;
     if let Some(orientation) = elem.borrow().bindings.get("orientation") {
-        if let Expression::EnumerationValue(val) = &orientation.borrow().expression {
+        if let Expression::EnumerationValue(val) =
+            super::ignore_debug_hooks(&orientation.borrow().expression)
+        {
             if val.value == 1 {
                 tabbar_impl = tabbar_vertical_impl;
             }
+        } else {
+            diag.push_error(
+                "The orientation property only supports constants at the moment".into(),
+                &orientation.borrow().span,
+            );
         }
     }
     let tabbar = Element {
