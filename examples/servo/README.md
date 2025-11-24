@@ -12,11 +12,11 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
 
 - [UV](https://docs.astral.sh/uv/)
 
-## Usage
+## Simple Usage
 
-- copy webview from src and paste it in your project
-- add `webview` to your `.slint` file
-- initialize it in your app with below code
+- Copy webview from src and paste it in your project
+- Add `webview` to your `.slint` file
+- Initialize it in your app with below code
 
 ```rust
 pub mod webview;
@@ -78,6 +78,8 @@ fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
 ```
 
 ## For Android build on Mac
+
+- Update your code with android specific code from example to your project
 
 - Update your code with android specific code from example to your project
 
