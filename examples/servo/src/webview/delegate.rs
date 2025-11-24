@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use slint::ComponentHandle;
 use std::rc::Rc;
 
 use super::adapter::SlintServoAdapter;
-use crate::MyApp;
+use crate::{MyApp, WebviewLogic};
 use servo::{WebView, WebViewDelegate};
 
 /// Servo delegate for handling browser engine callbacks.
@@ -25,7 +26,7 @@ use servo::{WebView, WebViewDelegate};
 /// If the app is dropped, frame updates are silently ignored.
 pub struct AppDelegate {
     /// Weak reference to the Slint application
-    pub app: slint::Weak<MyApp>,
+    app: slint::Weak<MyApp>,
     /// Reference to the Slint-Servo adapter for state access
     pub adapter: Rc<SlintServoAdapter>,
 }
@@ -37,8 +38,8 @@ impl AppDelegate {
     ///
     /// * `app` - Weak reference to the Slint application
     /// * `adapter` - Reference to the Slint-Servo adapter
-    pub fn new(app: slint::Weak<MyApp>, adapter: Rc<SlintServoAdapter>) -> Self {
-        Self { app, adapter }
+    pub fn new(app: &MyApp, adapter: Rc<SlintServoAdapter>) -> Self {
+        Self { app: app.as_weak(), adapter }
     }
 }
 
@@ -49,6 +50,12 @@ impl WebViewDelegate for AppDelegate {
         webview.paint();
         if let Some(app) = self.app.upgrade() {
             self.adapter.update_web_content_with_latest_frame(&app);
+        }
+    }
+
+    fn notify_url_changed(&self, _webview: WebView, url: url::Url) {
+        if let Some(app) = self.app.upgrade() {
+            app.global::<WebviewLogic>().set_current_url(url.to_string().into());
         }
     }
 }

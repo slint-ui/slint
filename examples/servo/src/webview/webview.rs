@@ -189,7 +189,7 @@ impl WebView {
 
         let url = Url::parse(&initial_url).expect("Failed to parse url");
 
-        let delegate = Rc::new(AppDelegate::new(app.as_weak(), adapter.clone()));
+        let delegate = Rc::new(AppDelegate::new(app, adapter.clone()));
 
         let webview =
             WebViewBuilder::new(&servo).url(url).size(physical_size).delegate(delegate).build();
