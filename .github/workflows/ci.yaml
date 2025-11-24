@@ -529,7 +529,7 @@ jobs:
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v6
-            - run: apt-get update && apt-get install libfontconfig1-dev
+            - run: apt-get update && apt-get install -y libfontconfig1-dev
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.6
               with:
