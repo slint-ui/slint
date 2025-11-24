@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 // It would be nice to keep the compiler free of unsafe code
 #![deny(unsafe_code)]
 
