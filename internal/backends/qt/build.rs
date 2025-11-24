@@ -69,5 +69,6 @@ fn main() {
 fn main() {
     println!("cargo:rustc-cfg=no_qt");
     println!("cargo:rustc-check-cfg=cfg(no_qt)");
+    println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
     return;
 }
