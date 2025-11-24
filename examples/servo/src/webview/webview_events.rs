@@ -20,6 +20,7 @@ use servo::{
 use crate::{MyApp, WebviewLogic};
 
 use super::adapter::{SlintServoAdapter, upgrade_adapter};
+use super::key_event_util::convert_slint_key_event_to_servo_keyboard_event;
 
 pub struct WebViewEvents<'a> {
     app: &'a MyApp,
@@ -35,6 +36,7 @@ impl<'a> WebViewEvents<'a> {
         instance.on_scroll();
         instance.on_buttons();
         instance.on_pointer();
+        instance.on_key_event();
     }
 
     fn on_url(&self) {
@@ -132,6 +134,17 @@ impl<'a> WebViewEvents<'a> {
                 &pointer_event,
                 point.into(),
             );
+            webview.notify_input_event(input_event);
+        });
+    }
+
+    fn on_key_event(&self) {
+        let adapter_weak = Rc::downgrade(&self.adapter);
+        self.app.global::<WebviewLogic>().on_key_event(move |event, is_pressed| {
+            let adapter = upgrade_adapter(&adapter_weak);
+            let webview = adapter.webview();
+            let keybord_event = convert_slint_key_event_to_servo_keyboard_event(&event, is_pressed);
+            let input_event = InputEvent::Keyboard(keybord_event);
             webview.notify_input_event(input_event);
         });
     }
