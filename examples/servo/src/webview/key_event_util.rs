@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use i_slint_core::items::{KeyEvent, KeyboardModifiers};
 use servo::{Code, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
 
