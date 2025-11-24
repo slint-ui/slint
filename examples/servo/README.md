@@ -81,8 +81,6 @@ fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
 
 - Update your code with android specific code from example to your project
 
-- Update your code with android specific code from example to your project
-
 ### Install Android Studio and JDK
 
 ```bash
