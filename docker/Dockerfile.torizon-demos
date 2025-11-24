@@ -33,8 +33,6 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes --allow-change-held-packages pkg-config libfontconfig1-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH libinput-dev:$TOOLCHAIN_ARCH libudev-dev:$TOOLCHAIN_ARCH libgbm-dev:$TOOLCHAIN_ARCH libdrm2:$TOOLCHAIN_ARCH libdrm2- libdrm-amdgpu1- python3 clang libstdc++-11-dev:$TOOLCHAIN_ARCH ninja-build && \
     rm -rf /var/lib/apt/lists/*
 
-# Don't require font-config when the compiler runs
-ENV RUST_FONTCONFIG_DLOPEN=on
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
 # Build Demos
