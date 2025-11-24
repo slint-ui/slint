@@ -88,5 +88,13 @@ spin_on = { workspace = true }
 rayon = { workspace = true }
 
 [package.metadata.docs.rs]
-features = ["software-renderer","display-diagnostics", "bundle-translations", "cpp", "rust", "python", "experimental-library-module"]
+features = [
+  "software-renderer",
+  "display-diagnostics",
+  "bundle-translations",
+  "cpp",
+  "rust",
+  "python",
+  "experimental-library-module",
+]
 rustdoc-args = ["--generate-link-to-definition"]
