@@ -24,7 +24,7 @@ jobs:
           run:
             working-directory: ui-libraries/material
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - name: Cache APK build
               id: cache-apk
               uses: actions/cache@v4

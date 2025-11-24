@@ -28,7 +28,7 @@ jobs:
             macos-14,
           ]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-rust
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -44,7 +44,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
       - name: Build sdist
         run: uv build --sdist -o dist tools/compiler

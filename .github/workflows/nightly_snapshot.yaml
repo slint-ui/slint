@@ -97,7 +97,7 @@ jobs:
                       artifact_name: slint-lsp-aarch64-pc-windows-msvc.exe
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.toolchain }}
@@ -122,7 +122,7 @@ jobs:
             SLINT_NO_QT: 1
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
@@ -158,7 +158,7 @@ jobs:
                     - aarch64-unknown-linux-gnu
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
@@ -189,7 +189,7 @@ jobs:
         runs-on: macos-14
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: pnpm/action-setup@v4.2.0
               with:
                 version: 10.18.2
@@ -272,7 +272,7 @@ jobs:
     build-figma-plugin:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: actions/setup-node@v6
               with:
                 node-version: 20
@@ -303,7 +303,7 @@ jobs:
     #    if: github.event.inputs.private != 'true'
     #    runs-on: ubuntu-22.04
     #    steps:
-    #      - uses: actions/checkout@v5
+    #      - uses: actions/checkout@v6
     #      - name: Upload artifact
     #        uses: actions/upload-artifact@v5
     #        with:
@@ -329,7 +329,7 @@ jobs:
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: website
             - name: Clone website directory
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
               with:
                 repository: slint-ui/website
                 ref: prod
@@ -361,7 +361,7 @@ jobs:
                   name: android-demo
                   path: android
 
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
               with:
                 path: "slint-src"
                 sparse-checkout: .
@@ -384,7 +384,7 @@ jobs:
                 repositories: www-releases
 
             - name: Clone www-releases/releases and slintpad directory
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
               if: ${{ github.event.inputs.release  == 'true' }}
               with:
                 repository: slint-ui/www-releases
@@ -395,7 +395,7 @@ jobs:
                   slintpad
 
             - name: Clone www-releases/snapshots directory
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
               if: ${{ github.event.inputs.release  != 'true' }}
               with:
                 repository: slint-ui/www-releases
@@ -567,7 +567,7 @@ jobs:
                   mv slint-lsp-windows*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
               with:
                 path: "slint-src"
                 sparse-checkout: docs
@@ -682,7 +682,7 @@ jobs:
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Cache cargo-apk
