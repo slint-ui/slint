@@ -993,6 +993,28 @@ pub struct RepeatedElementInfo {
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
+#[derive(Debug, PartialEq)]
+/// The kind of relationship a component has the component or interface it derives from, if any.
+enum ParentRelationship {
+    /// The component inherits from the parent component.
+    Inherits,
+    /// The component implements the parent interface.
+    Implements,
+}
+
+/// Determine the expected relationship to the parent component/interface, if any.
+fn expected_relationship_to_parent(node: &syntax_nodes::Element) -> Option<ParentRelationship> {
+    let parent = node.parent().filter(|p| p.kind() == SyntaxKind::Component)?;
+    let implements_inherits_identifier =
+        parent.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).nth(1)?;
+    let token = implements_inherits_identifier.as_token()?;
+    return match token.text() {
+        "inherits" => Some(ParentRelationship::Inherits),
+        "implements" => Some(ParentRelationship::Implements),
+        _ => None,
+    };
+}
+
 impl Element {
     pub fn make_rc(self) -> ElementRc {
         let r = ElementRc::new(RefCell::new(self));
@@ -1013,16 +1035,35 @@ impl Element {
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
-            match parent_type.lookup_type_for_child_element(&base_string, tr) {
-                Ok(ElementType::Component(c)) if c.is_global() => {
+            match (
+                parent_type.lookup_type_for_child_element(&base_string, tr),
+                expected_relationship_to_parent(&node),
+            ) {
+                (Ok(ElementType::Component(c)), _) if c.is_global() => {
                     diag.push_error(
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
                     ElementType::Error
                 }
-                Ok(ty) => ty,
-                Err(err) => {
+                (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements))
+                    if !c.is_interface() =>
+                {
+                    diag.push_error(
+                        format!("Cannot implement {}. It is not an interface", base_string),
+                        &base_node,
+                    );
+                    ElementType::Error
+                }
+                (Ok(ElementType::Builtin(_bt)), Some(ParentRelationship::Implements)) => {
+                    diag.push_error(
+                        format!("Cannot implement {}. It is not an interface", base_string),
+                        &base_node,
+                    );
+                    ElementType::Error
+                }
+                (Ok(ty), _) => ty,
+                (Err(err), _) => {
                     diag.push_error(err, &base_node);
                     ElementType::Error
                 }
