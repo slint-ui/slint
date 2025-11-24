@@ -173,4 +173,5 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "c
 unnecessary_cast = { level = "allow" }
 
 [package.metadata.docs.rs]
+features = ["software-renderer", "experimental"]
 rustdoc-args = ["--generate-link-to-definition"]
