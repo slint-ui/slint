@@ -259,16 +259,6 @@ pub enum DiagnosticLevel {
     Warning,
 }
 
-#[cfg(feature = "display-diagnostics")]
-impl From<DiagnosticLevel> for codemap_diagnostic::Level {
-    fn from(l: DiagnosticLevel) -> Self {
-        match l {
-            DiagnosticLevel::Error => codemap_diagnostic::Level::Error,
-            DiagnosticLevel::Warning => codemap_diagnostic::Level::Warning,
-        }
-    }
-}
-
 /// This structure represent a diagnostic emitted while compiling .slint code.
 ///
 /// It is basically a message, a level (warning or error), attached to a
@@ -420,87 +410,65 @@ impl BuildDiagnostics {
     }
 
     #[cfg(feature = "display-diagnostics")]
-    fn call_diagnostics<Output>(
-        self,
-        output: &mut Output,
-        mut handle_no_source: Option<&mut dyn FnMut(Diagnostic)>,
-        emitter_factory: impl for<'b> FnOnce(
-            &'b mut Output,
-            Option<&'b codemap::CodeMap>,
-        ) -> codemap_diagnostic::Emitter<'b>,
-    ) {
+    fn call_diagnostics(
+        &self,
+        mut handle_no_source: Option<&mut dyn FnMut(&Diagnostic)>,
+    ) -> String {
         if self.inner.is_empty() {
-            return;
+            return Default::default();
         }
 
-        let mut codemap = codemap::CodeMap::new();
-        let mut codemap_files = std::collections::HashMap::new();
-
-        let diags: Vec<_> = self
+        let report: Vec<_> = self
             .inner
-            .into_iter()
+            .iter()
             .filter_map(|d| {
-                let spans = if !d.span.span.is_valid() {
-                    vec![]
+                let annotate_snippets_level = match d.level {
+                    DiagnosticLevel::Error => annotate_snippets::Level::ERROR,
+                    DiagnosticLevel::Warning => annotate_snippets::Level::WARNING,
+                };
+                let message = annotate_snippets_level.primary_title(d.message());
+
+                let group = if !d.span.span.is_valid() {
+                    annotate_snippets::Group::with_title(message)
                 } else if let Some(sf) = &d.span.source_file {
-                    if let Some(ref mut handle_no_source) = handle_no_source {
-                        if sf.source.is_none() {
+                    if let Some(source) = &sf.source {
+                        let o = d.span.span.offset;
+                        message.element(
+                            annotate_snippets::Snippet::source(source)
+                                .path(sf.path.to_string_lossy())
+                                .annotation(annotate_snippets::AnnotationKind::Primary.span(o..o)),
+                        )
+                    } else {
+                        if let Some(ref mut handle_no_source) = handle_no_source {
+                            drop(message);
                             handle_no_source(d);
                             return None;
                         }
+                        message.element(annotate_snippets::Origin::path(sf.path.to_string_lossy()))
                     }
-                    let path: String = sf.path.to_string_lossy().into();
-                    let file = codemap_files.entry(path).or_insert_with(|| {
-                        codemap.add_file(
-                            sf.path.to_string_lossy().into(),
-                            sf.source.clone().unwrap_or_default(),
-                        )
-                    });
-                    let file_span = file.span;
-                    let s = codemap_diagnostic::SpanLabel {
-                        span: file_span
-                            .subspan(d.span.span.offset as u64, d.span.span.offset as u64),
-                        style: codemap_diagnostic::SpanStyle::Primary,
-                        label: None,
-                    };
-                    vec![s]
                 } else {
-                    vec![]
+                    annotate_snippets::Group::with_title(message)
                 };
-                Some(codemap_diagnostic::Diagnostic {
-                    level: d.level.into(),
-                    message: d.message,
-                    code: None,
-                    spans,
-                })
+                Some(group)
             })
             .collect();
 
-        if !diags.is_empty() {
-            let mut emitter = emitter_factory(output, Some(&codemap));
-            emitter.emit(&diags);
-        }
+        annotate_snippets::Renderer::styled().render(&report)
     }
 
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
-        self.call_diagnostics(&mut (), None, |_, codemap| {
-            codemap_diagnostic::Emitter::stderr(codemap_diagnostic::ColorConfig::Always, codemap)
-        });
+        let to_print = self.call_diagnostics(None);
+        if !to_print.is_empty() {
+            std::eprintln!("{to_print}");
+        }
     }
 
     #[cfg(feature = "display-diagnostics")]
     /// Print into a string
     pub fn diagnostics_as_string(self) -> String {
-        let mut output = Vec::new();
-        self.call_diagnostics(&mut output, None, |output, codemap| {
-            codemap_diagnostic::Emitter::vec(output, codemap)
-        });
-
-        String::from_utf8(output).expect(
-            "Internal error: There were errors during compilation but they did not result in valid utf-8 diagnostics!"
-        )
+        self.call_diagnostics(None)
     }
 
     #[cfg(all(feature = "proc_macro_span", feature = "display-diagnostics"))]
@@ -511,8 +479,7 @@ impl BuildDiagnostics {
     ) -> proc_macro::TokenStream {
         let mut result = proc_macro::TokenStream::default();
         let mut needs_error = self.has_errors();
-        self.call_diagnostics(
-            &mut (),
+        let output = self.call_diagnostics(
             Some(&mut |diag| {
                 let span = diag.span.span.span.or_else(|| {
                     //let pos =
@@ -547,13 +514,11 @@ impl BuildDiagnostics {
                     },
                 }
             }),
-            |_, codemap| {
-                codemap_diagnostic::Emitter::stderr(
-                    codemap_diagnostic::ColorConfig::Always,
-                    codemap,
-                )
-            },
         );
+        if !output.is_empty() {
+            eprintln!("{output}");
+        }
+
         if needs_error {
             result.extend(proc_macro::TokenStream::from(quote::quote!(
                 compile_error! { "Error occurred" }

@@ -20,8 +20,6 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 
 clap = { workspace = true }
-codemap = "0.1"
-codemap-diagnostic = "0.1.1"
 spin_on = { workspace = true }
 by_address = { workspace = true }
 smol_str = { workspace = true }
