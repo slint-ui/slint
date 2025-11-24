@@ -1095,11 +1095,8 @@ mod tests {
 
             assert!(!res.iter().any(|ci| ci.label == "Rectangle"));
             assert!(!res.iter().any(|ci| ci.label == "Clip"));
-
-            if std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_none() {
-                assert!(!res.iter().any(|ci| ci.label == "NativeStyleMetrics"));
-                assert!(!res.iter().any(|ci| ci.label == "SlintInternal"));
-            }
+            assert!(!res.iter().any(|ci| ci.label == "NativeStyleMetrics"));
+            assert!(!res.iter().any(|ci| ci.label == "SlintInternal"));
         }
     }
 

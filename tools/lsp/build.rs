@@ -3,5 +3,7 @@
 
 fn main() {
     // Make the compiler handle ComponentContainer:
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    #[cfg(feature = "preview-engine")]
+    slint_build::compile("ui/main.slint").unwrap();
 }
