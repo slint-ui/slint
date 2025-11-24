@@ -441,6 +441,13 @@ fn parse_tr(p: &mut impl Parser) {
     p.expect(SyntaxKind::RParent);
 }
 
+/// ```test,AtTr
+/// @markdown("foo")
+/// @markdown("foo{}", bar(42))
+/// @markdown("foo{0}", bar(42))
+/// @markdown("foo{1}{0}", 555, bar(42))
+/// @markdown("foo{1}{0}{1}", 555, bar(42))
+/// ```
 fn parse_markdown(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtMarkdown);
     p.expect(SyntaxKind::At);

@@ -4211,15 +4211,15 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
-            format!("slint::cbindgen_private::open_url({})", url)
+            format!("slint::cbindgen_private::slint_open_url({})", url)
         }
         BuiltinFunction::EscapeMarkdown => {
             let text = a.next().unwrap();
-            format!("slint::cbindgen_private::escape_markdown({})", text)
+            format!("slint::cbindgen_private::slint_escape_markdown({})", text)
         }
         BuiltinFunction::ParseMarkdown => {
             let text = a.next().unwrap();
-            format!("slint::cbindgen_private::parse_markdown({})", text)
+            format!("slint::cbindgen_private::slint_parse_markdown({})", text)
         }
     }
 }
