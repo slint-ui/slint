@@ -8,7 +8,78 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
 
 ![Preview](https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be)
 
+## Things need to install
+
+- [UV](https://docs.astral.sh/uv/)
+
+## Usage
+
+- copy webview from src and paste it in your project
+- add `webview` to your `.slint` file
+- initialize it in your app with below code
+
+```rust
+pub mod webview;
+
+use slint::ComponentHandle;
+
+use crate::webview::WebView;
+
+slint::include_modules!();
+
+pub fn main() {
+    let (device, queue) = setup_wgpu();
+
+    let app = MyApp::new().unwrap();
+
+    WebView::new(
+        app.clone_strong(),
+        "https://slint.dev".into(),
+        device,
+        queue,
+    );
+
+    app.run().unwrap();
+}
+
+fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
+    let backends = wgpu::Backends::from_env().unwrap_or_default();
+
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        backends,
+        flags: Default::default(),
+        backend_options: Default::default(),
+        memory_budget_thresholds: Default::default(),
+    });
+
+    let adapter = spin_on::spin_on(async {
+        instance
+            .request_adapter(&Default::default())
+            .await
+            .unwrap()
+    });
+
+    let (device, queue) = spin_on::spin_on(async {
+        adapter.request_device(&Default::default()).await.unwrap()
+    });
+
+    slint::BackendSelector::new()
+        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
+            instance,
+            adapter,
+            device: device.clone(),
+            queue: queue.clone()
+        })
+        .select()
+        .unwrap();
+
+    (device, queue)
+}
+```
+
 ## For Android build on Mac
+
+- Update your code with android specific code from example to your project
 
 ### Install Android Studio and JDK
 
