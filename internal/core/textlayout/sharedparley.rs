@@ -1,26 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use euclid::num::Zero;
 pub use parley;
 
+use crate::items::TextStrokeStyle;
+use crate::lengths::{
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
+    PointLengths, ScaleFactor, SizeLengths,
+};
+use crate::renderer::RendererSealed;
+use crate::textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+use crate::{Color, SharedString, graphics::FontRequest};
 use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
+use euclid::num::Zero;
 use std::boxed::Box;
 use std::cell::RefCell;
-
-use crate::{
-    Color, SharedString,
-    graphics::FontRequest,
-    items::TextStrokeStyle,
-    lengths::{
-        LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
-        PointLengths, ScaleFactor, SizeLengths,
-    },
-    renderer::RendererSealed,
-    textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
-};
 
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
@@ -709,13 +705,13 @@ impl Layout {
                 let local_start = selection_start - paragraph.range.start;
                 let local_end = selection_end - paragraph.range.start;
 
-                let selection = parley::layout::cursor::Selection::new(
-                    parley::layout::cursor::Cursor::from_byte_index(
+                let selection = parley::editing::Selection::new(
+                    parley::editing::Cursor::from_byte_index(
                         &paragraph.layout,
                         local_start,
                         Default::default(),
                     ),
-                    parley::layout::cursor::Cursor::from_byte_index(
+                    parley::editing::Cursor::from_byte_index(
                         &paragraph.layout,
                         local_end,
                         Default::default(),
@@ -739,7 +735,7 @@ impl Layout {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
             return 0;
         };
-        let cursor = parley::layout::cursor::Cursor::from_point(
+        let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
             pos.x,
             (pos.y_length() - self.y_offset - paragraph.y).get(),
@@ -757,7 +753,7 @@ impl Layout {
         };
 
         let local_offset = byte_offset - paragraph.range.start;
-        let cursor = parley::layout::cursor::Cursor::from_byte_index(
+        let cursor = parley::editing::Cursor::from_byte_index(
             &paragraph.layout,
             local_offset,
             Default::default(),
@@ -1504,9 +1500,16 @@ pub fn link_under_cursor(
     let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
 
     let (_, link) = paragraph.links.iter().find(|(range, _)| {
-        let start =
-            parley::Cursor::from_byte_index(&paragraph.layout, range.start, Default::default());
-        let end = parley::Cursor::from_byte_index(&paragraph.layout, range.end, Default::default());
+        let start = parley::editing::Cursor::from_byte_index(
+            &paragraph.layout,
+            range.start,
+            Default::default(),
+        );
+        let end = parley::editing::Cursor::from_byte_index(
+            &paragraph.layout,
+            range.end,
+            Default::default(),
+        );
         let mut clicked = false;
         let link_range = parley::Selection::new(start, end);
         link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {

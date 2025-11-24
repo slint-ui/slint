@@ -25,6 +25,7 @@ jobs:
             working-directory: ui-libraries/material
         steps:
             - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
             - name: Cache APK build
               id: cache-apk
               uses: actions/cache@v4

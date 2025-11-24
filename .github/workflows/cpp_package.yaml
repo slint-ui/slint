@@ -195,6 +195,8 @@ jobs:
     cmake_package_arm_linux:
         env:
             CARGO_INCREMENTAL: false
+            # unset the variable set by mistake in the container
+            RUST_FONTCONFIG_DLOPEN: ""
         strategy:
             matrix:
                 gcc_target: [aarch64-linux-gnu, arm-linux-gnueabihf]
