@@ -27,7 +27,7 @@ jobs:
         name: ${{ inputs.name }}
         runs-on: ${{ inputs.os }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display

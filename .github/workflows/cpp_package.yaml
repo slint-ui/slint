@@ -43,7 +43,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
@@ -96,7 +96,7 @@ jobs:
 
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
@@ -149,7 +149,7 @@ jobs:
 
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
@@ -209,7 +209,7 @@ jobs:
         runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
@@ -257,7 +257,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
