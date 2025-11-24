@@ -73,7 +73,6 @@ preview-engine = [
   "dep:slint-interpreter",
   "dep:i-slint-core",
   "dep:i-slint-backend-selector",
-  "dep:slint-build",
   "dep:i-slint-backend-winit",
   "dep:muda",
   "dep:objc2-foundation",
@@ -132,9 +131,6 @@ objc2-foundation = { version = "0.3.0", optional = true }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = { workspace = true }
-
-[build-dependencies]
-slint-build = { workspace = true, features = ["default"], optional = true }
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false

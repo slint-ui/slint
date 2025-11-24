@@ -26,7 +26,7 @@ mod property_view;
 mod recent_colors;
 pub mod search_model;
 
-slint::include_modules!();
+slint::slint! {export { PreviewUi, Api } from "../ui/main.slint";}
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
