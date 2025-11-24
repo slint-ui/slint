@@ -826,6 +826,14 @@ impl Expression {
                         .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
                     break;
                 };
+
+                let value = if let Some(value) = values.get(argument_index).cloned() {
+                    value
+                } else {
+                    // Will result in a `Format string contains {num} placeholders, but only {} extra arguments were given` error later
+                    break;
+                };
+
                 let add = Expression::BinaryExpression {
                     lhs: Box::new(Expression::StringLiteral(
                         (&string[literal_start_pos..p]).into(),
@@ -833,7 +841,7 @@ impl Expression {
                     op: '+',
                     rhs: Box::new(Expression::FunctionCall {
                         function: BuiltinFunction::EscapeMarkdown.into(),
-                        arguments: vec![values[argument_index].clone()],
+                        arguments: vec![value],
                         source_location: Some(node.to_source_location()),
                     }),
                 };
@@ -865,10 +873,14 @@ impl Expression {
                     "Cannot mix positional and non-positional placeholder in format string".into(),
                     &node,
                 );
-            } else if arg_idx > values.len() || pos_max > values.len() {
+            } else if (pos_max == 0 && arg_idx != values.len()) || pos_max > values.len() {
+                dbg!(arg_idx, pos_max, values.len());
                 let num = arg_idx.max(pos_max);
                 ctx.diag.push_error(
-                    format!("Format string contains {num} placeholders, but only {} extra arguments were given", values.len()),
+                    format!(
+                        "Format string contains {num} placeholders, but {} values were given",
+                        values.len()
+                    ),
                     &node,
                 );
             }
