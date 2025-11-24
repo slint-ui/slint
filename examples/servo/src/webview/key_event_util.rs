@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use i_slint_core::items::{KeyEvent, KeyboardModifiers};
+use i_slint_core::{
+    SharedString,
+    items::{KeyEvent, KeyboardModifiers},
+    platform::Key as SlintKey,
+};
 use servo::{Code, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
 
 pub fn convert_slint_key_event_to_servo_keyboard_event(
@@ -17,11 +21,72 @@ pub fn convert_slint_key_event_to_servo_keyboard_event(
 }
 
 fn key_from_text(text: &str) -> Key {
-    match text {
-        // TODO: Add more mappings as needed
-        t if t.chars().count() == 1 => Key::Character(t.to_string()),
-        _ => Key::Named(NamedKey::Unidentified),
+    // If single character, return it
+    if text.chars().count() == 1 {
+        return Key::Character(text.to_string());
     }
+
+    // Special handling for Space
+    if text == SharedString::from(SlintKey::Space).as_str() {
+        return Key::Character(" ".to_string());
+    }
+
+    // Helper macro to check against a Slint Key
+    macro_rules! check_key {
+        ($slint_k:expr, $servo_k:expr) => {
+            if text == SharedString::from($slint_k).as_str() {
+                return Key::Named($servo_k);
+            }
+        };
+    }
+
+    check_key!(SlintKey::Backspace, NamedKey::Backspace);
+    check_key!(SlintKey::Tab, NamedKey::Tab);
+    check_key!(SlintKey::Return, NamedKey::Enter);
+    check_key!(SlintKey::Escape, NamedKey::Escape);
+    check_key!(SlintKey::Delete, NamedKey::Delete);
+
+    // Modifiers
+    check_key!(SlintKey::Shift, NamedKey::Shift);
+    check_key!(SlintKey::ShiftR, NamedKey::Shift);
+    check_key!(SlintKey::Control, NamedKey::Control);
+    check_key!(SlintKey::ControlR, NamedKey::Control);
+    check_key!(SlintKey::Alt, NamedKey::Alt);
+    check_key!(SlintKey::AltGr, NamedKey::AltGraph);
+    check_key!(SlintKey::Meta, NamedKey::Meta);
+    check_key!(SlintKey::MetaR, NamedKey::Meta);
+
+    // Arrow keys
+    check_key!(SlintKey::UpArrow, NamedKey::ArrowUp);
+    check_key!(SlintKey::DownArrow, NamedKey::ArrowDown);
+    check_key!(SlintKey::LeftArrow, NamedKey::ArrowLeft);
+    check_key!(SlintKey::RightArrow, NamedKey::ArrowRight);
+
+    // F keys
+    check_key!(SlintKey::F1, NamedKey::F1);
+    check_key!(SlintKey::F2, NamedKey::F2);
+    check_key!(SlintKey::F3, NamedKey::F3);
+    check_key!(SlintKey::F4, NamedKey::F4);
+    check_key!(SlintKey::F5, NamedKey::F5);
+    check_key!(SlintKey::F6, NamedKey::F6);
+    check_key!(SlintKey::F7, NamedKey::F7);
+    check_key!(SlintKey::F8, NamedKey::F8);
+    check_key!(SlintKey::F9, NamedKey::F9);
+    check_key!(SlintKey::F10, NamedKey::F10);
+    check_key!(SlintKey::F11, NamedKey::F11);
+    check_key!(SlintKey::F12, NamedKey::F12);
+
+    check_key!(SlintKey::End, NamedKey::End);
+    check_key!(SlintKey::Home, NamedKey::Home);
+    check_key!(SlintKey::Insert, NamedKey::Insert);
+    check_key!(SlintKey::PageUp, NamedKey::PageUp);
+    check_key!(SlintKey::PageDown, NamedKey::PageDown);
+    check_key!(SlintKey::PageDown, NamedKey::PageDown);
+
+    check_key!(SlintKey::Pause, NamedKey::Pause);
+    check_key!(SlintKey::ScrollLock, NamedKey::ScrollLock);
+
+    Key::Named(NamedKey::Unidentified)
 }
 
 fn get_modifiers(modifiers: &KeyboardModifiers) -> Modifiers {
