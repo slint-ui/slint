@@ -13,6 +13,7 @@
     devShells.${system} = {
       default = with pkgs;
         mkShell {
+          hardeningDisable = [ "fortify" ];
           nativeBuildInputs = [renderdoc cargo-udeps];
           buildInputs = [
             # Not strictly required, but helps with
