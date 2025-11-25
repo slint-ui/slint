@@ -9,7 +9,7 @@ use std::fmt::Write;
 
 type Messages = polib::catalog::Catalog;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Default)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[arg(name = "path to .slint file(s)", action)]
@@ -45,6 +45,12 @@ struct Cli {
     #[arg(long = "join-existing", short = 'j')]
     /// Join messages with existing file
     join_existing: bool,
+
+    #[arg(
+        long = "no-default-translation-context",
+        help = "Do not set the default context (component name) if none is specified. The Slint compiler need to be configured similarly"
+    )]
+    no_default_translation_context: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -52,6 +58,7 @@ fn main() -> std::io::Result<()> {
 
     let output = args
         .output
+        .clone()
         .unwrap_or_else(|| format!("{}.po", args.domain.as_deref().unwrap_or("messages")).into());
 
     let mut messages = if args.join_existing {
@@ -77,25 +84,34 @@ fn main() -> std::io::Result<()> {
         Messages::new(metadata)
     };
 
-    for path in args.paths {
-        process_file(path, &mut messages)?
+    for path in &args.paths {
+        process_file(path, &mut messages, &args)?
     }
 
     polib::po_file::write(&messages, &output)?;
     Ok(())
 }
 
-fn process_file(path: std::path::PathBuf, messages: &mut Messages) -> std::io::Result<()> {
+fn process_file(
+    path: &std::path::Path,
+    messages: &mut Messages,
+    args: &Cli,
+) -> std::io::Result<()> {
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag).ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::Other, diag.to_string_vec().join(", "))
     })?;
-    visit_node(syntax_node, messages, None);
+    visit_node(syntax_node, messages, None, args);
 
     Ok(())
 }
 
-fn visit_node(node: SyntaxNode, results: &mut Messages, current_context: Option<SmolStr>) {
+fn visit_node(
+    node: SyntaxNode,
+    results: &mut Messages,
+    current_context: Option<SmolStr>,
+    args: &Cli,
+) {
     for n in node.children() {
         if n.kind() == SyntaxKind::AtTr {
             if let Some(msgid) = n
@@ -164,14 +180,18 @@ fn visit_node(node: SyntaxNode, results: &mut Messages, current_context: Option<
                 }
             }
         }
-        let current_context = syntax_nodes::Component::new(n.clone())
-            .and_then(|x| {
-                x.DeclaredIdentifier()
-                    .child_text(SyntaxKind::Identifier)
-                    .map(|t| i_slint_compiler::parser::normalize_identifier(&t))
-            })
-            .or_else(|| current_context.clone());
-        visit_node(n, results, current_context);
+        let current_context = if !args.no_default_translation_context {
+            syntax_nodes::Component::new(n.clone())
+                .and_then(|x| {
+                    x.DeclaredIdentifier()
+                        .child_text(SyntaxKind::Identifier)
+                        .map(|t| i_slint_compiler::parser::normalize_identifier(&t))
+                })
+                .or_else(|| current_context.clone())
+        } else {
+            None
+        };
+        visit_node(n, results, current_context, args);
     }
 }
 
@@ -289,7 +309,7 @@ fn extract_messages() {
     );
 
     let mut messages = polib::catalog::Catalog::new(Default::default());
-    visit_node(syntax_node, &mut messages, None);
+    visit_node(syntax_node, &mut messages, None, &Cli::default());
 
     for (a, b) in r.iter().zip(messages.messages()) {
         assert_eq!(

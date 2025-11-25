@@ -136,10 +136,31 @@ fn generate_public_component(
     }));
 
     let create_code = vec![
-        format!("slint::SharedVector<slint::SharedString> include_paths{{ {} }};", compiler_config.include_paths.iter().map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy()))).join(", ")),
-        format!("slint::SharedVector<slint::SharedString> library_paths{{ {} }};", compiler_config.library_paths.iter().map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy())).join(", ")),
-        format!("auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, \"{}\");", component.name, compiler_config.style.as_ref().unwrap_or(&String::new())),
-        format!("auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"),
+        format!(
+            "slint::SharedVector<slint::SharedString> include_paths{{ {} }};",
+            compiler_config
+                .include_paths
+                .iter()
+                .map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy())))
+                .join(", ")
+        ),
+        format!(
+            "slint::SharedVector<slint::SharedString> library_paths{{ {} }};",
+            compiler_config
+                .library_paths
+                .iter()
+                .map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy()))
+                .join(", ")
+        ),
+        format!(
+            "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {});",
+            component.name,
+            compiler_config.style.as_ref().unwrap_or(&String::new()),
+            compiler_config.no_default_translation_context,
+        ),
+        format!(
+            "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"
+        ),
         format!("return slint::ComponentHandle<{component_id}>(self_rc);"),
     ];
 

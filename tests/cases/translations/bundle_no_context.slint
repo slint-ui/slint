@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//bundle-translations
+//no-default-translation-context
+
+/*
+ generate with
+
+      cd tests/cases/translations
+      cargo run -p slint-tr-extractor -- --no-default-translation-context bundle_no_context.slint
+      # that generated a messages.po file
+
+      msgmerge up/LC_MESSAGES/bundle_no_context.po messages.po -o up/LC_MESSAGES/bundle_no_context.po
+      rm messages.po
+
+      # translate the .po files
+*/
+
+global MyGlobal {
+    out property <string> same: @tr("Same");
+    out property <string> diff: @tr("In Global" => "Diff");
+}
+
+export component MyComponent {
+    out property <string> same: @tr("Same");
+    out property <string> diff: @tr("In Component" => "Diff");
+}
+
+export component TestCase inherits Window {
+
+    my-component := MyComponent {}
+
+    out property <string> same: @tr("Same");
+    out property <string> diff: @tr("Diff");
+    out property <string> same_or_diff: "\{same}|\{my-component.same}|\{MyGlobal.same} || \{diff}|\{my-component.diff}|\{MyGlobal.diff}";
+
+    out property <bool> test: same_or_diff == "Same|Same|Same || Diff|Diff|Diff";
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
+assert(instance.get_test());
+
+assert(slint::select_bundled_translation("up"));
+assert_eq(instance.get_same_or_diff(), "SAME|SAME|SAME || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
+assert(!instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
+assert!(instance.get_test());
+
+assert!(slint::select_bundled_translation("up").is_ok());
+assert_eq!(instance.get_same_or_diff(), "SAME|SAME|SAME || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
+assert!(!instance.get_test());
+```
+
+*/

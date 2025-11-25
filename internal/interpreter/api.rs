@@ -782,6 +782,15 @@ impl Compiler {
         self.config.translation_domain = Some(domain);
     }
 
+    /// Unless explicitly specified with the `@tr("context" => ...)`, the default translation context is the component name.
+    /// Use this option to disable the default translation context.
+    ///
+    /// The translation file must also not have context
+    /// (`--no-default-translation-context` argument of `slint-tr-extractor`)
+    pub fn disable_default_translation_context(&mut self) {
+        self.config.no_default_translation_context = true;
+    }
+
     /// Sets the callback that will be invoked when loading imported .slint files. The specified
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the

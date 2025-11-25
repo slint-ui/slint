@@ -173,6 +173,9 @@ fn generate_source(
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
     }
+    if source.contains("//no-default-translation-context") {
+        compiler_config.no_default_translation_context = true;
+    }
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
