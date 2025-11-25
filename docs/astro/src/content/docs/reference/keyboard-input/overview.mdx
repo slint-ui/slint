@@ -6,6 +6,7 @@ description: Key Handling Overview
 ---
 
 import Link from '@slint/common-files/src/components/Link.astro';
+import SpecialKeys from "../../../collections/enums/keys.md"
 
 To handle keyboard input in Slint, use the `FocusScope` or individual `key-pressed` and `key-released` callbacks in various elements. Keyboard
 input is delivered via [`KeyEvent`](#keyevent) data structures. The primary field of this data structure is the `text` property, which holds all affected keys
@@ -23,57 +24,4 @@ encoded in a string. Use the [`Key` namespace](#key-namespace) to identify known
 ## Key Namespace
 Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character.
 
--   **`Backspace`**
--   **`Tab`**
--   **`Return`**
--   **`Escape`**
--   **`Backtab`**
--   **`Delete`**
--   **`Shift`**
--   **`Control`**
--   **`Alt`**
--   **`AltGr`**
--   **`CapsLock`**
--   **`ShiftR`**
--   **`ControlR`**
--   **`Meta`**
--   **`MetaR`**
--   **`Space`**
--   **`UpArrow`**
--   **`DownArrow`**
--   **`LeftArrow`**
--   **`RightArrow`**
--   **`F1`**
--   **`F2`**
--   **`F3`**
--   **`F4`**
--   **`F5`**
--   **`F6`**
--   **`F7`**
--   **`F8`**
--   **`F9`**
--   **`F10`**
--   **`F11`**
--   **`F12`**
--   **`F13`**
--   **`F14`**
--   **`F15`**
--   **`F16`**
--   **`F17`**
--   **`F18`**
--   **`F19`**
--   **`F20`**
--   **`F21`**
--   **`F22`**
--   **`F23`**
--   **`F24`**
--   **`Insert`**
--   **`Home`**
--   **`End`**
--   **`PageUp`**
--   **`PageDown`**
--   **`ScrollLock`**
--   **`Pause`**
--   **`SysReq`**
--   **`Stop`**
--   **`Menu`**
+<SpecialKeys />

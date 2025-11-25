@@ -12,6 +12,7 @@ use xshell::{cmd, Shell};
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     generate_enum_docs()?;
     generate_builtin_struct_docs()?;
+    generate_keys_docs()?;
 
     let root = super::root_dir();
 
@@ -288,4 +289,32 @@ fn to_kebab_case(str: &str) -> String {
         }
     }
     String::from_utf8(result).unwrap()
+}
+
+fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
+    let root_dir = &super::root_dir();
+    let enums_dir = root_dir.join("docs/astro/src/content/collections/enums");
+    create_dir_all(&enums_dir).context(format!(
+        "Failed to create folder holding individual enum doc files {enums_dir:?}"
+    ))?;
+
+    let path = enums_dir.join(format!("keys.md"));
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+
+    macro_rules! collect_special_key {
+        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
+            $(
+                 write!(file, r#"-   **`{}`**
+"#, stringify!($name)
+                 )?;
+            )*
+        };
+    }
+
+    i_slint_common::for_each_special_keys!(collect_special_key);
+
+    file.flush()?;
+
+    Ok(())
 }
