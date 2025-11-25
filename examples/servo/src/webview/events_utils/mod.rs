@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 mod key_event_util;
 mod pointer_event_util;
 mod url_event_util;
