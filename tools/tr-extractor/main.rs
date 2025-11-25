@@ -12,7 +12,7 @@ type Messages = polib::catalog::Catalog;
 #[derive(clap::Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(name = "path to .slint file(s)", action)]
+    #[arg(name = "path to .slint file(s)", action, required = true)]
     paths: Vec<std::path::PathBuf>,
 
     #[arg(long = "default-domain", short = 'd')]
