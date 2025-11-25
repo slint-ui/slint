@@ -18,6 +18,7 @@ jobs:
             working-directory: ui-libraries/material
         steps:
             - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
             - name: Cache WASM build
               id: cache-wasm
               uses: actions/cache@v4
