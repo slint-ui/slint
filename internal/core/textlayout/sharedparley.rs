@@ -3,14 +3,6 @@
 
 pub use parley;
 
-use crate::items::TextStrokeStyle;
-use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
-    PointLengths, ScaleFactor, SizeLengths,
-};
-use crate::renderer::RendererSealed;
-use crate::textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
-use crate::{Color, SharedString, graphics::FontRequest};
 use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
