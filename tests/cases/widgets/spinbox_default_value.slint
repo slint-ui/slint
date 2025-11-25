@@ -47,6 +47,7 @@ assert_eq!(spinbox.accessible_value().unwrap(), "11");
 spinbox.invoke_accessible_decrement_action();
 assert_eq!(spinbox.accessible_value().unwrap(), "10");
 
+assert_eq!(spinbox.accessible_read_only().unwrap(), false);
 
 ```
 
@@ -66,6 +67,7 @@ assert_eq(spinbox.accessible_value().value(), "11");
 spinbox.invoke_accessible_decrement_action();
 assert_eq(spinbox.accessible_value().value(), "10");
 
+assert_eq(spinbox.accessible_read_only().value(), false);
 ```
 
 */

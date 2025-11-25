@@ -46,10 +46,13 @@ option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle
 if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
     option.subControls |= QStyle::SC_SpinBoxFrame;
 option.activeSubControls = {active_controls};
-if (enabled || !read_only) {
+if (enabled) {
     option.state |= QStyle::State_Enabled;
 } else {
     option.palette.setCurrentColorGroup(QPalette::Disabled);
+}
+if (read_only) {
+    option.state |= QStyle::State_ReadOnly;
 }
 if (pressed) {
     option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
@@ -182,29 +185,32 @@ impl Item for NativeSpinBox {
                     true
                 }
                 MouseEvent::Released { button, .. } => {
-                    data.pressed = false;
-                    let left_button = *button == PointerEventButton::Left;
-                    if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
-                        && enabled
-                        && left_button
-                    {
-                        let v = self.value();
-                        if v < self.maximum() {
-                            let new_val = v + step_size;
-                            self.value.set(new_val);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                    if !self.read_only() {
+                        data.pressed = false;
+                        let left_button = *button == PointerEventButton::Left;
+                        if new_control
+                            == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
+                            && enabled
+                            && left_button
+                        {
+                            let v = self.value();
+                            if v < self.maximum() {
+                                let new_val = v + step_size;
+                                self.value.set(new_val);
+                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                            }
                         }
-                    }
-                    if new_control
-                        == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
-                        && enabled
-                        && left_button
-                    {
-                        let v = self.value();
-                        if v > self.minimum() {
-                            let new_val = v - step_size;
-                            self.value.set(new_val);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                        if new_control
+                            == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
+                            && enabled
+                            && left_button
+                        {
+                            let v = self.value();
+                            if v > self.minimum() {
+                                let new_val = v - step_size;
+                                self.value.set(new_val);
+                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                            }
                         }
                     }
                     true
@@ -340,9 +346,6 @@ impl Item for NativeSpinBox {
             option.state |= QStyle::State(initial_state);
             if (enabled && has_focus) {
                 option.state |= QStyle::State_HasFocus;
-            }
-            if (read_only) {
-                option.state |= QStyle::State_ReadOnly;
             }
             option.rect = QRect(QPoint(), size / dpr);
             initQSpinBoxOptions(option, pressed, enabled, read_only, active_controls);
