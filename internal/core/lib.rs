@@ -193,12 +193,12 @@ pub fn escape_markdown(text: &str) -> alloc::string::String {
     out
 }
 
-#[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
+#[cfg_attr(not(feature = "std"), allow(unused))]
 pub fn parse_markdown(text: &str) -> crate::api::StyledText {
-    #[cfg(feature = "experimental-rich-text")]
+    #[cfg(feature = "std")]
     {
         crate::api::StyledText::parse(text).unwrap()
     }
-    #[cfg(not(feature = "experimental-rich-text"))]
+    #[cfg(not(feature = "std"))]
     Default::default()
 }
