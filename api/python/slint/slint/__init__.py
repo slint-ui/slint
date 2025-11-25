@@ -154,12 +154,24 @@ def _build_class(
                 if is_async:
                     if "global_name" in callback_info:
                         global_name = callback_info["global_name"]
-                        if not compdef.global_callback_returns_void(global_name, name):
+                        is_void = compdef.global_callback_returns_void(
+                            global_name, name
+                        )
+                        if is_void is None:
+                            raise AttributeError(
+                                f"Callback '{name}' in global '{global_name}' cannot be used with a callback decorator for an async function, as it is not declared in Slint component"
+                            )
+                        if not is_void:
                             raise RuntimeError(
                                 f"Callback '{name}' in global '{global_name}' cannot be used with a callback decorator for an async function, as it doesn't return void"
                             )
                     else:
-                        if not compdef.callback_returns_void(name):
+                        is_void = compdef.callback_returns_void(name)
+                        if is_void is None:
+                            raise AttributeError(
+                                f"Callback '{name}' cannot be used with a callback decorator for an async function, as it is not declared in Slint component"
+                            )
+                        if not is_void:
                             raise RuntimeError(
                                 f"Callback '{name}' cannot be used with a callback decorator for an async function, as it doesn't return void"
                             )
