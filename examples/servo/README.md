@@ -77,37 +77,20 @@ fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
 }
 ```
 
-## For Android build on Mac
+## For Android build
 
 - Update your code with android specific code from example to your project.
 
-### Install Android Studio and JDK
+## Prerequisites for Android
+
+- Install [JDK](https://www.oracle.com/java/technologies/downloads/).
+- Install [Android Studio](https://developer.android.com/studio).
+- Install [Android Command Line Tools](https://developer.android.com/studio#command-tools).
+
+### Install platofrm-tools
 
 ```bash
-brew install android-studio openjdk@17
-```
-
-### Set these to .zshrc
-
-```bash
-export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
-export PATH=$JAVA_HOME/bin:$PATH
-
-export ANDROID_HOME=~/Library/Android/sdk
-export ANDROID_SDK_ROOT=$ANDROID_HOME
-
-export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
-export ANDROID_NDK_ROOT=$ANDROID_NDK_HOME
-
-export PATH=$ANDROID_HOME/tools:$PATH
-export PATH=$ANDROID_HOME/platform-tools:$PATH
-export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-```
-
-### Install platofrm-tools, build-tools and ndk
-
-```bash
-sdkmanager platform-tools "platforms;android-30" "build-tools;34.0.0" "ndk;28.2.13676358"
+${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
 ```
 
 ### Add rust target and install cargo apk
@@ -117,9 +100,22 @@ rustup target add aarch64-linux-android
 cargo install cargo-apk
 ```
 
-### Run on android emulator or device
+### Setup Bindgen for Android
+
+#### On Mac
 
 ```bash
 export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
+```
+
+#### On Linux
+
+```bash
+export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+```
+
+### Run on android emulator or device
+
+```bash
 cargo apk run --target aarch64-linux-android --lib
 ```
