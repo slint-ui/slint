@@ -3,7 +3,6 @@
 
 use std::rc::Rc;
 
-use url::Url;
 use winit::dpi::PhysicalSize;
 
 use euclid::{Box2D, Point2D, Scale, Size2D};
@@ -21,6 +20,7 @@ use crate::{MyApp, WebviewLogic};
 
 use super::adapter::{SlintServoAdapter, upgrade_adapter};
 use super::key_event_util::convert_slint_key_event_to_servo_keyboard_event;
+use super::url_event_util::convert_input_string_to_servo_url;
 
 pub struct WebViewEvents<'a> {
     app: &'a MyApp,
@@ -44,8 +44,8 @@ impl<'a> WebViewEvents<'a> {
         self.app.global::<WebviewLogic>().on_loadUrl(move |url| {
             let adapter = upgrade_adapter(&adapter_weak);
             let webview = adapter.webview();
-            let url = Url::parse(url.as_str()).expect("Failed to parse url");
-            webview.load(url);
+            let url = convert_input_string_to_servo_url(&url);
+            webview.load(url.into_url());
         });
     }
 
