@@ -223,6 +223,7 @@ private:
     void *inner; // opaque
 };
 
+/// Styled text that has been parsed and seperated into paragraphs
 class StyledText
 {
 public:
