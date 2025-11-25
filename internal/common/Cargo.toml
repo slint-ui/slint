@@ -25,5 +25,8 @@ color-parsing = []
 ttf-parser = { workspace = true, optional = true }
 fontique = { workspace = true, optional = true }
 
+[build-dependencies]
+pkg-config = "*"
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
