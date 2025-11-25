@@ -79,55 +79,58 @@ pub enum StyledTextError<'a> {
 }
 
 /// Styled text that has been parsed and seperated into paragraphs
+#[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
     /// Paragraphs of styled text
-    pub(crate) paragraphs: alloc::vec::Vec<StyledTextParagraph>,
+    pub(crate) paragraphs: crate::SharedVector<StyledTextParagraph>,
 }
 
 #[cfg(feature = "std")]
 impl StyledText {
-    fn begin_paragraph(&mut self, indentation: u32, list_item_type: Option<ListItemType>) {
-        let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
-        for _ in 0..indentation {
-            text.push_str("    ");
-        }
-        match list_item_type {
-            Some(ListItemType::Unordered) => {
-                if indentation % 3 == 0 {
-                    text.push_str("• ")
-                } else if indentation % 3 == 1 {
-                    text.push_str("◦ ")
-                } else {
-                    text.push_str("▪ ")
-                }
-            }
-            Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
-            None => {}
-        };
-        self.paragraphs.push(StyledTextParagraph {
-            text,
-            formatting: Default::default(),
-            links: Default::default(),
-        });
-    }
-
     /// Parse a markdown string as styled text
     pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
         let parser =
             pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
 
-        let mut styled_text = StyledText::default();
+        let mut paragraphs = alloc::vec::Vec::new();
         let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
         let mut style_stack = alloc::vec::Vec::new();
         let mut current_url = None;
+
+        let begin_paragraph = |paragraphs: &mut alloc::vec::Vec<StyledTextParagraph>,
+                               indentation: u32,
+                               list_item_type: Option<ListItemType>| {
+            let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
+            for _ in 0..indentation {
+                text.push_str("    ");
+            }
+            match list_item_type {
+                Some(ListItemType::Unordered) => {
+                    if indentation % 3 == 0 {
+                        text.push_str("• ")
+                    } else if indentation % 3 == 1 {
+                        text.push_str("◦ ")
+                    } else {
+                        text.push_str("▪ ")
+                    }
+                }
+                Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
+                None => {}
+            };
+            paragraphs.push(StyledTextParagraph {
+                text,
+                formatting: Default::default(),
+                links: Default::default(),
+            });
+        };
 
         for event in parser {
             let indentation = list_state_stack.len().saturating_sub(1) as _;
 
             match event {
                 pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                    styled_text.begin_paragraph(indentation, None);
+                    begin_paragraph(&mut paragraphs, indentation, None);
                 }
                 pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
                     if list_state_stack.pop().is_none() {
@@ -140,11 +143,12 @@ impl StyledText {
                 pulldown_cmark::Event::Start(tag) => {
                     let style = match tag {
                         pulldown_cmark::Tag::Paragraph => {
-                            styled_text.begin_paragraph(indentation, None);
+                            begin_paragraph(&mut paragraphs, indentation, None);
                             continue;
                         }
                         pulldown_cmark::Tag::Item => {
-                            styled_text.begin_paragraph(
+                            begin_paragraph(
+                                &mut paragraphs,
                                 indentation,
                                 Some(match list_state_stack.last().copied() {
                                     Some(Some(index)) => ListItemType::Ordered(index),
@@ -190,17 +194,11 @@ impl StyledText {
 
                     style_stack.push((
                         style,
-                        styled_text
-                            .paragraphs
-                            .last()
-                            .ok_or(StyledTextError::ParagraphNotStarted)?
-                            .text
-                            .len(),
+                        paragraphs.last().ok_or(StyledTextError::ParagraphNotStarted)?.text.len(),
                     ));
                 }
                 pulldown_cmark::Event::Text(text) => {
-                    styled_text
-                        .paragraphs
+                    paragraphs
                         .last_mut()
                         .ok_or(StyledTextError::ParagraphNotStarted)?
                         .text
@@ -213,10 +211,8 @@ impl StyledText {
                         return Err(StyledTextError::Pop);
                     };
 
-                    let paragraph = styled_text
-                        .paragraphs
-                        .last_mut()
-                        .ok_or(StyledTextError::ParagraphNotStarted)?;
+                    let paragraph =
+                        paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
                     let end = paragraph.text.len();
 
                     if let Some(url) = current_url.take() {
@@ -226,10 +222,8 @@ impl StyledText {
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
                 }
                 pulldown_cmark::Event::Code(text) => {
-                    let paragraph = styled_text
-                        .paragraphs
-                        .last_mut()
-                        .ok_or(StyledTextError::ParagraphNotStarted)?;
+                    let paragraph =
+                        paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
                     let start = paragraph.text.len();
                     paragraph.text.push_str(&text);
                     paragraph.formatting.push(FormattedSpan {
@@ -262,10 +256,8 @@ impl StyledText {
                             ));
                         }
 
-                        let paragraph = styled_text
-                            .paragraphs
-                            .last_mut()
-                            .ok_or(StyledTextError::ParagraphNotStarted)?;
+                        let paragraph =
+                            paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
                         let end = paragraph.text.len();
                         paragraph.formatting.push(FormattedSpan { range: start..end, style });
                     } else {
@@ -278,8 +270,7 @@ impl StyledText {
                                         "u" => {
                                             style_stack.push((
                                                 Style::Underline,
-                                                styled_text
-                                                    .paragraphs
+                                                paragraphs
                                                     .last()
                                                     .ok_or(StyledTextError::ParagraphNotStarted)?
                                                     .text
@@ -323,8 +314,7 @@ impl StyledText {
 
                                         style_stack.push((
                                             Style::Color(crate::Color::from_argb_encoded(value)),
-                                            styled_text
-                                                .paragraphs
+                                            paragraphs
                                                 .last()
                                                 .ok_or(StyledTextError::ParagraphNotStarted)?
                                                 .text
@@ -367,7 +357,7 @@ impl StyledText {
             return Err(StyledTextError::NotEmpty);
         }
 
-        Ok(styled_text)
+        Ok(StyledText { paragraphs: (&paragraphs[..]).into() })
     }
 }
 

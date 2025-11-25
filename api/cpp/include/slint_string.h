@@ -223,6 +223,18 @@ private:
     void *inner; // opaque
 };
 
+class StyledText {
+public:
+    /// Returns true if \a a is equal to \a b; otherwise returns false.
+    friend bool operator==(const StyledText &a, const StyledText &b)
+    {
+        return a.paragraphs == b.paragraphs;
+    }
+    
+private:
+    void* paragraphs;
+};
+
 namespace private_api {
 
 template<typename T>

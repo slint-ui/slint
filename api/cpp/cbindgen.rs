@@ -315,7 +315,6 @@ fn gen_corelib(
         "Layer",
         "ContextMenu",
         "MenuItem",
-        "StyledText",
     ];
 
     config.export.include = [
