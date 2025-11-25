@@ -251,6 +251,19 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
+inline SharedString escape_markdown(const SharedString &text)
+{
+    SharedString result = text;
+    cbindgen_private::slint_escape_markdown(&result);
+    return result;
+}
+
+inline StyledText parse_markdown(const SharedString &text)
+{
+    return cbindgen_private::slint_parse_markdown(&text);
+}
+
+
 inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
                                           cbindgen_private::Slice<SharedString> arguments)
 {

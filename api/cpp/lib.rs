@@ -237,11 +237,12 @@ pub extern "C" fn slint_open_url(url: &SharedString) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_escape_markdown(text: SharedString) -> SharedString {
-    i_slint_core::escape_markdown(&text).into()
+pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedString {
+    *text = i_slint_core::escape_markdown(&text).into();
+    text
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_parse_markdown(text: SharedString) -> i_slint_core::api::StyledText {
+pub extern "C" fn slint_parse_markdown(text: &SharedString) -> i_slint_core::api::StyledText {
     i_slint_core::parse_markdown(&text)
 }

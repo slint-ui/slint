@@ -4216,11 +4216,11 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::EscapeMarkdown => {
             let text = a.next().unwrap();
-            format!("slint::cbindgen_private::slint_escape_markdown({})", text)
+            format!("slint::private_api::escape_markdown({})", text)
         }
         BuiltinFunction::ParseMarkdown => {
             let text = a.next().unwrap();
-            format!("slint::cbindgen_private::slint_parse_markdown({})", text)
+            format!("slint::private_api::parse_markdown({})", text)
         }
     }
 }
