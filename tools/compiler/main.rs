@@ -96,6 +96,10 @@ struct Cli {
     #[arg(long = "bundle-translations", name = "path")]
     bundle_translations: Option<std::path::PathBuf>,
 
+    /// Disable the default to use the component name as translation context when none is specified in `@tr`
+    #[arg(long = "no-default-translation-context")]
+    no_default_translation_context: bool,
+
     /// Define the C++ namespace for generated code.
     #[arg(long = "cpp-namespace", name = "C++ namespace")]
     cpp_namespace: Option<String>,

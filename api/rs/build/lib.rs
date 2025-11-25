@@ -193,6 +193,17 @@ impl CompilerConfiguration {
         Self { config }
     }
 
+    /// Unless explicitly specified with the `@tr("context" => ...)`, the default translation context is the component name.
+    /// Use this option to disable the default translation context.
+    ///
+    /// The translation file must also not have context
+    /// (`--no-default-translation-context` argument of `slint-tr-extractor`)
+    #[must_use]
+    pub fn without_default_translation_context(mut self) -> Self {
+        self.config.no_default_translation_context = true;
+        self
+    }
+
     /// Configures the compiler to emit additional debug info when compiling Slint code.
     ///
     /// This is the equivalent to setting `SLINT_EMIT_DEBUG_INFO=1` and using the `slint!()` macro

@@ -1,10 +1,36 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-
 //bundle-translations
 
- export component TestCase inherits Window {
+
+/*
+ generate with
+
+      cd tests/cases/translations
+      cargo run -p slint-tr-extractor -- bundle.slint
+      # that generated a messages.po file
+
+      msgmerge fr/LC_MESSAGES/bundle.po messages.po -o fr/LC_MESSAGES/bundle.po
+      msgmerge up/LC_MESSAGES/bundle.po messages.po -o up/LC_MESSAGES/bundle.po
+      rm messages.po
+
+      # translate the .po files
+*/
+
+global MyGlobal {
+    out property <string> global_string: @tr("Global string");
+    out property <string> same: @tr("Same");
+    out property <string> diff: @tr("In Global" => "Diff");
+}
+
+export component MyComponent {
+    out property <string> my_string: @tr("My string");
+    out property <string> same: @tr("Same");
+    out property <string> diff: @tr("In Component" => "Diff");
+}
+
+export component TestCase inherits Window {
     property <int> int_value: 42;
 
     out property <string> t1: @tr("Hello World{{}}.");
@@ -12,6 +38,8 @@
     out property <string> t3: @tr("{} Hello {}", int_value, "World");
     out property <string> t4: @tr("{1} Hello {0}🌍", @tr("World"), int_value + 1);
     out property <string> t5: @tr("Untranslated string");
+
+    my-component := MyComponent {}
 
     property <string> c1: @tr("Context" => "xx{0}xx", @tr("CC" => "aa"));
 
@@ -23,11 +51,18 @@
 
     out property <string> empty_context: @tr("" => "No-context");
 
+    out property <string> same: @tr("Same");
+    out property <string> diff: @tr("Main" => "Diff");
+    out property <string> same_or_diff: "\{same}|\{my-component.same}|\{MyGlobal.same} || \{diff}|\{my-component.diff}|\{MyGlobal.diff}";
+
     out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍" && t5 == "Untranslated string"
         && c1 == "xxaaxx"
         && result1 == "there is one file in my Plop\nthere are 2 files in my Flop🎃\nthere are 10 files in my Hello World{}."
         && result2 == "xx1xx\nyy-999yy\nyy0yy\nyy42yy"
-        && empty_context == "No-context";
+        && empty_context == "No-context"
+        && same_or_diff == "Same|Same|Same || Diff|Diff|Diff"
+        && my-component.my_string == "My string" && MyGlobal.global_string == "Global string";
+
 }
 /*
 ```cpp
@@ -55,6 +90,7 @@ assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
 assert_eq(instance.get_t5(), "Untranslated string");
 assert_eq(instance.get_empty_context(), "NO-CONTEXT");
+assert_eq(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert(!instance.get_test());
 
 assert(!slint::select_bundled_translation("def"));
@@ -62,6 +98,7 @@ assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
 assert_eq(instance.get_t5(), "Untranslated string");
 assert_eq(instance.get_empty_context(), "NO-CONTEXT");
+assert_eq(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert(!instance.get_test());
 
 assert(slint::select_bundled_translation(""));
@@ -69,6 +106,7 @@ assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
 assert_eq(instance.get_t5(), "Untranslated string");
 assert_eq(instance.get_empty_context(), "No-context");
+assert_eq(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
 assert(instance.get_test());
 
 assert(slint::select_bundled_translation("fr"));
@@ -76,6 +114,7 @@ assert_eq(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fic
 assert_eq(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
 assert_eq(instance.get_t5(), "Untranslated string");
 assert_eq(instance.get_empty_context(), "Pas de contexte");
+assert_eq(instance.get_same_or_diff(), "Même(Main)|Même(MyComponent)|Même(MyGlobal) || Diff(Main)|Diff(MyComponent)|Diff(MyGlobal)");
 assert(!instance.get_test());
 ```
 
@@ -87,6 +126,7 @@ let result2 = "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
 assert!(instance.get_test());
 
 assert!(slint::select_bundled_translation("abc").is_err());
@@ -100,6 +140,7 @@ assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
 assert_eq!(instance.get_t5(), "Untranslated string");
 assert_eq!(instance.get_empty_context(), "NO-CONTEXT");
+assert_eq!(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert!(!instance.get_test());
 
 assert!(slint::select_bundled_translation("def").is_err());
@@ -107,6 +148,7 @@ assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
 assert_eq!(instance.get_t5(), "Untranslated string");
 assert_eq!(instance.get_empty_context(), "NO-CONTEXT");
+assert_eq!(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert!(!instance.get_test());
 
 assert!(slint::select_bundled_translation("").is_ok());
@@ -114,6 +156,7 @@ assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
 assert_eq!(instance.get_t5(), "Untranslated string");
 assert_eq!(instance.get_empty_context(), "No-context");
+assert_eq!(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
 assert!(instance.get_test());
 
 assert!(slint::select_bundled_translation("fr").is_ok());
@@ -121,8 +164,8 @@ assert_eq!(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fi
 assert_eq!(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
 assert_eq!(instance.get_t5(), "Untranslated string");
 assert_eq!(instance.get_empty_context(), "Pas de contexte");
+assert_eq!(instance.get_same_or_diff(), "Même(Main)|Même(MyComponent)|Même(MyGlobal) || Diff(Main)|Diff(MyComponent)|Diff(MyGlobal)");
 assert!(!instance.get_test());
-
 ```
 
 */
