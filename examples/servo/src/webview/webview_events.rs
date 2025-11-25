@@ -7,12 +7,11 @@ use winit::dpi::PhysicalSize;
 
 use euclid::{Box2D, Point2D, Scale, Size2D};
 
-use i_slint_core::items::{ColorScheme, PointerEvent, PointerEventKind};
-use slint::{ComponentHandle, platform::PointerEventButton};
+use i_slint_core::items::ColorScheme;
+use slint::ComponentHandle;
 
 use servo::{
-    InputEvent, MouseButton, MouseButtonAction, MouseButtonEvent, MouseMoveEvent, Scroll, Theme,
-    TouchEvent, TouchEventType, TouchId, WebViewPoint,
+    InputEvent, Scroll, Theme,
     webrender_api::units::{DevicePixel, DevicePoint, DeviceVector2D},
 };
 
@@ -20,6 +19,7 @@ use crate::{MyApp, WebviewLogic};
 
 use super::adapter::{SlintServoAdapter, upgrade_adapter};
 use super::key_event_util::convert_slint_key_event_to_servo_keyboard_event;
+use super::pointer_event_util::convert_slint_pointer_event_to_servo_input_event;
 use super::url_event_util::convert_input_string_to_servo_url;
 
 pub struct WebViewEvents<'a> {
@@ -130,10 +130,8 @@ impl<'a> WebViewEvents<'a> {
             let adapter = upgrade_adapter(&adapter_weak);
             let webview = adapter.webview();
             let point = DevicePoint::new(x, y);
-            let input_event = Self::convert_slint_pointer_event_to_servo_input_event(
-                &pointer_event,
-                point.into(),
-            );
+            let input_event =
+                convert_slint_pointer_event_to_servo_input_event(&pointer_event, point.into());
             webview.notify_input_event(input_event);
         });
     }
@@ -147,50 +145,5 @@ impl<'a> WebViewEvents<'a> {
             let input_event = InputEvent::Keyboard(keybord_event);
             webview.notify_input_event(input_event);
         });
-    }
-
-    fn convert_slint_pointer_event_to_servo_input_event(
-        pointer_event: &PointerEvent,
-        point: WebViewPoint,
-    ) -> InputEvent {
-        if pointer_event.is_touch {
-            Self::handle_touch_events(pointer_event, point)
-        } else {
-            Self::handle_mouse_events(pointer_event, point)
-        }
-    }
-
-    fn handle_touch_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
-        let touch_id = TouchId(1);
-        let touch_event = match pointer_event.kind {
-            PointerEventKind::Down => TouchEvent::new(TouchEventType::Down, touch_id, point),
-            PointerEventKind::Up => TouchEvent::new(TouchEventType::Up, touch_id, point),
-            _ => TouchEvent::new(TouchEventType::Move, touch_id, point),
-        };
-        InputEvent::Touch(touch_event)
-    }
-
-    fn handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
-        let button = Self::get_mouse_button(pointer_event);
-        match pointer_event.kind {
-            PointerEventKind::Down => {
-                let mouse_event = MouseButtonEvent::new(MouseButtonAction::Down, button, point);
-                InputEvent::MouseButton(mouse_event)
-            }
-            PointerEventKind::Up => {
-                let mouse_event = MouseButtonEvent::new(MouseButtonAction::Up, button, point);
-                InputEvent::MouseButton(mouse_event)
-            }
-            _ => InputEvent::MouseMove(MouseMoveEvent::new(point)),
-        }
-    }
-
-    fn get_mouse_button(point_event: &PointerEvent) -> MouseButton {
-        match point_event.button {
-            PointerEventButton::Left => MouseButton::Left,
-            PointerEventButton::Right => MouseButton::Right,
-            PointerEventButton::Middle => MouseButton::Middle,
-            _ => MouseButton::Left,
-        }
     }
 }

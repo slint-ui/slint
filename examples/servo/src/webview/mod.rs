@@ -96,6 +96,7 @@
 mod adapter;
 mod delegate;
 mod key_event_util;
+mod pointer_event_util;
 mod rendering_context;
 mod url_event_util;
 mod waker;
