@@ -172,6 +172,9 @@ fn generate_public_component(
         quote!((#n.to_string(), #p.into()))
     });
     let translation_domain = compiler_config.translation_domain.iter();
+    let no_default_translation_context = compiler_config
+        .no_default_translation_context
+        .then(|| quote!(compiler.disable_default_translation_context();));
     let style = compiler_config.style.iter();
 
     quote!(
@@ -184,6 +187,7 @@ fn generate_public_component(
                 compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
                 #(compiler.set_style(#style.to_string());)*
                 #(compiler.set_translation_domain(#translation_domain.to_string());)*
+                #no_default_translation_context
                 let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), #component_name.into())?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))

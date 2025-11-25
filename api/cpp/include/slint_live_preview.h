@@ -134,12 +134,14 @@ public:
     LiveReloadingComponent(std::string_view file_name, std::string_view component_name,
                            const slint::SharedVector<slint::SharedString> &include_paths,
                            const slint::SharedVector<slint::SharedString> &libraries,
-                           std::string_view style, std::string_view translation_domain)
+                           std::string_view style, std::string_view translation_domain,
+                           bool no_default_translation_context)
     {
         assert_main_thread();
         inner = cbindgen_private::slint_live_preview_new(
                 string_to_slice(file_name), string_to_slice(component_name), &include_paths,
-                &libraries, string_to_slice(style), string_to_slice(translation_domain));
+                &libraries, string_to_slice(style), string_to_slice(translation_domain),
+                no_default_translation_context);
     }
 
     LiveReloadingComponent(const LiveReloadingComponent &other) : inner(other.inner)

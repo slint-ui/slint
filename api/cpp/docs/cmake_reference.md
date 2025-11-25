@@ -92,3 +92,9 @@ set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_C
 By default, the domain used for translations is the name of the CMake target the `.slint` files are targeted with.
 Use the `SLINT_TRANSLATION_DOMAIN` target property to override this and use the specified value as domain, instead.
 This is useful in build environments where the target name is given and not suitable, such as esp-idf.
+
+## Disable Default Translation Context
+
+Unless explicitly specified with the `@tr("context" => ...)`, the default translation context is the component name.
+Set the `SLINT_NO_DEFAULT_TRANSLATION_CONTEXT` target property to disable the default translation context.
+When doing that, the `--no-default-translation-context` flag must be passed to `slint-tr-extractor`.

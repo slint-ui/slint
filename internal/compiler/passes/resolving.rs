@@ -881,18 +881,24 @@ impl Expression {
         let plural =
             plural.unwrap_or((SmolStr::default(), Expression::NumberLiteral(1., Unit::None)));
 
-        let get_component_name = || {
-            ctx.component_scope
-                .first()
-                .and_then(|e| e.borrow().enclosing_component.upgrade())
-                .map(|c| c.id.clone())
-        };
+        let context = context.or_else(|| {
+            if !ctx.type_loader.is_some_and(|tl| tl.compiler_config.no_default_translation_context)
+            {
+                // Get the component name as a default
+                ctx.component_scope
+                    .first()
+                    .and_then(|e| e.borrow().enclosing_component.upgrade())
+                    .map(|c| c.id.clone())
+            } else {
+                None
+            }
+        });
 
         Expression::FunctionCall {
             function: BuiltinFunction::Translate.into(),
             arguments: vec![
                 Expression::StringLiteral(string),
-                Expression::StringLiteral(context.or_else(get_component_name).unwrap_or_default()),
+                Expression::StringLiteral(context.unwrap_or_default()),
                 Expression::StringLiteral(domain.into()),
                 Expression::Array { element_ty: Type::String, values },
                 plural.1,
