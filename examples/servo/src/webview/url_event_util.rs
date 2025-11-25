@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use servo::servo_url::ServoUrl;
 
 pub fn convert_input_string_to_servo_url(url: &str) -> ServoUrl {
