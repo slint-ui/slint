@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use i_slint_core::items::{PointerEvent, PointerEventKind};
-use slint::platform::PointerEventButton;
+use slint::{
+    platform::PointerEventButton,
+    private_unstable_api::re_exports::{PointerEvent, PointerEventKind},
+};
 
 use servo::{
     InputEvent, MouseButton, MouseButtonAction, MouseButtonEvent, MouseMoveEvent, TouchEvent,

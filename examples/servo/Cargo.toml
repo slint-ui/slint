@@ -47,8 +47,6 @@ wgpu = { version = "27.0.1", features = ["metal"] }
 libservo = { git = "https://github.com/servo/servo", rev = "158bf97e" }
 embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", features = ["baked-default-resources"] }
 
-i-slint-core = { path = "../../internal/core" }
-
 [target.'cfg(target_os = "linux")'.dependencies]
 ash = "0.38.0"
 

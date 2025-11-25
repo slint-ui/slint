@@ -7910,7 +7910,6 @@ dependencies = [
  "gl_generator",
  "gleam",
  "glow",
- "i-slint-core",
  "image",
  "libservo",
  "log",

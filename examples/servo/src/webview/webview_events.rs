@@ -7,8 +7,7 @@ use winit::dpi::PhysicalSize;
 
 use euclid::{Box2D, Point2D, Scale, Size2D};
 
-use i_slint_core::items::ColorScheme;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, private_unstable_api::re_exports::ColorScheme};
 
 use servo::{
     Scroll, Theme,

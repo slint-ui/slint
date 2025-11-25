@@ -1,8 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use i_slint_core::items::{KeyEvent, KeyboardModifiers};
-use slint::{SharedString, platform::Key as SlintKey};
+use slint::{
+    SharedString,
+    // platform::Key as SlintKey,
+    private_unstable_api::re_exports::{Key as SlintKey, KeyEvent, KeyboardModifiers},
+};
 
 use servo::{Code, InputEvent, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
 
