@@ -8,7 +8,7 @@ export Test2 := Rectangle {
     TabWidget {
         in property <Orientation> foo;
         orientation: self.foo;
-//                   ^error{The orientation property only supports constants at the moment}   
+//                   ^error{The orientation property only supports constants at the moment}
         Tab {
             visible: false;
 //                   ^error{The property 'visible' cannot be set for Tabs inside a TabWidget}
