@@ -83,7 +83,7 @@ private:
 /// The following example creates a 320x200 RGB pixel buffer and calls a function to draw a shape
 /// into it:
 /// ```cpp
-/// slint::SharedPixelBuffer::<slint::Rgb8Pixel> pixel_buffer(320, 200);
+/// slint::SharedPixelBuffer<slint::Rgb8Pixel> pixel_buffer(320, 200);
 /// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
 ///                  static_cast<unsigned char *>(pixel_buffer.begin()));
 /// slint::Image image(pixel_buffer);
@@ -102,7 +102,7 @@ private:
 /// pixel conversion as you copy the pixels:
 ///
 /// ```cpp
-/// slint::SharedPixelBuffer::<slint::Rgb8Pixel> pixel_buffer(the_width, the_height);
+/// slint::SharedPixelBuffer<slint::Rgb8Pixel> pixel_buffer(the_width, the_height);
 /// slint::Rgb8Pixel *raw_data = pixel_buffer.begin();
 /// for (int i = 0; i < the_width * the_height; i++) {
 ///   raw_data[i] = { bgr_data[i * 3 + 2], bgr_data[i * 3 + 1], bgr_data[i * 3] };

@@ -302,37 +302,31 @@ impl ComponentDefinition {
         self.definition.global_functions(name).map(|functioniter| functioniter.collect())
     }
 
-    fn callback_returns_void(&self, callback_name: &str) -> bool {
+    fn callback_returns_void(&self, callback_name: &str) -> Option<bool> {
         let callback_name = normalize_identifier(callback_name);
-        self.definition
-            .properties_and_callbacks()
-            .find_map(|(name, (ty, _))| {
-                if name == callback_name {
+        self.definition.properties_and_callbacks().find_map(|(name, (ty, _))| {
+            if normalize_identifier(&name) == callback_name {
+                if let Type::Callback(signature) = ty {
+                    return Some(signature.return_type == Type::Void);
+                }
+            }
+            None
+        })
+    }
+
+    fn global_callback_returns_void(&self, global_name: &str, callback_name: &str) -> Option<bool> {
+        let global_name = normalize_identifier(global_name);
+        let callback_name = normalize_identifier(callback_name);
+        self.definition.global_properties_and_callbacks(&global_name).and_then(|mut props| {
+            props.find_map(|(name, (ty, _))| {
+                if normalize_identifier(&name) == callback_name {
                     if let Type::Callback(signature) = ty {
                         return Some(signature.return_type == Type::Void);
                     }
                 }
                 None
             })
-            .unwrap_or_default()
-    }
-
-    fn global_callback_returns_void(&self, global_name: &str, callback_name: &str) -> bool {
-        let global_name = normalize_identifier(global_name);
-        let callback_name = normalize_identifier(callback_name);
-        self.definition
-            .global_properties_and_callbacks(&global_name)
-            .and_then(|mut props| {
-                props.find_map(|(name, (ty, _))| {
-                    if name == callback_name {
-                        if let Type::Callback(signature) = ty {
-                            return Some(signature.return_type == Type::Void);
-                        }
-                    }
-                    None
-                })
-            })
-            .unwrap_or_default()
+        })
     }
 
     fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {

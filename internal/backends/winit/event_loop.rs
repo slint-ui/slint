@@ -220,6 +220,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 let swap_cmd_ctrl = i_slint_core::is_apple_platform();
 
                 let key_code = if swap_cmd_ctrl {
+                    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                     match key_code {
                         winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control) => {
                             winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super)
@@ -248,6 +249,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     }
                 }
             }
+                #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                 let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
 
                 self.loop_error = window

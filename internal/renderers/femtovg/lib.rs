@@ -3,6 +3,8 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
+#![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
@@ -10,10 +12,11 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontique;
+use i_slint_core::Brush;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::SharedPixelBuffer;
-use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
+use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::{ItemRc, TextWrap};
@@ -22,7 +25,6 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::Brush;
 use images::TextureImporter;
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -204,21 +206,18 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 if let Some(window_item_rc) = window_inner.window_item_rc() {
                     let window_item =
                         window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                    match window_item.as_pin_ref().background() {
-                        Brush::SolidColor(..) => {
-                            // clear_rect is called earlier
-                        }
-                        _ => {
-                            // Draws the window background as gradient
-                            item_renderer.draw_rectangle(
-                                window_item.as_pin_ref(),
-                                &window_item_rc,
-                                i_slint_core::lengths::logical_size_from_api(
-                                    window.size().to_logical(window_inner.scale_factor()),
-                                ),
-                                &window_item.as_pin_ref().cached_rendering_data,
-                            );
-                        }
+                    if let Brush::SolidColor(..) = window_item.as_pin_ref().background() {
+                        // clear_rect is called earlier
+                    } else {
+                        // Draws the window background as gradient
+                        item_renderer.draw_rectangle(
+                            window_item.as_pin_ref(),
+                            &window_item_rc,
+                            i_slint_core::lengths::logical_size_from_api(
+                                window.size().to_logical(window_inner.scale_factor()),
+                            ),
+                            &window_item.as_pin_ref().cached_rendering_data,
+                        );
                     }
                 }
 
@@ -491,7 +490,9 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
 
         if let Some(canvas) = self.canvas.borrow_mut().take() {
             if Rc::strong_count(&canvas) != 1 {
-                i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
+                i_slint_core::debug_log!(
+                    "internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked."
+                )
             }
         }
 

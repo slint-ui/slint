@@ -2358,7 +2358,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         let v = v.as_str();
                         quote!(#c => sp::SharedString::from(#v))
                     });
-                    quote!(match #f { #(#cases),* })
+                    quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
                 }
                 (_, Type::Void) => {
                     quote!({#f;})

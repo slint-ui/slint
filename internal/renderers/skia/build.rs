@@ -11,4 +11,6 @@ fn main() {
        skia_backend_vulkan: { feature = "vulkan" },
        skia_backend_software: { not(target_os = "android") },
     }
+
+    println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
 }

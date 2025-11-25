@@ -311,6 +311,7 @@ impl Item for NativeSpinBox {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
+            _ => key_generated::Qt_AlignmentFlag_AlignLeft,
         };
 
         cpp!(unsafe [

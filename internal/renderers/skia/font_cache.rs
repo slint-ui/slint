@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::textlayout::sharedparley::parley;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 pub struct FontCache {
     font_mgr: skia_safe::FontMgr,
-    fonts: HashMap<(u64, u32), Option<skia_safe::Typeface>>,
+    fonts: HashMap<(HashedBlob, u32), Option<skia_safe::Typeface>>,
 }
 
 impl Default for FontCache {
@@ -19,7 +20,7 @@ impl Default for FontCache {
 impl FontCache {
     pub fn font(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
         self.fonts
-            .entry((font.data.id(), font.index))
+            .entry((font.data.clone().into(), font.index))
             .or_insert_with(|| {
                 let typeface = self.font_mgr.new_from_data(
                     font.data.as_ref(),

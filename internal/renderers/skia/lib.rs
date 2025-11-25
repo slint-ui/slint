@@ -3,6 +3,8 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
+#![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
 #[cfg(any(target_vendor = "apple", skia_backend_vulkan))]
 use std::cell::OnceCell;
@@ -161,6 +163,7 @@ pub struct SkiaRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     image_cache: ItemCache<Option<skia_safe::Image>>,
+    layer_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
@@ -186,6 +189,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -206,6 +210,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -239,6 +244,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -272,6 +278,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -305,6 +312,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -338,6 +346,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -371,6 +380,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -404,6 +414,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -453,6 +464,7 @@ impl SkiaRenderer {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
+            layer_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
@@ -648,6 +660,7 @@ impl SkiaRenderer {
             window,
             surface,
             &self.image_cache,
+            &self.layer_cache,
             &self.path_cache,
             &mut box_shadow_cache,
         );
@@ -723,21 +736,18 @@ impl SkiaRenderer {
             if let Some(window_item_rc) = window_inner.window_item_rc() {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                match window_item.as_pin_ref().background() {
-                    Brush::SolidColor(clear_color) => {
-                        skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
-                    }
-                    _ => {
-                        // Draws the window background as gradient
-                        item_renderer.draw_rectangle(
-                            window_item.as_pin_ref(),
-                            &window_item_rc,
-                            i_slint_core::lengths::logical_size_from_api(
-                                window.size().to_logical(window_inner.scale_factor()),
-                            ),
-                            &window_item.as_pin_ref().cached_rendering_data,
-                        );
-                    }
+                if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
+                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                } else {
+                    // Draws the window background as gradient
+                    item_renderer.draw_rectangle(
+                        window_item.as_pin_ref(),
+                        &window_item_rc,
+                        i_slint_core::lengths::logical_size_from_api(
+                            window.size().to_logical(window_inner.scale_factor()),
+                        ),
+                        &window_item.as_pin_ref().cached_rendering_data,
+                    );
                 }
             }
 

@@ -55,6 +55,11 @@ export component App inherits Window {
         call-void();
     }
     callback call-void();
+    callback invoke-call-void2();
+    invoke-call-void2 => {
+        call_void2();
+    }
+    callback call_void2();
 
     in-out property <TestEnum> enum-property: TestEnum.Variant2;
     in-out property <[TestEnum]> model-with-enums: [TestEnum.Variant2, TestEnum.Variant1];

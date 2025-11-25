@@ -19,7 +19,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-propert
     apt-get install --assume-yes git && \
     git config --global safe.directory '*'
 
-ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
+ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu=/usr/lib/aarch64-linux-gnu/pkgconfig
+ENV PKG_CONFIG_PATH_x86_64_unknown_linux_gnu=/usr/lib/pkgconfig
+ENV PKG_CONFIG_PATH=
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
 # In the absence of a sysroot, the header files we install earlier (such as libfontconfig1-dev:arm64) are in /usr/include

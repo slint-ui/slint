@@ -19,7 +19,7 @@ jobs:
     tree-sitter-tests:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
               with:
                   fetch-depth: 0
             - uses: robinraju/release-downloader@v1.12

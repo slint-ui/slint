@@ -5,7 +5,7 @@
 name = "i-slint-renderer-femtovg"
 description = "FemtoVG based renderer for Slint"
 authors.workspace = true
-edition.workspace = true
+edition = "2024"
 homepage.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -46,6 +46,9 @@ wgpu-27 = { workspace = true, optional = true, default-features = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_nightly_test)"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

@@ -22,7 +22,7 @@ jobs:
                   . ${IDF_PATH}/export.sh
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.6
               with:
@@ -60,7 +60,7 @@ jobs:
                       target: armv7-unknown-linux-gnueabihf
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
               run: |
                   cargo update -p ring --precise 0.17.9
@@ -101,7 +101,7 @@ jobs:
             fail-fast: false
         runs-on: ubuntu-22.04
         steps:
-          - uses: actions/checkout@v5
+          - uses: actions/checkout@v6
             with:
                 path: slint
           - name: Install linux dependencies, including Zephyr dependencies
@@ -131,7 +131,7 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable
@@ -156,7 +156,7 @@ jobs:
                   device: iPhone 17
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-ios-sim
@@ -277,7 +277,7 @@ jobs:
                 os: [ubuntu-22.04, macos-14, windows-2022]
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
@@ -289,7 +289,7 @@ jobs:
     android_wgpu:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - uses: dtolnay/rust-toolchain@stable

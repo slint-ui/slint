@@ -824,6 +824,7 @@ impl WinitWindowAdapter {
                 ColorScheme::Unknown => None,
                 ColorScheme::Dark => Some(winit::window::Theme::Dark),
                 ColorScheme::Light => Some(winit::window::Theme::Light),
+                _ => None,
             });
         }
     }
@@ -1353,6 +1354,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
             MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
             MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
+            _ => winit::window::CursorIcon::Default,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             winit_window.set_cursor_visible(cursor != MouseCursor::None);
@@ -1376,7 +1378,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             };
             winit_window.set_ime_purpose(match props.input_type {
                 corelib::items::InputType::Password => winit::window::ImePurpose::Password,
-                _ => winit::window::ImePurpose::Normal,
+                corelib::items::InputType::Text
+                | corelib::items::InputType::Number
+                | corelib::items::InputType::Decimal
+                | _ => winit::window::ImePurpose::Normal,
             });
             winit_window.set_ime_cursor_area(
                 position_to_winit(&props.cursor_rect_origin.into()),

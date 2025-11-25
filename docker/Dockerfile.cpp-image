@@ -20,5 +20,3 @@ ENV PATH=/cargo/bin:/rust/bin:$PATH
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 RUN rustup target add $arch
-
-ENV RUST_FONTCONFIG_DLOPEN=on
