@@ -4,8 +4,7 @@
 use slint::ComponentHandle;
 use std::rc::Rc;
 
-use super::adapter::SlintServoAdapter;
-use crate::{MyApp, WebviewLogic};
+use crate::{MyApp, WebviewLogic, webview::SlintServoAdapter};
 use servo::{WebView, WebViewDelegate};
 
 /// Servo delegate for handling browser engine callbacks.
@@ -28,7 +27,7 @@ pub struct AppDelegate {
     /// Weak reference to the Slint application
     app: slint::Weak<MyApp>,
     /// Reference to the Slint-Servo adapter for state access
-    pub adapter: Rc<SlintServoAdapter>,
+    adapter: Rc<SlintServoAdapter>,
 }
 
 impl AppDelegate {

@@ -15,15 +15,13 @@ use servo::{
     webrender_api::units::{DevicePixel, DevicePoint, DeviceVector2D},
 };
 
-use crate::{
-    MyApp, WebviewLogic,
-    webview::events_utils::{
-        convert_input_string_to_servo_url, convert_slint_key_event_to_servo_input_event,
-        convert_slint_pointer_event_to_servo_input_event,
-    },
-};
+use crate::{MyApp, WebviewLogic, webview::SlintServoAdapter};
 
-use super::adapter::{SlintServoAdapter, upgrade_adapter};
+use super::adapter::upgrade_adapter;
+use super::events_utils::{
+    convert_input_string_to_servo_url, convert_slint_key_event_to_servo_input_event,
+    convert_slint_pointer_event_to_servo_input_event,
+};
 
 pub struct WebViewEvents<'a> {
     app: &'a MyApp,
