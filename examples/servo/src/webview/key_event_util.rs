@@ -1,11 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use i_slint_core::{
-    SharedString,
-    items::{KeyEvent, KeyboardModifiers},
-    platform::Key as SlintKey,
-};
+use i_slint_core::items::{KeyEvent, KeyboardModifiers};
+use slint::{SharedString, platform::Key as SlintKey};
+
 use servo::{Code, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
 
 pub fn convert_slint_key_event_to_servo_keyboard_event(
@@ -27,8 +25,8 @@ fn key_from_text(text: &str) -> Key {
     }
 
     // Special handling for Space
-    if text == SharedString::from(SlintKey::Space).as_str() {
-        return Key::Character(" ".to_string());
+    if text == " " {
+        return Key::Character(text.to_string());
     }
 
     // Helper macro to check against a Slint Key
