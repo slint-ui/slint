@@ -97,6 +97,11 @@ struct Cli {
     /// Translation directory where the translation files are searched for
     #[arg(long = "translation-dir", action)]
     translation_dir: Option<std::path::PathBuf>,
+
+    #[cfg(feature = "gettext")]
+    /// Disable the default to use the component name as translation context when none is specified in `@tr`
+    #[arg(long = "no-default-translation-context")]
+    no_default_translation_context: bool,
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
@@ -186,6 +191,10 @@ fn init_compiler(
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);
+    }
+    #[cfg(feature = "gettext")]
+    if args.no_default_translation_context {
+        compiler.disable_default_translation_context();
     }
     compiler.set_include_paths(args.include_paths.clone());
     compiler.set_library_paths(
