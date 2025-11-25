@@ -3,23 +3,25 @@
 
 use std::rc::Rc;
 
-use url::Url;
 use winit::dpi::PhysicalSize;
 
 use euclid::{Box2D, Point2D, Scale, Size2D};
 
-use i_slint_core::items::{ColorScheme, PointerEvent, PointerEventKind};
-use slint::{ComponentHandle, platform::PointerEventButton};
+use i_slint_core::items::ColorScheme;
+use slint::ComponentHandle;
 
 use servo::{
-    InputEvent, MouseButton, MouseButtonAction, MouseButtonEvent, MouseMoveEvent, Scroll, Theme,
-    TouchEvent, TouchEventType, TouchId, WebViewPoint,
+    Scroll, Theme,
     webrender_api::units::{DevicePixel, DevicePoint, DeviceVector2D},
 };
 
-use crate::{MyApp, WebviewLogic};
+use crate::{MyApp, WebviewLogic, webview::SlintServoAdapter};
 
-use super::adapter::{SlintServoAdapter, upgrade_adapter};
+use super::adapter::upgrade_adapter;
+use super::events_utils::{
+    convert_input_string_to_servo_url, convert_slint_key_event_to_servo_input_event,
+    convert_slint_pointer_event_to_servo_input_event,
+};
 
 pub struct WebViewEvents<'a> {
     app: &'a MyApp,
@@ -35,6 +37,7 @@ impl<'a> WebViewEvents<'a> {
         instance.on_scroll();
         instance.on_buttons();
         instance.on_pointer();
+        instance.on_key_event();
     }
 
     fn on_url(&self) {
@@ -42,8 +45,8 @@ impl<'a> WebViewEvents<'a> {
         self.app.global::<WebviewLogic>().on_loadUrl(move |url| {
             let adapter = upgrade_adapter(&adapter_weak);
             let webview = adapter.webview();
-            let url = Url::parse(url.as_str()).expect("Failed to parse url");
-            webview.load(url);
+            let url = convert_input_string_to_servo_url(&url);
+            webview.load(url.into_url());
         });
     }
 
@@ -128,56 +131,19 @@ impl<'a> WebViewEvents<'a> {
             let adapter = upgrade_adapter(&adapter_weak);
             let webview = adapter.webview();
             let point = DevicePoint::new(x, y);
-            let input_event = Self::convert_slint_pointer_event_to_servo_input_event(
-                &pointer_event,
-                point.into(),
-            );
+            let input_event =
+                convert_slint_pointer_event_to_servo_input_event(&pointer_event, point.into());
             webview.notify_input_event(input_event);
         });
     }
 
-    fn convert_slint_pointer_event_to_servo_input_event(
-        pointer_event: &PointerEvent,
-        point: WebViewPoint,
-    ) -> InputEvent {
-        if pointer_event.is_touch {
-            Self::handle_touch_events(pointer_event, point)
-        } else {
-            Self::handle_mouse_events(pointer_event, point)
-        }
-    }
-
-    fn handle_touch_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
-        let touch_id = TouchId(1);
-        let touch_event = match pointer_event.kind {
-            PointerEventKind::Down => TouchEvent::new(TouchEventType::Down, touch_id, point),
-            PointerEventKind::Up => TouchEvent::new(TouchEventType::Up, touch_id, point),
-            _ => TouchEvent::new(TouchEventType::Move, touch_id, point),
-        };
-        InputEvent::Touch(touch_event)
-    }
-
-    fn handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
-        let button = Self::get_mouse_button(pointer_event);
-        match pointer_event.kind {
-            PointerEventKind::Down => {
-                let mouse_event = MouseButtonEvent::new(MouseButtonAction::Down, button, point);
-                InputEvent::MouseButton(mouse_event)
-            }
-            PointerEventKind::Up => {
-                let mouse_event = MouseButtonEvent::new(MouseButtonAction::Up, button, point);
-                InputEvent::MouseButton(mouse_event)
-            }
-            _ => InputEvent::MouseMove(MouseMoveEvent::new(point)),
-        }
-    }
-
-    fn get_mouse_button(point_event: &PointerEvent) -> MouseButton {
-        match point_event.button {
-            PointerEventButton::Left => MouseButton::Left,
-            PointerEventButton::Right => MouseButton::Right,
-            PointerEventButton::Middle => MouseButton::Middle,
-            _ => MouseButton::Left,
-        }
+    fn on_key_event(&self) {
+        let adapter_weak = Rc::downgrade(&self.adapter);
+        self.app.global::<WebviewLogic>().on_key_event(move |event, is_pressed| {
+            let adapter = upgrade_adapter(&adapter_weak);
+            let webview = adapter.webview();
+            let input_event = convert_slint_key_event_to_servo_input_event(&event, is_pressed);
+            webview.notify_input_event(input_event);
+        });
     }
 }

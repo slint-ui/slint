@@ -95,10 +95,15 @@
 
 mod adapter;
 mod delegate;
+mod events_utils;
 mod rendering_context;
 mod waker;
 mod webview;
 mod webview_events;
 
+pub use adapter::SlintServoAdapter;
+pub use delegate::AppDelegate;
+pub use rendering_context::ServoRenderingAdapter;
 pub use waker::Waker;
 pub use webview::WebView;
+pub use webview_events::WebViewEvents;

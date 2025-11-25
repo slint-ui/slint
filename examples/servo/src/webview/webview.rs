@@ -15,11 +15,9 @@ use slint::{ComponentHandle, SharedString};
 use servo::{Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel};
 
 use crate::{
-    MyApp, Palette, WebviewLogic, webview::Waker, webview::delegate::AppDelegate,
-    webview::rendering_context::ServoRenderingAdapter,
+    MyApp, Palette, WebviewLogic,
+    webview::{AppDelegate, ServoRenderingAdapter, SlintServoAdapter, Waker, WebViewEvents},
 };
-
-use super::adapter::{SlintServoAdapter, upgrade_adapter};
 
 /// A web browser component powered by the Servo engine.
 ///
@@ -81,7 +79,7 @@ impl WebView {
         ));
 
         let state_weak = Rc::downgrade(&adapter);
-        let state = upgrade_adapter(&state_weak);
+        let state = super::adapter::upgrade_adapter(&state_weak);
 
         let (rendering_adapter, physical_size) = Self::init_rendering_adapter(&app, state.clone());
 
@@ -98,7 +96,7 @@ impl WebView {
 
         Self::spin_servo_event_loop(adapter.clone());
 
-        super::webview_events::WebViewEvents::new(&app, adapter.clone());
+        WebViewEvents::new(&app, adapter.clone());
     }
 
     /// Initializes the rendering adapter based on platform capabilities.
@@ -189,7 +187,7 @@ impl WebView {
 
         let url = Url::parse(&initial_url).expect("Failed to parse url");
 
-        let delegate = Rc::new(AppDelegate::new(app.as_weak(), adapter.clone()));
+        let delegate = Rc::new(AppDelegate::new(app, adapter.clone()));
 
         let webview =
             WebViewBuilder::new(&servo).url(url).size(physical_size).delegate(delegate).build();
