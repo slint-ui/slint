@@ -302,7 +302,7 @@ impl ComponentDefinition {
         self.definition.global_functions(name).map(|functioniter| functioniter.collect())
     }
 
-    fn callback_returns_void(&self, callback_name: &str) -> bool {
+    fn callback_returns_void(&self, callback_name: &str) -> Option<bool> {
         let callback_name = normalize_identifier(callback_name);
         self.definition
             .properties_and_callbacks()
@@ -314,10 +314,9 @@ impl ComponentDefinition {
                 }
                 None
             })
-            .unwrap_or_default()
     }
 
-    fn global_callback_returns_void(&self, global_name: &str, callback_name: &str) -> bool {
+    fn global_callback_returns_void(&self, global_name: &str, callback_name: &str) -> Option<bool> {
         let global_name = normalize_identifier(global_name);
         let callback_name = normalize_identifier(callback_name);
         self.definition
@@ -332,7 +331,6 @@ impl ComponentDefinition {
                     None
                 })
             })
-            .unwrap_or_default()
     }
 
     fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {
