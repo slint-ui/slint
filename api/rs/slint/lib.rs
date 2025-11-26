@@ -427,9 +427,10 @@ pub mod platform {
     }
 }
 
-/// This module contains types related to the system configuration.
+#[i_slint_core_macros::slint_doc]
+/// This module contains some of the enums and struct that are built-in in the Slint language.
 ///
-/// This re-exports some of the enums and structs for Slint to be able to use them in apps and in the generated code.
+/// See also the list of [global structs and enums](slint:StructType)
 pub mod language {
     pub use i_slint_core::items::ColorScheme;
 }
