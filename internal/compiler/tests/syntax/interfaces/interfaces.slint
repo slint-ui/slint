@@ -20,6 +20,8 @@ export component LineEditBase implements LineEditInterface {
     text-input := TextInput { }
 }
 
+export component MyLineEdit uses { LineEditInterface from base } {}
+
 export component Foo implements Bar {}
 //                              ^error{Unknown element 'Bar'}
 
