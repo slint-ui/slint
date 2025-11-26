@@ -9,14 +9,14 @@ export interface DeprecatedInterface := {
 //                                   ^warning{':=' to declare an interface is deprecated. Remove the ':='}
 }
 
-export interface LineEditInterface {
+interface LineEditInterface {
     in-out property <string> text;
 }
 
 export component LineEditBase implements LineEditInterface {
     text <=> text-input.text;
     color <=> text-input.color;
-//  ^error{Unknown property color in LineEditInterface}
+//  ^error{Unknown property color}
     text-input := TextInput { }
 }
 
