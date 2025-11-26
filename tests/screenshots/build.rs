@@ -54,7 +54,7 @@ fn main() -> std::io::Result<()> {
     )?);
 
     let references_root_dir: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "references"].iter().collect();
+        [env!("CARGO_MANIFEST_DIR"), "references", "software"].iter().collect();
 
     let font_cache = i_slint_compiler::FontCache::default();
 
