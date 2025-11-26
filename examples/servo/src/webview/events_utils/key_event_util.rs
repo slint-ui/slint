@@ -3,8 +3,8 @@
 
 use slint::{
     SharedString,
-    // platform::Key as SlintKey,
-    private_unstable_api::re_exports::{Key as SlintKey, KeyEvent, KeyboardModifiers},
+    platform::Key as SlintKey,
+    private_unstable_api::re_exports::{KeyEvent, KeyboardModifiers},
 };
 
 use servo::{Code, InputEvent, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
