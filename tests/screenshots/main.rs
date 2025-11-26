@@ -7,6 +7,9 @@ pub mod testing;
 #[cfg(all(test, feature = "software"))]
 pub mod software;
 
+#[cfg(all(test, feature = "skia"))]
+pub mod skia;
+
 #[cfg(test)]
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 

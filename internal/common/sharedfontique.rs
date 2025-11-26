@@ -41,13 +41,23 @@ pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::ne
 
     let mut add_font_from_path = |path: std::path::PathBuf| {
         if let Ok(bytes) = std::fs::read(&path) {
+            let fonts = collection.register_fonts(bytes.into(), None);
+            for generic_family in [
+                fontique::GenericFamily::SansSerif,
+                fontique::GenericFamily::SystemUi,
+                fontique::GenericFamily::UiSansSerif,
+            ] {
+                collection.set_generic_families(
+                    generic_family,
+                    fonts.iter().map(|(family_id, _)| *family_id),
+                );
+            }
+
             // just use the first font of the first family in the file.
-            if let Some(font) =
-                collection.register_fonts(bytes.into(), None).first().and_then(|(id, infos)| {
-                    let info = infos.first()?;
-                    get_font_for_info(&mut collection, &mut source_cache, *id, &info)
-                })
-            {
+            if let Some(font) = fonts.first().and_then(|(id, infos)| {
+                let info = infos.first()?;
+                get_font_for_info(&mut collection, &mut source_cache, *id, &info)
+            }) {
                 default_fonts.insert(path, font);
             }
         }
