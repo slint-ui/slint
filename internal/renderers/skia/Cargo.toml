@@ -46,7 +46,7 @@ unstable-wgpu-27 = [
   "dep:windows-core",
   "dep:windows-core_58",
 ]
-default = []
+default = ["softbuffer"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley"] }
@@ -79,7 +79,7 @@ glutin = { workspace = true, default-features = false, features = ["egl", "wgl"]
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # software renderer fallback
-softbuffer = { workspace = true, default-features = false }
+softbuffer = { workspace = true, default-features = false, optional = true }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]

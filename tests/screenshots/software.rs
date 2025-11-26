@@ -107,7 +107,8 @@ pub fn assert_with_render(
         RenderingRotation::Rotate270,
     ] {
         let rendering = screenshot(window.clone(), rotation);
-        if let Err(reason) = compare_images(path, &rendering, rotation, options) {
+        let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering).to_rgba8().unwrap();
+        if let Err(reason) = compare_images(path, &argb8, rotation, options) {
             panic!("Image comparison failure for {path} ({rotation:?}): {reason}");
         }
     }
@@ -122,7 +123,9 @@ pub fn assert_with_render_by_line(
     let mut rendering = SharedPixelBuffer::<Rgb8Pixel>::new(s.width, s.height);
 
     screenshot_render_by_line(window.clone(), None, &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering, RenderingRotation::NoRotation, options) {
+
+    let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering.clone()).to_rgba8().unwrap();
+    if let Err(reason) = compare_images(path, &argb8, RenderingRotation::NoRotation, options) {
         panic!("Image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 
@@ -139,9 +142,8 @@ pub fn assert_with_render_by_line(
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
     if !options.skip_clipping {
-        if let Err(reason) =
-            compare_images(path, &rendering, RenderingRotation::NoRotation, options)
-        {
+        let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering).to_rgba8().unwrap();
+        if let Err(reason) = compare_images(path, &argb8, RenderingRotation::NoRotation, options) {
             panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
         }
     }

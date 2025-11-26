@@ -4,7 +4,7 @@
 // cSpell: ignore powf
 
 use crossterm::style::Stylize;
-use i_slint_core::graphics::{Rgb8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
 
 #[cfg(feature = "software")]
 pub use slint::platform::software_renderer::RenderingRotation;
@@ -18,10 +18,10 @@ pub enum RenderingRotation {
     Rotate270,
 }
 
-pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::ImageError> {
+pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgba8Pixel>, image::ImageError> {
     image::open(path).map(|image| {
-        let image = image.into_rgb8();
-        SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+        let image = image.into_rgba8();
+        SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
             image.as_raw(),
             image.width(),
             image.height(),
@@ -29,10 +29,11 @@ pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::I
     })
 }
 
-fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
+fn color_difference(lhs: &Rgba8Pixel, rhs: &Rgba8Pixel) -> f32 {
     ((rhs.r as f32 - lhs.r as f32).powf(2.)
         + (rhs.g as f32 - lhs.g as f32).powf(2.)
-        + (rhs.b as f32 - lhs.b as f32).powf(2.))
+        + (rhs.b as f32 - lhs.b as f32).powf(2.)
+        + (rhs.a as f32 - lhs.a as f32).powf(2.))
     .sqrt()
 }
 
@@ -50,7 +51,7 @@ pub struct TestCaseOptions {
 
 pub fn compare_images(
     reference_path: &str,
-    screenshot: &SharedPixelBuffer<Rgb8Pixel>,
+    screenshot: &SharedPixelBuffer<Rgba8Pixel>,
     rotated: RenderingRotation,
     options: &TestCaseOptions,
 ) -> Result<(), String> {
@@ -163,12 +164,15 @@ pub fn compare_images(
         && std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1")
     {
         eprintln!("saving rendered image as comparison to reference failed");
+
+        std::fs::create_dir_all(std::path::Path::new(&reference_path).parent().unwrap()).unwrap();
+
         image::save_buffer(
             reference_path,
             screenshot.as_bytes(),
             screenshot.width(),
             screenshot.height(),
-            image::ColorType::Rgb8,
+            image::ColorType::Rgba8,
         )
         .unwrap();
     }

@@ -18,12 +18,17 @@ path = "main.rs"
 name = "test-driver-screenshot"
 
 [features]
-default = ["software"]
+default = ["skia", "software"]
 software = ["slint/renderer-software", "dep:i-slint-compiler"]
+skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
 i-slint-core = { workspace = true, features = ["unicode", "std"] }
+
+i-slint-renderer-skia = { workspace = true, optional = true }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
+
 image = { workspace = true }
 crossterm = "0.29"
 
