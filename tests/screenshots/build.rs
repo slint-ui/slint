@@ -53,6 +53,14 @@ fn main() -> std::io::Result<()> {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?);
 
+    #[cfg(feature = "software")]
+    gen_software(&mut generated_file)?;
+
+    Ok(())
+}
+
+#[cfg(feature = "software")]
+fn gen_software(generated_file: &mut impl Write) -> std::io::Result<()> {
     let references_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "references", "software"].iter().collect();
 
@@ -139,19 +147,18 @@ fn main() -> std::io::Result<()> {
             output,
             r"
     #[test] fn t_{i}() -> Result<(), Box<dyn std::error::Error>> {{
-    use crate::testing;
 
-    let window = testing::init_swr();
+    let window = crate::software::init_swr();
     window.set_size(slint::PhysicalSize::new({size_w}, {size_h}));
     let screenshot = {reference_path};
-    let options = testing::TestCaseOptions {{ base_threshold: {base_threshold}f32, rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping} }};
+    let options = crate::testing::TestCaseOptions {{ base_threshold: {base_threshold}f32, rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping} }};
 
     let instance = TestCase::new().unwrap();
     instance.show().unwrap();
 
-    testing::assert_with_render(screenshot, window.clone(), &options);
+    crate::software::assert_with_render(screenshot, window.clone(), &options);
 
-    testing::assert_with_render_by_line(screenshot, window.clone(), &options);
+    crate::software::assert_with_render_by_line(screenshot, window.clone(), &options);
 
     Ok(())
     }}",
@@ -169,6 +176,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "software")]
 fn generate_source(
     source: &str,
     output: &mut impl Write,

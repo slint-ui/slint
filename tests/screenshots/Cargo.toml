@@ -17,15 +17,18 @@ publish = false
 path = "main.rs"
 name = "test-driver-screenshot"
 
+[features]
+default = ["software"]
+software = ["slint/renderer-software", "dep:i-slint-compiler"]
+
 [dependencies]
-slint = { workspace = true, features = ["std", "compat-1-2"] }
-i-slint-core = { workspace = true, features = ["default", "software-renderer"] }
-i-slint-backend-testing = { workspace = true }
+slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
+i-slint-core = { workspace = true, features = ["unicode", "std"] }
 image = { workspace = true }
 crossterm = "0.29"
 
 [build-dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"] }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"], optional = true }
 walkdir = "2.3"
 spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }
