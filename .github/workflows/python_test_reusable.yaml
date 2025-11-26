@@ -47,7 +47,7 @@ jobs:
               run: uv sync
             - name: Run ty
               working-directory: api/python/slint
-              run: uvx ty check
+              run: uvx ty@0.0.1a27 check
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check
