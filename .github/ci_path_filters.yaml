@@ -3,6 +3,7 @@
 
 ci_config: &ci_config
  - '.github/**'
+ - '.mise/**'
 
 files_in_root: &files_in_root
  - '*!(/)' # changes in the root, such as cspell.json or pnpm-lock.yaml
@@ -46,7 +47,13 @@ material_components:
 internal: &internal
  - 'internal/**'
  - 'helper_crates/**'
- - *files_in_root
+ - 'Cargo.toml' # the root Cargo.toml
+ - '.cargo/**'
+ # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
+ - '!internal/renderers/**'
+ - '!internal/backends/winit/**'
+ - '!internal/backends/linuxkms/**'
+ - '!internal/backends/android-activity/**'
  - *ci_config
 
 api_cpp:
@@ -60,10 +67,15 @@ api_python:
 
 api_node:
  - 'api/node/**'
+ - 'package.json'
+ - 'package-lock.json'
+ - 'pnpm-workspace.yaml'
+ - '.npmrc'
  - *ci_config
 
 api_rs:
  - 'api/rs/**'
+ - 'Cargo.toml'
  - *ci_config
 
 tests:
@@ -72,6 +84,7 @@ tests:
 examples:
  - 'examples/**'
  - 'demos/**'
+ - 'examples/servo/**' # Handled separately
 
 vsce:
  - *files_in_root
