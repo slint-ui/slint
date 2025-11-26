@@ -23,6 +23,7 @@ pub struct NativeTabWidget {
     pub tabbar_preferred_width: Property<LogicalLength>,
     pub current_index: Property<i32>,
     pub current_focused: Property<i32>,
+    pub orientation: Property<Orientation>,
 
     // outputs
     pub content_x: Property<LogicalLength>,
@@ -63,6 +64,7 @@ impl Item for NativeTabWidget {
             height: Property<LogicalLength>,
             tabbar_preferred_height: Property<LogicalLength>,
             tabbar_preferred_width: Property<LogicalLength>,
+            orientation: Property<Orientation>,
             horizontal_metrics: Property<TabWidgetMetrics>,
             vertical_metrics: Property<TabWidgetMetrics>,
         }
@@ -79,6 +81,7 @@ impl Item for NativeTabWidget {
         link!(height);
         link!(tabbar_preferred_width);
         link!(tabbar_preferred_height);
+        link!(orientation);
 
         let shared_data_weak = pin_weak::rc::PinWeak::downgrade(shared_data.clone());
 
@@ -125,13 +128,17 @@ impl Item for NativeTabWidget {
             };
 
             let horizontal: bool = matches!(orientation, Orientation::Horizontal);
+            let prop_horizontal: bool = false; /*matches!(
+            TabBarSharedData::FIELD_OFFSETS.orientation.apply_pin(shared_data.as_ref()).get(),
+            Orientation::Horizontal
+            );*/
 
-            cpp!(unsafe [horizontal as "bool", size as "QSizeF", tabbar_size as "QSizeF"] -> TabWidgetMetrics as "TabWidgetMetrics" {
+            cpp!(unsafe [horizontal as "bool", size as "QSizeF", tabbar_size as "QSizeF", prop_horizontal as "bool"] -> TabWidgetMetrics as "TabWidgetMetrics" {
                 ensure_initialized();
                 QStyleOptionTabWidgetFrame option;
                 auto style = qApp->style();
                 option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
-                option.shape = QTabBar::RoundedNorth;
+                option.shape = prop_horizontal? QTabBar::RoundedNorth: QTabBar::RoundedWest;
                 option.rect = QRect(QPoint(), size.toSize());
                 option.tabBarSize = tabbar_size.toSize();
                 option.tabBarRect = QRect(QPoint(), option.tabBarSize);
@@ -206,14 +213,15 @@ impl Item for NativeTabWidget {
             ),
         };
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+        let prop_horizontal: bool = false; //matches!(self.orientation(), Orientation::Horizontal);
 
-        let size = cpp!(unsafe [content_size as "QSizeF", tabbar_size as "QSizeF", widget as "QWidget*"] -> qttypes::QSize as "QSize" {
+        let size = cpp!(unsafe [content_size as "QSizeF", tabbar_size as "QSizeF", widget as "QWidget*", prop_horizontal as "bool"] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
             QStyleOptionTabWidgetFrame option;
             auto style = qApp->style();
             option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, widget);
-            option.shape = QTabBar::RoundedNorth;
+            option.shape = prop_horizontal? QTabBar::RoundedNorth: QTabBar::RoundedWest;
             option.tabBarSize = tabbar_size.toSize();
             option.rightCornerWidgetSize = QSize(0, 0);
             option.leftCornerWidgetSize = QSize(0, 0);
@@ -285,20 +293,22 @@ impl Item for NativeTabWidget {
             width: this.tabbar_preferred_width().get() as _,
             height: this.tabbar_preferred_height().get() as _,
         };
+        let prop_horizontal: bool = false;//matches!(this.orientation(), Orientation::Horizontal);
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             dpr as "float",
             tabbar_size as "QSizeF",
-            initial_state as "int"
+            initial_state as "int",
+            prop_horizontal as "bool"
         ] {
             QStyleOptionTabWidgetFrame option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             auto style = qApp->style();
             option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, widget);
-            option.shape = QTabBar::RoundedNorth;
+            option.shape = prop_horizontal? QTabBar::RoundedNorth: QTabBar::RoundedWest;
             if (true /*enabled*/) {
                 option.state |= QStyle::State_Enabled;
             } else {
@@ -364,6 +374,7 @@ pub struct NativeTab {
     pub current_focused: Property<i32>,
     pub tab_index: Property<i32>,
     pub num_tabs: Property<i32>,
+    pub orientation: Property<Orientation>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
@@ -389,19 +400,21 @@ impl Item for NativeTab {
         let tab_index: i32 = self.tab_index();
         let num_tabs: i32 = self.num_tabs();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+        let prop_horizontal: bool = false; //matches!(self.orientation(), Orientation::Horizontal);
         let size = cpp!(unsafe [
             text as "QString",
             icon as "QPixmap",
             tab_index as "int",
             num_tabs as "int",
-            widget as "QWidget*"
+            widget as "QWidget*",
+            prop_horizontal as "bool"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionTab option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = text;
             option.icon = icon;
-            option.shape = QTabBar::RoundedNorth;
+            option.shape = prop_horizontal? QTabBar::RoundedNorth: QTabBar::RoundedWest;
             option.position = num_tabs == 1 ? QStyleOptionTab::OnlyOneTab
                 : tab_index == 0 ? QStyleOptionTab::Beginning
                 : tab_index == num_tabs - 1 ? QStyleOptionTab::End
@@ -457,11 +470,11 @@ impl Item for NativeTab {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
-                }
+                };
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
-                return InputEventResult::EventIgnored
+                return InputEventResult::EventIgnored;
             }
         });
         let click_on_press = cpp!(unsafe [] -> bool as "bool" {
@@ -522,6 +535,7 @@ impl Item for NativeTab {
         let current_focused: i32 = this.current_focused();
         let tab_index: i32 = this.tab_index();
         let num_tabs: i32 = this.num_tabs();
+        let prop_horizontal: bool= false;//matches!(this.orientation(), Orientation::Horizontal);
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -536,7 +550,8 @@ impl Item for NativeTab {
             current as "int",
             current_focused as "int",
             num_tabs as "int",
-            initial_state as "int"
+            initial_state as "int",
+            prop_horizontal as "bool"
         ] {
             ensure_initialized();
             QStyleOptionTab option;
@@ -545,7 +560,7 @@ impl Item for NativeTab {
             option.rect = QRect(QPoint(), size / dpr);;
             option.text = text;
             option.icon = icon;
-            option.shape = QTabBar::RoundedNorth;
+            option.shape = prop_horizontal? QTabBar::RoundedNorth: QTabBar::RoundedWest;
             option.position = num_tabs == 1 ? QStyleOptionTab::OnlyOneTab
                 : tab_index == 0 ? QStyleOptionTab::Beginning
                 : tab_index == num_tabs - 1 ? QStyleOptionTab::End

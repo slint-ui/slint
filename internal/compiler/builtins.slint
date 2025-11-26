@@ -745,6 +745,7 @@ export component NativeTabWidget {
 
     in property <int> current-index;
     in property <int> current-focused;
+    in property <Orientation> orientation: Orientation.horizontal;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -757,6 +758,7 @@ export component NativeTab {
     in property <int> tab-index;
     in property <int> current-focused;
     in property <int> num-tabs;
+    in property <Orientation> orientation;
     //-is_internal
 }
 
