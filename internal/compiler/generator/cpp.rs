@@ -4390,37 +4390,40 @@ fn generate_translation(
         }));
     }
 
-    let ctx = EvaluationContext {
-        compilation_unit,
-        current_scope: EvaluationScope::Global(0.into()),
-        generator_state: CppGeneratorContext {
-            global_access: "\n#error \"language rule can't access state\";".into(),
-            conditional_includes: &Default::default(),
-        },
-        argument_types: &[Type::Int32],
-    };
-    declarations.push(Declaration::Var(Var {
-        ty: format_smolstr!(
-            "const std::array<uintptr_t (*const)(int32_t), {}>",
-            translations.plural_rules.len()
-        ),
-        name: "slint_translated_plural_rules".into(),
-        init: Some(format!(
-            "{{ {} }}",
-            translations
-                .plural_rules
-                .iter()
-                .map(|s| match s {
-                    Some(s) => {
-                        format!(
-                            "[]([[maybe_unused]] int32_t arg_0) -> uintptr_t {{ return {}; }}",
-                            compile_expression(s, &ctx)
-                        )
-                    }
-                    None => "nullptr".into(),
-                })
-                .join(", ")
-        )),
-        ..Default::default()
-    }));
+    if !translations.plurals.is_empty() {
+        let ctx = EvaluationContext {
+            compilation_unit,
+            current_scope: EvaluationScope::Global(0.into()),
+            generator_state: CppGeneratorContext {
+                global_access: "\n#error \"language rule can't access state\";".into(),
+                conditional_includes: &Default::default(),
+            },
+            argument_types: &[Type::Int32],
+        };
+
+        declarations.push(Declaration::Var(Var {
+            ty: format_smolstr!(
+                "const std::array<uintptr_t (*const)(int32_t), {}>",
+                translations.plural_rules.len()
+            ),
+            name: "slint_translated_plural_rules".into(),
+            init: Some(format!(
+                "{{ {} }}",
+                translations
+                    .plural_rules
+                    .iter()
+                    .map(|s| match s {
+                        Some(s) => {
+                            format!(
+                                "[]([[maybe_unused]] int32_t arg_0) -> uintptr_t {{ return {}; }}",
+                                compile_expression(s, &ctx)
+                            )
+                        }
+                        None => "nullptr".into(),
+                    })
+                    .join(", ")
+            )),
+            ..Default::default()
+        }));
+    }
 }
