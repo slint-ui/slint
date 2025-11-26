@@ -260,7 +260,9 @@ inline SharedString escape_markdown(const SharedString &text)
 
 inline StyledText parse_markdown(const SharedString &text)
 {
-    return cbindgen_private::slint_parse_markdown(&text);
+    StyledText result;
+    cbindgen_private::slint_parse_markdown(&text, &result);
+    return result;
 }
 
 inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,

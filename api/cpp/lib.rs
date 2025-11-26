@@ -13,6 +13,7 @@ use core::ffi::c_void;
 use i_slint_core::items::OperatingSystemType;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use i_slint_core::SharedString;
+use i_slint_core::api::StyledText;
 
 pub mod platform;
 
@@ -243,6 +244,6 @@ pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedStrin
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_parse_markdown(text: &SharedString) -> i_slint_core::api::StyledText {
-    i_slint_core::parse_markdown(&text)
+pub extern "C" fn slint_parse_markdown(text: &SharedString, out: &mut StyledText) {
+    *out = i_slint_core::parse_markdown(&text);
 }

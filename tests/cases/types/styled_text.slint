@@ -3,10 +3,10 @@
 
 //ignore: pyi
 
-TestCase := Window {
-    property<styled-text> t1: @markdown("Hello {}", "World");
-    property<styled-text> t2: @markdown("Hello {}", "*World*");
-    property<styled-text> t3: @markdown("Hello *{}*", "World");
+export component TestCase inherits Window {
+    out property<styled-text> t1: @markdown("Hello {}", "World");
+    out property<styled-text> t2: @markdown("Hello {}", "*World*");
+    out property<styled-text> t3: @markdown("Hello *{}*", "World");
 }
 
 /*
