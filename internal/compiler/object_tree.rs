@@ -1032,6 +1032,7 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let mut interfaces: Vec<Rc<Component>> = Vec::new();
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
@@ -1046,14 +1047,19 @@ impl Element {
                     );
                     ElementType::Error
                 }
-                (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements))
-                    if !c.is_interface() =>
-                {
-                    diag.push_error(
-                        format!("Cannot implement {}. It is not an interface", base_string),
-                        &base_node,
-                    );
-                    ElementType::Error
+                (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements)) => {
+                    if !c.is_interface() {
+                        diag.push_error(
+                            format!("Cannot implement {}. It is not an interface", base_string),
+                            &base_node,
+                        );
+                        ElementType::Error
+                    } else {
+                        c.used.set(true);
+                        interfaces.push(c);
+                        // We are implementing an interface - not inheriting from it
+                        tr.empty_type()
+                    }
                 }
                 (Ok(ElementType::Builtin(_bt)), Some(ParentRelationship::Implements)) => {
                     diag.push_error(
@@ -1129,6 +1135,14 @@ impl Element {
             is_legacy_syntax,
             ..Default::default()
         };
+
+        for interface in interfaces.iter() {
+            for (prop_name, prop_decl) in
+                interface.root_element.borrow().property_declarations.iter()
+            {
+                r.property_declarations.insert(prop_name.clone(), prop_decl.clone());
+            }
+        }
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
