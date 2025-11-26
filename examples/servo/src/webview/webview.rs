@@ -9,7 +9,7 @@ use winit::dpi::PhysicalSize;
 
 use euclid::Size2D;
 
-use slint::{ComponentHandle, SharedString, private_unstable_api::re_exports::ColorScheme};
+use slint::{ComponentHandle, SharedString, language::ColorScheme};
 
 use servo::{Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel};
 

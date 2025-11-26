@@ -427,6 +427,13 @@ pub mod platform {
     }
 }
 
+/// This module contains types related to the system configuration.
+///
+/// This re-exports some of the enums and structs for Slint to be able to use them in apps and in the generated code.
+pub mod language {
+    pub use i_slint_core::items::ColorScheme;
+}
+
 #[cfg(any(
     doc,
     all(
