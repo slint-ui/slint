@@ -47,8 +47,7 @@ jobs:
               run: uv sync
             - name: Run ty
               working-directory: api/python/slint
-              # Pin to the previous version. See https://github.com/astral-sh/ty/issues/1644 for upstream report.
-              run: uvx ty@0.0.1a27 check
+              run: uvx ty check
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check

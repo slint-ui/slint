@@ -87,8 +87,8 @@ class ListModel[T](Model[T]):
     def row_data(self, row: int) -> typing.Optional[T]:
         return self.list[row]
 
-    def set_row_data(self, row: int, data: T) -> None:
-        self.list[row] = data
+    def set_row_data(self, row: int, value: T) -> None:
+        self.list[row] = value
         super().notify_row_changed(row)
 
     def __delitem__(self, key: int | slice) -> None:
