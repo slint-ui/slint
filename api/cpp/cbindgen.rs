@@ -366,6 +366,7 @@ fn gen_corelib(
 
     config.export.exclude = [
         "SharedString",
+        "StyledText",
         "SharedVector",
         "ImageInner",
         "ImageCacheKey",
@@ -414,7 +415,7 @@ fn gen_corelib(
     ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
 
     let mut string_config = config.clone();
-    string_config.export.exclude = vec!["SharedString".into()];
+    string_config.export.exclude = vec!["SharedString".into(), "StyledText".into()];
     string_config.export.body.insert(
         "Slice".to_owned(),
         "    const T &operator[](int i) const { return ptr[i]; }".to_owned(),
@@ -422,8 +423,9 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))
+        .with_src(crate_dir.join("api/styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace slint { struct SharedString; }")
+        .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
         .write_to_file(include_dir.join("slint_string_internal.h"));

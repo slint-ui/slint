@@ -535,3 +535,38 @@ new *line*
         }]
     );
 }
+
+#[cfg(feature = "ffi")]
+pub mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+
+    #[unsafe(no_mangle)]
+    /// Create a new default styled text
+    pub unsafe extern "C" fn slint_styled_text_new(out: *mut StyledText) {
+        unsafe {
+            core::ptr::write(out, Default::default());
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    /// Destroy the shared string
+    pub unsafe extern "C" fn slint_styled_text_drop(text: *const StyledText) {
+        unsafe {
+            core::ptr::read(text);
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    /// Returns true if \a a is equal to \a b; otherwise returns false.
+    pub extern "C" fn slint_styled_text_eq(a: &StyledText, b: &StyledText) -> bool {
+        a == b
+    }
+
+    #[unsafe(no_mangle)]
+    /// Clone the styled text
+    pub unsafe extern "C" fn slint_styled_text_clone(out: *mut StyledText, ss: &StyledText) {
+        unsafe { core::ptr::write(out, ss.clone()) }
+    }
+}
