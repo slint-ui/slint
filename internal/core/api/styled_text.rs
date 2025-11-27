@@ -536,6 +536,7 @@ new *line*
     );
 }
 
+/// Bindings for cbindgen
 #[cfg(feature = "ffi")]
 pub mod ffi {
     #![allow(unsafe_code)]
