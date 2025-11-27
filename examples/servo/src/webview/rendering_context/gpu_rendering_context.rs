@@ -14,10 +14,9 @@ use surfman::{
     chains::{PreserveBuffer, SwapChain},
 };
 
-#[cfg(not(target_os = "android"))]
 use slint::wgpu_27::wgpu;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
     #[error("{0:?}")]
@@ -107,7 +106,7 @@ impl GPURenderingContext {
 
     /// Imports Vulkan surface as a WGPU texture for rendering on Linux.
     /// Creates a Vulkan image with external memory, imports to OpenGL, blits content, then wraps as WGPU texture.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn get_wgpu_texture_from_vulkan(
         &self,
         wgpu_device: &wgpu::Device,

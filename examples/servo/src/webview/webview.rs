@@ -63,17 +63,15 @@ impl WebView {
     pub fn new(
         app: MyApp,
         initial_url: SharedString,
-        #[cfg(not(target_os = "android"))] device: slint::wgpu_27::wgpu::Device,
-        #[cfg(not(target_os = "android"))] queue: slint::wgpu_27::wgpu::Queue,
+        device: slint::wgpu_27::wgpu::Device,
+        queue: slint::wgpu_27::wgpu::Queue,
     ) {
         let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
         let adapter = Rc::new(SlintServoAdapter::new(
             waker_sender.clone(),
             waker_receiver.clone(),
-            #[cfg(not(target_os = "android"))]
             device,
-            #[cfg(not(target_os = "android"))]
             queue,
         ));
 
@@ -118,16 +116,12 @@ impl WebView {
         let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
-        #[cfg(not(target_os = "android"))]
         let rendering_adapter = super::rendering_context::try_create_gpu_context(
             adapter.wgpu_device(),
             adapter.wgpu_queue(),
             physical_size,
         )
         .unwrap();
-
-        #[cfg(target_os = "android")]
-        let rendering_adapter = super::rendering_context::create_software_context(physical_size);
 
         let rendering_adapter_rc = Rc::new(rendering_adapter);
 
