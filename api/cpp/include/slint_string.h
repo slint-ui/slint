@@ -224,7 +224,7 @@ private:
 };
 
 /// Styled text that has been parsed and seperated into paragraphs
-class StyledText
+struct StyledText
 {
 public:
     /// Creates an default styled text.
