@@ -31,12 +31,15 @@ use crate::wasm_prelude::*;
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {
     #[allow(dead_code)]
     ChildProcess,
     #[allow(dead_code)]
     EmbeddedWasm,
+    #[allow(dead_code)]
+    Remote,
     #[allow(dead_code)]
     Dummy,
 }
@@ -599,8 +602,8 @@ pub enum PreviewToLspMessage {
     Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
-    /// Switch between native and WASM preview (if supported)
-    PreviewTypeChanged { is_external: bool },
+    /// Switch between native, WASM, and remote preview (if supported)
+    PreviewTypeChanged { target: PreviewTarget },
     /// Request all documents and configuration to be sent from the LSP to the
     /// Preview.
     RequestState { unused: bool },

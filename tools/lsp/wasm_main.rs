@@ -290,7 +290,7 @@ impl SlintServer {
                     .await
                 });
             }
-            M::PreviewTypeChanged { is_external: _ } => {
+            M::PreviewTypeChanged { .. } => {
                 // Nothing to do!
             }
             M::RequestState { .. } => {

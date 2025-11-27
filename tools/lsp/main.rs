@@ -94,6 +94,9 @@ enum Commands {
     #[cfg(feature = "preview-engine")]
     #[command(hide(true))]
     LivePreview(LivePreview),
+    #[cfg(feature = "preview-remote")]
+    #[command(hide(true))]
+    Serve(Serve),
 }
 
 #[derive(Args, Clone)]
@@ -116,6 +119,18 @@ struct LivePreview {
     #[arg(long)]
     fullscreen: bool,
 }
+
+#[cfg(feature = "preview-remote")]
+#[derive(Args, Clone, Debug)]
+struct Serve {
+    /// The address to listen on, defaults to using a random available port on all interfaces
+    #[arg(long)]
+    address: Option<String>,
+    /// Announce service via mDNS/ZeroConf/Bonjour
+    #[arg(long, default_value_t = true)]
+    announce: bool,
+}
+
 enum OutgoingRequest {
     Start,
     Pending(Waker),
@@ -266,6 +281,14 @@ fn main() {
                     std::process::exit(2);
                 }
             },
+            #[cfg(feature = "preview-remote")]
+            Commands::Serve(serve) => match preview::serve(serve) {
+                Ok(()) => std::process::exit(0),
+                Err(e) => {
+                    eprintln!("Serve Error: {e}");
+                    std::process::exit(3);
+                }
+            },
         }
     } else {
         match run_lsp_server(args) {
@@ -310,15 +333,19 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     let to_preview: Rc<dyn LspToPreview> = {
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender));
+        let child_preview: Box<dyn common::LspToPreview> = Box::new(
+            preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()),
+        );
         let embedded_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::EmbeddedLspToPreview::new(sn));
+            Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+        let remote_preview: Box<dyn common::LspToPreview> =
+            Box::new(preview::connector::RemoteLspToPreview::new(preview_to_lsp_sender, sn));
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
                     (common::PreviewTarget::EmbeddedWasm, embedded_preview),
+                    (common::PreviewTarget::Remote, remote_preview),
                 ]),
                 common::PreviewTarget::ChildProcess,
             )
@@ -563,12 +590,8 @@ async fn handle_preview_to_lsp_message(
             )
             .await;
         }
-        M::PreviewTypeChanged { is_external } => {
-            if is_external {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
-            } else {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::ChildProcess)?;
-            }
+        M::PreviewTypeChanged { target } => {
+            ctx.to_preview.set_preview_target(target)?;
         }
         M::RequestState { .. } => {
             crate::language::request_state(ctx);
