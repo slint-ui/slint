@@ -6,10 +6,8 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
 use gl_generator::{Api, Fallbacks, Profile, Registry, StructGenerator};
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
 extern crate gl_generator;
 
 fn main() {
@@ -18,7 +16,6 @@ fn main() {
     let out = env::var("OUT_DIR").unwrap();
     let out = Path::new(&out);
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         let mut file = File::create(&out.join("gl_bindings.rs")).unwrap();
 
