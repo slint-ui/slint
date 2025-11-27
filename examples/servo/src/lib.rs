@@ -36,12 +36,8 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
 fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
     let backends = wgpu::Backends::from_env().unwrap_or_default();
 
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-        backends,
-        flags: Default::default(),
-        backend_options: Default::default(),
-        memory_budget_thresholds: Default::default(),
-    });
+    let instance =
+        wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..Default::default() });
 
     let adapter = spin_on::spin_on(async {
         instance

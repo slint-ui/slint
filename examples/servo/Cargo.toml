@@ -34,18 +34,20 @@ winit = "0.30.12"
 spin_on = "0.1.1"
 rustls = "0.23.34"
 euclid = "0.22.11"
-surfman = "0.10.0"
+surfman = "0.11.0"
 time-now = "0.1.2"
 termcolor = "1.4.1"
 thiserror = "2.0.17"
 foreign-types-shared = "0.3.1"
 
-wgpu-hal = "27.0.2"
-wgpu-core = "27.0.1"
+wgpu-hal = "27.0.4"
+wgpu-core = "27.0.3"
 wgpu = { version = "27.0.1", features = ["metal"] }
 
-libservo = { git = "https://github.com/servo/servo", rev = "158bf97e" }
-embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", features = ["baked-default-resources"] }
+libservo = { git = "https://github.com/servo/servo", rev = "39d3fc6c" }
+embedder_traits = { git = "https://github.com/servo/servo", rev = "39d3fc6c", features = ["baked-default-resources"] }
+# not used in code but added for no need to set specific rev whenever run cargo update or freash install and without this its not building
+servo-media = { git = "https://github.com/servo/media", rev = "6c1766f5" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ash = "0.38.0"
