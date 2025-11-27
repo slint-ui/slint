@@ -10,10 +10,10 @@ extern crate std;
 
 use alloc::rc::Rc;
 use core::ffi::c_void;
+use i_slint_core::api::StyledText;
 use i_slint_core::items::OperatingSystemType;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use i_slint_core::SharedString;
-use i_slint_core::api::StyledText;
 
 pub mod platform;
 
