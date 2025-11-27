@@ -31,7 +31,7 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
                 "Only `struct` with named field are supported",
             )
             .to_compile_error()
-            .into()
+            .into();
         }
     };
 
@@ -143,7 +143,7 @@ fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
         {
             match args.first() {
                 Some(syn::GenericArgument::Type(property_type)) if *ident == "Property" => {
-                    return Some(property_type)
+                    return Some(property_type);
                 }
                 _ => {}
             }

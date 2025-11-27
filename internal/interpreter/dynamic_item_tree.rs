@@ -9,8 +9,8 @@ use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::{BuiltinPrivateStruct, StructName, Type};
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
+use i_slint_compiler::{CompilerConfiguration, generator, object_tree, parser};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
-use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -95,10 +95,12 @@ impl ItemWithinItemTree {
         &self,
         mem: *const u8,
     ) -> Pin<vtable::VRef<'_, ItemVTable>> {
-        Pin::new_unchecked(vtable::VRef::from_raw(
-            NonNull::from(self.rtti.vtable),
-            NonNull::new(mem.add(self.offset) as _).unwrap(),
-        ))
+        unsafe {
+            Pin::new_unchecked(vtable::VRef::from_raw(
+                NonNull::from(self.rtti.vtable),
+                NonNull::new(mem.add(self.offset) as _).unwrap(),
+            ))
+        }
     }
 
     pub(crate) fn item_index(&self) -> u32 {
@@ -506,12 +508,12 @@ impl ItemTreeDescription<'_> {
         name: &str,
     ) -> Option<
         impl Iterator<
-                Item = (
-                    SmolStr,
-                    i_slint_compiler::langtype::Type,
-                    i_slint_compiler::object_tree::PropertyVisibility,
-                ),
-            > + '_,
+            Item = (
+                SmolStr,
+                i_slint_compiler::langtype::Type,
+                i_slint_compiler::object_tree::PropertyVisibility,
+            ),
+        > + '_,
     > {
         let g = self.compiled_globals.as_ref().expect("Root component should have globals");
         g.exported_globals_by_name
@@ -806,8 +808,8 @@ pub(crate) struct ItemRTTI {
     pub(crate) callbacks: HashMap<&'static str, Box<dyn eval::ErasedCallbackInfo>>,
 }
 
-fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
-) -> (&'static str, Rc<ItemRTTI>) {
+fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>()
+-> (&'static str, Rc<ItemRTTI>) {
     let rtti = ItemRTTI {
         vtable: T::static_vtable(),
         type_info: dynamic_type::StaticTypeInfo::new::<T>(),
@@ -1019,9 +1021,9 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
         fn push(_rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {}
     }
     impl<
-            T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
-            Next: NativeHelper,
-        > NativeHelper for (T, Next)
+        T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
+        Next: NativeHelper,
+    > NativeHelper for (T, Next)
     {
         fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {
             let info = rtti_for::<T>();
@@ -1195,8 +1197,8 @@ pub(crate) fn generate_item_tree<'id>(
             dynamic_type::StaticTypeInfo::new::<Property<T>>(),
         )
     }
-    fn animated_property_info<T>(
-    ) -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
+    fn animated_property_info<T>()
+    -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
         T: Clone + Default + InterpolatedPropertyValue + std::convert::TryInto<Value> + 'static,
         Value: std::convert::TryInto<T>,
@@ -1998,14 +2000,14 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
 unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
     match &tree[index as usize] {
-        ItemTreeNode::Item { item_array_index, .. } => {
+        ItemTreeNode::Item { item_array_index, .. } => unsafe {
             generativity::make_guard!(guard);
             let instance_ref = InstanceRef::from_pin_ref(component, guard);
             core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
                 instance_ref.description.item_array[*item_array_index as usize]
                     .apply_pin(instance_ref.instance),
             )
-        }
+        },
         ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
     }
 }
@@ -2101,7 +2103,7 @@ extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
-    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
     let component_and_index = {
         // Normal inner-compilation unit case:
@@ -2269,7 +2271,9 @@ extern "C" fn accessibility_action(
         AccessibilityAction::Expand => perform("accessible-action-expand", &[]),
         AccessibilityAction::ReplaceSelectedText(_a) => {
             //perform("accessible-action-replace-selected-text", &[Value::String(a.clone())])
-            i_slint_core::debug_log!("AccessibilityAction::ReplaceSelectedText not implemented in interpreter's accessibility_action");
+            i_slint_core::debug_log!(
+                "AccessibilityAction::ReplaceSelectedText not implemented in interpreter's accessibility_action"
+            );
         }
         AccessibilityAction::SetValue(a) => {
             perform("accessible-action-set-value", &[Value::String(a.clone())])
@@ -2332,15 +2336,17 @@ extern "C" fn window_adapter(
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ItemTreeVTable>) -> vtable::Layout {
-    let instance_ptr = component.as_ptr() as *mut Instance<'static>;
-    let layout = (*instance_ptr).type_info().layout();
-    dynamic_type::TypeInfo::drop_in_place(instance_ptr);
-    layout.into()
+    unsafe {
+        let instance_ptr = component.as_ptr() as *mut Instance<'static>;
+        let layout = (*instance_ptr).type_info().layout();
+        dynamic_type::TypeInfo::drop_in_place(instance_ptr);
+        layout.into()
+    }
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C" fn dealloc(_vtable: &ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout) {
-    std::alloc::dealloc(ptr, layout.try_into().unwrap());
+    unsafe { std::alloc::dealloc(ptr, layout.try_into().unwrap()) };
 }
 
 #[derive(Copy, Clone)]
@@ -2354,11 +2360,15 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         component: ItemTreeRefPin<'a>,
         _guard: generativity::Guard<'id>,
     ) -> Self {
-        Self {
-            instance: Pin::new_unchecked(&*(component.as_ref().as_ptr() as *const Instance<'id>)),
-            description: &*(Pin::into_inner_unchecked(component).get_vtable()
-                as *const ItemTreeVTable
-                as *const ItemTreeDescription<'id>),
+        unsafe {
+            Self {
+                instance: Pin::new_unchecked(
+                    &*(component.as_ref().as_ptr() as *const Instance<'id>),
+                ),
+                description: &*(Pin::into_inner_unchecked(component).get_vtable()
+                    as *const ItemTreeVTable
+                    as *const ItemTreeDescription<'id>),
+            }
         }
     }
 

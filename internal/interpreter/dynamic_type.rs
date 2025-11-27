@@ -13,10 +13,10 @@ use i_slint_core::rtti::FieldOffset;
 use std::rc::Rc;
 
 unsafe fn construct_fn<T: Default>(ptr: *mut u8) {
-    core::ptr::write(ptr as *mut T, T::default());
+    unsafe { core::ptr::write(ptr as *mut T, T::default()) };
 }
 unsafe fn drop_fn<T>(ptr: *mut u8) {
-    core::ptr::drop_in_place(ptr as *mut T);
+    unsafe { core::ptr::drop_in_place(ptr as *mut T) };
 }
 
 /// Information for type that can be added to a dynamic type.
@@ -142,10 +142,10 @@ impl<'id> TypeInfo<'id> {
     pub unsafe fn create_instance_in_place(self: Rc<Self>, mem: *mut Instance<'id>) {
         // Safety: the TypeInfo invariant means that the constructor can be called
         let mem = mem as *mut u8;
-        std::ptr::write(mem as *mut Rc<_>, self.clone());
+        unsafe { std::ptr::write(mem as *mut Rc<_>, self.clone()) };
         for f in &self.fields {
             if let Some(ctor) = f.construct {
-                ctor(mem.add(f.offset));
+                unsafe { ctor(mem.add(f.offset)) };
             }
         }
     }
@@ -154,11 +154,11 @@ impl<'id> TypeInfo<'id> {
     ///
     /// Safety, the instance must have been created by `TypeInfo::create_instance_in_place`
     pub unsafe fn drop_in_place(instance: *mut Instance) {
-        let type_info = (*instance).type_info.clone();
+        let type_info = unsafe { (*instance).type_info.clone() };
         let mem = instance as *mut u8;
         for f in &type_info.fields {
             if let Some(dtor) = f.drop {
-                dtor(mem.add(f.offset));
+                unsafe { dtor(mem.add(f.offset)) };
             }
         }
     }
@@ -167,10 +167,12 @@ impl<'id> TypeInfo<'id> {
     ///
     /// Safety, the instance must have been created by `TypeInfo::create_instance`
     unsafe fn delete_instance(instance: *mut Instance) {
-        let mem_layout = (&(*instance).type_info).mem_layout;
-        Self::drop_in_place(instance);
-        let mem = instance as *mut u8;
-        std::alloc::dealloc(mem, mem_layout);
+        unsafe {
+            let mem_layout = (&(*instance).type_info).mem_layout;
+            Self::drop_in_place(instance);
+            let mem = instance as *mut u8;
+            std::alloc::dealloc(mem, mem_layout);
+        }
     }
 
     pub fn layout(&self) -> core::alloc::Layout {

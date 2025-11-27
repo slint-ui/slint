@@ -593,7 +593,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             "The type of an #[field_offset] member in the vtable must be 'usize'",
                         )
                         .to_compile_error()
-                        .into()
+                        .into();
                     }
                 }
 

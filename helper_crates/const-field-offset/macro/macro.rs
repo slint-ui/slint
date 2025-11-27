@@ -11,7 +11,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
 #[cfg(feature = "field-offset-trait")]
 use syn::{VisRestricted, Visibility};
 
@@ -149,7 +149,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     Ok("packed") => {
                         return TokenStream::from(quote!(
                             compile_error! {"FieldOffsets does not work on #[repr(packed)]"}
-                        ))
+                        ));
                     }
                     _ => (),
                 }

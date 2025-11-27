@@ -7,9 +7,9 @@ use std::collections::HashMap;
 
 use i_slint_compiler::langtype;
 use i_slint_core::{
+    Brush, Color, SharedString, SharedVector,
     graphics::Image,
     model::{Model, ModelRc},
-    Brush, Color, SharedString, SharedVector,
 };
 
 use crate::Value;
@@ -339,36 +339,48 @@ fn test_from_json() {
             .drain(..)
         )))
     );
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@linear-gradient(foobar, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@linear-gradient(#ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@linear-gradient(90turns, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@linear-gradient(xfdeg, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@linear-gradient(90deg, #xf0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@linear-gradient(90deg, #ff0000ff 0, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@linear-gradient(foobar, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@linear-gradient(#ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@linear-gradient(90turns, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@linear-gradient(xfdeg, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@linear-gradient(90deg, #xf0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@linear-gradient(90deg, #ff0000ff 0, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
 
     let v = value_from_json_str(
         &langtype::Type::Brush,
@@ -397,43 +409,57 @@ fn test_from_json() {
             )
         ))
     );
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@radial-gradient(foobar, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@radial-gradient(circle, #xf0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@radial-gradient(circle, #ff0000ff 1000px, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@radial-gradient(circle, #ff0000ff 0% #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@radial-gradient(circle, #ff0000ff, #0000ffff)\""
-    )
-    .is_err());
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@radial-gradient(foobar, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@radial-gradient(circle, #xf0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@radial-gradient(circle, #ff0000ff 1000px, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@radial-gradient(circle, #ff0000ff 0% #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@radial-gradient(circle, #ff0000ff, #0000ffff)\""
+        )
+        .is_err()
+    );
 
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@radial-gradient(conical, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@radial-gradient(conical, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
 
-    assert!(value_from_json_str(
-        &langtype::Type::Brush,
-        "\"@other-gradient(circle, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
-    )
-    .is_err());
+    assert!(
+        value_from_json_str(
+            &langtype::Type::Brush,
+            "\"@other-gradient(circle, #ff0000ff 0%, #00ff00ff 50%, #0000ffff 100%)\""
+        )
+        .is_err()
+    );
 }
 
 #[test]

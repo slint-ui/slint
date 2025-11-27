@@ -93,11 +93,7 @@ pub(crate) struct BoolModel {
 impl Model for BoolModel {
     type Data = Value;
     fn row_count(&self) -> usize {
-        if self.value.get() {
-            1
-        } else {
-            0
-        }
+        if self.value.get() { 1 } else { 0 }
     }
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         (row == 0 && self.value.get()).then_some(Value::Void)

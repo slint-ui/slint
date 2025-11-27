@@ -216,13 +216,13 @@ pub use slint_macros::slint;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
-pub use i_slint_core::translations::{select_bundled_translation, SelectBundledTranslationError};
+pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 
 // keep in sync with internal/interpreter/api.rs
 pub use i_slint_backend_selector::api::*;
 #[cfg(feature = "std")]
 pub use i_slint_common::sharedfontique::{
-    register_font_from_memory, FontHandle, RegisterFontError,
+    FontHandle, RegisterFontError, register_font_from_memory,
 };
 pub use i_slint_core::api::*;
 pub use i_slint_core::graphics::{
@@ -267,7 +267,7 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
     })
 }
 
-/// Spawns a [`Future`](core::future::Future) to execute in the Slint event loop.
+/// Spawns a [`Future`] to execute in the Slint event loop.
 ///
 /// This function is intended to be invoked only from the main Slint thread that runs the event loop.
 ///
@@ -422,8 +422,8 @@ pub mod platform {
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
     #[cfg(all(feature = "renderer-femtovg", not(target_os = "android")))]
     pub mod femtovg_renderer {
-        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
+        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
 }
 
@@ -710,8 +710,8 @@ pub mod winit_030 {
     //! and [`BackendSelector::with_winit_window_attributes_hook()`](crate::BackendSelector::with_winit_window_attributes_hook()).
 
     pub use i_slint_backend_winit::{
-        winit, CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent,
-        WinitWindowAccessor,
+        CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent, WinitWindowAccessor,
+        winit,
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]

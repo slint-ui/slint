@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_renderer_skia::skia_safe;
 use i_slint_renderer_skia::SkiaRenderer;
 use i_slint_renderer_skia::SkiaSharedContext;
+use i_slint_renderer_skia::skia_safe;
 use slint::platform::software_renderer::MinimalSoftwareWindow;
 use slint::platform::{PlatformError, WindowAdapter};
 use slint::{PhysicalSize, SharedPixelBuffer};

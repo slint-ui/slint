@@ -3,6 +3,7 @@
 
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
+use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
@@ -10,7 +11,6 @@ use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
-use i_slint_core::PathData;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::future::Future;
@@ -24,7 +24,7 @@ pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 pub use i_slint_backend_selector::api::*;
 #[cfg(feature = "std")]
 pub use i_slint_common::sharedfontique::{
-    register_font_from_memory, FontHandle, RegisterFontError,
+    FontHandle, RegisterFontError, register_font_from_memory,
 };
 pub use i_slint_core::api::*;
 pub use i_slint_core::graphics::{
@@ -652,8 +652,11 @@ impl ComponentCompiler {
     /// was not in place (i.e: load from the file system following the include paths)
     pub fn set_file_loader(
         &mut self,
-        file_loader_fallback: impl Fn(&Path) -> core::pin::Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>
-            + 'static,
+        file_loader_fallback: impl Fn(
+            &Path,
+        ) -> core::pin::Pin<
+            Box<dyn Future<Output = Option<std::io::Result<String>>>>,
+        > + 'static,
     ) {
         self.config.open_import_fallback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
@@ -822,8 +825,11 @@ impl Compiler {
     /// was not in place (i.e: load from the file system following the include paths)
     pub fn set_file_loader(
         &mut self,
-        file_loader_fallback: impl Fn(&Path) -> core::pin::Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>
-            + 'static,
+        file_loader_fallback: impl Fn(
+            &Path,
+        ) -> core::pin::Pin<
+            Box<dyn Future<Output = Option<std::io::Result<String>>>>,
+        > + 'static,
     ) {
         self.config.open_import_fallback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
@@ -1121,14 +1127,14 @@ impl ComponentDefinition {
         global_name: &str,
     ) -> Option<
         impl Iterator<
-                Item = (
-                    String,
-                    (
-                        i_slint_compiler::langtype::Type,
-                        i_slint_compiler::object_tree::PropertyVisibility,
-                    ),
+            Item = (
+                String,
+                (
+                    i_slint_compiler::langtype::Type,
+                    i_slint_compiler::object_tree::PropertyVisibility,
                 ),
-            > + '_,
+            ),
+        > + '_,
     > {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type

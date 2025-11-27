@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::Value;
 use crate::dynamic_item_tree::InstanceRef;
 use crate::eval::{self, EvalLocalContext};
-use crate::Value;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::layout::{
