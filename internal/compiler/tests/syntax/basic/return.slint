@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     background: {
         return 42;
-//      ^error{Cannot convert float to brush}
+//      >        <error{Cannot convert float to brush}
         return blue;
     }
 
     callback xxx() -> string;
     xxx => {
         return 42phx;
-//      ^error{Cannot convert physical-length to string. Divide by 1phx to convert to a plain number}
+//      >           <error{Cannot convert physical-length to string. Divide by 1phx to convert to a plain number}
     }
 
 
@@ -21,14 +21,14 @@ export X := Rectangle {
         key-released(event) => {
             if (!self.visible) {
                 return;
-//              ^error{Must return a value of type 'enum EventResult'}
+//              >     <error{Must return a value of type 'enum EventResult'}
             }
             accept
         }
 
         enabled: {
             return;
-//          ^error{Must return a value of type 'bool'}
+//          >     <error{Must return a value of type 'bool'}
             true;
         }
     }

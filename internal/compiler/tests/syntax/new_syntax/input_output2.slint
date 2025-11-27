@@ -12,7 +12,7 @@ global Glo {
     foo(x) => {
         out1 = 42;
         in1 = 55;
-//      ^error{Assignment on a input property}
+//      >      <error{Assignment on a input property}
     }
 }
 
@@ -29,18 +29,18 @@ component Compo inherits Rectangle {
             priv2 = 78;
             output1 = input1;
             input1 = 75;
-//          ^error{Assignment on a input property}
+//          >         <error{Assignment on a input property}
             inout1 = 75;
 
             self.pressed-x = 42px;
-//          ^error{Assignment on a output property}
+//          >                   <error{Assignment on a output property}
         }
     }
 
 }
 
 OldCompo := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> inout2: 42;
     private property <int> priv2: inout2;
     out property <int> output1: priv2;
@@ -53,21 +53,21 @@ OldCompo := Rectangle {
             priv2 = 78;
             output1 = input1;
             input1 = 75;
-//          ^error{Assignment on a input property}
+//          >         <error{Assignment on a input property}
             inout1 = 75;
             pressed-x = 45px;
-//          ^warning{Assignment on an output property is deprecated}
+//          >              <warning{Assignment on an output property is deprecated}
             pressed-y -= 45px;
-//          ^warning{Self assignment on an output property is deprecated}
+//          >               <warning{Self assignment on an output property is deprecated}
         }
         has-hover: true;
-//      ^warning{Assigning to output property 'has-hover' is deprecated}
+//      >       <warning{Assigning to output property 'has-hover' is deprecated}
     }
 }
 
 export component A inherits Compo {
     input1: priv1;
-//          ^error{Unknown unqualified identifier 'priv1'}
+//          >   <error{Unknown unqualified identifier 'priv1'}
 }
 
 export component Foo inherits Rectangle {
@@ -80,7 +80,7 @@ export component Foo inherits Rectangle {
 
     c2 := Compo {
         inout1: self.priv1;
-//                   ^error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//                   >   <error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     }
 
 
@@ -88,30 +88,30 @@ export component Foo inherits Rectangle {
         clicked => {
             c1.inout2 = 32;
             c1.priv2 = 78;
-//             ^error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//             >   <error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c1.output1 = c1.input1;
-//          ^error{Assignment on a output property}
+//          >                    <error{Assignment on a output property}
             c1.input1 = 75;
             c1.inout1 = 75;
 
             c2.priv1 = 32;
-//             ^error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//             >   <error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c2.priv2 = 78;
-//             ^error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//             >   <error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c2.output1 = c1.inout2;
-//          ^error{Assignment on a output property}
+//          >                    <error{Assignment on a output property}
             c2.input1 = 75;
             c2.inout1 = 75;
 
             input_model[42] += 12;
-//          ^error{Self assignment on a input property}
+//          >                   <error{Self assignment on a input property}
 
             Glo.out1 = Glo.in1;
-//          ^error{Assignment on a output property}
+//          >                <error{Assignment on a output property}
             Glo.inout1 = Glo.priv1;
-//                           ^error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//                           >   <error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             Glo.priv2 = Glo.out1;
-//              ^error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+//              >   <error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             Glo.in1 = 32;
         }
     }

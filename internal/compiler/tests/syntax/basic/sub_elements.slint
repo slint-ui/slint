@@ -3,7 +3,7 @@
 
 
 export SubElements := Rectangle {
-//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     Rectangle {
         background: yellow;
@@ -17,17 +17,17 @@ export SubElements := Rectangle {
 
     foo := Rectangle {}
     parent := Rectangle {}
-//  ^error{'parent' is a reserved id}
+//  >    <error{'parent' is a reserved id}
     root := Rectangle {
-//  ^error{'root' is a reserved id}
+//  >  <error{'root' is a reserved id}
         self := Rectangle {}
-//      ^error{'self' is a reserved id}
+//      >  <error{'self' is a reserved id}
     }
 
     if (true) : root := Rectangle {
-//              ^error{'root' is a reserved id}
+//              >  <error{'root' is a reserved id}
 
         for _ in 1 : self := Rectangle {   }
-//                   ^error{'self' is a reserved id}
+//                   >  <error{'self' is a reserved id}
     }
 }
