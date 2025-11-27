@@ -186,7 +186,7 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
-    pub use i_slint_core::animations::{animation_tick, EasingCurve};
+    pub use i_slint_core::animations::{EasingCurve, animation_tick};
     pub use i_slint_core::api::{LogicalPosition, StyledText};
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;
