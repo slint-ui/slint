@@ -404,6 +404,10 @@ pub fn to_lsp_diag(d: &Diagnostic, format: ByteFormat) -> lsp_types::Diagnostic 
     )
 }
 
+/// Convert line-column pairs to an LSP range.
+///
+/// The start and end are tuples of 1-indexed line-column values.
+/// The end must be exclusive.
 fn to_range(start: (usize, usize), end: (usize, usize)) -> lsp_types::Range {
     let start = lsp_types::Position::new(
         (start.0 as u32).saturating_sub(1),
