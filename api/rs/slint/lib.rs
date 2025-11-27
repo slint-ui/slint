@@ -267,7 +267,7 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
     })
 }
 
-/// Spawns a [`Future`](core::future::Future) to execute in the Slint event loop.
+/// Spawns a [`Future`] to execute in the Slint event loop.
 ///
 /// This function is intended to be invoked only from the main Slint thread that runs the event loop.
 ///
