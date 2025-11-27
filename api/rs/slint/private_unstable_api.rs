@@ -142,8 +142,8 @@ pub fn ensure_backend() -> Result<(), crate::PlatformError> {
 }
 
 /// Creates a new window to render components in.
-pub fn create_window_adapter(
-) -> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
+pub fn create_window_adapter()
+-> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
 }
 
@@ -186,33 +186,33 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
-    pub use i_slint_core::animations::{animation_tick, EasingCurve};
+    pub use i_slint_core::animations::{EasingCurve, animation_tick};
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
-        key_codes::Key, FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult,
-        KeyboardModifiers, MouseEvent,
+        FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
+        MouseEvent, key_codes::Key,
     };
     pub use i_slint_core::item_tree::{
-        register_item_tree, unregister_item_tree, IndexRange, ItemTree, ItemTreeRefPin,
-        ItemTreeVTable, ItemTreeWeak,
+        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, register_item_tree,
+        unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
-        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,
-        TraversalOrder, VisitChildrenResult,
+        ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
+        VisitChildrenResult, visit_item_tree,
     };
     pub use i_slint_core::items::{Transform, *};
     pub use i_slint_core::layout::*;
     pub use i_slint_core::lengths::{
-        logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
+        LogicalLength, LogicalPoint, LogicalRect, logical_position_to_api,
     };
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{
-        set_state_binding, ChangeTracker, Property, PropertyTracker, StateInfo,
+        ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::string::shared_string_from_number;

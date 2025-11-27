@@ -274,7 +274,7 @@ impl Watcher {
         let watcher_weak = Arc::downgrade(&arc);
         arc.lock().unwrap().watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                use notify::{event::ModifyKind as M, EventKind as K};
+                use notify::{EventKind as K, event::ModifyKind as M};
                 let Ok(event) = event else { return };
                 let Some(watcher) = watcher_weak.upgrade() else { return };
                 if matches!(event.kind, K::Modify(M::Data(_) | M::Any) | K::Create(_))
@@ -324,7 +324,7 @@ mod ffi {
     use super::*;
     use core::ffi::c_void;
     use i_slint_core::window::WindowAdapter;
-    use i_slint_core::{slice::Slice, SharedString, SharedVector};
+    use i_slint_core::{SharedString, SharedVector, slice::Slice};
     type LiveReloadingComponentInner = RefCell<LiveReloadingComponent>;
 
     #[unsafe(no_mangle)]
