@@ -11,6 +11,11 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+pub mod remote;
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+pub use remote::*;
+
 use crate::{common, preview};
 
 pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
