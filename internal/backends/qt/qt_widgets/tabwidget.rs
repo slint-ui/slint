@@ -129,9 +129,9 @@ impl Item for NativeTabWidget {
 
             let horizontal: bool = matches!(orientation, Orientation::Horizontal);
             let prop_horizontal: bool = false; /*matches!(
-            TabBarSharedData::FIELD_OFFSETS.orientation.apply_pin(shared_data.as_ref()).get(),
-            Orientation::Horizontal
-            );*/
+                                               TabBarSharedData::FIELD_OFFSETS.orientation.apply_pin(shared_data.as_ref()).get(),
+                                               Orientation::Horizontal
+                                               );*/
 
             cpp!(unsafe [horizontal as "bool", size as "QSizeF", tabbar_size as "QSizeF", prop_horizontal as "bool"] -> TabWidgetMetrics as "TabWidgetMetrics" {
                 ensure_initialized();
