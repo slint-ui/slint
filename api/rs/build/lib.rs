@@ -289,7 +289,9 @@ impl CompilerConfiguration {
 #[non_exhaustive]
 pub enum CompileError {
     /// Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.
-    #[display("Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.")]
+    #[display(
+        "Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo."
+    )]
     NotRunViaCargo,
     /// Parse error. The error are printed in the stderr, and also are in the vector
     #[display("{_0:?}")]

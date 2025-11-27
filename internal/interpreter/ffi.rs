@@ -600,11 +600,7 @@ impl Model for ModelAdaptorWrapper {
 
     fn row_data(&self, row: usize) -> Option<Value> {
         let val_ptr = unsafe { self.0.row_data(row) };
-        if val_ptr.is_null() {
-            None
-        } else {
-            Some(*unsafe { Box::from_raw(val_ptr) })
-        }
+        if val_ptr.is_null() { None } else { Some(*unsafe { Box::from_raw(val_ptr) }) }
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {

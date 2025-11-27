@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_renderer_skia::skia_safe;
 use i_slint_renderer_skia::SkiaRenderer;
 use i_slint_renderer_skia::SkiaSharedContext;
+use i_slint_renderer_skia::skia_safe;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
@@ -53,7 +53,10 @@ fn do_test_render_region(renderer: &SoftwareRenderer, x: i32, y: i32, x2: i32, y
         for px in 0..500 {
             let in_bounding_box = (x..x2).contains(&(px as i32)) && (y..y2).contains(&(py as i32));
             if !in_bounding_box {
-                assert!(!buffer[py * 500 + px].0, "Something written outside of bounding box in  {px},{py}   - (x={x},y={y},x2={x2},y2={y2})")
+                assert!(
+                    !buffer[py * 500 + px].0,
+                    "Something written outside of bounding box in  {px},{py}   - (x={x},y={y},x2={x2},y2={y2})"
+                )
             } else if buffer[py * 500 + px].0 {
                 has_one_pixel = true;
             }

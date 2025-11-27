@@ -1,18 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::SetPropertyError;
 use crate::api::Value;
 use crate::dynamic_item_tree::{
     ErasedItemTreeBox, ErasedItemTreeDescription, PopupMenuDescription,
 };
-use crate::SetPropertyError;
 use core::cell::RefCell;
 use core::pin::Pin;
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::{Component, Document, PropertyDeclaration};
 use i_slint_core::item_tree::ItemTreeVTable;
-use i_slint_core::{rtti, Property};
+use i_slint_core::{Property, rtti};
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -187,11 +187,7 @@ pub fn instantiate(
             impl Helper for () {}
             impl<T: rtti::BuiltinGlobal + 'static, Next: Helper> Helper for (T, Next) {
                 fn instantiate(name: &str) -> Pin<Rc<dyn GlobalComponent>> {
-                    if name == T::name() {
-                        T::new()
-                    } else {
-                        Next::instantiate(name)
-                    }
+                    if name == T::name() { T::new() } else { Next::instantiate(name) }
                 }
             }
             i_slint_backend_selector::NativeGlobals::instantiate(

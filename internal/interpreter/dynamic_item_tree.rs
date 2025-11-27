@@ -9,8 +9,8 @@ use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::{BuiltinPrivateStruct, StructName, Type};
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
+use i_slint_compiler::{CompilerConfiguration, generator, object_tree, parser};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
-use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -506,12 +506,12 @@ impl ItemTreeDescription<'_> {
         name: &str,
     ) -> Option<
         impl Iterator<
-                Item = (
-                    SmolStr,
-                    i_slint_compiler::langtype::Type,
-                    i_slint_compiler::object_tree::PropertyVisibility,
-                ),
-            > + '_,
+            Item = (
+                SmolStr,
+                i_slint_compiler::langtype::Type,
+                i_slint_compiler::object_tree::PropertyVisibility,
+            ),
+        > + '_,
     > {
         let g = self.compiled_globals.as_ref().expect("Root component should have globals");
         g.exported_globals_by_name
@@ -806,8 +806,8 @@ pub(crate) struct ItemRTTI {
     pub(crate) callbacks: HashMap<&'static str, Box<dyn eval::ErasedCallbackInfo>>,
 }
 
-fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
-) -> (&'static str, Rc<ItemRTTI>) {
+fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>()
+-> (&'static str, Rc<ItemRTTI>) {
     let rtti = ItemRTTI {
         vtable: T::static_vtable(),
         type_info: dynamic_type::StaticTypeInfo::new::<T>(),
@@ -1019,9 +1019,9 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
         fn push(_rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {}
     }
     impl<
-            T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
-            Next: NativeHelper,
-        > NativeHelper for (T, Next)
+        T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
+        Next: NativeHelper,
+    > NativeHelper for (T, Next)
     {
         fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {
             let info = rtti_for::<T>();
@@ -1195,8 +1195,8 @@ pub(crate) fn generate_item_tree<'id>(
             dynamic_type::StaticTypeInfo::new::<Property<T>>(),
         )
     }
-    fn animated_property_info<T>(
-    ) -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
+    fn animated_property_info<T>()
+    -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
         T: Clone + Default + InterpolatedPropertyValue + std::convert::TryInto<Value> + 'static,
         Value: std::convert::TryInto<T>,
@@ -2269,7 +2269,9 @@ extern "C" fn accessibility_action(
         AccessibilityAction::Expand => perform("accessible-action-expand", &[]),
         AccessibilityAction::ReplaceSelectedText(_a) => {
             //perform("accessible-action-replace-selected-text", &[Value::String(a.clone())])
-            i_slint_core::debug_log!("AccessibilityAction::ReplaceSelectedText not implemented in interpreter's accessibility_action");
+            i_slint_core::debug_log!(
+                "AccessibilityAction::ReplaceSelectedText not implemented in interpreter's accessibility_action"
+            );
         }
         AccessibilityAction::SetValue(a) => {
             perform("accessible-action-set-value", &[Value::String(a.clone())])
