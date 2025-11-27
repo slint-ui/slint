@@ -330,9 +330,7 @@ impl std::fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(sf) = &self.source_file {
             let (line, col) = sf.line_column(self.span.offset, ByteFormat::Utf8);
-            let end_offset = self.span.offset + self.span.length.max(1);
-            let (end_line, end_col) = sf.line_column(end_offset, ByteFormat::Utf8);
-            write!(f, "{}:{line}:{col}-{end_line}:{end_col}", sf.path.display())
+            write!(f, "{}:{line}:{col}", sf.path.display())
         } else {
             write!(f, "<unknown>")
         }
