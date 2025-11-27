@@ -95,10 +95,12 @@ impl ItemWithinItemTree {
         &self,
         mem: *const u8,
     ) -> Pin<vtable::VRef<'_, ItemVTable>> {
-        Pin::new_unchecked(vtable::VRef::from_raw(
-            NonNull::from(self.rtti.vtable),
-            NonNull::new(mem.add(self.offset) as _).unwrap(),
-        ))
+        unsafe {
+            Pin::new_unchecked(vtable::VRef::from_raw(
+                NonNull::from(self.rtti.vtable),
+                NonNull::new(mem.add(self.offset) as _).unwrap(),
+            ))
+        }
     }
 
     pub(crate) fn item_index(&self) -> u32 {
@@ -1998,14 +2000,14 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
 unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
     match &tree[index as usize] {
-        ItemTreeNode::Item { item_array_index, .. } => {
+        ItemTreeNode::Item { item_array_index, .. } => unsafe {
             generativity::make_guard!(guard);
             let instance_ref = InstanceRef::from_pin_ref(component, guard);
             core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
                 instance_ref.description.item_array[*item_array_index as usize]
                     .apply_pin(instance_ref.instance),
             )
-        }
+        },
         ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
     }
 }
@@ -2101,7 +2103,7 @@ extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
-    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
     let component_and_index = {
         // Normal inner-compilation unit case:
@@ -2334,15 +2336,17 @@ extern "C" fn window_adapter(
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ItemTreeVTable>) -> vtable::Layout {
-    let instance_ptr = component.as_ptr() as *mut Instance<'static>;
-    let layout = (*instance_ptr).type_info().layout();
-    dynamic_type::TypeInfo::drop_in_place(instance_ptr);
-    layout.into()
+    unsafe {
+        let instance_ptr = component.as_ptr() as *mut Instance<'static>;
+        let layout = (*instance_ptr).type_info().layout();
+        dynamic_type::TypeInfo::drop_in_place(instance_ptr);
+        layout.into()
+    }
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C" fn dealloc(_vtable: &ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout) {
-    std::alloc::dealloc(ptr, layout.try_into().unwrap());
+    unsafe { std::alloc::dealloc(ptr, layout.try_into().unwrap()) };
 }
 
 #[derive(Copy, Clone)]
@@ -2356,11 +2360,15 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         component: ItemTreeRefPin<'a>,
         _guard: generativity::Guard<'id>,
     ) -> Self {
-        Self {
-            instance: Pin::new_unchecked(&*(component.as_ref().as_ptr() as *const Instance<'id>)),
-            description: &*(Pin::into_inner_unchecked(component).get_vtable()
-                as *const ItemTreeVTable
-                as *const ItemTreeDescription<'id>),
+        unsafe {
+            Self {
+                instance: Pin::new_unchecked(
+                    &*(component.as_ref().as_ptr() as *const Instance<'id>),
+                ),
+                description: &*(Pin::into_inner_unchecked(component).get_vtable()
+                    as *const ItemTreeVTable
+                    as *const ItemTreeDescription<'id>),
+            }
         }
     }
 

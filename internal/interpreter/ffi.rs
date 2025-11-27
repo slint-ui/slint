@@ -85,10 +85,9 @@ pub unsafe extern "C" fn slint_interpreter_value_new_model(
     model: NonNull<u8>,
     vtable: &ModelAdaptorVTable,
 ) -> Box<Value> {
-    Box::new(Value::Model(ModelRc::new(ModelAdaptorWrapper(vtable::VBox::from_raw(
-        NonNull::from(vtable),
-        model,
-    )))))
+    Box::new(Value::Model(ModelRc::new(ModelAdaptorWrapper(unsafe {
+        vtable::VBox::from_raw(NonNull::from(vtable), model)
+    }))))
 }
 
 /// If the value contains a model set from [`slint_interpreter_value_new_model]` with the same vtable pointer,
@@ -228,7 +227,7 @@ impl StructOpaque {
 /// Construct a new Struct in the given memory location
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_struct_new(val: *mut StructOpaque) {
-    std::ptr::write(val as *mut Struct, Struct::default())
+    unsafe { std::ptr::write(val as *mut Struct, Struct::default()) }
 }
 
 /// Construct a new Struct in the given memory location
@@ -237,13 +236,13 @@ pub unsafe extern "C" fn slint_interpreter_struct_clone(
     other: &StructOpaque,
     val: *mut StructOpaque,
 ) {
-    std::ptr::write(val as *mut Struct, other.as_struct().clone())
+    unsafe { std::ptr::write(val as *mut Struct, other.as_struct().clone()) }
 }
 
 /// Destruct the struct in that memory location
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_struct_destructor(val: *mut StructOpaque) {
-    drop(std::ptr::read(val as *mut Struct))
+    drop(unsafe { std::ptr::read(val as *mut Struct) })
 }
 
 #[unsafe(no_mangle)]
@@ -279,7 +278,7 @@ const _: [(); std::mem::align_of::<StructIteratorOpaque>()] =
 pub unsafe extern "C" fn slint_interpreter_struct_iterator_destructor(
     val: *mut StructIteratorOpaque,
 ) {
-    drop(std::ptr::read(val as *mut StructIterator))
+    drop(unsafe { std::ptr::read(val as *mut StructIterator) })
 }
 
 /// Advance the iterator and return the next value, or a null pointer
@@ -288,7 +287,9 @@ pub unsafe extern "C" fn slint_interpreter_struct_iterator_next<'a>(
     iter: &'a mut StructIteratorOpaque,
     k: &mut Slice<'a, u8>,
 ) -> *mut Value {
-    if let Some((str, val)) = (*(iter as *mut StructIteratorOpaque as *mut StructIterator)).next() {
+    if let Some((str, val)) =
+        unsafe { (*(iter as *mut StructIteratorOpaque as *mut StructIterator)).next() }
+    {
         *k = Slice::from_slice(str.as_bytes());
         Box::into_raw(Box::new(val.clone()))
     } else {
@@ -406,7 +407,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_callback(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    let ud = CallbackUserData::new(user_data, drop_user_data, callback);
+    let ud = unsafe { CallbackUserData::new(user_data, drop_user_data, callback) };
 
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -472,7 +473,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_global_callbac
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    let ud = CallbackUserData::new(user_data, drop_user_data, callback);
+    let ud = unsafe { CallbackUserData::new(user_data, drop_user_data, callback) };
 
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -552,10 +553,12 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_window(
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<i_slint_core::window::ffi::WindowAdapterRcOpaque>()
     );
-    core::ptr::write(
-        out as *mut *const Rc<dyn WindowAdapter>,
-        inst.window_adapter_ref().unwrap() as *const _,
-    )
+    unsafe {
+        core::ptr::write(
+            out as *mut *const Rc<dyn WindowAdapter>,
+            inst.window_adapter_ref().unwrap() as *const _,
+        )
+    }
 }
 
 /// Instantiate an instance from a definition.
@@ -567,7 +570,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_create(
     def: &ComponentDefinitionOpaque,
     out: *mut ComponentInstance,
 ) {
-    std::ptr::write(out, def.as_component_definition().create().unwrap())
+    unsafe { std::ptr::write(out, def.as_component_definition().create().unwrap()) }
 }
 
 #[unsafe(no_mangle)]
@@ -577,7 +580,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_component_definiti
 ) {
     generativity::make_guard!(guard);
     let definition = ComponentDefinition { inner: inst.unerase(guard).description().into() };
-    std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition);
+    unsafe { std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition) };
 }
 
 #[vtable::vtable]
@@ -637,13 +640,13 @@ impl ModelNotifyOpaque {
 /// Construct a new ModelNotifyNotify in the given memory region
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_model_notify_new(val: *mut ModelNotifyOpaque) {
-    std::ptr::write(val as *mut ModelNotify, ModelNotify::default());
+    unsafe { std::ptr::write(val as *mut ModelNotify, ModelNotify::default()) };
 }
 
 /// Destruct the value in that memory location
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_model_notify_destructor(val: *mut ModelNotifyOpaque) {
-    drop(std::ptr::read(val as *mut ModelNotify))
+    drop(unsafe { std::ptr::read(val as *mut ModelNotify) })
 }
 
 #[unsafe(no_mangle)]
@@ -726,16 +729,18 @@ impl ComponentCompilerOpaque {
 pub unsafe extern "C" fn slint_interpreter_component_compiler_new(
     compiler: *mut ComponentCompilerOpaque,
 ) {
-    *compiler = ComponentCompilerOpaque(NonNull::new_unchecked(Box::into_raw(Box::new(
-        ComponentCompiler::default(),
-    ))));
+    unsafe {
+        *compiler = ComponentCompilerOpaque(NonNull::new_unchecked(Box::into_raw(Box::new(
+            ComponentCompiler::default(),
+        ))));
+    }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_destructor(
     compiler: *mut ComponentCompilerOpaque,
 ) {
-    drop(Box::from_raw((*compiler).0.as_ptr()))
+    drop(unsafe { Box::from_raw((*compiler).0.as_ptr()) })
 }
 
 #[unsafe(no_mangle)]
@@ -826,7 +831,9 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_source(
         std::str::from_utf8(&path).unwrap().to_string().into(),
     )) {
         Some(definition) => {
-            std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition);
+            unsafe {
+                std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition)
+            };
             true
         }
         None => false,
@@ -846,7 +853,9 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_path(
             .build_from_path(PathBuf::from_str(std::str::from_utf8(&path).unwrap()).unwrap()),
     ) {
         Some(definition) => {
-            std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition);
+            unsafe {
+                std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition)
+            };
             true
         }
         None => false,
@@ -888,7 +897,9 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_clone(
     other: &ComponentDefinitionOpaque,
     def: *mut ComponentDefinitionOpaque,
 ) {
-    std::ptr::write(def as *mut ComponentDefinition, other.as_component_definition().clone())
+    unsafe {
+        std::ptr::write(def as *mut ComponentDefinition, other.as_component_definition().clone())
+    }
 }
 
 /// Destruct the component definition in that memory location
@@ -896,7 +907,7 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_clone(
 pub unsafe extern "C" fn slint_interpreter_component_definition_destructor(
     val: *mut ComponentDefinitionOpaque,
 ) {
-    drop(std::ptr::read(val as *mut ComponentDefinition))
+    drop(unsafe { std::ptr::read(val as *mut ComponentDefinition) })
 }
 
 /// Returns the list of properties of the component the component definition describes

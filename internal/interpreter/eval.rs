@@ -83,7 +83,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     }
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
-        (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2)
+        unsafe { (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2) }
     }
 
     fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>> {

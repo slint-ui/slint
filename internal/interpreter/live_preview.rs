@@ -373,14 +373,14 @@ mod ffi {
     pub unsafe extern "C" fn slint_live_preview_clone(
         component: *const LiveReloadingComponentInner,
     ) {
-        Rc::increment_strong_count(component);
+        unsafe { Rc::increment_strong_count(component) };
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_live_preview_drop(
         component: *const LiveReloadingComponentInner,
     ) {
-        Rc::decrement_strong_count(component);
+        unsafe { Rc::decrement_strong_count(component) };
     }
 
     #[unsafe(no_mangle)]
@@ -438,7 +438,9 @@ mod ffi {
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
-        let ud = crate::ffi::CallbackUserData::new(user_data, drop_user_data, callback_handler);
+        let ud = unsafe {
+            crate::ffi::CallbackUserData::new(user_data, drop_user_data, callback_handler)
+        };
         let handler = Rc::new(move |args: &[Value]| ud.call(args));
         let callback = std::str::from_utf8(&callback).unwrap();
         if let Some((global, prop)) = callback.split_once('.') {
@@ -460,6 +462,6 @@ mod ffi {
         );
         let borrow = component.borrow();
         let adapter = borrow.instance().inner.window_adapter_ref().unwrap();
-        core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, adapter as *const _)
+        unsafe { core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, adapter as *const _) };
     }
 }
