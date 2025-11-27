@@ -231,13 +231,10 @@ public:
     StyledText() { cbindgen_private::slint_styled_text_new(this); }
     /// Destroys this StyledText.
     ~StyledText() { cbindgen_private::slint_styled_text_drop(this); }
-    
+
     /// Creates a new StyledText from \a other.
-    StyledText(const StyledText &other)
-    {
-        cbindgen_private::slint_styled_text_clone(this, &other);
-    }
-    
+    StyledText(const StyledText &other) { cbindgen_private::slint_styled_text_clone(this, &other); }
+
     /// Assigns \a other to this styled text and returns a reference to this styled text.
     StyledText &operator=(const StyledText &other)
     {
@@ -245,7 +242,7 @@ public:
         cbindgen_private::slint_styled_text_clone(this, &other);
         return *this;
     }
-    
+
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const StyledText &a, const StyledText &b)
     {
