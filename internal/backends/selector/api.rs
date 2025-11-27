@@ -249,7 +249,12 @@ impl BackendSelector {
     /// enable the `backend-winit` feature and call this function with `winit` as argument.
     #[must_use]
     pub fn backend_name(mut self, name: String) -> Self {
-        self.backend = Some(name);
+        let lowercase = name.to_lowercase();
+        let (backend, renderer) = crate::parse_backend_env_var(&lowercase);
+        self.backend = Some(backend.to_string());
+        if self.renderer.is_none() && !renderer.is_empty() {
+            self.renderer = Some(renderer.to_string())
+        }
         self
     }
 
@@ -270,14 +275,15 @@ impl BackendSelector {
             feature = "i-slint-backend-linuxkms"
         ))]
         if self.backend.is_none() || self.renderer.is_none() {
-            let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
-            let backend_config = backend_config.to_lowercase();
-            let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
-            if !backend.is_empty() {
-                self.backend.get_or_insert_with(|| backend.to_owned());
-            }
-            if !renderer.is_empty() {
-                self.renderer.get_or_insert_with(|| renderer.to_owned());
+            if let Ok(backend_config) = std::env::var("SLINT_BACKEND") {
+                let backend_config = backend_config.to_lowercase();
+                let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
+                if !backend.is_empty() {
+                    self.backend.get_or_insert_with(|| backend.to_owned());
+                }
+                if !renderer.is_empty() {
+                    self.renderer.get_or_insert_with(|| renderer.to_owned());
+                }
             }
         }
 
