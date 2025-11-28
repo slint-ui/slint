@@ -347,6 +347,59 @@ pub struct UsedSubTypes {
     pub library_global_imports: Vec<(SmolStr, LibraryInfo)>,
 }
 
+/// A parsed [syntax_nodes::UsesIdentifier].
+#[derive(Clone, Debug)]
+struct UsesStatement {
+    interface_name: QualifiedTypeName,
+    interface_name_node: syntax_nodes::QualifiedName,
+    child_id: SmolStr,
+    child_id_node: syntax_nodes::DeclaredIdentifier,
+}
+
+impl UsesStatement {
+    /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
+    /// was not actually an interface.
+    fn lookup_interface(
+        &self,
+        tr: &TypeRegister,
+        _diag: &mut BuildDiagnostics,
+    ) -> Result<Rc<Component>, ()> {
+        let interface_name = self.interface_name.to_smolstr();
+        match tr.lookup_element(&interface_name) {
+            Ok(element_type) => match element_type {
+                ElementType::Component(component) => {
+                    if !component.is_interface() {
+                        todo!();
+                    }
+
+                    Ok(component)
+                }
+                _ => todo!(),
+            },
+            Err(_) => todo!(),
+        }
+    }
+}
+
+impl TryFrom<&syntax_nodes::UsesIdentifier> for UsesStatement {
+    type Error = ();
+    fn try_from(
+        node: &syntax_nodes::UsesIdentifier,
+    ) -> Result<Self, <Self as TryFrom<&syntax_nodes::UsesIdentifier>>::Error> {
+        let interface_name_node = node.child_node(SyntaxKind::QualifiedName).ok_or(())?;
+        let interface_name = QualifiedTypeName::from_node(interface_name_node.clone().into());
+        let child_id_node = node.child_node(SyntaxKind::DeclaredIdentifier).ok_or(())?;
+        let child_id = parser::identifier_text(&child_id_node).ok_or(())?;
+
+        Ok(UsesStatement {
+            interface_name,
+            interface_name_node: interface_name_node.into(),
+            child_id,
+            child_id_node: child_id_node.into(),
+        })
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct InitCode {
     // Code from init callbacks collected from elements
@@ -461,6 +514,7 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
+        apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
         c
     }
 
@@ -2058,6 +2112,57 @@ fn apply_default_type_properties(element: &mut Element) {
                     binding.priority = i32::MAX;
                     RefCell::new(binding)
                 });
+            }
+        }
+    }
+}
+
+fn apply_uses_statement(
+    e: &ElementRc,
+    uses_specifier: Option<syntax_nodes::UsesSpecifier>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(uses_specifier) = uses_specifier else {
+        return;
+    };
+
+    for uses_identifier_node in uses_specifier.UsesIdenfifierList().UsesIdentifier() {
+        let Ok(uses_statement): Result<UsesStatement, ()> = (&uses_identifier_node).try_into()
+        else {
+            // We should already have reported a syntax error
+            continue;
+        };
+
+        let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
+            todo!();
+        };
+
+        let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
+            todo!();
+        };
+
+        for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
+            if e.borrow_mut()
+                .property_declarations
+                .insert(prop_name.clone(), prop_decl.clone())
+                .is_some()
+            {
+                todo!();
+            }
+
+            if e.borrow_mut()
+                .bindings
+                .insert(
+                    prop_name.clone(),
+                    BindingExpression::new_two_way(
+                        NamedReference::new(&child, prop_name.clone()).into(),
+                    )
+                    .into(),
+                )
+                .is_some()
+            {
+                todo!();
             }
         }
     }
