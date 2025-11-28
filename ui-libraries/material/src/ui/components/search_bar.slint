@@ -136,6 +136,10 @@ export component SearchBar {
 
     property <color> color: MaterialPalette.on_surface_variant;
     property <length> item_height: MaterialStyleMetrics.size_72;
+    
+    public function close-popup() {
+        popup.close();
+    }
 
     min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
     forward_focus: state_layer;
