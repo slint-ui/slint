@@ -55,3 +55,12 @@ export component ChildDoesNotImplementInterface
 //                          ^error{base does not implement ValidInterface}
     base := ComponentA {}
 }
+
+component ValidBase implements ValidInterface {}
+
+export component DuplicatePropertyName
+ uses { ValidInterface from base } {
+    base := ValidBase {}
+    in-out property <int> value;
+//                        ^error{Cannot override property 'value' from 'ValidInterface'}
+}

@@ -2164,12 +2164,27 @@ fn apply_uses_statement(
         }
 
         for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
-            if e.borrow_mut()
-                .property_declarations
-                .insert(prop_name.clone(), prop_decl.clone())
-                .is_some()
+            if let Some(existing_property) =
+                e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl.clone())
             {
-                todo!();
+                let source = existing_property
+                    .node
+                    .as_ref()
+                    .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
+                    .and_then(|node| node.child_token(SyntaxKind::Identifier))
+                    .map_or_else(
+                        || parser::NodeOrToken::Node(uses_statement.child_id_node.clone().into()),
+                        |token| parser::NodeOrToken::Token(token),
+                    );
+
+                diag.push_error(
+                    format!(
+                        "Cannot override property '{}' from '{}'",
+                        prop_name, uses_statement.interface_name
+                    ),
+                    &source,
+                );
+                continue;
             }
 
             if e.borrow_mut()
