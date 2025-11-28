@@ -117,7 +117,7 @@ fn main() -> Result<()> {
     }
 
     if let Some(backend) = &args.backend {
-        std::env::set_var("SLINT_BACKEND", backend);
+        slint_interpreter::BackendSelector::new().backend_name(backend.clone()).select()?;
     }
 
     #[cfg(feature = "gettext")]
