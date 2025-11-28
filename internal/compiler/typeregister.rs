@@ -586,7 +586,7 @@ impl TypeRegister {
         register.elements.remove("DropArea").unwrap();
         register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
 
-        register.elements.remove("MarkdownText").unwrap();
+        register.elements.remove("StyledText").unwrap();
 
         Rc::new(RefCell::new(register))
     }

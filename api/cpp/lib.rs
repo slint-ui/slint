@@ -10,6 +10,7 @@ extern crate std;
 
 use alloc::rc::Rc;
 use core::ffi::c_void;
+use i_slint_core::api::StyledText;
 use i_slint_core::items::OperatingSystemType;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use i_slint_core::SharedString;
@@ -232,6 +233,17 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn open_url(url: &SharedString) {
+pub extern "C" fn slint_open_url(url: &SharedString) {
     i_slint_core::open_url(url)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedString {
+    *text = i_slint_core::escape_markdown(&text).into();
+    text
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_parse_markdown(text: &SharedString, out: &mut StyledText) {
+    *out = i_slint_core::parse_markdown(&text);
 }

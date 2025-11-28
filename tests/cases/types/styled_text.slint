@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: pyi
+
+export component TestCase inherits Window {
+    out property<styled-text> t1: @markdown("Hello {}", "World");
+    out property<styled-text> t2: @markdown("Hello {}", "*World*");
+    out property<styled-text> t3: @markdown("Hello *{}*", "World");
+}
+
+/*
+```rust
+//use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), slint::private_unstable_api::re_exports::StyledText::parse("Hello World").unwrap());
+assert_eq!(instance.get_t2(), slint::private_unstable_api::re_exports::StyledText::parse("Hello \\*World\\*").unwrap());
+assert_eq!(instance.get_t3(), slint::private_unstable_api::re_exports::StyledText::parse("Hello *World*").unwrap());
+```
+*/

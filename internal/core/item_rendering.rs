@@ -296,10 +296,16 @@ pub trait HasFont {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest;
 }
 
+#[allow(missing_docs)]
+pub enum PlainOrStyledText {
+    Plain(SharedString),
+    Styled(crate::api::StyledText),
+}
+
 /// Trait for an item that represents an string towards the renderer
 #[allow(missing_docs)]
 pub trait RenderString: HasFont {
-    fn text(self: Pin<&Self>) -> SharedString;
+    fn text(self: Pin<&Self>) -> PlainOrStyledText;
 }
 
 /// Trait for an item that represents an Text towards the renderer
@@ -329,8 +335,8 @@ impl HasFont for (SharedString, Brush) {
 }
 
 impl RenderString for (SharedString, Brush) {
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.0.clone()
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        PlainOrStyledText::Plain(self.0.clone())
     }
 }
 

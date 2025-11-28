@@ -178,7 +178,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
-    pub use i_slint_core::format;
+    pub use i_slint_core::{escape_markdown, format, parse_markdown};
     // This one is empty when Qt is not available, which triggers a warning
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
@@ -187,7 +187,7 @@ pub mod re_exports {
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick};
-    pub use i_slint_core::api::LogicalPosition;
+    pub use i_slint_core::api::{LogicalPosition, StyledText};
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;

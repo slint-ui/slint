@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X {
+    property <string> t1: @markdown(boo);
+//                                  ^error{Expected plain string literal}
+//                                  ^^error{Syntax error: expected ';'}
+//                                     ^^^error{Parse error}
+    property <string> t2: @markdown("boo\{t1}oo");
+//                                  ^error{Expected plain string literal}
+//                                  ^^error{Syntax error: expected ';'}
+
+    property <string> t3: @markdown("boo" + "foo");
+//                                        ^error{Syntax error: expected ')'}
+//                                               ^^error{Syntax error: expected ';'}
+
+    property <string> t4: @markdown("foo{}", t1);
+
+    property <string> t4: @markdown("foo{}", t1 t2);
+//                                              ^error{Syntax error: expected ')'}
+//                                              ^^error{Syntax error: expected ';'}
+
+
+    property <string> c1: @markdown("boo" => );
+//                                        ^error{Syntax error: expected ')'}
+//                                        ^^error{Syntax error: expected ';'}
+
+    property <string> c2: @markdown("boo" => "foo\{ff}");
+//                                        ^error{Syntax error: expected ')'}
+//                                        ^^error{Syntax error: expected ';'}
+
+    property <string> e: @markdown();
+//                                 ^error{Expected plain string literal}
+//                                 ^^error{Syntax error: expected ';'}
+
+
+
+}

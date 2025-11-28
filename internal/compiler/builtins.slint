@@ -120,10 +120,10 @@ component ComplexText inherits SimpleText {
 
 export { ComplexText as Text }
 
-export component MarkdownText inherits Empty {
+component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
-    in property <string> text;
+    in property <styled-text> text;
     in property <length> font-size;
     in property <int> font-weight;
     in property <brush> color;
@@ -142,6 +142,8 @@ export component MarkdownText inherits Empty {
     in property <TextStrokeStyle> stroke-style;
     //-default_size_binding:implicit_size
 }
+
+export { StyledTextItem as StyledText }
 
 export component TouchArea {
     in property <bool> enabled: true;

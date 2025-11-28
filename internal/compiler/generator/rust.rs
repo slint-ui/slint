@@ -3383,6 +3383,14 @@ fn compile_builtin_function_call(
             let url = a.next().unwrap();
             quote!(sp::open_url(&#url))
         }
+        BuiltinFunction::EscapeMarkdown => {
+            let text = a.next().unwrap();
+            quote!(sp::escape_markdown(&#text))
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let text = a.next().unwrap();
+            quote!(sp::parse_markdown(&#text))
+        }
     }
 }
 
