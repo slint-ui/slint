@@ -2199,18 +2199,24 @@ fn apply_uses_statement(
                 continue;
             }
 
-            if e.borrow_mut()
-                .bindings
-                .insert(
-                    prop_name.clone(),
-                    BindingExpression::new_two_way(
-                        NamedReference::new(&child, prop_name.clone()).into(),
-                    )
-                    .into(),
+            if let Some(existing_binding) = e.borrow_mut().bindings.insert(
+                prop_name.clone(),
+                BindingExpression::new_two_way(
+                    NamedReference::new(&child, prop_name.clone()).into(),
                 )
-                .is_some()
-            {
-                todo!();
+                .into(),
+            ) {
+                let message = format!(
+                    "Cannot override binding for property '{}' from interface '{}'",
+                    prop_name, uses_statement.interface_name
+                );
+                if let Some(location) = &existing_binding.borrow().span {
+                    diag.push_error(message, location);
+                } else {
+                    diag.push_error(message, &uses_statement.interface_name_node);
+                }
+
+                continue;
             }
         }
     }
