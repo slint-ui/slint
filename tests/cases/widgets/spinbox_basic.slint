@@ -16,6 +16,7 @@ export component TestCase inherits Window {
     callback edited <=> box.edited;
     in-out property value <=> box.value;
     in property <int> step-size <=> box.step-size;
+    in-out property <bool> read-only <=> box.read-only;
 }
 
 /*
@@ -92,6 +93,16 @@ let mut spinbox_search = slint_testing::ElementHandle::find_by_element_id(&insta
 let spinbox = spinbox_search.next().unwrap();
 assert_eq!(spinbox.accessible_value().unwrap(), "30");
 edits.borrow_mut().clear();
+
+// Test Read Only
+let mut spinbox_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::box");
+let spinbox = spinbox_search.next().unwrap();
+instance.set_read_only(true);
+assert_eq!(spinbox.accessible_value().unwrap(), "30");
+
+// scroll up
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
+assert_eq!(instance.get_value(), 30);
 
 ```
 
