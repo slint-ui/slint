@@ -992,7 +992,7 @@ impl BorrowedOpenGLTextureBuilder {
     /// drivers. A valid texture id is one that was created by the same OpenGL context that is
     /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
     /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
-    /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
+    /// [`slint::Image`](Image) objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
     #[allow(unsafe_code)]
     pub unsafe fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
