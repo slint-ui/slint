@@ -16,6 +16,7 @@ export component TestCase inherits Window {
     callback edited <=> edit.edited;
     in-out property <string> text <=> edit.text;
     in-out property <bool> read-only <=> edit.read-only;
+    in-out property <bool> enabled <=> edit.enabled;
     public function paste() {
         edit.paste();
     }
@@ -98,6 +99,15 @@ let edit = edit_search.next().unwrap();
 assert_eq!(edit.accessible_read_only(), Some(false));
 instance.set_read_only(true);
 assert_eq!(edit.accessible_read_only(), Some(true));
+
+instance.set_read_only(true);
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "XxxHello👋");
+instance.set_read_only(false);
+
+instance.set_enabled(false);
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "XxxHello👋");
 ```
 
 */
