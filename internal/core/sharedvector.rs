@@ -11,7 +11,7 @@ use core::ptr::NonNull;
 
 use portable_atomic as atomic;
 
-#[repr(C)]
+#[repr(C, align(8))]
 struct SharedVectorHeader {
     refcount: atomic::AtomicIsize,
     size: usize,
