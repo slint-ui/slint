@@ -2152,7 +2152,11 @@ fn apply_uses_statement(
         };
 
         let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
-            todo!();
+            diag.push_error(
+                format!("'{}' does not exist", uses_statement.child_id),
+                &uses_statement.child_id_node,
+            );
+            continue;
         };
 
         for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
