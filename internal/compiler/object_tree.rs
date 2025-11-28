@@ -362,21 +362,34 @@ impl UsesStatement {
     fn lookup_interface(
         &self,
         tr: &TypeRegister,
-        _diag: &mut BuildDiagnostics,
+        diag: &mut BuildDiagnostics,
     ) -> Result<Rc<Component>, ()> {
         let interface_name = self.interface_name.to_smolstr();
         match tr.lookup_element(&interface_name) {
             Ok(element_type) => match element_type {
                 ElementType::Component(component) => {
                     if !component.is_interface() {
-                        todo!();
+                        diag.push_error(
+                            format!("'{}' is not an interface", self.interface_name),
+                            &self.interface_name_node,
+                        );
+                        return Err(());
                     }
 
                     Ok(component)
                 }
-                _ => todo!(),
+                _ => {
+                    diag.push_error(
+                        format!("'{}' is not an interface", self.interface_name),
+                        &self.interface_name_node,
+                    );
+                    Err(())
+                }
             },
-            Err(_) => todo!(),
+            Err(error) => {
+                diag.push_error(error, &self.interface_name_node);
+                Err(())
+            }
         }
     }
 }
@@ -2135,7 +2148,7 @@ fn apply_uses_statement(
         };
 
         let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
-            todo!();
+            continue;
         };
 
         let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
