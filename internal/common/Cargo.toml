@@ -20,6 +20,7 @@ path = "lib.rs"
 default = []
 shared-fontique = ["dep:fontique", "dep:ttf-parser"]
 color-parsing = []
+fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
 
 [dependencies]
 ttf-parser = { workspace = true, optional = true }
