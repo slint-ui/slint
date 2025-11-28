@@ -20,7 +20,7 @@ export component CheckBox {
     accessible-label: root.text;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
-    accessible-action-default => { state-layer.clicked(); }
+    accessible-action-default => { if (root.enabled) {state-layer.clicked();} }
     forward-focus: state-layer;
 
     states [

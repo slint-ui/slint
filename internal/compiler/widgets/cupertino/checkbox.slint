@@ -22,8 +22,10 @@ export component CheckBox {
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
     accessible-action-default => {
-        root.checked = !root.checked;
-        root.toggled();
+        if (root.enabled) {
+           root.checked = !root.checked;
+           root.toggled();
+	}
     }
     forward-focus: i-focus-scope;
 
