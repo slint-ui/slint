@@ -49,3 +49,9 @@ export interface ValidInterface {
 export component MissingChild
  uses { ValidInterface from base} {}
 //                          ^error{'base' does not exist}
+
+export component ChildDoesNotImplementInterface
+ uses { ValidInterface from base } {
+//                          ^error{base does not implement ValidInterface}
+    base := ComponentA {}
+}

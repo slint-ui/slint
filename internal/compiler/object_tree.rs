@@ -2159,6 +2159,10 @@ fn apply_uses_statement(
             continue;
         };
 
+        if !element_implements_interface(&child, &interface, &uses_statement, diag) {
+            continue;
+        }
+
         for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
             if e.borrow_mut()
                 .property_declarations
@@ -2183,6 +2187,37 @@ fn apply_uses_statement(
             }
         }
     }
+}
+
+/// Check that the given element implements the given interface. Emits a diagnostic if the interface is not implemented.
+fn element_implements_interface(
+    element: &ElementRc,
+    interface: &Rc<Component>,
+    uses_statement: &UsesStatement,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let property_matches_interface =
+        |property: &PropertyLookupResult, interface_declaration: &PropertyDeclaration| -> bool {
+            property.property_type == interface_declaration.property_type
+                && property.property_visibility == interface_declaration.visibility
+        };
+
+    for (property_name, property_declaration) in
+        interface.root_element.borrow().property_declarations.iter()
+    {
+        let lookup_result = element.borrow().lookup_property(property_name);
+        if !property_matches_interface(&lookup_result, property_declaration) {
+            diag.push_error(
+                format!(
+                    "{} does not implement {}",
+                    uses_statement.child_id, uses_statement.interface_name
+                ),
+                &uses_statement.child_id_node,
+            );
+            return false;
+        }
+    }
+    true
 }
 
 /// Create a Type for this node
