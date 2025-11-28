@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>, Copyright © 2025 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+import { ExportedInterface } from "export_interfaces.slint";
+
+component Base
+ implements ExportedInterface {
+    value: 2.71;
+}
+
+export component TestCase uses { ExportedInterface from base } {
+    base := Base {}
+
+    out property <bool> test: self.value == 2.71;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
