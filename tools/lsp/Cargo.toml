@@ -61,7 +61,7 @@ renderer-winit-software = ["renderer-software"]
 
 ## Enable support for previewing .slint files
 preview = ["preview-builtin", "preview-external", "preview-remote", "preview-engine"]
-preview-remote = ["tokio-tungstenite", "tokio", "mdns-sd", "hostname", "futures-util"]
+preview-remote = ["tokio-tungstenite", "tokio", "mdns-sd", "hostname", "futures-util", "bincode"]
 ## [deprecated] Used to enable the "Show Preview" lenses and action on components.
 preview-lense = []
 ## [deprecated] Used to enable partial support for external previewers.
@@ -115,10 +115,11 @@ clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                         # must match the version used by lsp-server
 lsp-server = "0.7"
 tokio-tungstenite = { version = "0.28.0", optional = true }
-tokio = { version = "1.48.0", features = ["rt", "net"], optional = true }
+tokio = { version = "1.48.0", features = ["rt", "net", "sync", "macros"], optional = true }
 mdns-sd = { version = "0.17.0", default-features = false, features = ["async"], optional = true }
 hostname = { version = "0.4.1", optional = true }
 futures-util = { version = "0.3.31", optional = true }
+bincode = { version = "2.0.1", features = ["serde"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"

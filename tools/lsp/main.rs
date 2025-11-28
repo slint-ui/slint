@@ -94,9 +94,6 @@ enum Commands {
     #[cfg(feature = "preview-engine")]
     #[command(hide(true))]
     LivePreview(LivePreview),
-    #[cfg(feature = "preview-remote")]
-    #[command(hide(true))]
-    Serve(Serve),
 }
 
 #[derive(Args, Clone)]
@@ -118,17 +115,6 @@ struct LivePreview {
     /// toggle fullscreen mode
     #[arg(long)]
     fullscreen: bool,
-}
-
-#[cfg(feature = "preview-remote")]
-#[derive(Args, Clone, Debug)]
-struct Serve {
-    /// The address to listen on, defaults to using a random available port on all interfaces
-    #[arg(long)]
-    address: Option<String>,
-    /// Announce service via mDNS/ZeroConf/Bonjour
-    #[arg(long, default_value_t = true)]
-    announce: bool,
 }
 
 enum OutgoingRequest {
@@ -279,14 +265,6 @@ fn main() {
                 Err(e) => {
                     eprintln!("Preview Error: {e}");
                     std::process::exit(2);
-                }
-            },
-            #[cfg(feature = "preview-remote")]
-            Commands::Serve(serve) => match preview::serve(serve) {
-                Ok(()) => std::process::exit(0),
-                Err(e) => {
-                    eprintln!("Serve Error: {e}");
-                    std::process::exit(3);
                 }
             },
         }
