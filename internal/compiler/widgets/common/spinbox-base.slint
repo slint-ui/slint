@@ -12,7 +12,7 @@ export component SpinBoxBase {
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
     in property <int> step-size: 1;
-    in property <bool> read-only: false;
+    in property <bool> read-only;
     out property <bool> has-focus <=> text-input.has-focus;
     in-out property <int> value: minimum;
 
