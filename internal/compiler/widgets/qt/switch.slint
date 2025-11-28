@@ -8,7 +8,9 @@ export component Switch inherits NativeCheckBox {
     accessible-label <=> root.text;
     accessible-role: switch;
     accessible-action-default => {
-        root.checked = !root.checked;
-        root.toggled();
+        if(root.enabled) {
+           root.checked = !root.checked;
+           root.toggled();
+        }
     }
 }
