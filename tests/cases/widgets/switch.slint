@@ -6,6 +6,7 @@ export component TestCase inherits Window {
 
     in-out property <string> toggled;
     in-out property <bool> checked <=> a.checked;
+    in-out property <bool> enabled <=> a.enabled;
 
     HorizontalLayout {
         alignment: start;
@@ -40,6 +41,15 @@ aaa.invoke_accessible_default_action();
 assert_eq!(instance.get_checked(), true, "Switch a was not checked");
 assert_eq!(aaa.accessible_checked(), Some(true));
 assert_eq!(instance.get_toggled(), SharedString::from("a"));
+
+assert_eq!(aaa.accessible_enabled(), Some(true));
+instance.set_enabled(false);
+assert_eq!(aaa.accessible_enabled(), Some(false));
+assert_eq!(instance.get_toggled(), SharedString::from("a"));
+
+aaa.invoke_accessible_default_action();
+assert_eq!(instance.get_toggled(), SharedString::from("a"));
+
 ```
 
 ```cpp
@@ -61,6 +71,13 @@ assert_eq(instance.get_checked(), true);
 assert_eq(aaa.accessible_checked().value(), true);
 assert_eq(instance.get_toggled(), "a");
 
+assert_eq(aaa.accessible_enabled().value(), true);
+
+instance.set_enabled(false);
+assert_eq(aaa.accessible_enabled().value(), false);
+assert_eq(instance.get_toggled(), "a");
+aaa.invoke_accessible_default_action();
+assert_eq(instance.get_toggled(), "a");
 ```
 
 */
