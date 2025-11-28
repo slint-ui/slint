@@ -41,3 +41,11 @@ export component MultipleErrors
 //                                                                             ^^^^error{Row can only be within a GridLayout element}
     base := ComponentA {}
 }
+
+export interface ValidInterface {
+    in-out property <int> value;
+}
+
+export component MissingChild
+ uses { ValidInterface from base} {}
+//                          ^error{'base' does not exist}
