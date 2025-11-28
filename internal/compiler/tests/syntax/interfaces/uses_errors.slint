@@ -64,3 +64,13 @@ export component DuplicatePropertyName
     in-out property <int> value;
 //                        ^error{Cannot override property 'value' from 'ValidInterface'}
 }
+
+component BaseWithProperty {
+    in-out property <int> value: 10;
+    @children
+}
+
+export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithProperty {
+//                                             ^error{Cannot use interface 'ValidInterface' because property 'value' conflicts with existing property in 'BaseWithProperty'}
+    base := ValidBase {}
+}

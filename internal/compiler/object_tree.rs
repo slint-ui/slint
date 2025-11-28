@@ -2164,6 +2164,18 @@ fn apply_uses_statement(
         }
 
         for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
+            let lookup_result = e.borrow().base_type.lookup_property(prop_name);
+            if lookup_result.is_valid() {
+                diag.push_error(
+                    format!(
+                        "Cannot use interface '{}' because property '{}' conflicts with existing property in '{}'",
+                        uses_statement.interface_name, prop_name, e.borrow().base_type
+                    ),
+                    &uses_statement.interface_name_node,
+                );
+                continue;
+            }
+
             if let Some(existing_property) =
                 e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl.clone())
             {
