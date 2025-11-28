@@ -9,7 +9,8 @@ in particular the `BackendSelector` type.
 */
 
 use alloc::boxed::Box;
-use alloc::{format, string::String};
+use alloc::format;
+use alloc::string::{String, ToString};
 
 use i_slint_core::api::PlatformError;
 use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
