@@ -23,6 +23,7 @@ backend-winit-wayland = ["i-slint-backend-winit/wayland"]
 backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
 backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
 backend-qt = ["i-slint-backend-qt/enable"]
+backend-testing = ["i-slint-backend-testing/internal"]
 
 renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
 renderer-femtovg-wgpu = ["i-slint-backend-winit?/renderer-femtovg-wgpu"]
