@@ -22,7 +22,8 @@ env:
     CARGO_PROFILE_DEV_DEBUG: 0
     CARGO_INCREMENTAL: false
     RUST_BACKTRACE: full
-    SLINT_BACKEND: winit
+    SLINT_BACKEND: testing
+    MATURIN_PEP517_ARGS: --features backend-testing
 
 jobs:
     python_test:
@@ -31,9 +32,6 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Setup headless display
-              if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-python-v0-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
