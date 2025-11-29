@@ -583,7 +583,7 @@ module.exports = grammar({
       prec.left(
         seq(
           "(",
-          field("arguments", optional(seq(commaSep1($.type), optional(",")))),
+            field("arguments", optional(seq(commaSep1(choice($.typed_identifier, $.type)), optional(",")))),
           ")",
         ),
       ),
