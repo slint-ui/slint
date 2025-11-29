@@ -506,7 +506,14 @@ impl Component {
                 "root".into(),
                 match node.child_text(SyntaxKind::Identifier) {
                     Some(t) if t == "global" => ElementType::Global,
-                    Some(t) if t == "interface" => ElementType::Interface,
+                    Some(t) if t == "interface" => {
+                        if !diag.enable_experimental {
+                            diag.push_error("'interface' is an experimental feature".into(), &node);
+                            ElementType::Error
+                        } else {
+                            ElementType::Interface
+                        }
+                    }
                     _ => ElementType::Error,
                 },
                 &mut child_insertion_point,
@@ -1118,6 +1125,12 @@ impl Element {
                     if !c.is_interface() {
                         diag.push_error(
                             format!("Cannot implement {}. It is not an interface", base_string),
+                            &base_node,
+                        );
+                        ElementType::Error
+                    } else if !diag.enable_experimental {
+                        diag.push_error(
+                            format!("'implements' is an experimental feature"),
                             &base_node,
                         );
                         ElementType::Error
@@ -2139,6 +2152,11 @@ fn apply_uses_statement(
     let Some(uses_specifier) = uses_specifier else {
         return;
     };
+
+    if !diag.enable_experimental {
+        diag.push_error("'uses' is an experimental feature".into(), &uses_specifier);
+        return;
+    }
 
     for uses_identifier_node in uses_specifier.UsesIdenfifierList().UsesIdentifier() {
         let Ok(uses_statement): Result<UsesStatement, ()> = (&uses_identifier_node).try_into()
