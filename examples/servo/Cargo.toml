@@ -75,3 +75,10 @@ gl_generator = "0.14.0"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
+
+[package.metadata.android]
+hardware_accelerated = true
+
+# for local development
+[patch.crates-io]
+surfman = { path = "/Users/burhankhanzada/Projects/surfman" }
