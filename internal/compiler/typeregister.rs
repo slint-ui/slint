@@ -566,6 +566,15 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
+        match &mut register.elements.get_mut("TabWidget").unwrap() {
+            ElementType::Builtin(b) => {
+                let tabwidget = Rc::get_mut(b).unwrap();
+                tabwidget.properties.get_mut("orientation").unwrap().property_visibility =
+                    PropertyVisibility::Constexpr;
+            }
+            _ => unreachable!(),
+        }
+
         register
     }
 
