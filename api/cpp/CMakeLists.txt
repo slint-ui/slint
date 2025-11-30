@@ -150,6 +150,14 @@ if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
         ON
     )
     list(APPEND slint_compiler_features "software-renderer")
+
+    # Switch to dlopening fontconfig in the slint-compiler to avoid the issue that
+    # for example in Yocto environments, PKG_CONFIG_PATH will be set to the target only
+    # and pkg-config in PATH doesn't permit lookups in the hots.
+    if(CMAKE_CROSSCOMPILING)
+        list(APPEND slint_compiler_features "fontconfig-dlopen")
+    endif()
+
     if (SLINT_FEATURE_SDF_FONTS)
         list(APPEND slint_compiler_features "sdf-fonts")
     endif()
