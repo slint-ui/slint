@@ -61,6 +61,7 @@ jobs:
                       name: "Ubuntu 22.04 1.88"
                       rust_version: "1.88"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
+                      extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 beta"
                       rust_version: "beta"
