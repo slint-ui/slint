@@ -1,0 +1,32 @@
+// Copyright © 2025 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface TextInterface {
+    in-out property <string> text;
+}
+
+export component TestCase implements TextInterface {
+    text <=> text-input.text;
+
+    text-input := TextInput {
+        text: "Hello TextInterface";
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_text(), "Hello TextInterface");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text(), "Hello TextInterface");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.text == "Hello TextInterface");
+```
+*/

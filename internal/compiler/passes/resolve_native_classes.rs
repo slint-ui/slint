@@ -26,7 +26,13 @@ pub fn resolve_native_classes(component: &Component) {
                     // already native
                     return;
                 }
-                ElementType::Global | ElementType::Error => panic!("This should not happen"),
+                ElementType::Interface => {
+                    // TODO: I don't think we should be here - but it is too early to tell. Don't panic though.
+                    return;
+                }
+                ElementType::Global | ElementType::Error => {
+                    panic!("This should not happen")
+                }
             };
 
             let analysis = elem.property_analysis.borrow();
