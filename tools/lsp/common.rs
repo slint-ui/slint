@@ -118,7 +118,7 @@ pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
 }
 
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
-    if uri.scheme() == "builtin" {
+    if ["builtin", "vscode-remote"].contains(&uri.scheme()) {
         Some(PathBuf::from(uri.to_string()))
     } else {
         let path = uri.to_file_path().ok()?;
@@ -128,7 +128,7 @@ pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
 }
 
 pub fn file_to_uri(path: &Path) -> Option<Url> {
-    if path.starts_with("builtin:/") {
+    if ["builtin:/", "vscode-remote:/"].iter().any(|prefix| path.starts_with(prefix)) {
         Url::parse(path.to_str()?).ok()
     } else {
         Url::from_file_path(path).ok()
@@ -793,5 +793,16 @@ mod tests {
         assert_eq!(back_conversion1, back_conversion3);
 
         assert_eq!(back_conversion1, builtin_path1);
+    }
+
+    #[test]
+    fn test_uri_to_file_vscode_remote() {
+        let vscode_remote_path = PathBuf::from("vscode-remote://wsl%2Bubuntu/path/to/file.slint");
+
+        let url = file_to_uri(&vscode_remote_path).unwrap();
+
+        let back_conversion = uri_to_file(&url).unwrap();
+
+        assert_eq!(vscode_remote_path, back_conversion);
     }
 }
