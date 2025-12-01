@@ -31,11 +31,15 @@ export component LineEditBase inherits Rectangle {
     }
 
     public function clear-selection() {
-        text-input.clear-selection();
+        if (!root.read-only && root.enabled) {
+           text-input.clear-selection();
+        }
     }
 
     public function cut() {
-        text-input.cut();
+        if (!root.read-only && root.enabled) {
+           text-input.cut();
+        }
     }
 
     public function copy() {
@@ -43,7 +47,9 @@ export component LineEditBase inherits Rectangle {
     }
 
     public function paste() {
-        text-input.paste();
+        if (!root.read-only && root.enabled) {
+            text-input.paste();
+        }
     }
 
     // on width < 1px or if the `TextInput` is clipped it cannot be focused therefore min-width 1px
