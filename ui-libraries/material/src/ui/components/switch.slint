@@ -26,7 +26,7 @@ export component Switch {
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: switch;
-    accessible-action-default => { touch_area.clicked(); }
+    accessible-action-default => { if(root.enabled) {touch_area.clicked();} }
     forward_focus: touch_area;
 
     touch_area := FocusTouchArea {
