@@ -22,13 +22,13 @@ catalog:
   "vite": 7.2.4
   "@types/node": 20.16.10
   "@astrojs/check": 0.9.5
-  "@astrojs/starlight": 0.36.2
+  "@astrojs/starlight": 0.37.0
   "starlight-links-validator": 0.19.1
-  "astro": 5.15.9
+  "astro": 5.16.3
   "astro-embed": 0.9.2
   "sharp": 0.34.5
   "@expressive-code/plugin-line-numbers": 0.41.3
   "rehype-external-links": 3.0.0
   "playwright-ctrf-json-reporter": 0.0.26
-  "@playwright/test": 1.56.1
+  "@playwright/test": 1.57.0
   "vitest": 4.0.13
