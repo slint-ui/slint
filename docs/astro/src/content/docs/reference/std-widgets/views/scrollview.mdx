@@ -28,18 +28,13 @@ export component Example inherits Window {
 </CodeSnippetMD>
 
 A Scrollview contains a viewport that is bigger than the view and can be
-scrolled. It has scrollbar to interact with. The viewport-width and
-viewport-height are calculated automatically to create a scrollable view
-except for when using a for loop to populate the elements. In that case
-the viewport-width and viewport-height aren't calculated automatically
-and must be set manually for scrolling to work.
+scrolled. It has scrollbar to interact with.
 
+The ScrollView is scrollable if the `viewport-width` and `viewport-height` properties
+are bigger than the size of the visible area.
 
-:::note{Note}
-The ability to
-automatically calculate the viewport-width and viewport-height when
-using for loops may be added in the future and is tracked in [#407](https://github.com/slint-ui/slint/issues/407).
-:::
+If the ScrollView contains a layout, the default value for the `viewport-width` and
+`viewport-height` is the minimum size of that layout.
 
 ## Properties
 
