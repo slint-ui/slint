@@ -40,6 +40,7 @@ export component SpinBox {
     in property <int> minimum <=> base.minimum;
     in property <int> maximum <=> base.maximum;
     in property <bool> enabled <=> base.enabled;
+    in property <bool> read-only <=> base.read-only;
     in property <int> step-size <=> base.step-size;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     out property <bool> has-focus <=> base.has-focus;
@@ -62,6 +63,7 @@ export component SpinBox {
     accessible-action-set-value(v) => { if v.is-float() { base.update-value(v.to-float()); } }
     accessible-action-increment => { base.increment(); }
     accessible-action-decrement => { base.decrement(); }
+    accessible-read-only: root.read-only;
 
     states [
         disabled when !root.enabled : {
@@ -73,7 +75,7 @@ export component SpinBox {
         spacing: 1px;
 
         SpinBoxButton {
-            visible: root.enabled;
+            visible: root.enabled && !root.read-only;
             text: "-";
 
             clicked => {
@@ -106,7 +108,7 @@ export component SpinBox {
         }
 
         SpinBoxButton {
-            visible: root.enabled;
+            visible: root.enabled && !root.read-only;
             text: "+";
 
             clicked => {

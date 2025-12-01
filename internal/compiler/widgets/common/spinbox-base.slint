@@ -12,6 +12,7 @@ export component SpinBoxBase {
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
     in property <int> step-size: 1;
+    in property <bool> read-only;
     out property <bool> has-focus <=> text-input.has-focus;
     in-out property <int> value: minimum;
 
@@ -25,11 +26,15 @@ export component SpinBoxBase {
     }
 
     public function increment() {
-        root.update-value(root.value + root.step-size);
+        if !root.read-only {
+           root.update-value(root.value + root.step-size);
+        }
     }
 
     public function decrement() {
-        root.update-value(root.value - root.step-size);
+        if !root.read-only {
+           root.update-value(root.value - root.step-size);
+        }
     }
 
     private property <length> scroll-delta: 2px;
@@ -45,7 +50,7 @@ export component SpinBoxBase {
     }
 
     TouchArea {
-        enabled: root.enabled;
+        enabled: root.enabled && !root.read-only;
 
         scroll-event(event) => {
             if event.delta-y > 0 {
@@ -67,6 +72,7 @@ export component SpinBoxBase {
         horizontal-alignment: left;
         text: root.value;
         enabled: root.enabled;
+        read-only: root.read-only;
         width: 100%;
         height: 100%;
 
