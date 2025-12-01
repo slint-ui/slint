@@ -534,6 +534,7 @@ component Tab {
 // Note: not a native class, handled in the lower_tabs pass
 export component TabWidget {
     in-out property <int> current-index;
+    in property <Orientation> orientation;
 
     //-disallow_global_types_as_child_elements
     Tab { }
@@ -745,6 +746,7 @@ export component NativeTabWidget {
 
     in property <int> current-index;
     in property <int> current-focused;
+    in property <Orientation> orientation: Orientation.horizontal;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }

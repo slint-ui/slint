@@ -12,14 +12,15 @@ export component TabWidgetImpl inherits Rectangle {
     in property <length> content-min-width;
     in property <int> current-index;
     in property <int> current-focused;
-    out property <length> content-x: 0;
-    out property <length> content-y: root.tabbar-preferred-height;
-    out property <length> content-height: root.height - root.tabbar-preferred-height;
-    out property <length> content-width: root.width;
+    in property <Orientation> orientation: Orientation.horizontal;
+    out property <length> content-x: orientation==Orientation.horizontal? 0: root.tabbar-preferred-width;
+    out property <length> content-y: orientation==Orientation.horizontal? root.tabbar-preferred-height: 0;
+    out property <length> content-height: orientation==Orientation.horizontal? root.height - root.tabbar-preferred-height: root.height;
+    out property <length> content-width: orientation==Orientation.horizontal? root.width: root.width - root.tabbar-preferred-width;
     out property <length> tabbar-x: 0;
     out property <length> tabbar-y: 0;
-    out property <length> tabbar-height: root.tabbar-preferred-height;
-    out property <length> tabbar-width: root.width;
+    out property <length> tabbar-height: orientation==Orientation.horizontal? root.tabbar-preferred-height: root.height;
+    out property <length> tabbar-width: orientation==Orientation.horizontal? root.width: root.tabbar-preferred-width;
 
     preferred-width: root.content-min-width;
     min-width: max(root.content-min-width, root.tabbar-preferred-width);
@@ -103,7 +104,7 @@ export component TabImpl inherits Rectangle {
     }
 }
 
-export component TabBarImpl inherits TabBarBase {
+component CupertinoTabBarBase inherits TabBarBase {
     // injected properties:
     // The currently focused tab
     in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1;
@@ -126,15 +127,6 @@ export component TabBarImpl inherits TabBarBase {
             width: parent.width - 2 * parent.border-radius;
             height: 1px;
             background: CupertinoPalette.inner-shadow;
-        }
-    }
-
-    Flickable {
-        HorizontalLayout {
-            min-height: 22px;
-            padding: 1px;
-
-            @children
         }
     }
 
@@ -167,6 +159,28 @@ export component TabBarImpl inherits TabBarBase {
                 return accept;
             }
             return reject;
+        }
+    }
+}
+
+export component TabBarHorizontalImpl inherits CupertinoTabBarBase {
+    Flickable {
+        HorizontalLayout {
+            min-height: 22px;
+            padding: 1px;
+
+            @children
+        }
+    }
+}
+
+export component TabBarVerticalImpl inherits CupertinoTabBarBase {
+    Flickable {
+        VerticalLayout {
+            // TODO min-height: 22px;
+            padding: 1px;
+
+            @children
         }
     }
 }
