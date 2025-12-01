@@ -174,6 +174,20 @@ impl GPURenderingContext {
             );
         }
 
+        // Flip image vertically (OpenGL textures are upside down)
+        let stride = (size.width * 4) as usize;
+        let height = size.height as usize;
+        let mut row_buffer = vec![0u8; stride];
+        for y in 0..height / 2 {
+            let top_row_start = y * stride;
+            let bottom_row_start = (height - y - 1) * stride;
+
+            // Swap rows
+            row_buffer.copy_from_slice(&pixels[top_row_start..top_row_start + stride]);
+            pixels.copy_within(bottom_row_start..bottom_row_start + stride, top_row_start);
+            pixels[bottom_row_start..bottom_row_start + stride].copy_from_slice(&row_buffer);
+        }
+
         // Create wgpu texture
         let texture_desc = wgpu::TextureDescriptor {
             label: Some("Servo Texture"),
