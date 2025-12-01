@@ -45,15 +45,13 @@ material_components:
  - *ci_config
 
 internal: &internal
- - 'internal/**'
+ # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
+ - 'internal/!({renderers,backends}/**)'
+ - 'internal/backends/qt/**'
+ - 'internal/backends/testing/**'
  - 'helper_crates/**'
  - 'Cargo.toml' # the root Cargo.toml
  - '.cargo/**'
- # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
- - '!internal/renderers/**'
- - '!internal/backends/winit/**'
- - '!internal/backends/linuxkms/**'
- - '!internal/backends/android-activity/**'
  - *ci_config
 
 api_cpp:
