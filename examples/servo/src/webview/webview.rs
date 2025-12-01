@@ -7,10 +7,7 @@ use smol::channel;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
-use surfman;
-
 use euclid::Size2D;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use slint::{ComponentHandle, SharedString, language::ColorScheme};
 

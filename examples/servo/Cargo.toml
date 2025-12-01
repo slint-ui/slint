@@ -54,10 +54,10 @@ servo-media = { git = "https://github.com/servo/media", rev = "6c1766f5" }
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-27", "raw-window-handle-06"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-27"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27", "raw-window-handle-06"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 metal = "0.32.0"
