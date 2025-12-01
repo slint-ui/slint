@@ -10,5 +10,46 @@ export component TestCase inherits Window {
         y: 0px;
         width: 10 * self.height; // Test that there is no height for width dependency (loop)
     }
+    in-out property <string> text <=> edit1.text;
+    in-out property <bool> read-only <=> edit1.read-only;
+    public function select-all() {
+        edit1.select-all();
+    }
+    public function cut() {
+        edit1.cut();
+    }
 }
 
+
+/*
+
+```rust
+use slint::{SharedString};
+
+let instance = TestCase::new().unwrap();
+
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::edit1").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let edit1 = result.pop().unwrap();
+assert_eq!(edit1.accessible_value(), Some(SharedString::from("")));
+
+instance.set_text("Hello👋".into());
+assert_eq!(instance.get_text(), "Hello👋");
+
+instance.invoke_select_all();
+
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "");
+
+// Read Only
+instance.set_text("Hello👋".into());
+assert_eq!(instance.get_text(), "Hello👋");
+instance.set_read_only(true);
+instance.invoke_select_all();
+
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "Hello👋");
+
+```
+
+*/
