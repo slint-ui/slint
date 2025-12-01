@@ -117,13 +117,10 @@ impl WebView {
         let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
-        let native_widget: Option<surfman::NativeWidget> = None;
-
         let rendering_adapter = super::rendering_context::try_create_gpu_context(
             adapter.wgpu_device(),
             adapter.wgpu_queue(),
             physical_size,
-            native_widget,
         )
         .unwrap();
 

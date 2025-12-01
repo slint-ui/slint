@@ -25,7 +25,6 @@ pub fn try_create_gpu_context(
     device: wgpu::Device,
     queue: wgpu::Queue,
     size: PhysicalSize<u32>,
-    native_widget: Option<surfman::NativeWidget>,
 ) -> Option<Box<dyn ServoRenderingAdapter>> {
     // Allow forcing software rendering for testing/debugging
     if std::env::var_os("SLINT_SERVO_FORCE_SOFTWARE").is_some() {
@@ -33,7 +32,7 @@ pub fn try_create_gpu_context(
     }
 
     // Try to create GPU rendering context, fall back to software if it fails
-    match GPURenderingContext::new(size, native_widget) {
+    match GPURenderingContext::new(size) {
         Ok(gpu_context) => {
             let rendering_context = Rc::new(gpu_context);
             Some(Box::new(ServoGPURenderingContext {
