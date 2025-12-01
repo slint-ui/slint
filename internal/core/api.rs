@@ -16,7 +16,9 @@ use alloc::boxed::Box;
 use alloc::string::String;
 
 mod styled_text;
-pub use styled_text::*;
+pub use styled_text::StyledText;
+#[cfg(any(feature = "shared-parley"))]
+pub(crate) use styled_text::*;
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.

@@ -62,7 +62,7 @@ pub fn apply_default_properties_from_style(
                         }
                     });
                 }
-                "Text" | "MarkdownText" => {
+                "Text" | "StyledText" => {
                     elem.set_binding_if_not_set("color".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
                             &palette.root_element,

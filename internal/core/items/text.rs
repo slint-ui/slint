@@ -13,12 +13,15 @@ use super::{
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
     VoidArg, WindowItem,
 };
+use crate::api;
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut, key_codes,
 };
-use crate::item_rendering::{CachedRenderingData, HasFont, ItemRenderer, RenderString, RenderText};
+use crate::item_rendering::{
+    CachedRenderingData, HasFont, ItemRenderer, PlainOrStyledText, RenderString, RenderText,
+};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
@@ -169,8 +172,8 @@ impl HasFont for ComplexText {
 }
 
 impl RenderString for ComplexText {
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        PlainOrStyledText::Plain(self.text())
     }
 }
 
@@ -225,10 +228,10 @@ impl ComplexText {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct MarkdownText {
+pub struct StyledTextItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub text: Property<SharedString>,
+    pub text: Property<api::StyledText>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
     pub color: Property<Brush>,
@@ -248,7 +251,7 @@ pub struct MarkdownText {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for MarkdownText {
+impl Item for StyledTextItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -368,14 +371,14 @@ impl Item for MarkdownText {
     }
 }
 
-impl ItemConsts for MarkdownText {
+impl ItemConsts for StyledTextItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        MarkdownText,
+        StyledTextItem,
         CachedRenderingData,
-    > = MarkdownText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = StyledTextItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl HasFont for MarkdownText {
+impl HasFont for StyledTextItem {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
@@ -388,13 +391,13 @@ impl HasFont for MarkdownText {
     }
 }
 
-impl RenderString for MarkdownText {
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
+impl RenderString for StyledTextItem {
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        PlainOrStyledText::Styled(self.text())
     }
 }
 
-impl RenderText for MarkdownText {
+impl RenderText for StyledTextItem {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
     }
@@ -430,7 +433,7 @@ impl RenderText for MarkdownText {
     }
 }
 
-impl MarkdownText {
+impl StyledTextItem {
     pub fn font_metrics(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
@@ -566,8 +569,8 @@ impl HasFont for SimpleText {
 }
 
 impl RenderString for SimpleText {
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.text()
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        PlainOrStyledText::Plain(self.text())
     }
 }
 
@@ -1268,8 +1271,8 @@ impl HasFont for TextInput {
 }
 
 impl RenderString for TextInput {
-    fn text(self: Pin<&Self>) -> SharedString {
-        self.as_ref().text()
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        PlainOrStyledText::Plain(self.as_ref().text())
     }
 }
 

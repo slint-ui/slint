@@ -557,6 +557,7 @@ impl CppType for Type {
             Type::Brush => Some("slint::Brush".into()),
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
+            Type::StyledText => Some("slint::StyledText".into()),
             _ => None,
         }
     }
@@ -4211,7 +4212,15 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
-            format!("slint::cbindgen_private::open_url({})", url)
+            format!("slint::cbindgen_private::slint_open_url({})", url)
+        }
+        BuiltinFunction::EscapeMarkdown => {
+            let text = a.next().unwrap();
+            format!("slint::private_api::escape_markdown({})", text)
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let text = a.next().unwrap();
+            format!("slint::private_api::parse_markdown({})", text)
         }
     }
 }
