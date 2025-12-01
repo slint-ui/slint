@@ -39,6 +39,7 @@ time-now = "0.1.2"
 termcolor = "1.4.1"
 thiserror = "2.0.17"
 foreign-types-shared = "0.3.1"
+raw-window-handle = "0.6"
 
 wgpu-hal = "27.0.4"
 wgpu-core = "27.0.3"
@@ -54,10 +55,10 @@ ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ash = "0.38.0"
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-27"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-27", "raw-window-handle-06"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27", "raw-window-handle-06"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 metal = "0.32.0"
