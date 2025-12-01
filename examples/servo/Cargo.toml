@@ -67,11 +67,9 @@ objc2-foundation = "0.3.2"
 objc2-metal = { version = "0.3.2", features = ["MTLDevice", "MTLAllocation", "MTLResource", "MTLTexture", "objc2-io-surface"] }
 
 [build-dependencies]
+# need to add to for all host to generate gl_bindings for android
 gl_generator = "0.14.0"
 slint-build = { path = "../../api/rs/build" }
-
-[target.'cfg(target_os = "linux")'.build-dependencies]
-gl_generator = "0.14.0"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
