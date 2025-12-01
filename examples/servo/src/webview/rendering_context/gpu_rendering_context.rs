@@ -39,6 +39,7 @@ pub struct GPURenderingContext {
     pub size: Cell<PhysicalSize<u32>>,
     pub swap_chain: SwapChain<Device>,
     pub surfman_rendering_info: SurfmanRenderingContext,
+    pub is_widget: bool,
 }
 
 impl Drop for GPURenderingContext {
@@ -50,7 +51,10 @@ impl Drop for GPURenderingContext {
 }
 
 impl GPURenderingContext {
-    pub fn new(size: PhysicalSize<u32>) -> Result<Self, surfman::Error> {
+    pub fn new(
+        size: PhysicalSize<u32>,
+        native_widget: Option<surfman::NativeWidget>,
+    ) -> Result<Self, surfman::Error> {
         let connection = Connection::new()?;
 
         let adapter = connection.create_adapter()?;
@@ -59,8 +63,14 @@ impl GPURenderingContext {
 
         let surfman_size = Size2D::new(size.width as i32, size.height as i32);
 
-        let surface =
-            surfman_rendering_info.create_surface(SurfaceType::Generic { size: surfman_size })?;
+        let is_widget = native_widget.is_some();
+        let surface_type = if let Some(native_widget) = native_widget {
+            SurfaceType::Widget { native_widget }
+        } else {
+            SurfaceType::Generic { size: surfman_size }
+        };
+
+        let surface = surfman_rendering_info.create_surface(surface_type)?;
 
         surfman_rendering_info.bind_surface(surface)?;
 
@@ -68,7 +78,7 @@ impl GPURenderingContext {
 
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
-        Ok(Self { swap_chain, size: Cell::new(size), surfman_rendering_info })
+        Ok(Self { swap_chain, size: Cell::new(size), surfman_rendering_info, is_widget })
     }
 
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
@@ -112,6 +122,21 @@ impl GPURenderingContext {
         wgpu_device: &wgpu::Device,
         wgpu_queue: &wgpu::Queue,
     ) -> Result<wgpu::Texture, VulkanTextureError> {
+        if self.is_widget {
+            // Return dummy texture
+            let texture_desc = wgpu::TextureDescriptor {
+                label: Some("Servo Dummy Texture"),
+                size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            };
+            return Ok(wgpu_device.create_texture(&texture_desc));
+        }
+
         use crate::gl_bindings as gl;
         use glow::HasContext;
 

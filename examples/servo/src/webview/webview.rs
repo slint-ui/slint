@@ -7,7 +7,10 @@ use smol::channel;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
+use surfman;
+
 use euclid::Size2D;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use slint::{ComponentHandle, SharedString, language::ColorScheme};
 
@@ -114,10 +117,26 @@ impl WebView {
         let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
+        let slint_handle = app.window().window_handle();
+        let native_widget: Option<surfman::NativeWidget> =
+            if let Ok(handle) = HasWindowHandle::window_handle(&slint_handle) {
+                match handle.as_raw() {
+                    #[cfg(target_os = "android")]
+                    RawWindowHandle::AndroidNdk(handle) => unsafe {
+                        let ptr = handle.a_native_window.as_ptr();
+                        Some(std::mem::transmute::<*mut _, surfman::NativeWidget>(ptr))
+                    },
+                    _ => None,
+                }
+            } else {
+                None
+            };
+
         let rendering_adapter = super::rendering_context::try_create_gpu_context(
             adapter.wgpu_device(),
             adapter.wgpu_queue(),
             physical_size,
+            native_widget,
         )
         .unwrap();
 
