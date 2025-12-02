@@ -476,7 +476,17 @@ msgctxt "MenuBar"
 msgid "Name {}"
 msgstr "新しいファイル名 {}"
 
+#: gallery.slint:32
+msgctxt "MenuBar"
+msgid "MenuItem with Icon"
+msgstr "アイコン付きメニュー項目"
+
 #: gallery.slint:33
+msgctxt "MenuBar"
+msgid "MenuItem with Checkmark"
+msgstr "チェックマーク付きメニュー項目"
+
+#: gallery.slint:35
 msgctxt "MenuBar"
 msgid "Edit"
 msgstr "編集"
