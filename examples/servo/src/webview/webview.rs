@@ -115,9 +115,9 @@ impl WebView {
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
         let rendering_adapter = super::rendering_context::try_create_gpu_context(
+            physical_size,
             adapter.wgpu_device(),
             adapter.wgpu_queue(),
-            physical_size,
         )
         .unwrap();
 

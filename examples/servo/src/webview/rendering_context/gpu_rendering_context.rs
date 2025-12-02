@@ -19,6 +19,8 @@ use wgpu;
 use super::surfman_context::SurfmanRenderingContext;
 
 pub struct GPURenderingContext {
+    wgpu_device: wgpu::Device,
+    wgpu_queue: wgpu::Queue,
     pub size: Cell<PhysicalSize<u32>>,
     pub swap_chain: SwapChain<Device>,
     pub surfman_rendering_info: SurfmanRenderingContext,
@@ -33,7 +35,11 @@ impl Drop for GPURenderingContext {
 }
 
 impl GPURenderingContext {
-    pub fn new(size: PhysicalSize<u32>) -> Result<Self, surfman::Error> {
+    pub fn new(
+        size: PhysicalSize<u32>,
+        wgpu_device: wgpu::Device,
+        wgpu_queue: wgpu::Queue,
+    ) -> Result<Self, surfman::Error> {
         let connection = Connection::new()?;
 
         let adapter = connection.create_adapter()?;
@@ -52,23 +58,25 @@ impl GPURenderingContext {
 
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
-        Ok(Self { swap_chain, size: Cell::new(size), surfman_rendering_info })
+        Ok(Self {
+            wgpu_device,
+            wgpu_queue,
+            swap_chain,
+            size: Cell::new(size),
+            surfman_rendering_info,
+        })
     }
 
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
     /// Unbinds the surface, converts to WGPU texture, then rebinds it.
     #[cfg(target_vendor = "apple")]
-    pub fn get_wgpu_texture_from_metal(
-        &self,
-        wgpu_device: &wgpu::Device,
-        wgpu_queue: &wgpu::Queue,
-    ) -> Result<wgpu::Texture, surfman::Error> {
+    pub fn get_wgpu_texture_from_metal(&self) -> Result<wgpu::Texture, surfman::Error> {
         use super::metal::WPGPUTextureFromMetal;
 
         let wgpu_texture = WPGPUTextureFromMetal::new(
-            wgpu_device,
-            wgpu_queue,
             self.size.get(),
+            &self.wgpu_device,
+            &self.wgpu_queue,
             &self.surfman_rendering_info,
         )
         .get();
@@ -81,16 +89,14 @@ impl GPURenderingContext {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn get_wgpu_texture_from_vulkan(
         &self,
-        wgpu_device: &wgpu::Device,
-        wgpu_queue: &wgpu::Queue,
     ) -> Result<wgpu::Texture, super::vulkan::VulkanTextureError> {
         use super::vulkan::WPGPUTextureFromVulkan;
 
         WPGPUTextureFromVulkan::new(
-            wgpu_device,
-            wgpu_queue,
-            &self.surfman_rendering_info,
             self.size.get(),
+            &self.wgpu_device,
+            &self.wgpu_queue,
+            &self.surfman_rendering_info,
         )
         .get()
     }
