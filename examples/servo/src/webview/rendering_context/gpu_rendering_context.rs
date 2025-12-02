@@ -44,7 +44,7 @@ impl GPURenderingContext {
 
         let adapter = connection.create_adapter()?;
 
-        let surfman_rendering_info = SurfmanRenderingContext::new(&connection, &adapter, None)?;
+        let surfman_rendering_info = SurfmanRenderingContext::new(&connection, &adapter)?;
 
         let surfman_size = Size2D::new(size.width as i32, size.height as i32);
 
