@@ -23,24 +23,24 @@ use super::ServoTextureImporter;
 /// This struct provides functionality to create WGPU textures from Metal IOSurfaces
 /// and perform coordinate system transformations.
 pub struct WPGPUTextureFromMetal<'a> {
+    size: PhysicalSize<u32>,
     wgpu_device: &'a wgpu::Device,
     wgpu_queue: &'a wgpu::Queue,
-    size: PhysicalSize<u32>,
     texture_importer: ServoTextureImporter,
     surfman_rendering_info: &'a SurfmanRenderingContext,
 }
 
 impl<'a> WPGPUTextureFromMetal<'a> {
     pub fn new(
+        size: PhysicalSize<u32>,
         wgpu_device: &'a wgpu::Device,
         wgpu_queue: &'a wgpu::Queue,
-        size: PhysicalSize<u32>,
         surfman_rendering_info: &'a SurfmanRenderingContext,
     ) -> Self {
         Self {
+            size,
             wgpu_device,
             wgpu_queue,
-            size,
             surfman_rendering_info,
             texture_importer: ServoTextureImporter::new(wgpu_device),
         }
