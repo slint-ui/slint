@@ -1,11 +1,10 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-# Printer Demo with Zephyr
+# Home Automation Demo with Zephyr
 
-## Known Issues
+A fictional Home Automation User Interface implemented in Slint and C++.
 
-1. Unlike the Espressif integration, we don't provide the platform integration as part of the Slint C++ API. In part, this is due to the way Zephyr OS handles device hardware. Zephyr uses the Device Tree to describe the hardware to the device driver model. In order to register an input event call back we need a pointer to a device obtained from a device tree node, and we also need to know how the driver behaves in order to write our callback function. The existing implementation is generic enough to cover the simulator and display shield drivers. A more general solution could be investigated in the future;
-2. Double buffering is not supported as neither the simulator or the hardware used for testing reported it as supported;
+![Screenshot of the Home Automation Demo](https://github.com/user-attachments/assets/3856b9cf-e7c7-478e-8efe-0f7e8aa43e85 "Home Automation Demo")
 
 ## Prerequisites
 
@@ -60,7 +59,7 @@ Before you can run this example, make sure you have done the following:
    west zephyr-export
    ```
 
-6. Zephyr’s scripts/requirements.txt file declares additional Python dependencies. Install them with pip.
+6. Zephyr's scripts/requirements.txt file declares additional Python dependencies. Install them with pip.
 
    ```bash
    pip install -r ~/zephyrproject/zephyr/scripts/requirements.txt
@@ -74,7 +73,7 @@ Once you have the prerequisites, navigate to this directory and execute the foll
 
 ```bash
 # Build
-west build -b native_sim/native/64 -p always slint/demos/printerdemo/zephyr
+west build -b native_sim/native/64 -p always slint/demos/home-automation/zephyr
 
 # Run
 ./build/zephyr/zephyr.exe
@@ -88,7 +87,7 @@ This sample has been tested on the [NXP MIMXRT1170-EVKB](https://docs.zephyrproj
 
 ```bash
 # Build
-west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/demos/printerdemo/zephyr -- -DSHIELD=rk055hdmipi4ma0 -DCMAKE_BUILD_TYPE=Release
+west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/demos/home-automation/zephyr -- -DSHIELD=rk055hdmipi4ma0 -DCMAKE_BUILD_TYPE=Release
 
 # Flash
 west flash
