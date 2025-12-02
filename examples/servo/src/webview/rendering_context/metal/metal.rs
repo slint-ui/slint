@@ -193,7 +193,7 @@ impl<'a> WPGPUTextureFromMetal<'a> {
 
             let wgpu_descriptor = Self::create_wgpu_texture_descriptor(
                 self.size,
-                "Metal IOSurface Texture",
+                "Metal WGPU IOSurface Texture",
                 wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
                 wgpu::TextureFormat::Bgra8Unorm,
             );
@@ -206,7 +206,7 @@ impl<'a> WPGPUTextureFromMetal<'a> {
     /// Creates and applies a texture flipping render operation using pre-initialized resources.
     fn create_flipped_texture_render(&self, source_texture: &wgpu::Texture) -> wgpu::Texture {
         // Create the output texture
-        let descriptor = WPGPUTextureFromMetal::create_wgpu_texture_descriptor(
+        let descriptor = Self::create_wgpu_texture_descriptor(
             self.size,
             "Flipped Metal IOSurface Texture",
             wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
