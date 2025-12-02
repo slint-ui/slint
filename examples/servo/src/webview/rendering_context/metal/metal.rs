@@ -15,8 +15,7 @@ use objc2_metal::{MTLPixelFormat, MTLTextureDescriptor, MTLTextureType, MTLTextu
 use foreign_types_shared::ForeignType;
 use winit::dpi::PhysicalSize;
 
-use crate::webview::rendering_context::surfman_context::SurfmanRenderingContext;
-
+use super::super::surfman_context::SurfmanRenderingContext;
 use super::ServoTextureImporter;
 
 /// WGPU texture wrapper for Metal IOSurface textures.

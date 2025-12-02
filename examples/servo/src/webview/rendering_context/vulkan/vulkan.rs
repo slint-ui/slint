@@ -1,3 +1,17 @@
+use winit::dpi::PhysicalSize;
+
+use ash::vk;
+use glow::HasContext;
+
+#[cfg(not(target_os = "android"))]
+use gl::Gl;
+#[cfg(target_os = "android")]
+use gl::Gles2 as Gl;
+
+use crate::gl_bindings as gl;
+
+use super::super::surfman_context::SurfmanRenderingContext;
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
@@ -14,9 +28,6 @@ pub enum VulkanTextureError {
     #[error("{0}")]
     OpenGL(String),
 }
-
-use crate::webview::rendering_context::surfman_context::SurfmanRenderingContext;
-use winit::dpi::PhysicalSize;
 
 pub struct WPGPUTextureFromVulkan<'a> {
     size: PhysicalSize<u32>,
@@ -41,7 +52,6 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
         // Check if we are running on an emulator.
         // The optimized path is known to be unstable on the Android Emulator.
         let is_emulator = {
-            use glow::HasContext;
             let gl = self.surfman_rendering_info.glow_gl.clone();
             unsafe {
                 let renderer = gl.get_parameter_string(glow::RENDERER);
@@ -72,10 +82,6 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
     }
 
     fn get_wgpu_texture_from_vulkan_optimized(&self) -> Result<wgpu::Texture, VulkanTextureError> {
-        use crate::gl_bindings as gl;
-        use ash::vk;
-        use glow::HasContext;
-
         let surfman_device = &self.surfman_rendering_info.device.borrow();
 
         let mut context = self.surfman_rendering_info.context.borrow_mut();
@@ -167,11 +173,6 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             // Import Vulkan memory into OpenGL using EXT_external_objects
 
             let gl = &self.surfman_rendering_info.glow_gl;
-
-            #[cfg(not(target_os = "android"))]
-            use gl::Gl;
-            #[cfg(target_os = "android")]
-            use gl::Gles2 as Gl;
 
             let gl_with_extensions = Gl::load_with(|function_name| {
                 surfman_device.get_proc_address(&context, function_name)
@@ -298,9 +299,6 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
     fn get_wgpu_texture_from_vulkan_cpu_fallback(
         &self,
     ) -> Result<wgpu::Texture, VulkanTextureError> {
-        use crate::gl_bindings as gl;
-        use glow::HasContext;
-
         let device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
 
