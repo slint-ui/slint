@@ -181,6 +181,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             let mut memory_object = 0;
             gl_with_extensions.CreateMemoryObjectsEXT(1, &mut memory_object);
             // We're using a dedicated allocation.
+            // todo: taken from https://bxt.rs/blog/fast-half-life-video-recording-with-vulkan/, not sure if required.
             gl_with_extensions.MemoryObjectParameterivEXT(
                 memory_object,
                 gl::DEDICATED_MEMORY_OBJECT_EXT,
@@ -210,7 +211,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             let draw_framebuffer = gl.create_framebuffer().map_err(VulkanTextureError::OpenGL)?;
             let read_framebuffer =
                 surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
-
+            // todo: tried using gl.named_framebuffer_texture instead but it errored.
             gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
             gl.framebuffer_texture_2d(
                 gl::DRAW_FRAMEBUFFER,
