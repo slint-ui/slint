@@ -55,6 +55,17 @@ TabWidget {
 <SlintProperty typeName="enum" enumName="Orientation" propName="orientation" defaultValue="horizontal">
 The orientation of the tab bar.
 When set to `vertical`, the tab bar is placed to the left of the content.
+The property must be constant.
+For example: 
+```slint
+TabWidget {
+    in property <Orientation> foo;
+    orientation: foo; // error
+    Tab {
+        title: "First";
+    }
+}
+```
 </SlintProperty>
 
 ## Properties of the `Tab` element
