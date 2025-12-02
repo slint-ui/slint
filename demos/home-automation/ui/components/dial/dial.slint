@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { Palette } from "../../common.slint";
+import { Api, SoundEffect } from "../../api.slint";
 
 export global DialState {
     out property <int> totalLights: 60;
@@ -19,6 +20,9 @@ export component Dial {
     property <bool> moving: ta.firstTouch;
     in-out property <angle> dialAngle: DialState.startAngle;
     out property <int> volume: ((dialAngle - DialState.startAngle) / DialState.degreesFilledWithLights) * DialState.totalLights;
+    changed volume => { 
+        Api.play-sound(SoundEffect.dial-tick);
+    }
 
     width: 212px;
     height: 213px;
