@@ -14,3 +14,6 @@ pub use servo_rendering_adapter::try_create_gpu_context;
 
 #[cfg(target_vendor = "apple")]
 mod metal;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod vulkan;
