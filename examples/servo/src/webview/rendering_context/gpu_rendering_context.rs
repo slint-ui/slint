@@ -65,25 +65,13 @@ impl GPURenderingContext {
     ) -> Result<wgpu::Texture, surfman::Error> {
         use super::metal::WPGPUTextureFromMetal;
 
-        let device = &self.surfman_rendering_info.device.borrow();
-        let mut context = self.surfman_rendering_info.context.borrow_mut();
-
-        let surface = device.unbind_surface_from_context(&mut context)?.unwrap();
-
-        let size = self.size.get();
-
-        let wgpu_texture = WPGPUTextureFromMetal::new(size, wgpu_device).get(
+        let wgpu_texture = WPGPUTextureFromMetal::new(
             wgpu_device,
             wgpu_queue,
-            device,
-            &surface,
-        );
-
-        let _ =
-            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
-                let _ = device.destroy_surface(&mut context, &mut surface);
-                err
-            });
+            self.size.get(),
+            &self.surfman_rendering_info,
+        )
+        .get();
 
         Ok(wgpu_texture)
     }
