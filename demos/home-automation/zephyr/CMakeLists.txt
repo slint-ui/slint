@@ -31,12 +31,12 @@ if(EXISTS ${ZEPHYR_COMMON_DIR}/boards/${BOARD_CONF_NAME}.conf)
 endif()
 
 find_package(Zephyr)
-project(slint_zephyr_printer_demo_mcu LANGUAGES CXX)
+project(slint_zephyr_home_automation LANGUAGES CXX)
 
-set(SLINT_FEATURE_FREESTANDING ON)
-set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
-# set(CMAKE_BUILD_TYPE Release)
+set(SLINT_FEATURE_FREESTANDING ON CACHE BOOL "" FORCE)
+set(SLINT_FEATURE_RENDERER_SOFTWARE ON CACHE BOOL "" FORCE)
+set(SLINT_FEATURE_SDF_FONTS ON CACHE BOOL "" FORCE)
+set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer-with-sdf" CACHE STRING "")
 set(BUILD_SHARED_LIBS OFF)
 
 # Work around gcc_s linker issue?
@@ -50,4 +50,4 @@ target_sources(app PRIVATE ../../zephyr-common/slint-zephyr.cpp main.cpp)
 target_include_directories(app PRIVATE ../../zephyr-common)
 target_link_libraries(app PRIVATE Slint::Slint)
 
-slint_target_sources(app ../ui/printerdemo.slint)
+slint_target_sources(app ../ui/demo-sw-renderer.slint)
