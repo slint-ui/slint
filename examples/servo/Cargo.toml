@@ -50,7 +50,7 @@ embedder_traits = { git = "https://github.com/servo/servo", rev = "39d3fc6c", fe
 # not used in code but added for no need to set specific rev whenever run cargo update or freash install and without this its not building
 servo-media = { git = "https://github.com/servo/media", rev = "6c1766f5" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]

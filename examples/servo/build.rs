@@ -16,15 +16,21 @@ fn main() {
     let out = env::var("OUT_DIR").unwrap();
     let out = Path::new(&out);
 
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+
     {
         let mut file = File::create(&out.join("gl_bindings.rs")).unwrap();
 
         // Config copied from https://github.com/YaLTeR/bxt-rs/blob/9f621251b8ce5c2af00b67d2feab731e48d1dae9/build.rs.
 
+        let api = if target_os == "android" { Api::Gles2 } else { Api::Gl };
+        let version = if target_os == "android" { (3, 0) } else { (4, 6) };
+        let profile = if target_os == "android" { Profile::Core } else { Profile::Compatibility };
+
         Registry::new(
-            Api::Gl,
-            (4, 6),
-            Profile::Compatibility,
+            api,
+            version,
+            profile,
             Fallbacks::All,
             [
                 "GL_EXT_memory_object",
@@ -38,10 +44,6 @@ fn main() {
         .write_bindings(StructGenerator, &mut file)
         .unwrap();
     }
-
-    // Note: We can't use `#[cfg(windows)]`, since that would check the host platform
-    // and not the target platform
-    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
 
     // On MacOS, all dylib dependencies are shipped along with the binary
     // in the "/lib" directory. Setting the rpath here, allows the dynamic

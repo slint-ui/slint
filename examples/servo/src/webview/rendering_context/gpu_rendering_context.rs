@@ -21,7 +21,6 @@ use wgpu;
 pub enum VulkanTextureError {
     #[error("{0:?}")]
     Surfman(surfman::Error),
-    #[cfg(target_os = "linux")]
     #[error("{0}")]
     Vulkan(#[from] ash::vk::Result),
     #[error("No surface returned when the surface was unbound from the context")]
@@ -106,13 +105,51 @@ impl GPURenderingContext {
         Ok(wgpu_texture)
     }
 
-    /// Imports Vulkan surface as a WGPU texture for rendering on Linux.
+    /// Imports Vulkan surface as a WGPU texture for rendering on Linux and Android.
     /// Creates a Vulkan image with external memory, imports to OpenGL, blits content, then wraps as WGPU texture.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn get_wgpu_texture_from_vulkan(
         &self,
         wgpu_device: &wgpu::Device,
-        _wgpu_queue: &wgpu::Queue,
+        wgpu_queue: &wgpu::Queue,
+    ) -> Result<wgpu::Texture, VulkanTextureError> {
+        // Check if we are running on an emulator.
+        // The optimized path is known to be unstable on the Android Emulator.
+        let is_emulator = {
+            use glow::HasContext;
+            let gl = &self.surfman_rendering_info.glow_gl;
+            unsafe {
+                let renderer = gl.get_parameter_string(glow::RENDERER);
+                renderer.contains("Android Emulator")
+                    || renderer.contains("Goldfish")
+                    || renderer.contains("SwiftShader")
+            }
+        };
+
+        if is_emulator {
+            log::warn!(
+                "Detected Android Emulator. Skipping optimized Vulkan texture sharing and using CPU fallback."
+            );
+            return self.get_wgpu_texture_from_vulkan_cpu_fallback(wgpu_device, wgpu_queue);
+        }
+
+        // Try optimized path first
+        match self.get_wgpu_texture_from_vulkan_optimized(wgpu_device) {
+            Ok(texture) => Ok(texture),
+            Err(err) => {
+                log::warn!(
+                    "Optimized Vulkan texture sharing failed: {:?}. Falling back to CPU copy.",
+                    err
+                );
+                self.get_wgpu_texture_from_vulkan_cpu_fallback(wgpu_device, wgpu_queue)
+            }
+        }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn get_wgpu_texture_from_vulkan_optimized(
+        &self,
+        wgpu_device: &wgpu::Device,
     ) -> Result<wgpu::Texture, VulkanTextureError> {
         use crate::gl_bindings as gl;
         use ash::vk;
@@ -138,6 +175,19 @@ impl GPURenderingContext {
                 .ok_or(VulkanTextureError::WgpuNotVulkan)?;
             let vulkan_device = hal_device.raw_device().clone();
             let vulkan_instance = hal_device.shared_instance().raw_instance();
+
+            // Check if the required extension is supported to avoid panics in ash.
+            // Ash's `Device::new` (or extension loaders) might panic if functions are missing.
+            // We verify `vkGetMemoryFdKHR` availability dynamically using `get_device_proc_addr`.
+            let get_memory_fd_khr_name = std::ffi::CString::new("vkGetMemoryFdKHR").unwrap();
+            let get_memory_fd_khr = unsafe {
+                vulkan_instance
+                    .get_device_proc_addr(vulkan_device.handle(), get_memory_fd_khr_name.as_ptr())
+            };
+
+            if get_memory_fd_khr.is_none() {
+                return Err(VulkanTextureError::Vulkan(vk::Result::ERROR_EXTENSION_NOT_PRESENT));
+            }
 
             // Create Vulkan image with external memory for sharing with OpenGL
 
@@ -173,8 +223,6 @@ impl GPURenderingContext {
             let memory = vulkan_device.allocate_memory(
                 &vk::MemoryAllocateInfo::default()
                     .allocation_size(memory_requirements.size)
-                    // todo: required?
-                    //.memory_type_index(mem_type_index as _)
                     .push_next(&mut dedicated_allocate_info)
                     .push_next(&mut export_info),
                 None,
@@ -197,13 +245,17 @@ impl GPURenderingContext {
 
             let gl = &self.surfman_rendering_info.glow_gl;
 
+            #[cfg(not(target_os = "android"))]
+            use gl::Gl;
+            #[cfg(target_os = "android")]
+            use gl::Gles2 as Gl;
+
             let gl_with_extensions =
-                gl::Gl::load_with(|function_name| device.get_proc_address(&context, function_name));
+                Gl::load_with(|function_name| device.get_proc_address(&context, function_name));
 
             let mut memory_object = 0;
             gl_with_extensions.CreateMemoryObjectsEXT(1, &mut memory_object);
             // We're using a dedicated allocation.
-            // todo: taken from https://bxt.rs/blog/fast-half-life-video-recording-with-vulkan/, not sure if required.
             gl_with_extensions.MemoryObjectParameterivEXT(
                 memory_object,
                 gl::DEDICATED_MEMORY_OBJECT_EXT,
@@ -233,7 +285,7 @@ impl GPURenderingContext {
             let draw_framebuffer = gl.create_framebuffer().map_err(VulkanTextureError::OpenGL)?;
             let read_framebuffer =
                 surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
-            // todo: tried using gl.named_framebuffer_texture instead but it errored.
+
             gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
             gl.framebuffer_texture_2d(
                 gl::DRAW_FRAMEBUFFER,
@@ -243,9 +295,10 @@ impl GPURenderingContext {
                 0,
             );
 
-            gl.blit_named_framebuffer(
-                Some(read_framebuffer),
-                Some(draw_framebuffer),
+            gl.bind_framebuffer(gl::READ_FRAMEBUFFER, Some(read_framebuffer));
+            gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
+
+            gl.blit_framebuffer(
                 0,
                 0,
                 size.width as i32,
@@ -317,8 +370,8 @@ impl GPURenderingContext {
         Ok(texture)
     }
 
-    #[cfg(target_os = "android")]
-    pub fn get_wgpu_texture_from_vulkan(
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn get_wgpu_texture_from_vulkan_cpu_fallback(
         &self,
         wgpu_device: &wgpu::Device,
         wgpu_queue: &wgpu::Queue,
@@ -334,93 +387,116 @@ impl GPURenderingContext {
             .map_err(VulkanTextureError::Surfman)?
             .ok_or(VulkanTextureError::NoSurface)?;
 
-        device.make_context_current(&mut context).map_err(VulkanTextureError::Surfman)?;
+        // Wrap in ManuallyDrop to prevent panic during unwinding if a panic occurs
+        let mut surface = std::mem::ManuallyDrop::new(surface);
 
-        let surface_info = device.surface_info(&surface);
-        let size = self.size.get();
+        // Use a closure to capture the result of operations that might fail,
+        // so we can ensure the surface is always rebound or destroyed.
+        let result = (|| -> Result<wgpu::Texture, VulkanTextureError> {
+            device.make_context_current(&mut context).map_err(VulkanTextureError::Surfman)?;
 
-        // Fallback to CPU copy for Android/Emulator where extensions might be missing
-        let gl = &self.surfman_rendering_info.glow_gl;
+            let surface_info = device.surface_info(&surface);
+            let size = self.size.get();
 
-        let read_framebuffer =
-            surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
+            // Fallback to CPU copy for Android/Emulator where extensions might be missing
+            let gl = &self.surfman_rendering_info.glow_gl;
 
-        let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
+            let read_framebuffer =
+                surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
 
-        unsafe {
-            gl.bind_framebuffer(gl::READ_FRAMEBUFFER, Some(read_framebuffer));
-            gl.read_pixels(
-                0,
-                0,
-                size.width as i32,
-                size.height as i32,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                glow::PixelPackData::Slice(Some(&mut pixels)),
+            let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
+
+            unsafe {
+                gl.bind_framebuffer(gl::READ_FRAMEBUFFER, Some(read_framebuffer));
+                gl.read_pixels(
+                    0,
+                    0,
+                    size.width as i32,
+                    size.height as i32,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    glow::PixelPackData::Slice(Some(&mut pixels)),
+                );
+            }
+
+            // Flip image vertically (OpenGL textures are upside down)
+            let stride = (size.width * 4) as usize;
+            let height = size.height as usize;
+            let mut row_buffer = vec![0u8; stride];
+            for y in 0..height / 2 {
+                let top_row_start = y * stride;
+                let bottom_row_start = (height - y - 1) * stride;
+
+                // Swap rows
+                row_buffer.copy_from_slice(&pixels[top_row_start..top_row_start + stride]);
+                pixels.copy_within(bottom_row_start..bottom_row_start + stride, top_row_start);
+                pixels[bottom_row_start..bottom_row_start + stride].copy_from_slice(&row_buffer);
+            }
+
+            // Create wgpu texture
+            let texture_desc = wgpu::TextureDescriptor {
+                label: Some("Servo Texture Fallback"),
+                size: wgpu::Extent3d {
+                    width: size.width,
+                    height: size.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            };
+
+            let texture = wgpu_device.create_texture(&texture_desc);
+
+            // Upload pixels
+            wgpu_queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &pixels,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(size.width * 4),
+                    rows_per_image: Some(size.height),
+                },
+                texture_desc.size,
             );
+
+            Ok(texture)
+        })();
+
+        // Take the surface out of ManuallyDrop to rebind or destroy it
+        let mut surface = unsafe { std::mem::ManuallyDrop::take(&mut surface) };
+
+        if result.is_err() {
+            // If the operation failed, the context state might be bad.
+            // Don't try to rebind. Just destroy and forget to avoid panic.
+            let _ = device.destroy_surface(&mut context, &mut surface);
+            std::mem::forget(surface);
+            return result;
         }
-
-        // Flip image vertically (OpenGL textures are upside down)
-        let stride = (size.width * 4) as usize;
-        let height = size.height as usize;
-        let mut row_buffer = vec![0u8; stride];
-        for y in 0..height / 2 {
-            let top_row_start = y * stride;
-            let bottom_row_start = (height - y - 1) * stride;
-
-            // Swap rows
-            row_buffer.copy_from_slice(&pixels[top_row_start..top_row_start + stride]);
-            pixels.copy_within(bottom_row_start..bottom_row_start + stride, top_row_start);
-            pixels[bottom_row_start..bottom_row_start + stride].copy_from_slice(&row_buffer);
-        }
-
-        // Create wgpu texture
-        let texture_desc = wgpu::TextureDescriptor {
-            label: Some("Servo Texture"),
-            size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        };
-
-        let texture = wgpu_device.create_texture(&texture_desc);
-
-        // Upload pixels
-        wgpu_queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &pixels,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(size.width * 4),
-                rows_per_image: Some(size.height),
-            },
-            texture_desc.size,
-        );
 
         // Rebind surface to context (surfman requirement usually)
-        let _ = device.bind_surface_to_context(&mut context, surface).map_err(
-            |(err, mut surface)| {
+        match device.bind_surface_to_context(&mut context, surface) {
+            Ok(_) => result,
+            Err((err, mut surface)) => {
+                // If rebind fails, destroy and forget.
                 let _ = device.destroy_surface(&mut context, &mut surface);
-                VulkanTextureError::Surfman(err)
-            },
-        )?;
-
-        Ok(texture)
+                std::mem::forget(surface);
+                // If the main operation failed, return that error.
+                // If it succeeded but rebind failed, return the rebind error.
+                result.and(Err(VulkanTextureError::Surfman(err)))
+            }
+        }
     }
 }
 
