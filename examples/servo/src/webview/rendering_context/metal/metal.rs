@@ -15,35 +15,45 @@ use objc2_metal::{MTLPixelFormat, MTLTextureDescriptor, MTLTextureType, MTLTextu
 use foreign_types_shared::ForeignType;
 use winit::dpi::PhysicalSize;
 
+use crate::webview::rendering_context::surfman_context::SurfmanRenderingContext;
+
 use super::ServoTextureImporter;
 
 /// WGPU texture wrapper for Metal IOSurface textures.
 ///
 /// This struct provides functionality to create WGPU textures from Metal IOSurfaces
 /// and perform coordinate system transformations.
-pub struct WPGPUTextureFromMetal {
-    pub size: PhysicalSize<u32>,
-    pub texture_importer: ServoTextureImporter,
+pub struct WPGPUTextureFromMetal<'a> {
+    wgpu_device: &'a wgpu::Device,
+    wgpu_queue: &'a wgpu::Queue,
+    size: PhysicalSize<u32>,
+    texture_importer: ServoTextureImporter,
+    surfman_rendering_info: &'a SurfmanRenderingContext,
 }
 
-impl WPGPUTextureFromMetal {
-    pub fn new(size: PhysicalSize<u32>, wgpu_device: &wgpu::Device) -> Self {
-        Self { size, texture_importer: ServoTextureImporter::new(wgpu_device) }
+impl<'a> WPGPUTextureFromMetal<'a> {
+    pub fn new(
+        wgpu_device: &'a wgpu::Device,
+        wgpu_queue: &'a wgpu::Queue,
+        size: PhysicalSize<u32>,
+        surfman_rendering_info: &'a SurfmanRenderingContext,
+    ) -> Self {
+        Self {
+            wgpu_device,
+            wgpu_queue,
+            size,
+            surfman_rendering_info,
+            texture_importer: ServoTextureImporter::new(wgpu_device),
+        }
     }
 
-    pub fn get(
-        &self,
-        wgpu_device: &wgpu::Device,
-        wgpu_queue: &wgpu::Queue,
-        surfman_device: &surfman::Device,
-        surfman_surface: &surfman::Surface,
-    ) -> wgpu::Texture {
+    pub fn get(&self) -> wgpu::Texture {
         let objc2_metal_texture =
-            self.objc2_metal_texture(wgpu_device, surfman_device, surfman_surface);
+            self.objc2_metal_texture().expect("Failed to create Metal texture");
 
-        let hal_texture = self.wgpu_hal_texture(wgpu_device, objc2_metal_texture);
+        let hal_texture = self.wgpu_hal_texture(objc2_metal_texture);
 
-        self.create_flipped_texture_render(wgpu_device, wgpu_queue, &hal_texture)
+        self.create_flipped_texture_render(&hal_texture)
     }
 
     /// Creates a Metal texture from an IOSurface using Objective-C messaging.
@@ -72,17 +82,12 @@ impl WPGPUTextureFromMetal {
     /// This function contains unsafe code for:
     /// - Extracting the raw Metal device from WGPU
     /// - Converting device pointers for Objective-C messaging
-    fn objc2_metal_texture(
-        &self,
-        wgpu_device: &wgpu::Device,
-
-        surfman_device: &surfman::Device,
-        surfman_surface: &surfman::Surface,
-    ) -> Retained<NSObject> {
+    fn objc2_metal_texture(&self) -> Result<Retained<NSObject>, surfman::Error> {
         // SAFETY: We're working with WGPU Metal backend, so the device extraction
         // and pointer manipulations are safe within this controlled context.
         unsafe {
-            let metal_device = wgpu_device
+            let metal_device = self
+                .wgpu_device
                 .as_hal::<wgpu::wgc::api::Metal>()
                 .expect("WGPU device is not using Metal backend");
 
@@ -100,7 +105,15 @@ impl WPGPUTextureFromMetal {
 
             // let texture_descriptor = Self::create_metal_texture_descriptor(self.size);
 
-            let native_surface = surfman_device.native_surface(surfman_surface);
+            let surfman_device = &self.surfman_rendering_info.device.borrow();
+
+            let mut context = self.surfman_rendering_info.context.borrow_mut();
+
+            let surfman_surface = surfman_device
+                .unbind_surface_from_context(&mut context)?
+                .expect("Failed to unbind surface");
+
+            let native_surface = surfman_device.native_surface(&surfman_surface);
             let io_surface = native_surface.0;
 
             // SAFETY: The device_raw pointer is valid (obtained from WGPU Metal backend)
@@ -114,7 +127,14 @@ impl WPGPUTextureFromMetal {
                 )
                 .expect("Failed to create Metal texture from IOSurface");
 
-            texture
+            let _ = surfman_device.bind_surface_to_context(&mut context, surfman_surface).map_err(
+                |(err, mut surface)| {
+                    let _ = surfman_device.destroy_surface(&mut context, &mut surface);
+                    err
+                },
+            );
+
+            Ok(texture)
         }
     }
 
@@ -150,11 +170,7 @@ impl WPGPUTextureFromMetal {
     /// - Converting Objective-C objects to Metal API objects
     /// - Creating HAL textures from raw Metal textures
     /// - Managing memory ownership transfer between different APIs
-    fn wgpu_hal_texture(
-        &self,
-        wgpu_device: &wgpu::Device,
-        metal_texture: Retained<NSObject>,
-    ) -> wgpu::Texture {
+    fn wgpu_hal_texture(&self, metal_texture: Retained<NSObject>) -> wgpu::Texture {
         // SAFETY: We're converting between compatible object types within the same
         // Metal/WGPU ecosystem. The ownership transfer is handled correctly.
         unsafe {
@@ -183,18 +199,13 @@ impl WPGPUTextureFromMetal {
                 wgpu::TextureFormat::Bgra8Unorm,
             );
 
-            wgpu_device
+            self.wgpu_device
                 .create_texture_from_hal::<wgpu::wgc::api::Metal>(hal_texture, &wgpu_descriptor)
         }
     }
 
     /// Creates and applies a texture flipping render operation using pre-initialized resources.
-    fn create_flipped_texture_render(
-        &self,
-        wgpu_device: &wgpu::Device,
-        wgpu_queue: &wgpu::Queue,
-        source_texture: &wgpu::Texture,
-    ) -> wgpu::Texture {
+    fn create_flipped_texture_render(&self, source_texture: &wgpu::Texture) -> wgpu::Texture {
         // Create the output texture
         let descriptor = WPGPUTextureFromMetal::create_wgpu_texture_descriptor(
             self.size,
@@ -203,11 +214,11 @@ impl WPGPUTextureFromMetal {
             wgpu::TextureFormat::Rgba8Unorm,
         );
 
-        let flipped_texture = wgpu_device.create_texture(&descriptor);
+        let flipped_texture = self.wgpu_device.create_texture(&descriptor);
 
         let source_view = source_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let bind_group = wgpu_device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = self.wgpu_device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Metal Texture Flip Bind Group"),
             layout: &self.texture_importer.bind_group_layout,
             entries: &[
@@ -225,9 +236,10 @@ impl WPGPUTextureFromMetal {
         // Execute the render pass
         let target_view = &flipped_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = wgpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Metal Texture Flip Command Encoder"),
-        });
+        let mut encoder =
+            self.wgpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Metal Texture Flip Command Encoder"),
+            });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -251,7 +263,7 @@ impl WPGPUTextureFromMetal {
             render_pass.draw(0..3, 0..1); // Draw a fullscreen triangle
         }
 
-        wgpu_queue.submit(std::iter::once(encoder.finish()));
+        self.wgpu_queue.submit(std::iter::once(encoder.finish()));
 
         flipped_texture
     }

@@ -19,20 +19,20 @@ use crate::webview::rendering_context::surfman_context::SurfmanRenderingContext;
 use winit::dpi::PhysicalSize;
 
 pub struct WPGPUTextureFromVulkan<'a> {
+    size: PhysicalSize<u32>,
     wgpu_device: &'a wgpu::Device,
     wgpu_queue: &'a wgpu::Queue,
     surfman_rendering_info: &'a SurfmanRenderingContext,
-    size: PhysicalSize<u32>,
 }
 
 impl<'a> WPGPUTextureFromVulkan<'a> {
     pub fn new(
+        size: PhysicalSize<u32>,
         wgpu_device: &'a wgpu::Device,
         wgpu_queue: &'a wgpu::Queue,
         surfman_rendering_info: &'a SurfmanRenderingContext,
-        size: PhysicalSize<u32>,
     ) -> Self {
-        Self { wgpu_device, wgpu_queue, surfman_rendering_info, size }
+        Self { size, wgpu_device, wgpu_queue, surfman_rendering_info }
     }
 
     /// Imports Vulkan surface as a WGPU texture for rendering on Linux and Android.
