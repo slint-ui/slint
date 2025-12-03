@@ -1508,7 +1508,7 @@ fn generate_global(
     }));
 
     let pub_token =
-        if compiler_config.library_name.is_some() && !global.is_builtin && global.exported {
+        if compiler_config.library_name.is_some() && !global.is_builtin {
             global_exports.push(quote! (#inner_component_id));
             quote!(pub)
         } else {
