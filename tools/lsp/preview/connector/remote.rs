@@ -153,7 +153,7 @@ impl RemoteLspToPreview {
             .expect("Error during the websocket handshake occurred");
         eprintln!("WebSocket connection established: {addr}");
         let standard_config = bincode::config::standard();
-        let (write, mut read) = ws_stream.split();
+        let (mut write, mut read) = ws_stream.split();
         loop {
             tokio::select! {
                 message = read.next() => {
@@ -174,9 +174,11 @@ impl RemoteLspToPreview {
                 message = lsp_to_preview_channel.recv() => {
                     match message {
                         Ok(msg) => {
-                            write.send(tokio_tungstenite::tungstenite::Message::binary(
-                                bincode::encode_to_vec(&msg, standard_config).unwrap(),
-                            )).await;
+                            if let Err(err) = write.send(tokio_tungstenite::tungstenite::Message::binary(
+                                bincode::serde::encode_to_vec(&msg, standard_config).unwrap(),
+                            )).await {
+                                eprintln!("Error sending message to {addr}: {err}");
+                            }
                         }
                         Err(_) => break,
                     }
@@ -190,7 +192,7 @@ impl Drop for RemoteLspToPreview {
     fn drop(&mut self) {
         if let ServeTask::Running { join_handle, notify_stop } = self.serve_task.take() {
             notify_stop.notify_waiters();
-            join_handle.join();
+            let _ = join_handle.join();
         }
     }
 }
