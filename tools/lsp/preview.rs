@@ -45,8 +45,6 @@ mod properties;
 pub mod ui;
 mod undo_redo;
 
-pub use connector::remote::serve;
-
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::PlatformError> {
     if !config.remote_controlled {

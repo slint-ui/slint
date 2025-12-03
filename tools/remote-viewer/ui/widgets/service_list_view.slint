@@ -1,0 +1,54 @@
+import { ListView } from "std-widgets.slint";
+import {
+    FocusTouchArea,
+} from "focus_touch_area.slint";
+
+export struct ServiceListViewItem {
+    host: string,
+}
+
+export component ServiceListViewItemDelegate {
+    callback select;
+
+    in property <string> host <=> text-label.text;
+
+    touch-area := FocusTouchArea {
+        width: 100%;
+        height: 100%;
+
+        clicked => {
+            root.select();
+        }
+    }
+
+    // StateLayer {
+    //     width: 100%;
+    //     height: 100%;
+    //     focus-padding: -1px;
+    //     pressed: touch-area.pressed || touch-area.enter-pressed;
+    //     has-focus: touch-area.has-focus;
+    //     has-hover: touch-area.has-hover;
+    // }
+
+    text-label := Text {
+        horizontal-alignment: left;
+        overflow: elide;
+    }
+}
+
+export component ServiceListView inherits ListView {
+    in property <[ServiceListViewItem]> model;
+
+    callback select(/* index */ int);
+
+    accessible-role: list;
+
+    for item[index] in root.model: ServiceListViewItemDelegate {
+        width: root.visible-width;
+        host: item.host;
+
+        select => {
+            root.select(index);
+        }
+    }
+}

@@ -1,0 +1,30 @@
+[package]
+name = "remote-viewer"
+description = "The remote viewer binary for Slint"
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools"]
+keywords = ["viewer", "gui", "ui", "toolkit"]
+
+[dependencies]
+i-slint-compiler = { workspace = true }
+i-slint-core = { workspace = true }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
+i-slint-backend-selector = { workspace = true }
+slint = { path = "../../api/rs/slint", features = ["serde", "backend-android-activity-06"] }
+serde = { version = "1.0", features = ["derive"] }
+
+tokio-tungstenite = { version = "0.28.0", optional = true }
+tokio = { version = "1.48.0", features = ["rt", "rt-multi-thread", "net", "sync", "macros"] }
+mdns-sd = { version = "0.17.0", default-features = false, features = ["async"] }
+futures-util = { version = "0.3.31" }
+bincode = { version = "2.0.1", features = ["serde"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
