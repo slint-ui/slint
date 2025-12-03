@@ -661,7 +661,7 @@ jobs:
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly"
-                      rust_version: "nighty"
+                      rust_version: "nightly"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                       cache: false
                     - os: macos-14
