@@ -691,7 +691,7 @@ impl GeometryProps {
 
 pub type BindingsMap = BTreeMap<SmolStr, RefCell<BindingExpression>>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ElementDebugInfo {
     // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
     pub qualified_id: Option<SmolStr>,
@@ -799,7 +799,16 @@ pub struct Element {
 
 impl Spanned for Element {
     fn span(&self) -> crate::diagnostics::Span {
-        self.debug.first().map(|n| n.node.span()).unwrap_or_default()
+        self.debug
+            .first()
+            .map(|n| {
+                // If possible, only span the qualified name of the Element (i.e. the `MyElement`
+                // part of `MyElement { ... }`, as otherwise the span can get very large, which
+                // isn't useful for showing diagnostics.
+                // Only use the full span as the fallback.
+                n.node.QualifiedName().as_ref().map(Spanned::span).unwrap_or_else(|| n.node.span())
+            })
+            .unwrap_or_default()
     }
 
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
