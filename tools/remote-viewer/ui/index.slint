@@ -1,0 +1,33 @@
+import {
+    ServiceBrowser,
+    ServiceListAdapter,
+} from "views/service_browser.slint";
+import { VerticalBox, Button } from "std-widgets.slint";
+export { ServiceListAdapter }
+
+export component MainWindow inherits Window {
+    preferred-width: 400px;
+    preferred-height: 600px;
+    title: "Slint Remote Viewer";
+
+    VerticalBox {
+        Rectangle {
+            width: 100%;
+            x: 0;
+
+            height: 48px;
+
+            HorizontalLayout {
+                Text {
+                    text: @tr("Slint Browser");
+                }
+
+                Button {
+                    text: @tr("Enter IP");
+                }
+            }
+        }
+
+        ServiceBrowser { }
+    }
+}
