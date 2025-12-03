@@ -903,7 +903,28 @@ fn lower_global_expressions(
         lowered.change_callbacks.insert(property_index, expression.into());
     }
 
-    lowered.public_properties = public_properties(global, &mapping, state);
+    if let Some(builtin) = global.root_element.borrow().native_class() {
+        if lowered.exported {
+            lowered.public_properties = builtin
+                .properties
+                .iter()
+                .map(|(p, c)| {
+                    let property_reference = mapping.map_property_reference(
+                        &NamedReference::new(&global.root_element, p.clone()),
+                        state,
+                    );
+                    PublicProperty {
+                        name: p.clone(),
+                        ty: c.ty.clone(),
+                        prop: property_reference,
+                        read_only: c.property_visibility == PropertyVisibility::Output,
+                    }
+                })
+                .collect()
+        }
+    } else {
+        lowered.public_properties = public_properties(global, &mapping, state);
+    }
 }
 
 fn make_tree(

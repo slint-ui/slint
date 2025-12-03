@@ -806,22 +806,22 @@ pub fn generate(
     let mut init_global = vec![];
 
     for (idx, glob) in llr.globals.iter_enumerated() {
+        if !glob.must_generate() {
+            continue;
+        }
         let name = format_smolstr!("global_{}", concatenate_ident(&glob.name));
         let ty = if glob.is_builtin {
+            generate_global_builtin(&mut file, &conditional_includes, idx, glob, &llr);
             format_smolstr!("slint::cbindgen_private::{}", glob.name)
-        } else if glob.must_generate() {
+        } else {
             init_global.push(format!("{name}->init();"));
             generate_global(&mut file, &conditional_includes, idx, glob, &llr);
-            file.definitions.extend(glob.aliases.iter().map(|name| {
-                Declaration::TypeAlias(TypeAlias {
-                    old_name: ident(&glob.name),
-                    new_name: ident(name),
-                })
-            }));
             ident(&glob.name)
-        } else {
-            continue;
         };
+
+        file.definitions.extend(glob.aliases.iter().map(|name| {
+            Declaration::TypeAlias(TypeAlias { old_name: ident(&glob.name), new_name: ident(name) })
+        }));
 
         globals_struct.members.push((
             Access::Public,
@@ -1217,17 +1217,27 @@ fn generate_public_component(
         }),
     ));
 
-    for glob in unit.globals.iter().filter(|glob| glob.must_generate()) {
+    for glob in unit.globals.iter().filter(|glob| glob.must_generate() && !glob.is_builtin) {
         component_struct.friends.push(ident(&glob.name));
     }
 
     let mut global_accessor_function_body = Vec::new();
+    let mut builtin_globals = Vec::new();
     for glob in unit.globals.iter().filter(|glob| glob.exported && glob.must_generate()) {
-        let accessor_statement = format!(
-            "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
-            if global_accessor_function_body.is_empty() { "" } else { "else " },
-            concatenate_ident(&glob.name),
-        );
+        let accessor_statement = if glob.is_builtin {
+            builtin_globals.push(format!("std::is_same_v<T, {}>", ident(&glob.name)));
+            format!(
+                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return {1}(m_globals.global_{1}); }}",
+                if global_accessor_function_body.is_empty() { "" } else { "else " },
+                concatenate_ident(&glob.name),
+            )
+        } else {
+            format!(
+                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
+                if global_accessor_function_body.is_empty() { "" } else { "else " },
+                concatenate_ident(&glob.name),
+            )
+        };
         global_accessor_function_body.push(accessor_statement);
     }
     if !global_accessor_function_body.is_empty() {
@@ -1239,7 +1249,14 @@ fn generate_public_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "global".into(),
-                signature: "() const -> const T&".into(),
+                signature: if builtin_globals.is_empty() {
+                    "() const -> const T&".into()
+                } else {
+                    format!(
+                        "() const -> std::conditional_t<{} , T, const T&>",
+                        builtin_globals.iter().join(" || ")
+                    )
+                },
                 statements: Some(global_accessor_function_body),
                 template_parameters: Some("typename T".into()),
                 ..Default::default()
@@ -2742,6 +2759,60 @@ fn generate_global(
     file.declarations.push(Declaration::Struct(global_struct));
 }
 
+fn generate_global_builtin(
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+    global_idx: llr::GlobalIdx,
+    global: &llr::GlobalComponent,
+    root: &llr::CompilationUnit,
+) {
+    let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
+    let ctx = EvaluationContext::new_global(
+        root,
+        global_idx,
+        CppGeneratorContext {
+            global_access: "\n#error binding in builtin global\n".into(),
+            conditional_includes,
+        },
+    );
+
+    global_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: ident(&global.name),
+            signature: format!(
+                "(std::shared_ptr<slint::cbindgen_private::{}> builtin)",
+                ident(&global.name)
+            ),
+            is_constructor_or_destructor: true,
+            statements: Some(vec![]),
+            constructor_member_initializers: vec!["builtin(std::move(builtin))".into()],
+            ..Default::default()
+        }),
+    ));
+    global_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: format_smolstr!(
+                "std::shared_ptr<slint::cbindgen_private::{}>",
+                ident(&global.name)
+            ),
+            name: "builtin".into(),
+            ..Default::default()
+        }),
+    ));
+    global_struct.friends.push(SmolStr::new_static(SHARED_GLOBAL_CLASS));
+
+    generate_public_api_for_properties(
+        &mut global_struct.members,
+        &global.public_properties,
+        &global.private_properties,
+        &ctx,
+    );
+    file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
+    file.declarations.push(Declaration::Struct(global_struct));
+}
+
 fn generate_functions<'a>(
     functions: &'a [llr::Function],
     ctx: &'a EvaluationContext<'_>,
@@ -3027,9 +3098,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
             }
         }
         llr::MemberReference::Global { global_index, member } => {
-            let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format!("global_{}", concatenate_ident(&global.name));
             let name = match member {
                 llr::LocalMemberIndex::Property(property_index) => ident(
                     &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
@@ -3043,7 +3112,17 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 )),
                 _ => unreachable!(),
             };
-            MemberAccess::Direct(format!("{global_access}->{global_id}->{name}"))
+            if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index) {
+                if global.is_builtin {
+                    MemberAccess::Direct(format!("builtin->{name}"))
+                } else {
+                    MemberAccess::Direct(format!("this->{name}"))
+                }
+            } else {
+                let global_access = &ctx.generator_state.global_access;
+                let global_id = format!("global_{}", concatenate_ident(&global.name));
+                MemberAccess::Direct(format!("{global_access}->{global_id}->{name}"))
+            }
         }
     }
 }
