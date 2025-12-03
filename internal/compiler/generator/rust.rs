@@ -1507,13 +1507,12 @@ fn generate_global(
         }
     }));
 
-    let pub_token =
-        if compiler_config.library_name.is_some() && !global.is_builtin {
-            global_exports.push(quote! (#inner_component_id));
-            quote!(pub)
-        } else {
-            quote!()
-        };
+    let pub_token = if compiler_config.library_name.is_some() && !global.is_builtin {
+        global_exports.push(quote! (#inner_component_id));
+        quote!(pub)
+    } else {
+        quote!()
+    };
 
     let public_interface = global.exported.then(|| {
         let property_and_callback_accessors = public_api(
