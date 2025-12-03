@@ -394,22 +394,16 @@ impl UsesStatement {
     }
 }
 
-impl TryFrom<&syntax_nodes::UsesIdentifier> for UsesStatement {
-    type Error = ();
-    fn try_from(
-        node: &syntax_nodes::UsesIdentifier,
-    ) -> Result<Self, <Self as TryFrom<&syntax_nodes::UsesIdentifier>>::Error> {
-        let interface_name_node = node.child_node(SyntaxKind::QualifiedName).ok_or(())?;
-        let interface_name = QualifiedTypeName::from_node(interface_name_node.clone().into());
-        let child_id_node = node.child_node(SyntaxKind::DeclaredIdentifier).ok_or(())?;
-        let child_id = parser::identifier_text(&child_id_node).ok_or(())?;
-
-        Ok(UsesStatement {
-            interface_name,
-            interface_name_node: interface_name_node.into(),
-            child_id,
-            child_id_node: child_id_node.into(),
-        })
+impl From<&syntax_nodes::UsesIdentifier> for UsesStatement {
+    fn from(node: &syntax_nodes::UsesIdentifier) -> UsesStatement {
+        UsesStatement {
+            interface_name: QualifiedTypeName::from_node(
+                node.child_node(SyntaxKind::QualifiedName).unwrap().clone().into(),
+            ),
+            interface_name_node: node.QualifiedName(),
+            child_id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
+            child_id_node: node.DeclaredIdentifier(),
+        }
     }
 }
 
@@ -2159,12 +2153,7 @@ fn apply_uses_statement(
     }
 
     for uses_identifier_node in uses_specifier.UsesIdenfifierList().UsesIdentifier() {
-        let Ok(uses_statement): Result<UsesStatement, ()> = (&uses_identifier_node).try_into()
-        else {
-            // We should already have reported a syntax error
-            continue;
-        };
-
+        let uses_statement: UsesStatement = (&uses_identifier_node).into();
         let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
             continue;
         };

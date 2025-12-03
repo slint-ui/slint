@@ -436,11 +436,13 @@ fn parse_uses_identifier(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::UsesIdentifier);
 
     if !parse_qualified_name(&mut *p) {
+        drop(p.start_node(SyntaxKind::DeclaredIdentifier));
         return false;
     }
 
     if !(p.nth(0).kind() == SyntaxKind::Identifier && p.peek().as_str() == "from") {
         p.error("Expected 'from' keyword in uses specifier");
+        drop(p.start_node(SyntaxKind::DeclaredIdentifier));
         return false;
     }
     p.consume();
