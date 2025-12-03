@@ -158,21 +158,12 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
                 })),
             );
 
-            let wgpu_descriptor = wgpu::TextureDescriptor {
-                label: Some("Vulkan WGPU Texture"),
-                size: wgpu::Extent3d {
-                    width: size.width,
-                    height: size.height,
-                    depth_or_array_layers: 1,
-                },
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                dimension: wgpu::TextureDimension::D2,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            };
+            let wgpu_descriptor = super::super::utils::create_wgpu_texture_descriptor(
+                size,
+                "Vulkan WGPU Texture",
+                wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                wgpu::TextureFormat::Rgba8Unorm,
+            );
 
             Ok(self
                 .context
@@ -222,35 +213,18 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
         // Flip image vertically (OpenGL textures are upside down)
         let stride = (size.width * 4) as usize;
         let height = size.height as usize;
-        let mut row_buffer = vec![0u8; stride];
-        for y in 0..height / 2 {
-            let top_row_start = y * stride;
-            let bottom_row_start = (height - y - 1) * stride;
-
-            // Swap rows
-            row_buffer.copy_from_slice(&pixels[top_row_start..top_row_start + stride]);
-            pixels.copy_within(bottom_row_start..bottom_row_start + stride, top_row_start);
-            pixels[bottom_row_start..bottom_row_start + stride].copy_from_slice(&row_buffer);
-        }
+        super::super::utils::flip_image_vertically(&mut pixels, size.width as usize, height, 4);
 
         // Create wgpu texture
-        let texture_desc = wgpu::TextureDescriptor {
-            label: Some("Servo Texture Fallback"),
-            size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
+        let texture_desc = super::super::utils::create_wgpu_texture_descriptor(
+            size,
+            "Servo Texture Fallback",
+            wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        };
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
 
         let texture = self.context.wgpu_device.create_texture(&texture_desc);
 

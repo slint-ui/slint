@@ -132,13 +132,17 @@ impl SurfmanRenderingContext {
     }
 
     pub fn prepare_for_rendering(&self) {
-        let framebuffer_id = self.framebuffer().map_or(0, |framebuffer| framebuffer.0.into());
+        let framebuffer_id = self.get_framebuffer_id();
         self.gleam_gl.bind_framebuffer(gleam::gl::FRAMEBUFFER, framebuffer_id);
     }
 
     pub fn read_to_image(&self, source_rectangle: DeviceIntRect) -> Option<RgbaImage> {
-        let framebuffer_id = self.framebuffer().map_or(0, |framebuffer| framebuffer.0.into());
+        let framebuffer_id = self.get_framebuffer_id();
         Framebuffer::read_framebuffer_to_image(&self.gleam_gl, framebuffer_id, source_rectangle)
+    }
+
+    fn get_framebuffer_id(&self) -> u32 {
+        self.framebuffer().map_or(0, |framebuffer| framebuffer.0.into())
     }
 
     pub fn make_current(&self) -> Result<(), Error> {
@@ -219,14 +223,12 @@ impl Framebuffer {
 
         // Flip image vertically (OpenGL textures are upside down)
         let source_rectangle = source_rectangle.to_usize();
-        let orig_pixels = pixels.clone();
-        let stride = source_rectangle.width() * 4; // 4 bytes per RGBA pixel
-        for y in 0..source_rectangle.height() {
-            let dst_start = y * stride;
-            let src_start = (source_rectangle.height() - y - 1) * stride;
-            let src_slice = &orig_pixels[src_start..src_start + stride];
-            pixels[dst_start..dst_start + stride].clone_from_slice(&src_slice[..stride]);
-        }
+        super::utils::flip_image_vertically(
+            &mut pixels,
+            source_rectangle.width(),
+            source_rectangle.height(),
+            4,
+        );
 
         RgbaImage::from_raw(
             source_rectangle.width() as u32,

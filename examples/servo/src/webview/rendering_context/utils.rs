@@ -65,3 +65,22 @@ pub fn create_wgpu_texture_descriptor(
         view_formats: &[],
     }
 }
+
+pub fn flip_image_vertically(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    bytes_per_pixel: usize,
+) {
+    let stride = width * bytes_per_pixel;
+    let mut row_buffer = vec![0u8; stride];
+    for y in 0..height / 2 {
+        let top_row_start = y * stride;
+        let bottom_row_start = (height - y - 1) * stride;
+
+        // Swap rows
+        row_buffer.copy_from_slice(&pixels[top_row_start..top_row_start + stride]);
+        pixels.copy_within(bottom_row_start..bottom_row_start + stride, top_row_start);
+        pixels[bottom_row_start..bottom_row_start + stride].copy_from_slice(&row_buffer);
+    }
+}
