@@ -3,6 +3,9 @@
 
 import { AboutSlint } from "std-widgets.slint";
 
+// Unrelated, but test that we can export the Palette (or NativePalette)
+export { Palette } from "std-widgets.slint";
+
 export component TestCase inherits Window {
     about := AboutSlint { }
 }
@@ -18,5 +21,13 @@ let mut image_search = slint_testing::ElementHandle::find_by_accessible_label(&i
 let image = image_search.next().unwrap();
 
 assert_eq!(image.accessible_role(), Some(AccessibleRole::Image));
+
+let _ = instance.global::<Palette<'_>>().get_color_scheme();
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.global<Palette>().get_color_scheme();
 ```
 */

@@ -410,15 +410,11 @@ fn generate_shared_globals(
     let global_names = llr
         .globals
         .iter()
-        .filter(|g| g.is_builtin || g.must_generate())
+        .filter(|g| g.must_generate())
         .map(|g| format_ident!("global_{}", ident(&g.name)))
         .collect::<Vec<_>>();
-    let global_types = llr
-        .globals
-        .iter()
-        .filter(|g| g.is_builtin || g.must_generate())
-        .map(global_inner_name)
-        .collect::<Vec<_>>();
+    let global_types =
+        llr.globals.iter().filter(|g| g.must_generate()).map(global_inner_name).collect::<Vec<_>>();
 
     let from_library_global_names = llr
         .globals
@@ -1449,7 +1445,7 @@ fn generate_global(
     }
 
     let mut init = vec![];
-    let inner_component_id = format_ident!("Inner{}", ident(&global.name));
+    let inner_component_id = global_inner_name(global);
 
     #[cfg(slint_debug_property)]
     init.push(quote!(
@@ -1511,7 +1507,7 @@ fn generate_global(
         }
     }));
 
-    let pub_token = if compiler_config.library_name.is_some() {
+    let pub_token = if compiler_config.library_name.is_some() && !global.is_builtin {
         global_exports.push(quote! (#inner_component_id));
         quote!(pub)
     } else {
@@ -1540,35 +1536,37 @@ fn generate_global(
         )
     });
 
-    quote!(
-        #[derive(sp::FieldOffsets, Default)]
-        #[const_field_offset(sp::const_field_offset)]
-        #[repr(C)]
-        #[pin]
-        #pub_token struct #inner_component_id {
-            #(#pub_token  #declared_property_vars: sp::Property<#declared_property_types>,)*
-            #(#pub_token  #declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            #(#pub_token  #change_tracker_names : sp::ChangeTracker,)*
-            globals : sp::OnceCell<sp::Weak<SharedGlobals>>,
-        }
-
-        impl #inner_component_id {
-            fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
-                sp::Rc::pin(Self::default())
-            }
-            fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
-                #![allow(unused)]
-                let _ = self.globals.set(sp::Rc::downgrade(globals));
-                let self_rc = self;
-                let _self = self_rc.as_ref();
-                #(#init)*
+    let private_interface = (!global.is_builtin).then(|| {
+        quote!(
+            #[derive(sp::FieldOffsets, Default)]
+            #[const_field_offset(sp::const_field_offset)]
+            #[repr(C)]
+            #[pin]
+            #pub_token struct #inner_component_id {
+                #(#pub_token  #declared_property_vars: sp::Property<#declared_property_types>,)*
+                #(#pub_token  #declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+                #(#pub_token  #change_tracker_names : sp::ChangeTracker,)*
+                globals : sp::OnceCell<sp::Weak<SharedGlobals>>,
             }
 
-            #(#declared_functions)*
-        }
+            impl #inner_component_id {
+                fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
+                    sp::Rc::pin(Self::default())
+                }
+                fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
+                    #![allow(unused)]
+                    let _ = self.globals.set(sp::Rc::downgrade(globals));
+                    let self_rc = self;
+                    let _self = self_rc.as_ref();
+                    #(#init)*
+                }
 
-        #public_interface
-    )
+                #(#declared_functions)*
+            }
+        )
+    });
+
+    quote!(#private_interface #public_interface)
 }
 
 fn generate_global_getters(
@@ -2128,10 +2126,16 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
             }
         }
         llr::MemberReference::Global { global_index, member } => {
-            let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format_ident!("global_{}", ident(&global.name));
-            in_global(global, member, quote!(#global_access.#global_id.as_ref()))
+            let s = if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index)
+            {
+                quote!(_self)
+            } else {
+                let global_access = &ctx.generator_state.global_access;
+                let global_id = format_ident!("global_{}", ident(&global.name));
+                quote!(#global_access.#global_id.as_ref())
+            };
+            in_global(global, member, s)
         }
     }
 }
