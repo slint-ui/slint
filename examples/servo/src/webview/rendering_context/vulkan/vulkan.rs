@@ -10,17 +10,16 @@ use gl::Gles2 as Gl;
 
 use crate::gl_bindings as gl;
 
-use super::super::surfman_context::SurfmanRenderingContext;
+use super::super::gpu_rendering_context::GPURenderingContext;
+use super::super::utils::{SurfaceGuard, TextureError};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
-    #[error("{0:?}")]
-    Surfman(surfman::Error),
+    #[error(transparent)]
+    Utils(#[from] TextureError),
     #[error("{0}")]
     Vulkan(#[from] ash::vk::Result),
-    #[error("No surface returned when the surface was unbound from the context")]
-    NoSurface,
     #[error("The surface didn't have a framebuffer object")]
     NoFramebuffer,
     #[error("Wgpu is not using the vulkan backend")]
@@ -29,57 +28,13 @@ pub enum VulkanTextureError {
     OpenGL(String),
 }
 
-struct SurfaceGuard<'a> {
-    context: &'a SurfmanRenderingContext,
-    surface: Option<surfman::Surface>,
-}
-
-impl<'a> SurfaceGuard<'a> {
-    fn new(context: &'a SurfmanRenderingContext) -> Result<Self, VulkanTextureError> {
-        let mut surfman_context = context.context.borrow_mut();
-        let surface = context
-            .device
-            .borrow()
-            .unbind_surface_from_context(&mut surfman_context)
-            .map_err(VulkanTextureError::Surfman)?
-            .ok_or(VulkanTextureError::NoSurface)?;
-
-        Ok(Self { context, surface: Some(surface) })
-    }
-
-    fn surface(&self) -> &surfman::Surface {
-        self.surface.as_ref().unwrap()
-    }
-}
-
-impl<'a> Drop for SurfaceGuard<'a> {
-    fn drop(&mut self) {
-        if let Some(surface) = self.surface.take() {
-            let device = self.context.device.borrow();
-            let mut context = self.context.context.borrow_mut();
-            if let Err((_err, mut surface)) = device.bind_surface_to_context(&mut context, surface)
-            {
-                let _ = device.destroy_surface(&mut context, &mut surface);
-            }
-        }
-    }
-}
-
 pub struct WPGPUTextureFromVulkan<'a> {
-    size: PhysicalSize<u32>,
-    wgpu_device: &'a wgpu::Device,
-    wgpu_queue: &'a wgpu::Queue,
-    surfman_rendering_info: &'a SurfmanRenderingContext,
+    context: &'a GPURenderingContext,
 }
 
 impl<'a> WPGPUTextureFromVulkan<'a> {
-    pub fn new(
-        size: PhysicalSize<u32>,
-        wgpu_device: &'a wgpu::Device,
-        wgpu_queue: &'a wgpu::Queue,
-        surfman_rendering_info: &'a SurfmanRenderingContext,
-    ) -> Self {
-        Self { size, wgpu_device, wgpu_queue, surfman_rendering_info }
+    pub fn new(context: &'a GPURenderingContext) -> Self {
+        Self { context }
     }
 
     /// Imports Vulkan surface as a WGPU texture for rendering on Linux and Android.
@@ -88,7 +43,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
         // Check if we are running on an emulator.
         // The optimized path is known to be unstable on the Android Emulator.
         let is_emulator = {
-            let gl = self.surfman_rendering_info.glow_gl.clone();
+            let gl = self.context.surfman_rendering_info.glow_gl.clone();
             unsafe {
                 let renderer = gl.get_parameter_string(glow::RENDERER);
                 renderer.contains("Android Emulator")
@@ -118,20 +73,23 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
     }
 
     fn get_wgpu_texture_from_vulkan_optimized(&self) -> Result<wgpu::Texture, VulkanTextureError> {
-        let surface_guard = SurfaceGuard::new(self.surfman_rendering_info)?;
+        let surface_guard = SurfaceGuard::new(&self.context.surfman_rendering_info)?;
 
         {
-            let device = self.surfman_rendering_info.device.borrow();
-            let mut context = self.surfman_rendering_info.context.borrow_mut();
-            device.make_context_current(&mut context).map_err(VulkanTextureError::Surfman)?;
+            let device = self.context.surfman_rendering_info.device.borrow();
+            let mut context = self.context.surfman_rendering_info.context.borrow_mut();
+            device
+                .make_context_current(&mut context)
+                .map_err(|e| VulkanTextureError::Utils(TextureError::Surfman(e)))?;
         }
 
-        let device = self.surfman_rendering_info.device.borrow();
+        let device = self.context.surfman_rendering_info.device.borrow();
         let surface_info = device.surface_info(surface_guard.surface());
-        let size = self.size;
+        let size = self.context.size.get();
 
         unsafe {
             let hal_device = self
+                .context
                 .wgpu_device
                 .as_hal::<wgpu::wgc::api::Vulkan>()
                 .ok_or(VulkanTextureError::WgpuNotVulkan)?;
@@ -164,7 +122,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             )?;
 
             // Import Vulkan memory into OpenGL using EXT_external_objects
-            let context = self.surfman_rendering_info.context.borrow();
+            let context = self.context.surfman_rendering_info.context.borrow();
 
             self.import_and_blit_gl(
                 &device,
@@ -217,6 +175,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             };
 
             Ok(self
+                .context
                 .wgpu_device
                 .create_texture_from_hal::<wgpu::wgc::api::Vulkan>(hal_texture, &wgpu_descriptor))
         }
@@ -225,20 +184,22 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
     fn get_wgpu_texture_from_vulkan_cpu_fallback(
         &self,
     ) -> Result<wgpu::Texture, VulkanTextureError> {
-        let surface_guard = SurfaceGuard::new(self.surfman_rendering_info)?;
+        let surface_guard = SurfaceGuard::new(&self.context.surfman_rendering_info)?;
 
         {
-            let device = self.surfman_rendering_info.device.borrow();
-            let mut context = self.surfman_rendering_info.context.borrow_mut();
-            device.make_context_current(&mut context).map_err(VulkanTextureError::Surfman)?;
+            let device = self.context.surfman_rendering_info.device.borrow();
+            let mut context = self.context.surfman_rendering_info.context.borrow_mut();
+            device
+                .make_context_current(&mut context)
+                .map_err(|e| VulkanTextureError::Utils(TextureError::Surfman(e)))?;
         }
 
-        let device = self.surfman_rendering_info.device.borrow();
+        let device = self.context.surfman_rendering_info.device.borrow();
         let surface_info = device.surface_info(surface_guard.surface());
-        let size = self.size;
+        let size = self.context.size.get();
 
         // Fallback to CPU copy for Android/Emulator where extensions might be missing
-        let gl = &self.surfman_rendering_info.glow_gl;
+        let gl = &self.context.surfman_rendering_info.glow_gl;
 
         let read_framebuffer =
             surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
@@ -291,10 +252,10 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             view_formats: &[],
         };
 
-        let texture = self.wgpu_device.create_texture(&texture_desc);
+        let texture = self.context.wgpu_device.create_texture(&texture_desc);
 
         // Upload pixels
-        self.wgpu_queue.write_texture(
+        self.context.wgpu_queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
                 mip_level: 0,
@@ -368,7 +329,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
         memory_requirements: vk::MemoryRequirements,
         size: PhysicalSize<u32>,
     ) -> Result<(), VulkanTextureError> {
-        let gl = &self.surfman_rendering_info.glow_gl;
+        let gl = &self.context.surfman_rendering_info.glow_gl;
 
         let gl_with_extensions =
             Gl::load_with(|function_name| surfman_device.get_proc_address(context, function_name));

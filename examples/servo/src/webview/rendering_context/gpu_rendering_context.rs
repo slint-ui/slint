@@ -19,8 +19,8 @@ use wgpu;
 use super::surfman_context::SurfmanRenderingContext;
 
 pub struct GPURenderingContext {
-    wgpu_device: wgpu::Device,
-    wgpu_queue: wgpu::Queue,
+    pub wgpu_device: wgpu::Device,
+    pub wgpu_queue: wgpu::Queue,
     pub size: Cell<PhysicalSize<u32>>,
     pub swap_chain: SwapChain<Device>,
     pub surfman_rendering_info: SurfmanRenderingContext,
@@ -73,13 +73,7 @@ impl GPURenderingContext {
     pub fn get_wgpu_texture_from_metal(&self) -> Result<wgpu::Texture, surfman::Error> {
         use super::metal::WPGPUTextureFromMetal;
 
-        let wgpu_texture = WPGPUTextureFromMetal::new(
-            self.size.get(),
-            &self.wgpu_device,
-            &self.wgpu_queue,
-            &self.surfman_rendering_info,
-        )
-        .get();
+        let wgpu_texture = WPGPUTextureFromMetal::new(self).get();
 
         Ok(wgpu_texture)
     }
@@ -92,13 +86,7 @@ impl GPURenderingContext {
     ) -> Result<wgpu::Texture, super::vulkan::VulkanTextureError> {
         use super::vulkan::WPGPUTextureFromVulkan;
 
-        WPGPUTextureFromVulkan::new(
-            self.size.get(),
-            &self.wgpu_device,
-            &self.wgpu_queue,
-            &self.surfman_rendering_info,
-        )
-        .get()
+        WPGPUTextureFromVulkan::new(self).get()
     }
 }
 
