@@ -107,30 +107,10 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
                 return Err(VulkanTextureError::Vulkan(vk::Result::ERROR_EXTENSION_NOT_PRESENT));
             }
 
-            let (vulkan_image, memory, memory_requirements) =
-                Self::create_vulkan_image_and_memory(&vulkan_device, size)?;
-
-            // Export Vulkan memory as a file descriptor for OpenGL import
-
-            let external_memory_fd_api =
-                ash::khr::external_memory_fd::Device::new(&vulkan_instance, &vulkan_device);
-
-            let memory_handle = external_memory_fd_api.get_memory_fd(
-                &vk::MemoryGetFdInfoKHR::default()
-                    .memory(memory)
-                    .handle_type(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD),
-            )?;
-
-            // Import Vulkan memory into OpenGL using EXT_external_objects
-            let context = self.context.surfman_rendering_info.context.borrow();
-
-            self.import_and_blit_gl(
-                &device,
-                &context,
+            let (vulkan_image, memory) = self.create_and_import_vulkan_image(
+                &vulkan_device,
+                &vulkan_instance,
                 &surface_info,
-                memory_handle,
-                memory_requirements,
-                size,
             )?;
 
             let hal_texture = hal_device.texture_from_raw(
@@ -248,65 +228,34 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
         Ok(texture)
     }
 
-    unsafe fn create_vulkan_image_and_memory(
-        vulkan_device: &ash::Device,
-        size: PhysicalSize<u32>,
-    ) -> Result<(vk::Image, vk::DeviceMemory, vk::MemoryRequirements), VulkanTextureError> {
-        let mut external_memory_image_info = vk::ExternalMemoryImageCreateInfo::default()
-            .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
-
-        unsafe {
-            let vulkan_image = vulkan_device.create_image(
-                &vk::ImageCreateInfo::default()
-                    .image_type(vk::ImageType::TYPE_2D)
-                    .format(vk::Format::R8G8B8A8_UNORM)
-                    .extent(vk::Extent3D { width: size.width, height: size.height, depth: 1 })
-                    .mip_levels(1)
-                    .array_layers(1)
-                    .samples(vk::SampleCountFlags::TYPE_1)
-                    .tiling(vk::ImageTiling::OPTIMAL)
-                    .usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::COLOR_ATTACHMENT)
-                    .sharing_mode(vk::SharingMode::EXCLUSIVE)
-                    .initial_layout(vk::ImageLayout::UNDEFINED)
-                    .push_next(&mut external_memory_image_info),
-                None,
-            )?;
-
-            let memory_requirements = vulkan_device.get_image_memory_requirements(vulkan_image);
-
-            let mut dedicated_allocate_info =
-                vk::MemoryDedicatedAllocateInfo::default().image(vulkan_image);
-
-            let mut export_info = vk::ExportMemoryAllocateInfo::default()
-                .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
-
-            let memory = vulkan_device.allocate_memory(
-                &vk::MemoryAllocateInfo::default()
-                    .allocation_size(memory_requirements.size)
-                    .push_next(&mut dedicated_allocate_info)
-                    .push_next(&mut export_info),
-                None,
-            )?;
-
-            vulkan_device.bind_image_memory(vulkan_image, memory, 0)?;
-
-            Ok((vulkan_image, memory, memory_requirements))
-        }
-    }
-
-    unsafe fn import_and_blit_gl(
+    fn create_and_import_vulkan_image(
         &self,
-        surfman_device: &surfman::Device,
-        context: &surfman::Context,
+        vulkan_device: &ash::Device,
+        vulkan_instance: &ash::Instance,
         surface_info: &surfman::SurfaceInfo,
-        memory_handle: std::os::unix::io::RawFd,
-        memory_requirements: vk::MemoryRequirements,
-        size: PhysicalSize<u32>,
-    ) -> Result<(), VulkanTextureError> {
+    ) -> Result<(vk::Image, vk::DeviceMemory), VulkanTextureError> {
+        let size = self.context.size.get();
         let gl = &self.context.surfman_rendering_info.glow_gl;
+        let surfman_device = self.context.surfman_rendering_info.device.borrow();
+        let context = self.context.surfman_rendering_info.context.borrow();
+
+        let (vulkan_image, memory, memory_requirements) =
+            Self::create_vulkan_image_and_memory(vulkan_device, size)?;
+
+        // Export Vulkan memory as a file descriptor for OpenGL import
+        let external_memory_fd_api =
+            ash::khr::external_memory_fd::Device::new(vulkan_instance, vulkan_device);
+
+        let memory_handle = unsafe {
+            external_memory_fd_api.get_memory_fd(
+                &vk::MemoryGetFdInfoKHR::default()
+                    .memory(memory)
+                    .handle_type(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD),
+            )?
+        };
 
         let gl_with_extensions =
-            Gl::load_with(|function_name| surfman_device.get_proc_address(context, function_name));
+            Gl::load_with(|function_name| surfman_device.get_proc_address(&context, function_name));
 
         unsafe {
             let mut memory_object = 0;
@@ -375,6 +324,52 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
             gl_with_extensions.DeleteMemoryObjectsEXT(1, &memory_object);
         }
 
-        Ok(())
+        Ok((vulkan_image, memory))
+    }
+
+    fn create_vulkan_image_and_memory(
+        vulkan_device: &ash::Device,
+        size: PhysicalSize<u32>,
+    ) -> Result<(vk::Image, vk::DeviceMemory, vk::MemoryRequirements), VulkanTextureError> {
+        let mut external_memory_image_info = vk::ExternalMemoryImageCreateInfo::default()
+            .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
+
+        unsafe {
+            let vulkan_image = vulkan_device.create_image(
+                &vk::ImageCreateInfo::default()
+                    .image_type(vk::ImageType::TYPE_2D)
+                    .format(vk::Format::R8G8B8A8_UNORM)
+                    .extent(vk::Extent3D { width: size.width, height: size.height, depth: 1 })
+                    .mip_levels(1)
+                    .array_layers(1)
+                    .samples(vk::SampleCountFlags::TYPE_1)
+                    .tiling(vk::ImageTiling::OPTIMAL)
+                    .usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                    .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                    .initial_layout(vk::ImageLayout::UNDEFINED)
+                    .push_next(&mut external_memory_image_info),
+                None,
+            )?;
+
+            let memory_requirements = vulkan_device.get_image_memory_requirements(vulkan_image);
+
+            let mut dedicated_allocate_info =
+                vk::MemoryDedicatedAllocateInfo::default().image(vulkan_image);
+
+            let mut export_info = vk::ExportMemoryAllocateInfo::default()
+                .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
+
+            let memory = vulkan_device.allocate_memory(
+                &vk::MemoryAllocateInfo::default()
+                    .allocation_size(memory_requirements.size)
+                    .push_next(&mut dedicated_allocate_info)
+                    .push_next(&mut export_info),
+                None,
+            )?;
+
+            vulkan_device.bind_image_memory(vulkan_image, memory, 0)?;
+
+            Ok((vulkan_image, memory, memory_requirements))
+        }
     }
 }
