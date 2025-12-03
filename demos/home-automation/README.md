@@ -8,7 +8,7 @@ A fictional Home Automation User Interface.
 | --- | --- | --- | --- | --- | --- |
 | [`ui.slint`](./ui/demo.slint) | [`main.rs`](./rust/main.rs) |  | [`main.js`](./node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/home-automation/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/home-automation/ui/demo.slint) |
 
-![Screenshot of the Home Automation Demo](https://github.com/user-attachments/assets/3856b9cf-e7c7-478e-8efe-0f7e8aa43e85 "Home Automation Demo")
+![Screenshot of the Home Automation Demo](https://github.com/user-attachments/assets/607e07a5-2e79-4045-9fe4-3da2493ba187 "Home Automation Demo")
 
 ## Building and running on iOS
 
