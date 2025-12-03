@@ -2152,7 +2152,7 @@ fn apply_uses_statement(
         return;
     }
 
-    for uses_identifier_node in uses_specifier.UsesIdenfifierList().UsesIdentifier() {
+    for uses_identifier_node in uses_specifier.UsesIdentifier() {
         let uses_statement: UsesStatement = (&uses_identifier_node).into();
         let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
             continue;

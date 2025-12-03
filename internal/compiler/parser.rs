@@ -451,8 +451,7 @@ declare_syntax! {
         /// `@rust-attr(...)`
         AtRustAttr -> [],
         /// `uses { Foo from Bar, Baz from Qux }`
-        UsesSpecifier -> [  UsesIdenfifierList ],
-        UsesIdenfifierList -> [ *UsesIdentifier ],
+        UsesSpecifier -> [ *UsesIdentifier ],
         /// `Interface.Foo from bar`
         UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
     }

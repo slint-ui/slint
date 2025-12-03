@@ -387,29 +387,18 @@ fn parse_import_identifier(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test,UsesSpecifier
 /// uses { Interface from child }
+/// uses { Interface from child, }
 /// uses { Interface1 from child1, Interface2 from child2 }
-/// uses { Interface3 from child3, Qualified.Interface from child4 }
+/// uses { Interface1 from child2, Qualified.Interface from child2 }
+/// uses { Qualified.Interface from child }
+/// uses { Qualified.Interface from child, }
+/// uses { Qualified.Interface from child1, Interface from child2 }
+/// uses { Interface from child1, Qualified.Interface from child2 }
 /// ```
 fn parse_uses_specifier(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "uses");
     let mut p = p.start_node(SyntaxKind::UsesSpecifier);
     p.expect(SyntaxKind::Identifier); // "uses"
-    parse_uses_identifier_list(&mut *p)
-}
-
-#[cfg_attr(test, parser_test)]
-/// ```test,UsesIdenfifierList
-/// { Interface1 from child1}
-/// { Interface2 from child2, }
-/// { Iterface3 from child3, Interface4 from child4 }
-/// { Iterface5 from child5, Interface6 from child6, }
-/// { Qualified.Interface1 from child7 }
-/// { Qualified.Interface2 from child8, }
-/// { Qualified.Interface3 from child9, Interface7 from child10 }
-/// { Interface8 from child11, Qualified.Interface4 from child12 }
-/// ```
-fn parse_uses_identifier_list(p: &mut impl Parser) -> bool {
-    let mut p = p.start_node(SyntaxKind::UsesIdenfifierList);
     if !p.expect(SyntaxKind::LBrace) {
         return false;
     }
