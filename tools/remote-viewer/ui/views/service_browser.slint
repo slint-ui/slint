@@ -1,0 +1,25 @@
+import { VerticalBox } from "std-widgets.slint";
+import {
+    ServiceListView,
+    ServiceListViewItem,
+} from "../widgets/service_list_view.slint";
+
+export global ServiceListAdapter {
+    in-out property <[ServiceListViewItem]> services: [];
+
+    callback select(/* index */ int);
+}
+
+export component ServiceBrowser {
+    VerticalBox {
+        ServiceListView {
+            width: 100%;
+            model: ServiceListAdapter.services;
+            accessible-label: @tr("List of services");
+
+            select(index) => {
+                ServiceListAdapter.select(index);
+            }
+        }
+    }
+}
