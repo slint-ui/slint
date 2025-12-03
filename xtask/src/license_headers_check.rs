@@ -79,13 +79,13 @@ impl LicenseTagStyle {
     fn html_comment_style() -> Self {
         Self {
             tag_start: "<!-- Copyright © ",
-            line_prefix: " ",
-            line_indentation: "",
-            line_break: " ;",
-            tag_end: " -->",
-            overall_start: "<!--",
+            line_prefix: "<!--",
+            line_indentation: " ",
+            line_break: " -->\n",
+            tag_end: "-->\n<!--",
+            overall_start: "",
             overall_end: " -->\n",
-            is_real_end: true,
+            is_real_end: false,
         }
     }
 
@@ -103,6 +103,7 @@ impl LicenseTagStyle {
     }
 }
 
+#[derive(Debug)]
 struct SourceFileWithTags<'a> {
     source: &'a str,
     tag_style: &'a LicenseTagStyle,
@@ -387,14 +388,16 @@ fn test_license_tag_html_style() {
     let style = LicenseTagStyle::html_comment_style();
     {
         let source = format!(
-            r#"<!-- Copyright © something <bar@something.com> ; SP{}-License-Identifier: {} -->
+            r#"<!-- Copyright © something <bar@something.com> -->
+<!-- SP{}-License-Identifier: {} -->
 blah"#,
             "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "foo"),
-            r#"<!-- Copyright © something <bar@something.com> ; TEST_LICENSE -->
+            r#"<!-- Copyright © something <bar@something.com> -->
+<!-- TEST_LICENSE -->
 
 blah"#
                 .to_string()
@@ -402,7 +405,8 @@ blah"#
     }
     {
         let source = format!(
-            r#"<!-- Copyright © something <bar@something.com> ; SP{}-License-Identifier: {} -->
+            r#"<!-- Copyright © something <bar@something.com> -->
+<!-- SP{}-License-Identifier: {} -->
 
 blah"#,
             "DX", EXPECTED_SPDX_EXPRESSION
@@ -410,7 +414,8 @@ blah"#,
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
-            r#"<!-- Copyright © something <bar@something.com> ; TEST_LICENSE -->
+            r#"<!-- Copyright © something <bar@something.com> -->
+<!-- TEST_LICENSE -->
 
 blah"#
                 .to_string()
@@ -420,7 +425,8 @@ blah"#
         let test_source = SourceFileWithTags::new("blah", &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
-            r#"<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; TEST_LICENSE -->
+            r#"<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- TEST_LICENSE -->
 
 blah"#
                 .to_string()
@@ -430,8 +436,10 @@ blah"#
         let test_source = SourceFileWithTags::new("\nblah", &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(SPDX_LICENSE_LINE), "bar"),
-            String::from("<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; ")
-                + SPDX_LICENSE_LINE
+            String::from(
+                "<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- "
+            ) + SPDX_LICENSE_LINE
                 + r#"bar -->
 
 blah"#
@@ -441,7 +449,8 @@ blah"#
         let test_source = SourceFileWithTags::new("", &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
-            r#"<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; TEST_LICENSE -->
+            r#"<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- TEST_LICENSE -->
 "#
             .to_string()
         );
@@ -538,8 +547,8 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.json$", LicenseLocation::NoLicense),
             ("\\.jsonc$", LicenseLocation::NoLicense),
             ("\\.license$", LicenseLocation::NoLicense),
-            ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
-            ("\\.mdx$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
+            ("\\.md$", LicenseLocation::NoLicense),
+            ("\\.mdx$", LicenseLocation::NoLicense),
             ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.hbs$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
