@@ -4,45 +4,46 @@
 export component A  {
     ContextMenuArea {
         show => {
-//      ^error{'show' is not a callback in ContextMenuArea}
+//      >error{'show' is not a callback in ContextMenuArea}
             debug("hello");
         }
 
         Menu {
+//     <error{'show' is not a callback in ContextMenuArea}
         }
 
 
         property <int> entries: 45;
-//      ^error{Cannot re-define internal property 'entries'}
+//      >                         <error{Cannot re-define internal property 'entries'}
         property <int> sub-menu: 45;
-//      ^error{Cannot re-define internal property 'sub-menu'}
+//      >                          <error{Cannot re-define internal property 'sub-menu'}
         property <string> activated: "me";
-//      ^error{Cannot re-define internal property 'activated'}
+//      >                                <error{Cannot re-define internal property 'activated'}
 
         property <string> xyz: "me";
 
     }
 
     ContextMenuArea { Rectangle {} }
-//  ^error{ContextMenuArea should have a Menu}
+//  >              <error{ContextMenuArea should have a Menu}
 
     ContextMenuArea {
         Menu {
             MenuItem { title: "ok"; }
         }
         Menu {
-//      ^error{Only one Menu is allowed in a ContextMenu}
+//      >   <error{Only one Menu is allowed in a ContextMenu}
             MenuItem { title: "hello"; }
         }
     }
 
     ContextMenuArea {
         if false : Menu {}
-//                 ^error{ContextMenuArea's root Menu cannot be in a conditional or repeated element}
+//                 >   <error{ContextMenuArea's root Menu cannot be in a conditional or repeated element}
     }
     ContextMenuArea {
         for _ in [1,2,3] : Menu {}
-//                         ^error{ContextMenuArea's root Menu cannot be in a conditional or repeated element}
+//                         >   <error{ContextMenuArea's root Menu cannot be in a conditional or repeated element}
     }
 }
 

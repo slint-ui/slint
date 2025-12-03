@@ -6,7 +6,7 @@ component MyPopup inherits PopupWindow {}
 component MyPopup2 inherits MyPopup {}
 
 export component TopLevel inherits MyPopup2 {
-//                                 ^error{PopupWindow cannot be the top level}
+//                                 >       <error{PopupWindow cannot be the top level}
     if true : MyPopup2 {}
-//            ^error{PopupWindow cannot be directly repeated or conditional}
+//            >       <error{PopupWindow cannot be directly repeated or conditional}
 }

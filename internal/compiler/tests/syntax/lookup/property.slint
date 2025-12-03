@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Comp := Rectangle {
-//   ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//   ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<length> custom_prop;
     property<color> color_prop;
     color_prop: red;
@@ -10,14 +10,14 @@ Comp := Rectangle {
     Rectangle {
         x: custom_prop;
         y: nothing;
-//         ^error{Unknown unqualified identifier 'nothing'}
+//         >     <error{Unknown unqualified identifier 'nothing'}
     }
 
 }
 
 
 export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     width: 50phx;
     height: width;
 
@@ -28,11 +28,11 @@ export X := Rectangle {
     Rectangle {
         width: foo.height;
         height: xxx.fff;
-//              ^error{Cannot access id 'xxx'}
+//              >     <error{Cannot access id 'xxx'}
         background: foo.height.blue;
-//                             ^error{Cannot access the field 'blue' of length}
+//                             >  <error{Cannot access the field 'blue' of length}
         x: foo.blue;
-//             ^error{Element 'Rectangle' does not have a property 'blue'}
+//             >  <error{Element 'Rectangle' does not have a property 'blue'}
 
     }
 
@@ -40,7 +40,7 @@ export X := Rectangle {
         x: plop.custom_prop;
         color_prop: yellow;
         y: plop.not_exist;
-//              ^error{Element 'Comp' does not have a property 'not_exist'}
+//              >       <error{Element 'Comp' does not have a property 'not_exist'}
     }
 
     img := Image{}
@@ -48,9 +48,9 @@ export X := Rectangle {
     callback dummy;
     dummy => {
         ["hello"].length = 45;
-//      ^error{Assignment needs to be done on a property}
+//      >                   <error{Assignment needs to be done on a property}
         img.source.width = 45;
-//      ^error{Assignment needs to be done on a property}
+//      >                   <error{Assignment needs to be done on a property}
 
     }
 

@@ -4,39 +4,39 @@
 import { TabWidget  } from "std-widgets.slint";
 
 export Test2 := Rectangle {
-//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//           ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     TabWidget {
         in property <Orientation> foo;
         orientation: self.foo;
-//                   ^error{The orientation property only supports constants at the moment}
+//                   >       <error{The orientation property only supports constants at the moment}
         Tab {
             visible: false;
-//                   ^error{The property 'visible' cannot be set for Tabs inside a TabWidget}
+//                   >    <error{The property 'visible' cannot be set for Tabs inside a TabWidget}
             Rectangle { }
         }
         f := Tab {
             height: 50%;
-//                  ^error{The property 'height' cannot be set for Tabs inside a TabWidget}
+//                  >  <error{The property 'height' cannot be set for Tabs inside a TabWidget}
         }
         Tab {
             Rectangle { }
             visible <=> f.visible;
-//          ^error{The property 'visible' cannot be set for Tabs inside a TabWidget}
+//          >                    <error{The property 'visible' cannot be set for Tabs inside a TabWidget}
         }
 
         if (true) : Tab {
-//                  ^error{dynamic tabs ('if' or 'for') are currently not supported}
+//                  >  <error{dynamic tabs ('if' or 'for') are currently not supported}
             title: "hello";
         }
 
         Tab {
             accessible-role: tab-panel;
-//                           ^error{The property 'accessible-role' cannot be set for Tabs inside a TabWidget}
+//                           >        <error{The property 'accessible-role' cannot be set for Tabs inside a TabWidget}
             Rectangle { }
         }
         Tab {
             accessible-label: "Tab Panel";
-//                            ^error{The property 'accessible-label' cannot be set for Tabs inside a TabWidget}
+//                            >          <error{The property 'accessible-label' cannot be set for Tabs inside a TabWidget}
             Rectangle { }
         }
     }

@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Xxx := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback plop() -> string;
     plop => {}
-//  ^error{Cannot convert void to string}
+//  >error{Cannot convert void to string}
     callback plop2() -> int;
+// <error{Cannot convert void to string}
     plop2 => { return 45; "xxx" }
-//  ^error{Cannot convert string to int}
+//  >error{Cannot convert string to int}
     callback plop3();
+// <error{Cannot convert string to int}
     plop3 => { return 45; "xxx" }
 }

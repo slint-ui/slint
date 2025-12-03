@@ -4,12 +4,12 @@
 export component X {
     property <styled-text> t1: @markdown("{}", "test");
     property <styled-text> t2: @markdown("{} {}", "test");
-//                             ^error{Format string contains 2 placeholders, but 1 values were given}
+//                             >                        <error{Format string contains 2 placeholders, but 1 values were given}
     property <styled-text> t3: @markdown("{}", "test", "test2");
-//                             ^error{Format string contains 1 placeholders, but 2 values were given}
+//                             >                              <error{Format string contains 1 placeholders, but 2 values were given}
     property <styled-text> t4: @markdown("{0} {0}", "test");
     property <styled-text> t5: @markdown("{1} {1}", "test");
-//                             ^error{Format string contains 2 placeholders, but 1 values were given}
+//                             >                          <error{Format string contains 2 placeholders, but 1 values were given}
     property <styled-text> t6: @markdown("{1} {1}", "test", "test2");
     property <styled-text> t7: @markdown("{1} {0}", "test", "test2");
 

@@ -7,11 +7,11 @@ component Button{
 // ^error{Syntax error: expected ';'}
 export component C{
     in property<b in
-//                ^error{Syntax error: expected '>'}
+//                ><error{Syntax error: expected '>'}
     Button {
-//  ^error{Syntax error: expected ';'}
+//  >    <error{Syntax error: expected ';'}
         checked<=>in obal
-//                   ^error{Syntax error: expected ';'}
+//                   >  <error{Syntax error: expected ';'}
 //                       ^^error{Parse error}
 
     }

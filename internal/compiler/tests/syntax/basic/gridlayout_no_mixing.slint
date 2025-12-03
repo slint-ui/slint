@@ -6,13 +6,13 @@ export component TestCase inherits Window {
     lay1 := GridLayout {
         spacing: 20px;
         text1 := Text {
-//               ^error{Cannot set property 'col' on 'text1' because parent GridLayout uses auto-numbering}
+//               >   <error{Cannot set property 'col' on 'text1' because parent GridLayout uses auto-numbering}
             row: 0;
             col: 1;
             text: "text 1";
         }
         text2 := Text {
-//               ^error{Cannot set property 'row' on 'text2' because parent GridLayout uses auto-numbering}
+//               >   <error{Cannot set property 'row' on 'text2' because parent GridLayout uses auto-numbering}
             text: "text 2";
         }
     }

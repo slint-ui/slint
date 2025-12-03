@@ -3,20 +3,20 @@
 
 export component Foo inherits Rectangle {
     ComponentContainer {
-//  ^error{The @children placeholder cannot appear in a ComponentContainer}
+//  >                 <error{The @children placeholder cannot appear in a ComponentContainer}
         @children
     }
 }
 
 export Bar := Rectangle {
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Foo { Text {} }
     ComponentContainer {
-//  ^error{ComponentContainers may not have children}
+//  >                 <error{ComponentContainers may not have children}
         Text {}
     }
     ComponentContainer {
-//  ^error{ComponentContainers may not have children}
+//  >                 <error{ComponentContainers may not have children}
         Text { }
         for x in 2: Rectangle {}
         Text { }

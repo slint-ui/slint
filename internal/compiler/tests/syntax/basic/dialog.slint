@@ -4,60 +4,60 @@
 import { StandardButton } from "std-widgets.slint";
 
 MyDiag1 := Dialog {
-//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {}
     StandardButton { kind: cancel; }
     Rectangle {}
-//  ^error{A Dialog can have only one child element that is not a StandardButton}
+//  >        <error{A Dialog can have only one child element that is not a StandardButton}
 }
 
 MyDiag2 := Dialog {
-//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-//         ^^error{A Dialog must have a single child element that is not StandardButton}
+//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         >     <^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
         col: 42;
-//           ^error{col used outside of a GridLayout's cell}
+//           > <error{col used outside of a GridLayout's cell}
         rowspan: 2;
-//               ^error{rowspan used outside of a GridLayout's cell}
+//               ><error{rowspan used outside of a GridLayout's cell}
     }
 }
 
 MyDiag3 := Dialog {
-//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle { }
     StandardButton { kind: ok; }
     StandardButton { }
-//  ^error{The `kind` property of the StandardButton in a Dialog must be set}
+//  >             <error{The `kind` property of the StandardButton in a Dialog must be set}
     StandardButton { kind: true ? ok : cancel; }
-//                         ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
+//                         >                 <error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
     StandardButton { kind: ok; }
-//                         ^error{Duplicated `kind`: There are two StandardButton in this Dialog with the same kind}
+//                         > <error{Duplicated `kind`: There are two StandardButton in this Dialog with the same kind}
 
 }
 
 MyDialog4 := Dialog {
-//        ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//        ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     StandardButton { kind: ok; }
     r := Rectangle { dialog-button-role: accept; }
     Rectangle { dialog-button-role: none; }
-//                                  ^error{The `dialog-button-role` cannot be set explicitly to none}
+//                                  >   <error{The `dialog-button-role` cannot be set explicitly to none}
     Rectangle { dialog-button-role: true ? accept : reject; }
-//                                  ^error{The `dialog-button-role` property must be known at compile-time}
+//                                  >                     <error{The `dialog-button-role` property must be known at compile-time}
     Rectangle {
         Rectangle { dialog-button-role: accept; }
-//                                      ^error{dialog-button-role used outside of a Dialog's direct child}
+//                                      >     <error{dialog-button-role used outside of a Dialog's direct child}
     }
 
     init => {
         r.dialog-button-role = DialogButtonRole.action;
-//      ^error{The property must be known at compile time and cannot be changed at runtime}
+//      >                                            <error{The property must be known at compile time and cannot be changed at runtime}
     }
 }
 
 export Test := Rectangle {
-//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     MyDiag1 {}
     MyDiag2 {}
     MyDiag3 {}

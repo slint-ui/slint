@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export { Foo as Bar }
-//       ^error{'Foo' not found}
+//       > <error{'Foo' not found}
 
 export { Image as Plop }
-//       ^error{Cannot export 'Image' because it is not a component}
+//       >   <error{Cannot export 'Image' because it is not a component}
 
 export { string as Boob }
-//       ^error{Cannot export 'string' because it is not a component}
+//       >    <error{Cannot export 'string' because it is not a component}
 
 export Hello := Plop {
-//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-//              ^^error{Unknown element 'Plop'}
+//           ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//              >   <^error{Unknown element 'Plop'}
 }
