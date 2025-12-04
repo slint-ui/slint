@@ -73,7 +73,7 @@ fn ensure_pure(
                         match nr.element().borrow().bindings.get(nr.name()) {
                             None => {
                                 debug_assert!(
-                                    diag.as_ref().map_or(true, |d| d.has_errors()),
+                                    diag.as_ref().is_none_or(|d| d.has_errors()),
                                     "private functions must be local and defined"
                                 );
                             }

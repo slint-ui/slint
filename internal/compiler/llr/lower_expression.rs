@@ -78,16 +78,15 @@ pub fn lower_expression(
             let elem = e.upgrade().unwrap();
             let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
             // When within a ShowPopupMenu builtin function, this is a reference to the root of the menu item tree
-            if Rc::ptr_eq(&elem, &enclosing.root_element) {
-                if let Some(idx) = ctx
+            if Rc::ptr_eq(&elem, &enclosing.root_element)
+                && let Some(idx) = ctx
                     .component
                     .menu_item_tree
                     .borrow()
                     .iter()
                     .position(|c| Rc::ptr_eq(c, &enclosing))
-                {
-                    return llr_Expression::NumberLiteral(idx as _);
-                }
+            {
+                return llr_Expression::NumberLiteral(idx as _);
             }
 
             // We map an element reference to a reference to the property "" inside that native item

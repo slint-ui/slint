@@ -18,11 +18,12 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
     let mut set = HashSet::new();
     let mut sorted_globals = vec![];
     for (_, ty) in &*doc.exports {
-        if let Some(c) = ty.as_ref().left() {
-            if c.is_global() && set.insert(ByAddress(c.clone())) {
-                collect_in_component(c, &mut set, &mut sorted_globals);
-                sorted_globals.push(c.clone());
-            }
+        if let Some(c) = ty.as_ref().left()
+            && c.is_global()
+            && set.insert(ByAddress(c.clone()))
+        {
+            collect_in_component(c, &mut set, &mut sorted_globals);
+            sorted_globals.push(c.clone());
         }
     }
     doc.visit_all_used_components(|component| {

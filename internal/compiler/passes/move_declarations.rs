@@ -28,7 +28,7 @@ pub fn move_declarations(component: &Rc<Component>) {
 fn do_move_declarations(component: &Rc<Component>) {
     let mut decl = Declarations::take_from_element(&mut component.root_element.borrow_mut());
     component.popup_windows.borrow().iter().for_each(|f| do_move_declarations(&f.component));
-    component.menu_item_tree.borrow().iter().for_each(|f| do_move_declarations(f));
+    component.menu_item_tree.borrow().iter().for_each(do_move_declarations);
 
     let mut new_root_bindings = HashMap::new();
     let mut new_root_change_callbacks = HashMap::new();
@@ -91,7 +91,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         elem.borrow_mut().change_callbacks = new_change_callbacks;
     };
 
-    component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
+    component.optimized_elements.borrow().iter().for_each(&mut *move_bindings_and_animations);
     recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
 
     component.root_constraints.borrow_mut().visit_named_references(&mut fixup_reference);
@@ -141,7 +141,7 @@ fn fixup_reference(nr: &mut NamedReference) {
     if !Rc::ptr_eq(&e, &component.root_element)
         && e.borrow().property_declarations.contains_key(nr.name())
     {
-        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()).into());
+        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()));
     }
 }
 
@@ -157,10 +157,10 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
         .iter()
         .for_each(|f| simplify_optimized_items_recursive(&f.component));
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        if elem.borrow().repeated.is_some() {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                simplify_optimized_items_recursive(base);
-            }
+        if elem.borrow().repeated.is_some()
+            && let ElementType::Component(base) = &elem.borrow().base_type
+        {
+            simplify_optimized_items_recursive(base);
         }
     });
 }

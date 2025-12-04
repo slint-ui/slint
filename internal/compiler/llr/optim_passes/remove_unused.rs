@@ -247,16 +247,16 @@ mod visitor {
         visitor: &mut (impl Visitor + ?Sized),
     ) {
         for c in public_components {
-            visit_public_component(c, &state, visitor);
+            visit_public_component(c, state, visitor);
         }
         for (idx, sc) in sub_components.iter_mut_enumerated() {
-            visit_sub_component(idx, sc, &state, visitor);
+            visit_sub_component(idx, sc, state, visitor);
         }
         for (idx, g) in globals.iter_mut_enumerated() {
-            visit_global(idx, g, &state, visitor);
+            visit_global(idx, g, state, visitor);
         }
         if let Some(p) = popup_menu {
-            visit_popup_menu(p, &state, visitor);
+            visit_popup_menu(p, state, visitor);
         }
     }
 
@@ -372,10 +372,8 @@ mod visitor {
         for i in init_code {
             visit_expression(i.get_mut(), &scope, state, visitor);
         }
-        for g in geometries {
-            if let Some(g) = g {
-                visit_expression(g.get_mut(), &scope, state, visitor);
-            }
+        for g in geometries.iter_mut().flatten() {
+            visit_expression(g.get_mut(), &scope, state, visitor);
         }
         visit_expression(layout_info_h.get_mut(), &scope, state, visitor);
         visit_expression(layout_info_v.get_mut(), &scope, state, visitor);
@@ -540,7 +538,7 @@ mod visitor {
                     .follow_sub_components(*sub_component_idx, &local_reference.sub_component_path),
                 None,
             ),
-            scope => scope.clone(),
+            scope => *scope,
         };
         visit_member_index(&mut local_reference.reference, &scope, state, visitor);
     }

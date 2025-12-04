@@ -97,8 +97,7 @@ pub fn generate(
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(std::io::Error::other(
                 "Unsupported output format: The interpreter is not a valid output format yet.",
             )); // Perhaps byte code in the future?
         }
@@ -235,28 +234,24 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         // StandardButton is a sub-component and we'll call visit_children() on it. Now we are here. However as `StandardButton` has no children,
         // and therefore we would never recurse into `Button`'s children and thus miss the repeater. That is what this condition attempts to
         // detect and chain the children visitation.
-        if children.is_empty() {
-            if let Some(nested_subcomponent) = parent_item.borrow().sub_component() {
-                let sub_component_state = builder.enter_component(
-                    parent_item,
-                    nested_subcomponent,
-                    children_offset,
-                    state,
-                );
-                visit_children(
-                    &sub_component_state,
-                    &nested_subcomponent.root_element.borrow().children,
-                    nested_subcomponent,
-                    &nested_subcomponent.root_element,
-                    parent_index,
-                    relative_parent_index,
-                    children_offset,
-                    relative_children_offset,
-                    repeater_count,
-                    builder,
-                );
-                return;
-            }
+        if children.is_empty()
+            && let Some(nested_subcomponent) = parent_item.borrow().sub_component()
+        {
+            let sub_component_state =
+                builder.enter_component(parent_item, nested_subcomponent, children_offset, state);
+            visit_children(
+                &sub_component_state,
+                &nested_subcomponent.root_element.borrow().children,
+                nested_subcomponent,
+                &nested_subcomponent.root_element,
+                parent_index,
+                relative_parent_index,
+                children_offset,
+                relative_children_offset,
+                repeater_count,
+                builder,
+            );
+            return;
         }
 
         let mut offset = children_offset + children.len() as u32;
@@ -341,13 +336,12 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             let mut item = item.clone();
             let mut component_state = component_state.clone();
             while let Some((base, state)) = {
-                let base = item.borrow().sub_component().map(|c| {
+                item.borrow().sub_component().map(|c| {
                     (
                         c.root_element.clone(),
                         builder.enter_component(&item, c, children_offset, &component_state),
                     )
-                });
-                base
+                })
             } {
                 item = base;
                 component_state = state;
@@ -386,17 +380,17 @@ pub fn handle_property_bindings_init(
             binding_expression.expression.visit_recursive(&mut |e| {
                 if let Expression::PropertyReference(nr) = e {
                     let elem = nr.element();
-                    if Weak::ptr_eq(&elem.borrow().enclosing_component, component) {
-                        if let Some(be) = elem.borrow().bindings.get(nr.name()) {
-                            handle_property_inner(
-                                component,
-                                &elem,
-                                nr.name(),
-                                &be.borrow(),
-                                handle_property,
-                                processed,
-                            );
-                        }
+                    if Weak::ptr_eq(&elem.borrow().enclosing_component, component)
+                        && let Some(be) = elem.borrow().bindings.get(nr.name())
+                    {
+                        handle_property_inner(
+                            component,
+                            &elem,
+                            nr.name(),
+                            &be.borrow(),
+                            handle_property,
+                            processed,
+                        );
                     }
                 }
             })

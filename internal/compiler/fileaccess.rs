@@ -122,10 +122,10 @@ mod builtin_library {
                 components.push(part);
             }
         }
-        if let Some(f) = components.first_mut() {
-            if let Some((_, x)) = ALIASES.iter().find(|x| x.0 == *f) {
-                *f = std::ffi::OsStr::new(x);
-            }
+        if let Some(f) = components.first_mut()
+            && let Some((_, x)) = ALIASES.iter().find(|x| x.0 == *f)
+        {
+            *f = std::ffi::OsStr::new(x);
         }
         if let &[folder, file] = components.as_slice() {
             let library = widget_library().iter().find(|x| x.0 == folder)?.1;

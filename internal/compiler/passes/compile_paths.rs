@@ -28,7 +28,7 @@ pub fn compile_paths(
     let path_type = path_type.as_builtin();
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem_, _| {
-        if !elem_.borrow().builtin_type().is_some_and(|bt| bt.name == "Path") {
+        if elem_.borrow().builtin_type().is_none_or(|bt| bt.name != "Path") {
             return;
         }
 

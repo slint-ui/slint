@@ -27,7 +27,7 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                                 .strip_suffix("-light")
                                 .unwrap_or(&type_loader.resolved_style)
                         });
-                    *e = Expression::StringLiteral(style.into()).into();
+                    *e = Expression::StringLiteral(style.into());
                 }
             }
 

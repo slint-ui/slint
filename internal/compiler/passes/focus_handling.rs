@@ -221,7 +221,7 @@ impl<'a> LocalFocusForwards<'a> {
                         function.name().into(),
                         PropertyDeclaration {
                             property_type: Type::Function(Rc::new(Function {
-                                return_type: Type::Void.into(),
+                                return_type: Type::Void,
                                 args: vec![],
                                 arg_names: vec![],
                             })),

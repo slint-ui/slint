@@ -129,23 +129,22 @@ fn adjust_references(comp: &Rc<Component>) {
             return;
         }
         let e = nr.element();
-        if e.borrow().repeated.is_some() {
-            if let ElementType::Component(c) = e.borrow().base_type.clone() {
-                *nr = NamedReference::new(&c.root_element, nr.name().clone())
-            };
-        }
+        if e.borrow().repeated.is_some()
+            && let ElementType::Component(c) = e.borrow().base_type.clone()
+        {
+            *nr = NamedReference::new(&c.root_element, nr.name().clone())
+        };
     });
     // Transform any references to the repeated element to refer to the root of each instance.
     visit_all_expressions(comp, |expr, _| {
         expr.visit_recursive_mut(&mut |expr| {
-            if let Expression::ElementReference(element_ref) = expr {
-                if let Some(repeater_element) =
+            if let Expression::ElementReference(element_ref) = expr
+                && let Some(repeater_element) =
                     element_ref.upgrade().filter(|e| e.borrow().repeated.is_some())
-                {
-                    let inner_element =
-                        repeater_element.borrow().base_type.as_component().root_element.clone();
-                    *element_ref = Rc::downgrade(&inner_element);
-                }
+            {
+                let inner_element =
+                    repeater_element.borrow().base_type.as_component().root_element.clone();
+                *element_ref = Rc::downgrade(&inner_element);
             }
         })
     });

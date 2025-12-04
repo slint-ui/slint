@@ -335,7 +335,7 @@ impl Expression {
                 ctx.diag,
             )
         } else {
-            return Expression::Invalid;
+            Expression::Invalid
         }
     }
 
@@ -536,7 +536,7 @@ impl Expression {
                     return Expression::Invalid;
                 }
             };
-            if !all_subs.get(1).is_some_and(|s| s.kind() == SyntaxKind::Comma) {
+            if all_subs.get(1).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
                 ctx.diag.push_error(
                     "Angle expression must be an angle followed by a comma".into(),
                     &node,
@@ -587,7 +587,7 @@ impl Expression {
                         return Expression::Invalid;
                     }
                 };
-                if !all_subs.get(2).is_some_and(|s| s.kind() == SyntaxKind::Comma) {
+                if all_subs.get(2).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
                     ctx.diag.push_error(
                         "'from <angle>' must be followed by a comma".into(),
                         &node,
@@ -723,8 +723,7 @@ impl Expression {
                 let normalized_stops = stops
                     .into_iter()
                     .map(|(color, angle_expr)| {
-                        let angle_typed =
-                            angle_expr.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
+                        let angle_typed = angle_expr.maybe_convert_to(Type::Angle, &node, ctx.diag);
                         let normalized_pos = Expression::BinaryExpression {
                             lhs: Box::new(angle_typed),
                             rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
@@ -735,8 +734,7 @@ impl Expression {
                     .collect();
 
                 // Convert from_angle to degrees (don't normalize to 0-1)
-                let from_angle_degrees =
-                    from_angle.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
+                let from_angle_degrees = from_angle.maybe_convert_to(Type::Angle, &node, ctx.diag);
 
                 Expression::ConicGradient {
                     from_angle: Box::new(from_angle_degrees),
@@ -1300,7 +1298,7 @@ impl Expression {
             OperatorClass::ComparisonOp => {
                 let ty =
                     Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned());
-                if !matches!(op, '=' | '!') && !ty.as_unit_product().is_some() && ty != Type::String
+                if !matches!(op, '=' | '!') && ty.as_unit_product().is_none() && ty != Type::String
                 {
                     ctx.diag.push_error(format!("Values of type {ty} cannot be compared"), &node);
                 }
@@ -1618,12 +1616,12 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
             }
             return Type::Struct(Rc::new(Struct { fields, name: StructName::None }));
         } else if let Type::Struct(false_ty) = false_expr.ty() {
-            return merge_struct(&false_ty, &ty);
+            return merge_struct(&false_ty, ty);
         }
-    } else if let Expression::Struct { ty, .. } = false_expr {
-        if let Type::Struct(true_ty) = true_expr.ty() {
-            return merge_struct(&true_ty, &ty);
-        }
+    } else if let Expression::Struct { ty, .. } = false_expr
+        && let Type::Struct(true_ty) = true_expr.ty()
+    {
+        return merge_struct(&true_ty, ty);
     }
 
     if let Expression::Array { .. } = true_expr {
@@ -1632,10 +1630,10 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
         } else if let Type::Array(ty) = false_expr.ty() {
             return Type::Array(ty);
         }
-    } else if let Expression::Array { .. } = false_expr {
-        if let Type::Array(ty) = true_expr.ty() {
-            return Type::Array(ty);
-        }
+    } else if let Expression::Array { .. } = false_expr
+        && let Type::Array(ty) = true_expr.ty()
+    {
+        return Type::Array(ty);
     }
 
     Expression::common_target_type_for_type_list([true_expr.ty(), false_expr.ty()].into_iter())
@@ -1679,11 +1677,17 @@ fn lookup_qualified_name_node(
             for (prefix, e) in
                 [("self", ctx.component_scope.last()), ("root", ctx.component_scope.first())]
             {
-                if let Some(e) = e {
-                    if e.lookup(ctx, &first_str).is_some() {
-                        ctx.diag.push_error(format!("Unknown unqualified identifier '{0}'. Did you mean '{prefix}.{0}'?", first.text()), &node);
-                        return None;
-                    }
+                if let Some(e) = e
+                    && e.lookup(ctx, &first_str).is_some()
+                {
+                    ctx.diag.push_error(
+                        format!(
+                            "Unknown unqualified identifier '{0}'. Did you mean '{prefix}.{0}'?",
+                            first.text()
+                        ),
+                        &node,
+                    );
+                    return None;
                 }
             }
 
@@ -1897,11 +1901,11 @@ fn maybe_lookup_object(
                 base = r;
             }
             None => {
-                if let Some(minus_pos) = next.text().find('-') {
-                    if base.lookup(ctx, &SmolStr::new(&next.text()[0..minus_pos])).is_some() {
-                        ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next);
-                        return None;
-                    }
+                if let Some(minus_pos) = next.text().find('-')
+                    && base.lookup(ctx, &SmolStr::new(&next.text()[0..minus_pos])).is_some()
+                {
+                    ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next);
+                    return None;
                 }
 
                 match base {
@@ -1973,128 +1977,121 @@ fn resolve_two_way_bindings(
                     let mut binding = binding.borrow_mut();
                     if let Expression::Uncompiled(node) =
                         binding.expression.ignore_debug_hooks().clone()
+                        && let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone())
                     {
-                        if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
-                            let lhs_lookup = elem.borrow().lookup_property(prop_name);
-                            if !lhs_lookup.is_valid() {
+                        let lhs_lookup = elem.borrow().lookup_property(prop_name);
+                        if !lhs_lookup.is_valid() {
+                            // An attempt to resolve this already failed when trying to resolve the property type
+                            assert!(diag.has_errors());
+                            continue;
+                        }
+                        let mut lookup_ctx = LookupCtx {
+                            property_name: Some(prop_name.as_str()),
+                            property_type: lhs_lookup.property_type.clone(),
+                            component_scope: &scope.0,
+                            diag,
+                            arguments: vec![],
+                            type_register,
+                            type_loader: None,
+                            current_token: Some(node.clone().into()),
+                            local_variables: vec![],
+                        };
+
+                        binding.expression = Expression::Invalid;
+
+                        if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
+                            let nr = twb.property.clone();
+                            binding.two_way_bindings.push(twb);
+
+                            nr.element()
+                                .borrow()
+                                .property_analysis
+                                .borrow_mut()
+                                .entry(nr.name().clone())
+                                .or_default()
+                                .is_linked = true;
+
+                            if matches!(
+                                lhs_lookup.property_visibility,
+                                PropertyVisibility::Private | PropertyVisibility::Output
+                            ) && !lhs_lookup.is_local_to_component
+                            {
+                                // invalid property assignment should have been reported earlier
+                                assert!(diag.has_errors() || elem.borrow().is_legacy_syntax);
+                                continue;
+                            }
+
+                            // Check the compatibility.
+                            let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+                            if rhs_lookup.property_type == Type::Invalid {
                                 // An attempt to resolve this already failed when trying to resolve the property type
                                 assert!(diag.has_errors());
                                 continue;
                             }
-                            let mut lookup_ctx = LookupCtx {
-                                property_name: Some(prop_name.as_str()),
-                                property_type: lhs_lookup.property_type.clone(),
-                                component_scope: &scope.0,
-                                diag,
-                                arguments: vec![],
-                                type_register,
-                                type_loader: None,
-                                current_token: Some(node.clone().into()),
-                                local_variables: vec![],
-                            };
+                            rhs_lookup.is_local_to_component &=
+                                lookup_ctx.is_local_element(&nr.element());
 
-                            binding.expression = Expression::Invalid;
-
-                            if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
-                                let nr = twb.property.clone();
-                                binding.two_way_bindings.push(twb);
-
-                                nr.element()
-                                    .borrow()
-                                    .property_analysis
-                                    .borrow_mut()
-                                    .entry(nr.name().clone())
-                                    .or_default()
-                                    .is_linked = true;
-
-                                if matches!(
+                            if !rhs_lookup.is_valid_for_assignment() {
+                                match (
                                     lhs_lookup.property_visibility,
-                                    PropertyVisibility::Private | PropertyVisibility::Output
-                                ) && !lhs_lookup.is_local_to_component
-                                {
-                                    // invalid property assignment should have been reported earlier
-                                    assert!(diag.has_errors() || elem.borrow().is_legacy_syntax);
-                                    continue;
-                                }
-
-                                // Check the compatibility.
-                                let mut rhs_lookup =
-                                    nr.element().borrow().lookup_property(nr.name());
-                                if rhs_lookup.property_type == Type::Invalid {
-                                    // An attempt to resolve this already failed when trying to resolve the property type
-                                    assert!(diag.has_errors());
-                                    continue;
-                                }
-                                rhs_lookup.is_local_to_component &=
-                                    lookup_ctx.is_local_element(&nr.element());
-
-                                if !rhs_lookup.is_valid_for_assignment() {
-                                    match (
-                                        lhs_lookup.property_visibility,
-                                        rhs_lookup.property_visibility,
-                                    ) {
-                                        (PropertyVisibility::Input, PropertyVisibility::Input)
-                                            if !lhs_lookup.is_local_to_component =>
-                                        {
-                                            assert!(rhs_lookup.is_local_to_component);
-                                            marked_linked_read_only(elem, prop_name);
-                                        }
-                                        (
-                                            PropertyVisibility::Output
-                                            | PropertyVisibility::Private,
-                                            PropertyVisibility::Output | PropertyVisibility::Input,
-                                        ) => {
-                                            assert!(lhs_lookup.is_local_to_component);
-                                            marked_linked_read_only(elem, prop_name);
-                                        }
-                                        (PropertyVisibility::Input, PropertyVisibility::Output)
-                                            if !lhs_lookup.is_local_to_component =>
-                                        {
-                                            assert!(!rhs_lookup.is_local_to_component);
-                                            marked_linked_read_only(elem, prop_name);
-                                        }
-                                        _ => {
-                                            if lookup_ctx.is_legacy_component() {
-                                                diag.push_warning(
-                                                    format!(
-                                                        "Link to a {} property is deprecated",
-                                                        rhs_lookup.property_visibility
-                                                    ),
-                                                    &node,
-                                                );
-                                            } else {
-                                                diag.push_error(
-                                                    format!(
-                                                        "Cannot link to a {} property",
-                                                        rhs_lookup.property_visibility
-                                                    ),
-                                                    &node,
-                                                )
-                                            }
-                                        }
-                                    }
-                                } else if !lhs_lookup.is_valid_for_assignment() {
-                                    if rhs_lookup.is_local_to_component
-                                        && rhs_lookup.property_visibility
-                                            == PropertyVisibility::InOut
+                                    rhs_lookup.property_visibility,
+                                ) {
+                                    (PropertyVisibility::Input, PropertyVisibility::Input)
+                                        if !lhs_lookup.is_local_to_component =>
                                     {
+                                        assert!(rhs_lookup.is_local_to_component);
+                                        marked_linked_read_only(elem, prop_name);
+                                    }
+                                    (
+                                        PropertyVisibility::Output | PropertyVisibility::Private,
+                                        PropertyVisibility::Output | PropertyVisibility::Input,
+                                    ) => {
+                                        assert!(lhs_lookup.is_local_to_component);
+                                        marked_linked_read_only(elem, prop_name);
+                                    }
+                                    (PropertyVisibility::Input, PropertyVisibility::Output)
+                                        if !lhs_lookup.is_local_to_component =>
+                                    {
+                                        assert!(!rhs_lookup.is_local_to_component);
+                                        marked_linked_read_only(elem, prop_name);
+                                    }
+                                    _ => {
                                         if lookup_ctx.is_legacy_component() {
-                                            debug_assert!(!diag.is_empty()); // warning should already be reported
-                                        } else {
-                                            diag.push_error(
-                                                "Cannot link input property".into(),
+                                            diag.push_warning(
+                                                format!(
+                                                    "Link to a {} property is deprecated",
+                                                    rhs_lookup.property_visibility
+                                                ),
                                                 &node,
                                             );
+                                        } else {
+                                            diag.push_error(
+                                                format!(
+                                                    "Cannot link to a {} property",
+                                                    rhs_lookup.property_visibility
+                                                ),
+                                                &node,
+                                            )
                                         }
-                                    } else if rhs_lookup.property_visibility
-                                        == PropertyVisibility::InOut
-                                    {
-                                        diag.push_warning("Linking input properties to input output properties is deprecated".into(), &node);
-                                        marked_linked_read_only(&nr.element(), nr.name());
-                                    } else {
-                                        // This is allowed, but then the rhs must also become read only.
-                                        marked_linked_read_only(&nr.element(), nr.name());
                                     }
+                                }
+                            } else if !lhs_lookup.is_valid_for_assignment() {
+                                if rhs_lookup.is_local_to_component
+                                    && rhs_lookup.property_visibility == PropertyVisibility::InOut
+                                {
+                                    if lookup_ctx.is_legacy_component() {
+                                        debug_assert!(!diag.is_empty()); // warning should already be reported
+                                    } else {
+                                        diag.push_error("Cannot link input property".into(), &node);
+                                    }
+                                } else if rhs_lookup.property_visibility
+                                    == PropertyVisibility::InOut
+                                {
+                                    diag.push_warning("Linking input properties to input output properties is deprecated".into(), &node);
+                                    marked_linked_read_only(&nr.element(), nr.name());
+                                } else {
+                                    // This is allowed, but then the rhs must also become read only.
+                                    marked_linked_read_only(&nr.element(), nr.name());
                                 }
                             }
                         }

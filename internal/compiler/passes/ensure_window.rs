@@ -141,7 +141,7 @@ pub fn ensure_window(
 }
 
 pub fn inherits_window(component: &Rc<Component>) -> bool {
-    component.root_element.borrow().builtin_type().map_or(true, |b| {
+    component.root_element.borrow().builtin_type().is_none_or(|b| {
         matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
     })
 }

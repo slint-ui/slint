@@ -269,20 +269,19 @@ fn compiled(
 /// or `Some(Some(value))` if there is a `//-key:value`  match
 fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
     for x in node.children_with_tokens() {
-        if x.kind() == SyntaxKind::Comment {
-            if let Some(comment) = x
+        if x.kind() == SyntaxKind::Comment
+            && let Some(comment) = x
                 .as_token()
                 .unwrap()
                 .text()
                 .strip_prefix("//-")
                 .and_then(|x| x.trim_end().strip_prefix(key))
-            {
-                if comment.is_empty() {
-                    return Some(None);
-                }
-                if let Some(comment) = comment.strip_prefix(':') {
-                    return Some(Some(comment.into()));
-                }
+        {
+            if comment.is_empty() {
+                return Some(None);
+            }
+            if let Some(comment) = comment.strip_prefix(':') {
+                return Some(Some(comment.into()));
             }
         }
     }

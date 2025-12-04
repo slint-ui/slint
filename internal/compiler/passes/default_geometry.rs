@@ -30,10 +30,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             if elem.borrow().repeated.is_some() {
                 return None;
             }
-            if elem.borrow().geometry_props.is_none() {
-                // Not an element with geometry, skip it
-                return None;
-            }
+            elem.borrow().geometry_props.as_ref()?;
 
             // whether the width, or height, is filling the parent
             let (mut w100, mut h100) = (false, false);

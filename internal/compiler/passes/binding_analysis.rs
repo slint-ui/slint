@@ -138,7 +138,7 @@ impl PropertyPath {
             }
         }
         if second.elements.is_empty() {
-            debug_assert!(elements.last().map_or(true, |x| *x != ByAddress(second.prop.element())));
+            debug_assert!(elements.last().is_none_or(|x| *x != ByAddress(second.prop.element())));
             Self { elements, prop: NamedReference::new(&element, second.prop.name().clone()) }
         } else {
             elements.push(ByAddress(element));
@@ -223,26 +223,26 @@ fn analyze_element(
         process_property(&g.height.clone().into(), P, context, reverse_aliases, diag);
     }
 
-    if let Some(component) = elem.borrow().enclosing_component.upgrade() {
-        if Rc::ptr_eq(&component.root_element, elem) {
-            for e in component.init_code.borrow().iter() {
-                recurse_expression(elem, e, &mut |prop, r| {
-                    process_property(prop, r, context, reverse_aliases, diag);
-                });
-            }
-            component.root_constraints.borrow_mut().visit_named_references(&mut |nr| {
-                process_property(&nr.clone().into(), P, context, reverse_aliases, diag);
-            });
-            component.popup_windows.borrow().iter().for_each(|p| {
-                process_property(&p.x.clone().into(), P, context, reverse_aliases, diag);
-                process_property(&p.y.clone().into(), P, context, reverse_aliases, diag);
-            });
-            component.timers.borrow().iter().for_each(|t| {
-                process_property(&t.interval.clone().into(), P, context, reverse_aliases, diag);
-                process_property(&t.running.clone().into(), P, context, reverse_aliases, diag);
-                process_property(&t.triggered.clone().into(), P, context, reverse_aliases, diag);
+    if let Some(component) = elem.borrow().enclosing_component.upgrade()
+        && Rc::ptr_eq(&component.root_element, elem)
+    {
+        for e in component.init_code.borrow().iter() {
+            recurse_expression(elem, e, &mut |prop, r| {
+                process_property(prop, r, context, reverse_aliases, diag);
             });
         }
+        component.root_constraints.borrow_mut().visit_named_references(&mut |nr| {
+            process_property(&nr.clone().into(), P, context, reverse_aliases, diag);
+        });
+        component.popup_windows.borrow().iter().for_each(|p| {
+            process_property(&p.x.clone().into(), P, context, reverse_aliases, diag);
+            process_property(&p.y.clone().into(), P, context, reverse_aliases, diag);
+        });
+        component.timers.borrow().iter().for_each(|t| {
+            process_property(&t.interval.clone().into(), P, context, reverse_aliases, diag);
+            process_property(&t.running.clone().into(), P, context, reverse_aliases, diag);
+            process_property(&t.triggered.clone().into(), P, context, reverse_aliases, diag);
+        });
     }
 
     if let Some(repeated) = &elem.borrow().repeated {
@@ -263,24 +263,24 @@ fn analyze_element(
     }
 
     for info in elem.borrow().debug.iter() {
-        if let Some(crate::layout::Layout::GridLayout(grid)) = &info.layout {
-            if grid.uses_auto {
-                for rowcol_prop_name in ["row", "col"] {
-                    for it in grid.elems.iter() {
-                        let child = &it.item.element;
-                        if child
-                            .borrow()
-                            .property_analysis
-                            .borrow()
-                            .get(rowcol_prop_name)
-                            .is_some_and(|a| a.is_set || a.is_set_externally)
-                        {
-                            diag.push_error(
-                                            format!("Cannot set property '{}' on '{}' because parent GridLayout uses auto-numbering",
-                                             rowcol_prop_name, child.borrow().id),
-                                            &child.borrow().to_source_location(), // not ideal, the location of the property being set would be better
-                                        );
-                        }
+        if let Some(crate::layout::Layout::GridLayout(grid)) = &info.layout
+            && grid.uses_auto
+        {
+            for rowcol_prop_name in ["row", "col"] {
+                for it in grid.elems.iter() {
+                    let child = &it.item.element;
+                    if child
+                        .borrow()
+                        .property_analysis
+                        .borrow()
+                        .get(rowcol_prop_name)
+                        .is_some_and(|a| a.is_set || a.is_set_externally)
+                    {
+                        diag.push_error(
+                            format!("Cannot set property '{}' on '{}' because parent GridLayout uses auto-numbering",
+                                rowcol_prop_name, child.borrow().id),
+                                &child.borrow().to_source_location(), // not ideal, the location of the property being set would be better
+                        );
                     }
                 }
             }
@@ -326,7 +326,7 @@ fn analyze_binding(
                 "" => loop_description.push_str(it.prop.name()),
                 id => {
                     loop_description.push_str(id);
-                    loop_description.push_str(".");
+                    loop_description.push('.');
                     loop_description.push_str(it.prop.name());
                 }
             }
@@ -522,10 +522,10 @@ fn recurse_expression(
         }
         Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
-            if matches!(expr, Expression::SolveLayout(..)) {
-                if let Some(nr) = l.geometry().rect.size_reference(*o) {
-                    vis(&nr.clone().into(), P);
-                }
+            if matches!(expr, Expression::SolveLayout(..))
+                && let Some(nr) = l.geometry().rect.size_reference(*o)
+            {
+                vis(&nr.clone().into(), P);
             }
             match l {
                 crate::layout::Layout::GridLayout(_) => {
@@ -549,10 +549,10 @@ fn recurse_expression(
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
         | Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
             // we should only visit the layout geometry for the orientation
-            if matches!(expr, Expression::SolveGridLayout { .. }) {
-                if let Some(nr) = layout.geometry.rect.size_reference(*orientation) {
-                    vis(&nr.clone().into(), P);
-                }
+            if matches!(expr, Expression::SolveGridLayout { .. })
+                && let Some(nr) = layout.geometry.rect.size_reference(*orientation)
+            {
+                vis(&nr.clone().into(), P);
             }
             vis(&layout_organized_data_prop.clone().into(), P);
             visit_layout_items_dependencies(
@@ -652,16 +652,13 @@ fn visit_layout_items_dependencies<'a>(
         if let Some(nr) = element.borrow().layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
         } else {
-            if let ElementType::Component(base) = &element.borrow().base_type {
-                if let Some(nr) = base.root_element.borrow().layout_info_prop(orientation) {
-                    vis(
-                        &PropertyPath {
-                            elements: vec![ByAddress(element.clone())],
-                            prop: nr.clone(),
-                        },
-                        ReadType::PropertyRead,
-                    );
-                }
+            if let ElementType::Component(base) = &element.borrow().base_type
+                && let Some(nr) = base.root_element.borrow().layout_info_prop(orientation)
+            {
+                vis(
+                    &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
+                    ReadType::PropertyRead,
+                );
             }
             visit_implicit_layout_info_dependencies(orientation, &element, vis);
         }
@@ -890,10 +887,10 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
 
     fn mark_alias(alias: &NamedReference) {
         alias.mark_as_set();
-        if !alias.is_externally_modified() {
-            if let Some(bind) = alias.element().borrow().bindings.get(alias.name()) {
-                propagate_alias(&bind.borrow())
-            }
+        if !alias.is_externally_modified()
+            && let Some(bind) = alias.element().borrow().bindings.get(alias.name())
+        {
+            propagate_alias(&bind.borrow())
         }
     }
 }

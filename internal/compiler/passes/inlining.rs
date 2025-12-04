@@ -181,11 +181,11 @@ fn inline_element(
     elem_mut.children = new_children;
     elem_mut.debug.extend_from_slice(&inlined_component.root_element.borrow().debug);
 
-    if let ElementType::Component(c) = &mut elem_mut.base_type {
-        if c.parent_element.upgrade().is_some() {
-            debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
-            *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
-        }
+    if let ElementType::Component(c) = &mut elem_mut.base_type
+        && c.parent_element.upgrade().is_some()
+    {
+        debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
+        *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
     };
 
     root_component.optimized_elements.borrow_mut().extend(
@@ -394,11 +394,11 @@ fn duplicate_element_with_mapping(
         inline_depth: elem.inline_depth + 1,
     }));
     mapping.insert(element_key(element.clone()), new.clone());
-    if let ElementType::Component(c) = &mut new.borrow_mut().base_type {
-        if c.parent_element.upgrade().is_some() {
-            debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
-            *c = duplicate_sub_component(c, &new, mapping, priority_delta);
-        }
+    if let ElementType::Component(c) = &mut new.borrow_mut().base_type
+        && c.parent_element.upgrade().is_some()
+    {
+        debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
+        *c = duplicate_sub_component(c, &new, mapping, priority_delta);
     };
 
     new
@@ -689,20 +689,17 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
             return true;
         }
 
-        if prop == "padding"
+        if (prop == "padding"
             || prop == "spacing"
             || prop.starts_with("padding-")
             || prop.starts_with("spacing-")
-            || prop == "alignment"
+            || prop == "alignment")
+            && let ElementType::Component(base) = &elem.borrow().base_type
+            && crate::layout::is_layout(&base.root_element.borrow().base_type)
+            && !base.root_element.borrow().is_binding_set(prop, false)
         {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                if crate::layout::is_layout(&base.root_element.borrow().base_type) {
-                    if !base.root_element.borrow().is_binding_set(prop, false) {
-                        // The layout pass need to know that this property is set
-                        return true;
-                    }
-                }
-            }
+            // The layout pass need to know that this property is set
+            return true;
         }
 
         let binding = binding.borrow();

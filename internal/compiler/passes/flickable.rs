@@ -124,10 +124,10 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
         .is_set_externally = true;
 
     let enclosing_component = flickable.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(insertion_point) = &mut *enclosing_component.child_insertion_point.borrow_mut() {
-        if std::rc::Rc::ptr_eq(&insertion_point.parent, flickable) {
-            insertion_point.parent = viewport.clone()
-        }
+    if let Some(insertion_point) = &mut *enclosing_component.child_insertion_point.borrow_mut()
+        && std::rc::Rc::ptr_eq(&insertion_point.parent, flickable)
+    {
+        insertion_point.parent = viewport.clone()
     }
 
     flickable.borrow_mut().children.push(viewport);
@@ -216,9 +216,9 @@ fn set_binding_if_not_explicit(
     expression: impl FnOnce() -> Option<Expression>,
 ) {
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
-    if elem.borrow().bindings.get(property).map_or(true, |b| !b.borrow().has_binding()) {
-        if let Some(e) = expression() {
-            elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
-        }
+    if elem.borrow().bindings.get(property).is_none_or(|b| !b.borrow().has_binding())
+        && let Some(e) = expression()
+    {
+        elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
     }
 }

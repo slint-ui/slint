@@ -71,10 +71,10 @@ fn collect_image_urls_from_expression(
     e: &Expression,
     urls: &mut HashMap<SmolStr, Option<SmolStr>>,
 ) {
-    if let Expression::ImageReference { resource_ref, .. } = e {
-        if let ImageReference::AbsolutePath(path) = resource_ref {
-            urls.insert(path.clone(), None);
-        }
+    if let Expression::ImageReference { resource_ref, .. } = e
+        && let ImageReference::AbsolutePath(path) = resource_ref
+    {
+        urls.insert(path.clone(), None);
     };
 
     e.visit(|e| collect_image_urls_from_expression(e, urls));
@@ -88,27 +88,27 @@ fn embed_images_from_expression(
     scale_factor: f32,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e {
-        if let ImageReference::AbsolutePath(path) = resource_ref {
-            // used mapped path:
-            let mapped_path =
-                urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
-            *path = mapped_path;
-            if embed_files != EmbedResourcesKind::Nothing
-                && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
-                    || path.starts_with("builtin:/"))
-            {
-                let image_ref = embed_image(
-                    global_embedded_resources,
-                    embed_files,
-                    path,
-                    scale_factor,
-                    diag,
-                    source_location,
-                );
-                if embed_files != EmbedResourcesKind::ListAllResources {
-                    *resource_ref = image_ref;
-                }
+    if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
+        && let ImageReference::AbsolutePath(path) = resource_ref
+    {
+        // used mapped path:
+        let mapped_path =
+            urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
+        *path = mapped_path;
+        if embed_files != EmbedResourcesKind::Nothing
+            && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
+                || path.starts_with("builtin:/"))
+        {
+            let image_ref = embed_image(
+                global_embedded_resources,
+                embed_files,
+                path,
+                scale_factor,
+                diag,
+                source_location,
+            );
+            if embed_files != EmbedResourcesKind::ListAllResources {
+                *resource_ref = image_ref;
             }
         }
     };

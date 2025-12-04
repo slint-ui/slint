@@ -70,11 +70,12 @@ impl NamedReference {
     fn is_constant_impl(&self, mut check_binding: bool) -> bool {
         let mut elem = self.element();
         let e = elem.borrow();
-        if let Some(decl) = e.property_declarations.get(self.name()) {
-            if decl.expose_in_public_api && decl.visibility != PropertyVisibility::Input {
-                // could be set by the public API
-                return false;
-            }
+        if let Some(decl) = e.property_declarations.get(self.name())
+            && decl.expose_in_public_api
+            && decl.visibility != PropertyVisibility::Input
+        {
+            // could be set by the public API
+            return false;
         }
         if e.property_analysis.borrow().get(self.name()).is_some_and(|a| a.is_set_externally) {
             return false;
@@ -111,10 +112,10 @@ impl NamedReference {
                     continue;
                 }
                 ElementType::Builtin(b) => {
-                    return b.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output());
+                    return b.properties.get(self.name()).is_none_or(|pi| !pi.is_native_output());
                 }
                 ElementType::Native(n) => {
-                    return n.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output());
+                    return n.properties.get(self.name()).is_none_or(|pi| !pi.is_native_output());
                 }
                 crate::langtype::ElementType::Error | crate::langtype::ElementType::Global => {
                     return true;

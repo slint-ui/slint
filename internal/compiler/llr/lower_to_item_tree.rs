@@ -466,15 +466,14 @@ fn lower_sub_component(
             .borrow()
             .get(p)
             .is_none_or(|a| a.is_set || a.is_set_externally)
+            && let Some(anim) = binding.animation.as_ref()
         {
-            if let Some(anim) = binding.animation.as_ref() {
-                match super::lower_expression::lower_animation(anim, &mut ctx) {
-                    Animation::Static(anim) => {
-                        sub_component.animations.insert(prop.local(), anim);
-                    }
-                    Animation::Transition(_) => {
-                        // Cannot set a property with a transition anyway
-                    }
+            match super::lower_expression::lower_animation(anim, &mut ctx) {
+                Animation::Static(anim) => {
+                    sub_component.animations.insert(prop.local(), anim);
+                }
+                Animation::Transition(_) => {
+                    // Cannot set a property with a transition anyway
                 }
             }
         }

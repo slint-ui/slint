@@ -62,7 +62,7 @@ pub fn lower_macro(
                 Some((Expression::NumberLiteral(val, Unit::None), _)) => val as f32,
                 // handle negative numbers
                 Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
-                    Expression::NumberLiteral(val, Unit::None) => (-1.0 * val) as f32,
+                    Expression::NumberLiteral(val, Unit::None) => -val as f32,
                     _ => {
                         has_error
                             .get_or_insert((n.to_source_location(), expected_argument_type_error));

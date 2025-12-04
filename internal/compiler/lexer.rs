@@ -102,7 +102,7 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
     } else if !text.starts_with('"') {
         return 0;
     }
-    let text_len = text.as_bytes().len();
+    let text_len = text.len();
     let mut end = 1; // skip the '"'
     loop {
         let stop = match text[end..].find(&['"', '\\'][..]) {
@@ -334,12 +334,12 @@ pub fn locate_slint_macro(rust_source: &str) -> impl Iterator<Item = core::ops::
         let (open, close) = loop {
             if let Some(m) = rust_source[begin..].find("slint") {
                 // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
-                if let Some(x) = rust_source[begin..(begin + m)].rfind(['\\', '\n', '/', '\"']) {
-                    if rust_source.as_bytes()[begin + x] != b'\n' {
-                        begin += m + 5;
-                        begin += rust_source[begin..].find(['\n']).unwrap_or(0);
-                        continue;
-                    }
+                if let Some(x) = rust_source[begin..(begin + m)].rfind(['\\', '\n', '/', '\"'])
+                    && rust_source.as_bytes()[begin + x] != b'\n'
+                {
+                    begin += m + 5;
+                    begin += rust_source[begin..].find(['\n']).unwrap_or(0);
+                    continue;
                 }
                 begin += m + 5;
                 while rust_source[begin..].starts_with(' ') {

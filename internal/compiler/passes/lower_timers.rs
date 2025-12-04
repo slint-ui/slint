@@ -13,25 +13,25 @@ use std::rc::Rc;
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| match e {
-            Expression::FunctionCall { function, arguments, .. } => match function {
-                Callable::Builtin(BuiltinFunction::StartTimer | BuiltinFunction::StopTimer) => {
-                    if let [Expression::ElementReference(timer)] = arguments.as_slice() {
-                        *e = Expression::SelfAssignment {
-                            lhs: Box::new(Expression::PropertyReference(NamedReference::new(
-                                &timer.upgrade().unwrap(),
-                                SmolStr::new_static("running"),
-                            ))),
-                            rhs: Box::new(Expression::BoolLiteral(matches!(
-                                function,
-                                Callable::Builtin(BuiltinFunction::StartTimer)
-                            ))),
-                            op: '=',
-                            node: None,
-                        }
+            Expression::FunctionCall { function, arguments, .. } => {
+                if let Callable::Builtin(BuiltinFunction::StartTimer | BuiltinFunction::StopTimer) =
+                    function
+                    && let [Expression::ElementReference(timer)] = arguments.as_slice()
+                {
+                    *e = Expression::SelfAssignment {
+                        lhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                            &timer.upgrade().unwrap(),
+                            SmolStr::new_static("running"),
+                        ))),
+                        rhs: Box::new(Expression::BoolLiteral(matches!(
+                            function,
+                            Callable::Builtin(BuiltinFunction::StartTimer)
+                        ))),
+                        op: '=',
+                        node: None,
                     }
                 }
-                _ => {}
-            },
+            }
             _ => {}
         });
     });
@@ -86,10 +86,11 @@ fn lower_timer(
     let removed = parent_element_borrowed.children.remove(index);
     parent_component.optimized_elements.borrow_mut().push(removed);
     drop(parent_element_borrowed);
-    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut() {
-        if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
-            parent_cip.insertion_index -= 1;
-        }
+    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut()
+        && Rc::ptr_eq(&parent_cip.parent, parent_element)
+        && parent_cip.insertion_index > index
+    {
+        parent_cip.insertion_index -= 1;
     }
 
     let running = NamedReference::new(timer_element, SmolStr::new_static("running"));
