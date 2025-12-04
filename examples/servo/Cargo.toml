@@ -39,7 +39,6 @@ time-now = "0.1.2"
 termcolor = "1.4.1"
 thiserror = "2.0.17"
 foreign-types-shared = "0.3.1"
-raw-window-handle = "0.6"
 
 wgpu-hal = "27.0.4"
 wgpu-core = "27.0.3"
@@ -73,7 +72,3 @@ slint-build = { path = "../../api/rs/build" }
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
-
-# for local development
-[patch.crates-io]
-surfman = { path = "/Users/burhankhanzada/Projects/surfman" }
