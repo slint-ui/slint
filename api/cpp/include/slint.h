@@ -124,10 +124,13 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
 }
 
 inline SharedVector<uint16_t>
-organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data)
+organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data,
+                     cbindgen_private::Slice<int> repeater_indices)
 {
     SharedVector<uint16_t> result;
-    cbindgen_private::slint_organize_grid_layout(input_data, &result);
+    cbindgen_private::Slice<uint32_t> ri =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
+    cbindgen_private::slint_organize_grid_layout(input_data, ri, &result);
     return result;
 }
 
@@ -142,22 +145,28 @@ inline SharedVector<uint16_t> organize_dialog_button_layout(
 
 inline SharedVector<float>
 solve_grid_layout(const cbindgen_private::GridLayoutData &data,
-                  cbindgen_private::Slice<cbindgen_private::LayoutInfo> constraints,
-                  cbindgen_private::Orientation orientation)
+                  cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> constraints,
+                  cbindgen_private::Orientation orientation,
+                  cbindgen_private::Slice<int> repeater_indices)
 {
     SharedVector<float> result;
-    cbindgen_private::slint_solve_grid_layout(&data, constraints, orientation, &result);
+    cbindgen_private::Slice<uint32_t> ri =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
+    cbindgen_private::slint_solve_grid_layout(&data, constraints, orientation, ri, &result);
     return result;
 }
 
 inline cbindgen_private::LayoutInfo
 grid_layout_info(const cbindgen_private::GridLayoutOrganizedData &organized_data,
-                 cbindgen_private::Slice<cbindgen_private::LayoutInfo> constraints, float spacing,
+                 cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> constraints,
+                 cbindgen_private::Slice<int> repeater_indices, float spacing,
                  const cbindgen_private::Padding &padding,
                  cbindgen_private::Orientation orientation)
 {
-    return cbindgen_private::slint_grid_layout_info(&organized_data, constraints, spacing, &padding,
-                                                    orientation);
+    cbindgen_private::Slice<uint32_t> ri =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
+    return cbindgen_private::slint_grid_layout_info(&organized_data, constraints, ri, spacing,
+                                                    &padding, orientation);
 }
 
 inline cbindgen_private::LayoutInfo
@@ -176,9 +185,11 @@ box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellDat
 }
 
 /// Access the layout cache of an item within a repeater
-inline float layout_cache_access(const SharedVector<float> &cache, int offset, int repeater_index)
+template<typename T>
+inline T layout_cache_access(const SharedVector<T> &cache, int offset, int repeater_index,
+                             int entries_per_item)
 {
-    size_t idx = size_t(cache[offset]) + repeater_index * 2;
+    size_t idx = size_t(cache[offset]) + repeater_index * entries_per_item;
     return idx < cache.size() ? cache[idx] : 0;
 }
 

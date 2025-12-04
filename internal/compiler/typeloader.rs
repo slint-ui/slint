@@ -846,15 +846,19 @@ impl Snapshotter {
             Expression::ReturnStatement(expr) => Expression::ReturnStatement(
                 expr.as_ref().map(|e| Box::new(self.snapshot_expression(e))),
             ),
-            Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
-                Expression::LayoutCacheAccess {
-                    layout_cache_prop: layout_cache_prop.snapshot(self),
-                    index: *index,
-                    repeater_index: repeater_index
-                        .as_ref()
-                        .map(|e| Box::new(self.snapshot_expression(e))),
-                }
-            }
+            Expression::LayoutCacheAccess {
+                layout_cache_prop,
+                index,
+                repeater_index,
+                entries_per_item,
+            } => Expression::LayoutCacheAccess {
+                layout_cache_prop: layout_cache_prop.snapshot(self),
+                index: *index,
+                repeater_index: repeater_index
+                    .as_ref()
+                    .map(|e| Box::new(self.snapshot_expression(e))),
+                entries_per_item: *entries_per_item,
+            },
             Expression::MinMax { ty, op, lhs, rhs } => Expression::MinMax {
                 ty: ty.clone(),
                 lhs: Box::new(self.snapshot_expression(lhs)),

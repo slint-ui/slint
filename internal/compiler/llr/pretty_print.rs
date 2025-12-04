@@ -392,17 +392,31 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
             Expression::EnumerationValue(x) => write!(f, "{x}"),
-            Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index: None } => {
+            Expression::LayoutCacheAccess {
+                layout_cache_prop,
+                index,
+                repeater_index: None,
+                ..
+            } => {
                 write!(f, "{}[{}]", DisplayPropertyRef(layout_cache_prop, ctx), index)
             }
             Expression::LayoutCacheAccess {
                 layout_cache_prop,
                 index,
                 repeater_index: Some(ri),
+                entries_per_item,
             } => {
-                write!(f, "{}[{} % {}]", DisplayPropertyRef(layout_cache_prop, ctx), index, e(ri))
+                write!(
+                    f,
+                    "{}[{} % {} * {}]",
+                    DisplayPropertyRef(layout_cache_prop, ctx),
+                    index,
+                    e(ri),
+                    entries_per_item
+                )
             }
             Expression::BoxLayoutFunction { .. } => write!(f, "BoxLayoutFunction(TODO)",),
+            Expression::GridInputFunction { .. } => write!(f, "GridInputFunction(TODO)",),
             Expression::MinMax { ty: _, op, lhs, rhs } => match op {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),

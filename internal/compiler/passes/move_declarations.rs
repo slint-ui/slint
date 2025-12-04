@@ -52,7 +52,7 @@ fn do_move_declarations(component: &Rc<Component>) {
             return;
         }
 
-        // take the bindings so we do nt keep the borrow_mut of the element
+        // take the bindings so we do not keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
         let mut new_bindings = BindingsMap::default();
         for (k, e) in bindings {

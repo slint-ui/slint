@@ -108,17 +108,14 @@ fn lower_element_layout(
 
     match layout_type.as_ref().unwrap().as_str() {
         "Row" => {
-            // We shouldn't lower layout if we have a Row in there. Unless the Row is the root of a repeated item,
-            // in which case another error has been reported
-            assert!(
-                diag.has_errors()
-                    && Rc::ptr_eq(&component.root_element, elem)
-                    && component
-                        .parent_element
-                        .upgrade()
-                        .is_some_and(|e| e.borrow().repeated.is_some()),
-                "Error should have been caught at element lookup time"
+            if Rc::ptr_eq(&component.root_element, elem)
+                && component.parent_element.upgrade().is_some_and(|e| e.borrow().repeated.is_some())
+            {
+                diag.push_error(
+                "'if' or 'for' expressions are not currently supported for Row elements in grid layouts".to_string(),
+                &*elem.borrow(),
             );
+            }
             return None;
         }
         "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
@@ -449,31 +446,47 @@ impl GridLayout {
         let index = self.elems.len();
         let result = create_layout_item(item_element, diag);
         if let Some(ref layout_item) = result {
-            if layout_item.repeater_index.is_some() {
-                diag.push_error(
-                    "'if' or 'for' expressions are not currently supported in grid layouts"
-                        .to_string(),
-                    &*item_element.borrow(),
-                );
-                return;
-            }
-
+            let rep_idx = &layout_item.repeater_index;
             let e = &layout_item.elem;
-            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, &None, diag);
+            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, &rep_idx, 2, diag);
             if !layout_item.item.constraints.fixed_width {
-                set_prop_from_cache(e, "width", layout_cache_prop_h, index * 2 + 1, &None, diag);
+                set_prop_from_cache(
+                    e,
+                    "width",
+                    layout_cache_prop_h,
+                    index * 2 + 1,
+                    &rep_idx,
+                    2,
+                    diag,
+                );
             }
-            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, &None, diag);
+            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, &rep_idx, 2, diag);
             if !layout_item.item.constraints.fixed_height {
-                set_prop_from_cache(e, "height", layout_cache_prop_v, index * 2 + 1, &None, diag);
+                set_prop_from_cache(
+                    e,
+                    "height",
+                    layout_cache_prop_v,
+                    index * 2 + 1,
+                    &rep_idx,
+                    2,
+                    diag,
+                );
             }
 
             let org_index = index * 4;
             if col_expr.is_none() {
-                set_prop_from_cache(e, "col", organized_data_prop, org_index, &None, diag);
+                set_prop_from_cache(e, "col", organized_data_prop, org_index, &rep_idx, 4, diag);
             }
             if row_expr.is_none() {
-                set_prop_from_cache(e, "row", organized_data_prop, org_index + 2, &None, diag);
+                set_prop_from_cache(
+                    e,
+                    "row",
+                    organized_data_prop,
+                    org_index + 2,
+                    &rep_idx,
+                    4,
+                    diag,
+                );
             }
 
             let expr_or_default = |expr: &Option<RowColExpr>, default: u16| -> RowColExpr {
@@ -563,7 +576,7 @@ fn lower_box_layout(
                 }
             };
             let actual_elem = &item.elem;
-            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, diag);
+            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, 2, diag);
             if !fixed_size {
                 set_prop_from_cache(
                     actual_elem,
@@ -571,6 +584,7 @@ fn lower_box_layout(
                     &layout_cache_prop,
                     index + 1,
                     rep_idx,
+                    2,
                     diag,
                 );
             }
@@ -961,6 +975,7 @@ fn set_prop_from_cache(
     layout_cache_prop: &NamedReference,
     index: usize,
     repeater_index: &Option<Expression>,
+    entries_per_item: usize,
     diag: &mut BuildDiagnostics,
 ) {
     let old = elem.borrow_mut().bindings.insert(
@@ -970,6 +985,7 @@ fn set_prop_from_cache(
                 layout_cache_prop: layout_cache_prop.clone(),
                 index,
                 repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
+                entries_per_item,
             },
             layout_cache_prop.element().borrow().to_source_location(),
         )
