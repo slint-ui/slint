@@ -1,5 +1,4 @@
 ---
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: CheckState
 description: CheckState content
 ---

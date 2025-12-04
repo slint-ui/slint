@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 <!-- cSpell: ignore Torizon Toradex imx8 am62 imx95 -->
 # Running Slint Demos on Torizon OS
 

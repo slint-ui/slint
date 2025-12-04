@@ -1,5 +1,4 @@
 ---
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: FABStyle
 description: FABStyle content
 ---

@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Energy Monitor Demo
 
 ![Energy Monitor Demo Screenshot](https://slint.dev/resources/energy-monitor-screenshot.png "Energy Monitor")

@@ -1,4 +1,3 @@
-<!-- Copyright © Luke. D Jones <luke@ljones.dev> ; SPDX-License-Identifier: MIT -->
 
 # Zed Slint
 

@@ -1,4 +1,3 @@
-<!-- Copyright © 2025 David Haig ; SPDX-License-Identifier: MIT -->
 
 # Embassy Slint stm32u5g9j-dk2 Demo
 

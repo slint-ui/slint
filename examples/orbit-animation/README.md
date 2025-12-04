@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ![Orbit Animation Screenshot](https://github.com/user-attachments/assets/a06bd1b3-fbb0-4b90-91c7-0a3fc181aae0)
 
 # Orbit Animation Demo

@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 A rust example that load image tiles asynchronously from OpenStreetMap server and allow panning and zooming
 

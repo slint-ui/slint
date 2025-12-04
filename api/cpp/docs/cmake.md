@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 <!-- cSpell: ignore ccmake dslint femtovg -->
 
 # Set Up Development Environment

@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 To further improve your Slint skills, check out the [online documentation](https://slint.dev/docs).
 
