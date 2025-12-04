@@ -49,15 +49,15 @@ pub fn lower_layouts(
         &Option::default(),
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
-            let layout_type = lower_element_layout(
+
+            lower_element_layout(
                 &component,
                 elem,
                 &type_loader.global_type_registry.borrow(),
                 style_metrics,
                 parent_layout_type,
                 diag,
-            );
-            layout_type
+            )
         },
     );
 }
@@ -102,11 +102,9 @@ fn lower_element_layout(
         None
     };
 
-    check_no_layout_properties(elem, &layout_type, &parent_layout_type, diag);
+    check_no_layout_properties(elem, &layout_type, parent_layout_type, diag);
 
-    if layout_type.is_none() {
-        return None;
-    }
+    layout_type.as_ref()?;
 
     match layout_type.as_ref().unwrap().as_str() {
         "Row" => {
@@ -187,7 +185,7 @@ fn lower_grid_layout(
     let layout_organized_data_prop = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-organized-data"),
-        organized_layout_type().into(),
+        organized_layout_type(),
     );
     let layout_cache_prop_h = create_new_prop(
         grid_layout_element,
@@ -224,12 +222,12 @@ fn lower_grid_layout(
             new_row = true;
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
-                x.borrow_mut().bindings.get("row").map(|binding| {
+                if let Some(binding) = x.borrow_mut().bindings.get("row") {
                     diag.push_error(
                         "The 'row' property cannot be used for elements inside a Row".to_string(),
                         &*binding.borrow(),
                     );
-                });
+                }
                 grid.add_element(
                     &x,
                     new_row,
@@ -394,7 +392,7 @@ impl GridLayout {
         }
 
         let propref_or_default = |name: &'static str| -> Option<RowColExpr> {
-            crate::layout::binding_reference(item_element, &name).map(|nr| RowColExpr::Named(nr))
+            crate::layout::binding_reference(item_element, name).map(RowColExpr::Named)
         };
 
         // MAX means "auto", see to_layout_data()
@@ -663,7 +661,7 @@ fn lower_dialog_layout(
     let layout_organized_data_prop = create_new_prop(
         dialog_element,
         SmolStr::new_static("layout-organized-data"),
-        organized_layout_type().into(),
+        organized_layout_type(),
     );
     let layout_cache_prop_h =
         create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);

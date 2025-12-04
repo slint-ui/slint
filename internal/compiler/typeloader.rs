@@ -1077,7 +1077,7 @@ impl TypeLoader {
                 let core::task::Poll::Ready((mut import, doc_path)) = fut.as_mut().poll(cx) else { return true; };
                 let Some(doc_path) = doc_path else { return false };
                 let mut state = state.borrow_mut();
-                let state: &mut BorrowedTypeLoader<'a> = &mut *state;
+                let state: &mut BorrowedTypeLoader<'a> = &mut state;
                 let Some(doc) = state.tl.get_document(&doc_path) else {
                     panic!("Just loaded document not available")
                 };
@@ -1221,13 +1221,12 @@ impl TypeLoader {
                         && file_name.eq_ignore_ascii_case(
                             file_to_import.get(len - file_name.len()..).unwrap_or(""),
                         )
+                        && import_token.as_ref().and_then(|x| x.source_file()).is_some()
                     {
-                        if import_token.as_ref().and_then(|x| x.source_file()).is_some() {
-                            borrowed_state.diag.push_warning(
+                        borrowed_state.diag.push_warning(
                                 format!("Loading \"{file_to_import}\" resolved to a file named \"{file_name}\" with different casing. This behavior is not cross platform. Rename the file, or edit the import to use the same casing"),
                                 &import_token,
                             );
-                        }
                     }
                 }
                 x
@@ -1589,7 +1588,7 @@ impl TypeLoader {
             };
             crate::fileaccess::load_file(path.as_path())
                 .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
-                .or_else(|| Some((path, None)))
+                .or(Some((path, None)))
         })
     }
 

@@ -417,10 +417,10 @@ fn find_binding<R>(
     let mut element = element.clone();
     let mut depth = 0;
     loop {
-        if let Some(b) = element.borrow().bindings.get(name) {
-            if b.borrow().has_binding() {
-                return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
-            }
+        if let Some(b) = element.borrow().bindings.get(name)
+            && b.borrow().has_binding()
+        {
+            return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
         }
         let e = match &element.borrow().base_type {
             ElementType::Component(base) => base.root_element.clone(),
@@ -443,17 +443,16 @@ fn init_fake_property(
 ) {
     if grid_layout_element.borrow().property_declarations.contains_key(name)
         && !grid_layout_element.borrow().bindings.contains_key(name)
+        && let Some(e) = lazy_default()
     {
-        if let Some(e) = lazy_default() {
-            if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
-                // Don't reference self
-                return;
-            }
-            grid_layout_element
-                .borrow_mut()
-                .bindings
-                .insert(name.into(), RefCell::new(Expression::PropertyReference(e).into()));
+        if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
+            // Don't reference self
+            return;
         }
+        grid_layout_element
+            .borrow_mut()
+            .bindings
+            .insert(name.into(), RefCell::new(Expression::PropertyReference(e).into()));
     }
 }
 

@@ -200,11 +200,11 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
                         }
                     }
                 }
-            } else if let Some(use_count) = prop_info.use_count {
-                if let Some(e) = Expression::default_value_for_type(&prop_info.ty) {
-                    use_count.set(use_count.get() - 1);
-                    *expr = e;
-                }
+            } else if let Some(use_count) = prop_info.use_count
+                && let Some(e) = Expression::default_value_for_type(&prop_info.ty)
+            {
+                use_count.set(use_count.get() - 1);
+                *expr = e;
             }
         }
     };

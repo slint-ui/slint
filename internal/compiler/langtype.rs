@@ -392,7 +392,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
 }
 
 /// The base of an element
-#[derive(Clone, Debug, derive_more::From)]
+#[derive(Clone, Debug, derive_more::From, Default)]
 pub enum ElementType {
     /// The element is based of a component
     Component(Rc<Component>),
@@ -401,6 +401,7 @@ pub enum ElementType {
     /// The native type was resolved by the resolve_native_class pass.
     Native(Rc<NativeClass>),
     /// The base element couldn't be looked up
+    #[default]
     Error,
     /// This should be the base type of the root element of a global component
     Global,
@@ -627,12 +628,6 @@ impl Display for ElementType {
             Self::Error => write!(f, "<error>"),
             Self::Global => Ok(()),
         }
-    }
-}
-
-impl Default for ElementType {
-    fn default() -> Self {
-        Self::Error
     }
 }
 
@@ -917,7 +912,7 @@ impl StructName {
     pub fn or(self, other: Self) -> Self {
         match self {
             Self::None => other,
-            this @ _ => this,
+            this => this,
         }
     }
 }

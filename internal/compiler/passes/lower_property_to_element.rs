@@ -105,12 +105,11 @@ fn create_property_element(
             let mut bind = BindingExpression::new_two_way(
                 NamedReference::new(child, property_name.clone()).into(),
             );
-            if let Some(default_value_for_extra_properties) = default_value_for_extra_properties {
-                if !child.borrow().bindings.contains_key(&property_name) {
-                    if let Some(e) = default_value_for_extra_properties(child, &property_name) {
-                        bind.expression = e;
-                    }
-                }
+            if let Some(default_value_for_extra_properties) = default_value_for_extra_properties
+                && !child.borrow().bindings.contains_key(&property_name)
+                && let Some(e) = default_value_for_extra_properties(child, &property_name)
+            {
+                bind.expression = e;
             }
             (property_name, bind.into())
         })

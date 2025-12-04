@@ -66,13 +66,13 @@ fn lower_popup_window(
                 report_const_error(CLOSE_ON_CLICK, &binding.borrow().span, diag);
             }
         }
-    } else if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_POLICY) {
-        if !matches!(
+    } else if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_POLICY)
+        && !matches!(
             super::ignore_debug_hooks(&binding.borrow().expression),
             Expression::EnumerationValue(_)
-        ) {
-            report_const_error(CLOSE_POLICY, &binding.borrow().span, diag);
-        }
+        )
+    {
+        report_const_error(CLOSE_POLICY, &binding.borrow().span, diag);
     }
 
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
@@ -105,10 +105,11 @@ fn lower_popup_window(
     parent_element_borrowed.children.remove(index);
     parent_element_borrowed.has_popup_child = true;
     drop(parent_element_borrowed);
-    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut() {
-        if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
-            parent_cip.insertion_index -= 1;
-        }
+    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut()
+        && Rc::ptr_eq(&parent_cip.parent, parent_element)
+        && parent_cip.insertion_index > index
+    {
+        parent_cip.insertion_index -= 1;
     }
 
     if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {

@@ -90,7 +90,7 @@ impl Document {
              local_registry: &mut TypeRegister| {
                 let compo = Component::from_node(n, diag, local_registry);
                 if !local_registry.add(compo.clone()) {
-                    diag.push_warning(format!("Component '{}' is replacing a previously defined component with the same name", compo.id), &syntax_nodes::Component::from(compo.node.clone().unwrap()).DeclaredIdentifier());
+                    diag.push_warning(format!("Component '{}' is replacing a previously defined component with the same name", compo.id), &compo.node.clone().unwrap().DeclaredIdentifier());
                 }
                 inner_components.push(compo);
             };
@@ -1170,16 +1170,15 @@ impl Element {
                     }
                 }
             }
-            if let Some(csn) = prop_decl.TwoWayBinding() {
-                if r.bindings
+            if let Some(csn) = prop_decl.TwoWayBinding()
+                && r.bindings
                     .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()).into())
                     .is_some()
-                {
-                    diag.push_error(
-                        "Duplicated property binding".into(),
-                        &prop_decl.DeclaredIdentifier(),
-                    );
-                }
+            {
+                diag.push_error(
+                    "Duplicated property binding".into(),
+                    &prop_decl.DeclaredIdentifier(),
+                );
             }
         }
 
@@ -2222,12 +2221,11 @@ pub fn recurse_elem_including_sub_components<State>(
             component as *const Component,
             (&*elem.borrow().enclosing_component.upgrade().unwrap()) as *const Component
         ));
-        if elem.borrow().repeated.is_some() {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
-                    recurse_elem_including_sub_components(base, state, vis);
-                }
-            }
+        if elem.borrow().repeated.is_some()
+            && let ElementType::Component(base) = &elem.borrow().base_type
+            && base.parent_element.upgrade().is_some()
+        {
+            recurse_elem_including_sub_components(base, state, vis);
         }
         vis(elem, state)
     });
@@ -2433,14 +2431,14 @@ pub fn visit_all_named_references_in_element(
     }
     elem.borrow_mut().transitions = transitions;
     let mut repeated = std::mem::take(&mut elem.borrow_mut().repeated);
-    if let Some(r) = &mut repeated {
-        if let Some(lv) = &mut r.is_listview {
-            vis(&mut lv.viewport_y);
-            vis(&mut lv.viewport_height);
-            vis(&mut lv.viewport_width);
-            vis(&mut lv.listview_height);
-            vis(&mut lv.listview_width);
-        }
+    if let Some(r) = &mut repeated
+        && let Some(lv) = &mut r.is_listview
+    {
+        vis(&mut lv.viewport_y);
+        vis(&mut lv.viewport_height);
+        vis(&mut lv.viewport_width);
+        vis(&mut lv.listview_height);
+        vis(&mut lv.listview_width);
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
@@ -2867,10 +2865,10 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     // Any elements with a weak reference to the repeater's component will need fixing later.
     let mut elements_with_enclosing_component_reference = Vec::new();
     recurse_elem(old_root, &(), &mut |element: &ElementRc, _| {
-        if let Some(enclosing_component) = element.borrow().enclosing_component.upgrade() {
-            if Rc::ptr_eq(&enclosing_component, &component) {
-                elements_with_enclosing_component_reference.push(element.clone());
-            }
+        if let Some(enclosing_component) = element.borrow().enclosing_component.upgrade()
+            && Rc::ptr_eq(&enclosing_component, &component)
+        {
+            elements_with_enclosing_component_reference.push(element.clone());
         }
     });
     elements_with_enclosing_component_reference

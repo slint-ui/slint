@@ -384,15 +384,12 @@ fn process_window(
             .into(),
         };
         condition = match condition {
-            Some(condition) => Some(
-                Expression::BinaryExpression {
-                    lhs: condition.into(),
-                    rhs: supportes_native_menu_bar.into(),
-                    op: '&',
-                }
-                .into(),
-            ),
-            None => Some(supportes_native_menu_bar.into()),
+            Some(condition) => Some(Expression::BinaryExpression {
+                lhs: condition.into(),
+                rhs: supportes_native_menu_bar.into(),
+                op: '&',
+            }),
+            None => Some(supportes_native_menu_bar),
         };
     }
 
@@ -495,7 +492,7 @@ fn process_window(
             &menu_bar,
             SmolStr::new_static(ACTIVATED),
         )),
-        item_tree_root.into(),
+        item_tree_root,
         Expression::BoolLiteral(no_native_menu),
     ];
 
@@ -508,7 +505,7 @@ fn process_window(
         arguments,
         source_location,
     };
-    component.init_code.borrow_mut().constructor_code.push(setup_menubar.into());
+    component.init_code.borrow_mut().constructor_code.push(setup_menubar);
 
     true
 }

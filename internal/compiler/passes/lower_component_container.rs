@@ -52,13 +52,12 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
     }
     if let Some(cip) =
         elem.enclosing_component.upgrade().unwrap().child_insertion_point.borrow().clone()
+        && Rc::ptr_eq(&cip.parent, element)
     {
-        if Rc::ptr_eq(&cip.parent, element) {
-            diag.push_error(
-                "The @children placeholder cannot appear in a ComponentContainer".into(),
-                &*element.borrow(),
-            );
-        }
+        diag.push_error(
+            "The @children placeholder cannot appear in a ComponentContainer".into(),
+            &*element.borrow(),
+        );
     }
 }
 

@@ -84,7 +84,7 @@ impl<'a> LookupCtx<'a> {
             elem.borrow().enclosing_component.upgrade(),
             self.component_scope.first().and_then(|x| x.borrow().enclosing_component.upgrade()),
         )
-        .map_or(true, |(x, y)| Rc::ptr_eq(&x, &y))
+        .is_none_or(|(x, y)| Rc::ptr_eq(&x, &y))
     }
 }
 
@@ -284,8 +284,7 @@ impl LookupObject for SpecialIdLookup {
                 if len >= 2 {
                     f(
                         "parent",
-                        Expression::ElementReference(Rc::downgrade(&ctx.component_scope[len - 2]))
-                            .into(),
+                        Expression::ElementReference(Rc::downgrade(&ctx.component_scope[len - 2])),
                     )
                 } else {
                     None
@@ -308,12 +307,11 @@ impl LookupObject for IdLookup {
             root: &ElementRc,
             f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
         ) -> Option<R> {
-            if !root.borrow().id.is_empty() {
-                if let Some(r) =
+            if !root.borrow().id.is_empty()
+                && let Some(r) =
                     f(&root.borrow().id, Expression::ElementReference(Rc::downgrade(root)).into())
-                {
-                    return Some(r);
-                }
+            {
+                return Some(r);
             }
             for x in &root.borrow().children {
                 if x.borrow().repeated.is_some() {
@@ -326,16 +324,16 @@ impl LookupObject for IdLookup {
             None
         }
         for e in ctx.component_scope.iter().rev() {
-            if e.borrow().repeated.is_some() {
-                if let Some(r) = visit(e, f) {
-                    return Some(r);
-                }
-            }
-        }
-        if let Some(root) = ctx.component_scope.first() {
-            if let Some(r) = visit(root, f) {
+            if e.borrow().repeated.is_some()
+                && let Some(r) = visit(e, f)
+            {
                 return Some(r);
             }
+        }
+        if let Some(root) = ctx.component_scope.first()
+            && let Some(r) = visit(root, f)
+        {
+            return Some(r);
         }
         None
     }
@@ -354,32 +352,31 @@ impl InScopeLookup {
         let is_legacy = ctx.is_legacy_component();
         for (idx, elem) in ctx.component_scope.iter().rev().enumerate() {
             if let Some(repeated) = &elem.borrow().repeated {
-                if !repeated.index_id.is_empty() {
-                    if let Some(r) = visit_entry(
+                if !repeated.index_id.is_empty()
+                    && let Some(r) = visit_entry(
                         &repeated.index_id,
                         Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }.into(),
-                    ) {
-                        return Some(r);
-                    }
+                    )
+                {
+                    return Some(r);
                 }
-                if !repeated.model_data_id.is_empty() {
-                    if let Some(r) = visit_entry(
+                if !repeated.model_data_id.is_empty()
+                    && let Some(r) = visit_entry(
                         &repeated.model_data_id,
                         Expression::RepeaterModelReference { element: Rc::downgrade(elem) }.into(),
-                    ) {
-                        return Some(r);
-                    }
+                    )
+                {
+                    return Some(r);
                 }
             }
 
             if is_legacy {
-                if elem.borrow().repeated.is_some()
+                if (elem.borrow().repeated.is_some()
                     || idx == 0
-                    || idx == ctx.component_scope.len() - 1
+                    || idx == ctx.component_scope.len() - 1)
+                    && let Some(r) = visit_legacy_scope(elem)
                 {
-                    if let Some(r) = visit_legacy_scope(elem) {
-                        return Some(r);
-                    }
+                    return Some(r);
                 }
             } else if let Some(r) = visit_scope(elem) {
                 return Some(r);
@@ -510,7 +507,7 @@ pub fn check_extra_deprecated(
             .debug
             .first()
             .and_then(|x| x.node.source_file())
-            .map_or(true, |x| x.path().starts_with("builtin:"))
+            .is_none_or(|x| x.path().starts_with("builtin:"))
         && !name.starts_with("layout-"))
     .then(|| format!("Palette.{name}"))
 }

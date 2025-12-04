@@ -133,11 +133,11 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
         }
         Expression::StructFieldAccess { base, name } => {
             let r = simplify_expression(base, ga);
-            if let Expression::Struct { values, .. } = &mut **base {
-                if let Some(e) = values.remove(name) {
-                    *expr = e;
-                    return simplify_expression(expr, ga);
-                }
+            if let Expression::Struct { values, .. } = &mut **base
+                && let Some(e) = values.remove(name)
+            {
+                *expr = e;
+                return simplify_expression(expr, ga);
             }
             r
         }
@@ -201,11 +201,9 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             for arg in arguments.iter_mut() {
                 args_can_inline &= simplify_expression(arg, ga);
             }
-            if args_can_inline {
-                if let Some(inlined) = try_inline_function(function, arguments, ga) {
-                    *expr = inlined;
-                    return true;
-                }
+            if args_can_inline && let Some(inlined) = try_inline_function(function, arguments, ga) {
+                *expr = inlined;
+                return true;
             }
             false
         }

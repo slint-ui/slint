@@ -300,18 +300,18 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     for pre in &["min", "max"] {
         if let Some(a) = name.strip_prefix(pre) {
             for suf in &["width", "height"] {
-                if let Some(b) = a.strip_suffix(suf) {
-                    if b == "imum-" {
-                        return PropertyLookupResult {
-                            property_type: Type::LogicalLength,
-                            resolved_name: format!("{pre}-{suf}").into(),
-                            is_local_to_component: false,
-                            is_in_direct_base: false,
-                            property_visibility: crate::object_tree::PropertyVisibility::InOut,
-                            declared_pure: None,
-                            builtin_function: None,
-                        };
-                    }
+                if let Some(b) = a.strip_suffix(suf)
+                    && b == "imum-"
+                {
+                    return PropertyLookupResult {
+                        property_type: Type::LogicalLength,
+                        resolved_name: format!("{pre}-{suf}").into(),
+                        is_local_to_component: false,
+                        is_in_direct_base: false,
+                        property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                        declared_pure: None,
+                        builtin_function: None,
+                    };
                 }
             }
         }

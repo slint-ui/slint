@@ -903,7 +903,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::OrganizeGridLayout(..) => typeregister::organized_layout_type().into(),
+            Expression::OrganizeGridLayout(..) => typeregister::organized_layout_type(),
             Expression::ComputeLayoutInfo(..) => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::SolveLayout(..) => Type::LayoutCache,
@@ -1205,7 +1205,7 @@ impl Expression {
             }
             Expression::EnumerationValue(_) => true,
             Expression::ReturnStatement(expr) => {
-                expr.as_ref().map_or(true, |expr| expr.is_constant(ga))
+                expr.as_ref().is_none_or(|expr| expr.is_constant(ga))
             }
             // TODO:  detect constant property within layouts
             Expression::LayoutCacheAccess { .. } => false,
@@ -1387,18 +1387,18 @@ impl Expression {
                     message =
                         format!("{message}. Divide by 1{from_unit} to convert to a plain number");
                 }
-            } else if let Some(to_unit) = target_type.default_unit() {
-                if matches!(ty, Type::Int32 | Type::Float32) {
-                    if let Expression::NumberLiteral(value, Unit::None) = self {
-                        if value == 0. {
-                            // Allow conversion from literal 0 to any unit
-                            return Expression::NumberLiteral(0., to_unit);
-                        }
-                    }
-                    message = format!(
-                        "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
-                    );
+            } else if let Some(to_unit) = target_type.default_unit()
+                && matches!(ty, Type::Int32 | Type::Float32)
+            {
+                if let Expression::NumberLiteral(value, Unit::None) = self
+                    && value == 0.
+                {
+                    // Allow conversion from literal 0 to any unit
+                    return Expression::NumberLiteral(0., to_unit);
                 }
+                message = format!(
+                    "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
+                );
             }
             diag.push_error(message, node);
             self

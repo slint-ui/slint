@@ -22,12 +22,11 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     visit_all_named_references(component, &mut |nr| {
         let elem = nr.element();
         let elem = elem.borrow();
-        if !to_materialize.contains_key(nr) {
-            if let Some(ty) =
+        if !to_materialize.contains_key(nr)
+            && let Some(ty) =
                 should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
-            {
-                to_materialize.insert(nr.clone(), ty);
-            }
+        {
+            to_materialize.insert(nr.clone(), ty);
         }
     });
 
@@ -154,7 +153,7 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     // later optimization steps to eliminate these properties.
     // Note that Rectangles and Empties are similarly optimized in layout_constraint_prop, and
     // we rely on struct field access simplification for those.
-    if elem.borrow().builtin_type().map_or(false, |n| n.name == "Image") {
+    if elem.borrow().builtin_type().is_some_and(|n| n.name == "Image") {
         if elem.borrow().layout_info_prop(Orientation::Horizontal).is_none() {
             match name {
                 "min-width" => return Some(Expression::NumberLiteral(0., Unit::Px)),

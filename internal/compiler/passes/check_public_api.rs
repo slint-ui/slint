@@ -36,8 +36,8 @@ pub fn check_public_api(
     match &config.components_to_generate {
         ComponentSelection::ExportedWindows => doc.exports.retain(|export| {
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
-            if let Either::Left(c) = &export.1 {
-                if !c.is_global() && !super::ensure_window::inherits_window(c) {
+            if let Either::Left(c) = &export.1
+                && !c.is_global() && !super::ensure_window::inherits_window(c) {
                     let is_last = last.as_ref().is_some_and(|last| !Rc::ptr_eq(last, c));
                     if is_last {
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. No code will be generated for it", export.0.name), &export.0.name_ident);
@@ -46,13 +46,12 @@ pub fn check_public_api(
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. This is deprecated", export.0.name), &export.0.name_ident);
                     }
                 }
-            }
             true
         }),
         // Only keep the last component if there is one
         ComponentSelection::LastExported => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {
-                c.is_global() || last.as_ref().map_or(true, |last| Rc::ptr_eq(last, c))
+                c.is_global() || last.as_ref().is_none_or(|last| Rc::ptr_eq(last, c))
             } else {
                 true
             }
@@ -61,21 +60,20 @@ pub fn check_public_api(
         ComponentSelection::Named(name) => {
             doc.exports.retain(|export| {
                 if let Either::Left(c) = &export.1 {
-                    c.is_global() || &c.id == name
+                    c.is_global() || c.id == name
                 } else {
                     true
                 }
             });
             if doc.last_exported_component().is_none() {
                 // We maybe requested to preview a non-exported component.
-                if let Ok(ElementType::Component(c)) = doc.local_registry.lookup_element(name) {
-                    if let Some(name_ident) = c.node.as_ref().map(|n| n.DeclaredIdentifier().into()) {
+                if let Ok(ElementType::Component(c)) = doc.local_registry.lookup_element(name)
+                    && let Some(name_ident) = c.node.as_ref().map(|n| n.DeclaredIdentifier().into()) {
                         doc.exports.add_reexports(
                             [(ExportedName{ name: name.into(), name_ident }, Either::Left(c))],
                             diag,
                         );
                     }
-                }
             }
         },
     }
@@ -84,12 +82,12 @@ pub fn check_public_api(
         check_public_api_component(&c, diag);
     }
     for (export_name, e) in &*doc.exports {
-        if let Some(c) = e.as_ref().left() {
-            if c.is_global() {
-                // This global will become part of the public API.
-                c.exported_global_names.borrow_mut().push(export_name.clone());
-                check_public_api_component(c, diag)
-            }
+        if let Some(c) = e.as_ref().left()
+            && c.is_global()
+        {
+            // This global will become part of the public API.
+            c.exported_global_names.borrow_mut().push(export_name.clone());
+            check_public_api_component(c, diag)
         }
     }
 }

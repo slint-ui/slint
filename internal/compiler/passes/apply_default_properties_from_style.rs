@@ -39,7 +39,6 @@ pub fn apply_default_properties_from_style(
                             &palette.root_element,
                             SmolStr::new_static("foreground"),
                         ))
-                        .into()
                     });
                     elem.set_binding_if_not_set("selection-background-color".into(), || {
                         Expression::Cast {
