@@ -70,12 +70,12 @@ impl GPURenderingContext {
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
     /// Unbinds the surface, converts to WGPU texture, then rebinds it.
     #[cfg(target_vendor = "apple")]
-    pub fn get_wgpu_texture_from_metal(&self) -> Result<wgpu::Texture, surfman::Error> {
+    pub fn get_wgpu_texture_from_metal(
+        &self,
+    ) -> Result<wgpu::Texture, super::metal::MetalTextureError> {
         use super::metal::WPGPUTextureFromMetal;
 
-        let wgpu_texture = WPGPUTextureFromMetal::new(self).get();
-
-        Ok(wgpu_texture)
+        WPGPUTextureFromMetal::new(self).get()
     }
 
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
