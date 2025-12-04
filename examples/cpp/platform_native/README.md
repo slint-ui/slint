@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 This shows how one can use the Slint C++ platform API to integrate into any Windows application
 

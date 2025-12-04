@@ -1,5 +1,4 @@
 # CMake Reference
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 ## `slint_target_sources`
 

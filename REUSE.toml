@@ -19,6 +19,7 @@ path = [
   "**/slint-logo-**.svg",
   "docs/astro/src/content/docs/reference/elements/slint-logo.png",
   "logo/slint-logo.icns",
+  "logo/README.md",
   "**/public/favicon.svg",
   "**/public/slint-logo-small-light.svg",
   "**/public/slint-logo.woff",
@@ -52,9 +53,11 @@ path = [
   "cspell.json",
   "docs/search/scraper-config.json",
   "internal/core-macros/link-data.json",
+  "internal/**.md",
   "package.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
+  "*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -66,9 +69,11 @@ path = [
   ".github/pull_request_template.md",
 
   "api/cpp/docs/**/**.css",
+  "api/cpp/docs/**/**.md",
   "api/cpp/docs/**/**.html",
   "api/cpp/tests/redpixel.png",
 
+  "demos/**.md",
   "demos/**.json",
   "demos/**/LC_MESSAGES/**.mo",
   "demos/**/README",
@@ -92,6 +97,8 @@ path = [
 
   "docs/**.json",
   "docs/**.mjs",
+  "docs/**.md",
+  "docs/**.mdx",
   "docs/**/**.css",
   "docs/**/**.html",
   "docs/**/book.toml",
@@ -104,9 +111,9 @@ path = [
   "docs/astro/src/content/docs/reference/elements/mini-banner.png",
   "docs/astro/src/misc/**.json",
   "docs/astro/src/misc/**.jsonc",
-  "docs/astro/src/utils/_templates/**.md",
 
   "examples/**.json",
+  "examples/**.md",
   "examples/**/LC_MESSAGES/**.mo",
   "examples/**/README",
   "examples/**/README.txt",
@@ -121,10 +128,11 @@ path = [
   "examples/orbit-animation/images/**.svg",
   "examples/sprite-sheet/images/**.png",
   "examples/speedometer/needle.png",
-  "component-sets/material/docs/**.json",
-  "component-sets/material/docs/**.svg",
-  "component-sets/material/docs/**.css",
-  "component-sets/material/docs/**.webp",
+
+  "helper_crates/**.md",
+
+  "ui-libraries/material/**.md",
+  "ui-libraries/material/**.mdx",
   "ui-libraries/material/docs/**.json",
   "ui-libraries/material/docs/src/assets/styles/**.css",
   "ui-libraries/material/docs/src/assets/**.svg",
@@ -145,10 +153,13 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "api/**.md",
+  "api/**.hbs",
   "api/**/**.json",
   "api/node/__test__/resources/**.png",
   "CMakePresets.json",
 
+  "editors/**.md",
   "editors/sublime/LSP.sublime-settings",
   "editors/tree-sitter-slint/corpus/**.txt",
   "editors/vscode/**.json",
@@ -157,6 +168,7 @@ path = [
 
   "tests/screenshots/**/**.png",
 
+  "tools/**.md",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
   "tools/slintpad/styles/**.css",

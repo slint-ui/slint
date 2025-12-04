@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Generated Code
 
 The Slint compiler [called by the build system](cmake_reference.md#slint_target_sources)

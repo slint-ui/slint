@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ![Repeater Screenshot](https://github.com/user-attachments/assets/dbc1c045-8736-4545-a7af-9c60a89a8deb)
 
 # Repeater Demo

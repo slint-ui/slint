@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 [![Dial Demo Video](https://github.com/user-attachments/assets/f9a4835d-5567-4fc2-bd4d-30b2e979f491)](https://github.com/user-attachments/assets/83fb39b3-a26e-4878-ba92-b27b4c3beb36)
 
 

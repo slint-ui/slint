@@ -1,4 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 This GitHub release is a nightly snapshot of Slint development. It serves to provide access to pre-release binaries.
 
