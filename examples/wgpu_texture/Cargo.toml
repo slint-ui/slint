@@ -23,10 +23,6 @@ name = "wgpu_texture_lib"
 slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-27", "backend-android-activity-06"] }
 bytemuck = { workspace = true }
 wgpu-27 = { workspace = true, features = ["wgsl"] }
-spin_on = "0.1.1"
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
-
-[package.metadata.android]
-hardware_accelerated = true
