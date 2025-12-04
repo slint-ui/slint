@@ -752,11 +752,16 @@ pub enum Expression {
     ReturnStatement(Option<Box<Expression>>),
 
     LayoutCacheAccess {
+        /// This property holds an array of entries
         layout_cache_prop: NamedReference,
+        /// The index into that array. If repeater_index is None, then the code will be `layout_cache_prop[index]`
         index: usize,
         /// When set, this is the index within a repeater, and the index is then the location of another offset.
-        /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
+        /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index * entries_per_item]`
         repeater_index: Option<Box<Expression>>,
+        /// The number of entries per item (2 for LayoutCache, 4 for GridLayoutInputData)
+        /// This is only used when repeater_index is set
+        entries_per_item: usize,
     },
 
     /// Organize a grid layout, i.e. decide what goes where
@@ -1881,14 +1886,21 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "return ")?;
             e.as_ref().map(|e| pretty_print(f, e)).unwrap_or(Ok(()))
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
-            write!(
-                f,
-                "{:?}[{}{}]",
-                layout_cache_prop,
-                index,
-                if repeater_index.is_some() { " + $index" } else { "" }
-            )
+        Expression::LayoutCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            entries_per_item,
+        } => {
+            if repeater_index.is_some() {
+                write!(
+                    f,
+                    "{:?}[{:?}[{}] + $repeater_index * {}]",
+                    layout_cache_prop, layout_cache_prop, index, entries_per_item
+                )
+            } else {
+                write!(f, "{:?}[{}]", layout_cache_prop, index)
+            }
         }
         Expression::OrganizeGridLayout(..) => write!(f, "organize_grid_layout(..)"),
         Expression::ComputeLayoutInfo(..) => write!(f, "layout_info(..)"),

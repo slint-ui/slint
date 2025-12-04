@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    GlobalIdx, LocalMemberIndex, LocalMemberReference, MemberReference, RepeatedElementIdx,
-    SubComponentIdx, SubComponentInstanceIdx,
+    GlobalIdx, GridLayoutRepeatedElement, LocalMemberIndex, LocalMemberReference, MemberReference,
+    RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
@@ -167,17 +167,17 @@ pub enum Expression {
 
     EnumerationValue(crate::langtype::EnumerationValue),
 
+    /// See LayoutCacheAccess in expression_tree.rs
     LayoutCacheAccess {
         layout_cache_prop: MemberReference,
         index: usize,
-        /// When set, this is the index within a repeater, and the index is then the location of another offset.
-        /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
         repeater_index: Option<Box<Expression>>,
+        entries_per_item: usize,
     },
-    /// Will call the sub_expression, with the cell variable set to the
+    /// Will call the sub_expression, with the cells variable set to the
     /// array of BoxLayoutCellData from the elements
     BoxLayoutFunction {
-        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the sell
+        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
         repeater_indices: Option<SmolStr>,
@@ -186,6 +186,18 @@ pub enum Expression {
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
+    /// Will call the sub_expression, with the cells variable set to the
+    /// array of GridLayoutInputData from the elements
+    GridInputFunction {
+        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
+        cells_variable: String,
+        /// The name for the local variable that contains the repeater indices
+        repeater_indices: Option<SmolStr>,
+        /// Either an expression of type GridLayoutInputData, or information about the repeated element
+        elements: Vec<Either<Expression, GridLayoutRepeatedElement>>,
+        sub_expression: Box<Expression>,
+    },
+
     MinMax {
         ty: Type,
         op: MinMaxOp,
@@ -315,6 +327,7 @@ impl Expression {
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::GridInputFunction { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::TranslationReference { .. } => Type::String,
@@ -396,6 +409,10 @@ macro_rules! visit_impl {
                 }
             }
             Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
+                $visitor(sub_expression);
+                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
+            }
+            Expression::GridInputFunction { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
