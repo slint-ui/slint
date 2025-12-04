@@ -11,6 +11,7 @@ import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
 import { NotificationType } from "vscode-languageclient";
+import * as lsp_commands from "./lsp_commands";
 
 import {
     LanguageClient,
@@ -319,6 +320,8 @@ export function activate(context: vscode.ExtensionContext) {
         return;
     }
 
+    setupRemotePreview(context);
+
     const custom_lsp = !serverModule.startsWith(
         path.join(context.extensionPath, "bin"),
     );
@@ -405,4 +408,32 @@ function startTelemetryTimer(
             }
         }
     }
+}
+
+function setupRemotePreview(context: vscode.ExtensionContext) {
+    const remoteViewerStatusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Right, 100
+    );
+    remoteViewerStatusBarItem.text = `$(debug-disconnect) Stop Slint Remote Preview`;
+    remoteViewerStatusBarItem.color = "statusBarItem.prominentForeground";
+    remoteViewerStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    remoteViewerStatusBarItem.command = 'slint.disableRemotePreview';
+    remoteViewerStatusBarItem.show();
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.disableRemotePreview", () => {
+            vscode.window.showInformationMessage("TODO!");
+        }),
+        // vscode.commands.registerCommand("slint.showRemotePreview", async () => {
+        //     const ae = vscode.window.activeTextEditor;
+        //     vscode.window.showInformationMessage("ae = " + ae);
+        //     if (!ae) {
+        //         return;
+        //     }
+
+        //     await lsp_commands.showRemotePreview(ae.document.uri.toString(), "");
+        //     vscode.window.showInformationMessage("Please connect with your external device. " + ae.document.uri.toString());
+        // }),
+        remoteViewerStatusBarItem,
+    );
 }

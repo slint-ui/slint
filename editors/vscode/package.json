@@ -90,6 +90,12 @@
         "icon": "$(preview)"
       },
       {
+        "command": "slint.showRemotePreview",
+        "title": "Show Remote Preview",
+        "category": "Slint",
+        "icon": "$(preview)"
+      },
+      {
         "command": "slint.reload",
         "title": "Restart server",
         "category": "Slint",
@@ -99,12 +105,22 @@
         "command": "slint.newProject",
         "title": "Create New Project from Template",
         "category": "Slint"
+      },
+      {
+        "command": "slint.disableRemotePreview",
+        "title": "Disable remote preview",
+        "category": "Slint",
+        "icon": "$(debug-disconnect)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "slint.showPreview",
+          "when": "editorLangId == slint"
+        },
+        {
+          "command": "slint.showRemotePreview",
           "when": "editorLangId == slint"
         },
         {
@@ -118,6 +134,11 @@
       "editor/title": [
         {
           "command": "slint.showPreview",
+          "when": "resourceLangId == slint",
+          "group": "navigation"
+        },
+        {
+          "command": "slint.showRemotePreview",
           "when": "resourceLangId == slint",
           "group": "navigation"
         }
