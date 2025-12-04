@@ -18,6 +18,17 @@ use super::super::gpu_rendering_context::GPURenderingContext;
 use super::super::utils::{SurfaceGuard, TextureError, create_wgpu_texture_descriptor};
 use super::ServoTextureImporter;
 
+#[derive(thiserror::Error, Debug)]
+pub enum MetalTextureError {
+    #[error(transparent)]
+    Utils(#[from] TextureError),
+
+    #[error("Wgpu is not using the metal backend")]
+    WgpuNotMetal,
+    #[error("Failed to create Metal texture from IOSurface")]
+    TextureCreation,
+}
+
 /// WGPU texture wrapper for Metal IOSurface textures.
 ///
 /// This struct provides functionality to create WGPU textures from Metal IOSurfaces
@@ -32,13 +43,12 @@ impl<'a> WPGPUTextureFromMetal<'a> {
         Self { context, texture_importer: ServoTextureImporter::new(&context.wgpu_device) }
     }
 
-    pub fn get(&self) -> wgpu::Texture {
-        let objc2_metal_texture =
-            self.objc2_metal_texture().expect("Failed to create Metal texture");
+    pub fn get(&self) -> Result<wgpu::Texture, MetalTextureError> {
+        let objc2_metal_texture = self.objc2_metal_texture()?;
 
         let hal_texture = self.wgpu_hal_texture(objc2_metal_texture);
 
-        self.create_flipped_texture_render(&hal_texture)
+        Ok(self.create_flipped_texture_render(&hal_texture))
     }
 
     /// Creates a Metal texture from an IOSurface using Objective-C messaging.
@@ -67,7 +77,7 @@ impl<'a> WPGPUTextureFromMetal<'a> {
     /// This function contains unsafe code for:
     /// - Extracting the raw Metal device from WGPU
     /// - Converting device pointers for Objective-C messaging
-    fn objc2_metal_texture(&self) -> Result<Retained<NSObject>, surfman::Error> {
+    fn objc2_metal_texture(&self) -> Result<Retained<NSObject>, MetalTextureError> {
         // SAFETY: We're working with WGPU Metal backend, so the device extraction
         // and pointer manipulations are safe within this controlled context.
         unsafe {
@@ -75,7 +85,7 @@ impl<'a> WPGPUTextureFromMetal<'a> {
                 .context
                 .wgpu_device
                 .as_hal::<wgpu::wgc::api::Metal>()
-                .expect("WGPU device is not using Metal backend");
+                .ok_or(MetalTextureError::WgpuNotMetal)?;
 
             let device_raw = metal_device.raw_device().lock().clone();
 
@@ -92,11 +102,8 @@ impl<'a> WPGPUTextureFromMetal<'a> {
 
             let surfman_device = &self.context.surfman_rendering_info.device.borrow();
 
-            let surface_guard =
-                SurfaceGuard::new(&self.context.surfman_rendering_info).map_err(|e| match e {
-                    TextureError::Surfman(e) => e,
-                    _ => panic!("Unexpected error: {:?}", e),
-                })?;
+            let surface_guard = SurfaceGuard::new(&self.context.surfman_rendering_info)
+                .map_err(MetalTextureError::Utils)?;
 
             let native_surface = surfman_device.native_surface(surface_guard.surface());
             let io_surface = native_surface.0;
@@ -110,7 +117,7 @@ impl<'a> WPGPUTextureFromMetal<'a> {
                     &io_surface,
                     0,
                 )
-                .expect("Failed to create Metal texture from IOSurface");
+                .ok_or(MetalTextureError::TextureCreation)?;
 
             Ok(texture)
         }
