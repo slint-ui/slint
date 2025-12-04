@@ -2693,13 +2693,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(sp::#base_ident::#value_ident)
             }
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index, entries_per_item } => {
             access_member(layout_cache_prop, ctx).map_or_default(|cache| {
                 if let Some(ri) = repeater_index {
                     let offset = compile_expression(ri, ctx);
                     quote!({
                         let cache = #cache.get();
-                        *cache.get((cache[#index] as usize) + #offset as usize * 2).unwrap_or(&(0 as sp::Coord))
+                        *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
                     })
                 } else {
                     quote!(#cache.get()[#index])
@@ -2720,6 +2720,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
             ctx,
         ),
+
+        Expression::GridInputFunction {
+            cells_variable, repeater_indices, elements, sub_expression
+        } => grid_input_function(
+            cells_variable,
+            repeater_indices.as_ref().map(SmolStr::as_str),
+            elements.as_ref(),
+            sub_expression,
+            ctx,
+        ),
+
         Expression::MinMax { ty, op, lhs, rhs } => {
             let lhs = compile_expression(lhs, ctx);
             let t = rust_primitive_type(ty);
@@ -3419,6 +3430,81 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
             Some(quote!(slint::#name))
         }
     }
+}
+
+fn grid_input_function(
+    cells_variable: &str,
+    repeated_indices: Option<&str>,
+    elements: &[Either<Expression, llr::GridLayoutRepeatedElement>],
+    sub_expression: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let repeated_indices = repeated_indices.map(ident);
+    let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
+    let mut fixed_count = 0usize;
+    let mut repeated_count = quote!();
+    let mut push_code = Vec::new();
+    let mut repeater_idx = 0usize;
+    for item in elements {
+        match item {
+            Either::Left(value) => {
+                let value = compile_expression(value, ctx);
+                fixed_count += 1;
+                push_code.push(quote!(items_vec.push(#value);))
+            }
+            Either::Right(repeater) => {
+                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                let rep_inner_component_id = self::inner_component_id(
+                    &ctx.compilation_unit.sub_components[ctx
+                        .current_sub_component()
+                        .unwrap()
+                        .repeated[repeater.repeater_index]
+                        .sub_tree
+                        .root],
+                );
+                repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
+                let ri = repeated_indices.as_ref().map(|ri| {
+                    quote!(
+                        #ri[#repeater_idx * 2] = items_vec.len() as u32;
+                        #ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
+                    )
+                });
+                repeater_idx += 1;
+                let new_row = repeater.new_row;
+                push_code.push(quote!(
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
+                        );
+                        let internal_vec = _self.#repeater_id.instances_vec();
+                        #ri
+                        let mut new_row = #new_row;
+                        for _sub_comp in &internal_vec {
+                            items_vec.push(sp::GridLayoutInputData {
+                                    r#col: u16::MAX as _,
+                                    r#colspan: 1 as _,
+                                    r#new_row,
+                                    r#row: u16::MAX as _,
+                                    r#rowspan: 1 as _,
+                                });
+                            new_row = false;
+                        }
+                    ));
+            }
+        }
+    }
+    let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
+    let ri2 = repeated_indices.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let cells_variable = ident(cells_variable);
+    let sub_expression = compile_expression(sub_expression, ctx);
+
+    quote! { {
+        #ri
+        let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count);
+        #(#push_code)*
+        let #cells_variable = sp::Slice::from_slice(&items_vec);
+        #ri2
+        #sub_expression
+    } }
 }
 
 fn box_layout_function(

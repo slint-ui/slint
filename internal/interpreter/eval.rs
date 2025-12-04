@@ -450,7 +450,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
             local_context.return_value.clone().unwrap()
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+        Expression::LayoutCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            entries_per_item,
+        } => {
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
                 &layout_cache_prop.element(),
@@ -462,7 +467,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
                         cache
-                            .get((cache[*index] as usize) + offset * 2)
+                            .get((cache[*index] as usize) + offset * entries_per_item)
                             .copied()
                             .unwrap_or(0.)
                             .into(),
@@ -475,7 +480,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
                         cache
-                            .get((cache[*index] as usize) + offset * 2)
+                            .get((cache[*index] as usize) + offset * entries_per_item)
                             .copied()
                             .unwrap_or(0)
                             .into(),
