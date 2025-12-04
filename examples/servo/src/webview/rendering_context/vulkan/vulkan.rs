@@ -11,7 +11,9 @@ use gl::Gles2 as Gl;
 use crate::gl_bindings as gl;
 
 use super::super::gpu_rendering_context::GPURenderingContext;
-use super::super::utils::{SurfaceGuard, TextureError};
+use super::super::utils::{
+    SurfaceGuard, TextureError, create_wgpu_texture_descriptor, flip_image_vertically,
+};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
@@ -138,7 +140,7 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
                 })),
             );
 
-            let wgpu_descriptor = super::super::utils::create_wgpu_texture_descriptor(
+            let wgpu_descriptor = create_wgpu_texture_descriptor(
                 size,
                 "Vulkan WGPU Texture",
                 wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -193,10 +195,10 @@ impl<'a> WPGPUTextureFromVulkan<'a> {
         // Flip image vertically (OpenGL textures are upside down)
         let stride = (size.width * 4) as usize;
         let height = size.height as usize;
-        super::super::utils::flip_image_vertically(&mut pixels, size.width as usize, height, 4);
+        flip_image_vertically(&mut pixels, size.width as usize, height, 4);
 
         // Create wgpu texture
-        let texture_desc = super::super::utils::create_wgpu_texture_descriptor(
+        let texture_desc = create_wgpu_texture_descriptor(
             size,
             "Servo Texture Fallback",
             wgpu::TextureUsages::TEXTURE_BINDING
