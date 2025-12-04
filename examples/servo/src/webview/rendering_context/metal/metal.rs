@@ -15,7 +15,7 @@ use objc2_metal::{MTLPixelFormat, MTLTextureDescriptor, MTLTextureType, MTLTextu
 use foreign_types_shared::ForeignType;
 
 use super::super::gpu_rendering_context::GPURenderingContext;
-use super::super::utils::{SurfaceGuard, create_wgpu_texture_descriptor};
+use super::super::utils::{SurfaceGuard, TextureError, create_wgpu_texture_descriptor};
 use super::ServoTextureImporter;
 
 /// WGPU texture wrapper for Metal IOSurface textures.
@@ -94,7 +94,7 @@ impl<'a> WPGPUTextureFromMetal<'a> {
 
             let surface_guard =
                 SurfaceGuard::new(&self.context.surfman_rendering_info).map_err(|e| match e {
-                    super::super::utils::TextureError::Surfman(e) => e,
+                    TextureError::Surfman(e) => e,
                     _ => panic!("Unexpected error: {:?}", e),
                 })?;
 
