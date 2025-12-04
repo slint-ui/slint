@@ -27,6 +27,12 @@ pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
 
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct GridLayoutRepeatedElement {
+    pub new_row: bool,
+    pub repeater_index: RepeatedElementIdx,
+}
+
 impl PropertyIdx {
     pub const REPEATER_DATA: Self = Self(0);
     pub const REPEATER_INDEX: Self = Self(1);
