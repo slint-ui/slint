@@ -1,6 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+//! This module handles the rendering context for the Servo WebView.
+//!
+//! It provides abstractions for GPU and software rendering, integrating with
+//! `surfman` for cross-platform surface management and `wgpu` for modern graphics API support.
+//!
+//! Key components:
+//! - `GPURenderingContext`: Manages GPU resources and swap chains.
+//! - `SurfmanRenderingContext`: Low-level integration with `surfman` and OpenGL.
+//! - `ServoRenderingAdapter`: Adapter trait for integrating Servo's rendering with Slint.
 mod gpu_rendering_context;
 
 mod servo_rendering_adapter;

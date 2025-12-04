@@ -12,6 +12,9 @@ use servo::{RenderingContext, SoftwareRenderingContext, webrender_api::units::De
 
 use super::GPURenderingContext;
 
+/// Creates a software rendering context adapter.
+///
+/// This adapter uses Servo's software rendering path and copies the pixel buffer to a Slint image.
 pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderingAdapter> {
     let rendering_context = Rc::new(
         SoftwareRenderingContext::new(size).expect("Failed to create software rendering context"),
@@ -45,8 +48,11 @@ pub fn try_create_gpu_context(
     }
 }
 
+/// A trait for adapting Servo's rendering context to Slint's image format.
 pub trait ServoRenderingAdapter {
+    /// Returns the current framebuffer content as a Slint `Image`.
     fn current_framebuffer_as_image(&self) -> Image;
+    /// Returns the underlying Servo `RenderingContext`.
     fn get_rendering_context(&self) -> Rc<dyn RenderingContext>;
 }
 

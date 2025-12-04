@@ -12,12 +12,17 @@ pub enum TextureError {
     NoSurface,
 }
 
+/// A guard that unbinds a surface from the context on creation and rebinds it on drop.
+///
+/// This is useful for temporarily taking ownership of the surface to perform operations
+/// that require it to be unbound, such as importing it into another API.
 pub struct SurfaceGuard<'a> {
     context: &'a SurfmanRenderingContext,
     surface: Option<surfman::Surface>,
 }
 
 impl<'a> SurfaceGuard<'a> {
+    /// Creates a new `SurfaceGuard`, unbinding the current surface from the context.
     pub fn new(context: &'a SurfmanRenderingContext) -> Result<Self, TextureError> {
         let mut surfman_context = context.context.borrow_mut();
         let surface = context
@@ -30,6 +35,7 @@ impl<'a> SurfaceGuard<'a> {
         Ok(Self { context, surface: Some(surface) })
     }
 
+    /// Returns a reference to the unbound surface.
     pub fn surface(&self) -> &surfman::Surface {
         self.surface.as_ref().unwrap()
     }
@@ -48,6 +54,7 @@ impl<'a> Drop for SurfaceGuard<'a> {
     }
 }
 
+/// Helper function to create a `wgpu::TextureDescriptor`.
 pub fn create_wgpu_texture_descriptor(
     size: PhysicalSize<u32>,
     label: &str,
@@ -66,6 +73,10 @@ pub fn create_wgpu_texture_descriptor(
     }
 }
 
+/// Flips an image buffer vertically in place.
+///
+/// This is used to correct the orientation of textures read from OpenGL, which uses a
+/// bottom-left origin, whereas other APIs (like WGPU/Metal/Vulkan) typically use top-left.
 pub fn flip_image_vertically(
     pixels: &mut [u8],
     width: usize,

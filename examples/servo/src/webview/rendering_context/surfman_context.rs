@@ -48,6 +48,9 @@ impl Drop for SurfmanRenderingContext {
 }
 
 impl SurfmanRenderingContext {
+    /// Creates a new `SurfmanRenderingContext`.
+    ///
+    /// Initializes the device, context, and OpenGL function pointers (both `gleam` and `glow`).
     pub fn new(connection: &Connection, adapter: &Adapter) -> Result<Self, Error> {
         let device = connection.create_device(adapter)?;
 
@@ -90,6 +93,7 @@ impl SurfmanRenderingContext {
         })
     }
 
+    /// Creates a new surface for the given widget.
     pub fn create_surface(
         &self,
         surface_type: SurfaceType<NativeWidget>,
@@ -99,6 +103,9 @@ impl SurfmanRenderingContext {
         device.create_surface(context, SurfaceAccess::GPUOnly, surface_type)
     }
 
+    /// Binds a surface to the current context.
+    ///
+    /// If binding fails, the surface is destroyed to prevent leaks.
     pub fn bind_surface(&self, surface: Surface) -> Result<(), Error> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow_mut();
@@ -109,6 +116,7 @@ impl SurfmanRenderingContext {
         Ok(())
     }
 
+    /// Creates a swap chain attached to the current context.
     pub fn create_attached_swap_chain(&self) -> Result<SwapChain<Device>, Error> {
         let device = &mut self.device.borrow_mut();
         let context = &mut self.context.borrow_mut();
@@ -131,11 +139,13 @@ impl SurfmanRenderingContext {
             .and_then(|info| info.framebuffer_object)
     }
 
+    /// Prepares the context for rendering by binding the framebuffer.
     pub fn prepare_for_rendering(&self) {
         let framebuffer_id = self.get_framebuffer_id();
         self.gleam_gl.bind_framebuffer(gleam::gl::FRAMEBUFFER, framebuffer_id);
     }
 
+    /// Reads the content of the framebuffer into an image.
     pub fn read_to_image(&self, source_rectangle: DeviceIntRect) -> Option<RgbaImage> {
         let framebuffer_id = self.get_framebuffer_id();
         Framebuffer::read_framebuffer_to_image(&self.gleam_gl, framebuffer_id, source_rectangle)
@@ -145,12 +155,14 @@ impl SurfmanRenderingContext {
         self.framebuffer().map_or(0, |framebuffer| framebuffer.0.into())
     }
 
+    /// Makes the context current on the calling thread.
     pub fn make_current(&self) -> Result<(), Error> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow();
         device.make_context_current(context)
     }
 
+    /// Creates a texture from a surface.
     pub fn create_texture(
         &self,
         surface: Surface,
@@ -165,12 +177,14 @@ impl SurfmanRenderingContext {
         Some((surface_texture, gl_texture, size))
     }
 
+    /// Destroys a texture and returns the underlying surface.
     pub fn destroy_texture(&self, surface_texture: SurfaceTexture) -> Option<Surface> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow_mut();
         device.destroy_surface_texture(context, surface_texture).map_err(|(error, _)| error).ok()
     }
 
+    /// Returns the connection associated with the device.
     pub fn connection(&self) -> Option<Connection> {
         Some(self.device.borrow().connection())
     }

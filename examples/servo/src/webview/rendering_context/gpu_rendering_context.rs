@@ -18,6 +18,11 @@ use wgpu;
 
 use super::surfman_context::SurfmanRenderingContext;
 
+/// A rendering context that uses GPU acceleration via `wgpu` and `surfman`.
+///
+/// This struct manages the `wgpu` device and queue, the `surfman` swap chain, and the underlying
+/// `SurfmanRenderingContext`. It handles the interoperability between Servo's OpenGL rendering
+/// and `wgpu`'s texture management.
 pub struct GPURenderingContext {
     pub wgpu_device: wgpu::Device,
     pub wgpu_queue: wgpu::Queue,
@@ -35,6 +40,16 @@ impl Drop for GPURenderingContext {
 }
 
 impl GPURenderingContext {
+    /// Creates a new `GPURenderingContext`.
+    ///
+    /// This initializes the `surfman` connection, adapter, and device, creates a surface,
+    /// and sets up the swap chain.
+    ///
+    /// # Arguments
+    ///
+    /// * `size` - The initial size of the rendering context.
+    /// * `wgpu_device` - The `wgpu` device to use for texture creation.
+    /// * `wgpu_queue` - The `wgpu` queue for command submission.
     pub fn new(
         size: PhysicalSize<u32>,
         wgpu_device: wgpu::Device,
@@ -78,8 +93,9 @@ impl GPURenderingContext {
         WPGPUTextureFromMetal::new(self).get()
     }
 
-    /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
-    /// Unbinds the surface, converts to WGPU texture, then rebinds it.
+    /// Imports a Vulkan surface as a WGPU texture for rendering on Linux and Android.
+    /// This method handles the import of the underlying Vulkan image into WGPU, potentially
+    /// performing necessary layout transitions or memory barriers.
     #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn get_wgpu_texture_from_vulkan(
         &self,
