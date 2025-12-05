@@ -1489,7 +1489,7 @@ mod tests {
                 parent_index: 0,
                 item_array_index: 0,
             }],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
         VRc::into_dyn(component)
@@ -1560,7 +1560,7 @@ mod tests {
                     item_array_index: 3,
                 },
             ],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
         VRc::into_dyn(component)
@@ -1670,7 +1670,7 @@ mod tests {
                 },
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
-            subtrees: std::cell::RefCell::new(vec![vec![]]),
+            subtrees: std::cell::RefCell::new(vec![Vec::new()]),
             subtree_index: usize::MAX,
         });
         vtable::VRc::into_dyn(component)
@@ -1739,7 +1739,7 @@ mod tests {
                     item_array_index: 0,
                 },
             ],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
 
@@ -1752,7 +1752,7 @@ mod tests {
                 parent_index: 2,
                 item_array_index: 0,
             }],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
         })]]);
 
@@ -1864,7 +1864,7 @@ mod tests {
                     item_array_index: 0,
                 },
             ],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
 
@@ -1880,7 +1880,7 @@ mod tests {
                 },
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
         let sub_component2 = VRc::new(TestItemTree {
@@ -1901,7 +1901,7 @@ mod tests {
                     item_array_index: 0,
                 },
             ],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
 
@@ -2041,7 +2041,7 @@ mod tests {
                     item_array_index: 0,
                 },
             ],
-            subtrees: std::cell::RefCell::new(vec![]),
+            subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
         });
 
@@ -2055,7 +2055,7 @@ mod tests {
                     parent_index: 1,
                     item_array_index: 0,
                 }],
-                subtrees: std::cell::RefCell::new(vec![]),
+                subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 0,
             }),
             VRc::new(TestItemTree {
@@ -2067,7 +2067,7 @@ mod tests {
                     parent_index: 1,
                     item_array_index: 0,
                 }],
-                subtrees: std::cell::RefCell::new(vec![]),
+                subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 1,
             }),
             VRc::new(TestItemTree {
@@ -2079,7 +2079,7 @@ mod tests {
                     parent_index: 1,
                     item_array_index: 0,
                 }],
-                subtrees: std::cell::RefCell::new(vec![]),
+                subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 2,
             }),
         ]]);

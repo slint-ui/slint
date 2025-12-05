@@ -679,7 +679,7 @@ fn lower_dialog_layout(
     );
 
     let mut main_widget = None;
-    let mut button_roles = vec![];
+    let mut button_roles = Vec::new();
     let mut seen_buttons = HashSet::new();
     let layout_children = std::mem::take(&mut dialog_element.borrow_mut().children);
     for layout_child in &layout_children {

@@ -464,8 +464,8 @@ fn globals() {
             },
             PyComponent {
                 name: SmolStr::new_static("ToBeRemoved"),
-                properties: vec![],
-                aliases: vec![],
+                properties: Vec::new(),
+                aliases: Vec::new(),
             },
         ],
         ..Default::default()
@@ -505,7 +505,7 @@ fn globals() {
                     name: SmolStr::new_static("str_prop"),
                     ty: SmolStr::new_static("str"),
                 }],
-                aliases: vec![],
+                aliases: Vec::new(),
             },
         ],
         ..Default::default()
@@ -576,13 +576,13 @@ fn structs_and_enums() {
             }),
             PyStructOrEnum::Struct(PyStruct {
                 name: SmolStr::new_static("RemovedStruct"),
-                fields: vec![],
-                aliases: vec![],
+                fields: Vec::new(),
+                aliases: Vec::new(),
             }),
             PyStructOrEnum::Struct(PyStruct {
                 name: SmolStr::new_static("StructBecomesEnum"),
-                fields: vec![],
-                aliases: vec![],
+                fields: Vec::new(),
+                aliases: Vec::new(),
             }),
             PyStructOrEnum::Enum(PyEnum {
                 name: SmolStr::new_static("SameEnum"),
@@ -624,7 +624,7 @@ fn structs_and_enums() {
                         strvalue: SmolStr::new_static("Variant2"),
                     },
                 ],
-                aliases: vec![],
+                aliases: Vec::new(),
             }),
         ],
         ..Default::default()
@@ -660,8 +660,8 @@ fn structs_and_enums() {
             }),
             PyStructOrEnum::Struct(PyStruct {
                 name: SmolStr::new_static("AddedStruct"),
-                fields: vec![],
-                aliases: vec![],
+                fields: Vec::new(),
+                aliases: Vec::new(),
             }),
             PyStructOrEnum::Enum(PyEnum {
                 name: SmolStr::new_static("StructBecomesEnum"),
@@ -675,7 +675,7 @@ fn structs_and_enums() {
                         strvalue: SmolStr::new_static("Variant2"),
                     },
                 ],
-                aliases: vec![],
+                aliases: Vec::new(),
             }),
             PyStructOrEnum::Enum(PyEnum {
                 name: SmolStr::new_static("SameEnum"),
@@ -717,7 +717,7 @@ fn structs_and_enums() {
                         strvalue: SmolStr::new_static("Variant2"),
                     },
                 ],
-                aliases: vec![],
+                aliases: Vec::new(),
             }),
         ],
         ..Default::default()

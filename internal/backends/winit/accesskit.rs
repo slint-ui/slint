@@ -130,7 +130,7 @@ impl AccessKitAdapter {
             return;
         }
         self.inner.update_if_active(|| TreeUpdate {
-            nodes: vec![],
+            nodes: Vec::new(),
             tree: None,
             focus: self.nodes.focus_node(&self.window_adapter_weak),
         })

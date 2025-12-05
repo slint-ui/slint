@@ -177,7 +177,7 @@ pub struct LocalMemberReference {
 
 impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
     fn from(reference: T) -> Self {
-        Self { sub_component_path: vec![], reference: reference.into() }
+        Self { sub_component_path: Vec::new(), reference: reference.into() }
     }
 }
 

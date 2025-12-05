@@ -176,7 +176,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     let state = Rc::new(RefCell::new(AppState {
         pieces: Rc::new(slint::VecModel::<Piece>::from(vec![Piece::default(); 15])),
         main_window: main_window.as_weak(),
-        positions: vec![],
+        positions: Vec::new(),
         auto_play_timer: Default::default(),
         kick_animation_timer: Default::default(),
         speed_for_kick_animation: Default::default(),

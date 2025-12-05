@@ -150,7 +150,7 @@ impl PropertyPath {
 
 impl From<NamedReference> for PropertyPath {
     fn from(prop: NamedReference) -> Self {
-        Self { elements: vec![], prop }
+        Self { elements: Vec::new(), prop }
     }
 }
 

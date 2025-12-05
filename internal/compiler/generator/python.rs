@@ -263,7 +263,7 @@ impl From<&PyEnum> for python_ast::Declaration {
                     default_value: Some(format_smolstr!("\"{}\"", variant.strvalue)),
                 })
                 .collect(),
-            function_declarations: vec![],
+            function_declarations: Vec::new(),
         })
     }
 }

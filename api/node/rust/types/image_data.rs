@@ -90,7 +90,7 @@ impl SlintImageData {
 }
 
 fn rgb_to_rgba(bytes: &[u8], size: usize) -> Vec<u8> {
-    let mut rgba_bytes = vec![];
+    let mut rgba_bytes = Vec::new();
 
     for i in 0..size {
         if (i * 3) + 2 >= bytes.len() {

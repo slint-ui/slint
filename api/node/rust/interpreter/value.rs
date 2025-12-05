@@ -248,7 +248,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         Type::Array(a) => {
             if unknown.is_array()? {
                 let array = Array::from_unknown(unknown)?;
-                let mut vec = vec![];
+                let mut vec = Vec::new();
 
                 for i in 0..array.len() {
                     vec.push(to_value(

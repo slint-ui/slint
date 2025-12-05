@@ -14,7 +14,7 @@ pub fn lower_text_input_interface(component: &Rc<Component>) {
             Expression::PropertyReference(nr) if is_input_text_focused_prop(nr) => {
                 *e = Expression::FunctionCall {
                     function: BuiltinFunction::TextInputFocused.into(),
-                    arguments: vec![],
+                    arguments: Vec::new(),
                     source_location: None,
                 };
             }

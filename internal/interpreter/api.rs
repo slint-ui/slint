@@ -587,7 +587,7 @@ impl Default for ComponentCompiler {
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
         config.components_to_generate = i_slint_compiler::ComponentSelection::LastExported;
-        Self { config, diagnostics: vec![] }
+        Self { config, diagnostics: Vec::new() }
     }
 }
 
@@ -2120,7 +2120,7 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::PhysicalLength), ValueType::Number);
     assert_eq!(ValueType::from(LangType::LogicalLength), ValueType::Number);
     assert_eq!(ValueType::from(LangType::Percent), ValueType::Number);
-    assert_eq!(ValueType::from(LangType::UnitProduct(vec![])), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::UnitProduct(Vec::new())), ValueType::Number);
     assert_eq!(ValueType::from(LangType::String), ValueType::String);
     assert_eq!(ValueType::from(LangType::Color), ValueType::Brush);
     assert_eq!(ValueType::from(LangType::Brush), ValueType::Brush);

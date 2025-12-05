@@ -21,7 +21,7 @@ struct ComponentScope(Vec<ElementRc>);
 
 pub fn resolve_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     for component in doc.inner_components.iter() {
-        let scope = ComponentScope(vec![]);
+        let scope = ComponentScope(Vec::new());
         crate::object_tree::recurse_elem_no_borrow(
             &component.root_element,
             &scope,
@@ -29,7 +29,7 @@ pub fn resolve_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 let mut new_scope = scope.clone();
                 new_scope.0.push(elem.clone());
 
-                let mut need_resolving = vec![];
+                let mut need_resolving = Vec::new();
                 for (prop, decl) in elem.borrow().property_declarations.iter() {
                     if matches!(decl.property_type, Type::InferredProperty | Type::InferredCallback)
                     {

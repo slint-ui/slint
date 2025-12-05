@@ -399,7 +399,7 @@ pub fn repeater_special_property(
     MemberReference::Relative {
         parent_level: parent_level - 1,
         local_reference: LocalMemberReference {
-            sub_component_path: vec![],
+            sub_component_path: Vec::new(),
             reference: property_index.into(),
         },
     }
@@ -775,7 +775,7 @@ fn solve_layout(
                         data,
                         llr_Expression::Array {
                             element_ty: Type::Int32,
-                            values: vec![],
+                            values: Vec::new(),
                             as_model: false,
                         },
                     ],
@@ -838,7 +838,7 @@ fn box_layout_data(
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: None }
     } else {
-        let mut elements = vec![];
+        let mut elements = Vec::new();
         for item in &layout.elems {
             if item.element.borrow().repeated.is_some() {
                 let repeater_index =
@@ -1079,7 +1079,7 @@ fn compile_path(
         }
         crate::expression_tree::Path::Events(events, points) => {
             if events.is_empty() || points.is_empty() {
-                return llr_path_elements(vec![]);
+                return llr_path_elements(Vec::new());
             }
 
             let events: Vec<_> = events.iter().map(|event| lower_expression(event, ctx)).collect();

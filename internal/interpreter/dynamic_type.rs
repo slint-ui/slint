@@ -79,7 +79,7 @@ pub struct TypeBuilder<'id> {
 
 impl<'id> TypeBuilder<'id> {
     pub fn new(id: generativity::Guard<'id>) -> Self {
-        let mut s = Self { align: 1, size: 0, fields: vec![], id: id.into() };
+        let mut s = Self { align: 1, size: 0, fields: Vec::new(), id: id.into() };
         type T<'id> = Rc<TypeInfo<'id>>;
         s.add_field(StaticTypeInfo {
             construct: None,

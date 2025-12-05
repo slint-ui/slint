@@ -165,7 +165,7 @@ impl LoweredSubComponentMapping {
             LoweredElement::NativeItem { item_index } => MemberReference::Relative {
                 parent_level: 0,
                 local_reference: LocalMemberReference {
-                    sub_component_path: vec![],
+                    sub_component_path: Vec::new(),
                     reference: LocalMemberIndex::Native {
                         item_index: *item_index,
                         prop_name: from.name().clone(),
@@ -300,7 +300,7 @@ fn lower_sub_component(
                     ret_ty: function.return_type.clone(),
                     args: function.args.clone(),
                     // will be replaced later
-                    code: super::Expression::CodeBlock(vec![]),
+                    code: super::Expression::CodeBlock(Vec::new()),
                 });
                 index.into()
             } else if let Type::Callback(callback) = &x.property_type {
@@ -324,7 +324,10 @@ fn lower_sub_component(
                 NamedReference::new(element, p.clone()),
                 MemberReference::Relative {
                     parent_level: 0,
-                    local_reference: LocalMemberReference { sub_component_path: vec![], reference },
+                    local_reference: LocalMemberReference {
+                        sub_component_path: Vec::new(),
+                        reference,
+                    },
                 },
             );
         }
@@ -722,7 +725,7 @@ fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer
         // TODO: this calls a callback instead of inlining the callback code directly
         triggered: super::Expression::CallBackCall {
             callback: ctx.map_property_reference(&timer.triggered),
-            arguments: vec![],
+            arguments: Vec::new(),
         }
         .into(),
     }
@@ -753,7 +756,7 @@ fn lower_global(
                 ret_ty: function.return_type.clone(),
                 args: function.args.clone(),
                 // will be replaced later
-                code: super::Expression::CodeBlock(vec![]),
+                code: super::Expression::CodeBlock(Vec::new()),
             });
             state.global_properties.insert(
                 nr.clone(),
@@ -963,13 +966,13 @@ fn make_tree(
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Right(usize::from(*repeated_index) as u32),
-            children: vec![],
+            children: Vec::new(),
         },
         LoweredElement::ComponentPlaceholder { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Right(*repeated_index + repeater_count),
-            children: vec![],
+            children: Vec::new(),
         },
     }
 }

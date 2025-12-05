@@ -660,7 +660,7 @@ fn public_api(
     self_init: TokenStream,
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
+    let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
     for p in public_properties {
         let prop_ident = ident(&p.name);
         let prop = access_member(&p.prop, ctx).unwrap();
@@ -795,11 +795,11 @@ fn generate_sub_component(
         }))
         .collect::<Vec<_>>();
 
-    let mut declared_property_vars = vec![];
-    let mut declared_property_types = vec![];
-    let mut declared_callbacks = vec![];
-    let mut declared_callbacks_types = vec![];
-    let mut declared_callbacks_ret = vec![];
+    let mut declared_property_vars = Vec::new();
+    let mut declared_property_types = Vec::new();
+    let mut declared_callbacks = Vec::new();
+    let mut declared_callbacks_types = Vec::new();
+    let mut declared_callbacks_ret = Vec::new();
 
     for property in component.properties.iter() {
         let prop_ident = ident(&property.name);
@@ -825,9 +825,9 @@ fn generate_sub_component(
 
     let declared_functions = generate_functions(component.functions.as_ref(), &ctx);
 
-    let mut init = vec![];
-    let mut item_names = vec![];
-    let mut item_types = vec![];
+    let mut init = Vec::new();
+    let mut item_names = Vec::new();
+    let mut item_types = Vec::new();
 
     #[cfg(slint_debug_property)]
     init.push(quote!(
@@ -857,10 +857,10 @@ fn generate_sub_component(
         }
     }
 
-    let mut repeated_visit_branch: Vec<TokenStream> = vec![];
-    let mut repeated_element_components: Vec<TokenStream> = vec![];
-    let mut repeated_subtree_ranges: Vec<TokenStream> = vec![];
-    let mut repeated_subtree_components: Vec<TokenStream> = vec![];
+    let mut repeated_visit_branch: Vec<TokenStream> = Vec::new();
+    let mut repeated_element_components: Vec<TokenStream> = Vec::new();
+    let mut repeated_subtree_ranges: Vec<TokenStream> = Vec::new();
+    let mut repeated_subtree_components: Vec<TokenStream> = Vec::new();
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
         extra_components.push(generate_repeated_component(
@@ -967,9 +967,9 @@ fn generate_sub_component(
         }
     }
 
-    let mut accessible_role_branch = vec![];
-    let mut accessible_string_property_branch = vec![];
-    let mut accessibility_action_branch = vec![];
+    let mut accessible_role_branch = Vec::new();
+    let mut accessible_string_property_branch = Vec::new();
+    let mut accessibility_action_branch = Vec::new();
     let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
@@ -1015,8 +1015,8 @@ fn generate_sub_component(
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();
 
-    let mut sub_component_names: Vec<Ident> = vec![];
-    let mut sub_component_types: Vec<Ident> = vec![];
+    let mut sub_component_names: Vec<Ident> = Vec::new();
+    let mut sub_component_types: Vec<Ident> = Vec::new();
 
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
@@ -1426,11 +1426,11 @@ fn generate_global(
     compiler_config: &CompilerConfiguration,
     global_exports: &mut Vec<TokenStream>,
 ) -> TokenStream {
-    let mut declared_property_vars = vec![];
-    let mut declared_property_types = vec![];
-    let mut declared_callbacks = vec![];
-    let mut declared_callbacks_types = vec![];
-    let mut declared_callbacks_ret = vec![];
+    let mut declared_property_vars = Vec::new();
+    let mut declared_property_types = Vec::new();
+    let mut declared_callbacks = Vec::new();
+    let mut declared_callbacks_types = Vec::new();
+    let mut declared_callbacks_ret = Vec::new();
 
     for property in global.properties.iter() {
         declared_property_vars.push(ident(&property.name));
@@ -1444,7 +1444,7 @@ fn generate_global(
         declared_callbacks_ret.push(rust_primitive_type(&callback.ret_ty));
     }
 
-    let mut init = vec![];
+    let mut init = Vec::new();
     let inner_component_id = global_inner_name(global);
 
     #[cfg(slint_debug_property)]
@@ -1650,8 +1650,8 @@ fn generate_item_tree(
             }
         }
     }));
-    let mut item_tree_array = vec![];
-    let mut item_array = vec![];
+    let mut item_tree_array = Vec::new();
+    let mut item_array = Vec::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
         let (path, component) =
@@ -3427,7 +3427,7 @@ fn box_layout_function(
     let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
     let mut fixed_count = 0usize;
     let mut repeated_count = quote!();
-    let mut push_code = vec![];
+    let mut push_code = Vec::new();
     let mut repeater_idx = 0usize;
     for item in elements {
         match item {

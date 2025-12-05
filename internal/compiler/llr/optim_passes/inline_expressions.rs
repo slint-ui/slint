@@ -196,7 +196,7 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
                         adjust_use_count(expr, ctx, 1);
                         if use_count == 1 {
                             adjust_use_count(&binding.expression.borrow(), &mapped_ctx, -1);
-                            binding.expression.replace(Expression::CodeBlock(vec![]));
+                            binding.expression.replace(Expression::CodeBlock(Vec::new()));
                         }
                     }
                 }

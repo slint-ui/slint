@@ -181,7 +181,7 @@ fn test_goto_definition_multi_files() {
     "#;
     let (mut dc, url1, diags) = crate::language::test::loaded_document_cache(source1.into());
     for (u, ds) in diags {
-        assert_eq!(ds, vec![], "errors in {u}");
+        assert_eq!(ds, Vec::new(), "errors in {u}");
     }
     let url2 = url1.join("../file2.slint").unwrap();
     let source2 = format!(
@@ -201,7 +201,7 @@ fn test_goto_definition_multi_files() {
     ));
     let diag = crate::language::convert_diagnostics(&extra_files, diag, common::ByteFormat::Utf8);
     for (u, ds) in diag {
-        assert_eq!(ds, vec![], "errors in {u}");
+        assert_eq!(ds, Vec::new(), "errors in {u}");
     }
 
     let doc2 = dc.get_document(&url2).unwrap().node.clone().unwrap();

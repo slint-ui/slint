@@ -167,14 +167,14 @@ fn clean_unused_bindings(root: &CompilationUnit) {
     root.for_each_sub_components(&mut |sc, _| {
         for (_, e) in &sc.property_init {
             if e.use_count.get() == 0 {
-                e.expression.replace(Expression::CodeBlock(vec![]));
+                e.expression.replace(Expression::CodeBlock(Vec::new()));
             }
         }
     });
     for g in &root.globals {
         for e in g.init_values.values() {
             if e.use_count.get() == 0 {
-                e.expression.replace(Expression::CodeBlock(vec![]));
+                e.expression.replace(Expression::CodeBlock(Vec::new()));
             }
         }
     }

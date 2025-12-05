@@ -59,7 +59,7 @@ impl<'a> SkiaItemRenderer<'a> {
             scale_factor: ScaleFactor::new(window.scale_factor()),
             window,
             surface,
-            state_stack: vec![],
+            state_stack: Vec::new(),
             current_state: RenderState { alpha: 1.0, translation: Default::default() },
             image_cache,
             layer_cache,

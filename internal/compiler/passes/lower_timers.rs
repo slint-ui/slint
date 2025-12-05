@@ -104,7 +104,7 @@ fn lower_timer(
     });
     let update_timers = Expression::FunctionCall {
         function: BuiltinFunction::UpdateTimers.into(),
-        arguments: vec![],
+        arguments: Vec::new(),
         source_location: None,
     };
     let change_callbacks = &mut timer_element.borrow_mut().change_callbacks;

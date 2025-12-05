@@ -432,7 +432,7 @@ fn rename_internal_name(
         return Default::default();
     };
 
-    let mut edits = vec![];
+    let mut edits = Vec::new();
 
     let parent: syntax_nodes::ImportIdentifier = internal_name.parent().unwrap().into();
     let external_name = parent.ExternalName();
@@ -462,7 +462,7 @@ fn rename_export_name(
     export_name: &syntax_nodes::ExportName,
     new_type: &str,
 ) -> lsp_types::WorkspaceEdit {
-    let mut edits = vec![];
+    let mut edits = Vec::new();
 
     let specifier: syntax_nodes::ExportSpecifier = export_name.parent().unwrap().into();
     let Some(internal_name) = main_identifier(&specifier.ExportIdentifier()) else {
@@ -1089,7 +1089,7 @@ fn rename_declared_identifier(
         return Ok(lsp_types::WorkspaceEdit::default());
     }
 
-    let mut edits = vec![];
+    let mut edits = Vec::new();
 
     // Change all local usages:
     rename_local_symbols(document_cache, document_node, query, new_type, &mut edits);
