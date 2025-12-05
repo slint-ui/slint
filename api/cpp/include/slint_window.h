@@ -5,6 +5,22 @@
 
 #include "slint_internal.h"
 
+#include <utility>
+
+struct xcb_connection_t;
+struct wl_surface;
+struct wl_display;
+
+#if defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+#    ifdef __OBJC__
+@class NSView;
+@class NSWindow;
+#    else
+typedef struct objc_object NSView;
+typedef struct objc_object NSWindow;
+#    endif
+#endif
+
 namespace slint {
 #if !defined(DOXYGEN)
 namespace platform {
@@ -280,6 +296,153 @@ private:
 };
 
 }
+
+#ifdef SLINT_FEATURE_RAW_WINDOW_HANDLE_06
+/// An opaque, low-level window handle that internalizes everything necessary to exchange messages
+/// with the windowing system. This includes the connection to the display server, if necessary.
+///
+/// Note that this class does not provide any kind of ownership. The caller is responsible for
+/// ensuring that the pointers supplied to the constructor are valid throughout the lifetime of the
+/// NativeWindowHandle.
+class NativeWindowHandle
+{
+    cbindgen_private::CppRawHandleOpaque inner;
+    friend class SkiaRenderer;
+
+public:
+    NativeWindowHandle() = delete;
+    NativeWindowHandle(const NativeWindowHandle &) = delete;
+    NativeWindowHandle &operator=(const NativeWindowHandle &) = delete;
+    /// Creates a new NativeWindowHandle by moving the handle data from \a other into this
+    /// NativeWindowHandle.
+    NativeWindowHandle(NativeWindowHandle &&other) { inner = std::exchange(other.inner, nullptr); }
+    /// Creates a new NativeWindowHandle by moving the handle data from \a other into this
+    /// NativeWindowHandle.
+    NativeWindowHandle &operator=(NativeWindowHandle &&other)
+    {
+        if (this == &other) {
+            return *this;
+        }
+        if (inner) {
+            cbindgen_private::slint_raw_window_handle_drop(inner);
+        }
+        inner = std::exchange(other.inner, nullptr);
+        return *this;
+    }
+
+#    if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)) || defined(DOXYGEN)
+
+    /// Creates a new NativeWindowHandle from the given xcb_window_t \a window,
+    /// xcb_visualid_t \a visual_id, XCB \a connection, and \a screen number.
+    static NativeWindowHandle from_x11_xcb(uint32_t /*xcb_window_t*/ window,
+                                           uint32_t /*xcb_visualid_t*/ visual_id,
+                                           xcb_connection_t *connection, int screen)
+    {
+
+        return { cbindgen_private::slint_new_raw_window_handle_x11_xcb(window, visual_id,
+                                                                       connection, screen) };
+    }
+
+    /// Creates a new NativeWindowHandle from the given XLib \a window,
+    /// VisualID \a visual_id, Display \a display, and \a screen number.
+    static NativeWindowHandle from_x11_xlib(uint32_t /*Window*/ window,
+                                            unsigned long /*VisualID*/ visual_id,
+                                            void /*Display*/ *display, int screen)
+    {
+
+        return { cbindgen_private::slint_new_raw_window_handle_x11_xlib(window, visual_id, display,
+                                                                        screen) };
+    }
+
+    /// Creates a new NativeWindowHandle from the given wayland \a surface,
+    /// and \a display.
+    static NativeWindowHandle from_wayland(wl_surface *surface, wl_display *display)
+    {
+
+        return { cbindgen_private::slint_new_raw_window_handle_wayland(surface, display) };
+    }
+
+    /// Returns the wl_surface from this NativeWindowHandle.
+    wl_surface *wayland_surface() const
+    {
+        if (inner) {
+            return static_cast<wl_surface *>(
+                    cbindgen_private::slint_raw_window_handle_wayland(inner));
+        }
+        return nullptr;
+    }
+
+    /// Returns the wl_display from this NativeWindowHandle.
+    wl_display *wayland_display() const
+    {
+        if (inner) {
+            return static_cast<wl_display *>(
+                    cbindgen_private::slint_raw_display_handle_wayland(inner));
+        }
+        return nullptr;
+    }
+
+#    endif
+#    if (defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)) || defined(DOXYGEN)
+
+    /// Creates a new NativeWindowHandle from the given \a nsview, and \a nswindow.
+    static NativeWindowHandle from_appkit(NSView *nsview, NSWindow *nswindow)
+    {
+
+        return { cbindgen_private::slint_new_raw_window_handle_appkit(nsview, nswindow) };
+    }
+
+    /// Returns the NSView from this NativeWindowHandle.
+    NSView *appkit_view() const
+    {
+        if (inner) {
+            return static_cast<NSView *>(cbindgen_private::slint_raw_view_handle_appkit(inner));
+        }
+        return nullptr;
+    }
+
+#    endif
+#    if (!defined(__APPLE__) && (defined(_WIN32) || defined(_WIN64))) || defined(DOXYGEN)
+
+    /// Creates a new NativeWindowHandle from the given HWND \a hwnd, and HINSTANCE \a hinstance.
+    static NativeWindowHandle from_win32(void *hwnd, void *hinstance)
+    {
+        return { cbindgen_private::slint_new_raw_window_handle_win32(hwnd, hinstance) };
+    }
+
+    /// Returns the HWND from this NativeWindowHandle.
+    void const *win32_hwnd() const
+    {
+        if (inner) {
+            return cbindgen_private::slint_raw_hwnd_handle_win32(inner);
+        }
+        return nullptr;
+    }
+
+    /// Returns the HINSTANCE from this NativeWindowHandle.
+    void const *win32_instance() const
+    {
+        if (inner) {
+            return cbindgen_private::slint_raw_hinstance_handle_win32(inner);
+        }
+        return nullptr;
+    }
+
+#    endif
+    /// Destroys the NativeWindowHandle.
+    ~NativeWindowHandle()
+    {
+        if (inner) {
+            cbindgen_private::slint_raw_window_handle_drop(inner);
+        }
+    }
+
+protected:
+    NativeWindowHandle(cbindgen_private::CppRawHandleOpaque inner) : inner(inner) { }
+
+    friend class Window;
+};
+#endif
 
 /// This class represents a window towards the windowing system, that's used to render the
 /// scene of a component. It provides API to control windowing system specific aspects such
@@ -635,6 +798,11 @@ public:
         } else {
             return {};
         }
+    }
+
+    NativeWindowHandle native_window_handle() const
+    {
+        return cbindgen_private::slint_windowrc_window_handle(&inner.handle());
     }
 
     /// \private
