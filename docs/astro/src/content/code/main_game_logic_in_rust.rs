@@ -14,7 +14,7 @@ fn main() {
 
     // Randomly mix the tiles
     use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     tiles.shuffle(&mut rng);
 
     // ANCHOR: game_logic

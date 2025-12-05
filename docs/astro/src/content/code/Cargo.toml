@@ -38,4 +38,4 @@ path = "main_game_logic_in_rust.rs"
 
 [dependencies]
 slint = { path = "../../../../api/rs/slint" }
-rand = "0.8"
+rand = "0.9"

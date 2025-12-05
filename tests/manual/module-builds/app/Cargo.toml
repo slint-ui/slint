@@ -13,7 +13,7 @@ license = "MIT"
 slint = { path = "../../../../api/rs/slint" }
 blogica = { path = "../blogica" }
 blogicb = { path = "../blogicb" }
-rand = "0.8.5"
+rand = "0.9"
 random_word = { version = "0.5.2", features = ["en"] }
 
 [build-dependencies]

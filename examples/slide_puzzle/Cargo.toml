@@ -14,7 +14,7 @@ path = "main.rs"
 name = "slide_puzzle"
 
 [dependencies]
-rand = "0.8"
+rand = "0.9"
 slint = { path = "../../api/rs/slint" }
 
 [build-dependencies]
