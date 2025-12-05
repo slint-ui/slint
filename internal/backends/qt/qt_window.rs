@@ -24,8 +24,8 @@ use i_slint_core::items::{
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalPx, ScaleFactor, logical_size_from_api,
+    logical_size_from_api, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect,
+    LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::textlayout::sharedparley::{self, parley, GlyphRenderer};
