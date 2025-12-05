@@ -1116,15 +1116,15 @@ impl Element {
                     ElementType::Error
                 }
                 (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements)) => {
-                    if !c.is_interface() {
+                    if !diag.enable_experimental {
                         diag.push_error(
-                            format!("Cannot implement {}. It is not an interface", base_string),
+                            format!("'implements' is an experimental feature"),
                             &base_node,
                         );
                         ElementType::Error
-                    } else if !diag.enable_experimental {
+                    } else if !c.is_interface() {
                         diag.push_error(
-                            format!("'implements' is an experimental feature"),
+                            format!("Cannot implement {}. It is not an interface", base_string),
                             &base_node,
                         );
                         ElementType::Error
@@ -1136,10 +1136,17 @@ impl Element {
                     }
                 }
                 (Ok(ElementType::Builtin(_bt)), Some(ParentRelationship::Implements)) => {
-                    diag.push_error(
-                        format!("Cannot implement {}. It is not an interface", base_string),
-                        &base_node,
-                    );
+                    if !diag.enable_experimental {
+                        diag.push_error(
+                            format!("'implements' is an experimental feature"),
+                            &base_node,
+                        );
+                    } else {
+                        diag.push_error(
+                            format!("Cannot implement {}. It is not an interface", base_string),
+                            &base_node,
+                        );
+                    }
                     ElementType::Error
                 }
                 (Ok(ty), _) => ty,
