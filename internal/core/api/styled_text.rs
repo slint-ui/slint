@@ -368,7 +368,7 @@ fn markdown_parsing() {
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
-            links: alloc::vec![]
+            links: alloc::vec::Vec::new()
         }]
     );
 
@@ -384,13 +384,13 @@ fn markdown_parsing() {
         [
             StyledTextParagraph {
                 text: "• line 1".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "• line 2".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             }
         ]
     );
@@ -408,18 +408,18 @@ fn markdown_parsing() {
         [
             StyledTextParagraph {
                 text: "1. a".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "2. b".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "3. c".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             }
         ]
     );
@@ -442,12 +442,12 @@ new *line*
                     FormattedSpan { range: 21..34, style: Style::Strikethrough },
                     FormattedSpan { range: 35..39, style: Style::Code }
                 ],
-                links: alloc::vec![]
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "new line".into(),
                 formatting: alloc::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
-                links: alloc::vec![]
+                links: alloc::vec::Vec::new()
             }
         ]
     );
@@ -466,23 +466,23 @@ new *line*
         [
             StyledTextParagraph {
                 text: "• root".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "    ◦ child".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "        ▪ grandchild".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
             StyledTextParagraph {
                 text: "            • great grandchild".into(),
-                formatting: alloc::vec![],
-                links: alloc::vec![]
+                formatting: alloc::vec::Vec::new(),
+                links: alloc::vec::Vec::new()
             },
         ]
     );
@@ -504,7 +504,7 @@ new *line*
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
-            links: alloc::vec![]
+            links: alloc::vec::Vec::new()
         }]
     );
 
@@ -516,7 +516,7 @@ new *line*
                 range: 0..11,
                 style: Style::Color(crate::Color::from_rgb_u8(0, 0, 255))
             },],
-            links: alloc::vec![]
+            links: alloc::vec::Vec::new()
         }]
     );
 
@@ -531,7 +531,7 @@ new *line*
                 },
                 FormattedSpan { range: 0..11, style: Style::Underline },
             ],
-            links: alloc::vec![]
+            links: alloc::vec::Vec::new()
         }]
     );
 }

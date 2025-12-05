@@ -225,7 +225,7 @@ pub fn set_json_preview_data(
 
     let definition = &component_instance.definition();
 
-    let mut failed_properties = vec![];
+    let mut failed_properties = Vec::new();
 
     let it =
         find_component_properties_and_callbacks(definition, &container).map_err(|e| vec![e])?;

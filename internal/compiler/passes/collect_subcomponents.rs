@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 /// Fill the root_component's used_types.sub_components
 pub fn collect_subcomponents(doc: &Document) {
-    let mut result = vec![];
+    let mut result = Vec::new();
     let mut hash = HashSet::new();
     for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
         collect_subcomponents_recursive(&component, &mut result, &mut hash);

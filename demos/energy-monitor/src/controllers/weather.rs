@@ -37,7 +37,7 @@ async fn weather_worker_loop(window_weak: Weak<MainWindow>) {
 
     let now = Local::now();
 
-    let mut forecast_days = vec![];
+    let mut forecast_days = Vec::new();
 
     let client = Client::new(&api_key, true);
     let mut forecast_list = future::join_all((0..FORECAST_DAYS).map(|i| {

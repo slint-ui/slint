@@ -15,7 +15,7 @@ pub(crate) fn get_signature_help(
 ) -> Option<SignatureHelp> {
     let pos = token.text_range().start();
     let mut node = token.parent();
-    let mut result = vec![];
+    let mut result = Vec::new();
 
     loop {
         if let Some(node) = syntax_nodes::FunctionCallExpression::new(node.clone()) {
@@ -203,7 +203,7 @@ export component Abc {
                     SignatureInformation {
                         label: "Sqrt()".into(),
                         documentation: None,
-                        parameters: Some(vec![]),
+                        parameters: Some(Vec::new()),
                         active_parameter: Some(0),
                     },
                     make_signature_info(

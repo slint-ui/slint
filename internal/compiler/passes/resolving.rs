@@ -43,11 +43,11 @@ fn resolve_expression(
             property_type,
             component_scope: scope,
             diag,
-            arguments: vec![],
+            arguments: Vec::new(),
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
-            local_variables: vec![],
+            local_variables: Vec::new(),
         };
 
         let new_expr = match node.kind() {
@@ -124,7 +124,7 @@ pub fn resolve_expressions(
     for component in doc.inner_components.iter() {
         recurse_elem_with_scope(
             &component.root_element,
-            ComponentScope(vec![]),
+            ComponentScope(Vec::new()),
             &mut |elem, scope| {
                 let mut is_repeated = elem.borrow().repeated.is_some();
                 visit_element_expressions(elem, |expr, property_name, property_type| {
@@ -612,7 +612,7 @@ impl Expression {
             panic!("Not a gradient {grad_text:?}");
         };
 
-        let mut stops = vec![];
+        let mut stops = Vec::new();
         enum Stop {
             Empty,
             Color(Expression),
@@ -1971,7 +1971,7 @@ fn resolve_two_way_bindings(
     for component in doc.inner_components.iter() {
         recurse_elem_with_scope(
             &component.root_element,
-            ComponentScope(vec![]),
+            ComponentScope(Vec::new()),
             &mut |elem, scope| {
                 for (prop_name, binding) in &elem.borrow().bindings {
                     let mut binding = binding.borrow_mut();
@@ -1990,11 +1990,11 @@ fn resolve_two_way_bindings(
                             property_type: lhs_lookup.property_type.clone(),
                             component_scope: &scope.0,
                             diag,
-                            arguments: vec![],
+                            arguments: Vec::new(),
                             type_register,
                             type_loader: None,
                             current_token: Some(node.clone().into()),
-                            local_variables: vec![],
+                            local_variables: Vec::new(),
                         };
 
                         binding.expression = Expression::Invalid;

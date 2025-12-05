@@ -803,7 +803,7 @@ pub fn generate(
         }),
     ));
 
-    let mut init_global = vec![];
+    let mut init_global = Vec::new();
 
     for (idx, glob) in llr.globals.iter_enumerated() {
         if !glob.must_generate() {
@@ -2550,7 +2550,7 @@ fn generate_repeated_component(
 
     let access_prop = |idx: &llr::PropertyIdx| {
         access_member(
-            &llr::LocalMemberReference { sub_component_path: vec![], reference: (*idx).into() }
+            &llr::LocalMemberReference { sub_component_path: Vec::new(), reference: (*idx).into() }
                 .into(),
             &ctx,
         )
@@ -2721,7 +2721,7 @@ fn generate_global(
             name: ident(&global.name),
             signature: "(const class SharedGlobals *globals)".into(),
             is_constructor_or_destructor: true,
-            statements: Some(vec![]),
+            statements: Some(Vec::new()),
             constructor_member_initializers: vec!["globals(globals)".into()],
             ..Default::default()
         }),
@@ -2785,7 +2785,7 @@ fn generate_global_builtin(
                 ident(&global.name)
             ),
             is_constructor_or_destructor: true,
-            statements: Some(vec![]),
+            statements: Some(Vec::new()),
             constructor_member_initializers: vec!["builtin(std::move(builtin))".into()],
             ..Default::default()
         }),

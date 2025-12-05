@@ -780,7 +780,7 @@ impl LookupObject for SlintInternal {
                 } else {
                     Expression::FunctionCall {
                         function: BuiltinFunction::ColorScheme.into(),
-                        arguments: vec![],
+                        arguments: Vec::new(),
                         source_location: sl(),
                     }
                 }
@@ -792,7 +792,7 @@ impl LookupObject for SlintInternal {
                 "use-24-hour-format",
                 Expression::FunctionCall {
                     function: BuiltinFunction::Use24HourFormat.into(),
-                    arguments: vec![],
+                    arguments: Vec::new(),
                     source_location: sl(),
                 }
                 .into(),

@@ -556,7 +556,7 @@ fn resolve_element_scope(
                         None => {
                             let base_type = component.root_element.borrow().base_type.clone();
                             if base_type == tr.empty_type() {
-                                return (false, true, vec![]);
+                                return (false, true, Vec::new());
                             }
                             base_type
                         }
@@ -575,7 +575,7 @@ fn resolve_element_scope(
                         extra,
                     )
                 }
-                _ => (true, true, vec![]),
+                _ => (true, true, Vec::new()),
             }
         }
         let (accepts_children, is_item, extra) = accepts_children(&element_type, tr);

@@ -1160,14 +1160,14 @@ pub(crate) fn generate_item_tree<'id>(
     }
 
     let mut builder = TreeBuilder {
-        tree_array: vec![],
-        item_array: vec![],
-        original_elements: vec![],
+        tree_array: Vec::new(),
+        item_array: Vec::new(),
+        original_elements: Vec::new(),
         items_types: HashMap::new(),
         type_builder: dynamic_type::TypeBuilder::new(guard),
-        repeater: vec![],
+        repeater: Vec::new(),
         repeater_names: HashMap::new(),
-        change_callbacks: vec![],
+        change_callbacks: Vec::new(),
         popup_menu_description,
     };
 

@@ -92,7 +92,7 @@ fn generate_public_component(
         quote!(#main_file)
     };
 
-    let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
+    let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
     for p in &llr.public_properties {
         let prop_name = p.name.as_str();
         let prop_ident = ident(&p.name);
@@ -251,7 +251,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
         return quote!();
     }
     let global_name = global.name.as_str();
-    let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
+    let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
     for p in &global.public_properties {
         let prop_name = p.name.as_str();
         let prop_ident = ident(&p.name);

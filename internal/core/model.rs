@@ -1536,7 +1536,7 @@ mod tests {
         model.insert(0, 255);
         assert!(tracker.is_dirty());
 
-        model.set_vec(vec![]);
+        model.set_vec(Vec::new());
         assert!(tracker.is_dirty());
     }
 

@@ -170,7 +170,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             (
                 name,
                 BuiltinPropertyInfo::new(Type::Function(
-                    Function { return_type, args: vec![], arg_names: vec![] }.into(),
+                    Function { return_type, args: Vec::new(), arg_names: vec![] }.into(),
                 )),
             )
         }));

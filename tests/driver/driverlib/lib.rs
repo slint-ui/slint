@@ -36,7 +36,7 @@ impl TestCase {
 
 /// Returns a list of all the `.slint` files in the subfolders e.g. `tests/cases` .
 pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
-    let mut results = vec![];
+    let mut results = Vec::new();
 
     let mut all_styles = vec!["fluent", "material", "cupertino", "cosmic"];
 

@@ -378,7 +378,7 @@ fn process_window(
             op: '!',
             sub: Expression::FunctionCall {
                 function: BuiltinFunction::SupportsNativeMenuBar.into(),
-                arguments: vec![],
+                arguments: Vec::new(),
                 source_location: None,
             }
             .into(),

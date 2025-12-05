@@ -13,7 +13,6 @@ use std::io::{BufReader, BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::vec;
 use tokio::sync::Mutex;
 
 use crate::weather::utils::*;
@@ -100,7 +99,7 @@ impl OpenWeatherController {
         Self {
             tokio_runtime: tokio::runtime::Runtime::new().unwrap(),
             weather_api,
-            city_clients: Arc::new(Mutex::new(vec![])),
+            city_clients: Arc::new(Mutex::new(Vec::new())),
             storage_path,
         }
     }
@@ -170,7 +169,7 @@ impl OpenWeatherController {
     fn forecast_day_weather_data_from_response(
         weather_response: &Option<OneCallResponse>,
     ) -> Vec<ForecastWeatherData> {
-        let mut forecast_weather_info: Vec<ForecastWeatherData> = vec![];
+        let mut forecast_weather_info: Vec<ForecastWeatherData> = Vec::new();
 
         if let Some(weather_data) = weather_response {
             if let Some(daily_weather_data) = &weather_data.daily {
@@ -296,7 +295,7 @@ impl WeatherController for OpenWeatherController {
         self.tokio_runtime.block_on(async move {
             let mut city_clients = city_clients_clone.lock().await;
 
-            let mut errors = vec![];
+            let mut errors = Vec::new();
             for client in city_clients.iter_mut() {
                 // TODO: Spawn all tasks at once and join them later.
                 if let Err(e) = client.refresh_weather(&weather_api).await {
@@ -369,7 +368,7 @@ impl WeatherController for OpenWeatherController {
         let weather_api = self.weather_api.clone();
 
         if query.is_empty() {
-            return Ok(vec![]);
+            return Ok(Vec::new());
         }
 
         self.tokio_runtime.block_on(async move {

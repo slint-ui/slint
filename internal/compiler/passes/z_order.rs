@@ -26,7 +26,7 @@ fn reorder_children_by_zorder(
     diag: &mut BuildDiagnostics,
 ) {
     // maps indexes to their z order
-    let mut children_z_order = vec![];
+    let mut children_z_order = Vec::new();
     for (idx, child_elm) in elem.borrow().children.iter().enumerate() {
         let z = child_elm
             .borrow_mut()

@@ -404,7 +404,7 @@ fn embed_sdf_glyphs(
     const RANGE: f64 = 6.;
 
     let Some(max_size) = pixel_sizes.iter().max() else {
-        return vec![];
+        return Vec::new();
     };
     let min_size = pixel_sizes.iter().min().expect("we have a 'max' so the vector is not empty");
     let target_pixel_size = (max_size * 2 / 3).max(16).min(RANGE as i16 * min_size);

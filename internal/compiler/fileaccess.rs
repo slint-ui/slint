@@ -114,7 +114,7 @@ mod builtin_library {
     }
 
     pub(crate) fn load_builtin_file(builtin_path: &std::path::Path) -> Option<VirtualFile> {
-        let mut components = vec![];
+        let mut components = Vec::new();
         for part in builtin_path.iter() {
             if part == ".." {
                 components.pop();

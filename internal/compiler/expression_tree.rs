@@ -158,7 +158,7 @@ macro_rules! declare_builtin_function_types {
                     $($Name : Rc::new(Function{
                         args: vec![$($Arg),*],
                         return_type: $ReturnType,
-                        arg_names: vec![],
+                        arg_names: Vec::new(),
                     })),*
                 }
             }
@@ -855,7 +855,7 @@ impl Expression {
                         } else if let Some(u) = ty.default_unit() {
                             vec![(u, 1)]
                         } else {
-                            vec![]
+                            Vec::new()
                         }
                     };
                     let mut l_units = unit_vec(lhs.ty());
@@ -1310,7 +1310,7 @@ impl Expression {
                                             lhs: Box::new(result),
                                             rhs: Box::new(Expression::FunctionCall {
                                                 function: Callable::Builtin(builtin_fn.clone()),
-                                                arguments: vec![],
+                                                arguments: Vec::new(),
                                                 source_location: Some(node.to_source_location()),
                                             }),
                                             op,
@@ -1415,7 +1415,7 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache => Expression::Invalid,
-            Type::Void => Expression::CodeBlock(vec![]),
+            Type::Void => Expression::CodeBlock(Vec::new()),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {
@@ -1435,9 +1435,9 @@ impl Expression {
             },
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => Expression::Invalid,
-            Type::PathData => Expression::PathData(Path::Elements(vec![])),
+            Type::PathData => Expression::PathData(Path::Elements(Vec::new())),
             Type::Array(element_ty) => {
-                Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
+                Expression::Array { element_ty: (**element_ty).clone(), values: Vec::new() }
             }
             Type::Struct(s) => Expression::Struct {
                 ty: s.clone(),
@@ -1572,7 +1572,7 @@ impl TwoWayBinding {
 
 impl From<NamedReference> for TwoWayBinding {
     fn from(nr: NamedReference) -> Self {
-        Self { property: nr, field_access: vec![] }
+        Self { property: nr, field_access: Vec::new() }
     }
 }
 

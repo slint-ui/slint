@@ -37,7 +37,7 @@ impl JsComponentCompiler {
             Some(paths) => {
                 std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
             }
-            None => vec![],
+            None => Vec::new(),
         };
         let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
             Some(paths) => std::env::split_paths(&paths)
@@ -55,7 +55,7 @@ impl JsComponentCompiler {
 
         compiler.set_include_paths(include_paths);
         compiler.set_library_paths(library_paths);
-        Self { internal: compiler, diagnostics: vec![], structs_and_enums: vec![] }
+        Self { internal: compiler, diagnostics: Vec::new(), structs_and_enums: vec![] }
     }
 
     #[napi(setter)]

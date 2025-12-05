@@ -1001,7 +1001,7 @@ pub fn drop_at(
 
 fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
     element.with_element_node(|node| {
-        let mut result = vec![];
+        let mut result = Vec::new();
 
         for b in node.Binding() {
             let name = b.first_token().map(|t| t.text().to_string()).unwrap_or_default();

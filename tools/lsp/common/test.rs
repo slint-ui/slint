@@ -87,7 +87,7 @@ pub fn recompile_test_with_sources(
     let url = lsp_types::Url::from_file_path(main_test_file_name()).unwrap();
     let source_code = code.get(&url).unwrap().clone();
     let (diagnostics, type_loader) = spin_on::spin_on(parse_source(
-        vec![],
+        Vec::new(),
         std::collections::HashMap::new(),
         url,
         source_code.to_string(),

@@ -16,7 +16,7 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                 if nr.name() == "os" {
                     *e = Expression::FunctionCall {
                         function: BuiltinFunction::DetectOperatingSystem.into(),
-                        arguments: vec![],
+                        arguments: Vec::new(),
                         source_location: None,
                     };
                 } else if nr.name() == "style-name" {

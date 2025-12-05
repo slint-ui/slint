@@ -279,7 +279,7 @@ impl GPURenderingContext {
                         mip_level_count: 1,
                         sample_count: 1,
                         usage: wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COLOR_TARGET,
-                        view_formats: vec![],
+                        view_formats: Vec::new(),
                         memory_flags: wgpu_hal::MemoryFlags::empty(),
                     },
                     Some(Box::new(move || {

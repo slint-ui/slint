@@ -360,7 +360,7 @@ fn find_component_identifiers(
 ) -> Vec<syntax_nodes::DeclaredIdentifier> {
     let name = Some(i_slint_compiler::parser::normalize_identifier(name));
 
-    let mut result = vec![];
+    let mut result = Vec::new();
     for el in document.ExportsList() {
         if let Some(component) = el.Component() {
             let identifier = component.DeclaredIdentifier();
@@ -1926,7 +1926,7 @@ pub mod test {
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            vec![],
+            Vec::new(),
             std::collections::HashMap::new(),
             path,
             Some(24),

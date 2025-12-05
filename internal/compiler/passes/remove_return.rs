@@ -56,7 +56,7 @@ fn process_expression(
                 }
                 (ExpressionResult::Just(te), ExpressionResult::Return(fe)) => {
                     ExpressionResult::MaybeReturn {
-                        pre_statements: vec![],
+                        pre_statements: Vec::new(),
                         condition: *condition,
                         returned_value: fe,
                         actual_value: cleanup_empty_block(te),
@@ -64,7 +64,7 @@ fn process_expression(
                 }
                 (ExpressionResult::Return(te), ExpressionResult::Just(fe)) => {
                     ExpressionResult::MaybeReturn {
-                        pre_statements: vec![],
+                        pre_statements: Vec::new(),
                         condition: Expression::UnaryOp { sub: condition, op: '!' },
                         returned_value: te,
                         actual_value: cleanup_empty_block(fe),
@@ -73,8 +73,8 @@ fn process_expression(
                 (ExpressionResult::Return(te), ExpressionResult::Return(fe)) => {
                     ExpressionResult::Return(Some(Expression::Condition {
                         condition,
-                        true_expr: te.unwrap_or(Expression::CodeBlock(vec![])).into(),
-                        false_expr: fe.unwrap_or(Expression::CodeBlock(vec![])).into(),
+                        true_expr: te.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
+                        false_expr: fe.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
                     }))
                 }
                 (te, fe) => {
@@ -121,7 +121,7 @@ fn process_codeblock(
     ty: &Type,
     ctx: &RemoveReturnContext,
 ) -> ExpressionResult {
-    let mut stmts = vec![];
+    let mut stmts = Vec::new();
     while let Some(e) = iter.next() {
         let is_last = iter.peek().is_none();
         match process_expression(e, toplevel, ctx, if is_last { ty } else { &Type::Void }) {
@@ -167,7 +167,7 @@ fn process_codeblock(
                         ty,
                         ctx,
                         ExpressionResult::MaybeReturn {
-                            pre_statements: vec![],
+                            pre_statements: Vec::new(),
                             condition,
                             returned_value,
                             actual_value,
@@ -273,7 +273,7 @@ impl ExpressionResult {
     fn to_expression(self, ty: &Type) -> Expression {
         match self {
             ExpressionResult::Just(e) => e,
-            ExpressionResult::Return(e) => e.unwrap_or(Expression::CodeBlock(vec![])),
+            ExpressionResult::Return(e) => e.unwrap_or(Expression::CodeBlock(Vec::new())),
             ExpressionResult::MaybeReturn {
                 mut pre_statements,
                 condition,
@@ -282,8 +282,8 @@ impl ExpressionResult {
             } => {
                 pre_statements.push(Expression::Condition {
                     condition: condition.into(),
-                    true_expr: actual_value.unwrap_or(Expression::CodeBlock(vec![])).into(),
-                    false_expr: returned_value.unwrap_or(Expression::CodeBlock(vec![])).into(),
+                    true_expr: actual_value.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
+                    false_expr: returned_value.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
                 });
                 Expression::CodeBlock(pre_statements)
             }

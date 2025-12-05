@@ -37,7 +37,7 @@ use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
@@ -571,7 +571,11 @@ impl SoftwareRenderer {
             size,
             factor,
             window_inner,
-            RenderToBuffer { buffer, dirty_range_cache: vec![], dirty_region: Default::default() },
+            RenderToBuffer {
+                buffer,
+                dirty_range_cache: Vec::new(),
+                dirty_region: Default::default(),
+            },
             rotation,
         );
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
@@ -1973,7 +1977,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     ) -> Self {
         Self {
             processor,
-            state_stack: vec![],
+            state_stack: Vec::new(),
             current_state: RenderState {
                 alpha: 1.,
                 offset: LogicalPoint::default(),

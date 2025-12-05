@@ -247,6 +247,6 @@ fn repeater_path(elem: &ElementRc) -> Option<Vec<SmolStr>> {
         r.push(parent.borrow().id.clone());
         Some(r)
     } else {
-        Some(vec![])
+        Some(Vec::new())
     }
 }

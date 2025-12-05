@@ -382,7 +382,7 @@ fn simple_test() {
 fn threading() {
     let shared_cst = SharedString::from("Hello there!");
     let shared_mtx = std::sync::Arc::new(std::sync::Mutex::new(SharedString::from("Shared:")));
-    let mut handles = std::vec![];
+    let mut handles = std::vec::Vec::new();
     for _ in 0..20 {
         let cst = shared_cst.clone();
         let mtx = shared_mtx.clone();

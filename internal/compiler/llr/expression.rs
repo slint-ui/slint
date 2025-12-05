@@ -238,7 +238,7 @@ impl Expression {
             Type::PathData => return None,
             Type::Array(element_ty) => Expression::Array {
                 element_ty: (**element_ty).clone(),
-                values: vec![],
+                values: Vec::new(),
                 as_model: true,
             },
             Type::Struct(s) => Expression::Struct {
@@ -772,7 +772,7 @@ impl ContextMap {
         if parent_level == 0 {
             ContextMap::Identity
         } else {
-            ContextMap::InSubElement { parent: parent_level, path: vec![] }
+            ContextMap::InSubElement { parent: parent_level, path: Vec::new() }
         }
     }
 

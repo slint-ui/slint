@@ -191,7 +191,7 @@ pub fn lex_identifier(text: &str, _: &mut LexState) -> usize {
 
 #[allow(clippy::needless_update)] // Token may have extra fields depending on selected features
 pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
-    let mut result = vec![];
+    let mut result = Vec::new();
     let mut offset = 0;
     let mut state = LexState::default();
     if source.starts_with("\u{FEFF}") {

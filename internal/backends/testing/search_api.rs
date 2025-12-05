@@ -98,7 +98,7 @@ impl ElementQueryInstruction {
 
         match query {
             ElementQueryInstruction::MatchDescendants => {
-                let mut results = vec![];
+                let mut results = Vec::new();
                 match element.visit_descendants_impl(
                     &mut |child| {
                         let (next_control_flow, sub_results) = Self::match_recursively(
@@ -117,7 +117,7 @@ impl ElementQueryInstruction {
                 }
             }
             ElementQueryInstruction::MatchSingleElement(criteria) => {
-                let mut results = vec![];
+                let mut results = Vec::new();
                 let control_flow = if criteria.matches(&element) {
                     let (next_control_flow, sub_results) = Self::match_recursively(
                         tail,

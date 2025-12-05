@@ -936,7 +936,7 @@ fn get_code_actions(
 ) -> Option<Vec<CodeActionOrCommand>> {
     let node = token.parent();
     let uri = Url::from_file_path(token.source_file.path()).ok()?;
-    let mut result = vec![];
+    let mut result = Vec::new();
 
     let component = syntax_nodes::Component::new(node.clone())
         .or_else(|| {
@@ -1337,7 +1337,7 @@ fn get_code_lenses(
     let doc = document_cache.get_document(&text_document.uri)?;
     let version = document_cache.document_version(&text_document.uri);
 
-    let mut result = vec![];
+    let mut result = Vec::new();
 
     if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
         let inner_components = doc.inner_components.clone();

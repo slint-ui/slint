@@ -151,7 +151,7 @@ pub(crate) fn snapshot_with_extra_doc(
     if let Some(doc_node) = &new_doc.node {
         let path = doc_node.source_file.path().to_path_buf();
         if let Some(r) = &mut result {
-            r.all_documents.docs.insert(path, (LoadedDocument::Document(new_doc), vec![]));
+            r.all_documents.docs.insert(path, (LoadedDocument::Document(new_doc), Vec::new()));
         }
     }
 
@@ -999,8 +999,8 @@ impl TypeLoader {
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         import_stack: &'b HashSet<PathBuf>,
     ) -> (Vec<ImportedTypes>, Exports) {
-        let mut imports = vec![];
-        let mut dependencies_futures = vec![];
+        let mut imports = Vec::new();
+        let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
             if matches!(import.import_kind, ImportKind::FileImport) {
                 if let Some((path, _)) = state.borrow().tl.resolve_import_path(

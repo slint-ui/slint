@@ -494,7 +494,7 @@ fn test_edit_iterator_changes_one_empty() {
     let workspace_edit = lsp_types::WorkspaceEdit {
         changes: Some(std::collections::HashMap::from([(
             lsp_types::Url::parse("file://foo/bar.slint").unwrap(),
-            vec![],
+            Vec::new(),
         )])),
         document_changes: None,
         change_annotations: None,
@@ -637,7 +637,7 @@ fn test_edit_iterator_changes_two() {
 fn test_edit_iterator_document_changes_empty() {
     let workspace_edit = lsp_types::WorkspaceEdit {
         changes: None,
-        document_changes: Some(lsp_types::DocumentChanges::Edits(vec![])),
+        document_changes: Some(lsp_types::DocumentChanges::Edits(Vec::new())),
         change_annotations: None,
     };
 
@@ -650,7 +650,7 @@ fn test_edit_iterator_document_changes_empty() {
 fn test_edit_iterator_document_changes_operations() {
     let workspace_edit = lsp_types::WorkspaceEdit {
         changes: None,
-        document_changes: Some(lsp_types::DocumentChanges::Operations(vec![])),
+        document_changes: Some(lsp_types::DocumentChanges::Operations(Vec::new())),
         change_annotations: None,
     };
 
@@ -665,7 +665,7 @@ fn test_edit_iterator_document_changes_one_empty() {
         changes: None,
         document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
             lsp_types::TextDocumentEdit {
-                edits: vec![],
+                edits: Vec::new(),
                 text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
                     uri: lsp_types::Url::parse("file://foo/bar.slint").unwrap(),
                     version: Some(99),

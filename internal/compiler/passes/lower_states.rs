@@ -164,7 +164,7 @@ fn lower_transitions_in_element(
                 direction: transition.direction,
                 animation,
             };
-            props.entry(p).or_insert_with(|| (span.clone(), vec![])).1.push(t);
+            props.entry(p).or_insert_with(|| (span.clone(), Vec::new())).1.push(t);
         }
     }
     for (ne, (span, animations)) in props {

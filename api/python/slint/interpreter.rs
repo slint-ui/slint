@@ -438,7 +438,7 @@ impl ComponentInstance {
 
     #[pyo3(signature = (callback_name, *args))]
     fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
-        let mut rust_args = vec![];
+        let mut rust_args = Vec::new();
         for arg in args.iter() {
             let pv =
                 TypeCollection::slint_value_from_py_value_bound(&arg, Some(&self.type_collection))?;
@@ -456,7 +456,7 @@ impl ComponentInstance {
         callback_name: &str,
         args: Bound<'_, PyTuple>,
     ) -> PyResult<SlintToPyValue> {
-        let mut rust_args = vec![];
+        let mut rust_args = Vec::new();
         for arg in args.iter() {
             let pv =
                 TypeCollection::slint_value_from_py_value_bound(&arg, Some(&self.type_collection))?;

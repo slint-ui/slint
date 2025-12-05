@@ -81,8 +81,8 @@ impl Document {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
 
         let mut local_registry = TypeRegister::new(parent_registry);
-        let mut inner_components = vec![];
-        let mut inner_types = vec![];
+        let mut inner_components = Vec::new();
+        let mut inner_types = Vec::new();
 
         let mut process_component =
             |n: syntax_nodes::Component,
@@ -1309,8 +1309,8 @@ impl Element {
                 continue;
             }
 
-            let mut args = vec![];
-            let mut arg_names = vec![];
+            let mut args = Vec::new();
+            let mut arg_names = Vec::new();
             for a in func.ArgumentDeclaration() {
                 args.push(type_from_node(a.Type(), diag, tr));
                 let name =

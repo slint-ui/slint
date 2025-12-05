@@ -184,7 +184,7 @@ fn generate_public_component(
             signature: "(slint::private_api::live_preview::LiveReloadingComponent live_preview)"
                 .into(),
             constructor_member_initializers: vec!["live_preview(std::move(live_preview))".into()],
-            statements: Some(vec![]),
+            statements: Some(Vec::new()),
             ..Default::default()
         }),
     ));
@@ -258,7 +258,7 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent) {
                 "(const slint::private_api::live_preview::LiveReloadingComponent &live_preview)"
                     .into(),
             constructor_member_initializers: vec!["live_preview(live_preview)".into()],
-            statements: Some(vec![]),
+            statements: Some(Vec::new()),
             ..Default::default()
         }),
     ));

@@ -976,7 +976,7 @@ pub fn ui_set_preview_data(
         it: &mut dyn Iterator<Item = (&preview_data::PreviewDataKey, &preview_data::PreviewData)>,
     ) -> Option<PropertyContainer> {
         let (id, props) = it.filter_map(|(k, v)| Some((k, map_preview_data_property(k, v)?))).fold(
-            (None, vec![]),
+            (None, Vec::new()),
             move |mut acc, (key, value)| {
                 acc.0 = Some(acc.0.unwrap_or_else(|| key.container.clone()));
                 acc.1.push(value);
@@ -990,7 +990,7 @@ pub fn ui_set_preview_data(
         })
     }
 
-    let mut result: Vec<PropertyContainer> = vec![];
+    let mut result: Vec<PropertyContainer> = Vec::new();
 
     if let Some(c) = create_container(
         previewed_component.unwrap_or_else(|| "<MAIN>".to_string()),
@@ -1279,7 +1279,7 @@ fn insert_row_into_value_table(table: PropertyValueTable, insert_before: i32) {
     };
 
     let row_data = {
-        let mut result = vec![];
+        let mut result = Vec::new();
         if let Some(row) = vec_model.row_data(0) {
             result = row.iter().map(|pv| default_property_value(&pv)).collect::<Vec<_>>();
         }

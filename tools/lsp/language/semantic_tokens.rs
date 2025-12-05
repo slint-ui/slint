@@ -33,7 +33,7 @@ pub fn get_semantic_tokens(
     let doc = document_cache.get_document(&text_document.uri)?;
     let doc_node = doc.node.as_ref()?;
     let mut token = doc_node.first_token()?;
-    let mut data = vec![];
+    let mut data = Vec::new();
     let mut delta_start = 0;
     let mut delta_line = 0;
     loop {

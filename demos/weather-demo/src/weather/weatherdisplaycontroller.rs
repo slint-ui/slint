@@ -114,10 +114,12 @@ impl WeatherDisplayController {
         let geo_location = window.global::<GeoLocation>();
 
         // initialized models
-        city_weather
-            .set_city_weather(ModelRc::from(Rc::new(VecModel::<CityWeatherInfo>::from(vec![]))));
-        geo_location
-            .set_result_list(ModelRc::from(Rc::new(VecModel::<GeoLocationEntry>::from(vec![]))));
+        city_weather.set_city_weather(ModelRc::from(Rc::new(VecModel::<CityWeatherInfo>::from(
+            Vec::new(),
+        ))));
+        geo_location.set_result_list(ModelRc::from(Rc::new(VecModel::<GeoLocationEntry>::from(
+            Vec::new(),
+        ))));
 
         // initialize state
         city_weather.set_can_add_city(support_add_city);

@@ -264,7 +264,7 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: vec![], menu: menu_bar, tracker: None })
+        Ok(Self { entries: Vec::new(), menu: menu_bar, tracker: None })
     }
 
     #[cfg(target_os = "macos")]
