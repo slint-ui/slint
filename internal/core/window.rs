@@ -2221,3 +2221,123 @@ pub mod ffi {
         }
     }
 }
+
+/// This module contains the functions needed to interface with window handles from outside the Rust language.
+#[cfg(all(feature = "ffi", feature = "raw-window-handle-06"))]
+pub mod ffi_window {
+    #![allow(unsafe_code)]
+    #![allow(clippy::missing_safety_doc)]
+
+    use super::ffi::WindowAdapterRcOpaque;
+    use super::*;
+    use std::ffi::c_void;
+    use std::ptr::null_mut;
+    use std::sync::Arc;
+
+    /// Helper to grab the `HasWindowHandle` for the `WindowAdapter` behind `handle`.
+    fn has_window_handle(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> Option<Arc<dyn raw_window_handle_06::HasWindowHandle>> {
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        let window_adapter = window_adapter.internal(crate::InternalToken)?;
+        window_adapter.window_handle_06_rc().ok()
+    }
+
+    /// Helper to grab the `HasDisplayHandle` for the `WindowAdapter` behind `handle`.
+    fn has_display_handle(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> Option<Arc<dyn raw_window_handle_06::HasDisplayHandle>> {
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        let window_adapter = window_adapter.internal(crate::InternalToken)?;
+        window_adapter.display_handle_06_rc().ok()
+    }
+
+    /// Returns the `HWND` associated with this window, or null if it doesn't exist or isn't created yet.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_hwnd_win32(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> *mut c_void {
+        use raw_window_handle_06::HasWindowHandle;
+
+        if let Some(has_window_handle) = has_window_handle(handle)
+            && let Ok(window_handle) = has_window_handle.window_handle()
+            && let raw_window_handle_06::RawWindowHandle::Win32(win32) = window_handle.as_raw()
+        {
+            isize::from(win32.hwnd) as *mut c_void
+        } else {
+            null_mut()
+        }
+    }
+
+    /// Returns the `HINSTANCE` associated with this window, or null if it doesn't exist or isn't created yet.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_hinstance_win32(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> *mut c_void {
+        use raw_window_handle_06::HasWindowHandle;
+
+        if let Some(has_window_handle) = has_window_handle(handle)
+            && let Ok(window_handle) = has_window_handle.window_handle()
+            && let raw_window_handle_06::RawWindowHandle::Win32(win32) = window_handle.as_raw()
+        {
+            win32
+                .hinstance
+                .map(|hinstance| isize::from(hinstance) as *mut c_void)
+                .unwrap_or_default()
+        } else {
+            null_mut()
+        }
+    }
+
+    /// Returns the `wl_surface` associated with this window, or null if it doesn't exist or isn't created yet.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_wlsurface_wayland(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> *mut c_void {
+        use raw_window_handle_06::HasWindowHandle;
+
+        if let Some(has_window_handle) = has_window_handle(handle)
+            && let Ok(window_handle) = has_window_handle.window_handle()
+            && let raw_window_handle_06::RawWindowHandle::Wayland(wayland) = window_handle.as_raw()
+        {
+            wayland.surface.as_ptr()
+        } else {
+            null_mut()
+        }
+    }
+
+    /// Returns the `wl_display` associated with this window, or null if it doesn't exist or isn't created yet.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_wldisplay_wayland(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> *mut c_void {
+        use raw_window_handle_06::HasDisplayHandle;
+
+        if let Some(has_display_handle) = has_display_handle(handle)
+            && let Ok(display_handle) = has_display_handle.display_handle()
+            && let raw_window_handle_06::RawDisplayHandle::Wayland(wayland) =
+                display_handle.as_raw()
+        {
+            wayland.display.as_ptr()
+        } else {
+            null_mut()
+        }
+    }
+
+    /// Returns the `NSView` associated with this window, or null if it doesn't exist or isn't created yet.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_nsview_appkit(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> *mut c_void {
+        use raw_window_handle_06::HasWindowHandle;
+
+        if let Some(has_window_handle) = has_window_handle(handle)
+            && let Ok(window_handle) = has_window_handle.window_handle()
+            && let raw_window_handle_06::RawWindowHandle::AppKit(appkit) = window_handle.as_raw()
+        {
+            appkit.ns_view.as_ptr()
+        } else {
+            null_mut()
+        }
+    }
+}

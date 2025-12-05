@@ -51,6 +51,8 @@ std = [
   "i-slint-core/image-default-formats",
   "i-slint-backend-selector",
   "i-slint-renderer-software?/std",
+  "i-slint-core/raw-window-handle-06",
+  "i-slint-backend-selector/raw-window-handle-06",
 ]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 experimental = ["i-slint-renderer-software?/experimental"]
