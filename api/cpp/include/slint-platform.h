@@ -949,7 +949,7 @@ public:
     }
 
 #    endif
-#    if (!defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))) || defined(DOXYGEN)
+#    if (!defined(__APPLE__) && (defined(_WIN32) || defined(_WIN64))) || defined(DOXYGEN)
 
     /// Creates a new NativeWindowHandle from the given HWND \a hwnd, and HINSTANCE \a hinstance.
     static NativeWindowHandle from_win32(void *hwnd, void *hinstance)
