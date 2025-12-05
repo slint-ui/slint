@@ -139,10 +139,14 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             return false;
         }
     }
-    if is_global || is_interface {
+    if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            let description = if is_global { "a global" } else { "an interface" };
-            p.warning(format!("':=' to declare {description} is deprecated. Remove the ':='"));
+            p.warning(format!("':=' to declare a global is deprecated. Remove the ':='"));
+            p.consume();
+        }
+    } else if is_interface {
+        if p.peek().kind() == SyntaxKind::ColonEqual {
+            p.error(format!("':=' to declare an interface is not supported. Remove the ':='"));
             p.consume();
         }
     } else if !is_new_component {
