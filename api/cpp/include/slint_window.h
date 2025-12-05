@@ -5,6 +5,37 @@
 
 #include "slint_internal.h"
 
+#if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                   \
+     && !defined(SLINT_FEATURE_FREESTANDING))                                                      \
+        || defined(DOXYGEN)
+
+struct wl_surface;
+struct wl_display;
+
+#endif
+#if (defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                    \
+     && !defined(SLINT_FEATURE_FREESTANDING))                                                      \
+        || defined(DOXYGEN)
+
+#    ifdef __OBJC__
+@class NSView;
+#    else
+typedef struct objc_object NSView;
+#    endif
+
+#endif
+#if (!defined(__APPLE__) && (defined(_WIN32) || defined(_WIN64))                                   \
+     && !defined(SLINT_FEATURE_FREESTANDING))                                                      \
+        || defined(DOXYGEN)
+
+class HINSTANCE__;
+typedef HINSTANCE__ *HINSTANCE;
+
+class HWND__;
+typedef HWND__ *HWND;
+
+#endif
+
 namespace slint {
 #if !defined(DOXYGEN)
 namespace platform {
@@ -636,6 +667,71 @@ public:
             return {};
         }
     }
+
+#if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                   \
+     && !defined(SLINT_FEATURE_FREESTANDING))                                                      \
+        || defined(DOXYGEN)
+
+    /// Returns the wl_surface for this window.
+    ///
+    /// If the underlying window handle hasn't been created yet or isn't applicable for the
+    /// platform, this will return nullptr.
+    wl_surface *wayland_surface() const
+    {
+        return static_cast<wl_surface *>(
+                cbindgen_private::slint_windowrc_wlsurface_wayland(&inner.handle()));
+    }
+
+    /// Returns the wl_display for this window.
+    ///
+    /// If the underlying window handle hasn't been created yet or isn't applicable for the
+    /// platform, this will return nullptr.
+    wl_display *wayland_display() const
+    {
+        return static_cast<wl_display *>(
+                cbindgen_private::slint_windowrc_wldisplay_wayland(&inner.handle()));
+    }
+
+#endif
+#if (defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                    \
+     && !defined(SLINT_FEATURE_FREESTANDING))                                                      \
+        || defined(DOXYGEN)
+
+    /// Returns the NSView for this window.
+    ///
+    /// If the underlying window handle hasn't been created yet or isn't applicable for the
+    /// platform, this will return nullptr.
+    NSView *appkit_view() const
+    {
+        return static_cast<NSView *>(
+                cbindgen_private::slint_windowrc_nsview_appkit(&inner.handle()));
+    }
+
+#endif
+#if (!defined(__APPLE__) && (defined(_WIN32) || defined(_WIN64))                                   \
+     && !defined(SLINT_FEATURE_FREESTANDING))                                                      \
+        || defined(DOXYGEN)
+
+    /// Returns the HINSTANCE for this window.
+    ///
+    /// If the underlying window handle hasn't been created yet or isn't applicable for the
+    /// platform, this will return nullptr.
+    HWND win32_hwnd() const
+    {
+        return static_cast<HWND>(cbindgen_private::slint_windowrc_hwnd_win32(&inner.handle()));
+    }
+
+    /// Returns the HINSTANCE for this window.
+    ///
+    /// If the underlying window handle hasn't been created yet or isn't applicable for the
+    /// platform, this will return nullptr.
+    HINSTANCE win32_hinstance() const
+    {
+        return static_cast<HINSTANCE>(
+                cbindgen_private::slint_windowrc_hinstance_win32(&inner.handle()));
+    }
+
+#endif
 
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }
