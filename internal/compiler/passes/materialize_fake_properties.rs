@@ -96,7 +96,7 @@ fn should_materialize(
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
         ElementType::Native(n) => n.lookup_property(prop).is_some(),
-        ElementType::Global | ElementType::Error => false,
+        ElementType::Global | ElementType::Interface | ElementType::Error => false,
     };
 
     if !has_declared_property {
@@ -129,7 +129,7 @@ pub fn has_declared_property(elem: &Element, prop: &str) -> bool {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
         ElementType::Native(n) => n.lookup_property(prop).is_some(),
-        ElementType::Global | ElementType::Error => false,
+        ElementType::Global | ElementType::Interface | ElementType::Error => false,
     }
 }
 

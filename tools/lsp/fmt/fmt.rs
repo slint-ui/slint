@@ -165,6 +165,9 @@ fn format_node(
         SyntaxKind::ImportSpecifier => {
             return format_import_specifier(node, writer, state);
         }
+        SyntaxKind::UsesSpecifier => {
+            return format_uses_specifier(node, writer, state);
+        }
         _ => (),
     }
 
@@ -299,7 +302,7 @@ fn format_component(
             && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
         let r = whitespace_to_one_of(
             &mut sub,
-            &[SyntaxKind::Identifier, SyntaxKind::Element],
+            &[SyntaxKind::Identifier, SyntaxKind::UsesSpecifier, SyntaxKind::Element],
             writer,
             state,
             " ",
@@ -1477,6 +1480,51 @@ fn format_import_identifier(
                 } else {
                     state.insert_whitespace(" ");
                 }
+                fold(n, writer, state)?;
+            }
+            _ => {
+                state.skip_all_whitespace = true;
+                fold(n, writer, state)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Formats a uses specifier.
+///
+/// Ensures that the QualifiedName and `from` Identifier are separated by a space.
+fn format_uses_specifier(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let sub = node.children_with_tokens();
+    for n in sub {
+        match n.kind() {
+            SyntaxKind::Whitespace => {
+                fold(n, writer, state)?;
+            }
+            SyntaxKind::LBrace => {
+                fold(n, writer, state)?;
+            }
+            SyntaxKind::UsesIdentifier => {
+                if let Some(uses_node) = n.as_node() {
+                    state.skip_all_whitespace = true;
+                    for child in uses_node.children_with_tokens() {
+                        match child.kind() {
+                            SyntaxKind::Identifier => {
+                                state.whitespace_to_add = Some(" ".into());
+                                fold(child, writer, state)?;
+                            }
+                            _ => {
+                                fold(child, writer, state)?;
+                            }
+                        }
+                    }
+                }
+            }
+            SyntaxKind::RBrace => {
                 fold(n, writer, state)?;
             }
             _ => {
