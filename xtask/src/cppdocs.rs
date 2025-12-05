@@ -102,6 +102,7 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
         accessibility: true,
         system_testing: true,
         freestanding: true,
+        raw_window_handle_06: true,
         experimental,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;

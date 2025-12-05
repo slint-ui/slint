@@ -26,8 +26,10 @@ use crate::renderer::Renderer;
 use crate::{Callback, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
+use core::ffi::c_void;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
@@ -1649,6 +1651,10 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
+    use raw_window_handle_06::{
+        HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle,
+    };
+    use std::ptr::{null, null_mut};
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1659,9 +1665,6 @@ pub mod ffi {
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
     }
-
-    #[allow(non_camel_case_types)]
-    type c_void = ();
 
     /// Same layout as WindowAdapterRc
     #[repr(C)]
@@ -2221,6 +2224,277 @@ pub mod ffi {
                 false
             }
         }
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    struct RawHandlePair(
+        (raw_window_handle_06::RawWindowHandle, raw_window_handle_06::RawDisplayHandle),
+    );
+
+    #[cfg(feature = "raw-window-handle-06")]
+    impl raw_window_handle_06::HasDisplayHandle for RawHandlePair {
+        fn display_handle(
+            &self,
+        ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError>
+        {
+            // Safety: It is assumed that the C++ side keeps the window/display handles alive.
+            Ok(unsafe { raw_window_handle_06::DisplayHandle::borrow_raw(self.0.1) })
+        }
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    impl raw_window_handle_06::HasWindowHandle for RawHandlePair {
+        fn window_handle(
+            &self,
+        ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError>
+        {
+            // Safety: It is assumed that the C++ side keeps the window/display handles alive.
+            Ok(unsafe { raw_window_handle_06::WindowHandle::borrow_raw(self.0.0) })
+        }
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    unsafe impl std::marker::Send for RawHandlePair {}
+    #[cfg(feature = "raw-window-handle-06")]
+    unsafe impl std::marker::Sync for RawHandlePair {}
+
+    #[cfg(feature = "raw-window-handle-06")]
+    struct CppRawHandle(Arc<RawHandlePair>);
+
+    #[cfg(feature = "raw-window-handle-06")]
+    impl From<(raw_window_handle_06::RawWindowHandle, raw_window_handle_06::RawDisplayHandle)>
+        for CppRawHandle
+    {
+        fn from(
+            pair: (raw_window_handle_06::RawWindowHandle, raw_window_handle_06::RawDisplayHandle),
+        ) -> Self {
+            Self(Arc::new(RawHandlePair(pair)))
+        }
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    impl From<(raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::DisplayHandle<'_>)>
+        for CppRawHandle
+    {
+        fn from(
+            pair: (raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::DisplayHandle<'_>),
+        ) -> Self {
+            Self(Arc::new(RawHandlePair((pair.0.into(), pair.1.into()))))
+        }
+    }
+
+    type CppRawHandleOpaque = *const c_void;
+
+    /// TODO: write docs
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_windowrc_window_handle(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> CppRawHandleOpaque {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            let window_adapter = window_adapter.internal(crate::InternalToken).unwrap();
+
+            // Handle cases where the window isn't initialize yet, and the WindowAdapter may return Unavailable.
+            let Ok(raw_window_handle) = window_adapter.window_handle_06_rc() else {
+                return CppRawHandleOpaque::default();
+            };
+            let raw_window_handle = raw_window_handle.window_handle().unwrap().as_raw();
+
+            let Ok(raw_display_handle) = window_adapter.display_handle_06_rc() else {
+                return CppRawHandleOpaque::default();
+            };
+            let raw_display_handle = raw_display_handle.display_handle().unwrap().as_raw();
+
+            let handle = CppRawHandle::from((raw_window_handle, raw_display_handle));
+            Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_win32(
+        hwnd: *mut c_void,
+        _hinstance: *mut c_void,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle_06::{RawDisplayHandle, RawWindowHandle};
+
+        let handle = CppRawHandle::from((
+            RawWindowHandle::Win32(raw_window_handle_06::Win32WindowHandle::new(
+                (hwnd as isize).try_into().expect("C++: NativeWindowHandle created with null hwnd"),
+            )),
+            RawDisplayHandle::Windows(raw_window_handle_06::WindowsDisplayHandle::new()),
+        ));
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_raw_hwnd_handle_win32(
+        handle: CppRawHandleOpaque,
+    ) -> *const c_void {
+        let handle = handle as *mut CppRawHandle;
+        let (window_handle, _) = (*handle).0.0;
+        match window_handle {
+            RawWindowHandle::Win32(win32) => isize::from(win32.hwnd) as *const c_void,
+            _ => null(),
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_raw_hinstance_handle_win32(
+        handle: CppRawHandleOpaque,
+    ) -> *const c_void {
+        let handle = handle as *mut CppRawHandle;
+        let (window_handle, _) = (*handle).0.0;
+        match window_handle {
+            RawWindowHandle::Win32(win32) => {
+                if let Some(hinstance) = win32.hinstance {
+                    isize::from(hinstance) as *const c_void
+                } else {
+                    null()
+                }
+            }
+            _ => null(),
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_x11_xcb(
+        window: u32,
+        visual_id: u32,
+        connection: *mut c_void,
+        screen: core::ffi::c_int,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle_06::{
+            RawDisplayHandle, RawWindowHandle, XcbDisplayHandle, XcbWindowHandle,
+        };
+        let handle = CppRawHandle::from((
+            RawWindowHandle::Xcb({
+                let mut hnd = XcbWindowHandle::new(
+                    window
+                        .try_into()
+                        .expect("C++: NativeWindowHandle created with null xcb window handle"),
+                );
+                hnd.visual_id = visual_id.try_into().ok();
+                hnd
+            }),
+            RawDisplayHandle::Xcb(XcbDisplayHandle::new(
+                Some(core::ptr::NonNull::new_unchecked(connection)),
+                screen,
+            )),
+        ));
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_x11_xlib(
+        window: core::ffi::c_ulong,
+        visual_id: core::ffi::c_ulong,
+        display: *mut c_void,
+        screen: core::ffi::c_int,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle_06::{
+            RawDisplayHandle, RawWindowHandle, XlibDisplayHandle, XlibWindowHandle,
+        };
+        let handle = CppRawHandle::from((
+            RawWindowHandle::Xlib({
+                let mut hnd = XlibWindowHandle::new(window);
+                hnd.visual_id = visual_id;
+                hnd
+            }),
+            RawDisplayHandle::Xlib(XlibDisplayHandle::new(
+                Some(core::ptr::NonNull::new_unchecked(display)),
+                screen,
+            )),
+        ));
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_wayland(
+        surface: *mut c_void,
+        display: *mut c_void,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle_06::{
+            RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle,
+        };
+        let handle = CppRawHandle::from((
+            RawWindowHandle::Wayland(WaylandWindowHandle::new(core::ptr::NonNull::new_unchecked(
+                surface,
+            ))),
+            RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
+                core::ptr::NonNull::new_unchecked(display),
+            )),
+        ));
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_raw_window_handle_wayland(
+        handle: CppRawHandleOpaque,
+    ) -> *mut c_void {
+        let handle = handle as *mut CppRawHandle;
+        let (window_handle, _) = (*handle).0.0;
+        match window_handle {
+            RawWindowHandle::Wayland(wayland) => wayland.surface.as_ptr(),
+            _ => null_mut(),
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_raw_display_handle_wayland(
+        handle: CppRawHandleOpaque,
+    ) -> *mut c_void {
+        let handle = handle as *mut CppRawHandle;
+        let (_, display_handle) = (*handle).0.0;
+        match display_handle {
+            RawDisplayHandle::Wayland(wayland) => wayland.display.as_ptr(),
+            _ => null_mut(),
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_appkit(
+        ns_view: *mut c_void,
+        _ns_window: *mut c_void,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle_06::{
+            AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle,
+        };
+        let handle = CppRawHandle::from((
+            RawWindowHandle::AppKit(AppKitWindowHandle::new(core::ptr::NonNull::new_unchecked(
+                ns_view,
+            ))),
+            RawDisplayHandle::AppKit(AppKitDisplayHandle::new()),
+        ));
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_raw_view_handle_appkit(
+        handle: CppRawHandleOpaque,
+    ) -> *mut c_void {
+        let handle = handle as *mut CppRawHandle;
+        let (window_handle, _) = (*handle).0.0;
+        match window_handle {
+            RawWindowHandle::AppKit(appkit) => appkit.ns_view.as_ptr(),
+            _ => null_mut(),
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    #[cfg(feature = "raw-window-handle-06")]
+    pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
+        drop(Box::from_raw(handle as *mut CppRawHandle))
     }
 }
 

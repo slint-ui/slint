@@ -580,6 +580,7 @@ fn gen_corelib(
             "slint_windowrc_is_minimized",
             "slint_windowrc_is_maximized",
             "slint_windowrc_take_snapshot",
+            "slint_windowrc_window_handle",
             "GradientStop",
             "ConicGradientBrush",
             "slint_conic_gradient_normalize_stops",
@@ -1015,6 +1016,7 @@ declare_features! {
     system_testing
     freestanding
     experimental
+    raw_window_handle_06
 }
 
 /// Generate the headers.
