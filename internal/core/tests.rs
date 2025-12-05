@@ -117,9 +117,10 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
     }
 }
 
-#[macro_export]
 /// This macro allows producing debug output that will appear on stderr in regular builds
 /// and in the console log for wasm builds.
+#[macro_export]
+#[clippy::format_args]
 macro_rules! debug_log {
     ($($t:tt)*) => ($crate::tests::debug_log_impl(format_args!($($t)*)))
 }
