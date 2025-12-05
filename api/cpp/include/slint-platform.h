@@ -793,11 +793,11 @@ public:
     /// The first template parameter (PixelType) must be specified and can be either Rgb565Pixel or
     /// Rgb8Pixel.
     template<typename PixelType, typename Callback>
-#if !defined(__clang__) || __clang_major__ >= 17
+#    if !defined(__clang__) || __clang_major__ >= 17
         requires requires(Callback callback) {
-            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<PixelType>) { });
+            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<PixelType>) {});
         }
-#endif
+#    endif
     PhysicalRegion render_by_line(Callback process_line_callback) const
     {
         auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
