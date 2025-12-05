@@ -10,8 +10,10 @@ export component TestCase inherits Window {
         y: 0px;
         width: 10 * self.height; // Test that there is no height for width dependency (loop)
     }
+
     in-out property <string> text <=> edit1.text;
     in-out property <bool> read-only <=> edit1.read-only;
+    in-out property <bool> enabled <=> edit1.enabled;
     public function select-all() {
         edit1.select-all();
     }
@@ -47,6 +49,14 @@ assert_eq!(instance.get_text(), "Hello👋");
 instance.set_read_only(true);
 instance.invoke_select_all();
 
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "Hello👋");
+
+instance.set_read_only(false);
+
+// Enabled
+instance.set_enabled(false);
+instance.invoke_select_all();
 instance.invoke_cut();
 assert_eq!(instance.get_text(), "Hello👋");
 
