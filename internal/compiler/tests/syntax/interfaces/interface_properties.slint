@@ -3,10 +3,10 @@
 
 export interface ValidInterfacePropertyDeclarations {
     property <bool> implicit-private;
-//  ^error{'private' properties are inaccessible in an interface}
+//  >                               <error{'private' properties are inaccessible in an interface}
 
     private property <int> private;
-//  ^error{'private' properties are inaccessible in an interface}
+//  >                             <error{'private' properties are inaccessible in an interface}
 
     in property <int> in-property;
     out property <string> out-property;
