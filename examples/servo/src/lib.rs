@@ -3,7 +3,7 @@
 
 pub mod webview;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod gl_bindings {
     #![allow(unsafe_op_in_unsafe_fn)]
 
@@ -12,26 +12,16 @@ mod gl_bindings {
 
 use slint::ComponentHandle;
 
-#[cfg(not(target_os = "android"))]
 use crate::webview::WebView;
 
 slint::include_modules!();
 
 pub fn main() {
-    #[cfg(not(target_os = "android"))]
     let (device, queue) = setup_wgpu();
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
 
-    #[cfg(not(target_os = "android"))]
-    WebView::new(
-        app.clone_strong(),
-        "https://slint.dev".into(),
-        #[cfg(not(target_os = "android"))]
-        device,
-        #[cfg(not(target_os = "android"))]
-        queue,
-    );
+    WebView::new(app.clone_strong(), "https://slint.dev".into(), device, queue);
 
     app.run().expect("Application failed to run - check for runtime errors");
 }
@@ -43,16 +33,11 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
     main();
 }
 
-#[cfg(not(target_os = "android"))]
 fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
     let backends = wgpu::Backends::from_env().unwrap_or_default();
 
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-        backends,
-        flags: Default::default(),
-        backend_options: Default::default(),
-        memory_budget_thresholds: Default::default(),
-    });
+    let instance =
+        wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..Default::default() });
 
     let adapter = spin_on::spin_on(async {
         instance

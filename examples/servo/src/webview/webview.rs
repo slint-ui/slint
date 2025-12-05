@@ -63,32 +63,28 @@ impl WebView {
     pub fn new(
         app: MyApp,
         initial_url: SharedString,
-        #[cfg(not(target_os = "android"))] device: slint::wgpu_27::wgpu::Device,
-        #[cfg(not(target_os = "android"))] queue: slint::wgpu_27::wgpu::Queue,
+        device: slint::wgpu_27::wgpu::Device,
+        queue: slint::wgpu_27::wgpu::Queue,
     ) {
         let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
         let adapter = Rc::new(SlintServoAdapter::new(
             waker_sender.clone(),
             waker_receiver.clone(),
-            #[cfg(not(target_os = "android"))]
             device,
-            #[cfg(not(target_os = "android"))]
             queue,
         ));
 
-        let state_weak = Rc::downgrade(&adapter);
-        let state = super::adapter::upgrade_adapter(&state_weak);
+        let (rendering_adapter, physical_size) =
+            Self::init_rendering_adapter(&app, adapter.clone());
 
-        let (rendering_adapter, physical_size) = Self::init_rendering_adapter(&app, state.clone());
-
-        let servo = Self::init_servo_builder(state.clone(), rendering_adapter.clone());
+        let servo = Self::init_servo_builder(adapter.clone());
 
         Self::init_webview(
             &app,
             physical_size,
             initial_url,
-            state.clone(),
+            adapter.clone(),
             servo,
             rendering_adapter,
         );
@@ -118,16 +114,12 @@ impl WebView {
         let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
         let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
 
-        #[cfg(not(target_os = "android"))]
         let rendering_adapter = super::rendering_context::try_create_gpu_context(
+            physical_size,
             adapter.wgpu_device(),
             adapter.wgpu_queue(),
-            physical_size,
         )
         .unwrap();
-
-        #[cfg(target_os = "android")]
-        let rendering_adapter = super::rendering_context::create_software_context(physical_size);
 
         let rendering_adapter_rc = Rc::new(rendering_adapter);
 
@@ -147,15 +139,11 @@ impl WebView {
     /// # Returns
     ///
     /// A configured Servo instance ready for use
-    fn init_servo_builder(
-        adapter: Rc<SlintServoAdapter>,
-        rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
-    ) -> Servo {
+    fn init_servo_builder(adapter: Rc<SlintServoAdapter>) -> Servo {
         let waker = Waker::new(adapter.waker_sender());
         let event_loop_waker = Box::new(waker);
-        let rendering_context = rendering_adapter.get_rendering_context();
 
-        ServoBuilder::new(rendering_context).event_loop_waker(event_loop_waker).build()
+        ServoBuilder::default().event_loop_waker(event_loop_waker).build()
     }
 
     /// Initializes the Servo WebView with the initial URL and configuration.
@@ -188,8 +176,13 @@ impl WebView {
 
         let delegate = Rc::new(AppDelegate::new(app, adapter.clone()));
 
-        let webview =
-            WebViewBuilder::new(&servo).url(url).size(physical_size).delegate(delegate).build();
+        let rendering_context = rendering_adapter.get_rendering_context();
+
+        let webview = WebViewBuilder::new(&servo, rendering_context)
+            .url(url)
+            .size(physical_size)
+            .delegate(delegate)
+            .build();
 
         webview.show(true);
 

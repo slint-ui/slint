@@ -5,18 +5,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+#![deny(unsafe_code)]
 
-use euclid::default::Size2D;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use euclid::default::Size2D as UntypedSize2D;
 use gleam::gl::{self, Gl};
 use glow::NativeFramebuffer;
 use image::RgbaImage;
+use log::{debug, warn};
 use servo::webrender_api::units::DeviceIntRect;
-
+pub use surfman::Error;
+use surfman::chains::SwapChain;
 use surfman::{
-    Adapter, Connection, Context, ContextAttributeFlags, ContextAttributes, Device, Error, GLApi,
-    NativeWidget, Surface, SurfaceAccess, SurfaceInfo, SurfaceTexture, SurfaceType,
-    chains::SwapChain,
+    Adapter, Connection, Context, ContextAttributeFlags, ContextAttributes, Device, GLApi,
+    NativeContext, NativeWidget, Surface, SurfaceAccess, SurfaceInfo, SurfaceTexture, SurfaceType,
 };
 
 /// A rendering context that uses the Surfman library to create and manage
@@ -43,8 +48,11 @@ impl Drop for SurfmanRenderingContext {
 }
 
 impl SurfmanRenderingContext {
+    /// Creates a new `SurfmanRenderingContext`.
+    ///
+    /// Initializes the device, context, and OpenGL function pointers (both `gleam` and `glow`).
     pub fn new(connection: &Connection, adapter: &Adapter) -> Result<Self, Error> {
-        let mut device = connection.create_device(adapter)?;
+        let device = connection.create_device(adapter)?;
 
         let flags = ContextAttributeFlags::ALPHA
             | ContextAttributeFlags::DEPTH
@@ -58,7 +66,7 @@ impl SurfmanRenderingContext {
             device.create_context_descriptor(&ContextAttributes { flags, version })?;
         let context = device.create_context(&context_descriptor, None)?;
 
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         let gleam_gl = {
             match gl_api {
                 GLApi::GL => unsafe {
@@ -70,7 +78,7 @@ impl SurfmanRenderingContext {
             }
         };
 
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         let glow_gl = unsafe {
             glow::Context::from_loader_function(|function_name| {
                 device.get_proc_address(&context, function_name)
@@ -85,6 +93,7 @@ impl SurfmanRenderingContext {
         })
     }
 
+    /// Creates a new surface for the given widget.
     pub fn create_surface(
         &self,
         surface_type: SurfaceType<NativeWidget>,
@@ -94,22 +103,31 @@ impl SurfmanRenderingContext {
         device.create_surface(context, SurfaceAccess::GPUOnly, surface_type)
     }
 
+    /// Binds a surface to the current context.
+    ///
+    /// If binding fails, the surface is destroyed to prevent leaks.
     pub fn bind_surface(&self, surface: Surface) -> Result<(), Error> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow_mut();
-        device
-            .bind_surface_to_context(context, surface)
-            .map_err(|(err, mut surface)| {
-                let _ = device.destroy_surface(context, &mut surface);
-                err
-            })?;
+        device.bind_surface_to_context(context, surface).map_err(|(err, mut surface)| {
+            let _ = device.destroy_surface(context, &mut surface);
+            err
+        })?;
         Ok(())
     }
 
+    /// Creates a swap chain attached to the current context.
     pub fn create_attached_swap_chain(&self) -> Result<SwapChain<Device>, Error> {
         let device = &mut self.device.borrow_mut();
         let context = &mut self.context.borrow_mut();
         SwapChain::create_attached(device, context, SurfaceAccess::GPUOnly)
+    }
+
+    #[expect(dead_code)]
+    fn native_context(&self) -> NativeContext {
+        let device = &self.device.borrow();
+        let context = &self.context.borrow();
+        device.native_context(context)
     }
 
     fn framebuffer(&self) -> Option<NativeFramebuffer> {
@@ -121,63 +139,74 @@ impl SurfmanRenderingContext {
             .and_then(|info| info.framebuffer_object)
     }
 
+    /// Prepares the context for rendering by binding the framebuffer.
     pub fn prepare_for_rendering(&self) {
-        let framebuffer_id = self
-            .framebuffer()
-            .map_or(0, |framebuffer| framebuffer.0.into());
-        self.gleam_gl
-            .bind_framebuffer(gleam::gl::FRAMEBUFFER, framebuffer_id);
+        let framebuffer_id = self.get_framebuffer_id();
+        self.gleam_gl.bind_framebuffer(gleam::gl::FRAMEBUFFER, framebuffer_id);
     }
 
+    /// Reads the content of the framebuffer into an image.
     pub fn read_to_image(&self, source_rectangle: DeviceIntRect) -> Option<RgbaImage> {
-        let framebuffer_id = self
-            .framebuffer()
-            .map_or(0, |framebuffer| framebuffer.0.into());
-        Self::read_framebuffer_to_image(&self.gleam_gl, framebuffer_id, source_rectangle)
+        let framebuffer_id = self.get_framebuffer_id();
+        Framebuffer::read_framebuffer_to_image(&self.gleam_gl, framebuffer_id, source_rectangle)
     }
 
+    fn get_framebuffer_id(&self) -> u32 {
+        self.framebuffer().map_or(0, |framebuffer| framebuffer.0.into())
+    }
+
+    /// Makes the context current on the calling thread.
     pub fn make_current(&self) -> Result<(), Error> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow();
         device.make_context_current(context)
     }
 
-    pub fn create_texture(&self, surface: Surface) -> Option<(SurfaceTexture, u32, Size2D<i32>)> {
+    /// Creates a texture from a surface.
+    pub fn create_texture(
+        &self,
+        surface: Surface,
+    ) -> Option<(SurfaceTexture, u32, UntypedSize2D<i32>)> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow_mut();
-
-        let SurfaceInfo {
-            id: _front_buffer_id,
-            size,
-            ..
-        } = device.surface_info(&surface);
-        // debug!("... getting texture for surface {:?}", front_buffer_id);
-        let surface_texture = device.create_surface_texture(context, surface).ok()?;
-
-        let gl_texture = device
-            .surface_texture_object(&surface_texture)
-            .map(|tex| tex.0.get())
-            .unwrap_or(0);
-
+        let SurfaceInfo { id: front_buffer_id, size, .. } = device.surface_info(&surface);
+        debug!("... getting texture for surface {:?}", front_buffer_id);
+        let surface_texture = device.create_surface_texture(context, surface).unwrap();
+        let gl_texture =
+            device.surface_texture_object(&surface_texture).map(|tex| tex.0.get()).unwrap_or(0);
         Some((surface_texture, gl_texture, size))
     }
 
+    /// Destroys a texture and returns the underlying surface.
     pub fn destroy_texture(&self, surface_texture: SurfaceTexture) -> Option<Surface> {
         let device = &self.device.borrow();
         let context = &mut self.context.borrow_mut();
-
-        device
-            .destroy_surface_texture(context, surface_texture)
-            .map_err(|(error, _)| error)
-            .ok()
+        device.destroy_surface_texture(context, surface_texture).map_err(|(error, _)| error).ok()
     }
 
+    /// Returns the connection associated with the device.
     pub fn connection(&self) -> Option<Connection> {
         Some(self.device.borrow().connection())
     }
+}
 
-    /// Reads pixel data from the framebuffer into an RGBA image.
-    /// Flips the image vertically since OpenGL's origin is bottom-left.
+struct Framebuffer {
+    gl: Rc<dyn Gl>,
+    framebuffer_id: gl::GLuint,
+    renderbuffer_id: gl::GLuint,
+    texture_id: gl::GLuint,
+}
+
+impl Drop for Framebuffer {
+    fn drop(&mut self) {
+        self.gl.bind_framebuffer(gl::FRAMEBUFFER, 0);
+        self.gl.delete_textures(&[self.texture_id]);
+        self.gl.delete_renderbuffers(&[self.renderbuffer_id]);
+        self.gl.delete_framebuffers(&[self.framebuffer_id]);
+    }
+}
+
+impl Framebuffer {
     fn read_framebuffer_to_image(
         gl: &Rc<dyn Gl>,
         framebuffer_id: u32,
@@ -203,19 +232,17 @@ impl SurfmanRenderingContext {
         );
         let gl_error = gl.get_error();
         if gl_error != gl::NO_ERROR {
-            // warn!("GL error code 0x{gl_error:x} set after read_pixels");
+            warn!("GL error code 0x{gl_error:x} set after read_pixels");
         }
 
         // Flip image vertically (OpenGL textures are upside down)
         let source_rectangle = source_rectangle.to_usize();
-        let orig_pixels = pixels.clone();
-        let stride = source_rectangle.width() * 4; // 4 bytes per RGBA pixel
-        for y in 0..source_rectangle.height() {
-            let dst_start = y * stride;
-            let src_start = (source_rectangle.height() - y - 1) * stride;
-            let src_slice = &orig_pixels[src_start..src_start + stride];
-            pixels[dst_start..dst_start + stride].clone_from_slice(&src_slice[..stride]);
-        }
+        super::utils::flip_image_vertically(
+            &mut pixels,
+            source_rectangle.width(),
+            source_rectangle.height(),
+            4,
+        );
 
         RgbaImage::from_raw(
             source_rectangle.width() as u32,
