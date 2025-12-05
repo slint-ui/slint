@@ -351,12 +351,21 @@ pub struct UsedSubTypes {
 #[derive(Clone, Debug)]
 struct UsesStatement {
     interface_name: QualifiedTypeName,
-    interface_name_node: syntax_nodes::QualifiedName,
     child_id: SmolStr,
-    child_id_node: syntax_nodes::DeclaredIdentifier,
+    node: syntax_nodes::UsesIdentifier,
 }
 
 impl UsesStatement {
+    /// Get the node representing the interface name.
+    fn interface_name_node(&self) -> syntax_nodes::QualifiedName {
+        self.node.QualifiedName()
+    }
+
+    /// Get the node representing the child identifier.
+    fn child_id_node(&self) -> syntax_nodes::DeclaredIdentifier {
+        self.node.DeclaredIdentifier()
+    }
+
     /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
     /// was not actually an interface.
     fn lookup_interface(
@@ -371,7 +380,7 @@ impl UsesStatement {
                     if !component.is_interface() {
                         diag.push_error(
                             format!("'{}' is not an interface", self.interface_name),
-                            &self.interface_name_node,
+                            &self.interface_name_node(),
                         );
                         return Err(());
                     }
@@ -381,13 +390,13 @@ impl UsesStatement {
                 _ => {
                     diag.push_error(
                         format!("'{}' is not an interface", self.interface_name),
-                        &self.interface_name_node,
+                        &self.interface_name_node(),
                     );
                     Err(())
                 }
             },
             Err(error) => {
-                diag.push_error(error, &self.interface_name_node);
+                diag.push_error(error, &self.interface_name_node());
                 Err(())
             }
         }
@@ -400,9 +409,8 @@ impl From<&syntax_nodes::UsesIdentifier> for UsesStatement {
             interface_name: QualifiedTypeName::from_node(
                 node.child_node(SyntaxKind::QualifiedName).unwrap().clone().into(),
             ),
-            interface_name_node: node.QualifiedName(),
             child_id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
-            child_id_node: node.DeclaredIdentifier(),
+            node: node.clone(),
         }
     }
 }
@@ -2168,7 +2176,7 @@ fn apply_uses_statement(
         let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
             diag.push_error(
                 format!("'{}' does not exist", uses_statement.child_id),
-                &uses_statement.child_id_node,
+                &uses_statement.child_id_node(),
             );
             continue;
         };
@@ -2185,7 +2193,7 @@ fn apply_uses_statement(
                         "Cannot use interface '{}' because property '{}' conflicts with existing property in '{}'",
                         uses_statement.interface_name, prop_name, e.borrow().base_type
                     ),
-                    &uses_statement.interface_name_node,
+                    &uses_statement.interface_name_node(),
                 );
                 continue;
             }
@@ -2199,7 +2207,7 @@ fn apply_uses_statement(
                     .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
                     .and_then(|node| node.child_token(SyntaxKind::Identifier))
                     .map_or_else(
-                        || parser::NodeOrToken::Node(uses_statement.child_id_node.clone().into()),
+                        || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
                         |token| parser::NodeOrToken::Token(token),
                     );
 
@@ -2227,7 +2235,7 @@ fn apply_uses_statement(
                 if let Some(location) = &existing_binding.borrow().span {
                     diag.push_error(message, location);
                 } else {
-                    diag.push_error(message, &uses_statement.interface_name_node);
+                    diag.push_error(message, &uses_statement.interface_name_node());
                 }
 
                 continue;
@@ -2259,7 +2267,7 @@ fn element_implements_interface(
                     "{} does not implement {}",
                     uses_statement.child_id, uses_statement.interface_name
                 ),
-                &uses_statement.child_id_node,
+                &uses_statement.child_id_node(),
             );
             return false;
         }
