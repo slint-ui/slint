@@ -95,6 +95,7 @@ impl SlintContext {
     #[cfg(feature = "tr")]
     pub fn set_external_translator(&self, translator: Option<Box<dyn tr::Translator>>) {
         *self.0.external_translator.borrow_mut() = translator;
+        self.0.translations_dirty.mark_dirty();
     }
 
     #[cfg(feature = "tr")]

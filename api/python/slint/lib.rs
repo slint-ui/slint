@@ -89,7 +89,6 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
         } else {
             Some(Box::new(PyGettextTranslator(translations.unbind())))
         });
-        i_slint_core::translations::mark_all_translations_dirty();
     })
     .map_err(|e| errors::PyPlatformError(e))?;
     Ok(())
