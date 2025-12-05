@@ -20,7 +20,7 @@ use i_slint_core::items::{
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths, ScaleFactor,
+    RectLengths, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -802,7 +802,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             self,
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
-            LogicalSize::new(1., 1.), // Non-zero size to avoid an early return
+            logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
         );
     }
 

@@ -3007,7 +3007,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     self,
                     std::pin::pin!((crate::SharedString::from(string), Brush::from(color))),
                     None,
-                    LogicalSize::new(1., 1.), // Non-zero size to avoid an early return
+                    self.current_state.clip.size.cast(),
                 );
             }
             #[cfg(feature = "software-renderer-systemfonts")]
