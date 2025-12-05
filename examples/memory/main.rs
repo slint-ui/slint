@@ -25,7 +25,7 @@ pub fn main() {
     tiles.extend(tiles.clone());
 
     use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     tiles.shuffle(&mut rng);
 
     let tiles_model = Rc::new(VecModel::from(tiles));

@@ -29,7 +29,7 @@ fn shuffle() -> Vec<i8> {
 
     let mut vec = ((-1)..15).collect::<Vec<i8>>();
     use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     vec.shuffle(&mut rng);
     while !is_solvable(&vec) {
         vec.shuffle(&mut rng);
@@ -111,11 +111,11 @@ impl AppState {
     }
 
     fn random_move(&mut self) {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
         let mut p;
         loop {
-            p = rand::Rng::gen_range(&mut rng, 0..16);
+            p = rand::Rng::random_range(&mut rng, 0..16);
             if hole == p {
                 continue;
             } else if (hole % 4 == p % 4) || (hole / 4 == p / 4) {
