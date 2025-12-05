@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file.
  - partial renderer: Fixed `BorrowMutError` panic if items gets destroyed during rendering (#9882)
  - software renderer: Support for Path (with `std`)
  - linuxkms: Added support for FB Renderer Format DrmFourcc(BA24) in LinuxKMS (#9862)
+ - Fixed rendering of clipped layer (#10037)
+ - Change diagnostics to in use the `annotate-snippets` crate
+ - Diagnostics now report range instead of just a position
+ - Translations: allow to opt out of default context
+ - Fixed debug performance overlay not working (#10198)
 
 ### Slint Language
 
@@ -22,17 +27,42 @@ All notable changes to this project are documented in this file.
  - Added the `accessible-id` property
  - Added `AccessibleRole.radio-button`
  - Added `stroke-line-join` for Path (#9912)
+ - Added `from <angle>` syntax to `@conic-gradient`
+ - `row`, `col`, `colspan`, and `rowspan` properties can now be changed at runtime
+ - New `StyledText` element for displaying rich text, as well as `styled-text` type
 
 ### Widgets
 
- - Implemented increment, decrement and set-value accessibility actions on Slider (#9975)
- - Added `font-family` property on `TextEdit`
- - Inverted vertical slider direction
+ - ScrollView: In fluent style, fixed scroll bars to adjust to each other's visibility
+ - Slider: Implemented increment, decrement and set-value accessibility actions on Slider (#9975)
+ - Slider: Inverted vertical slider direction
+ - Fixed some widgets that could still be eddited when disabled or read-only
+ - SpinBox: added `read-only` property
+ - TabWidget: added `orientation` property (#3688)
+ - TextEdit: Added `font-family` property
+
+### Rust
+
+ - Added `slint::register_font_from_memory`
+ - Added `slint::language::ColorScheme`
 
 ### C++
 
  - Fixed crash when binding is accessing a deleted parent (#3464)
+ - Fixed mingw-llvm builds
+ - Fixed build generation failing when compiling multiple .slint files
+ - Fixed binary incompatibility with freestanding build (#10077)
 
+### Python
+
+ - Fixed support for underscores in async callback decorators (#10024)
+ - slint-compiler: added support for generating Python stubs (#4136)
+
+### Tools:
+
+ - LSP: Fixed column position of non-acii for UTF16-based editor (#5669)
+ - LSP: Fixed `vscode-remote://` url
+ - tr-extractor: Make the paths argument required (#10156)
 
 ## [1.14.1] - 2025-10-23
 
