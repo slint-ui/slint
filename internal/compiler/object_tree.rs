@@ -1290,7 +1290,7 @@ impl Element {
             });
 
             if base_type == ElementType::Interface && visibility == PropertyVisibility::Private {
-                diag.push_warning(
+                diag.push_error(
                     "'private' properties are inaccessible in an interface".into(),
                     &prop_decl,
                 );
