@@ -29,7 +29,7 @@ struct TestPlatform : slint::platform::Platform
         struct TestWindowAdapter : slint::platform::WindowAdapter
         {
             slint::platform::SoftwareRenderer r { { } };
-            slint::PhysicalSize size() override { return slint::PhysicalSize({}); }
+            slint::PhysicalSize size() override { return slint::PhysicalSize({ 0, 0 }); }
             slint::platform::AbstractRenderer &renderer() override { return r; }
         };
         return std::make_unique<TestWindowAdapter>();
