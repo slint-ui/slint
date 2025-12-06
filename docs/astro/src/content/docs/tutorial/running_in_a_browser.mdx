@@ -26,7 +26,7 @@ Edit the `Cargo.toml` file to add the dependencies.
 ```toml
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-getrandom = { version = "0.2.2", features = ["js"] }
+getrandom = { version = "0.3.4", features = ["wasm_js"] }
 ```
 
 `'cfg(target_arch = "wasm32")'` ensures that these dependencies are only active

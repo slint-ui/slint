@@ -32,4 +32,4 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# wasm-bindgen = { version = "0.2" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
-#wasm# getrandom = { version = "0.2.2", features = ["js"] }
+#wasm# getrandom = { version = "0.3.4", features = ["wasm_js"] }
