@@ -121,8 +121,11 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
             if let Some(dep_config) = dep_table[name].as_inline_table_mut() {
                 if name.contains("slint") {
                     if let Some(sha1) = &sha1 {
-                        dep_config.insert("git", "https://github.com/slint-ui/slint".into());
-                        dep_config.insert("rev", sha1.into());
+                        dep_config.insert(
+                            "git",
+                            toml_edit::Value::from("https://github.com/slint-ui/slint"),
+                        );
+                        dep_config.insert("rev", toml_edit::Value::from(sha1));
                     }
                 }
                 if dep_config.remove("workspace").is_some() {
