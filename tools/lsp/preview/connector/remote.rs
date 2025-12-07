@@ -7,7 +7,6 @@ use std::{
 };
 
 use futures_util::{stream::StreamExt, SinkExt};
-use mdns_sd::{ServiceDaemon, ServiceInfo};
 use tokio::sync;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -100,25 +99,42 @@ impl RemoteLspToPreview {
             eprintln!("Listening on {}", local_addr);
 
             let mdns = if announce {
-                let mdns = ServiceDaemon::new().map_err(Box::new)?;
+                #[cfg(target_vendor = "apple")]
+                {
+                    use zeroconf_tokio::{prelude::*, MdnsService, MdnsServiceAsync, ServiceType};
 
-                let service = ServiceInfo::new(
-                    "_slint-preview._tcp.local.",
-                    "lsp",
-                    &format!(
-                        "slint.{}.",
-                        hostname::get().map_err(Box::new)?.to_str().unwrap_or_default()
-                    ),
-                    local_addr.ip(),
-                    local_addr.port(),
-                    None,
-                )
-                .map_err(Box::new)?
-                .enable_addr_auto();
+                    let mut service = MdnsService::new(
+                        ServiceType::new("slint-preview", "tcp").map_err(Box::new)?,
+                        local_addr.port(),
+                    );
+                    service.set_name("lsp");
+                    let mut service = MdnsServiceAsync::new(service)?;
+                    service.start().await.map_err(Box::new)?;
 
-                mdns.register(service).map_err(Box::new)?;
+                    Some(service)
+                }
+                #[cfg(not(target_vendor = "apple"))]
+                {
+                    let mdns = mdns_sd::ServiceDaemon::new().map_err(Box::new)?;
 
-                Some(mdns)
+                    let service = mdns_sd::ServiceInfo::new(
+                        "_slint-preview._tcp.local.",
+                        "lsp",
+                        &format!(
+                            "slint.{}.",
+                            hostname::get().map_err(Box::new)?.to_str().unwrap_or_default()
+                        ),
+                        local_addr.ip(),
+                        local_addr.port(),
+                        None,
+                    )
+                    .map_err(Box::new)?
+                    .enable_addr_auto();
+
+                    mdns.register(service).map_err(Box::new)?;
+
+                    Some(mdns)
+                }
             } else {
                 None
             };
@@ -143,6 +159,11 @@ impl RemoteLspToPreview {
                         }
                     }
                     _ = notify_stop.notified() => {
+                        #[cfg(target_vendor = "apple")]
+                        if let Some(mut mdns) = mdns {
+                            mdns.shutdown().await.map_err(Box::new)?;
+                        }
+                        #[cfg(not(target_vendor = "apple"))]
                         if let Some(mdns) = mdns {
                             mdns.shutdown().map_err(Box::new)?;
                         }
@@ -174,7 +195,7 @@ impl RemoteLspToPreview {
                 if let Err(e) = write
                     .send(Message::binary(
                         bincode::serde::encode_to_vec(
-                            &common::LspToPreviewMessage::ShowPreview(to_show),
+                            common::LspToPreviewMessage::ShowPreview(to_show),
                             standard_config,
                         )
                         .unwrap(),
