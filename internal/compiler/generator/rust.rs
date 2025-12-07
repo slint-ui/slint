@@ -1039,14 +1039,12 @@ fn generate_sub_component(
             quote!(tree_index_of_first_child + #local_index_of_first_child - 1)
         };
 
-        let sub_compo_field = access_component_field_offset(&format_ident!("Self"), &field_name);
-
         init.push(quote!(#sub_component_id::init(
-            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            sp::VRcMapped::map(self_rc.clone(), |x| x.get_ref().#field_name.as_ref()),
             #global_access.clone(), #global_index, #global_children
         );));
         user_init_code.push(quote!(#sub_component_id::user_init(
-            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            sp::VRcMapped::map(self_rc.clone(), |x| x.get_ref().#field_name.as_ref()),
         );));
 
         let sub_component_repeater_count = sc.repeater_count(root);
@@ -1055,54 +1053,54 @@ fn generate_sub_component(
             let last_repeater = repeater_offset + sub_component_repeater_count - 1;
             repeated_visit_branch.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
+                    _self.#field_name.as_ref().visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
                 }
             ));
             repeated_subtree_ranges.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).subtree_range(dyn_index - #repeater_offset)
+                    _self.#field_name.as_ref().subtree_range(dyn_index - #repeater_offset)
                 }
             ));
             repeated_subtree_components.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).subtree_component(dyn_index - #repeater_offset, subtree_index, result)
+                    _self.#field_name.as_ref().subtree_component(dyn_index - #repeater_offset, subtree_index, result)
                 }
             ));
         }
 
         let sub_items_count = sc.child_item_count(root);
         accessible_role_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
+            #local_tree_index => _self.#field_name.as_ref().accessible_role(0),
         ));
         accessible_string_property_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
+            (#local_tree_index, _) => _self.#field_name.as_ref().accessible_string_property(0, what),
         ));
         accessibility_action_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
+            (#local_tree_index, _) => _self.#field_name.as_ref().accessibility_action(0, action),
         ));
         supported_accessibility_actions_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
+            #local_tree_index => _self.#field_name.as_ref().supported_accessibility_actions(0),
         ));
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child;
             let range_end = range_begin + sub_items_count - 2 + sc.repeater_count(root);
             accessible_role_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
+                #range_begin..=#range_end => _self.#field_name.as_ref().accessible_role(index - #range_begin + 1),
             ));
             accessible_string_property_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
+                (#range_begin..=#range_end, _) => _self.#field_name.as_ref().accessible_string_property(index - #range_begin + 1, what),
             ));
             item_geometry_branch.push(quote!(
-                #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
+                #range_begin..=#range_end => return _self.#field_name.as_ref().item_geometry(index - #range_begin + 1),
             ));
             accessibility_action_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
+                (#range_begin..=#range_end, _) => _self.#field_name.as_ref().accessibility_action(index - #range_begin + 1, action),
             ));
             supported_accessibility_actions_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
+                #range_begin..=#range_end => _self.#field_name.as_ref().supported_accessibility_actions(index - #range_begin + 1),
             ));
             item_element_infos_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
+                #range_begin..=#range_end => _self.#field_name.as_ref().item_element_infos(index - #range_begin + 1),
             ));
         }
 
@@ -1233,7 +1231,7 @@ fn generate_sub_component(
         #visibility
         struct #inner_component_id {
             #(#item_names : sp::#item_types,)*
-            #(#sub_component_names : #sub_component_types,)*
+            #(#sub_component_names : ::core::pin::Pin<sp::Box<#sub_component_types>>,)*
             #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
@@ -1651,10 +1649,10 @@ fn generate_item_tree(
         }
     }));
     let mut item_tree_array = Vec::new();
-    let mut item_array = Vec::new();
+    let mut item_array = Vec::<TokenStream>::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) =
+        let (_path, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
         match node.item_index {
             Either::Right(mut repeater_index) => {
@@ -1691,7 +1689,7 @@ fn generate_item_tree(
                         item_array_index: #item_array_len,
                     }
                 ));
-                item_array.push(quote!(sp::VOffset::new(#path #field)));
+                //item_array.push(quote!(sp::VOffset::new(#path #field)));
             }
         }
     });
@@ -2037,12 +2035,17 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let property_name = ident(&sub_component.properties[*property_index].name);
                     let property_field =
                         access_component_field_offset(&component_id, &property_name);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #property_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #property_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    match parent_path {
+                        None => MemberAccess::Direct(
+                            quote!(#property_field.apply_pin(_self #compo_path)),
+                        ),
+                        Some(parent_path) => {
+                            let compo_path = compo_path.unwrap_or_else(|| quote!(.as_pin_ref()));
+                            MemberAccess::Option(
+                                quote!(#parent_path.as_ref().map(|x| #property_field.apply_pin(x #compo_path))),
+                            )
+                        }
+                    }
                 }
                 llr::LocalMemberIndex::Callback(callback_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -2054,23 +2057,28 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let callback_name = ident(&sub_component.callbacks[*callback_index].name);
                     let callback_field =
                         access_component_field_offset(&component_id, &callback_name);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #callback_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #callback_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    match parent_path {
+                        None => MemberAccess::Direct(
+                            quote!(#callback_field.apply_pin(_self #compo_path)),
+                        ),
+                        Some(parent_path) => {
+                            let compo_path =
+                                compo_path.clone().unwrap_or_else(|| quote!(.as_pin_ref()));
+                            MemberAccess::Option(
+                                quote!(#parent_path.as_ref().map(|x| #callback_field.apply_pin(x #compo_path))),
+                            )
+                        }
+                    }
                 }
                 llr::LocalMemberIndex::Function(function_index) => {
                     let mut sub_component = &ctx.compilation_unit.sub_components
                         [ctx.parent_sub_component_idx(*parent_level).unwrap()];
                     let mut compo_path = parent_path
                         .as_ref()
-                        .map_or_else(|| quote!(_self), |_| quote!(x.as_pin_ref()));
+                        .map_or_else(|| quote!(_self), |_| quote!(.as_pin_ref()));
                     for i in &local_reference.sub_component_path {
-                        let component_id = inner_component_id(sub_component);
                         let sub_component_name = ident(&sub_component.sub_components[*i].name);
-                        compo_path = quote!( #component_id::FIELD_OFFSETS.#sub_component_name.apply_pin(#compo_path));
+                        compo_path = quote!(#compo_path.#sub_component_name.as_ref());
                         sub_component = &ctx.compilation_unit.sub_components
                             [sub_component.sub_components[*i].ty];
                     }
@@ -2079,7 +2087,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     parent_path.map_or_else(
                         || MemberAccess::Direct(quote!(#compo_path.#fn_id)),
                         |parent_path| {
-                            MemberAccess::OptionFn(parent_path, quote!(|x| #compo_path.#fn_id))
+                            MemberAccess::OptionFn(parent_path, quote!(|x| x #compo_path.#fn_id))
                         },
                     )
                 }
@@ -2094,33 +2102,53 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let item_field = access_component_field_offset(&component_id, &item_name);
                     if prop_name.is_empty() {
                         // then this is actually a reference to the element itself
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!((#compo_path #item_field).apply_pin(_self))),
-                            |parent_path| {
-                                MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #item_field).apply_pin(x.as_pin_ref()))))
+                        match parent_path {
+                            None => MemberAccess::Direct(
+                                quote!(#item_field.apply_pin(_self #compo_path)),
+                            ),
+                            Some(parent_path) => {
+                                let compo_path =
+                                    compo_path.unwrap_or_else(|| quote!(.as_pin_ref()));
+                                MemberAccess::Option(
+                                    quote!(#parent_path.as_ref().map(|x| #item_field.apply_pin(x #compo_path))),
+                                )
                             }
-                        )
+                        }
                     } else if matches!(
                         sub_component.items[*item_index].ty.lookup_property(prop_name),
                         Some(&Type::Function(..))
                     ) {
                         let property_name = ident(prop_name);
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!((#compo_path #item_field).apply_pin(_self).#property_name)),
-                            |parent_path| {
-                                MemberAccess::OptionFn(quote!(#parent_path.as_ref().map(|x| (#compo_path #item_field).apply_pin(x.as_pin_ref()))), quote!(|x| x .#property_name))
+                        match parent_path {
+                            None => MemberAccess::Direct(
+                                quote!((#item_field).apply_pin(_self #compo_path).#property_name),
+                            ),
+                            Some(parent_path) => {
+                                let compo_path =
+                                    compo_path.unwrap_or_else(|| quote!(.as_pin_ref()));
+                                MemberAccess::OptionFn(
+                                    quote!(#parent_path.as_ref().map(|x| #item_field.apply_pin(x #compo_path))),
+                                    quote!(|x| x .#property_name),
+                                )
                             }
-                        )
+                        }
                     } else {
                         let property_name = ident(prop_name);
                         let item_ty = ident(&sub_component.items[*item_index].ty.class_name);
-                        let prop_offset = quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name));
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!(#prop_offset.apply_pin(_self))),
-                            |parent_path| {
-                                MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| #prop_offset.apply_pin(x.as_pin_ref()))))
+                        let prop_offset =
+                            quote!((#item_field + sp::#item_ty::FIELD_OFFSETS.#property_name));
+                        match parent_path {
+                            None => MemberAccess::Direct(
+                                quote!(#prop_offset.apply_pin(_self #compo_path)),
+                            ),
+                            Some(parent_path) => {
+                                let compo_path =
+                                    compo_path.clone().unwrap_or_else(|| quote!(.as_pin_ref()));
+                                MemberAccess::Option(
+                                    quote!(#parent_path.as_ref().map(|x| #prop_offset.apply_pin(x #compo_path))),
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -2214,16 +2242,15 @@ fn follow_sub_component_path<'a>(
     compilation_unit: &'a llr::CompilationUnit,
     root: llr::SubComponentIdx,
     sub_component_path: &[llr::SubComponentInstanceIdx],
-) -> (TokenStream, &'a llr::SubComponent) {
-    let mut compo_path = quote!();
+) -> (Option<TokenStream>, &'a llr::SubComponent) {
+    let mut compo_path = None;
     let mut sub_component = &compilation_unit.sub_components[root];
     for i in sub_component_path {
-        let component_id = inner_component_id(sub_component);
         let sub_component_name = ident(&sub_component.sub_components[*i].name);
-        compo_path = quote!(#compo_path {#component_id::FIELD_OFFSETS.#sub_component_name} +);
+        compo_path = Some(quote!(#compo_path .#sub_component_name));
         sub_component = &compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
-    (compo_path, sub_component)
+    (compo_path.map(|x| quote!(#x.as_ref())), sub_component)
 }
 
 fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
