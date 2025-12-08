@@ -47,11 +47,11 @@ wgpu = { version = "27.0.1", features = ["metal"] }
 libservo = { git = "https://github.com/servo/servo", rev = "158bf97e" }
 embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", features = ["baked-default-resources"] }
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-27"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27"] }
@@ -64,10 +64,9 @@ objc2-foundation = "0.3.2"
 objc2-metal = { version = "0.3.2", features = ["MTLDevice", "MTLAllocation", "MTLResource", "MTLTexture", "objc2-io-surface"] }
 
 [build-dependencies]
-slint-build = { path = "../../api/rs/build" }
-
-[target.'cfg(target_os = "linux")'.build-dependencies]
+# need to add to for all host to generate gl_bindings for android
 gl_generator = "0.14.0"
+slint-build = { path = "../../api/rs/build" }
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"

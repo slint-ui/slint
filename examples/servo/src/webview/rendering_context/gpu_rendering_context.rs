@@ -16,7 +16,7 @@ use surfman::{
 
 use slint::wgpu_27::wgpu;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
     #[error("{0:?}")]
@@ -106,15 +106,21 @@ impl GPURenderingContext {
 
     /// Imports Vulkan surface as a WGPU texture for rendering on Linux.
     /// Creates a Vulkan image with external memory, imports to OpenGL, blits content, then wraps as WGPU texture.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn get_wgpu_texture_from_vulkan(
         &self,
         wgpu_device: &wgpu::Device,
         _wgpu_queue: &wgpu::Queue,
     ) -> Result<wgpu::Texture, VulkanTextureError> {
-        use crate::gl_bindings as gl;
         use ash::vk;
         use glow::HasContext;
+
+        use crate::gl_bindings as gl;
+
+        #[cfg(not(target_os = "android"))]
+        use gl::Gl;
+        #[cfg(target_os = "android")]
+        use gl::Gles2 as Gl;
 
         let device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
@@ -196,7 +202,7 @@ impl GPURenderingContext {
             let gl = &self.surfman_rendering_info.glow_gl;
 
             let gl_with_extensions =
-                gl::Gl::load_with(|function_name| device.get_proc_address(&context, function_name));
+                Gl::load_with(|function_name| device.get_proc_address(&context, function_name));
 
             let mut memory_object = 0;
             gl_with_extensions.CreateMemoryObjectsEXT(1, &mut memory_object);
@@ -241,9 +247,10 @@ impl GPURenderingContext {
                 0,
             );
 
-            gl.blit_named_framebuffer(
-                Some(read_framebuffer),
-                Some(draw_framebuffer),
+            gl.bind_framebuffer(gl::READ_FRAMEBUFFER, Some(read_framebuffer));
+            gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
+
+            gl.blit_framebuffer(
                 0,
                 0,
                 size.width as i32,
