@@ -37,9 +37,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         };
     }
     macro_rules! enum_sub_namespace {
-        (AccessibleRole) => {{
-            Some("testing")
-        }};
+        (AccessibleRole) => {{ Some("testing") }};
         ($_:ident) => {
             None
         };
