@@ -213,7 +213,10 @@ impl RequestHandler {
 fn main() {
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
-        std::env::set_var("SLINT_BACKEND", &args.backend);
+        // Safety: there are no other threads at this point
+        unsafe {
+            std::env::set_var("SLINT_BACKEND", &args.backend);
+        }
     }
 
     if let Ok(panic_log_dir) = std::env::var("SLINT_LSP_PANIC_LOG_DIR") {

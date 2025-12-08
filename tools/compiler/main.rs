@@ -145,7 +145,7 @@ fn main() -> std::io::Result<()> {
 
     if !args.cpp_files.is_empty() {
         match &mut format {
-            generator::OutputFormat::Cpp(ref mut config) => {
+            generator::OutputFormat::Cpp(config) => {
                 config.cpp_files = args.cpp_files;
 
                 if args.output == std::path::Path::new("-") {

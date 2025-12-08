@@ -10,7 +10,10 @@ fn main() -> std::io::Result<()> {
             .iter()
             .collect();
 
-    std::env::set_var("SLINT_DEFAULT_FONT", default_font_path.clone());
+    // Safety: there are no other threads at this point
+    unsafe {
+        std::env::set_var("SLINT_DEFAULT_FONT", default_font_path.clone());
+    }
     println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", default_font_path.display());
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 

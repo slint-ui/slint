@@ -344,19 +344,19 @@ pub fn init() -> Result<(), JsValue> {
                         .document()
                         .expect("wasm-interpreter: Could not retrieve DOM document")
                         .get_element_by_id(&canvas_id)
-                        .expect( {
-                            &format!(
+                        .unwrap_or_else(|| {
+                            panic!(
                                 "wasm-interpreter: Could not retrieve existing HTML Canvas element '{}'",
                                 canvas_id
                             )
                         })
                         .dyn_into::<web_sys::HtmlCanvasElement>()
-                        .expect(
-                            &format!(
+                        .unwrap_or_else(|_| {
+                            panic!(
                                 "winit backend: Specified DOM element '{}' is not a HTML Canvas",
                                 canvas_id
                             )
-                        );
+                        });
                     attrs = attrs
                         .with_canvas(Some(html_canvas))
                         // Don't activate the window by default, as that will cause the page to scroll,

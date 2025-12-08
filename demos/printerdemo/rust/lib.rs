@@ -111,7 +111,12 @@ pub fn main() {
                 1 => "fr",
                 _ => return,
             };
-            std::env::set_var("LANGUAGE", lang);
+            // Safety: WARNING, this is not thread safe if there are other threads
+            // set_var is marked as unsafe since Rust edition 2024
+            // TODO: look into a different mechanism to change the language at runtime
+            unsafe {
+                std::env::set_var("LANGUAGE", lang);
+            }
             slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/../lang/"));
         })
     }
