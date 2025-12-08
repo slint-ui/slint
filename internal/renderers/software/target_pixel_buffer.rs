@@ -3,8 +3,8 @@
 
 use super::*;
 
-use crate::graphics::IntSize;
-pub use crate::graphics::TexturePixelFormat;
+use i_slint_core::graphics::IntSize;
+pub use i_slint_core::graphics::TexturePixelFormat;
 
 /// The pixel data of a for the source of a [`Texture`].
 #[derive(Clone)]

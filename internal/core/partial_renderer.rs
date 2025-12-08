@@ -225,7 +225,7 @@ impl core::fmt::Debug for DirtyRegion {
 
 impl DirtyRegion {
     /// The maximum number of rectangles that can be stored in a DirtyRegion
-    pub(crate) const MAX_COUNT: usize = 3;
+    pub const MAX_COUNT: usize = 3;
 
     /// An iterator over the part of the region (they can overlap)
     pub fn iter(&self) -> impl Iterator<Item = euclid::Box2D<Coord, LogicalPx>> + '_ {

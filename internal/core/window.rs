@@ -61,13 +61,13 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 /// experience unexpected behavior, or the intention of the developer calling functions on the [`Window`]
 /// API may not be fulfilled.
 ///
-/// Your implementation must hold a renderer, such as [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
+/// Your implementation must hold a renderer, such as `SoftwareRenderer` or `FemtoVGRenderer`.
 /// In the [`Self::renderer()`] function, you must return a reference to it.
 ///
 /// It is also required to hold a [`Window`] and return a reference to it in your
 /// implementation of [`Self::window()`].
 ///
-/// See also [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow)
+/// See also `slint::platform::software_renderer::MinimalSoftwareWindow`
 /// for a minimal implementation of this trait using the software renderer
 pub trait WindowAdapter {
     /// Returns the window API.
@@ -127,8 +127,6 @@ pub trait WindowAdapter {
     ///
     /// The `Renderer` trait is an internal trait that you are not expected to implement.
     /// In your implementation you should return a reference to an instance of one of the renderers provided by Slint.
-    ///
-    /// Currently, the only public struct that implement renderer is [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
     fn renderer(&self) -> &dyn Renderer;
 
     /// Re-implement this function to update the properties such as window title or layout constraints.
@@ -2222,30 +2220,4 @@ pub mod ffi {
             }
         }
     }
-}
-
-#[cfg(feature = "software-renderer")]
-#[test]
-fn test_empty_window() {
-    // Test that when creating an empty window without a component, we don't panic when render() is called.
-    // This isn't typically done intentionally, but for example if we receive a paint event in Qt before a component
-    // is set, this may happen. Concretely as per #2799 this could happen with popups where the call to
-    // QWidget::show() with egl delivers an immediate paint event, before we've had a chance to call set_component.
-    // Let's emulate this scenario here using public platform API.
-
-    let msw = crate::software_renderer::MinimalSoftwareWindow::new(
-        crate::software_renderer::RepaintBufferType::NewBuffer,
-    );
-    msw.window().request_redraw();
-    let mut region = None;
-    let render_called = msw.draw_if_needed(|renderer| {
-        let mut buffer =
-            crate::graphics::SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(100, 100);
-        let stride = buffer.width() as usize;
-        region = Some(renderer.render(buffer.make_mut_slice(), stride));
-    });
-    assert!(render_called);
-    let region = region.unwrap();
-    assert_eq!(region.bounding_box_size(), PhysicalSize::default());
-    assert_eq!(region.bounding_box_origin(), PhysicalPosition::default());
 }

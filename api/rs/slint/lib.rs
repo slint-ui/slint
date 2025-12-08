@@ -425,6 +425,14 @@ pub mod platform {
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
+
+    #[cfg(feature = "renderer-software")]
+    /// This module contains the [`software_renderer::SoftwareRenderer`] and related types.
+    ///
+    /// It is only enabled when the `renderer-software` Slint feature is enabled.
+    pub mod software_renderer {
+        pub use i_slint_renderer_software::*;
+    }
 }
 
 #[i_slint_core_macros::slint_doc]

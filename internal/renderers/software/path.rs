@@ -5,9 +5,9 @@
 
 use super::PhysicalRect;
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
-#[cfg(feature = "std")]
-use crate::graphics::PathDataIterator;
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use i_slint_core::graphics::PathDataIterator;
 use zeno::{Fill, Mask, Stroke};
 
 pub use zeno::Command;
@@ -55,7 +55,7 @@ fn render_path_with_style<T: TargetPixel>(
     clip_geometry: &PhysicalRect,
     color: PremultipliedRgbaColor,
     style: zeno::Style,
-    buffer: &mut impl crate::software_renderer::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
+    buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
     // The mask needs to be rendered at the full path size
     let path_width = path_geometry.size.width as usize;
@@ -132,7 +132,7 @@ pub fn render_filled_path<T: TargetPixel>(
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
     color: PremultipliedRgbaColor,
-    buffer: &mut impl crate::software_renderer::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
+    buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
     render_path_with_style(
         commands,
@@ -158,7 +158,7 @@ pub fn render_stroked_path<T: TargetPixel>(
     clip_geometry: &PhysicalRect,
     color: PremultipliedRgbaColor,
     stroke_width: f32,
-    buffer: &mut impl crate::software_renderer::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
+    buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
     render_path_with_style(
         commands,

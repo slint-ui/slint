@@ -11,8 +11,6 @@ use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
-#[cfg(feature = "software-renderer")]
-pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};

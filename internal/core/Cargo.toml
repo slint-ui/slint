@@ -19,8 +19,8 @@ categories = ["gui", "development-tools", "no-std"]
 path = "lib.rs"
 
 [features]
-ffi = ["dep:static_assertions"]                         # Expose C ABI
-libm = ["num-traits/libm", "euclid/libm", "zeno?/libm"]
+ffi = ["dep:static_assertions"]           # Expose C ABI
+libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
@@ -37,7 +37,6 @@ std = [
   "image-decoders",
   "svg",
   "raw-window-handle-06?/std",
-  "zeno?/std",
   "chrono/std",
   "chrono/wasmbind",
   "chrono/clock",
@@ -56,10 +55,6 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = ["shared-fontique", "dep:skrifa", "fontdue", "software-renderer", "shared-parley"]
-software-renderer-path = ["dep:zeno"]
-software-renderer = ["bytemuck"]
-
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg"]
@@ -69,8 +64,6 @@ box-shadow-cache = []
 shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
-
-experimental = []
 
 experimental-rich-text = []
 
@@ -114,9 +107,6 @@ strum = { workspace = true }
 unicode-segmentation = { workspace = true }
 unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
-integer-sqrt = { version = "0.1.5" }
-bytemuck = { workspace = true, optional = true, features = ["derive"] }
-zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
 parley = { version = "0.7.0", optional = true }
 pulldown-cmark = { version = "0.13.0", optional = true }
@@ -132,7 +122,6 @@ bitflags = { version = "2.4.2" }
 
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
-fontdue = { workspace = true, optional = true }
 
 wgpu-26 = { workspace = true, optional = true }
 wgpu-27 = { workspace = true, optional = true }
@@ -153,7 +142,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
 
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 i-slint-backend-testing = { path = "../backends/testing" }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }
@@ -173,5 +162,4 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "c
 unnecessary_cast = { level = "allow" }
 
 [package.metadata.docs.rs]
-features = ["software-renderer", "experimental"]
 rustdoc-args = ["--generate-link-to-definition"]

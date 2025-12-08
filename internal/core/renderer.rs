@@ -16,8 +16,7 @@ use crate::window::WindowAdapter;
 ///
 /// This trait is [sealed](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed),
 /// meaning that you are not expected to implement this trait
-/// yourself, but you should use the provided one from Slint such as
-/// [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer)
+/// yourself, but you should use the provided ones from Slint.
 pub trait Renderer: RendererSealed {}
 impl<T: RendererSealed> Renderer for T {}
 

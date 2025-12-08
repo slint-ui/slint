@@ -6,11 +6,11 @@ use core::num::NonZeroU16;
 use alloc::rc::Rc;
 use skrifa::MetadataProvider;
 
-use crate::lengths::PhysicalPx;
-use crate::software_renderer::PhysicalLength;
-use crate::software_renderer::fixed::Fixed;
-use crate::textlayout::{Glyph, TextShaper};
+use crate::PhysicalLength;
+use crate::fixed::Fixed;
 use i_slint_common::sharedfontique::fontique;
+use i_slint_core::lengths::PhysicalPx;
+use i_slint_core::textlayout::{Glyph, TextShaper};
 
 use super::RenderableVectorGlyph;
 
@@ -36,7 +36,7 @@ type GlyphCache = clru::CLruCache<
     RenderableGlyphWeightScale,
 >;
 
-crate::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
+i_slint_core::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
     core::cell::RefCell::new(
         clru::CLruCache::with_config(
             clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(1024 * 1024).unwrap())
@@ -177,7 +177,7 @@ impl TextShaper for VectorFont {
     }
 }
 
-impl crate::textlayout::FontMetrics<PhysicalLength> for VectorFont {
+impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for VectorFont {
     fn ascent(&self) -> PhysicalLength {
         self.ascender
     }

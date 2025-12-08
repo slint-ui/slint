@@ -192,13 +192,14 @@ stm32u5g9j-dk2 = [
   "cortex-m/critical-section-single-core",
   "gt911/defmt",
   "embassy-futures",
-  "i-slint-core/experimental",
+  "i-slint-renderer-software/experimental",
 ]
 
 [dependencies]
 slint = { version = "=1.15.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
 i-slint-core-macros = { version = "=1.15.0", path = "../../internal/core-macros" }
+i-slint-renderer-software = { workspace = true, optional = true }
 
 derive_more = { workspace = true }
 embedded-graphics = { version = "0.8", optional = true }

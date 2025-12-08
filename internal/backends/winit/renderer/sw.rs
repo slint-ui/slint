@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
+//! Delegate the rendering to the [`i_slint_renderer_software::SoftwareRenderer`]
 
 use core::num::NonZeroU32;
 use core::ops::DerefMut;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
-pub use i_slint_core::software_renderer::SoftwareRenderer;
-use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
+pub use i_slint_renderer_software::SoftwareRenderer;
+use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -122,10 +122,10 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             // SLINT_LINE_BY_LINE is set and this is a debug mode where we also render in a Rgb565Pixel
             struct FrameBuffer<'a> {
                 buffer: &'a mut [u32],
-                line: Vec<i_slint_core::software_renderer::Rgb565Pixel>,
+                line: Vec<i_slint_renderer_software::Rgb565Pixel>,
             }
-            impl i_slint_core::software_renderer::LineBufferProvider for FrameBuffer<'_> {
-                type TargetPixel = i_slint_core::software_renderer::Rgb565Pixel;
+            impl i_slint_renderer_software::LineBufferProvider for FrameBuffer<'_> {
+                type TargetPixel = i_slint_renderer_software::Rgb565Pixel;
                 fn process_line(
                     &mut self,
                     line: usize,
