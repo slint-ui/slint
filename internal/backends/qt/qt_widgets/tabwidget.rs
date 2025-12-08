@@ -194,20 +194,20 @@ impl Item for NativeTabWidget {
             Orientation::Horizontal => (
                 qttypes::QSizeF {
                     width: self.content_min_width().get() as _,
-                    height: (std::i32::MAX / 2) as _,
+                    height: i16::MAX as _,
                 },
                 qttypes::QSizeF {
                     width: self.tabbar_preferred_width().get() as _,
-                    height: (std::i32::MAX / 2) as _,
+                    height: i16::MAX as _,
                 },
             ),
             Orientation::Vertical => (
                 qttypes::QSizeF {
-                    width: (std::i32::MAX / 2) as _,
+                    width: i16::MAX as _,
                     height: self.content_min_height().get() as _,
                 },
                 qttypes::QSizeF {
-                    width: (std::i32::MAX / 2) as _,
+                    width: i16::MAX as _,
                     height: self.tabbar_preferred_height().get() as _,
                 },
             ),
