@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 fn main() {
-    // Make the compiler handle ComponentContainer:
-    std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    // Safety: there are no other threads at this point
+    unsafe {
+        // Make the compiler handle ComponentContainer:
+        std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    }
     #[cfg(feature = "preview-engine")]
     slint_build::compile("ui/main.slint").unwrap();
 }

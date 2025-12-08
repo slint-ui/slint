@@ -228,7 +228,7 @@ impl i_slint_core::platform::Platform for Backend {
                        ~EventHolder() {
                            if (fnbox.a != nullptr || fnbox.b != nullptr) {
                                rust!(Slint_delete_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
-                                   drop(Box::from_raw(fnbox))
+                                   unsafe { drop(Box::from_raw(fnbox)) }
                                });
                            }
                        }
@@ -243,7 +243,7 @@ impl i_slint_core::platform::Platform for Backend {
                                 TraitObject fnbox = std::move(this->fnbox);
                                 this->fnbox = {nullptr, nullptr};
                                 rust!(Slint_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
-                                   let b = Box::from_raw(fnbox);
+                                   let b = unsafe { Box::from_raw(fnbox) };
                                    b();
                                    // in case the callback started a new timer
                                    crate::qt_window::restart_timer();

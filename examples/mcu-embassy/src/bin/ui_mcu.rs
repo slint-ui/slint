@@ -217,20 +217,24 @@ async fn main(spawner: Spawner) {
 
 unsafe fn init_heap_in_place(buf: &mut MaybeUninit<[u8; HEAP_SIZE]>) -> &mut [u8; HEAP_SIZE] {
     let ptr = buf.as_mut_ptr();
-    addr_of_mut!((*ptr)).write([0u8; HEAP_SIZE]);
+    unsafe {
+        addr_of_mut!((*ptr)).write([0u8; HEAP_SIZE]);
 
-    // Safety: we have written valid bytes to the data structure
-    buf.assume_init_mut()
+        // Safety: we have written valid bytes to the data structure
+        buf.assume_init_mut()
+    }
 }
 
 unsafe fn init_fb_in_place(
     buf: &mut MaybeUninit<[TargetPixelType; DISPLAY_WIDTH * DISPLAY_HEIGHT]>,
 ) -> &mut [TargetPixelType; DISPLAY_WIDTH * DISPLAY_HEIGHT] {
     let ptr = buf.as_mut_ptr();
-    addr_of_mut!((*ptr)).write([Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT]);
+    unsafe {
+        addr_of_mut!((*ptr)).write([Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT]);
 
-    // Safety: we have written valid bytes to the data structure
-    buf.assume_init_mut()
+        // Safety: we have written valid bytes to the data structure
+        buf.assume_init_mut()
+    }
 }
 
 #[embassy_executor::task(pool_size = MY_TASK_POOL_SIZE)]

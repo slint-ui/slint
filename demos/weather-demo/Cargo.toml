@@ -5,7 +5,7 @@
 name = "weather-demo"
 version = "1.15.0"
 authors = ["FELGO GmbH <contact@felgo.com>"]
-edition = "2021"
+edition.workspace = true
 build = "build.rs"
 publish = false
 license = "MIT"

@@ -288,7 +288,7 @@ cpp! {{
             rustDescendents = rust!(Descendents_ctor [root_item: *mut c_void as "void*"] ->
                     SharedVector<ItemRc> as "void*" {
                 i_slint_core::accessibility::accessible_descendents(
-                        &*(root_item as *mut ItemRc))
+                        unsafe { &*(root_item as *mut ItemRc) })
                 .collect()
             });
         }
@@ -343,7 +343,7 @@ cpp! {{
         ~Descendents() {
             auto descendentsPtr = &rustDescendents;
             rust!(Descendents_dtor [descendentsPtr: *mut SharedVector<ItemRc> as "void**"] {
-                core::ptr::read(descendentsPtr);
+                unsafe { core::ptr::read(descendentsPtr); }
             });
         }
 
@@ -516,7 +516,7 @@ cpp! {{
             auto item = rustItem();
             QRectF r = rust!(Slint_accessible_item_rect
                 [item: *const ItemWeak as "void*"] -> qttypes::QRectF as "QRectF" {
-                    if let Some(item_rc) = item.as_ref().unwrap().upgrade() {
+                    if let Some(item_rc) = unsafe { item.as_ref().unwrap().upgrade() } {
                         let geometry = item_rc.geometry();
 
                         let mapped = item_rc.map_to_window(geometry.origin);
@@ -746,7 +746,9 @@ cpp! {{
         ~Slint_accessible_window()
         {
             rust!(Slint_accessible_window_dtor [m_rustWindow: *mut c_void as "void*"] {
-                alloc::rc::Weak::from_raw(m_rustWindow as *const QtWindow); // Consume the Weak<QtWindow> we hold in our void*!
+                unsafe {
+                    alloc::rc::Weak::from_raw(m_rustWindow as *const QtWindow); // Consume the Weak<QtWindow> we hold in our void*!
+                }
             });
         }
 
