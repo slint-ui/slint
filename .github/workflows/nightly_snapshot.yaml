@@ -171,10 +171,10 @@ jobs:
             - uses: actions/checkout@v6
               with:
                   path: "src"
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-x86_64-apple-darwin
-            - uses: actions/download-artifact@v5
+            - uses: actions/download-artifact@v6
               with:
                   name: vscode-lsp-binary-aarch64-apple-darwin
                   path: bin
