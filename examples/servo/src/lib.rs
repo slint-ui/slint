@@ -3,7 +3,7 @@
 
 pub mod webview;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod gl_bindings {
     #![allow(unsafe_op_in_unsafe_fn)]
 

@@ -61,7 +61,7 @@ struct ServoGPURenderingContext {
 
 impl ServoRenderingAdapter for ServoGPURenderingContext {
     fn current_framebuffer_as_image(&self) -> Image {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "android"))]
         let texture = self.rendering_context
             .get_wgpu_texture_from_vulkan(&self.device, &self.queue)
             .expect(

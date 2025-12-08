@@ -123,9 +123,6 @@ impl WebView {
         )
         .unwrap();
 
-        #[cfg(target_os = "android")]
-        let rendering_adapter = super::rendering_context::create_software_context(physical_size);
-
         let rendering_adapter_rc = Rc::new(rendering_adapter);
 
         (rendering_adapter_rc, physical_size)
