@@ -16,19 +16,19 @@ packages:
   - "ui-libraries/material/docs"
 
 catalog:
-  "@biomejs/biome": 2.3.7
+  "@biomejs/biome": 2.3.8
   "cspell": 9.3.2
   "typescript": 5.9.3
-  "vite": 7.2.4
+  "vite": 7.2.6
   "@types/node": 20.16.10
-  "@astrojs/check": 0.9.5
+  "@astrojs/check": 0.9.6
   "@astrojs/starlight": 0.37.0
-  "starlight-links-validator": 0.19.1
-  "astro": 5.16.3
+  "starlight-links-validator": 0.19.2
+  "astro": 5.16.4
   "astro-embed": 0.9.2
   "sharp": 0.34.5
   "@expressive-code/plugin-line-numbers": 0.41.3
   "rehype-external-links": 3.0.0
-  "playwright-ctrf-json-reporter": 0.0.26
+  "playwright-ctrf-json-reporter": 0.0.27
   "@playwright/test": 1.57.0
-  "vitest": 4.0.13
+  "vitest": 4.0.15
