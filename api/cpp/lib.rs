@@ -43,7 +43,9 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
     let win = with_platform(|b| b.create_window_adapter()).unwrap();
-    core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
+    unsafe {
+        core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -108,7 +110,7 @@ pub unsafe extern "C" fn slint_register_font_from_path(
     path: &SharedString,
     error_str: &mut SharedString,
 ) {
-    let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
+    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
     *error_str = match window_adapter
         .renderer()
         .register_font_from_path(std::path::Path::new(path.as_str()))
@@ -125,7 +127,7 @@ pub unsafe extern "C" fn slint_register_font_from_data(
     data: i_slint_core::slice::Slice<'static, u8>,
     error_str: &mut SharedString,
 ) {
-    let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
+    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
     *error_str = match window_adapter.renderer().register_font_from_memory(data.as_slice()) {
         Ok(()) => Default::default(),
         Err(err) => i_slint_core::string::ToSharedString::to_shared_string(&err),
@@ -137,7 +139,7 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
     win: *const WindowAdapterRcOpaque,
     font_data: &'static i_slint_core::graphics::BitmapFont,
 ) {
-    let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
+    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
     window_adapter.renderer().register_bitmap_font(font_data);
 }
 
@@ -177,33 +179,39 @@ pub extern "C" fn slint_debug(string: &SharedString) {
 mod allocator {
     use core::alloc::Layout;
     use core::ffi::c_void;
-    extern "C" {
-        pub fn free(p: *mut c_void);
-        pub fn malloc(size: usize) -> *mut c_void;
-    }
 
     struct CAlloc;
     unsafe impl core::alloc::GlobalAlloc for CAlloc {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            let align = layout.align();
-            if align <= core::mem::size_of::<usize>() {
-                malloc(layout.size()) as *mut u8
-            } else {
-                // Ideally we'd use aligned_alloc, but that function caused heap corruption with esp-idf
-                let ptr = malloc(layout.size() + align) as *mut u8;
-                let shift = align - (ptr as usize % align);
-                let ptr = ptr.add(shift);
-                core::ptr::write(ptr.sub(1), shift as u8);
-                ptr
+            unsafe extern "C" {
+                pub fn malloc(size: usize) -> *mut c_void;
+            }
+            unsafe {
+                let align = layout.align();
+                if align <= core::mem::size_of::<usize>() {
+                    malloc(layout.size()) as *mut u8
+                } else {
+                    // Ideally we'd use aligned_alloc, but that function caused heap corruption with esp-idf
+                    let ptr = malloc(layout.size() + align) as *mut u8;
+                    let shift = align - (ptr as usize % align);
+                    let ptr = ptr.add(shift);
+                    core::ptr::write(ptr.sub(1), shift as u8);
+                    ptr
+                }
             }
         }
         unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
             let align = layout.align();
-            if align <= core::mem::size_of::<usize>() {
-                free(ptr as *mut c_void);
-            } else {
-                let shift = core::ptr::read(ptr.sub(1)) as usize;
-                free(ptr.sub(shift) as *mut c_void);
+            unsafe extern "C" {
+                pub fn free(p: *mut c_void);
+            }
+            unsafe {
+                if align <= core::mem::size_of::<usize>() {
+                    free(ptr as *mut c_void);
+                } else {
+                    let shift = core::ptr::read(ptr.sub(1)) as usize;
+                    free(ptr.sub(shift) as *mut c_void);
+                }
             }
         }
     }

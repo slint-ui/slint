@@ -181,7 +181,9 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         set_position,
     });
 
-    core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);
+    unsafe {
+        core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);
+    }
 }
 
 type PlatformUserData = *mut c_void;
@@ -317,7 +319,7 @@ pub unsafe extern "C" fn slint_platform_register(
 pub unsafe extern "C" fn slint_windowrc_has_active_animations(
     handle: *const WindowAdapterRcOpaque,
 ) -> bool {
-    let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+    let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
     window_adapter.window().has_active_animations()
 }
 
@@ -338,13 +340,17 @@ pub struct PlatformTaskOpaque(*const c_void, *const c_void);
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_platform_task_drop(event: PlatformTaskOpaque) {
-    drop(Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event)));
+    unsafe {
+        drop(Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event)));
+    }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
-    let f = Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event));
-    f();
+    unsafe {
+        let f = Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event));
+        f();
+    }
 }
 
 #[cfg(feature = "renderer-software")]
@@ -549,7 +555,9 @@ mod software_renderer {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque) {
-        drop(Box::from_raw(r as *mut SoftwareRenderer));
+        unsafe {
+            drop(Box::from_raw(r as *mut SoftwareRenderer));
+        }
     }
 
     #[unsafe(no_mangle)]
@@ -559,9 +567,11 @@ mod software_renderer {
         buffer_len: usize,
         pixel_stride: usize,
     ) -> PhysicalRegion {
-        let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
-        let renderer = &*(r as *const SoftwareRenderer);
-        renderer.render(buffer, pixel_stride)
+        unsafe {
+            let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
+            let renderer = &*(r as *const SoftwareRenderer);
+            renderer.render(buffer, pixel_stride)
+        }
     }
 
     #[cfg(feature = "experimental")]
@@ -591,9 +601,11 @@ mod software_renderer {
         buffer_len: usize,
         pixel_stride: usize,
     ) -> PhysicalRegion {
-        let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
-        let renderer = &*(r as *const SoftwareRenderer);
-        renderer.render(buffer, pixel_stride)
+        unsafe {
+            let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
+            let renderer = &*(r as *const SoftwareRenderer);
+            renderer.render(buffer, pixel_stride)
+        }
     }
 
     struct LineByLineProcessor<TargetPixel> {
@@ -670,7 +682,7 @@ mod software_renderer {
         ),
         user_data: *mut core::ffi::c_void,
     ) -> PhysicalRegion {
-        let renderer = &*(r as *const SoftwareRenderer);
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
         let processor = LineByLineProcessor { process_line_fn, user_data };
         renderer.render_by_line(processor)
     }
@@ -688,7 +700,7 @@ mod software_renderer {
         ),
         user_data: *mut core::ffi::c_void,
     ) -> PhysicalRegion {
-        let renderer = &*(r as *const SoftwareRenderer);
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
         let processor = LineByLineProcessor { process_line_fn, user_data };
         renderer.render_by_line(processor)
     }
@@ -699,7 +711,7 @@ mod software_renderer {
         rotation: i32,
     ) {
         use i_slint_core::software_renderer::RenderingRotation;
-        let renderer = &*(r as *const SoftwareRenderer);
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
         renderer.set_rendering_rotation(match rotation {
             90 => RenderingRotation::Rotate90,
             180 => RenderingRotation::Rotate180,
@@ -712,8 +724,10 @@ mod software_renderer {
     pub unsafe extern "C" fn slint_software_renderer_handle(
         r: SoftwareRendererOpaque,
     ) -> RendererPtr {
-        let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
-        core::mem::transmute(r)
+        unsafe {
+            let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
+            core::mem::transmute(r)
+        }
     }
 
     #[unsafe(no_mangle)]
@@ -864,7 +878,7 @@ pub mod skia {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
-        drop(Box::from_raw(handle as *mut CppRawHandle))
+        unsafe { drop(Box::from_raw(handle as *mut CppRawHandle)) }
     }
 
     type SkiaRendererOpaque = *const c_void;
@@ -891,7 +905,7 @@ pub mod skia {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_drop(r: SkiaRendererOpaque) {
-        drop(Box::from_raw(r as *mut SkiaRenderer))
+        unsafe { drop(Box::from_raw(r as *mut SkiaRenderer)) }
     }
 
     #[unsafe(no_mangle)]
