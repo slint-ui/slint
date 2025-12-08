@@ -56,6 +56,10 @@ serde = ["i-slint-core/serde"]
 ## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
 software-renderer-systemfonts = ["renderer-software", "i-slint-core/software-renderer-systemfonts"]
 
+## This feature enables the software renderer to render `Path` elements. Requires the "std" feature.
+## Enabled by default when the Winit or LinuxKMS backend is enabled.
+software-renderer-path = ["renderer-software", "i-slint-core/software-renderer-path"]
+
 ## Slint uses internally some `thread_local` state.
 ##
 ## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`

@@ -57,7 +57,7 @@ unsafe-single-threaded = []
 unicode = ["unicode-script", "unicode-linebreak"]
 
 software-renderer-systemfonts = ["shared-fontique", "dep:skrifa", "fontdue", "software-renderer", "shared-parley"]
-software-renderer-path = ["dep:zeno"]
+software-renderer-path = ["dep:zeno", "software-renderer"]
 software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]

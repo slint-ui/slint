@@ -78,11 +78,11 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
 - Supports line-by-line rendering (Rust only).
 - Suitable for Microcontrollers.
 - Some features haven't been implemented yet:
-  * No support for `Path`.
   * No support for rotations or scaling.
   * No support for `drop-shadow-*` properties.
   * No support for `border-radius` in combination with `clip: true`.
   * No text stroking/outlining.
+  * Rendering `Path` elements requires the `software-renderer-path` feature which needs the `std` feature.
 - Text rendering currently limited to western scripts.
 - Available in the <Link type="WinitBackend" label="Winit backend" />.
 - Public <LangRefLink lang="rust-slint" relpath="platform/software_renderer/">Rust</LangRefLink> and <LangRefLink lang="cpp" relpath="api/classslint_1_1platform_1_1SoftwareRenderer">C++</LangRefLink> API.
