@@ -39,17 +39,13 @@
 //! let app = MyApp::new().unwrap();
 //!
 //! // Initialize WGPU for GPU rendering (non-Android platforms)
-//! #[cfg(not(target_os = "android"))]
 //! let (device, queue) = setup_wgpu();
 //!
 //! // Create WebView instance
-//! #[cfg(not(target_os = "android"))]
 //! WebView::new(
 //!     app.clone_strong(),
 //!     "https://example.com".into(),
-//!     #[cfg(not(target_os = "android"))]
 //!     device,
-//!     #[cfg(not(target_os = "android"))]
 //!     queue,
 //! );
 //!
@@ -57,7 +53,6 @@
 //! app.run().unwrap();
 //! }
 //!
-//! #[cfg(not(target_os = "android"))]
 //! fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
 //!     let backends = wgpu::Backends::from_env().unwrap_or_default();
 

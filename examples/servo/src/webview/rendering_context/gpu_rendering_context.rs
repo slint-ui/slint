@@ -7,14 +7,13 @@ use euclid::default::Size2D;
 use image::RgbaImage;
 use winit::dpi::PhysicalSize;
 
-use servo::{RenderingContext, webrender_api::units::DeviceIntRect};
+use servo::{webrender_api::units::DeviceIntRect, RenderingContext};
 
 use surfman::{
-    Connection, Device, Surface, SurfaceTexture, SurfaceType,
     chains::{PreserveBuffer, SwapChain},
+    Connection, Device, Surface, SurfaceTexture, SurfaceType,
 };
 
-#[cfg(not(target_os = "android"))]
 use slint::wgpu_27::wgpu;
 
 #[cfg(target_os = "linux")]
