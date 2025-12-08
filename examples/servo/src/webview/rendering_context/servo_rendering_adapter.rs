@@ -7,9 +7,8 @@ use euclid::Point2D;
 use slint::{Image, SharedPixelBuffer};
 use winit::dpi::PhysicalSize;
 
-use servo::{RenderingContext, SoftwareRenderingContext, webrender_api::units::DeviceIntRect};
+use servo::{webrender_api::units::DeviceIntRect, RenderingContext, SoftwareRenderingContext};
 
-#[cfg(not(target_os = "android"))]
 use {super::GPURenderingContext, slint::wgpu_27::wgpu};
 
 pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderingAdapter> {
@@ -22,7 +21,6 @@ pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderin
 
 /// Attempts to create a GPU-accelerated rendering context.
 /// Falls back to software rendering if GPU initialization fails or if forced via env var.
-#[cfg(not(target_os = "android"))]
 pub fn try_create_gpu_context(
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -55,14 +53,12 @@ pub trait ServoRenderingAdapter {
     fn get_rendering_context(&self) -> Rc<dyn RenderingContext>;
 }
 
-#[cfg(not(target_os = "android"))]
 struct ServoGPURenderingContext {
     device: wgpu::Device,
     queue: wgpu::Queue,
     rendering_context: Rc<GPURenderingContext>,
 }
 
-#[cfg(not(target_os = "android"))]
 impl ServoRenderingAdapter for ServoGPURenderingContext {
     fn current_framebuffer_as_image(&self) -> Image {
         #[cfg(target_os = "linux")]
