@@ -78,7 +78,10 @@ pub trait Platform {
     /// If this function returns `None` (the default implementation), then it will
     /// not be possible to send event to the event loop and the function
     /// [`slint::invoke_from_event_loop()`](crate::api::invoke_from_event_loop) and
-    /// [`slint::quit_event_loop()`](crate::api::quit_event_loop) will panic
+    /// [`slint::quit_event_loop()`](crate::api::quit_event_loop) will panic. These
+    /// functions are used internally by `slint::spawn_local()`
+    /// and features like live_preview. Implementing this function is necessary for
+    /// aforementioned functionalities to work.
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         None
     }
