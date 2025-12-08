@@ -91,7 +91,7 @@ path = [
   "demos/home-automation/ui/images/**.jpg",
   "demos/home-automation/ui/images/**.png",
   "demos/home-automation/ui/images/**.svg",
-  "demos/printerdemo/zephyr/VERSION",
+  "demos/**/zephyr/VERSION",
   "demos/weather-demo/docs/**.png",
   "demos/weather-demo/index.html",
 
