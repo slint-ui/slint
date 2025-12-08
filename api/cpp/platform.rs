@@ -7,8 +7,8 @@ use core::ffi::c_void;
 use i_slint_core::api::{
     LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
 };
-use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::IntSize;
+use i_slint_core::graphics::euclid;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
@@ -357,11 +357,11 @@ pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
 mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
+    use i_slint_core::SharedVector;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::software_renderer::{
         PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
-    use i_slint_core::SharedVector;
 
     #[cfg(feature = "experimental")]
     use i_slint_core::software_renderer::{TargetPixelBuffer, TexturePixelFormat};
@@ -755,7 +755,7 @@ pub mod skia {
             &self,
         ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
             // Safety: It is assumed that the C++ side keeps the window/display handles alive.
-            Ok(unsafe { raw_window_handle::DisplayHandle::borrow_raw(self.0 .1) })
+            Ok(unsafe { raw_window_handle::DisplayHandle::borrow_raw(self.0.1) })
         }
     }
 
@@ -764,7 +764,7 @@ pub mod skia {
             &self,
         ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
             // Safety: It is assumed that the C++ side keeps the window/display handles alive.
-            Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(self.0 .0) })
+            Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(self.0.0) })
         }
     }
 
