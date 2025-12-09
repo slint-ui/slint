@@ -79,7 +79,9 @@ impl SwapChain {
                 ..
             }) => HWND(hwnd.get() as _),
             _ => {
-                return Err(format!("Metal surface is only supported with Win32WindowHandle").into());
+                return Err(
+                    format!("Metal surface is only supported with Win32WindowHandle").into()
+                );
             }
         };
 
