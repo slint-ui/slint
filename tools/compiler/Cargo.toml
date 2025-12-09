@@ -21,14 +21,13 @@ path = "main.rs"
 software-renderer = ["i-slint-compiler/software-renderer"]
 jemalloc = ["dep:tikv-jemallocator"]
 sdf-fonts = ["i-slint-compiler/sdf-fonts"]
-fontconfig-dlopen = ["i-slint-common/fontconfig-dlopen"]
 
 # Keep defaults in sync with defaults applied in api/cpp/CMakeLists.txt for slint-compiler
 default = ["software-renderer", "jemalloc"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "bundle-translations", "cpp", "rust", "python"] }
-i-slint-common = { workspace = true }
+i-slint-common = { workspace = true, features = ["fontconfig-dlopen"] }
 
 clap = { workspace = true }
 proc-macro2 = "1.0.11"

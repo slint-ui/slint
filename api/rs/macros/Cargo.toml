@@ -23,6 +23,7 @@ default = []
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "proc_macro_span", "rust", "display-diagnostics"] }
+i-slint-common = { workspace = true, features = ["fontconfig-dlopen"] }
 proc-macro2 = "1.0.17"
 quote = "1.0"
 spin_on = { workspace = true }

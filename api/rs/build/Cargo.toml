@@ -29,6 +29,7 @@ experimental-module-builds = ["i-slint-compiler/experimental-library-module"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer", "bundle-translations"] }
+i-slint-common = { workspace = true, features = ["fontconfig-dlopen"] }
 
 spin_on = { workspace = true }
 toml_edit = { workspace = true }
