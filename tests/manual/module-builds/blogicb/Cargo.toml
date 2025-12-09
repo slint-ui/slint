@@ -5,7 +5,7 @@
 name = "blogicb"
 links = "blogicb"
 authors = ["Slint Developers <info@slint.dev>"]
-edition = "2021"
+edition.workspace = true
 publish = false
 license = "MIT"
 
