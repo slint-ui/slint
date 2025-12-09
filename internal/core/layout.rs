@@ -316,11 +316,7 @@ mod grid_internal {
     ) -> Vec<LayoutData> {
         assert!(organized_data.len() % 4 == 0);
         assert!(constraints.len() * 4 == organized_data.len());
-        let mut num = 0usize;
-        for idx in 0..organized_data.len() / 4 {
-            let (col_or_row, span) = organized_data.col_or_row_and_span(idx, orientation);
-            num = num.max(col_or_row as usize + span.max(1) as usize);
-        }
+        let num = organized_data.max_value(orientation) as usize;
         if num < 1 {
             return Default::default();
         }
@@ -451,16 +447,25 @@ pub struct GridLayoutInputData {
 pub type GridLayoutOrganizedData = SharedVector<u16>;
 
 impl GridLayoutOrganizedData {
-    pub fn push_cell(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
+    fn push_cell(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
         self.push(col);
         self.push(colspan);
         self.push(row);
         self.push(rowspan);
     }
 
-    pub fn col_or_row_and_span(&self, index: usize, orientation: Orientation) -> (u16, u16) {
+    fn col_or_row_and_span(&self, index: usize, orientation: Orientation) -> (u16, u16) {
         let offset = if orientation == Orientation::Horizontal { 0 } else { 2 };
         (self[index * 4 + offset], self[index * 4 + offset + 1])
+    }
+
+    fn max_value(&self, orientation: Orientation) -> u16 {
+        let mut max = 0;
+        for idx in 0..self.len() / 4 {
+            let (col_or_row, span) = self.col_or_row_and_span(idx, orientation);
+            max = max.max(col_or_row + span.max(1));
+        }
+        max
     }
 }
 
