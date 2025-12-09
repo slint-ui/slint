@@ -643,7 +643,6 @@ pub enum BuiltinPrivateStruct {
     StateInfo,
     Point,
     PropertyAnimation,
-    GridLayoutCellData,
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
