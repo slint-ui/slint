@@ -154,7 +154,11 @@ pub fn compare_images(
             eprintln!();
         }
 
-        Err(format!("images are not equal. Percentage of pixels that are different: {}. Maximum color difference: {}", failed_pixel_count * 100 / reference.as_slice().len(), max_color_difference))
+        Err(format!(
+            "images are not equal. Percentage of pixels that are different: {}. Maximum color difference: {}",
+            failed_pixel_count * 100 / reference.as_slice().len(),
+            max_color_difference
+        ))
     };
 
     let result = compare();

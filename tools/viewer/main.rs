@@ -7,7 +7,7 @@ use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use itertools::Itertools;
 use slint_interpreter::{
-    json::JsonExt, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
+    ComponentDefinition, ComponentHandle, ComponentInstance, Value, json::JsonExt,
 };
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};

@@ -6,10 +6,10 @@ use std::rc::Rc;
 
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
 
+use pyo3::PyTraverseError;
 use pyo3::exceptions::PyIndexError;
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
-use pyo3::PyTraverseError;
 
 use crate::value::{SlintToPyValue, TypeCollection};
 

@@ -303,38 +303,48 @@ fn test_extract_code_from_text() {
         .unwrap(),
         wrap_code("\n    ", None)
     );
-    assert!(extract_code_from_text(
-        r#"```````````slint foo=bar
+    assert!(
+        extract_code_from_text(
+            r#"```````````slint foo=bar
 ``````````"#,
-        None
-    )
-    .is_err());
-    assert!(extract_code_from_text(
-        r#"``slint foo=bar
+            None
+        )
+        .is_err()
+    );
+    assert!(
+        extract_code_from_text(
+            r#"``slint foo=bar
 ``"#,
-        None
-    )
-    .is_err());
-    assert!(extract_code_from_text(
-        r#"```slintfoo
+            None
+        )
+        .is_err()
+    );
+    assert!(
+        extract_code_from_text(
+            r#"```slintfoo
 ```"#,
-        None
-    )
-    .is_err());
-    assert!(extract_code_from_text(
-        r#"Some Text
+            None
+        )
+        .is_err()
+    );
+    assert!(
+        extract_code_from_text(
+            r#"Some Text
 ```slint foo
 ```"#,
-        None
-    )
-    .is_err());
-    assert!(extract_code_from_text(
-        r#"```slint foo
+            None
+        )
+        .is_err()
+    );
+    assert!(
+        extract_code_from_text(
+            r#"```slint foo
 ```
 Some text"#,
-        None
-    )
-    .is_err());
+            None
+        )
+        .is_err()
+    );
 }
 
 fn process_tag(

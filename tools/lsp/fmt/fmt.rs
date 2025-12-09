@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::writer::TokenWriter;
-use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
 
 pub fn format_document(
     doc: syntax_nodes::Document,
@@ -2029,7 +2029,8 @@ A := B {
         return 0;
     }
 }
-");
+",
+        );
     }
 
     #[test]
@@ -2309,7 +2310,8 @@ export component MainWindow2 inherits Rectangle {
         }
     }
 }
-"# );
+"#,
+        );
     }
 
     #[test]

@@ -8,10 +8,10 @@ use i_slint_compiler::{
     parser::{SyntaxKind, TextSize},
 };
 use i_slint_core::lengths::LogicalPoint;
-use slint_interpreter::{highlight::HighlightedRect, ComponentHandle, ComponentInstance};
+use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
 
 use crate::common;
-use crate::preview::{self, ext::ElementRcNodeExt, ui, SelectionNotification};
+use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -702,14 +702,16 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert_eq!(&select.path_and_offset(), covers_center.first().unwrap());
 
         // Try to move towards the viewer:
-        assert!(super::select_element_behind_impl(
-            &component_instance,
-            &select,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            true
-        )
-        .is_none());
+        assert!(
+            super::select_element_behind_impl(
+                &component_instance,
+                &select,
+                LogicalPoint::new(100.0, 100.0),
+                false,
+                true
+            )
+            .is_none()
+        );
 
         // Move deeper into the image:
         let next = super::select_element_behind_impl(
@@ -740,14 +742,16 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         .unwrap();
         assert_eq!(&next.path_and_offset(), covers_center.get(4).unwrap());
 
-        assert!(super::select_element_behind_impl(
-            &component_instance,
-            &next,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            false
-        )
-        .is_none());
+        assert!(
+            super::select_element_behind_impl(
+                &component_instance,
+                &next,
+                LogicalPoint::new(100.0, 100.0),
+                false,
+                false
+            )
+            .is_none()
+        );
 
         // Move towards the viewer:
         let prev = super::select_element_behind_impl(
@@ -817,14 +821,16 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         .unwrap();
         assert_eq!(&next.path_and_offset(), covers_center.get(4).unwrap());
 
-        assert!(super::select_element_behind_impl(
-            &component_instance,
-            &next,
-            LogicalPoint::new(100.0, 100.0),
-            true,
-            false
-        )
-        .is_none());
+        assert!(
+            super::select_element_behind_impl(
+                &component_instance,
+                &next,
+                LogicalPoint::new(100.0, 100.0),
+                true,
+                false
+            )
+            .is_none()
+        );
 
         // Move towards the viewer:
         let prev = super::select_element_behind_impl(
@@ -855,13 +861,15 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.first().unwrap());
 
-        assert!(super::select_element_behind_impl(
-            &component_instance,
-            &prev,
-            LogicalPoint::new(100.0, 100.0),
-            true,
-            true
-        )
-        .is_none());
+        assert!(
+            super::select_element_behind_impl(
+                &component_instance,
+                &prev,
+                LogicalPoint::new(100.0, 100.0),
+                true,
+                true
+            )
+            .is_none()
+        );
     }
 }

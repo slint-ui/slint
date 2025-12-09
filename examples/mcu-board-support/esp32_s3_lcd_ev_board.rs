@@ -41,7 +41,7 @@ where
 }
 
 use alloc::boxed::Box;
-use esp_hal::dma::{DmaDescriptor, DmaTxBuf, CHUNK_SIZE};
+use esp_hal::dma::{CHUNK_SIZE, DmaDescriptor, DmaTxBuf};
 use esp_hal::i2c;
 use esp_hal::peripherals::Peripherals;
 use slint::LogicalPosition;
@@ -54,17 +54,17 @@ use esp_hal::clock::CpuClock::_240MHz;
 use esp_hal::delay::Delay;
 use esp_hal::i2c::master::{Error, I2c};
 use esp_hal::lcd_cam::{
-    lcd::{
-        dpi::{Config as DpiConfig, Dpi, Format, FrameTiming},
-        ClockMode, Phase, Polarity,
-    },
     LcdCam,
+    lcd::{
+        ClockMode, Phase, Polarity,
+        dpi::{Config as DpiConfig, Dpi, Format, FrameTiming},
+    },
 };
 use esp_hal::time::Instant;
 use esp_hal::{
+    Blocking, Config as HalConfig,
     gpio::{Level, Output, OutputConfig},
     time::Rate,
-    Blocking, Config as HalConfig,
 };
 use esp_println::logger::init_logger_from_env;
 use i_slint_core::input::PointerEventButton;

@@ -18,14 +18,14 @@ async fn parse_source(
     source_code: String,
     style: String,
     file_loader_fallback: impl Fn(
-            &Path,
-        ) -> core::pin::Pin<
-            Box<
-                dyn core::future::Future<
+        &Path,
+    ) -> core::pin::Pin<
+        Box<
+            dyn core::future::Future<
                     Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
                 >,
-            >,
-        > + 'static,
+        >,
+    > + 'static,
 ) -> (BuildDiagnostics, common::DocumentCache) {
     let config = {
         let mut tmp = common::document_cache::CompilerConfiguration::default();

@@ -3,8 +3,8 @@
 
 use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
-use pyo3::{prelude::*, PyVisit};
 use pyo3::{IntoPyObjectExt, PyTraverseError};
+use pyo3::{PyVisit, prelude::*};
 use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::cell::OnceCell;
@@ -52,7 +52,9 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
             v @ _ => {
-                eprintln!("Python: conversion from slint to python needed for {v:#?} and not implemented yet");
+                eprintln!(
+                    "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
+                );
                 ().into_bound_py_any(py)
             }
         }

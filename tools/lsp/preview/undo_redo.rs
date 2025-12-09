@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::ui;
-use crate::common::{text_edit, PreviewToLspMessage};
+use crate::common::{PreviewToLspMessage, text_edit};
 use core::hash::{Hash as _, Hasher as _};
 use slint::ComponentHandle as _;
 use std::collections::HashMap;

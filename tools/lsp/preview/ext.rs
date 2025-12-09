@@ -7,8 +7,8 @@ use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 use crate::common;
 use crate::preview::ui;
 
-use slint_interpreter::highlight::HighlightedRect;
 use slint_interpreter::ComponentInstance;
+use slint_interpreter::highlight::HighlightedRect;
 
 pub trait ElementRcNodeExt {
     fn layout_kind(&self) -> crate::preview::ui::LayoutKind;

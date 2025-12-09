@@ -986,8 +986,8 @@ geh"#
     let result = editor.finalize().unwrap();
     assert!(result.0.is_empty());
     assert_eq!(result.1.adjust(42.into()), 31.into());
-    assert_eq!(result.2 .0, 0);
-    assert_eq!(result.2 .1, 3 * 3 + 2);
+    assert_eq!(result.2.0, 0);
+    assert_eq!(result.2.1, 3 * 3 + 2);
 }
 
 #[test]
@@ -1021,8 +1021,8 @@ REPLACEMENT
 geh"#
     );
     assert_eq!(result.1.adjust(42.into()), 50.into());
-    assert_eq!(result.2 .0, 3 + 1);
-    assert_eq!(result.2 .1, 3 + 1 + 3);
+    assert_eq!(result.2.0, 3 + 1);
+    assert_eq!(result.2.1, 3 + 1 + 3);
 }
 
 #[test]
@@ -1059,8 +1059,8 @@ geh"#
     let result = editor.finalize().unwrap();
     assert_eq!(&result.0, "REPLACEMENT");
     assert_eq!(result.1.adjust(42.into()), 42.into());
-    assert_eq!(result.2 .0, 0);
-    assert_eq!(result.2 .1, 3 * 3 + 2);
+    assert_eq!(result.2.0, 0);
+    assert_eq!(result.2.1, 3 * 3 + 2);
 }
 
 #[cfg(test)]
@@ -1133,7 +1133,15 @@ mod test_apply_reversed_edit {
         );
 
         assert_eq!(
-            document_cache.get_document(&url).unwrap().node.as_ref().unwrap().source_file.source().unwrap(),
+            document_cache
+                .get_document(&url)
+                .unwrap()
+                .node
+                .as_ref()
+                .unwrap()
+                .source_file
+                .source()
+                .unwrap(),
             "import { AboutSlint } from \"std-widgets.slint\";\ncomponent Foo {\n    AboutSlint {}\n}\n//comment\n\n"
         );
     }

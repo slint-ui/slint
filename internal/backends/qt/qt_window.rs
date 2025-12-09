@@ -9,7 +9,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    euclid, Brush, Color, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
+    Brush, Color, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer, euclid,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
@@ -24,11 +24,11 @@ use i_slint_core::items::{
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
-    logical_size_from_api, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect,
-    LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
-use i_slint_core::textlayout::sharedparley::{self, parley, GlyphRenderer};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, parley};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use i_slint_core::{ImageInner, Property, SharedString};
 
@@ -1181,11 +1181,7 @@ impl FontCache {
             .or_insert_with(move || {
                 let mut raw_font = QRawFont::default();
                 raw_font.load_from_data(font.data.as_ref(), 12.0);
-                if raw_font.is_valid() {
-                    Some(raw_font)
-                } else {
-                    None
-                }
+                if raw_font.is_valid() { Some(raw_font) } else { None }
             })
             .clone()
     }
@@ -2232,11 +2228,7 @@ pub(crate) fn restart_timer() {
     let timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
         let instant: std::time::Instant = instant.into();
-        if instant > now {
-            instant.duration_since(now).as_millis() as i32
-        } else {
-            0
-        }
+        if instant > now { instant.duration_since(now).as_millis() as i32 } else { 0 }
     });
     if let Some(timeout) = timeout {
         cpp! { unsafe [timeout as "int"] {

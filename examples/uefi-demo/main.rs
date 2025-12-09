@@ -17,11 +17,11 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 use core::time::Duration;
 use log::info;
 use slint::platform::{PointerEventButton, WindowEvent};
-use slint::{platform::software_renderer, SharedString};
+use slint::{SharedString, platform::software_renderer};
+use uefi::Char16;
 use uefi::boot::ScopedProtocol;
 use uefi::prelude::*;
 use uefi::proto::console::{gop::BltPixel, pointer::Pointer};
-use uefi::Char16;
 
 slint::include_modules!();
 

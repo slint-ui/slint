@@ -24,9 +24,9 @@ use esp_hal::{
     delay::Delay,
     gpio::{Level, Output, OutputConfig},
     i2c::master::I2c,
+    spi::Mode as SpiMode,
     // init,
     spi::master::{Config as SpiConfig, Spi},
-    spi::Mode as SpiMode,
     time::Rate,
 };
 use esp_println::logger::init_logger_from_env;
@@ -284,9 +284,9 @@ struct DrawBuffer<'a, Display> {
 }
 
 impl<
-        DI: mipidsi::interface::Interface<Word = u8>,
-        RST: OutputPin<Error = core::convert::Infallible>,
-    > slint::platform::software_renderer::LineBufferProvider
+    DI: mipidsi::interface::Interface<Word = u8>,
+    RST: OutputPin<Error = core::convert::Infallible>,
+> slint::platform::software_renderer::LineBufferProvider
     for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9486Rgb565, RST>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;

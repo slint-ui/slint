@@ -26,8 +26,8 @@ use esp_hal::{
     delay::Delay,
     gpio::{Level, Output, OutputConfig},
     i2c::master::I2c,
-    spi::master::{Config as SpiConfig, Spi},
     spi::Mode as SpiMode,
+    spi::master::{Config as SpiConfig, Spi},
     time::Rate,
 };
 use esp_println::logger::init_logger_from_env;
@@ -37,8 +37,8 @@ use mipidsi::options::{ColorInversion, ColorOrder};
 // Touch support imports
 use embedded_hal_bus::i2c::RefCellDevice;
 use ft3x68_rs::{Ft3x68Driver, ResetInterface};
-use slint::platform::{PointerEventButton, WindowEvent};
 use slint::PhysicalPosition;
+use slint::platform::{PointerEventButton, WindowEvent};
 use static_cell::StaticCell;
 
 // FT6336U I2C address (compatible with FT3x68 driver)
@@ -450,9 +450,9 @@ struct DrawBuffer<'a, Display> {
 }
 
 impl<
-        DI: mipidsi::interface::Interface<Word = u8>,
-        RST: OutputPin<Error = core::convert::Infallible>,
-    > slint::platform::software_renderer::LineBufferProvider
+    DI: mipidsi::interface::Interface<Word = u8>,
+    RST: OutputPin<Error = core::convert::Infallible>,
+> slint::platform::software_renderer::LineBufferProvider
     for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9342CRgb565, RST>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;

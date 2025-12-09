@@ -3,7 +3,7 @@
 
 use crate::common::ByteFormat;
 use i_slint_compiler::parser::{
-    syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange,
+    NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, syntax_nodes,
 };
 use lsp_types::TextEdit;
 

@@ -11,7 +11,7 @@ use i_slint_compiler::{
     object_tree::ElementRc,
     parser::{SyntaxKind, SyntaxNode},
 };
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},

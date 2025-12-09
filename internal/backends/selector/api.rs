@@ -171,9 +171,9 @@ impl BackendSelector {
     pub fn with_winit_window_attributes_hook(
         mut self,
         hook: impl Fn(
-                i_slint_backend_winit::winit::window::WindowAttributes,
-            ) -> i_slint_backend_winit::winit::window::WindowAttributes
-            + 'static,
+            i_slint_backend_winit::winit::window::WindowAttributes,
+        ) -> i_slint_backend_winit::winit::window::WindowAttributes
+        + 'static,
     ) -> Self {
         self.winit_window_attributes_hook = Some(Box::new(hook));
         self

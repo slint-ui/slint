@@ -6,7 +6,7 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree::{self, type_from_node};
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;

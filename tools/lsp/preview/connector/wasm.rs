@@ -105,8 +105,13 @@ impl PreviewConnector {
 
                 preview::PREVIEW_STATE.with(move |preview_state| {
                     if preview_state.borrow().ui.is_some() {
-                        reject_c.take().call1(&JsValue::UNDEFINED,
-                            &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
+                        reject_c
+                            .take()
+                            .call1(
+                                &JsValue::UNDEFINED,
+                                &JsValue::from("PreviewConnector already set up."),
+                            )
+                            .unwrap_throw();
                     } else {
                         match ui::create_ui(&to_lsp, &style, experimental) {
                             Ok(ui) => {
@@ -116,11 +121,18 @@ impl PreviewConnector {
                                 preview_state.borrow_mut().ui = Some(ui);
                                 *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
 
-                                resolve.take().call1(&JsValue::UNDEFINED,
-                                    &JsValue::from(Self { })).unwrap_throw()
+                                resolve
+                                    .take()
+                                    .call1(&JsValue::UNDEFINED, &JsValue::from(Self {}))
+                                    .unwrap_throw()
                             }
-                            Err(e) => reject_c.take().call1(&JsValue::UNDEFINED,
-                                        &JsValue::from(format!("Failed to construct Preview UI: {e}"))).unwrap_throw(),
+                            Err(e) => reject_c
+                                .take()
+                                .call1(
+                                    &JsValue::UNDEFINED,
+                                    &JsValue::from(format!("Failed to construct Preview UI: {e}")),
+                                )
+                                .unwrap_throw(),
                         };
                     }
                 })
@@ -128,13 +140,14 @@ impl PreviewConnector {
                 reject
                     .call1(
                         &JsValue::UNDEFINED,
-                        &JsValue::from(
-                            format!("internal error: Failed to queue closure for event loop invocation: {e}"),
-                        ),
+                        &JsValue::from(format!(
+                            "internal error: Failed to queue closure for event loop invocation: {e}"
+                        )),
                     )
                     .unwrap_throw();
             }
-        })).unchecked_into::<PreviewConnectorPromise>())
+        }))
+        .unchecked_into::<PreviewConnectorPromise>())
     }
 
     #[wasm_bindgen]

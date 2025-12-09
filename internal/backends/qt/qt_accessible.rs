@@ -6,13 +6,13 @@
 use crate::accessible_generated::*;
 use crate::qt_window::QtWindow;
 
+use i_slint_core::SharedVector;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use i_slint_core::window::WindowInner;
-use i_slint_core::SharedVector;
 
 use cpp::*;
 use pin_project::pin_project;

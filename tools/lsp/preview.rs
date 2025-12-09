@@ -9,14 +9,14 @@
 //! the case of `native` runs in a separate thread at this time.
 
 use crate::common::{
-    self, component_catalog, rename_component, text_edit, ComponentInformation, ElementRcNode,
-    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+    self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig,
+    PreviewToLspMessage, SourceFileVersion, component_catalog, rename_component, text_edit,
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, TextSize};
-use i_slint_compiler::{diagnostics, EmbedResourcesKind};
+use i_slint_compiler::parser::{TextSize, syntax_nodes};
+use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use lsp_types::Url;
@@ -1368,14 +1368,14 @@ async fn parse_source(
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
-            String,
-        ) -> core::pin::Pin<
-            Box<
-                dyn core::future::Future<
+        String,
+    ) -> core::pin::Pin<
+        Box<
+            dyn core::future::Future<
                     Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
                 >,
-            >,
-        > + 'static,
+        >,
+    > + 'static,
 ) -> (
     Vec<diagnostics::Diagnostic>,
     Option<ComponentDefinition>,

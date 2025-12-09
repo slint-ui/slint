@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::{common, util};
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use lsp_types::Url;
 use smol_str::SmolStr;
 
@@ -736,8 +736,10 @@ impl DeclarationNodeQuery {
             let element = node.parent()?;
             assert_eq!(element.kind(), SyntaxKind::Element);
             let component_or_subelement = element.parent()?;
-            assert!([SyntaxKind::Component, SyntaxKind::SubElement]
-                .contains(&component_or_subelement.kind()));
+            assert!(
+                [SyntaxKind::Component, SyntaxKind::SubElement]
+                    .contains(&component_or_subelement.kind())
+            );
 
             let declared_identifier =
                 component_or_subelement.child_node(SyntaxKind::DeclaredIdentifier)?;
@@ -1260,11 +1262,13 @@ component Foo /* <- TEST_ME_2 */ inherits Foo /* 1.2 */ {
         );
 
         // Can not rename the first one...
-        assert!(find_declaration_node(
-            &document_cache,
-            &find_token_by_comment(&document_cache, &test::main_test_file_name(), "_1"),
-        )
-        .is_none(),);
+        assert!(
+            find_declaration_node(
+                &document_cache,
+                &find_token_by_comment(&document_cache, &test::main_test_file_name(), "_1"),
+            )
+            .is_none(),
+        );
 
         let edit = find_declaration_node(
             &document_cache,
@@ -1317,11 +1321,13 @@ export struct Baz {
         );
 
         // Can not rename the first one...
-        assert!(find_declaration_node(
-            &document_cache,
-            &find_token_by_comment(&document_cache, &test::main_test_file_name(), "_1"),
-        )
-        .is_none(),);
+        assert!(
+            find_declaration_node(
+                &document_cache,
+                &find_token_by_comment(&document_cache, &test::main_test_file_name(), "_1"),
+            )
+            .is_none(),
+        );
 
         let edit = find_declaration_node(
             &document_cache,
@@ -1369,11 +1375,13 @@ struct Foo /* <- TEST_ME_2 */ {
         );
 
         // Can not rename the first one...
-        assert!(find_declaration_node(
-            &document_cache,
-            &find_token_by_comment(&document_cache, &test::main_test_file_name(), "_1"),
-        )
-        .is_none(),);
+        assert!(
+            find_declaration_node(
+                &document_cache,
+                &find_token_by_comment(&document_cache, &test::main_test_file_name(), "_1"),
+            )
+            .is_none(),
+        );
 
         let edit = find_declaration_node(
             &document_cache,
@@ -1458,9 +1466,9 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
         assert!(edited_text[0].contents.contains("TEST_ME_1 */ inherits Rectangle "));
         assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_2 "));
         assert!(edited_text[0].contents.contains("struct Foo {"));
-        assert!(edited_text[0]
-            .contents
-            .contains("component Bar inherits XxxYyyZzz /* <- TEST_ME_3 "));
+        assert!(
+            edited_text[0].contents.contains("component Bar inherits XxxYyyZzz /* <- TEST_ME_3 ")
+        );
         assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_4 "));
         assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_5 "));
         assert!(edited_text[0].contents.contains("Foo := Baz "));
@@ -2346,16 +2354,17 @@ export { Foo as User4Fxx }
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"source.slint\""));
                 assert!(ed.contents.contains("import { UserComponent } from \"user.slint\""));
                 assert!(ed.contents.contains("import { User2Struct } from \"user2.slint\""));
-                assert!(ed
-                    .contents
-                    .contains("import { XxxYyyZzz as User3Fxx } from \"user3.slint\""));
+                assert!(
+                    ed.contents.contains("import { XxxYyyZzz as User3Fxx } from \"user3.slint\"")
+                );
                 assert!(ed.contents.contains("import { User4Fxx } from \"user4.slint\""));
                 assert!(ed.contents.contains("property <XxxYyyZzz> main-prop: XxxYyyZzz.M1"));
                 assert!(ed.contents.contains("property <User3Fxx> main-prop2: User3Fxx.M1"));
                 assert!(ed.contents.contains("property <User2Struct> main-prop3;"));
-                assert!(ed
-                    .contents
-                    .contains("property <User3Fxx> main-prop4 <=> uc.user-component-prop;"));
+                assert!(
+                    ed.contents
+                        .contains("property <User3Fxx> main-prop4 <=> uc.user-component-prop;")
+                );
                 assert!(ed.contents.contains("uc := UserComponent"));
             } else if ed_path == test::test_file_name("source.slint") {
                 assert!(ed.contents.contains("export enum XxxYyyZzz /* <- TEST_ME_1 "));
@@ -2858,9 +2867,11 @@ export component Foo { }
             rename_tester_with_new_name(&document_cache, &test::main_test_file_name(), "_1", "Baz");
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0]
-            .contents
-            .contains("import { Foo as Baz /* <- TEST_ME_1 */ } from \"source.slint\";"));
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("import { Foo as Baz /* <- TEST_ME_1 */ } from \"source.slint\";")
+        );
         assert!(edited_text[0].contents.contains("component Main {"));
         assert!(edited_text[0].contents.contains(" Baz { "));
 
@@ -2868,9 +2879,11 @@ export component Foo { }
             rename_tester_with_new_name(&document_cache, &test::main_test_file_name(), "_1", "Foo");
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0]
-            .contents
-            .contains("import { Foo /* <- TEST_ME_1 */ } from \"source.slint\";"));
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("import { Foo /* <- TEST_ME_1 */ } from \"source.slint\";")
+        );
         assert!(edited_text[0].contents.contains("component Main {"));
         assert!(edited_text[0].contents.contains(" Foo { "));
     }
@@ -2910,9 +2923,11 @@ export component Foo { }
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
             if ed_path == test::main_test_file_name() {
-                assert!(ed
-                    .contents
-                    .contains("import { Baz /* <- TEST_ME_1 */ as Bar } from \"source.slint\";"));
+                assert!(
+                    ed.contents.contains(
+                        "import { Baz /* <- TEST_ME_1 */ as Bar } from \"source.slint\";"
+                    )
+                );
                 assert!(ed.contents.contains("component Main {"));
                 assert!(ed.contents.contains(" Bar { "));
             } else if ed_path == test::test_file_name("source.slint") {
@@ -2981,9 +2996,11 @@ export { XxxYyyZzz as Foo }
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
             if ed_path == test::main_test_file_name() {
-                assert!(ed
-                    .contents
-                    .contains("import { XFooX /* <- TEST_ME_1 */ as Bar } from \"source.slint\";"));
+                assert!(
+                    ed.contents.contains(
+                        "import { XFooX /* <- TEST_ME_1 */ as Bar } from \"source.slint\";"
+                    )
+                );
                 assert!(ed.contents.contains("component Main {"));
                 assert!(ed.contents.contains(" Bar { "));
             } else if ed_path == test::test_file_name("source.slint") {
@@ -3066,17 +3083,17 @@ export component Bar {
         assert!(edited_text[0].contents.contains("component re_name-me {"));
         assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains(" <- TEST_ME_1 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 1 */")
+        );
         assert!(edited_text[0].contents.contains("/* 1 */ self.XxxYyyZzz = re-name_me >= 42;"));
 
         assert!(edited_text[0].contents.contains("export component Bar {"));
         assert!(edited_text[0].contents.contains("property <bool> re_name-me /* <- TEST_ME_2 "));
         assert!(edited_text[0].contents.contains(" <- TEST_ME_2 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 2 */")
+        );
         assert!(edited_text[0].contents.contains("/* 2 */ self.re-name_me = re-name_me >= 42;"));
         assert!(edited_text[0].contents.contains("re_name-me { }"));
 
@@ -3087,17 +3104,17 @@ export component Bar {
         assert!(edited_text[0].contents.contains("component re_name-me {"));
         assert!(edited_text[0].contents.contains("property <bool> re_name-me /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains(" <- TEST_ME_1 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 1 */")
+        );
         assert!(edited_text[0].contents.contains("/* 1 */ self.re-name_me = re-name_me >= 42;"));
 
         assert!(edited_text[0].contents.contains("export component Bar {"));
         assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* <- TEST_ME_2 "));
         assert!(edited_text[0].contents.contains(" <- TEST_ME_2 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 2 */")
+        );
         assert!(edited_text[0].contents.contains("/* 2 */ self.XxxYyyZzz = re-name_me >= 42;"));
         assert!(edited_text[0].contents.contains("re_name-me { }"));
     }
@@ -3135,22 +3152,26 @@ export component Bar {
         assert!(edited_text[0].contents.contains("component re_name-me {"));
         assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* 1 */"));
         assert!(edited_text[0].contents.contains(" 1 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
-        assert!(edited_text[0]
-            .contents
-            .contains("/* 1 */ self.XxxYyyZzz /* <- TEST_ME_1 */ = re-name_me >= 42;"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 1 */")
+        );
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("/* 1 */ self.XxxYyyZzz /* <- TEST_ME_1 */ = re-name_me >= 42;")
+        );
 
         assert!(edited_text[0].contents.contains("export component Bar {"));
         assert!(edited_text[0].contents.contains("property <bool> re_name-me /* 2 "));
         assert!(edited_text[0].contents.contains(" 2 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
-        assert!(edited_text[0]
-            .contents
-            .contains("/* 2 */ self.re-name_me /* <- TEST_ME_2 */ = re-name_me >= 42;"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 2 */")
+        );
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("/* 2 */ self.re-name_me /* <- TEST_ME_2 */ = re-name_me >= 42;")
+        );
         assert!(edited_text[0].contents.contains("re_name-me { }"));
 
         let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_2");
@@ -3160,22 +3181,26 @@ export component Bar {
         assert!(edited_text[0].contents.contains("component re_name-me {"));
         assert!(edited_text[0].contents.contains("property <bool> re_name-me /* 1 "));
         assert!(edited_text[0].contents.contains(" 1 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
-        assert!(edited_text[0]
-            .contents
-            .contains("/* 1 */ self.re-name_me /* <- TEST_ME_1 */ = re-name_me >= 42;"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 1 */")
+        );
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("/* 1 */ self.re-name_me /* <- TEST_ME_1 */ = re-name_me >= 42;")
+        );
 
         assert!(edited_text[0].contents.contains("export component Bar {"));
         assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* 2 "));
         assert!(edited_text[0].contents.contains(" 2 */: true;"));
-        assert!(edited_text[0]
-            .contents
-            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
-        assert!(edited_text[0]
-            .contents
-            .contains("/* 2 */ self.XxxYyyZzz /* <- TEST_ME_2 */ = re-name_me >= 42;"));
+        assert!(
+            edited_text[0].contents.contains("function re_name-me_(re-name_me: int) { /* 2 */")
+        );
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("/* 2 */ self.XxxYyyZzz /* <- TEST_ME_2 */ = re-name_me >= 42;")
+        );
         assert!(edited_text[0].contents.contains("re_name-me { }"));
     }
 
@@ -3520,9 +3545,11 @@ export component Bar {
         assert!(edited_text[0].contents.contains("global XxxYyyZzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("in property <bool> test-property: true;"));
         assert!(edited_text[0].contents.contains("function baz(bar: int)"));
-        assert!(edited_text[0]
-            .contents
-            .contains("int) -> bool { return XxxYyyZzz.test_property && bar >= 42"));
+        assert!(
+            edited_text[0]
+                .contents
+                .contains("int) -> bool { return XxxYyyZzz.test_property && bar >= 42")
+        );
     }
 
     #[test]

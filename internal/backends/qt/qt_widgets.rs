@@ -33,7 +33,7 @@ use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSiz
 use i_slint_core::rtti::*;
 use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use i_slint_core::{
-    declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
+    Callback, ItemVTable_static, Property, SharedString, SharedVector, declare_item_vtable,
 };
 use i_slint_core_macros::*;
 use std::ptr::NonNull;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
-use crate::javahelper::{print_jni_error, JavaHelper};
+use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };

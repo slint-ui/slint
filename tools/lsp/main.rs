@@ -5,7 +5,9 @@
 #![allow(clippy::await_holding_refcell_ref)]
 
 #[cfg(all(feature = "preview-engine", not(feature = "preview-builtin")))]
-compile_error!("Feature preview-engine and preview-builtin need to be enabled together when building native LSP");
+compile_error!(
+    "Feature preview-engine and preview-builtin need to be enabled together when building native LSP"
+);
 
 mod common;
 mod fmt;
@@ -35,7 +37,7 @@ use std::future::Future;
 use std::io::Write as _;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::{atomic, Arc, Mutex};
+use std::sync::{Arc, Mutex, atomic};
 use std::task::{Poll, Waker};
 
 use crate::common::document_cache::CompilerConfiguration;

@@ -287,11 +287,7 @@ pub fn set_json_preview_data(
         return Err(failed_properties);
     }
 
-    if result.is_empty() {
-        Err(vec![format!("No property set")])
-    } else {
-        Ok(result)
-    }
+    if result.is_empty() { Err(vec![format!("No property set")]) } else { Ok(result) }
 }
 
 #[cfg(test)]

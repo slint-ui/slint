@@ -51,7 +51,7 @@ impl TryFrom<&str> for RenderingRotation {
             _ => {
                 return Err(format!(
                     "Invalid value for rotation. Must be one of 0, 90, 180, or 270"
-                ))
+                ));
             }
         })
     }

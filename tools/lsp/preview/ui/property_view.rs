@@ -9,7 +9,7 @@ use smol_str::SmolStr;
 
 use i_slint_compiler::{
     expression_tree, langtype, literals, object_tree,
-    parser::{syntax_nodes, SyntaxKind, TextRange},
+    parser::{SyntaxKind, TextRange, syntax_nodes},
 };
 
 use slint::{Model as _, SharedString, VecModel};

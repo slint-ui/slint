@@ -904,7 +904,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Invokes the specified callback with a reference to the [`winit::window::Window`] that exists for this Slint window
     /// and returns `Some(T)`; otherwise `None`.
     fn with_winit_window<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T)
-        -> Option<T>;
+    -> Option<T>;
     /// Registers a window event filter callback for this Slint window.
     ///
     /// The callback is invoked in the winit event loop whenever a window event is received with a reference to the
@@ -915,7 +915,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     fn on_winit_window_event(
         &self,
         callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> EventResult
-            + 'static,
+        + 'static,
     );
 
     /// Returns a future that resolves to the [`winit::window::Window`] for this Slint window.
@@ -1006,7 +1006,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
     fn on_winit_window_event(
         &self,
         mut callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> EventResult
-            + 'static,
+        + 'static,
     ) {
         if let Some(adapter) = i_slint_core::window::WindowInner::from_pub(self)
             .window_adapter()

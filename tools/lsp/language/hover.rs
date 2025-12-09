@@ -3,7 +3,7 @@
 
 use crate::common::{
     self,
-    token_info::{token_info, TokenInfo},
+    token_info::{TokenInfo, token_info},
 };
 use crate::util;
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -68,7 +68,7 @@ pub fn get_tooltip(
         },
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) | TokenInfo::LocalFunction(_) => {
-            return None
+            return None;
         }
         TokenInfo::IncompleteNamedReference(el, name) => {
             from_property_in_type(&el, &name, documentation)?

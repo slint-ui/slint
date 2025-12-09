@@ -18,7 +18,7 @@ use crate::{common, util};
 use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
-    syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
+    NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{

@@ -138,9 +138,9 @@ impl PyImage {
         if strides.len() > 0 {
             if strides.len() != 3 {
                 return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
-                "Unexpected strides size {}. Arrays must provides stride tuple of 3 for image conversion",
-                strides.len(),
-            )));
+                    "Unexpected strides size {}. Arrays must provides stride tuple of 3 for image conversion",
+                    strides.len(),
+                )));
             }
 
             let row_stride: u32 = strides[0].try_into().map_err(|_| {
@@ -192,7 +192,7 @@ impl PyImage {
                     return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
                         "Unexpected bits per pixel {}. Expected 3 or 4",
                         bpp,
-                    )))
+                    )));
                 }
             },
         })

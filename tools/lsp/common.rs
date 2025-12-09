@@ -4,7 +4,7 @@
 //! Data structures common between LSP and previewer
 
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextSize};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::path::Path;
@@ -730,7 +730,7 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
     transformer: impl Fn(&T) -> String,
     needle: &str,
 ) -> Vec<T> {
-    use nucleo_matcher::{pattern, Config, Matcher};
+    use nucleo_matcher::{Config, Matcher, pattern};
 
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     let pattern = pattern::Pattern::parse(

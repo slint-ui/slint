@@ -4,7 +4,7 @@
 use std::cell::{OnceCell, RefCell};
 
 use block2::RcBlock;
-use objc2::{define_class, msg_send, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, rc::Retained};
 use objc2_foundation::{NSDefaultRunLoopMode, NSObject, NSObjectProtocol, NSRect, NSRunLoop};
 use objc2_quartz_core::{CADisplayLink, CATransaction};
 use objc2_ui_kit::{UIView, UIViewAnimating as _, UIViewAnimationCurve, UIViewPropertyAnimator};

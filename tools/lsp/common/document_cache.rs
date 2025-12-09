@@ -5,7 +5,7 @@
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
-use i_slint_compiler::parser::{syntax_nodes, TextSize};
+use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::Url;
@@ -19,7 +19,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::common::{file_to_uri, uri_to_file, ElementRcNode, Result};
+use crate::common::{ElementRcNode, Result, file_to_uri, uri_to_file};
 use std::collections::HashSet;
 
 pub type SourceFileVersion = Option<i32>;

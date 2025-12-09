@@ -14,15 +14,15 @@ use esp_hal::dma::{DmaRxBuf, DmaTxBuf};
 use esp_hal::dma_buffers;
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::peripherals::Peripherals;
-use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::spi::Mode;
+use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::time::{Instant, Rate};
 use esp_println::logger::init_logger_from_env;
-use ft3x68_rs::{Ft3x68Driver, ResetInterface, FT3168_DEVICE_ADDRESS};
+use ft3x68_rs::{FT3168_DEVICE_ADDRESS, Ft3x68Driver, ResetInterface};
 use log::{error, info};
 use sh8601_rs::{
-    framebuffer_size, ColorMode, DisplaySize, ResetDriver, Sh8601Driver, Ws18AmoledDriver,
-    DMA_CHUNK_SIZE,
+    ColorMode, DMA_CHUNK_SIZE, DisplaySize, ResetDriver, Sh8601Driver, Ws18AmoledDriver,
+    framebuffer_size,
 };
 use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{LogicalPosition, PhysicalPosition, Rgb8Pixel};
@@ -281,8 +281,8 @@ impl EspBackend {
                 });
 
                 // Draw the rendered pixels to the display using draw_iter
-                use embedded_graphics::prelude::*;
                 use embedded_graphics::Pixel;
+                use embedded_graphics::prelude::*;
 
                 let pixels = pixel_buf
                     .chunks_exact(DISPLAY_SIZE.width as usize)

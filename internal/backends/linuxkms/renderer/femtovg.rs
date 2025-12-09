@@ -15,7 +15,7 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::display::{gbmdisplay::GbmDisplay, Presenter, RenderingRotation};
+use crate::display::{Presenter, RenderingRotation, gbmdisplay::GbmDisplay};
 use crate::drmoutput::DrmOutput;
 
 pub struct FemtoVGRendererAdapter {

@@ -85,62 +85,64 @@ impl AsyncAdapter {
         let inner_weak = Rc::downgrade(&inner);
         self.inner = Some(inner);
         self.task = Some(
-            slint_interpreter::spawn_local(std::future::poll_fn(move |cx| loop {
-                let Some(inner) = inner_weak.upgrade() else {
+            slint_interpreter::spawn_local(std::future::poll_fn(move |cx| {
+                loop {
+                    let Some(inner) = inner_weak.upgrade() else {
+                        return std::task::Poll::Ready(());
+                    };
+
+                    let readable_poll_status: Option<std::task::Poll<Py<PyAny>>> =
+                        inner.readable_callback.as_ref().map(|callback| {
+                            if inner.adapter.poll_readable(cx).is_ready() {
+                                std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py)))
+                            } else {
+                                std::task::Poll::Pending
+                            }
+                        });
+
+                    let writable_poll_status: Option<std::task::Poll<Py<PyAny>>> =
+                        inner.writable_callback.as_ref().map(|callback| {
+                            if inner.adapter.poll_writable(cx).is_ready() {
+                                std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py)))
+                            } else {
+                                std::task::Poll::Pending
+                            }
+                        });
+
+                    let fd = inner.adapter.get_ref().0;
+
+                    drop(inner);
+
+                    if let Some(std::task::Poll::Ready(callback)) = &readable_poll_status {
+                        Python::attach(|py| {
+                            callback.call1(py, (fd,)).expect(
+                                "unexpected failure running python async readable adapter callback",
+                            );
+                        });
+                    }
+
+                    if let Some(std::task::Poll::Ready(callback)) = &writable_poll_status {
+                        Python::attach(|py| {
+                            callback.call1(py, (fd,)).expect(
+                                "unexpected failure running python async writable adapter callback",
+                            );
+                        });
+                    }
+
+                    match &readable_poll_status {
+                        Some(std::task::Poll::Ready(..)) => continue, // poll again and then probably return in the next iteration
+                        Some(std::task::Poll::Pending) => return std::task::Poll::Pending, // waker registered, come back later
+                        None => {} // Nothing to poll
+                    }
+
+                    match &writable_poll_status {
+                        Some(std::task::Poll::Ready(..)) => continue, // poll again and then probably return in the next iteration
+                        Some(std::task::Poll::Pending) => return std::task::Poll::Pending, // waker registered, come back later
+                        None => {} // Nothing to poll
+                    }
+
                     return std::task::Poll::Ready(());
-                };
-
-                let readable_poll_status: Option<std::task::Poll<Py<PyAny>>> =
-                    inner.readable_callback.as_ref().map(|callback| {
-                        if inner.adapter.poll_readable(cx).is_ready() {
-                            std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py)))
-                        } else {
-                            std::task::Poll::Pending
-                        }
-                    });
-
-                let writable_poll_status: Option<std::task::Poll<Py<PyAny>>> =
-                    inner.writable_callback.as_ref().map(|callback| {
-                        if inner.adapter.poll_writable(cx).is_ready() {
-                            std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py)))
-                        } else {
-                            std::task::Poll::Pending
-                        }
-                    });
-
-                let fd = inner.adapter.get_ref().0;
-
-                drop(inner);
-
-                if let Some(std::task::Poll::Ready(callback)) = &readable_poll_status {
-                    Python::attach(|py| {
-                        callback.call1(py, (fd,)).expect(
-                            "unexpected failure running python async readable adapter callback",
-                        );
-                    });
                 }
-
-                if let Some(std::task::Poll::Ready(callback)) = &writable_poll_status {
-                    Python::attach(|py| {
-                        callback.call1(py, (fd,)).expect(
-                            "unexpected failure running python async writable adapter callback",
-                        );
-                    });
-                }
-
-                match &readable_poll_status {
-                    Some(std::task::Poll::Ready(..)) => continue, // poll again and then probably return in the next iteration
-                    Some(std::task::Poll::Pending) => return std::task::Poll::Pending, // waker registered, come back later
-                    None => {} // Nothing to poll
-                }
-
-                match &writable_poll_status {
-                    Some(std::task::Poll::Ready(..)) => continue, // poll again and then probably return in the next iteration
-                    Some(std::task::Poll::Pending) => return std::task::Poll::Pending, // waker registered, come back later
-                    None => {} // Nothing to poll
-                }
-
-                return std::task::Poll::Ready(());
             }))
             .unwrap(),
         );

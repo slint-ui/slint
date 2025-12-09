@@ -16,7 +16,7 @@
 */
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxNode};
+use i_slint_compiler::parser::{SyntaxNode, syntax_nodes};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 

@@ -16,9 +16,9 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use i_slint_core::SlintContext;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
-use i_slint_core::SlintContext;
 
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {

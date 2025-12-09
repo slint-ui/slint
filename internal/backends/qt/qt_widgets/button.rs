@@ -286,11 +286,11 @@ impl Item for NativeButton {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
-                }
+                };
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
-                return InputEventResult::EventIgnored
+                return InputEventResult::EventIgnored;
             }
         });
         if let MouseEvent::Released { position, .. } = event {

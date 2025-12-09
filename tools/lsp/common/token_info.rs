@@ -8,7 +8,7 @@ use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use i_slint_compiler::pathutils::clean_path;
 use smol_str::{SmolStr, ToSmolStr};
 use std::path::Path;

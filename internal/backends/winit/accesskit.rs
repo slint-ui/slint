@@ -7,6 +7,7 @@ use std::ptr::NonNull;
 use std::rc::Weak;
 
 use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeUpdate};
+use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -16,7 +17,6 @@ use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak, ParentItemT
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::{LogicalPoint, ScaleFactor};
 use i_slint_core::window::{PopupWindowLocation, WindowInner};
-use i_slint_core::SharedString;
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;

@@ -223,7 +223,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                     return Err(format!(
                         "Unsupported frame buffer format {format} used with software renderer"
                     )
-                    .into())
+                    .into());
                 }
             }
 

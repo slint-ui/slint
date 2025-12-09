@@ -139,8 +139,8 @@ impl Default for StmBackend {
         let _io6 = gpiog.pg9.into_alternate::<9>().speed(High).internal_pull_up(true);
         let _io7 = gpiod.pd7.into_alternate::<10>().speed(High).internal_pull_up(true);
 
-        use stm32h7xx_hal::xspi::*;
         use OctospiWord as XW;
+        use stm32h7xx_hal::xspi::*;
 
         let mut octospi =
             dp.OCTOSPI1.octospi_unchecked(12.MHz(), &ccdr.clocks, ccdr.peripheral.OCTOSPI1);
@@ -207,10 +207,14 @@ impl Default for StmBackend {
 
         #[allow(unused_unsafe)] //(unsafe required for Rust <= 1.81)
         let (fb1, fb2) = unsafe { (core::ptr::addr_of!(FB1), core::ptr::addr_of!(FB2)) };
-        assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
-            .contains(&(fb1 as usize)));
-        assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
-            .contains(&(fb2 as usize)));
+        assert!(
+            (hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
+                .contains(&(fb1 as usize))
+        );
+        assert!(
+            (hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
+                .contains(&(fb2 as usize))
+        );
 
         // setup LTDC  (LTDC_MspInit)
         let _p = gpioa.pa3.into_alternate::<14>().speed(High).internal_pull_up(true);

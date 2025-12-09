@@ -40,11 +40,7 @@ impl WindowAdapter for SkiaScreenshotWindow {
     }
 
     fn size(&self) -> PhysicalSize {
-        if self.size.get().width == 0 {
-            PhysicalSize::new(64, 64)
-        } else {
-            self.size.get()
-        }
+        if self.size.get().width == 0 { PhysicalSize::new(64, 64) } else { self.size.get() }
     }
 
     fn set_size(&self, size: i_slint_core::api::WindowSize) {

@@ -8,8 +8,8 @@ use slint::ModelNotify;
 use slint::ModelRc;
 use slint::ModelTracker;
 
-use crate::mvc;
 use crate::Callback;
+use crate::mvc;
 
 #[derive(Clone)]
 pub struct TaskListController {

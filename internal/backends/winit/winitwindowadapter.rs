@@ -36,13 +36,13 @@ use corelib::items::{ItemRc, ItemRef};
 #[cfg(any(enable_accesskit, muda))]
 use crate::SlintEvent;
 use crate::{EventResult, SharedBackendData};
+use corelib::Property;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
 use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
-use corelib::Property;
-use corelib::{graphics::*, Coord};
+use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
 use std::cell::OnceCell;
 #[cfg(any(enable_accesskit, muda))]

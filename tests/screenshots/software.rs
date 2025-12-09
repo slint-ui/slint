@@ -3,8 +3,8 @@
 
 // cSpell: ignore powf
 
-use crate::testing::{compare_images, TestCaseOptions};
-use i_slint_core::graphics::{euclid, IntRect, Rgb8Pixel, SharedPixelBuffer};
+use crate::testing::{TestCaseOptions, compare_images};
+use i_slint_core::graphics::{IntRect, Rgb8Pixel, SharedPixelBuffer, euclid};
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
@@ -144,7 +144,9 @@ pub fn assert_with_render_by_line(
     if !options.skip_clipping {
         let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering).to_rgba8().unwrap();
         if let Err(reason) = compare_images(path, &argb8, RenderingRotation::NoRotation, options) {
-            panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
+            panic!(
+                "Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}"
+            );
         }
     }
 }

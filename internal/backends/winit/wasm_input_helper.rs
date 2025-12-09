@@ -20,13 +20,13 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+use i_slint_core::SharedString;
 use i_slint_core::input::{KeyEvent, KeyEventType};
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::SharedString;
+use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::convert::FromWasmAbi;
-use wasm_bindgen::JsCast;
 
 pub struct WasmInputHelper {
     input: web_sys::HtmlInputElement,

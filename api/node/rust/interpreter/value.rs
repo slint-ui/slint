@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    js_into_rust_model, rust_into_js_model, ReadOnlyRustModel, RgbaColor, SlintBrush,
-    SlintImageData,
+    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, js_into_rust_model,
+    rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
@@ -111,7 +111,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         Type::Color => {
             match unknown.get_type() {
                 Ok(ValueType::String) => {
-                    return unknown.coerce_to_string().and_then(string_to_brush)
+                    return unknown.coerce_to_string().and_then(string_to_brush);
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(rgb_color_or_brush) = unknown.coerce_to_object() {

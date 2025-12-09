@@ -116,11 +116,7 @@ fn eval_expression(
                 ('+', a @ Value::Struct(_), b @ Value::Struct(_)) => {
                     let a: Option<i_slint_core::layout::LayoutInfo> = a.try_into().ok();
                     let b: Option<i_slint_core::layout::LayoutInfo> = b.try_into().ok();
-                    if let (Some(a), Some(b)) = (a, b) {
-                        a.merge(&b).into()
-                    } else {
-                        Value::Void
-                    }
+                    if let (Some(a), Some(b)) = (a, b) { a.merge(&b).into() } else { Value::Void }
                 }
                 ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
                 ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),

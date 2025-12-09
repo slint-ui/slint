@@ -3,7 +3,7 @@
 
 use clap::Parser;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use smol_str::SmolStr;
 use std::fmt::Write;
 

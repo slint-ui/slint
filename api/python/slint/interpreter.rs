@@ -15,10 +15,10 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::parser::normalize_identifier;
 
 use indexmap::IndexMap;
+use pyo3::PyTraverseError;
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
-use pyo3::PyTraverseError;
 
 use crate::api_match::PyGeneratedAPI;
 use crate::errors::{

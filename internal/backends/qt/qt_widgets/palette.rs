@@ -3,7 +3,7 @@
 
 // cSpell: ignore deinit
 
-use i_slint_core::{items::ColorScheme, Brush};
+use i_slint_core::{Brush, items::ColorScheme};
 
 use super::*;
 
