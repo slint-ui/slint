@@ -1,0 +1,39 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[workspace]
+
+[package]
+name = "slint-safeui"
+version = "1.15.0"
+edition = "2024"
+build = "build.rs"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib", "staticlib"]
+name = "slint_safeui_lib"
+
+[[bin]]
+name = "slint_safeui"
+path = "src/simulator.rs"
+
+[features]
+simulator = ["slint/backend-winit", "dep:smol"]
+default = ["simulator"]
+
+[dependencies]
+bytemuck = "1.24.0"
+slint = { version = "1.14.1", default-features = false, features = ["compat-1-2", "renderer-software", "libm", "unsafe-single-threaded"] }
+smol = { version = "2.0.0", optional = true }
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+
+[profile.dev]
+panic = "abort"
+
+[build-dependencies]
+bindgen = "0.72.1"
+slint-build = { version = "1.14.1", features = ["sdf-fonts"] }
