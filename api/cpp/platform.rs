@@ -815,7 +815,7 @@ pub mod skia {
                 hnd
             }),
             RawDisplayHandle::Xcb(XcbDisplayHandle::new(
-                Some(core::ptr::NonNull::new_unchecked(connection)),
+                core::ptr::NonNull::new(connection),
                 screen,
             )),
         ));
@@ -837,7 +837,7 @@ pub mod skia {
                 hnd
             }),
             RawDisplayHandle::Xlib(XlibDisplayHandle::new(
-                Some(core::ptr::NonNull::new_unchecked(display)),
+                core::ptr::NonNull::new(display),
                 screen,
             )),
         ));
@@ -851,11 +851,11 @@ pub mod skia {
     ) -> CppRawHandleOpaque {
         use raw_window_handle::{WaylandDisplayHandle, WaylandWindowHandle};
         let handle = CppRawHandle::from((
-            RawWindowHandle::Wayland(WaylandWindowHandle::new(core::ptr::NonNull::new_unchecked(
-                surface,
-            ))),
+            RawWindowHandle::Wayland(WaylandWindowHandle::new(
+                core::ptr::NonNull::new(surface).unwrap(),
+            )),
             RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
-                core::ptr::NonNull::new_unchecked(display),
+                core::ptr::NonNull::new(display).unwrap(),
             )),
         ));
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
@@ -868,9 +868,9 @@ pub mod skia {
     ) -> CppRawHandleOpaque {
         use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle};
         let handle = CppRawHandle::from((
-            RawWindowHandle::AppKit(AppKitWindowHandle::new(core::ptr::NonNull::new_unchecked(
-                ns_view,
-            ))),
+            RawWindowHandle::AppKit(AppKitWindowHandle::new(
+                core::ptr::NonNull::new(ns_view).unwrap(),
+            )),
             RawDisplayHandle::AppKit(AppKitDisplayHandle::new()),
         ));
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
@@ -889,7 +889,7 @@ pub mod skia {
         handle_opaque: CppRawHandleOpaque,
         size: IntSize,
     ) -> SkiaRendererOpaque {
-        let handle = &*(handle_opaque as *const CppRawHandle);
+        let handle = unsafe { &*(handle_opaque as *const CppRawHandle) };
 
         let boxed_renderer: Box<SkiaRenderer> = Box::new(
             SkiaRenderer::new(
@@ -910,13 +910,15 @@ pub mod skia {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque) {
-        let r = &*(r as *const SkiaRenderer);
+        let r = unsafe { &*(r as *const SkiaRenderer) };
         r.render().unwrap();
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_handle(r: SkiaRendererOpaque) -> RendererPtr {
-        let r = (r as *const SkiaRenderer) as *const dyn Renderer;
-        core::mem::transmute(r)
+        unsafe {
+            let r = (r as *const SkiaRenderer) as *const dyn Renderer;
+            core::mem::transmute(r)
+        }
     }
 }
