@@ -58,10 +58,11 @@ fn forecast_graph_command(
     let day_width = width / days_count as f32;
     let max_day_shift = days_count as f32 * day_width;
 
-    let border_command =
-        format!(
+    let border_command = format!(
         "M 0 0 M {max_width} 0 M {max_width} {max_temperature_value} M 0 {max_temperature_value} ",
-        max_width=max_day_shift, max_temperature_value=max_temperature_value * temperature_ratio);
+        max_width = max_day_shift,
+        max_temperature_value = max_temperature_value * temperature_ratio
+    );
 
     let mut command = border_command;
 

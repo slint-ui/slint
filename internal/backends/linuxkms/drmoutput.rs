@@ -6,9 +6,9 @@ use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
 
 use crate::DeviceOpener;
+use drm::Device as DrmDevice;
 use drm::buffer::Buffer;
 use drm::control::Device;
-use drm::Device as DrmDevice;
 use i_slint_core::platform::PlatformError;
 
 // Wrapped needed because gbm::Device<T> wants T to be sized.
@@ -84,7 +84,10 @@ impl DrmOutput {
                     .map(|(name, _, connected)| format!("{} (connected: {})", name, connected))
                     .collect::<Vec<_>>();
                 // Can't return error here because newlines are escaped.
-                eprintln!("\nDRM Output List Requested:\n{}\nPlease select an output with the SLINT_DRM_OUTPUT environment variable and re-run the program.", names_and_status.join("\n"));
+                eprintln!(
+                    "\nDRM Output List Requested:\n{}\nPlease select an output with the SLINT_DRM_OUTPUT environment variable and re-run the program.",
+                    names_and_status.join("\n")
+                );
                 std::process::exit(1);
             } else {
                 let (_, connector, connected) =
@@ -276,7 +279,10 @@ impl DrmOutput {
         }
 
         if all_formats.is_empty() {
-            eprintln!("No available formats found for any plane with CRTC {:?}. Falling back to XRGB8888 format", self.crtc);
+            eprintln!(
+                "No available formats found for any plane with CRTC {:?}. Falling back to XRGB8888 format",
+                self.crtc
+            );
 
             Ok(vec![drm::buffer::DrmFourcc::Xrgb8888])
         } else {

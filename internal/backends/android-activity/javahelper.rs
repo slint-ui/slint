@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
+use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
-use i_slint_core::graphics::{euclid, Color};
+use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalInset;
 use i_slint_core::platform::WindowAdapter;
-use i_slint_core::SharedString;
+use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
-use jni::JNIEnv;
 use std::time::Duration;
 
 #[track_caller]

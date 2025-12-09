@@ -16,8 +16,8 @@ use std::sync::{Arc, Mutex};
 use calloop::EventLoop;
 use i_slint_core::platform::PlatformError;
 
-use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 use crate::BackendBuilder;
+use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
 #[cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))]
 mod input;

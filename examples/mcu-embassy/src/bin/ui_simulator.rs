@@ -26,18 +26,18 @@ use log::*;
 use mcu_embassy::{
     controller::{self, Action, Controller},
     simulator::hardware::HardwareSim,
-    slint_backend::{StmBackend, TargetPixelType, DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    slint_backend::{DISPLAY_HEIGHT, DISPLAY_WIDTH, StmBackend, TargetPixelType},
 };
 use object_pool::{Pool, Reusable};
 use sdl2::{
     event::Event, keyboard::Keycode, mouse::MouseButton, pixels::PixelFormatEnum, rect::Rect,
 };
 use slint::{
-    platform::{
-        software_renderer::{MinimalSoftwareWindow, RepaintBufferType},
-        PointerEventButton, WindowAdapter, WindowEvent,
-    },
     ComponentHandle,
+    platform::{
+        PointerEventButton, WindowAdapter, WindowEvent,
+        software_renderer::{MinimalSoftwareWindow, RepaintBufferType},
+    },
 };
 use slint_generated::MainWindow;
 use static_cell::StaticCell;

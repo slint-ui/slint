@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use futures::{future::OptionFuture, FutureExt};
+use futures::{FutureExt, future::OptionFuture};
 
 use super::ControlCommand;
 

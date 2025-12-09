@@ -9,7 +9,7 @@ use std::sync::Arc;
 use i_slint_core::renderer::Renderer;
 use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 #[cfg(supports_opengl)]
-use i_slint_renderer_femtovg::{opengl, FemtoVGOpenGLRendererExt};
+use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 use winit::event_loop::ActiveEventLoop;
@@ -103,8 +103,8 @@ impl GlutinFemtoVGRenderer {
         window_id: winit::window::WindowId,
         html_canvas: web_sys::HtmlCanvasElement,
     ) {
-        use wasm_bindgen::closure::Closure;
         use wasm_bindgen::JsCast;
+        use wasm_bindgen::closure::Closure;
 
         let add_listener = |name, closure: Closure<dyn Fn(web_sys::WebGlContextEvent)>| {
             html_canvas

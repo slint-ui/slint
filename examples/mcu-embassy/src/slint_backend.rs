@@ -4,11 +4,11 @@
 use alloc::rc::Rc;
 use embassy_time::Instant;
 use slint::{
-    platform::{
-        software_renderer::{self, MinimalSoftwareWindow},
-        Platform, WindowAdapter,
-    },
     PlatformError,
+    platform::{
+        Platform, WindowAdapter,
+        software_renderer::{self, MinimalSoftwareWindow},
+    },
 };
 
 pub const DISPLAY_WIDTH: usize = 800;

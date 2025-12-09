@@ -663,7 +663,7 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
         }
         proto::mod_WindowEvent::OneOfevent::None => {
-            return Err(format!("Unknown window event received in system testing protobuf"))
+            return Err(format!("Unknown window event received in system testing protobuf"));
         }
     })
 }

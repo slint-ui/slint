@@ -7,9 +7,9 @@
     [WindowAdapter] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
+use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WindowVisibility;
-use crate::EventResult;
 use crate::{SharedBackendData, SlintEvent};
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};

@@ -14,7 +14,7 @@ use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
 use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
@@ -1638,7 +1638,9 @@ mod tests {
         let source7 = "{ changed t🔺 => {} property<int> xyz; ";
         for s in [source1, source2, source3, source4, source5, source6, source7] {
             eprintln!("changed_completion: {s:?}");
-            let s = format!("component Bar inherits TextInput {{ property <int> nope; out property <int> from_bar; }} component Foo {{ Bar {s} }}");
+            let s = format!(
+                "component Bar inherits TextInput {{ property <int> nope; out property <int> from_bar; }} component Foo {{ Bar {s} }}"
+            );
             let res = get_completions(&s).unwrap();
             res.iter().find(|ci| ci.label == "text").unwrap();
             res.iter().find(|ci| ci.label == "has-focus").unwrap();

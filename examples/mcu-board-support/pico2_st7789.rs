@@ -25,8 +25,8 @@ use panic_probe as _;
 use renderer::Rgb565Pixel;
 
 mod rp_pico2;
-use rp_pico2::hal::{self, pac, prelude::*, timer::CopyableTimer0, Timer};
-use slint::platform::{software_renderer as renderer, PointerEventButton, WindowEvent};
+use rp_pico2::hal::{self, Timer, pac, prelude::*, timer::CopyableTimer0};
+use slint::platform::{PointerEventButton, WindowEvent, software_renderer as renderer};
 
 const HEAP_SIZE: usize = 400 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -212,16 +212,16 @@ struct PicoBackend<DrawBuffer, Touch, Backlight> {
 }
 
 impl<
-        DI: mipidsi::interface::Interface<Word = u8>,
-        RST: OutputPin<Error = Infallible>,
-        TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
-        CH: SingleChannel,
-        DC_: OutputPin<Error = Infallible>,
-        CS_: OutputPin<Error = Infallible>,
-        IRQ: InputPin<Error = Infallible>,
-        SPI: SpiDevice,
-        BL: OutputPin<Error = Infallible>,
-    > slint::platform::Platform
+    DI: mipidsi::interface::Interface<Word = u8>,
+    RST: OutputPin<Error = Infallible>,
+    TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
+    CH: SingleChannel,
+    DC_: OutputPin<Error = Infallible>,
+    CS_: OutputPin<Error = Infallible>,
+    IRQ: InputPin<Error = Infallible>,
+    SPI: SpiDevice,
+    BL: OutputPin<Error = Infallible>,
+> slint::platform::Platform
     for PicoBackend<
         DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>,
         xpt2046::XPT2046<IRQ, SPI>,
@@ -365,13 +365,13 @@ struct DrawBuffer<Display, PioTransfer, Stolen> {
 }
 
 impl<
-        DI: mipidsi::interface::Interface<Word = u8>,
-        RST: OutputPin<Error = Infallible>,
-        TO: WriteTarget<TransmittedWord = u8>,
-        CH: SingleChannel,
-        DC_: OutputPin<Error = Infallible>,
-        CS_: OutputPin<Error = Infallible>,
-    > renderer::LineBufferProvider
+    DI: mipidsi::interface::Interface<Word = u8>,
+    RST: OutputPin<Error = Infallible>,
+    TO: WriteTarget<TransmittedWord = u8>,
+    CH: SingleChannel,
+    DC_: OutputPin<Error = Infallible>,
+    CS_: OutputPin<Error = Infallible>,
+> renderer::LineBufferProvider
     for &mut DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
 {
     type TargetPixel = TargetPixel;
@@ -425,13 +425,13 @@ impl<
 }
 
 impl<
-        DI: mipidsi::interface::Interface<Word = u8>,
-        RST: OutputPin<Error = Infallible>,
-        TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
-        CH: SingleChannel,
-        DC_: OutputPin<Error = Infallible>,
-        CS_: OutputPin<Error = Infallible>,
-    > DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
+    DI: mipidsi::interface::Interface<Word = u8>,
+    RST: OutputPin<Error = Infallible>,
+    TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
+    CH: SingleChannel,
+    DC_: OutputPin<Error = Infallible>,
+    CS_: OutputPin<Error = Infallible>,
+> DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
 {
     fn flush_frame(&mut self) {
         let (ch, b, mut spi) = self.pio.take().unwrap().wait();
@@ -625,7 +625,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     use core::fmt::Write;
     use embedded_graphics::{
-        mono_font::{ascii::FONT_6X10, MonoTextStyle},
+        mono_font::{MonoTextStyle, ascii::FONT_6X10},
         pixelcolor::Rgb565,
         prelude::*,
         text::Text,

@@ -176,11 +176,7 @@ fn add_element_node(state: &mut State, element: &ElementRc, node_number: usize) 
         ""
     };
     let mark_up = if let Some(mu) = &state.mark_up {
-        if Rc::ptr_eq(element, mu) {
-            ",style=filled,fillcolor=lightgrey"
-        } else {
-            ""
-        }
+        if Rc::ptr_eq(element, mu) { ",style=filled,fillcolor=lightgrey" } else { "" }
     } else {
         ""
     };

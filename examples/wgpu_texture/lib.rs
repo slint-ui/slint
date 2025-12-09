@@ -3,7 +3,7 @@
 
 slint::include_modules!();
 
-use slint::wgpu_27::{wgpu, WGPUConfiguration, WGPUSettings};
+use slint::wgpu_27::{WGPUConfiguration, WGPUSettings, wgpu};
 
 struct DemoRenderer {
     device: wgpu::Device,

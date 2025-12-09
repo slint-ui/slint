@@ -5,4 +5,4 @@ mod keyboard_animator;
 mod virtual_keyboard;
 
 pub(crate) use keyboard_animator::KeyboardCurveSampler;
-pub(crate) use virtual_keyboard::{register_keyboard_notifications, KeyboardNotifications};
+pub(crate) use virtual_keyboard::{KeyboardNotifications, register_keyboard_notifications};

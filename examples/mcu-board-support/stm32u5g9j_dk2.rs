@@ -4,9 +4,10 @@
 use alloc::boxed::Box;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
-use slint::platform::{software_renderer, PointerEventButton, WindowEvent};
+use slint::platform::{PointerEventButton, WindowEvent, software_renderer};
 
 use crate::embassy::{EmbassyBackend, PlatformBackend};
+use embassy_stm32::{Config, rcc};
 use embassy_stm32::{
     bind_interrupts,
     gpio::{Level, Output, Speed},
@@ -18,7 +19,6 @@ use embassy_stm32::{
     peripherals, rng,
     time::Hertz,
 };
-use embassy_stm32::{rcc, Config};
 
 mod hspi;
 

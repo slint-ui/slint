@@ -10,7 +10,7 @@ use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_skia::SkiaRendererExt;
-use i_slint_renderer_skia::{skia_safe, SkiaRenderer, SkiaSharedContext};
+use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext, skia_safe};
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
@@ -284,12 +284,10 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                     drm::buffer::DrmFourcc::Rgbx1010102 => skia_safe::ColorType::RGB101010x,
 
                     drm::buffer::DrmFourcc::Bgrx1010102 => skia_safe::ColorType::BGR101010x,
-                    _ => {
-                        return Err(format!(
+                    _ => return Err(format!(
                         "Unsupported frame buffer format {format} used with skia software renderer"
                     )
-                        .into())
-                    }
+                    .into()),
                 },
                 age,
                 pixels.as_mut(),

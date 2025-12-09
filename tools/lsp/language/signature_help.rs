@@ -6,7 +6,7 @@ use i_slint_compiler::expression_tree::Callable;
 use i_slint_compiler::langtype::{Function, Type};
 use i_slint_compiler::lookup::{LookupObject as _, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use lsp_types::{ParameterInformation, ParameterLabel, SignatureHelp, SignatureInformation};
 
 pub(crate) fn get_signature_help(
@@ -135,11 +135,7 @@ fn signature_from_function_ty(
             .filter(|(x, _)| *x != &Type::ElementReference)
             .map(
                 |(ty, name)| {
-                    if !name.is_empty() {
-                        format!("{name}: {ty}")
-                    } else {
-                        ty.to_string()
-                    }
+                    if !name.is_empty() { format!("{name}: {ty}") } else { ty.to_string() }
                 },
             )
             .collect(),

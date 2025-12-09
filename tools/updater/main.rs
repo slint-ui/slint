@@ -8,7 +8,7 @@ use clap::Parser;
 use experiments::lookup_changes::LookupChangeState;
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::object_tree::{self, Component, Document, ElementRc};
-use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use smol_str::SmolStr;
 use std::cell::RefCell;

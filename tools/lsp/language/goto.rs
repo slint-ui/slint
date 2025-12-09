@@ -3,7 +3,7 @@
 
 use crate::common::{
     self,
-    token_info::{token_info, TokenInfo},
+    token_info::{TokenInfo, token_info},
 };
 use crate::util;
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};

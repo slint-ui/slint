@@ -3,9 +3,9 @@
 
 // cSpell: ignore datetime dotdot gettext
 
-use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
+use anyhow::anyhow;
 use std::cell::RefCell;
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -827,7 +827,7 @@ impl CargoToml {
                         return Err(anyhow!(
                             "Using workspace {}.workspace = true in workspace",
                             field
-                        ))
+                        ));
                     }
                     Some(true) => { /* nothing to do */ }
                     Some(false) => {
@@ -849,7 +849,10 @@ impl CargoToml {
                         Some(text) => {
                             if text != expected_str {
                                 if fix_it {
-                                    eprintln!("Fixing up {:?} as instructed. It has unexpected data in {field}.", self.path);
+                                    eprintln!(
+                                        "Fixing up {:?} as instructed. It has unexpected data in {field}.",
+                                        self.path
+                                    );
                                     self.doc["package"][field] = toml_edit::value(expected_str);
                                     self.edited = true;
                                 } else {
@@ -1078,9 +1081,9 @@ impl LicenseHeaderCheck {
             .find_map(
                 |(regex, license)| if regex.is_match(path_str) { Some(license) } else { None },
             )
-            .with_context(|| {
-                "Cannot determine the expected license. Please fix the license checking xtask."
-            })?;
+            .with_context(
+                || "Cannot determine the expected license. Please fix the license checking xtask.",
+            )?;
 
         match location {
             LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style, license),

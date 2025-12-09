@@ -4,12 +4,12 @@
 use std::vec;
 
 use i_slint_core::{
-    graphics::{Image, SharedImageBuffer, SharedPixelBuffer},
     ImageInner,
+    graphics::{Image, SharedImageBuffer, SharedPixelBuffer},
 };
 use napi::{
-    bindgen_prelude::{Buffer, External},
     Env, JsUnknown,
+    bindgen_prelude::{Buffer, External},
 };
 
 // This is needed for typedoc check JsImageData::image
@@ -59,14 +59,14 @@ impl SlintImageData {
                     return Buffer::from(rgb_to_rgba(
                         buffer.as_bytes(),
                         (self.width() * self.height()) as usize,
-                    ))
+                    ));
                 }
                 SharedImageBuffer::RGBA8(buffer) => return Buffer::from(buffer.as_bytes()),
                 SharedImageBuffer::RGBA8Premultiplied(buffer) => {
                     return Buffer::from(rgb_to_rgba(
                         buffer.as_bytes(),
                         (self.width() * self.height()) as usize,
-                    ))
+                    ));
                 }
             }
         }

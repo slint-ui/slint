@@ -5,10 +5,10 @@ use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
-use napi::{bindgen_prelude::*, JsSymbol};
 use napi::{Env, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
+use napi::{JsSymbol, bindgen_prelude::*};
 
-use crate::{to_js_unknown, to_value, RefCountedReference};
+use crate::{RefCountedReference, to_js_unknown, to_value};
 
 #[napi]
 #[derive(Clone, Default)]
@@ -101,7 +101,9 @@ impl Model for JsModel {
         };
 
         let Some(row_count_property_fn) = row_count_property else {
-            eprintln!("Node.js: JavaScript Model<T> implementation's rowCount property is not a callable function");
+            eprintln!(
+                "Node.js: JavaScript Model<T> implementation's rowCount property is not a callable function"
+            );
             return 0;
         };
 
@@ -111,12 +113,16 @@ impl Model for JsModel {
         };
 
         let Ok(row_count_number) = row_count_result.coerce_to_number() else {
-            eprintln!("Node.js: JavaScript Model<T>'s rowCount function returned a value that cannot be coerced to a number");
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s rowCount function returned a value that cannot be coerced to a number"
+            );
             return 0;
         };
 
         let Ok(row_count) = row_count_number.get_uint32() else {
-            eprintln!("Node.js: JavaScript Model<T>'s rowCount function returned a number that cannot be mapped to a uint32");
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s rowCount function returned a number that cannot be mapped to a uint32"
+            );
             return 0;
         };
 
@@ -151,7 +157,9 @@ impl Model for JsModel {
             None
         } else {
             let Ok(js_value) = to_value(&self.env, row_data, &self.row_data_type) else {
-                eprintln!("Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust");
+                eprintln!(
+                    "Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust"
+                );
                 return None;
             };
             Some(js_value)
@@ -175,7 +183,9 @@ impl Model for JsModel {
         };
 
         let Ok(js_data) = to_js_unknown(&self.env, &data) else {
-            eprintln!("Node.js: Model<T>'s set_row_data called by Rust with data type that can't be represented in JavaScript");
+            eprintln!(
+                "Node.js: Model<T>'s set_row_data called by Rust with data type that can't be represented in JavaScript"
+            );
             return;
         };
 
@@ -225,7 +235,9 @@ impl ReadOnlyRustModel {
 
     #[napi]
     pub fn set_row_data(&self, _env: Env, _row: u32, _data: JsUnknown) {
-        eprintln!("setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model")
+        eprintln!(
+            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
+        )
     }
 
     pub fn into_js(self, env: &Env) -> Result<JsUnknown> {

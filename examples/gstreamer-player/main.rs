@@ -4,7 +4,7 @@
 slint::include_modules!();
 
 use futures::stream::StreamExt;
-use gst::{prelude::*, MessageView};
+use gst::{MessageView, prelude::*};
 
 mod slint_video_sink;
 

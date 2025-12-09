@@ -7,13 +7,13 @@ use std::cell::Cell;
 use std::pin::Pin;
 use std::rc::Rc;
 
+use i_slint_core::Property;
 use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
-use i_slint_core::graphics::{euclid, Image};
+use i_slint_core::graphics::{Image, euclid};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::slice::Slice;
-use i_slint_core::Property;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 
 use crate::display::RenderingRotation;

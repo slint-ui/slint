@@ -4,7 +4,7 @@
 use crate::Cli;
 use i_slint_compiler::langtype::Type;
 
-use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
 use std::io::Write;
 
 pub(crate) fn fold_node(

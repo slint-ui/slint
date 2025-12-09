@@ -8,8 +8,8 @@ extern crate alloc;
 use embedded_graphics_core::pixelcolor::Rgb565;
 use embedded_graphics_framebuf::backends::FrameBufferBackend;
 // --- Slint platform integration imports ---
-use slint::platform::software_renderer::Rgb565Pixel;
 use slint::PhysicalSize;
+use slint::platform::software_renderer::Rgb565Pixel;
 
 use alloc::alloc::{alloc, handle_alloc_error};
 use alloc::boxed::Box;
@@ -21,25 +21,25 @@ use eeprom24x::{Eeprom24x, SlaveAddr};
 use embedded_hal_bus::i2c::RefCellDevice;
 use esp_hal::clock::CpuClock;
 use esp_hal::dma::ExternalBurstConfig;
-use esp_hal::dma::{DmaDescriptor, DmaTxBuf, CHUNK_SIZE};
+use esp_hal::dma::{CHUNK_SIZE, DmaDescriptor, DmaTxBuf};
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::i2c::master::I2c;
 use esp_hal::lcd_cam::{
-    lcd::{
-        dpi::{Config as DpiConfig, Dpi, Format, FrameTiming},
-        ClockMode, Phase, Polarity,
-    },
     LcdCam,
+    lcd::{
+        ClockMode, Phase, Polarity,
+        dpi::{Config as DpiConfig, Dpi, Format, FrameTiming},
+    },
 };
 
 // Type alias for I2C device to simplify signatures
 type I2cDevice = RefCellDevice<'static, esp_hal::i2c::master::I2c<'static, esp_hal::Blocking>>;
 type TouchController = sitronix_touch::TouchIC<I2cDevice>;
+use esp_hal::Config as HalConfig;
 use esp_hal::peripherals::Peripherals;
 use esp_hal::system::{CpuControl, Stack};
 use esp_hal::time::{Instant, Rate};
-use esp_hal::timer::{timg::TimerGroup, AnyTimer};
-use esp_hal::Config as HalConfig;
+use esp_hal::timer::{AnyTimer, timg::TimerGroup};
 use esp_println::logger::init_logger_from_env;
 use log::{debug, error, info};
 

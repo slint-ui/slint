@@ -4,12 +4,12 @@
 //! This module contains helper functions that are used for our internal tests within Slint
 
 use crate::TestingWindow;
+use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
 use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 use i_slint_core::window::WindowInner;
-use i_slint_core::SharedString;
 
 /// Simulate a mouse click
 pub fn send_mouse_click<

@@ -4,13 +4,13 @@
 use std::pin::Pin;
 
 use bytemuck::Pod;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::SizedSample;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-use futures::future::OptionFuture;
 use futures::FutureExt;
-use ringbuf::ring_buffer::{RbRef, RbWrite};
+use futures::future::OptionFuture;
 use ringbuf::HeapRb;
+use ringbuf::ring_buffer::{RbRef, RbWrite};
 use std::future::Future;
 
 use super::ControlCommand;

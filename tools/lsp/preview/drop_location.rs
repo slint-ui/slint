@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{
-    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
+    SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
@@ -56,11 +56,7 @@ enum DropAccept {
 
 fn border_size(dimension: f32) -> f32 {
     let bs = (dimension / 4.0).floor();
-    if bs > 8.0 {
-        8.0
-    } else {
-        bs
-    }
+    if bs > 8.0 { 8.0 } else { bs }
 }
 
 // We calculate the area where the drop event will be handled for certain and those where
@@ -99,11 +95,7 @@ fn calculate_drop_acceptance(
         ui::LayoutKind::Grid => *geometry,
     };
 
-    if certain_rect.contains(position) {
-        DropAccept::Yes
-    } else {
-        DropAccept::Maybe
-    }
+    if certain_rect.contains(position) { DropAccept::Yes } else { DropAccept::Maybe }
 }
 
 #[derive(Debug)]
@@ -1466,16 +1458,14 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
     #[test]
     fn test_workspace_edit_compiles_move_element_fail() {
-        let (document_cache, workspace_edit) = workspace_edit_setup(vec![(
-            314,
-            450,
-            "",
-        ),
-        (
-            460,
-            461,
-            "    Button { // 318\n                width: parent.button_width;\n                text: \"Press me\";\n            }\n        "
-        )]);
+        let (document_cache, workspace_edit) = workspace_edit_setup(vec![
+            (314, 450, ""),
+            (
+                460,
+                461,
+                "    Button { // 318\n                width: parent.button_width;\n                text: \"Press me\";\n            }\n        ",
+            ),
+        ]);
 
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),
@@ -1485,17 +1475,14 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
     #[test]
     fn test_workspace_edit_compiles_move_element_ok() {
-        let (document_cache, workspace_edit) =
-            workspace_edit_setup(vec![(
-            466,
-            540,
-            "",
-        ),
-        (
-            194,
-            194,
-            "Rectangle { // 470\n              background: Colors.blue;\n        }\n        "
-        ),]);
+        let (document_cache, workspace_edit) = workspace_edit_setup(vec![
+            (466, 540, ""),
+            (
+                194,
+                194,
+                "Rectangle { // 470\n              background: Colors.blue;\n        }\n        ",
+            ),
+        ]);
 
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),
@@ -1519,17 +1506,14 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
     #[test]
     fn test_workspace_edit_compiles_move_element_inside_component_ok() {
-        let (document_cache, workspace_edit) =
-            workspace_edit_setup(vec![(
-            314,
-            450,
-            "",
-        ),
-        (
-            264,
-            264,
-            "Button { // 318\n                    width: parent.button-width;\n                    text: \"Press me\";\n                }"
-        ),]);
+        let (document_cache, workspace_edit) = workspace_edit_setup(vec![
+            (314, 450, ""),
+            (
+                264,
+                264,
+                "Button { // 318\n                    width: parent.button-width;\n                    text: \"Press me\";\n                }",
+            ),
+        ]);
 
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),

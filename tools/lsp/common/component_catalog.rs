@@ -254,12 +254,14 @@ mod tests {
         assert!(result.iter().all(|ci| ci.is_exported));
         assert!(result.iter().all(|ci| ci.is_builtin));
         assert!(result.iter().all(|ci| !ci.is_global));
-        assert!(result
-            .iter()
-            .any(|ci| &ci.name == "TouchArea" && ci.is_interactive && !ci.is_layout));
-        assert!(result
-            .iter()
-            .any(|ci| &ci.name == "HorizontalLayout" && !ci.is_interactive && ci.is_layout));
+        assert!(
+            result.iter().any(|ci| &ci.name == "TouchArea" && ci.is_interactive && !ci.is_layout)
+        );
+        assert!(
+            result
+                .iter()
+                .any(|ci| &ci.name == "HorizontalLayout" && !ci.is_interactive && ci.is_layout)
+        );
         assert!(!result.iter().any(|ci| &ci.name == "AboutSlint"));
         assert!(!result.iter().any(|ci| &ci.name == "ProgressIndicator"));
         assert!(!result.iter().any(|ci| &ci.name == "Timer"));

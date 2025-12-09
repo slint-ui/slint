@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     generate_enum_docs()?;

@@ -3,8 +3,8 @@
 
 use std::rc::Rc;
 
-use crate::mvc::{traits::DateTimeRepository, DateModel, TimeModel};
-use crate::{mvc, Callback};
+use crate::mvc::{DateModel, TimeModel, traits::DateTimeRepository};
+use crate::{Callback, mvc};
 
 #[derive(Clone)]
 pub struct CreateTaskController {

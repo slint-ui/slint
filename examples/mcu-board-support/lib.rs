@@ -32,16 +32,16 @@ pub use stm32u5g9j_dk2::*;
 #[cfg(feature = "esp32-s3-box-3")]
 mod esp32_s3_box_3;
 #[cfg(feature = "esp32-s3-box-3")]
-pub use esp32_s3_box_3::*;
-#[cfg(feature = "esp32-s3-box-3")]
 pub use esp_hal::main as entry;
+#[cfg(feature = "esp32-s3-box-3")]
+pub use esp32_s3_box_3::*;
 
 #[cfg(feature = "esp32-s3-lcd-ev-board")]
 mod esp32_s3_lcd_ev_board;
 #[cfg(feature = "esp32-s3-lcd-ev-board")]
-pub use esp32_s3_lcd_ev_board::*;
-#[cfg(feature = "esp32-s3-lcd-ev-board")]
 pub use esp_hal::main as entry;
+#[cfg(feature = "esp32-s3-lcd-ev-board")]
+pub use esp32_s3_lcd_ev_board::*;
 
 #[cfg(feature = "esope-sld-c-w-s3")]
 mod esope_sld_c_w_s3;

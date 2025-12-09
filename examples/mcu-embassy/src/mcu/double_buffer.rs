@@ -24,11 +24,7 @@ impl DoubleBuffer {
     }
 
     pub fn current(&mut self) -> &mut [TargetPixelType] {
-        if self.is_buf0 {
-            self.buf0
-        } else {
-            self.buf1
-        }
+        if self.is_buf0 { self.buf0 } else { self.buf1 }
     }
 
     pub fn swap_temp(&mut self) {

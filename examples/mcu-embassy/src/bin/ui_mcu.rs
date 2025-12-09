@@ -18,7 +18,7 @@ use core::{mem::MaybeUninit, ptr::addr_of_mut};
 use alloc::{boxed::Box, rc::Rc};
 use defmt::{error, info, unwrap};
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{Either, select};
 use embassy_stm32::{
     bind_interrupts,
     exti::ExtiInput,
@@ -35,15 +35,15 @@ use embassy_time::{Duration, Timer};
 use gt911::Gt911Blocking;
 use mcu_embassy::{
     controller::{self, Action, Controller},
-    mcu::{double_buffer::DoubleBuffer, hardware::HardwareMcu, rcc_setup, ALLOCATOR},
-    slint_backend::{StmBackend, TargetPixelType, DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    mcu::{ALLOCATOR, double_buffer::DoubleBuffer, hardware::HardwareMcu, rcc_setup},
+    slint_backend::{DISPLAY_HEIGHT, DISPLAY_WIDTH, StmBackend, TargetPixelType},
 };
 use slint::{
-    platform::{
-        software_renderer::{MinimalSoftwareWindow, RepaintBufferType, Rgb565Pixel},
-        PointerEventButton, WindowEvent,
-    },
     ComponentHandle,
+    platform::{
+        PointerEventButton, WindowEvent,
+        software_renderer::{MinimalSoftwareWindow, RepaintBufferType, Rgb565Pixel},
+    },
 };
 use slint_generated::MainWindow;
 use static_cell::StaticCell;

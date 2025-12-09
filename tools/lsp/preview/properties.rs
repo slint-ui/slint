@@ -8,7 +8,7 @@ use i_slint_compiler::expression_tree::{Expression, Unit};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
-    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
+    SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
@@ -1082,7 +1082,8 @@ pub mod tests {
 
         let sel_range =
             util::text_range_to_lsp_range(&source_file, definition.selection_range, dc.format);
-        println!("Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
+        println!(
+            "Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
             sel_range.start.line,
             sel_range.start.character,
             sel_range.end.line,
@@ -1552,7 +1553,7 @@ component MainWindow inherits Window {
         assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of
-                                                  // `property<int> foo = 42`, not to the `<`
+        // `property<int> foo = 42`, not to the `<`
         assert_eq!(foo_property.group, "Base1");
     }
 
