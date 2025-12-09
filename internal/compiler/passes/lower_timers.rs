@@ -12,8 +12,8 @@ use std::rc::Rc;
 
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     visit_all_expressions(component, |e, _| {
-        e.visit_recursive_mut(&mut |e| match e {
-            Expression::FunctionCall { function, arguments, .. } => {
+        e.visit_recursive_mut(&mut |e| {
+            if let Expression::FunctionCall { function, arguments, .. } = e {
                 if let Callable::Builtin(BuiltinFunction::StartTimer | BuiltinFunction::StopTimer) =
                     function
                     && let [Expression::ElementReference(timer)] = arguments.as_slice()
@@ -32,7 +32,6 @@ pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                     }
                 }
             }
-            _ => {}
         });
     });
 

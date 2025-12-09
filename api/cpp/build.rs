@@ -9,10 +9,9 @@ fn main() -> Result<(), anyhow::Error> {
     let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap();
 
     // Go from $root/api/cpp down to $root
-    let root_dir = Path::new(&manifest_dir).ancestors().nth(2).expect(&format!(
-        "Failed to locate root directory, relative to {}",
-        manifest_dir.to_string_lossy()
-    ));
+    let root_dir = Path::new(&manifest_dir).ancestors().nth(2).unwrap_or_else(|| {
+        panic!("Failed to locate root directory, relative to {}", manifest_dir.to_string_lossy())
+    });
 
     println!("cargo:rerun-if-env-changed=SLINT_GENERATED_INCLUDE_DIR");
     let output_dir = std::env::var_os("SLINT_GENERATED_INCLUDE_DIR").unwrap_or_else(|| {
