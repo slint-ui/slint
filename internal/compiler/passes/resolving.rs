@@ -872,7 +872,6 @@ impl Expression {
                     &node,
                 );
             } else if (pos_max == 0 && arg_idx != values.len()) || pos_max > values.len() {
-                dbg!(arg_idx, pos_max, values.len());
                 let num = arg_idx.max(pos_max);
                 ctx.diag.push_error(
                     format!(
