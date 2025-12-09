@@ -5,7 +5,7 @@
 name = "i-slint-backend-android-activity"
 description = "OpenGL rendering backend for Slint"
 authors.workspace = true
-edition.workspace = true
+edition = "2024"
 homepage.workspace = true
 license.workspace = true
 repository.workspace = true
