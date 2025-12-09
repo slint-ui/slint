@@ -3,7 +3,7 @@
 
 use std::fs;
 use zed::{DownloadedFileType, LanguageServerId};
-use zed_extension_api::{self as zed, settings::LspSettings, Architecture, Os, Result};
+use zed_extension_api::{self as zed, Architecture, Os, Result, settings::LspSettings};
 
 struct SlintBinary {
     path: String,
