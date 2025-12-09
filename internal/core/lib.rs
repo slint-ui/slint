@@ -16,16 +16,16 @@ extern crate alloc;
 extern crate std;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-pub(crate) mod unsafe_single_threaded;
+pub mod unsafe_single_threaded;
 #[cfg(all(not(feature = "std"), not(feature = "unsafe-single-threaded")))]
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
 use crate::items::OperatingSystemType;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::unsafe_single_threaded::thread_local;
+pub use crate::unsafe_single_threaded::thread_local;
 #[cfg(feature = "std")]
-use std::thread_local;
+pub use std::thread_local;
 
 pub mod accessibility;
 pub mod animations;
@@ -53,8 +53,6 @@ pub mod renderer;
 pub mod rtti;
 pub mod sharedvector;
 pub mod slice;
-#[cfg(feature = "software-renderer")]
-pub mod software_renderer;
 pub mod string;
 pub mod tests;
 pub mod textlayout;

@@ -9,6 +9,7 @@ cargo publish --manifest-path internal/core/Cargo.toml
 cargo publish --manifest-path api/rs/macros/Cargo.toml
 cargo publish --manifest-path internal/renderers/skia/Cargo.toml --features x11
 cargo publish --manifest-path internal/renderers/femtovg/Cargo.toml
+cargo publish --manifest-path internal/renderers/software/Cargo.toml
 cargo publish --manifest-path internal/backends/winit/Cargo.toml --features x11,renderer-femtovg
 cargo publish --manifest-path api/rs/build/Cargo.toml
 cargo publish --manifest-path internal/backends/qt/Cargo.toml

@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
+//! Delegate the rendering to the [`i_slint_renderer_software::SoftwareRenderer`]
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
-pub use i_slint_core::software_renderer::SoftwareRenderer;
-use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
+pub use i_slint_renderer_software::SoftwareRenderer;
+use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::sync::Arc;
 
 use crate::display::RenderingRotation;
@@ -189,16 +189,16 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
 
             self.renderer.set_rendering_rotation(match rotation {
                 RenderingRotation::NoRotation => {
-                    i_slint_core::software_renderer::RenderingRotation::NoRotation
+                    i_slint_renderer_software::RenderingRotation::NoRotation
                 }
                 RenderingRotation::Rotate90 => {
-                    i_slint_core::software_renderer::RenderingRotation::Rotate90
+                    i_slint_renderer_software::RenderingRotation::Rotate90
                 }
                 RenderingRotation::Rotate180 => {
-                    i_slint_core::software_renderer::RenderingRotation::Rotate180
+                    i_slint_renderer_software::RenderingRotation::Rotate180
                 }
                 RenderingRotation::Rotate270 => {
-                    i_slint_core::software_renderer::RenderingRotation::Rotate270
+                    i_slint_renderer_software::RenderingRotation::Rotate270
                 }
             });
 
@@ -215,7 +215,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                     self.renderer.render(buffer, self.size.width as usize);
                 }
                 drm::buffer::DrmFourcc::Rgb565 => {
-                    let buffer: &mut [i_slint_core::software_renderer::Rgb565Pixel] =
+                    let buffer: &mut [i_slint_renderer_software::Rgb565Pixel] =
                         bytemuck::cast_slice_mut(pixels.as_mut());
                     self.renderer.render(buffer, self.size.width as usize);
                 }

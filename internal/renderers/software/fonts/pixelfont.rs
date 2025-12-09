@@ -1,19 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::graphics::{BitmapFont, BitmapGlyphs};
-use crate::software_renderer::PhysicalLength;
-use crate::software_renderer::fixed::Fixed;
-use crate::textlayout::{FontMetrics, Glyph, TextShaper};
+use crate::PhysicalLength;
+use crate::fixed::Fixed;
+use i_slint_core::graphics::{BitmapFont, BitmapGlyphs};
+use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
 
 use super::{GlyphRenderer, RenderableGlyph};
-
-impl BitmapGlyphs {
-    /// Returns the size of the pre-rendered font in pixels.
-    pub fn pixel_size(&self) -> PhysicalLength {
-        PhysicalLength::new(self.pixel_size)
-    }
-}
 
 // A font that is resolved to a specific pixel size.
 pub struct PixelFont {

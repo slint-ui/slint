@@ -602,7 +602,7 @@ public:
         auto rectangles() const
         {
             SharedVector<cbindgen_private::IntRect> rectangles;
-            slint_software_renderer_region_to_rects(&inner, &rectangles);
+            cbindgen_private::slint_software_renderer_region_to_rects(&inner, &rectangles);
 #    if __cpp_lib_ranges >= 202110L // DR20 P2415R2
             using std::ranges::owning_view;
 #    else

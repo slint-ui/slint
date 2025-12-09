@@ -31,7 +31,7 @@ default = ["std", "backend-default", "renderer-femtovg", "renderer-software", "a
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
-std = ["i-slint-core/std"]
+std = ["i-slint-core/std", "i-slint-renderer-software?/std"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##
@@ -43,7 +43,7 @@ gettext = ["i-slint-core/gettext-rs"]
 
 ## This feature enables floating point arithmetic emulation using the [libm](https://crates.io/crates/libm) crate. Use this
 ## in MCU environments where the processor does not support floating point arithmetic.
-libm = ["i-slint-core/libm"]
+libm = ["i-slint-core/libm", "i-slint-renderer-software?/libm"]
 
 ## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
 ## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
@@ -54,7 +54,7 @@ log = ["dep:log"]
 serde = ["i-slint-core/serde"]
 
 ## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
-software-renderer-systemfonts = ["renderer-software", "i-slint-core/software-renderer-systemfonts"]
+software-renderer-systemfonts = ["renderer-software", "i-slint-renderer-software/systemfonts"]
 
 ## Slint uses internally some `thread_local` state.
 ##
@@ -167,7 +167,7 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 
 ## Render using the software renderer.
-renderer-software = ["i-slint-backend-selector/renderer-software", "i-slint-core/software-renderer"]
+renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)
@@ -260,6 +260,7 @@ slint-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true }
 i-slint-core-macros = { workspace = true }
 i-slint-common = { workspace = true }
+i-slint-renderer-software = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }

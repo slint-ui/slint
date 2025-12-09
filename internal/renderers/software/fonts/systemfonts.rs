@@ -7,8 +7,8 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use std::collections::HashMap;
 
-use crate::lengths::ScaleFactor;
 use i_slint_common::sharedfontique::{self, HashedBlob, fontique};
+use i_slint_core::lengths::ScaleFactor;
 
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
@@ -17,7 +17,7 @@ struct CachedFont {
     fontdue_font: Rc<fontdue::Font>,
 }
 
-crate::thread_local! {
+i_slint_core::thread_local! {
     // fontdue fonts cached and indexed by fontique blob id (unique incremental) and true type collection index
     static FONTDUE_FONTS: RefCell<HashMap<(HashedBlob, u32), CachedFont>> = Default::default();
 }

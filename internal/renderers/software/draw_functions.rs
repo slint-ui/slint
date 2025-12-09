@@ -7,10 +7,10 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
-use crate::Color;
-use crate::graphics::{Rgb8Pixel, TexturePixelFormat};
-use crate::lengths::{PointLengths, SizeLengths};
 use derive_more::{Add, Mul, Sub};
+use i_slint_core::Color;
+use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
+use i_slint_core::lengths::{PointLengths, SizeLengths};
 use integer_sqrt::IntegerSquareRoot;
 #[allow(unused_imports)]
 use num_traits::Float;
@@ -864,7 +864,7 @@ pub trait TargetPixel: Sized + Copy {
     }
 }
 
-impl TargetPixel for crate::graphics::image::Rgb8Pixel {
+impl TargetPixel for Rgb8Pixel {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u16;
         self.r = (self.r as u16 * a / 255) as u8 + color.red;

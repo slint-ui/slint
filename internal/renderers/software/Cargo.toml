@@ -1,0 +1,54 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-renderer-software"
+description = "Slint's Software renderer implementation"
+authors.workspace = true
+edition = "2024"
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+systemfonts = [
+  "i-slint-core/shared-fontique",
+  "i-slint-common/shared-fontique",
+  "dep:skrifa",
+  "dep:fontdue",
+  "i-slint-core/shared-parley",
+  "std",
+  "dep:clru",
+]
+path = ["dep:zeno", "dep:lyon_path"]
+std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std"]
+libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm"]
+
+experimental = []
+default = ["std"]
+
+[dependencies]
+i-slint-core = { workspace = true }
+i-slint-common = { workspace = true }
+bytemuck = { workspace = true, features = ["derive"] }
+clru = { workspace = true, optional = true }
+derive_more = { workspace = true, features = ["error"] }
+euclid = { workspace = true }
+integer-sqrt = { version = "0.1.5" }
+num-traits = { version = "0.2", default-features = false }
+skrifa = { workspace = true, optional = true }
+fontdue = { workspace = true, optional = true }
+zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
+lyon_path = { version = "1.0", optional = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(cbindgen)", "cfg(slint_nightly_test)"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+features = ["experimental"]

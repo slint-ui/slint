@@ -8,7 +8,7 @@ use i_slint_core::graphics::{IntRect, Rgb8Pixel, SharedPixelBuffer, euclid};
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
-use i_slint_core::software_renderer::{
+use slint::platform::software_renderer::{
     LineBufferProvider, MinimalSoftwareWindow, RenderingRotation,
 };
 use std::rc::Rc;
@@ -31,7 +31,7 @@ impl i_slint_core::platform::Platform for SwrTestingBackend {
 
 pub fn init_swr() -> Rc<MinimalSoftwareWindow> {
     let window = MinimalSoftwareWindow::new(
-        i_slint_core::software_renderer::RepaintBufferType::ReusedBuffer,
+        slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
     );
 
     i_slint_core::platform::set_platform(Box::new(SwrTestingBackend { window: window.clone() }))

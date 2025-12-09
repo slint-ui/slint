@@ -341,7 +341,6 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
-        "PhysicalRegion",
     ]
     .iter()
     .chain(items.iter())
@@ -496,10 +495,12 @@ fn gen_corelib(
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
-                "BorrowedOpenGLTextureOrigin"
+                "BorrowedOpenGLTextureOrigin",
+                "PhysicalRegion",
+                "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -582,6 +583,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
+            "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()
         .chain(config.export.exclude.iter().map(|s| s.as_str()))
@@ -622,6 +624,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("window.rs"))
+            .with_src(crate_dir.join("../renderers/software/lib.rs"))
             .with_include("slint_enums_internal.h")
             .generate()
             .with_context(|| format!("Unable to generate bindings for {internal_header}"))?
@@ -881,6 +884,7 @@ namespace slint::cbindgen_private {
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
+    using types::PhysicalRegion;
 }
 ",
         )

@@ -7,12 +7,12 @@ use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use crate::Color;
-use crate::graphics::{SharedImageBuffer, TexturePixelFormat};
-use crate::lengths::{PointLengths as _, SizeLengths as _};
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
+use i_slint_core::Color;
+use i_slint_core::graphics::{SharedImageBuffer, TexturePixelFormat};
+use i_slint_core::lengths::{PointLengths as _, SizeLengths as _};
 
 #[derive(Default)]
 pub struct SceneVectors {
@@ -535,7 +535,7 @@ pub struct LinearGradientCommand {
 #[derive(Debug)]
 pub struct RadialGradientCommand {
     /// The gradient stops (colors and positions)
-    pub stops: crate::SharedVector<crate::graphics::GradientStop>,
+    pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
     /// Center of the gradient relative to the item position
     pub center_x: PhysicalLength,
     pub center_y: PhysicalLength,
@@ -551,5 +551,5 @@ pub struct RadialGradientCommand {
 pub struct ConicGradientCommand {
     /// The gradient stops (colors and normalized angle positions)
     /// Position 0 = 0 degrees (north), 1 = 360 degrees
-    pub stops: crate::SharedVector<crate::graphics::GradientStop>,
+    pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
 }

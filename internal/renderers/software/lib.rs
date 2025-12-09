@@ -1,47 +1,54 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module contains the [`SoftwareRenderer`] and related types.
-//!
-//! It is only enabled when the `renderer-software` Slint feature is enabled.
-
+#![doc = include_str!("README.md")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![deny(unsafe_code)]
+#![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
+#![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
+#![no_std]
 #![warn(missing_docs)]
+
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 mod draw_functions;
 mod fixed;
 mod fonts;
 mod minimal_software_window;
-#[cfg(feature = "software-renderer-path")]
+#[cfg(feature = "path")]
 mod path;
 mod scene;
 
 use self::fonts::GlyphRenderer;
 pub use self::minimal_software_window::MinimalSoftwareWindow;
 use self::scene::*;
-use crate::api::PlatformError;
-use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
-use crate::item_rendering::{
-    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
-    RenderRectangle,
-};
-use crate::item_tree::ItemTreeWeak;
-use crate::items::{ItemRc, TextOverflow, TextWrap};
-use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
-};
-use crate::partial_renderer::{DirtyRegion, PartialRenderingState};
-use crate::renderer::RendererSealed;
-use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
-use crate::window::{WindowAdapter, WindowInner};
-use crate::{Brush, Color, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
 use fixed::Fixed;
+use i_slint_core::api::PlatformError;
+use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
+use i_slint_core::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::item_rendering::{
+    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
+    RenderRectangle,
+};
+use i_slint_core::item_tree::ItemTreeWeak;
+use i_slint_core::items::{ItemRc, TextOverflow, TextWrap};
+use i_slint_core::lengths::{
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
+};
+use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
+use i_slint_core::renderer::RendererSealed;
+use i_slint_core::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
+use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::{Brush, Color, ImageInner, StaticTextures};
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
@@ -54,7 +61,7 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
-pub use crate::partial_renderer::RepaintBufferType;
+pub use i_slint_core::partial_renderer::RepaintBufferType;
 
 /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
 ///
@@ -227,14 +234,14 @@ impl PhysicalRegion {
     }
 
     /// Returns the size of the bounding box of this region.
-    pub fn bounding_box_size(&self) -> crate::api::PhysicalSize {
+    pub fn bounding_box_size(&self) -> i_slint_core::api::PhysicalSize {
         let bb = self.bounding_rect();
-        crate::api::PhysicalSize { width: bb.width() as _, height: bb.height() as _ }
+        i_slint_core::api::PhysicalSize { width: bb.width() as _, height: bb.height() as _ }
     }
     /// Returns the origin of the bounding box of this region.
-    pub fn bounding_box_origin(&self) -> crate::api::PhysicalPosition {
+    pub fn bounding_box_origin(&self) -> i_slint_core::api::PhysicalPosition {
         let bb = self.bounding_rect();
-        crate::api::PhysicalPosition { x: bb.origin.x as _, y: bb.origin.y as _ }
+        i_slint_core::api::PhysicalPosition { x: bb.origin.x as _, y: bb.origin.y as _ }
     }
 
     /// Returns an iterator over the rectangles in this region.
@@ -242,7 +249,8 @@ impl PhysicalRegion {
     /// They do not overlap.
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = (crate::api::PhysicalPosition, crate::api::PhysicalSize)> + '_ {
+    ) -> impl Iterator<Item = (i_slint_core::api::PhysicalPosition, i_slint_core::api::PhysicalSize)> + '_
+    {
         let mut line_ranges = Vec::<core::ops::Range<i16>>::new();
         let mut begin_line = 0;
         let mut end_line = 0;
@@ -251,8 +259,11 @@ impl PhysicalRegion {
                 match line_ranges.pop() {
                     Some(r) => {
                         return Some((
-                            crate::api::PhysicalPosition { x: r.start as _, y: begin_line as _ },
-                            crate::api::PhysicalSize {
+                            i_slint_core::api::PhysicalPosition {
+                                x: r.start as _,
+                                y: begin_line as _,
+                            },
+                            i_slint_core::api::PhysicalSize {
                                 width: r.len() as _,
                                 height: (end_line - begin_line) as _,
                             },
@@ -299,7 +310,10 @@ fn region_iter() {
     assert_eq!(region.iter().next(), None);
     region.count = 1;
     let r = |x, y, width, height| {
-        (crate::api::PhysicalPosition { x, y }, crate::api::PhysicalSize { width, height })
+        (
+            i_slint_core::api::PhysicalPosition { x, y },
+            i_slint_core::api::PhysicalSize { width, height },
+        )
     };
 
     let mut iter = region.iter();
@@ -426,7 +440,7 @@ pub struct SoftwareRenderer {
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
     partial_rendering_state: PartialRenderingState,
-    maybe_window_adapter: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
+    maybe_window_adapter: RefCell<Option<Weak<dyn i_slint_core::window::WindowAdapter>>>,
     rotation: Cell<RenderingRotation>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
@@ -641,7 +655,7 @@ impl SoftwareRenderer {
 
                 for (component, origin) in components {
                     if let Some(component) = ItemTreeWeak::upgrade(component) {
-                        crate::item_rendering::render_component_items(
+                        i_slint_core::item_rendering::render_component_items(
                             &component,
                             &mut renderer,
                             *origin,
@@ -660,7 +674,7 @@ impl SoftwareRenderer {
     fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
         if let Some(metrics) = &self.rendering_metrics_collector {
             let prev_frame_dirty = self.prev_frame_dirty.take();
-            let m = crate::graphics::rendering_metrics_collector::RenderingMetrics {
+            let m = i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics {
                 dirty_region: Some(prev_frame_dirty.clone()),
                 ..Default::default()
             };
@@ -686,7 +700,7 @@ impl SoftwareRenderer {
     /// then be more efficient)
     ///
     /// ```rust
-    /// # use i_slint_core::software_renderer::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
+    /// # use i_slint_renderer_software::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
     /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer) {
     /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
@@ -713,10 +727,11 @@ impl SoftwareRenderer {
         };
         let window_inner = WindowInner::from_pub(window.window());
         let component_rc = window_inner.component();
-        let component = crate::item_tree::ItemTreeRc::borrow_pin(&component_rc);
-        if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
-            component.as_ref().get_item_ref(0),
-        ) {
+        let component = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&component_rc);
+        if let Some(window_item) = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::WindowItem,
+        >(component.as_ref().get_item_ref(0))
+        {
             let factor = ScaleFactor::new(window_inner.scale_factor());
             let size = LogicalSize::from_lengths(window_item.width(), window_item.height()).cast()
                 * factor;
@@ -737,8 +752,8 @@ impl SoftwareRenderer {
 impl RendererSealed for SoftwareRenderer {
     fn text_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::RenderString>,
-        item_rc: &crate::item_tree::ItemRc,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
@@ -749,11 +764,11 @@ impl RendererSealed for SoftwareRenderer {
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled(), text_item.text()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false, _) => {
                 sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true, PlainOrStyledText::Plain(text)) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
                 let (longest_line_width, height) = layout.text_size(
@@ -783,8 +798,8 @@ impl RendererSealed for SoftwareRenderer {
 
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::HasFont>,
-        item_rc: &crate::item_tree::ItemRc,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
         let Some(scale_factor) = self.scale_factor() else {
@@ -794,11 +809,11 @@ impl RendererSealed for SoftwareRenderer {
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
@@ -820,24 +835,24 @@ impl RendererSealed for SoftwareRenderer {
 
     fn font_metrics(
         &self,
-        font_request: crate::graphics::FontRequest,
-    ) -> crate::items::FontMetrics {
+        font_request: i_slint_core::graphics::FontRequest,
+    ) -> i_slint_core::items::FontMetrics {
         let Some(scale_factor) = self.scale_factor() else {
-            return crate::items::FontMetrics::default();
+            return i_slint_core::items::FontMetrics::default();
         };
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => sharedparley::font_metrics(font_request),
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(font), true) => {
                 let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
                 let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
                 let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
                 let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
 
-                crate::items::FontMetrics {
+                i_slint_core::items::FontMetrics {
                     ascent: ascent.get() as _,
                     descent: descent.get() as _,
                     x_height: x_height.get() as _,
@@ -850,7 +865,7 @@ impl RendererSealed for SoftwareRenderer {
                 let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
                 let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
 
-                crate::items::FontMetrics {
+                i_slint_core::items::FontMetrics {
                     ascent: ascent.get() as _,
                     descent: descent.get() as _,
                     x_height: x_height.get() as _,
@@ -862,7 +877,7 @@ impl RendererSealed for SoftwareRenderer {
 
     fn text_input_byte_offset_for_position(
         &self,
-        text_input: Pin<&crate::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
         pos: LogicalPoint,
     ) -> usize {
@@ -873,11 +888,11 @@ impl RendererSealed for SoftwareRenderer {
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let visual_representation = text_input.visual_representation(None);
 
@@ -939,7 +954,7 @@ impl RendererSealed for SoftwareRenderer {
 
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        text_input: Pin<&crate::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
         byte_offset: usize,
     ) -> LogicalRect {
@@ -950,7 +965,7 @@ impl RendererSealed for SoftwareRenderer {
         let font = fonts::match_font(&font_request, scale_factor);
 
         match (font, parley_disabled()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::text_input_cursor_rect_for_byte_offset(
                     self,
@@ -959,7 +974,7 @@ impl RendererSealed for SoftwareRenderer {
                     byte_offset,
                 )
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let visual_representation = text_input.visual_representation(None);
 
@@ -1033,9 +1048,9 @@ impl RendererSealed for SoftwareRenderer {
 
     fn free_graphics_resources(
         &self,
-        _component: crate::item_tree::ItemTreeRef,
-        items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-    ) -> Result<(), crate::platform::PlatformError> {
+        _component: i_slint_core::item_tree::ItemTreeRef,
+        items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.partial_rendering_state.free_graphics_resources(items);
         Ok(())
     }
@@ -1044,11 +1059,11 @@ impl RendererSealed for SoftwareRenderer {
         self.partial_rendering_state.mark_dirty_region(region);
     }
 
-    fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
+    fn register_bitmap_font(&self, font_data: &'static i_slint_core::graphics::BitmapFont) {
         fonts::register_bitmap_font(font_data);
     }
 
-    #[cfg(feature = "software-renderer-systemfonts")]
+    #[cfg(feature = "systemfonts")]
     fn register_font_from_memory(
         &self,
         data: &'static [u8],
@@ -1056,7 +1071,7 @@ impl RendererSealed for SoftwareRenderer {
         self::fonts::systemfonts::register_font_from_memory(data)
     }
 
-    #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+    #[cfg(all(feature = "systemfonts", not(target_arch = "wasm32")))]
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
@@ -1098,7 +1113,8 @@ impl RendererSealed for SoftwareRenderer {
             return Err("take_snapshot() called on window with invalid size".into());
         };
 
-        let mut target_buffer = SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(width, height);
+        let mut target_buffer =
+            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(width, height);
 
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
         self.render(target_buffer.make_mut_slice(), width as usize);
@@ -1123,11 +1139,11 @@ impl RendererSealed for SoftwareRenderer {
 }
 
 fn parley_disabled() -> bool {
-    #[cfg(feature = "software-renderer-systemfonts")]
+    #[cfg(feature = "systemfonts")]
     {
         std::env::var("SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED").is_ok()
     }
-    #[cfg(not(feature = "software-renderer-systemfonts"))]
+    #[cfg(not(feature = "systemfonts"))]
     false
 }
 
@@ -1322,7 +1338,7 @@ fn prepare_scene(
 
         for (component, origin) in components {
             if let Some(component) = ItemTreeWeak::upgrade(component) {
-                crate::item_rendering::render_component_items(
+                i_slint_core::item_rendering::render_component_items(
                     &component,
                     &mut renderer,
                     *origin,
@@ -1371,7 +1387,7 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
-    #[cfg(feature = "software-renderer-path")]
+    #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1379,7 +1395,7 @@ trait ProcessScene {
         commands: alloc::vec::Vec<path::Command>,
         color: PremultipliedRgbaColor,
     );
-    #[cfg(feature = "software-renderer-path")]
+    #[cfg(feature = "path")]
     fn process_stroked_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1769,7 +1785,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         });
     }
 
-    #[cfg(feature = "software-renderer-path")]
+    #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1780,7 +1796,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         path::render_filled_path(&commands, &path_geometry, &clip_geometry, color, self.buffer);
     }
 
-    #[cfg(feature = "software-renderer-path")]
+    #[cfg(feature = "path")]
     fn process_stroked_path(
         &mut self,
         path_geometry: PhysicalRect,
@@ -1932,7 +1948,7 @@ impl ProcessScene for PrepareScene {
         }
     }
 
-    #[cfg(feature = "software-renderer-path")]
+    #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
         _path_geometry: PhysicalRect,
@@ -1944,7 +1960,7 @@ impl ProcessScene for PrepareScene {
         // Only works with buffer-based rendering (RenderToBuffer)
     }
 
-    #[cfg(feature = "software-renderer-path")]
+    #[cfg(feature = "path")]
     fn process_stroked_path(
         &mut self,
         _path_geometry: PhysicalRect,
@@ -2001,14 +2017,14 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     fn draw_image_impl(
         &mut self,
         image_inner: &ImageInner,
-        crate::graphics::FitResult {
+        i_slint_core::graphics::FitResult {
             clip_rect: source_rect,
             source_to_target_x,
             source_to_target_y,
             size: fit_size,
             offset: image_fit_offset,
             tiled,
-        }: crate::graphics::FitResult,
+        }: i_slint_core::graphics::FitResult,
         colorize: Color,
     ) {
         let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
@@ -2190,7 +2206,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         color: Color,
         selection: Option<SelectionInfo>,
     ) where
-        Font: AbstractFont + crate::textlayout::TextShaper<Length = PhysicalLength> + GlyphRenderer,
+        Font: AbstractFont
+            + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>
+            + GlyphRenderer,
     {
         paragraph
             .layout_lines::<()>(
@@ -2388,7 +2406,7 @@ struct RenderState {
     clip: LogicalRect,
 }
 
-impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
+impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -2492,7 +2510,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
             if let ImageInner::NineSlice(nine) = image_inner {
                 let colorize = image.colorize().color();
                 let source_size = source.size();
-                for fit in crate::graphics::fit9slice(
+                for fit in i_slint_core::graphics::fit9slice(
                     source_size,
                     nine.1,
                     size.cast() * self.scale_factor,
@@ -2514,7 +2532,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
             );
 
             let phys_size = geom.size_length().cast() * self.scale_factor;
-            let fit = crate::graphics::fit(
+            let fit = i_slint_core::graphics::fit(
                 image.image_fit(),
                 phys_size,
                 source_clip,
@@ -2528,7 +2546,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
     fn draw_text(
         &mut self,
-        text: Pin<&dyn crate::item_rendering::RenderText>,
+        text: Pin<&dyn i_slint_core::item_rendering::RenderText>,
         self_rc: &ItemRc,
         size: LogicalSize,
         _cache: &CachedRenderingData,
@@ -2538,11 +2556,11 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font = fonts::match_font(&font_request, self.scale_factor);
 
         match (font, parley_disabled(), text.text()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false, _) => {
                 sharedparley::draw_text(self, text, Some(self_rc), size);
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true, PlainOrStyledText::Plain(string)) => {
                 if string.trim().is_empty() {
                     return;
@@ -2632,7 +2650,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
     fn draw_text_input(
         &mut self,
-        text_input: Pin<&crate::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
@@ -2640,11 +2658,11 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font = fonts::match_font(&font_request, self.scale_factor);
 
         match (font, parley_disabled()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::draw_text_input(self, text_input, self_rc, size, None);
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let geom = LogicalRect::from(size);
                 if !self.should_draw(&geom) {
@@ -2816,18 +2834,23 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         }
     }
 
-    #[cfg(all(feature = "std", not(feature = "software-renderer-path")))]
+    #[cfg(all(feature = "std", not(feature = "path")))]
     fn draw_path(
         &mut self,
-        _path: Pin<&crate::items::Path>,
+        _path: Pin<&i_slint_core::items::Path>,
         _self_rc: &ItemRc,
         _size: LogicalSize,
     ) {
-        // Path rendering is disabled without the software-renderer-path feature
+        // Path rendering is disabled without the path feature
     }
 
-    #[cfg(all(feature = "std", feature = "software-renderer-path"))]
-    fn draw_path(&mut self, path: Pin<&crate::items::Path>, self_rc: &ItemRc, size: LogicalSize) {
+    #[cfg(all(feature = "std", feature = "path"))]
+    fn draw_path(
+        &mut self,
+        path: Pin<&i_slint_core::items::Path>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
         let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
             return;
@@ -2898,7 +2921,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
     fn draw_box_shadow(
         &mut self,
-        _box_shadow: Pin<&crate::items::BoxShadow>,
+        _box_shadow: Pin<&i_slint_core::items::BoxShadow>,
         _: &ItemRc,
         _size: LogicalSize,
     ) {
@@ -3005,16 +3028,16 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let clip = self.current_state.clip.cast() * self.scale_factor;
 
         match (font, parley_disabled()) {
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 sharedparley::draw_text(
                     self,
-                    std::pin::pin!((crate::SharedString::from(string), Brush::from(color))),
+                    std::pin::pin!((i_slint_core::SharedString::from(string), Brush::from(color))),
                     None,
                     self.current_state.clip.size.cast(),
                 );
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
 
@@ -3052,11 +3075,11 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         }
     }
 
-    fn draw_image_direct(&mut self, _image: crate::graphics::Image) {
+    fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
         todo!()
     }
 
-    fn window(&self) -> &crate::window::WindowInner {
+    fn window(&self) -> &i_slint_core::window::WindowInner {
         self.window
     }
 
@@ -3065,14 +3088,14 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     }
 }
 
-impl<T: ProcessScene> crate::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
+impl<T: ProcessScene> i_slint_core::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
     const SUPPORTS_TRANSFORMATIONS: bool = false;
 }
 
-#[cfg(feature = "software-renderer-systemfonts")]
-use crate::textlayout::sharedparley;
+#[cfg(feature = "systemfonts")]
+use i_slint_core::textlayout::sharedparley;
 
-#[cfg(feature = "software-renderer-systemfonts")]
+#[cfg(feature = "systemfonts")]
 impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
     type PlatformBrush = Color;
 
@@ -3085,10 +3108,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         brush: Brush,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        match brush {
-            Brush::SolidColor(color) => Some(color),
-            _ => None,
-        }
+        Some(brush.color())
     }
 
     fn platform_text_stroke_brush(
@@ -3097,10 +3117,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         _physical_stroke_width: f32,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        match brush {
-            Brush::SolidColor(color) => Some(color),
-            _ => None,
-        }
+        Some(brush.color())
     }
 
     fn fill_rectangle(&mut self, mut physical_rect: sharedparley::PhysicalRect, color: Color) {

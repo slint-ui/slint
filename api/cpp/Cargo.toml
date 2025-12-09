@@ -41,14 +41,19 @@ renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
-renderer-software = ["i-slint-backend-selector/renderer-software"]
+renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
 
-std = ["i-slint-core/default", "i-slint-core/image-default-formats", "i-slint-backend-selector"]
+std = [
+  "i-slint-core/default",
+  "i-slint-core/image-default-formats",
+  "i-slint-backend-selector",
+  "i-slint-renderer-software?/std",
+]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
-experimental = ["i-slint-core/experimental"]
+experimental = ["i-slint-renderer-software?/experimental"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
@@ -56,6 +61,7 @@ default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi"] }
 i-slint-renderer-skia = { workspace = true, features = ["default", "x11", "wayland"], optional = true }
+i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }
 slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 raw-window-handle = { version = "0.6", optional = true }

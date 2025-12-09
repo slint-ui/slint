@@ -359,12 +359,12 @@ mod software_renderer {
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::SharedVector;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
-    use i_slint_core::software_renderer::{
+    use i_slint_renderer_software::{
         PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
 
     #[cfg(feature = "experimental")]
-    use i_slint_core::software_renderer::{TargetPixelBuffer, TexturePixelFormat};
+    use i_slint_renderer_software::{TargetPixelBuffer, TexturePixelFormat};
 
     #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
@@ -398,8 +398,8 @@ mod software_renderer {
         pub tiling_gap_y: u32,
     }
     #[cfg(feature = "experimental")]
-    impl From<&i_slint_core::software_renderer::DrawTextureArgs> for DrawTextureArgs {
-        fn from(from: &i_slint_core::software_renderer::DrawTextureArgs) -> Self {
+    impl From<&i_slint_renderer_software::DrawTextureArgs> for DrawTextureArgs {
+        fn from(from: &i_slint_renderer_software::DrawTextureArgs) -> Self {
             let source = from.source();
             Self {
                 image_data: source.data.as_ptr(),
@@ -448,8 +448,8 @@ mod software_renderer {
         pub rotation: i32,
     }
     #[cfg(feature = "experimental")]
-    impl From<&i_slint_core::software_renderer::DrawRectangleArgs> for DrawRectangleArgs {
-        fn from(from: &i_slint_core::software_renderer::DrawRectangleArgs) -> Self {
+    impl From<&i_slint_renderer_software::DrawRectangleArgs> for DrawRectangleArgs {
+        fn from(from: &i_slint_renderer_software::DrawRectangleArgs) -> Self {
             Self {
                 x: from.x,
                 y: from.y,
@@ -494,7 +494,7 @@ mod software_renderer {
     }
 
     #[cfg(feature = "experimental")]
-    impl<TargetPixel: i_slint_core::software_renderer::TargetPixel> TargetPixelBuffer
+    impl<TargetPixel: i_slint_renderer_software::TargetPixel> TargetPixelBuffer
         for CppTargetPixelBuffer<TargetPixel>
     {
         type TargetPixel = TargetPixel;
@@ -524,7 +524,7 @@ mod software_renderer {
         /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to the given region
         fn draw_rectangle(
             &mut self,
-            args: &i_slint_core::software_renderer::DrawRectangleArgs,
+            args: &i_slint_renderer_software::DrawRectangleArgs,
             clip: &PhysicalRegion,
         ) -> bool {
             let args = args.into();
@@ -533,7 +533,7 @@ mod software_renderer {
 
         fn draw_texture(
             &mut self,
-            texture: &i_slint_core::software_renderer::DrawTextureArgs,
+            texture: &i_slint_renderer_software::DrawTextureArgs,
             clip: &PhysicalRegion,
         ) -> bool {
             let texture = texture.into();
@@ -620,8 +620,8 @@ mod software_renderer {
         user_data: *mut core::ffi::c_void,
     }
 
-    impl<TargetPixel: i_slint_core::software_renderer::TargetPixel>
-        i_slint_core::software_renderer::LineBufferProvider for LineByLineProcessor<TargetPixel>
+    impl<TargetPixel: i_slint_renderer_software::TargetPixel>
+        i_slint_renderer_software::LineBufferProvider for LineByLineProcessor<TargetPixel>
     {
         type TargetPixel = TargetPixel;
         fn process_line(
@@ -710,7 +710,7 @@ mod software_renderer {
         r: SoftwareRendererOpaque,
         rotation: i32,
     ) {
-        use i_slint_core::software_renderer::RenderingRotation;
+        use i_slint_renderer_software::RenderingRotation;
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
         renderer.set_rendering_rotation(match rotation {
             90 => RenderingRotation::Rotate90,
