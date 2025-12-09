@@ -16,34 +16,36 @@ pub unsafe fn make_dx12_surface(
     gr_context: &mut skia_safe::gpu::DirectContext,
     frame: &wgpu::SurfaceTexture,
 ) -> Option<skia_safe::Surface> {
-    let dx12_texture = frame.texture.as_hal::<wgpu::wgc::api::Dx12>();
+    unsafe {
+        let dx12_texture = frame.texture.as_hal::<wgpu::wgc::api::Dx12>();
 
-    let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
-        resource: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(
-            dx12_texture.unwrap().raw_resource().clone(),
-        )),
-        alloc: None,
-        resource_state: D3D12_RESOURCE_STATE_PRESENT,
-        format: DXGI_FORMAT_R8G8B8A8_UNORM,
-        sample_count: 1,
-        level_count: 1,
-        sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
-        protected: skia_safe::gpu::Protected::No,
-    };
+        let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
+            resource: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(
+                dx12_texture.unwrap().raw_resource().clone(),
+            )),
+            alloc: None,
+            resource_state: D3D12_RESOURCE_STATE_PRESENT,
+            format: DXGI_FORMAT_R8G8B8A8_UNORM,
+            sample_count: 1,
+            level_count: 1,
+            sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
+            protected: skia_safe::gpu::Protected::No,
+        };
 
-    let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_d3d(
-        (size.width as i32, size.height as i32),
-        &texture_info,
-    );
+        let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_d3d(
+            (size.width as i32, size.height as i32),
+            &texture_info,
+        );
 
-    skia_safe::gpu::surfaces::wrap_backend_render_target(
-        gr_context,
-        &backend_render_target,
-        skia_safe::gpu::SurfaceOrigin::TopLeft,
-        skia_safe::ColorType::RGBA8888,
-        None,
-        None,
-    )
+        skia_safe::gpu::surfaces::wrap_backend_render_target(
+            gr_context,
+            &backend_render_target,
+            skia_safe::gpu::SurfaceOrigin::TopLeft,
+            skia_safe::ColorType::RGBA8888,
+            None,
+            None,
+        )
+    }
 }
 
 #[allow(non_snake_case)]
@@ -51,48 +53,50 @@ pub unsafe fn import_dx12_texture(
     canvas: &skia_safe::Canvas,
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
-    let dx12_texture = texture.as_hal::<wgpu::wgc::api::Dx12>();
+    unsafe {
+        let dx12_texture = texture.as_hal::<wgpu::wgc::api::Dx12>();
 
-    let resource: ID3D12Resource = windows_core::Interface::from_raw(
-        windows_core_58::Interface::into_raw(dx12_texture.unwrap().raw_resource().clone()),
-    );
+        let resource: ID3D12Resource = windows_core::Interface::from_raw(
+            windows_core_58::Interface::into_raw(dx12_texture.unwrap().raw_resource().clone()),
+        );
 
-    let dxgi_texture_format = resource.GetDesc().Format;
+        let dxgi_texture_format = resource.GetDesc().Format;
 
-    let color_type = match dxgi_texture_format {
-        DXGI_FORMAT_R8G8B8A8_UNORM => skia_safe::ColorType::RGBA8888,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB => skia_safe::ColorType::SRGBA8888,
-        _ => return None,
-    };
+        let color_type = match dxgi_texture_format {
+            DXGI_FORMAT_R8G8B8A8_UNORM => skia_safe::ColorType::RGBA8888,
+            DXGI_FORMAT_R8G8B8A8_UNORM_SRGB => skia_safe::ColorType::SRGBA8888,
+            _ => return None,
+        };
 
-    let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
-        resource,
-        alloc: None,
-        resource_state: D3D12_RESOURCE_STATE_PRESENT,
-        format: dxgi_texture_format,
-        sample_count: 1,
-        level_count: 1,
-        sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
-        protected: skia_safe::gpu::Protected::No,
-    };
-    let size = texture.size();
+        let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
+            resource,
+            alloc: None,
+            resource_state: D3D12_RESOURCE_STATE_PRESENT,
+            format: dxgi_texture_format,
+            sample_count: 1,
+            level_count: 1,
+            sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
+            protected: skia_safe::gpu::Protected::No,
+        };
+        let size = texture.size();
 
-    let backend_texture = skia_safe::gpu::BackendTexture::new_d3d(
-        (size.width as i32, size.height as i32),
-        &texture_info,
-    );
+        let backend_texture = skia_safe::gpu::BackendTexture::new_d3d(
+            (size.width as i32, size.height as i32),
+            &texture_info,
+        );
 
-    Some(
-        skia_safe::image::Image::from_texture(
-            canvas.recording_context().as_mut().unwrap(),
-            &backend_texture,
-            skia_safe::gpu::SurfaceOrigin::TopLeft,
-            color_type,
-            skia_safe::AlphaType::Unpremul,
-            None,
+        Some(
+            skia_safe::image::Image::from_texture(
+                canvas.recording_context().as_mut().unwrap(),
+                &backend_texture,
+                skia_safe::gpu::SurfaceOrigin::TopLeft,
+                color_type,
+                skia_safe::AlphaType::Unpremul,
+                None,
+            )
+            .unwrap(),
         )
-        .unwrap(),
-    )
+    }
 }
 
 pub unsafe fn make_dx12_context(
