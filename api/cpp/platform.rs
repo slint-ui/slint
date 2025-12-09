@@ -358,8 +358,8 @@ mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::SharedVector;
-    use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::SharedVector;
+    use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_renderer_software::{
         PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
