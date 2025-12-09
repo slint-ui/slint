@@ -903,7 +903,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::OrganizeGridLayout(..) => typeregister::organized_layout_type(),
+            Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
             Expression::ComputeLayoutInfo(..) => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::SolveLayout(..) => Type::LayoutCache,
@@ -1414,7 +1414,8 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache => Expression::Invalid,
+            | Type::LayoutCache
+            | Type::ArrayOfU16 => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(SmolStr::default()),

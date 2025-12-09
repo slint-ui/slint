@@ -470,6 +470,19 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 } else {
                     Value::Number(cache[*index].into())
                 }
+            } else if let Value::ArrayOfU16(cache) = cache {
+                if let Some(ri) = repeater_index {
+                    let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
+                    Value::Number(
+                        cache
+                            .get((cache[*index] as usize) + offset * 2)
+                            .copied()
+                            .unwrap_or(0)
+                            .into(),
+                    )
+                } else {
+                    Value::Number(cache[*index].into())
+                }
             } else {
                 panic!("invalid layout cache")
             }
@@ -484,10 +497,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 layout_organized_data_prop.name(),
             )
             .unwrap();
-            if let Value::LayoutCache(cache) = cache {
+            if let Value::ArrayOfU16(organized_data) = cache {
                 crate::eval_layout::compute_grid_layout_info(
                     layout,
-                    &cache,
+                    &organized_data,
                     *orientation,
                     local_context,
                 )
@@ -506,8 +519,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 layout_organized_data_prop.name(),
             )
             .unwrap();
-            if let Value::LayoutCache(cache) = cache {
-                crate::eval_layout::solve_grid_layout(&cache, layout, *orientation, local_context)
+            if let Value::ArrayOfU16(organized_data) = cache {
+                crate::eval_layout::solve_grid_layout(
+                    &organized_data,
+                    layout,
+                    *orientation,
+                    local_context,
+                )
             } else {
                 panic!("invalid layout organized data cache")
             }
@@ -1836,6 +1854,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
+        Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
     }
@@ -2131,6 +2150,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
         Type::LayoutCache => Value::LayoutCache(Default::default()),
+        Type::ArrayOfU16 => Value::ArrayOfU16(Default::default()),
         Type::ComponentFactory => Value::ComponentFactory(Default::default()),
         Type::InferredProperty
         | Type::InferredCallback

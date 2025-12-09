@@ -448,19 +448,19 @@ pub struct GridLayoutInputData {
 
 /// The organized layout data for a GridLayout, after row/col determination:
 /// For each cell, stores col, colspan, row, rowspan
-pub type GridLayoutOrganizedData = SharedVector<Coord>;
+pub type GridLayoutOrganizedData = SharedVector<u16>;
 
 impl GridLayoutOrganizedData {
     pub fn push_cell(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
-        self.push(col as Coord);
-        self.push(colspan as Coord);
-        self.push(row as Coord);
-        self.push(rowspan as Coord);
+        self.push(col);
+        self.push(colspan);
+        self.push(row);
+        self.push(rowspan);
     }
 
     pub fn col_or_row_and_span(&self, index: usize, orientation: Orientation) -> (u16, u16) {
         let offset = if orientation == Orientation::Horizontal { 0 } else { 2 };
-        (self[index * 4 + offset] as u16, self[index * 4 + offset + 1] as u16)
+        (self[index * 4 + offset], self[index * 4 + offset + 1])
     }
 }
 

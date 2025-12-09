@@ -556,6 +556,7 @@ impl CppType for Type {
             }
             Type::Brush => Some("slint::Brush".into()),
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
+            Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
             _ => None,

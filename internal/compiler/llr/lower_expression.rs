@@ -716,7 +716,7 @@ fn solve_grid_layout(
                     ("size", Type::Float32, size),
                     ("spacing", Type::Float32, spacing),
                     ("padding", padding.ty(ctx), padding),
-                    ("organized_data", Type::LayoutCache, llr_Expression::PropertyReference(cells)),
+                    ("organized_data", Type::ArrayOfU16, llr_Expression::PropertyReference(cells)),
                 ],
             ),
             grid_layout_cell_constraints(layout, o, ctx),

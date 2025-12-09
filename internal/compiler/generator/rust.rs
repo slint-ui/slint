@@ -114,6 +114,11 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
                 sp::Coord,
             >
         )),
+        Type::ArrayOfU16 => Some(quote!(
+            sp::SharedVector<
+                u16,
+            >
+        )),
         _ => None,
     }
 }

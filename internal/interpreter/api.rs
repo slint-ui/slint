@@ -145,6 +145,8 @@ pub enum Value {
     ComponentFactory(ComponentFactory) = 12,
     /// Correspond to the `styled-text` type in .slint
     StyledText(i_slint_core::api::StyledText) = 13,
+    #[doc(hidden)]
+    ArrayOfU16(SharedVector<u16>) = 14,
 }
 
 impl Value {
@@ -187,6 +189,7 @@ impl PartialEq for Value {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
             }
             Value::LayoutCache(lhs) => matches!(other, Value::LayoutCache(rhs) if lhs == rhs),
+            Value::ArrayOfU16(lhs) => matches!(other, Value::ArrayOfU16(rhs) if lhs == rhs),
             Value::ComponentFactory(lhs) => {
                 matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
             }
@@ -218,6 +221,9 @@ impl std::fmt::Debug for Value {
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
             Value::StyledText(text) => write!(f, "Value::StyledText({text:?})"),
+            Value::ArrayOfU16(data) => {
+                write!(f, "Value::ArrayOfU16({data:?})")
+            }
         }
     }
 }
@@ -261,6 +267,7 @@ declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );
+declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
