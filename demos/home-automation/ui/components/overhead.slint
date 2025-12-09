@@ -27,11 +27,14 @@ export component Overhead inherits Control {
             padding: tilePadding;
             width: 100%;
             height: 100%;
-            HaText {
-                text: root.name;
-                font-size: 15pt;
-                font-weight: 400;
-                color: Palette.overhead-foreground;
+            Rectangle {
+                HaText {
+                    text: root.name;
+                    font-size: 13pt;
+                    font-weight: 400;
+                    color: Palette.overhead-foreground;
+                    transform-scale: Math.min(1, parent.width/ self.width);
+                }
             }
 
             slider := FancySlider {

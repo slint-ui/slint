@@ -107,14 +107,9 @@ export component MainScreen inherits Rectangle {
     Image {
         x: 30px;
         y: AppState.orientation == Orientation.landscape ? 35px : 36px;
-        source: @image-url("../../images/slint-logo.png");
-        animate opacity { duration: Animation.transition-duration; }
-        states [
-            kiosk-mode when AppState.kiosk-mode : {
-                opacity: 50%;
-                colorize: white;
-            }
-        ]
+        width: 84px;
+        height: 25px;
+        source: @image-url("../../images/slint-logo-simple-dark.svg");
     }
 
     if AppState.orientation == Orientation.landscape: Rectangle {
