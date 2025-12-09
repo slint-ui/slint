@@ -17,7 +17,7 @@ use vulkano::image::{Image, ImageUsage};
 use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo, InstanceExtensions};
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::GpuFuture;
-use vulkano::{sync, Handle, Validated, VulkanError, VulkanLibrary, VulkanObject};
+use vulkano::{Handle, Validated, VulkanError, VulkanLibrary, VulkanObject, sync};
 
 use crate::SkiaSharedContext;
 
@@ -427,7 +427,7 @@ impl super::Surface for VulkanSurface {
                 return Err(format!(
                     "Skia Vulkan Renderer: Unsupported swapchain image format found {fmt:?}"
                 )
-                .into())
+                .into());
             }
         })
     }

@@ -155,7 +155,7 @@ impl super::Surface for MetalSurface {
                     return Err(format!(
                         "Skia Metal Renderer: Failed to retrieve next drawable for rendering"
                     )
-                    .into())
+                    .into());
                 }
             };
 
@@ -261,7 +261,7 @@ impl super::Surface for MetalSurface {
                 return Err(format!(
                     "Skia Metal Renderer: Unsupported layer pixel format found {fmt:?}"
                 )
-                .into())
+                .into());
             }
         })
     }

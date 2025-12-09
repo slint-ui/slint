@@ -7,23 +7,23 @@ use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
 use std::sync::Arc;
-use windows::core::Interface;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN;
+use windows::core::Interface;
 
 use windows::Win32::Foundation::{DXGI_STATUS_OCCLUDED, HANDLE, HWND, S_OK};
 use windows::Win32::Graphics::Direct3D12::{
-    D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
     D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_FENCE_FLAG_NONE,
-    D3D12_RESOURCE_STATE_PRESENT,
+    D3D12_RESOURCE_STATE_PRESENT, D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence,
+    ID3D12Resource,
 };
 use windows::Win32::Graphics::Dxgi::{
     Common::{DXGI_FORMAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC},
-    CreateDXGIFactory2, IDXGIFactory4, IDXGISwapChain3, DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_NONE,
-    DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_FLAGS, DXGI_PRESENT, DXGI_SWAP_CHAIN_DESC1,
-    DXGI_SWAP_CHAIN_FLAG, DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    CreateDXGIFactory2, DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_NONE, DXGI_ADAPTER_FLAG_SOFTWARE,
+    DXGI_CREATE_FACTORY_FLAGS, DXGI_PRESENT, DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FLAG,
+    DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT, IDXGIFactory4, IDXGISwapChain3,
 };
-use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
+use windows::Win32::System::Threading::{CreateEventW, INFINITE, WaitForSingleObjectEx};
 
 use crate::SkiaSharedContext;
 
@@ -79,7 +79,7 @@ impl SwapChain {
                 ..
             }) => HWND(hwnd.get() as _),
             _ => {
-                return Err(format!("Metal surface is only supported with Win32WindowHandle").into())
+                return Err(format!("Metal surface is only supported with Win32WindowHandle").into());
             }
         };
 
@@ -433,7 +433,7 @@ impl super::Surface for D3DSurface {
             fmt @ _ => {
                 return Err(
                     format!("Skia D3D Renderer: Unsupported buffer format found {fmt:?}").into()
-                )
+                );
             }
         })
     }
