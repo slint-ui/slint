@@ -17,8 +17,10 @@ export component MyApp inherits Window {
     preferred-height: 768px;
 
     VerticalBox {
-        padding: 0px;
-        spacing: 0px;
+        padding-left: root.safe-area-inset-left;
+        padding-top: root.safe-area-inset-top;
+        padding-right: root.safe-area-inset-right;
+        padding-bottom: root.safe-area-inset-bottom;
 
         HorizontalBox {
             height: 50px;
