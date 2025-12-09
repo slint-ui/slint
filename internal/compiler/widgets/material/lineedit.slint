@@ -7,6 +7,7 @@ import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common
 // Single line text input field with Material Design Outline TextField look and feel.
 export component LineEdit {
     in property <length> font-size <=> base.font-size;
+    in property <string> font-family <=> base.font-family;
     in property <string> placeholder-text <=> base.placeholder-text;
     in property <bool> enabled <=> base.enabled;
     in property <InputType> input-type;
