@@ -12,7 +12,7 @@ use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
-use crate::typeregister::{TypeRegister, layout_info_type, organized_layout_type};
+use crate::typeregister::{TypeRegister, layout_info_type};
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -185,7 +185,7 @@ fn lower_grid_layout(
     let layout_organized_data_prop = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-organized-data"),
-        organized_layout_type(),
+        Type::ArrayOfU16,
     );
     let layout_cache_prop_h = create_new_prop(
         grid_layout_element,
@@ -661,7 +661,7 @@ fn lower_dialog_layout(
     let layout_organized_data_prop = create_new_prop(
         dialog_element,
         SmolStr::new_static("layout-organized-data"),
-        organized_layout_type(),
+        Type::ArrayOfU16,
     );
     let layout_cache_prop_h =
         create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);

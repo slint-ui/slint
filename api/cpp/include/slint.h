@@ -123,19 +123,19 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
     return result;
 }
 
-inline SharedVector<float>
+inline SharedVector<uint16_t>
 organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data)
 {
-    SharedVector<float> result;
+    SharedVector<uint16_t> result;
     cbindgen_private::slint_organize_grid_layout(input_data, &result);
     return result;
 }
 
-inline SharedVector<float> organize_dialog_button_layout(
+inline SharedVector<uint16_t> organize_dialog_button_layout(
         cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data,
         cbindgen_private::Slice<DialogButtonRole> dialog_button_roles)
 {
-    SharedVector<float> result;
+    SharedVector<uint16_t> result;
     cbindgen_private::slint_organize_dialog_button_layout(input_data, dialog_button_roles, &result);
     return result;
 }

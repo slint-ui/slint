@@ -64,6 +64,8 @@ pub enum Type {
 
     /// This is a `SharedArray<f32>`
     LayoutCache,
+    /// This is used by GridLayoutOrganizedData
+    ArrayOfU16,
 
     StyledText,
 }
@@ -106,6 +108,7 @@ impl core::cmp::PartialEq for Type {
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
         }
     }
@@ -181,6 +184,7 @@ impl Display for Type {
             }
             Type::ElementReference => write!(f, "element ref"),
             Type::LayoutCache => write!(f, "layout cache"),
+            Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
         }
     }
@@ -319,6 +323,7 @@ impl Type {
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
+            Type::ArrayOfU16 => None,
             Type::StyledText => None,
         }
     }

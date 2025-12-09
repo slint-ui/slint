@@ -335,6 +335,7 @@ fn to_debug_string(
         | Type::Function { .. }
         | Type::ElementReference
         | Type::LayoutCache
+        | Type::ArrayOfU16
         | Type::Model
         | Type::PathData => {
             diag.push_error("Cannot debug this expression".into(), node);
