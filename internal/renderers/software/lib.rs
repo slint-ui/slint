@@ -3108,10 +3108,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         brush: Brush,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        match brush {
-            Brush::SolidColor(color) => Some(color),
-            _ => None,
-        }
+        Some(brush.color())
     }
 
     fn platform_text_stroke_brush(
@@ -3120,10 +3117,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         _physical_stroke_width: f32,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        match brush {
-            Brush::SolidColor(color) => Some(color),
-            _ => None,
-        }
+        Some(brush.color())
     }
 
     fn fill_rectangle(&mut self, mut physical_rect: sharedparley::PhysicalRect, color: Color) {

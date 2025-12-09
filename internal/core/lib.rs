@@ -16,7 +16,7 @@ extern crate alloc;
 extern crate std;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-pub(crate) mod unsafe_single_threaded;
+pub mod unsafe_single_threaded;
 #[cfg(all(not(feature = "std"), not(feature = "unsafe-single-threaded")))]
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
