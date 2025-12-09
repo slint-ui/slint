@@ -36,7 +36,7 @@ All notable changes to this project are documented in this file.
  - ScrollView: In fluent style, fixed scroll bars to adjust to each other's visibility
  - Slider: Implemented increment, decrement and set-value accessibility actions on Slider (#9975)
  - Slider: Inverted vertical slider direction
- - Fixed some widgets that could still be eddited when disabled or read-only
+ - Fixed some widgets that could still be edited when disabled or read-only
  - SpinBox: added `read-only` property
  - TabWidget: added `orientation` property (#3688)
  - TextEdit: Added `font-family` property
