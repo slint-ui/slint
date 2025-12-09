@@ -25,14 +25,10 @@ fn main() {
 
         // Config copied from https://github.com/YaLTeR/bxt-rs/blob/9f621251b8ce5c2af00b67d2feab731e48d1dae9/build.rs.
 
-        let api = if target_os == "android" { Api::Gles2 } else { Api::Gl };
-        let version = if target_os == "android" { (3, 0) } else { (4, 6) };
-        let profile = if target_os == "android" { Profile::Core } else { Profile::Compatibility };
-
         Registry::new(
-            api,
-            version,
-            profile,
+            Api::Gles2,
+            (3, 0),
+            Profile::Core,
             Fallbacks::All,
             [
                 "GL_EXT_memory_object",
