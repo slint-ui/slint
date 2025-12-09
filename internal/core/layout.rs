@@ -675,9 +675,9 @@ pub struct BoxLayoutCellData {
 }
 
 /// Solve a BoxLayout
-pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<Coord> {
+pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
-    result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0 as _);
+    result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
 
     if data.cells.is_empty() {
         return result;
@@ -755,14 +755,14 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
 
     // The index/2 in result in which we should add the next repeated item
     let mut repeat_offset =
-        res.len() / 2 - repeater_indexes.iter().skip(1).step_by(2).sum::<u32>() as usize;
-    // The index/2  in repeater_indexes
+        res.len() / 2 - repeater_indices.iter().skip(1).step_by(2).sum::<u32>() as usize;
+    // The index/2  in repeater_indices
     let mut next_rep = 0;
     // The index/2 in result in which we should add the next non-repeated item
     let mut current_offset = 0;
     for (idx, layout) in layout_data.iter().enumerate() {
         let o = loop {
-            if let Some(nr) = repeater_indexes.get(next_rep * 2) {
+            if let Some(nr) = repeater_indices.get(next_rep * 2) {
                 let nr = *nr as usize;
                 if nr == idx {
                     for o in 0..2 {
@@ -771,7 +771,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
                     current_offset += 1;
                 }
                 if idx >= nr {
-                    if idx - nr == repeater_indexes[next_rep * 2 + 1] as usize {
+                    if idx - nr == repeater_indices[next_rep * 2 + 1] as usize {
                         next_rep += 1;
                         continue;
                     }
@@ -879,10 +879,10 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_box_layout(
         data: &BoxLayoutData,
-        repeater_indexes: Slice<u32>,
+        repeater_indices: Slice<u32>,
         result: &mut SharedVector<Coord>,
     ) {
-        *result = super::solve_box_layout(data, repeater_indexes)
+        *result = super::solve_box_layout(data, repeater_indices)
     }
 
     #[unsafe(no_mangle)]
