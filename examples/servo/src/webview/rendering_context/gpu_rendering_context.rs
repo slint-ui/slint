@@ -117,9 +117,6 @@ impl GPURenderingContext {
 
         use crate::gl_bindings as gl;
 
-        #[cfg(not(target_os = "android"))]
-        use gl::Gl;
-        #[cfg(target_os = "android")]
         use gl::Gles2 as Gl;
 
         let device = &self.surfman_rendering_info.device.borrow();
