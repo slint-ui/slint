@@ -16,6 +16,8 @@ fn main() {
     let out = env::var("OUT_DIR").unwrap();
     let out = Path::new(&out);
 
+    // Note: We can't use `#[cfg(android)]` or `if cfg!(target_os = "android")`,
+    // since that would check the host platform and not the target platform
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
 
     {
@@ -28,9 +30,6 @@ fn main() {
         let profile = if target_os == "android" { Profile::Core } else { Profile::Compatibility };
 
         Registry::new(
-            // Api::Gl,
-            // (4, 6),
-            // Profile::Compatibility,
             api,
             version,
             profile,
@@ -47,10 +46,6 @@ fn main() {
         .write_bindings(StructGenerator, &mut file)
         .unwrap();
     }
-
-    // Note: We can't use `#[cfg(windows)]`, since that would check the host platform
-    // and not the target platform
-    // let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
 
     // On MacOS, all dylib dependencies are shipped along with the binary
     // in the "/lib" directory. Setting the rpath here, allows the dynamic
