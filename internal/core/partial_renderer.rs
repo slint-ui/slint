@@ -331,7 +331,7 @@ impl From<LogicalRect> for DirtyRegion {
     }
 }
 
-/// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer) may be re-used to speed up painting.
+/// This enum describes which parts of the buffer passed to the `SoftwareRenderer` may be re-used to speed up painting.
 // FIXME: #[non_exhaustive] #3023
 #[derive(PartialEq, Eq, Debug, Clone, Default, Copy)]
 pub enum RepaintBufferType {

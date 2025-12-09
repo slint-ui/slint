@@ -9,9 +9,9 @@
 macro_rules! SLINT__thread_local_inner {
     ($(#[$($meta:tt)*])* $vis:vis $ident:ident $ty:ty $block:block) => {
         $(#[$($meta)*])*
-        $vis static $ident: crate::unsafe_single_threaded::FakeThreadStorage<$ty> = {
+        $vis static $ident: $crate::unsafe_single_threaded::FakeThreadStorage<$ty> = {
             fn init() -> $ty $block
-            crate::unsafe_single_threaded::FakeThreadStorage::new(init)
+            $crate::unsafe_single_threaded::FakeThreadStorage::new(init)
         };
     };
 }
