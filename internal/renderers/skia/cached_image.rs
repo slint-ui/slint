@@ -3,8 +3,8 @@
 
 use crate::PhysicalSize;
 use i_slint_core::graphics::{
-    cache as core_cache, Image, ImageCacheKey, ImageInner, IntRect, IntSize, OpaqueImage,
-    OpaqueImageVTable, SharedImageBuffer,
+    Image, ImageCacheKey, ImageInner, IntRect, IntSize, OpaqueImage, OpaqueImageVTable,
+    SharedImageBuffer, cache as core_cache,
 };
 use i_slint_core::items::ImageFit;
 use i_slint_core::lengths::{LogicalSize, ScaleFactor};

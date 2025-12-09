@@ -137,7 +137,7 @@ impl super::Surface for OpenGLSurface {
                 return Err(format!(
                     "Skia OpenGL Renderer: unsupported color buffer {other:?} encountered"
                 )
-                .into())
+                .into());
             }
         };
         Ok(rgb_bits + config.alpha_size())
@@ -489,7 +489,9 @@ impl Drop for OpenGLSurface {
         // In the event that this fails for some reason (lost GL context), convey that to Skia so that it doesn't try to call
         // glDelete***
         if self.ensure_context_current().is_err() {
-            i_slint_core::debug_log!("Skia OpenGL Renderer warning: Failed to make context current for destruction - considering context abandoned.");
+            i_slint_core::debug_log!(
+                "Skia OpenGL Renderer warning: Failed to make context current for destruction - considering context abandoned."
+            );
             self.gr_context.borrow_mut().abandon();
         }
     }
