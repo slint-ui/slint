@@ -345,7 +345,7 @@ export global ComponentInstance {
     out property <Ok> ok;
 }
 
-export global GridLayoutCellData {
+export global GridLayoutOrganizedData {
     callback begin;
 }
 

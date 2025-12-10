@@ -347,6 +347,74 @@ pub struct UsedSubTypes {
     pub library_global_imports: Vec<(SmolStr, LibraryInfo)>,
 }
 
+/// A parsed [syntax_nodes::UsesIdentifier].
+#[derive(Clone, Debug)]
+struct UsesStatement {
+    interface_name: QualifiedTypeName,
+    child_id: SmolStr,
+    node: syntax_nodes::UsesIdentifier,
+}
+
+impl UsesStatement {
+    /// Get the node representing the interface name.
+    fn interface_name_node(&self) -> syntax_nodes::QualifiedName {
+        self.node.QualifiedName()
+    }
+
+    /// Get the node representing the child identifier.
+    fn child_id_node(&self) -> syntax_nodes::DeclaredIdentifier {
+        self.node.DeclaredIdentifier()
+    }
+
+    /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
+    /// was not actually an interface.
+    fn lookup_interface(
+        &self,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> Result<Rc<Component>, ()> {
+        let interface_name = self.interface_name.to_smolstr();
+        match tr.lookup_element(&interface_name) {
+            Ok(element_type) => match element_type {
+                ElementType::Component(component) => {
+                    if !component.is_interface() {
+                        diag.push_error(
+                            format!("'{}' is not an interface", self.interface_name),
+                            &self.interface_name_node(),
+                        );
+                        return Err(());
+                    }
+
+                    Ok(component)
+                }
+                _ => {
+                    diag.push_error(
+                        format!("'{}' is not an interface", self.interface_name),
+                        &self.interface_name_node(),
+                    );
+                    Err(())
+                }
+            },
+            Err(error) => {
+                diag.push_error(error, &self.interface_name_node());
+                Err(())
+            }
+        }
+    }
+}
+
+impl From<&syntax_nodes::UsesIdentifier> for UsesStatement {
+    fn from(node: &syntax_nodes::UsesIdentifier) -> UsesStatement {
+        UsesStatement {
+            interface_name: QualifiedTypeName::from_node(
+                node.child_node(SyntaxKind::QualifiedName).unwrap().clone().into(),
+            ),
+            child_id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
+            node: node.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct InitCode {
     // Code from init callbacks collected from elements
@@ -438,10 +506,17 @@ impl Component {
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
-                if node.child_text(SyntaxKind::Identifier).is_some_and(|t| t == "global") {
-                    ElementType::Global
-                } else {
-                    ElementType::Error
+                match node.child_text(SyntaxKind::Identifier) {
+                    Some(t) if t == "global" => ElementType::Global,
+                    Some(t) if t == "interface" => {
+                        if !diag.enable_experimental {
+                            diag.push_error("'interface' is an experimental feature".into(), &node);
+                            ElementType::Error
+                        } else {
+                            ElementType::Interface
+                        }
+                    }
+                    _ => ElementType::Error,
                 },
                 &mut child_insertion_point,
                 is_legacy_syntax,
@@ -461,6 +536,7 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
+        apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
         c
     }
 
@@ -469,6 +545,14 @@ impl Component {
         match &self.root_element.borrow().base_type {
             ElementType::Global => true,
             ElementType::Builtin(c) => c.is_global,
+            _ => false,
+        }
+    }
+
+    /// This is an interface introduced with the "interface" keyword
+    pub fn is_interface(&self) -> bool {
+        match &self.root_element.borrow().base_type {
+            ElementType::Interface => true,
             _ => false,
         }
     }
@@ -985,6 +1069,28 @@ pub struct RepeatedElementInfo {
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
+#[derive(Debug, PartialEq)]
+/// The kind of relationship a component has the component or interface it derives from, if any.
+enum ParentRelationship {
+    /// The component inherits from the parent component.
+    Inherits,
+    /// The component implements the parent interface.
+    Implements,
+}
+
+/// Determine the expected relationship to the parent component/interface, if any.
+fn expected_relationship_to_parent(node: &syntax_nodes::Element) -> Option<ParentRelationship> {
+    let parent = node.parent().filter(|p| p.kind() == SyntaxKind::Component)?;
+    let implements_inherits_identifier =
+        parent.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).nth(1)?;
+    let token = implements_inherits_identifier.as_token()?;
+    return match token.text() {
+        "inherits" => Some(ParentRelationship::Inherits),
+        "implements" => Some(ParentRelationship::Implements),
+        _ => None,
+    };
+}
+
 impl Element {
     pub fn make_rc(self) -> ElementRc {
         let r = ElementRc::new(RefCell::new(self));
@@ -1002,27 +1108,70 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let mut interfaces: Vec<Rc<Component>> = Vec::new();
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
-            match parent_type.lookup_type_for_child_element(&base_string, tr) {
-                Ok(ElementType::Component(c)) if c.is_global() => {
+            match (
+                parent_type.lookup_type_for_child_element(&base_string, tr),
+                expected_relationship_to_parent(&node),
+            ) {
+                (Ok(ElementType::Component(c)), _) if c.is_global() => {
                     diag.push_error(
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
                     ElementType::Error
                 }
-                Ok(ty) => ty,
-                Err(err) => {
+                (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements)) => {
+                    if !diag.enable_experimental {
+                        diag.push_error(
+                            format!("'implements' is an experimental feature"),
+                            &base_node,
+                        );
+                        ElementType::Error
+                    } else if !c.is_interface() {
+                        diag.push_error(
+                            format!("Cannot implement {}. It is not an interface", base_string),
+                            &base_node,
+                        );
+                        ElementType::Error
+                    } else {
+                        c.used.set(true);
+                        interfaces.push(c);
+                        // We are implementing an interface - not inheriting from it
+                        tr.empty_type()
+                    }
+                }
+                (Ok(ElementType::Builtin(_bt)), Some(ParentRelationship::Implements)) => {
+                    if !diag.enable_experimental {
+                        diag.push_error(
+                            format!("'implements' is an experimental feature"),
+                            &base_node,
+                        );
+                    } else {
+                        diag.push_error(
+                            format!("Cannot implement {}. It is not an interface", base_string),
+                            &base_node,
+                        );
+                    }
+                    ElementType::Error
+                }
+                (Ok(ty), _) => ty,
+                (Err(err), _) => {
                     diag.push_error(err, &base_node);
                     ElementType::Error
                 }
             }
-        } else if parent_type == ElementType::Global {
-            // This must be a global component it can only have properties and callback
+        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
+            // This must be a global component or interface. It can only have properties and callbacks
             let mut error_on = |node: &dyn Spanned, what: &str| {
-                diag.push_error(format!("A global component cannot have {what}"), node);
+                let element_type = match parent_type {
+                    ElementType::Global => "A global component",
+                    ElementType::Interface => "An interface",
+                    _ => "An unexpected type",
+                };
+                diag.push_error(format!("{element_type} cannot have {what}"), node);
             };
             node.SubElement().for_each(|n| error_on(&n, "sub elements"));
             node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
@@ -1043,7 +1192,7 @@ impl Element {
                 }
             });
 
-            ElementType::Global
+            parent_type
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
             assert!(diag.has_errors());
@@ -1063,7 +1212,7 @@ impl Element {
             .to_string();
         let mut r = Element {
             id,
-            base_type,
+            base_type: base_type.clone(),
             debug: vec![ElementDebugInfo {
                 qualified_id,
                 element_hash: 0,
@@ -1075,6 +1224,14 @@ impl Element {
             is_legacy_syntax,
             ..Default::default()
         };
+
+        for interface in interfaces.iter() {
+            for (prop_name, prop_decl) in
+                interface.root_element.borrow().property_declarations.iter()
+            {
+                r.property_declarations.insert(prop_name.clone(), prop_decl.clone());
+            }
+        }
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
@@ -1146,6 +1303,13 @@ impl Element {
                     PropertyVisibility::Private
                 }
             });
+
+            if base_type == ElementType::Interface && visibility == PropertyVisibility::Private {
+                diag.push_error(
+                    "'private' properties are inaccessible in an interface".into(),
+                    &prop_decl,
+                );
+            }
 
             r.property_declarations.insert(
                 prop_name.clone().into(),
@@ -1986,6 +2150,129 @@ fn apply_default_type_properties(element: &mut Element) {
             }
         }
     }
+}
+
+fn apply_uses_statement(
+    e: &ElementRc,
+    uses_specifier: Option<syntax_nodes::UsesSpecifier>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(uses_specifier) = uses_specifier else {
+        return;
+    };
+
+    if !diag.enable_experimental {
+        diag.push_error("'uses' is an experimental feature".into(), &uses_specifier);
+        return;
+    }
+
+    for uses_identifier_node in uses_specifier.UsesIdentifier() {
+        let uses_statement: UsesStatement = (&uses_identifier_node).into();
+        let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
+            continue;
+        };
+
+        let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
+            diag.push_error(
+                format!("'{}' does not exist", uses_statement.child_id),
+                &uses_statement.child_id_node(),
+            );
+            continue;
+        };
+
+        if !element_implements_interface(&child, &interface, &uses_statement, diag) {
+            continue;
+        }
+
+        for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
+            let lookup_result = e.borrow().base_type.lookup_property(prop_name);
+            if lookup_result.is_valid() {
+                diag.push_error(
+                    format!(
+                        "Cannot use interface '{}' because property '{}' conflicts with existing property in '{}'",
+                        uses_statement.interface_name, prop_name, e.borrow().base_type
+                    ),
+                    &uses_statement.interface_name_node(),
+                );
+                continue;
+            }
+
+            if let Some(existing_property) =
+                e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl.clone())
+            {
+                let source = existing_property
+                    .node
+                    .as_ref()
+                    .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
+                    .and_then(|node| node.child_token(SyntaxKind::Identifier))
+                    .map_or_else(
+                        || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
+                        |token| parser::NodeOrToken::Token(token),
+                    );
+
+                diag.push_error(
+                    format!(
+                        "Cannot override property '{}' from '{}'",
+                        prop_name, uses_statement.interface_name
+                    ),
+                    &source,
+                );
+                continue;
+            }
+
+            if let Some(existing_binding) = e.borrow_mut().bindings.insert(
+                prop_name.clone(),
+                BindingExpression::new_two_way(
+                    NamedReference::new(&child, prop_name.clone()).into(),
+                )
+                .into(),
+            ) {
+                let message = format!(
+                    "Cannot override binding for property '{}' from interface '{}'",
+                    prop_name, uses_statement.interface_name
+                );
+                if let Some(location) = &existing_binding.borrow().span {
+                    diag.push_error(message, location);
+                } else {
+                    diag.push_error(message, &uses_statement.interface_name_node());
+                }
+
+                continue;
+            }
+        }
+    }
+}
+
+/// Check that the given element implements the given interface. Emits a diagnostic if the interface is not implemented.
+fn element_implements_interface(
+    element: &ElementRc,
+    interface: &Rc<Component>,
+    uses_statement: &UsesStatement,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let property_matches_interface =
+        |property: &PropertyLookupResult, interface_declaration: &PropertyDeclaration| -> bool {
+            property.property_type == interface_declaration.property_type
+                && property.property_visibility == interface_declaration.visibility
+        };
+
+    for (property_name, property_declaration) in
+        interface.root_element.borrow().property_declarations.iter()
+    {
+        let lookup_result = element.borrow().lookup_property(property_name);
+        if !property_matches_interface(&lookup_result, property_declaration) {
+            diag.push_error(
+                format!(
+                    "{} does not implement {}",
+                    uses_statement.child_id, uses_statement.interface_name
+                ),
+                &uses_statement.child_id_node(),
+            );
+            return false;
+        }
+    }
+    true
 }
 
 /// Create a Type for this node

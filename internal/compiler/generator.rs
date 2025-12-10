@@ -463,7 +463,7 @@ pub fn for_each_const_properties(
                 ElementType::Builtin(_) => {
                     unreachable!("builtin element should have been resolved")
                 }
-                ElementType::Global | ElementType::Error => break,
+                ElementType::Global | ElementType::Interface | ElementType::Error => break,
             }
         }
         for c in all_prop {

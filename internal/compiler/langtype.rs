@@ -64,6 +64,8 @@ pub enum Type {
 
     /// This is a `SharedArray<f32>`
     LayoutCache,
+    /// This is used by GridLayoutOrganizedData
+    ArrayOfU16,
 
     StyledText,
 }
@@ -106,6 +108,7 @@ impl core::cmp::PartialEq for Type {
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
         }
     }
@@ -181,6 +184,7 @@ impl Display for Type {
             }
             Type::ElementReference => write!(f, "element ref"),
             Type::LayoutCache => write!(f, "layout cache"),
+            Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
         }
     }
@@ -319,6 +323,7 @@ impl Type {
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
+            Type::ArrayOfU16 => None,
             Type::StyledText => None,
         }
     }
@@ -405,6 +410,8 @@ pub enum ElementType {
     Error,
     /// This should be the base type of the root element of a global component
     Global,
+    /// This should be the base type of the root element of an interface
+    Interface,
 }
 
 impl PartialEq for ElementType {
@@ -413,7 +420,9 @@ impl PartialEq for ElementType {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
             (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
             (Self::Native(a), Self::Native(b)) => Rc::ptr_eq(a, b),
-            (Self::Error, Self::Error) | (Self::Global, Self::Global) => true,
+            (Self::Error, Self::Error)
+            | (Self::Global, Self::Global)
+            | (Self::Interface, Self::Interface) => true,
             _ => false,
         }
     }
@@ -615,6 +624,7 @@ impl ElementType {
             ElementType::Native(_) => None, // Too late, caller should call this function before the native class lowering
             ElementType::Error => None,
             ElementType::Global => None,
+            ElementType::Interface => None,
         }
     }
 }
@@ -627,6 +637,7 @@ impl Display for ElementType {
             Self::Native(b) => b.class_name.fmt(f),
             Self::Error => write!(f, "<error>"),
             Self::Global => Ok(()),
+            Self::Interface => Ok(()),
         }
     }
 }
@@ -643,7 +654,6 @@ pub enum BuiltinPrivateStruct {
     StateInfo,
     Point,
     PropertyAnimation,
-    GridLayoutCellData,
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,

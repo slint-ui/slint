@@ -741,11 +741,6 @@ pub fn layout_info_type() -> Rc<Struct> {
     BUILTIN.with(|types| types.layout_info_type.clone())
 }
 
-/// The [`Type`] for a runtime GridLayoutOrganizedData structure
-pub fn organized_layout_type() -> Type {
-    Type::LayoutCache
-}
-
 /// The [`Type`] for a runtime PathElement structure
 pub fn path_element_type() -> Type {
     BUILTIN.with(|types| types.path_element_type.clone())

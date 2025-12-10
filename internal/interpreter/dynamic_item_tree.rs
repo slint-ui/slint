@@ -1262,6 +1262,7 @@ pub(crate) fn generate_item_tree<'id>(
                 }
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
+            Type::ArrayOfU16 => property_info::<SharedVector<u16>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
             Type::StyledText => property_info::<StyledText>(),
             // These can't be used in properties

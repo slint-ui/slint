@@ -17,11 +17,13 @@ macro_rules! define_scoped_binding {
 
         impl $binding_ty_name {
             unsafe fn new(gl: &Rc<glow::Context>, new_binding: Option<$obj_name>) -> Self {
-                let saved_value =
-                    NonZeroU32::new(gl.get_parameter_i32($param_name) as u32).map($obj_name);
+                unsafe {
+                    let saved_value =
+                        NonZeroU32::new(gl.get_parameter_i32($param_name) as u32).map($obj_name);
 
-                gl.$binding_fn($target_name, new_binding);
-                Self { saved_value, gl: gl.clone() }
+                    gl.$binding_fn($target_name, new_binding);
+                    Self { saved_value, gl: gl.clone() }
+                }
             }
         }
 
@@ -41,11 +43,13 @@ macro_rules! define_scoped_binding {
 
         impl $binding_ty_name {
             unsafe fn new(gl: &Rc<glow::Context>, new_binding: Option<$obj_name>) -> Self {
-                let saved_value =
-                    NonZeroU32::new(gl.get_parameter_i32($param_name) as u32).map($obj_name);
+                unsafe {
+                    let saved_value =
+                        NonZeroU32::new(gl.get_parameter_i32($param_name) as u32).map($obj_name);
 
-                gl.$binding_fn(new_binding);
-                Self { saved_value, gl: gl.clone() }
+                    gl.$binding_fn(new_binding);
+                    Self { saved_value, gl: gl.clone() }
+                }
             }
         }
 
@@ -74,64 +78,76 @@ struct DemoTexture {
 
 impl DemoTexture {
     unsafe fn new(gl: &Rc<glow::Context>, width: u32, height: u32) -> Self {
-        let fbo = gl.create_framebuffer().expect("Unable to create framebuffer");
+        unsafe {
+            let fbo = gl.create_framebuffer().expect("Unable to create framebuffer");
 
-        let texture = gl.create_texture().expect("Unable to allocate texture");
+            let texture = gl.create_texture().expect("Unable to allocate texture");
 
-        let _saved_texture_binding = ScopedTextureBinding::new(gl, Some(texture));
+            let _saved_texture_binding = ScopedTextureBinding::new(gl, Some(texture));
 
-        let old_unpack_alignment = gl.get_parameter_i32(glow::UNPACK_ALIGNMENT);
-        let old_unpack_row_length = gl.get_parameter_i32(glow::UNPACK_ROW_LENGTH);
-        let old_unpack_skip_pixels = gl.get_parameter_i32(glow::UNPACK_SKIP_PIXELS);
-        let old_unpack_skip_rows = gl.get_parameter_i32(glow::UNPACK_SKIP_ROWS);
+            let old_unpack_alignment = gl.get_parameter_i32(glow::UNPACK_ALIGNMENT);
+            let old_unpack_row_length = gl.get_parameter_i32(glow::UNPACK_ROW_LENGTH);
+            let old_unpack_skip_pixels = gl.get_parameter_i32(glow::UNPACK_SKIP_PIXELS);
+            let old_unpack_skip_rows = gl.get_parameter_i32(glow::UNPACK_SKIP_ROWS);
 
-        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as i32);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
-        gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, width as i32);
-        gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
-        gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
+            gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, width as i32);
+            gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
+            gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
 
-        gl.tex_image_2d(
-            glow::TEXTURE_2D,
-            0,
-            glow::RGBA as _,
-            width as _,
-            height as _,
-            0,
-            glow::RGBA as _,
-            glow::UNSIGNED_BYTE as _,
-            glow::PixelUnpackData::Slice(None),
-        );
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as _,
+                width as _,
+                height as _,
+                0,
+                glow::RGBA as _,
+                glow::UNSIGNED_BYTE as _,
+                glow::PixelUnpackData::Slice(None),
+            );
 
-        let _saved_fbo_binding = ScopedFrameBufferBinding::new(gl, Some(fbo));
+            let _saved_fbo_binding = ScopedFrameBufferBinding::new(gl, Some(fbo));
 
-        gl.framebuffer_texture_2d(
-            glow::FRAMEBUFFER,
-            glow::COLOR_ATTACHMENT0,
-            glow::TEXTURE_2D,
-            Some(texture),
-            0,
-        );
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                Some(texture),
+                0,
+            );
 
-        debug_assert_eq!(
-            gl.check_framebuffer_status(glow::FRAMEBUFFER),
-            glow::FRAMEBUFFER_COMPLETE
-        );
+            debug_assert_eq!(
+                gl.check_framebuffer_status(glow::FRAMEBUFFER),
+                glow::FRAMEBUFFER_COMPLETE
+            );
 
-        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, old_unpack_alignment);
-        gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, old_unpack_row_length);
-        gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, old_unpack_skip_pixels);
-        gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, old_unpack_skip_rows);
+            gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, old_unpack_alignment);
+            gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, old_unpack_row_length);
+            gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, old_unpack_skip_pixels);
+            gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, old_unpack_skip_rows);
 
-        Self { texture, width, height, fbo, gl: gl.clone() }
+            Self { texture, width, height, fbo, gl: gl.clone() }
+        }
     }
 
     unsafe fn with_texture_as_active_fbo<R>(&self, callback: impl FnOnce() -> R) -> R {
-        let _saved_fbo = ScopedFrameBufferBinding::new(&self.gl, Some(self.fbo));
-        callback()
+        unsafe {
+            let _saved_fbo = ScopedFrameBufferBinding::new(&self.gl, Some(self.fbo));
+            callback()
+        }
     }
 }
 

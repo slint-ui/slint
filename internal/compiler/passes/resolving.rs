@@ -872,7 +872,6 @@ impl Expression {
                     &node,
                 );
             } else if (pos_max == 0 && arg_idx != values.len()) || pos_max > values.len() {
-                dbg!(arg_idx, pos_max, values.len());
                 let num = arg_idx.max(pos_max);
                 ctx.diag.push_error(
                     format!(
@@ -1853,10 +1852,10 @@ fn continue_lookup_within_element(
     } else {
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
-                ElementType::Global => {
-                    let global = elem.borrow().enclosing_component.upgrade().unwrap();
-                    assert!(global.is_global());
-                    format!("'{}'", global.id)
+                ElementType::Global | ElementType::Interface => {
+                    let enclosing_type = elem.borrow().enclosing_component.upgrade().unwrap();
+                    assert!(enclosing_type.is_global() || enclosing_type.is_interface());
+                    format!("'{}'", enclosing_type.id)
                 }
                 ElementType::Component(c) => format!("Element '{}'", c.id),
                 ElementType::Builtin(b) => format!("Element '{}'", b.name),

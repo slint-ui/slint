@@ -215,7 +215,8 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache => return None,
+            | Type::LayoutCache
+            | Type::ArrayOfU16 => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32

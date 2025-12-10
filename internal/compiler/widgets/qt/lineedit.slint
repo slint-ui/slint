@@ -5,6 +5,7 @@ import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common
 
 export component LineEdit {
     in property <length> font-size <=> inner.font-size;
+    in property <string> font-family <=> inner.font-family;
     in property <string> placeholder-text <=> inner.placeholder-text;
     in property <InputType> input-type;
     in property horizontal-alignment <=> inner.horizontal-alignment;
