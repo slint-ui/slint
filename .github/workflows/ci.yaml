@@ -39,6 +39,7 @@ jobs:
         api_rs : ${{ steps.filter.outputs.api_rs }}
         tests : ${{ steps.filter.outputs.tests }}
         examples : ${{ steps.filter.outputs.examples }}
+        examples_mcu : ${{ steps.filter.outputs.examples_mcu }}
         vsce : ${{ steps.filter.outputs.vsce }}
         slintpad : ${{ steps.filter.outputs.slintpad }}
         updater_test : ${{ steps.filter.outputs.updater_test }}
@@ -53,7 +54,7 @@ jobs:
 
     build_and_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true'
         strategy:
             matrix:
                 include:
@@ -306,7 +307,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true'
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -333,7 +334,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std) using embassy
     mcu-embassy:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true'
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true'
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings

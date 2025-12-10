@@ -9,6 +9,13 @@ files_in_root: &files_in_root
  - '*!(/)' # changes in the root, such as cspell.json or pnpm-lock.yaml
  - '.*'
 
+js_config: &js_config
+ - 'package.json'
+ - 'package-lock.json'
+ - 'pnpm-workspace.yaml'
+ - '.npmrc'
+ - 'pnpm-lock.yaml'
+
 slint:
  - 'api/**'
  - 'cmake/**'
@@ -16,7 +23,6 @@ slint:
  - 'docker/**'
  - 'docs/**'
  - 'editors/**'
- - 'examples/**'
  - 'helper_crates/**'
  - 'internal/**'
  - 'logo/**'
@@ -36,12 +42,11 @@ slint:
 
 figma_inspector:
  - 'tools/figma-inspector/**'
- - *files_in_root
+ - *js_config
  - *ci_config
 
 material_components:
  - 'ui-libraries/material/**'
- - *files_in_root
  - *ci_config
 
 internal: &internal
@@ -58,6 +63,8 @@ api_cpp:
  - 'api/cpp/**'
  - 'tools/compiler/**'
  - *ci_config
+ # The renderers are not part of the `internal` group, but are exposed in the C++ API
+ - 'internal/renderers/{skia,software}/**'
 
 api_python:
  - 'api/python/**'
@@ -65,10 +72,7 @@ api_python:
 
 api_node:
  - 'api/node/**'
- - 'package.json'
- - 'package-lock.json'
- - 'pnpm-workspace.yaml'
- - '.npmrc'
+ - *js_config
  - *ci_config
 
 api_rs:
@@ -80,14 +84,17 @@ tests:
  - 'tests/**'
 
 examples:
- - 'examples/**'
+ # Some examples are tested separately and can be excluded from here
+ - 'examples/!({servo,bevy,*mcu*,uefi-demo,}/**)'
  - 'demos/**'
- - 'examples/servo/**' # Handled separately
+
+examples_mcu:
+ - 'examples/*mcu*/**'
+ - 'internal/renderers/software/**'
 
 vsce:
- - *files_in_root
- - *ci_config
  - *internal
+ - *js_config
  - 'api/rs/**'
  - 'editors/vscode/**'
  - 'tools/lsp/**'
