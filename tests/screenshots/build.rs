@@ -87,6 +87,8 @@ fn gen_software(generated_file: &mut impl Write) -> std::io::Result<()> {
                 })
         });
         let skip_clipping = source.contains("SKIP_CLIPPING");
+        let skip_line_by_line =
+            if source.contains("SKIP_LINE_BY_LINE") { "#[cfg(false)]" } else { "" };
 
         let needle = "SIZE=";
         let (size_w, size_h) = source.find(needle).map_or((64, 64), |p| {
@@ -129,6 +131,7 @@ fn gen_software(generated_file: &mut impl Write) -> std::io::Result<()> {
 
     crate::software::assert_with_render(screenshot, window.clone(), &options);
 
+    {skip_line_by_line}
     crate::software::assert_with_render_by_line(screenshot, window.clone(), &options);
 
     Ok(())

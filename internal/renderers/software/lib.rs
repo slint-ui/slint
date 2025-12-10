@@ -2861,15 +2861,21 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             return;
         };
 
-        // Convert to zeno commands
-        let zeno_commands = path::convert_path_data_to_zeno(path_iterator);
+        let physical_geom_f32 =
+            geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor;
+        let physical_geom = physical_geom_f32.round().cast().transformed(self.rotation);
 
-        // Calculate the physical geometry
-        let physical_geom = (geom.translate(self.current_state.offset.to_vector()).cast()
-            * self.scale_factor)
-            .round()
-            .cast()
-            .transformed(self.rotation);
+        let rotation = RotationInfo {
+            orientation: self.rotation.orientation,
+            screen_size: physical_geom.size + euclid::size2(1, 1),
+        };
+
+        let offset = offset * self.scale_factor
+            + (physical_geom_f32.origin - physical_geom_f32.round().origin);
+
+        // Convert to zeno commands
+        let zeno_commands =
+            path::convert_path_data_to_zeno(path_iterator, rotation, self.scale_factor, offset);
 
         let physical_clip =
             (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
@@ -2878,12 +2884,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 .cast::<i16>()
                 .transformed(self.rotation);
 
-        // Apply the offset from fitted path
-        let physical_offset = (offset.cast::<f32>() * self.scale_factor).cast::<i16>();
-        let adjusted_geom = physical_geom.translate(physical_offset);
-
         // Clip the geometry - early return if nothing to draw
-        let Some(clipped_geom) = adjusted_geom.intersection(&physical_clip) else {
+        let Some(clipped_geom) = physical_geom.intersection(&physical_clip) else {
             return;
         };
 
@@ -2893,7 +2895,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             let fill_color = self.alpha_color(fill_brush.color());
             if fill_color.alpha() > 0 {
                 self.processor.process_filled_path(
-                    adjusted_geom,
+                    physical_geom,
                     clipped_geom,
                     zeno_commands.clone(),
                     fill_color.into(),
@@ -2909,7 +2911,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             if stroke_color.alpha() > 0 {
                 let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
                 self.processor.process_stroked_path(
-                    adjusted_geom,
+                    physical_geom,
                     clipped_geom,
                     zeno_commands,
                     stroke_color.into(),
