@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    DragAction, DragActionArg, DropEvent, Item, ItemConsts, ItemRc, MouseCursor,
+    BuiltInMouseCursor, DragAction, DragActionArg, DropEvent, Item, ItemConsts, ItemRc,
     PointerEventButton, RenderingResult,
 };
 use crate::Coord;
+use crate::cursor::MouseCursorInner;
 use crate::data_transfer::DataTransfer;
 use crate::graphics::Image;
 use crate::input::{
@@ -83,7 +84,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if !self.enabled() || !self.allowed_actions().any() || self.data().is_empty() {
             self.cancel();
@@ -139,7 +140,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
@@ -298,7 +299,7 @@ impl Item for DropArea {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -308,7 +309,7 @@ impl Item for DropArea {
         event: &MouseEvent,
         _: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -320,7 +321,7 @@ impl Item for DropArea {
                 self.current_action.set(chosen);
                 if chosen != DragAction::None {
                     self.has_drag.set(true);
-                    *cursor = cursor_for_action(chosen);
+                    *cursor = MouseCursorInner::BuiltIn(cursor_for_action(chosen));
                     InputEventResult::EventAccepted
                 } else {
                     self.has_drag.set(false);
@@ -452,12 +453,12 @@ pub(crate) fn clamp_action_to_allowed(
 }
 
 /// The cursor shown while a DropArea is hovering an accepted drag.
-pub(crate) fn cursor_for_action(action: DragAction) -> MouseCursor {
+pub(crate) fn cursor_for_action(action: DragAction) -> BuiltInMouseCursor {
     match action {
-        DragAction::Move => MouseCursor::Move,
-        DragAction::Copy => MouseCursor::Copy,
-        DragAction::Link => MouseCursor::Alias,
-        DragAction::None => MouseCursor::NoDrop,
+        DragAction::Move => BuiltInMouseCursor::Move,
+        DragAction::Copy => BuiltInMouseCursor::Copy,
+        DragAction::Link => BuiltInMouseCursor::Alias,
+        DragAction::None => BuiltInMouseCursor::NoDrop,
     }
 }
 

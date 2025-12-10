@@ -463,6 +463,32 @@ In Python, properties or struct fields of the data-transfer type are mapped to <
 
 </SlintProperty>
 
+### MouseCursor
+<SlintProperty propName="mouse-cursor" typeName="MouseCursor" defaultValue='BuiltInMouseCursor.default'>
+The `MouseCursor` type is used in the <Link type="TouchArea" label="TouchArea element"/>.
+
+Built-in cursor shapes can be specified with or without the `MouseCursor` namespace. See <Link type="BuiltInMouseCursor" label="BuiltInMouseCursor" /> for a list of built-in shapes.
+
+```slint
+TouchArea {
+    mouse-cursor: ew-resize;
+}
+
+TouchArea {
+    mouse-cursor: MouseCursor.ew-resize;
+}
+```
+
+To set a custom mouse cursor, provide a `image` and a hotspot. The hotspot determines how the image is positioned relative to the underlying cursor.
+
+```slint
+TouchArea {
+    mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0, 0);
+}
+```
+
+</SlintProperty>
+
 ## Animation
 ### easing
 <SlintProperty propName="easing" typeName="easing" defaultValue='linear'>

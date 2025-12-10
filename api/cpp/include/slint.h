@@ -104,6 +104,10 @@ inline bool operator==(const EasingCurve &a, const EasingCurve &b)
     }
     return true;
 }
+inline bool operator==(const MouseCursorInner &a, const MouseCursorInner &b)
+{
+    return cbindgen_private::slint_mouse_cursor_inner_eq(&a, &b);
+}
 }
 
 namespace private_api {

@@ -3,8 +3,8 @@
 
 use super::{
     EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg,
-    MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind,
-    PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg,
+    PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent,
+    PointerScrollEventArg, RenderingResult, VoidArg,
 };
 use crate::api::LogicalPosition;
 use crate::input::{
@@ -12,7 +12,7 @@ use crate::input::{
     InternalKeyEvent, KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::ItemTreeVTable;
+use crate::items::{ItemTreeVTable, MouseCursorInner};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
 use crate::properties::PropertyTracker;
@@ -44,7 +44,7 @@ pub struct TouchArea {
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
     pub mouse_x: Property<LogicalLength>,
     pub mouse_y: Property<LogicalLength>,
-    pub mouse_cursor: Property<MouseCursor>,
+    pub mouse_cursor: Property<MouseCursorInner>,
     pub clicked: Callback<VoidArg>,
     pub double_clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
@@ -76,7 +76,7 @@ impl Item for TouchArea {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if !self.enabled() {
             self.has_hover.set(false);
@@ -112,7 +112,7 @@ impl Item for TouchArea {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
@@ -312,7 +312,7 @@ impl Item for KeyBinding {
         _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut crate::items::MouseCursor,
+        _: &mut crate::cursor::MouseCursorInner,
     ) -> crate::input::InputEventFilterResult {
         Default::default()
     }
@@ -322,7 +322,7 @@ impl Item for KeyBinding {
         _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut crate::items::MouseCursor,
+        _: &mut crate::cursor::MouseCursorInner,
     ) -> crate::input::InputEventResult {
         Default::default()
     }
@@ -525,7 +525,7 @@ impl Item for FocusScope {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -535,7 +535,7 @@ impl Item for FocusScope {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         if self.enabled()
             && self.focus_on_click()
@@ -745,7 +745,7 @@ impl Item for SwipeGestureHandler {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if !self.enabled() {
             if self.pressed.get() {
@@ -807,7 +807,7 @@ impl Item for SwipeGestureHandler {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,
@@ -1024,7 +1024,7 @@ impl Item for ScaleRotateGestureHandler {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         match event {
             // Forward gesture events so inner handlers get first shot
@@ -1045,7 +1045,7 @@ impl Item for ScaleRotateGestureHandler {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         use crate::input::TouchPhase;
         match event {
