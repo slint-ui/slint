@@ -400,6 +400,7 @@ impl TypeRegister {
         register.insert_type(Type::Model);
         register.insert_type(Type::Percent);
         register.insert_type(Type::Easing);
+        register.insert_type(Type::Cursor);
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);

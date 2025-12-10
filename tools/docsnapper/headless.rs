@@ -97,7 +97,7 @@ pub struct HeadlessWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    pub mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    pub mouse_cursor: Cell<i_slint_core::graphics::MouseCursor>,
     renderer: SkiaRenderer,
 }
 

@@ -214,6 +214,7 @@ pub fn lower_expression(
         },
         tree_Expression::PathData(data) => compile_path(data, ctx),
         tree_Expression::EasingCurve(x) => llr_Expression::EasingCurve(x.clone()),
+        tree_Expression::MouseCursor(x) => llr_Expression::MouseCursor(x.clone()),
         tree_Expression::LinearGradient { angle, stops } => llr_Expression::LinearGradient {
             angle: Box::new(lower_expression(angle, ctx)),
             stops: stops

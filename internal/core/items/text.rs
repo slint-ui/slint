@@ -14,7 +14,7 @@ use super::{
     VoidArg, WindowItem,
 };
 use crate::api;
-use crate::graphics::{Brush, Color, FontRequest};
+use crate::graphics::{Brush, Color, FontRequest, MouseCursor};
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut, key_codes,
@@ -870,13 +870,13 @@ impl Item for TextInput {
             }
             MouseEvent::Exit => {
                 if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                    x.set_mouse_cursor(super::MouseCursor::Default);
+                    x.set_mouse_cursor(MouseCursor::Default);
                 }
                 self.as_ref().pressed.set(0)
             }
             MouseEvent::Moved { position, .. } => {
                 if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                    x.set_mouse_cursor(super::MouseCursor::Text);
+                    x.set_mouse_cursor(MouseCursor::Text);
                 }
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {

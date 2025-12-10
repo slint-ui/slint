@@ -11,11 +11,12 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use crate::typeregister;
 use core::cell::RefCell;
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote};
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-
 // FIXME remove the pub
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
@@ -144,6 +145,7 @@ pub enum BuiltinMacroFunction {
     Hsv,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
+    CustomCursor,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -729,6 +731,8 @@ pub enum Expression {
 
     EasingCurve(EasingCurve),
 
+    MouseCursor(MouseCursor),
+
     LinearGradient {
         angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
@@ -896,6 +900,7 @@ impl Expression {
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
+            Expression::MouseCursor(_) => Type::Cursor,
             Expression::LinearGradient { .. } => Type::Brush,
             Expression::RadialGradient { .. } => Type::Brush,
             Expression::ConicGradient { .. } => Type::Brush,
@@ -978,6 +983,7 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(_) => {}
             Expression::LinearGradient { angle, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
@@ -1085,6 +1091,7 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(_) => {}
             Expression::LinearGradient { angle, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
@@ -1192,6 +1199,7 @@ impl Expression {
             // We only load what we store, and stores are alredy checked
             Expression::ReadLocalVariable { .. } => true,
             Expression::EasingCurve(_) => true,
+            Expression::MouseCursor(_) => true,
             Expression::LinearGradient { angle, stops } => {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
@@ -1448,6 +1456,7 @@ impl Expression {
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
+            Type::Cursor => Expression::MouseCursor(MouseCursor::default()),
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)),
                 to: Type::Brush,
@@ -1724,6 +1733,41 @@ pub enum EasingCurve {
     // Custom(Box<dyn Fn(f32)->f32>),
 }
 
+#[derive(Clone, Debug, Default)]
+pub enum MouseCursor {
+    #[default]
+    Default,
+    None,
+    Help,
+    Pointer,
+    Progress,
+    Wait,
+    Crosshair,
+    Text,
+    Alias,
+    Copy,
+    Move,
+    NoDrop,
+    NotAllowed,
+    Grab,
+    Grabbing,
+    ColResize,
+    RowResize,
+    NResize,
+    EResize,
+    SResize,
+    WResize,
+    NeResize,
+    NwResize,
+    SeResize,
+    SwResize,
+    EwResize,
+    NsResize,
+    NeswResize,
+    NwseResize,
+    CustomCursor(ImageReference, i32, i32),
+}
+
 // The compiler generates ResourceReference::AbsolutePath for all references like @image-url("foo.png")
 // and the resource lowering path may change this to EmbeddedData if configured.
 #[derive(Clone, Debug)]
@@ -1732,6 +1776,32 @@ pub enum ImageReference {
     AbsolutePath(SmolStr),
     EmbeddedData { resource_id: usize, extension: String },
     EmbeddedTexture { resource_id: usize },
+}
+
+impl quote::ToTokens for ImageReference {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tks = match self {
+            crate::expression_tree::ImageReference::None => {
+                quote!(sp::Image::default())
+            }
+            crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                let path = path.as_str();
+                quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+            }
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                let format = proc_macro2::Literal::byte_string(extension.as_bytes());
+                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                quote!(
+                    sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
+                )
+            }
+        };
+        tokens.extend(tks);
+    }
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)
@@ -1840,6 +1910,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::PathData(data) => write!(f, "{data:?}"),
         Expression::EasingCurve(e) => write!(f, "{e:?}"),
+        Expression::MouseCursor(m) => write!(f, "{m:?}"),
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;
             pretty_print(f, angle)?;

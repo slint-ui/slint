@@ -26,10 +26,11 @@ use winit::platform::windows::WindowExtWindows;
 use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
 
+use corelib::graphics::MouseCursor;
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::ItemTreeRef;
-use corelib::items::{ColorScheme, MouseCursor};
+use corelib::items::ColorScheme;
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 

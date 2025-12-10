@@ -32,6 +32,9 @@ pub type Transform = euclid::default::Transform2D<Coord>;
 pub(crate) mod color;
 pub use color::*;
 
+pub(crate) mod cursor;
+pub use cursor::*;
+
 #[cfg(feature = "std")]
 mod path;
 #[cfg(feature = "std")]

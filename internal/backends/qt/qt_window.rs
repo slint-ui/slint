@@ -9,7 +9,8 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer, euclid,
+    Brush, Color, IntRect, MouseCursor, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
+    euclid,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
@@ -20,7 +21,7 @@ use i_slint_core::item_tree::ParentItemTraversalMode;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin,
-    MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -1965,6 +1966,15 @@ impl WindowAdapterInternal for QtWindow {
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let widget_ptr = self.widget_ptr();
+        if let MouseCursor::CustomCursor { image, hotspot_x, hotspot_y } = cursor {
+            let pixmap: qttypes::QPixmap =
+                crate::qt_window::image_to_pixmap((&image).into(), None).unwrap_or_default();
+            cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap", hotspot_x as "int", hotspot_y as "int"] {
+                widget_ptr->setCursor(QCursor{pixmap, hotspot_x, hotspot_y});
+            }};
+            return;
+        }
+
         //unidirectional resize cursors are replaced with bidirectional ones
         let cursor_shape = match cursor {
             MouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,

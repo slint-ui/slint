@@ -145,6 +145,8 @@ pub enum Value {
     ComponentFactory(ComponentFactory) = 12,
     /// Correspond to the `styled-text` type in .slint
     StyledText(i_slint_core::api::StyledText) = 13,
+    /// A mouse cursor.
+    MouseCursor(i_slint_core::graphics::MouseCursor) = 14,
 }
 
 impl Value {
@@ -193,6 +195,7 @@ impl PartialEq for Value {
             Value::StyledText(lhs) => {
                 matches!(other, Value::StyledText(rhs) if lhs == rhs)
             }
+            Value::MouseCursor(lhs) => matches!(other, Value::MouseCursor(rhs) if lhs == rhs),
         }
     }
 }
@@ -218,6 +221,7 @@ impl std::fmt::Debug for Value {
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
             Value::StyledText(text) => write!(f, "Value::StyledText({text:?})"),
+            Value::MouseCursor(m) => write!(f, "Value::MouseCursor({m:?})"),
         }
     }
 }
@@ -258,6 +262,7 @@ declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
+declare_value_conversion!(MouseCursor => [i_slint_core::graphics::MouseCursor]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );

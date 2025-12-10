@@ -3642,6 +3642,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 )
             }
         }
+        Expression::MouseCursor(MouseCursor) => "slint::cbindgen_private::MouseCursor()".into(),
         Expression::EasingCurve(EasingCurve::Linear) => {
             "slint::cbindgen_private::EasingCurve()".into()
         }

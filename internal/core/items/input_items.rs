@@ -3,10 +3,11 @@
 
 use super::{
     EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg,
-    MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind,
-    PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg,
+    PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent,
+    PointerScrollEventArg, RenderingResult, VoidArg,
 };
 use crate::api::LogicalPosition;
+use crate::graphics::MouseCursor;
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, KeyEventType, MouseEvent,

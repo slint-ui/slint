@@ -14,10 +14,7 @@ use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::WindowInner;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
-use i_slint_compiler::expression_tree::{
-    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
-    PathElement as ExprPathElement,
-};
+use i_slint_compiler::expression_tree::{BuiltinFunction, Callable, EasingCurve, Expression, ImageReference, MinMaxOp, MouseCursor, Path as ExprPath, PathElement as ExprPathElement};
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
@@ -410,6 +407,47 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             EasingCurve::CubicBezier(a, b, c, d) => {
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
+        }),
+        Expression::MouseCursor(cursor) => Value::MouseCursor(match cursor {
+            MouseCursor::Default => corelib::graphics::MouseCursor::Default,
+            MouseCursor::None => corelib::graphics::MouseCursor::None,
+            MouseCursor::Help => corelib::graphics::MouseCursor::Help,
+            MouseCursor::Pointer => corelib::graphics::MouseCursor::Pointer,
+            MouseCursor::Progress => corelib::graphics::MouseCursor::Progress,
+            MouseCursor::Wait => corelib::graphics::MouseCursor::Wait,
+            MouseCursor::Crosshair => corelib::graphics::MouseCursor::Crosshair,
+            MouseCursor::Text => corelib::graphics::MouseCursor::Text,
+            MouseCursor::Alias => corelib::graphics::MouseCursor::Alias,
+            MouseCursor::Copy => corelib::graphics::MouseCursor::Copy,
+            MouseCursor::Move => corelib::graphics::MouseCursor::Move,
+            MouseCursor::NoDrop => corelib::graphics::MouseCursor::NoDrop,
+            MouseCursor::NotAllowed => corelib::graphics::MouseCursor::NotAllowed,
+            MouseCursor::Grab => corelib::graphics::MouseCursor::Grab,
+            MouseCursor::Grabbing => corelib::graphics::MouseCursor::Grabbing,
+            MouseCursor::ColResize => corelib::graphics::MouseCursor::ColResize,
+            MouseCursor::RowResize => corelib::graphics::MouseCursor::RowResize,
+            MouseCursor::NResize => corelib::graphics::MouseCursor::NResize,
+            MouseCursor::EResize => corelib::graphics::MouseCursor::EResize,
+            MouseCursor::SResize => corelib::graphics::MouseCursor::SResize,
+            MouseCursor::WResize => corelib::graphics::MouseCursor::WResize,
+            MouseCursor::NeResize => corelib::graphics::MouseCursor::NeResize,
+            MouseCursor::NwResize => corelib::graphics::MouseCursor::NwResize,
+            MouseCursor::SeResize => corelib::graphics::MouseCursor::SeResize,
+            MouseCursor::SwResize => corelib::graphics::MouseCursor::SwResize,
+            MouseCursor::EwResize => corelib::graphics::MouseCursor::EwResize,
+            MouseCursor::NsResize => corelib::graphics::MouseCursor::NsResize,
+            MouseCursor::NeswResize => corelib::graphics::MouseCursor::NeswResize,
+            MouseCursor::NwseResize => corelib::graphics::MouseCursor::NwseResize,
+            MouseCursor::CustomCursor(image, hotspot_x, hotspot_y) => {
+                let image = match image {
+                    ImageReference::None => i_slint_core::graphics::Image::default(),
+                    ImageReference::AbsolutePath(path) => i_slint_core::graphics::Image::load_from_path(std::path::Path::new(path)).unwrap_or_default(),
+                    ImageReference::EmbeddedData { .. } => todo!(),
+                    ImageReference::EmbeddedTexture { .. } => todo!(),
+                };
+
+                corelib::graphics::MouseCursor::CustomCursor { image, hotspot_x: *hotspot_x, hotspot_y: *hotspot_y }
+            },
         }),
         Expression::LinearGradient { angle, stops } => {
             let angle = eval_expression(angle, local_context);
@@ -1814,6 +1852,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         }
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
+        Type::Cursor => matches!(value, Value::MouseCursor(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
@@ -2127,6 +2166,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Easing => Value::EasingCurve(Default::default()),
+        Type::Cursor => Value::MouseCursor(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),

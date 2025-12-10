@@ -10,6 +10,7 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
     WindowPosition, WindowSize,
 };
+use crate::graphics::MouseCursor;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent, KeyEventType,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, key_codes,
@@ -18,7 +19,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
+use crate::items::{ColorScheme, InputType, ItemRef, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};

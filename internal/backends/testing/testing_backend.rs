@@ -108,7 +108,7 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    pub mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    pub mouse_cursor: Cell<i_slint_core::graphics::MouseCursor>,
 }
 
 impl WindowAdapterInternal for TestingWindow {
@@ -116,7 +116,7 @@ impl WindowAdapterInternal for TestingWindow {
         self.ime_requests.borrow_mut().push(request)
     }
 
-    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
+    fn set_mouse_cursor(&self, cursor: i_slint_core::graphics::MouseCursor) {
         self.mouse_cursor.set(cursor);
     }
 }
