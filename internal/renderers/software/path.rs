@@ -6,35 +6,44 @@
 use super::PhysicalRect;
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use i_slint_core::graphics::PathDataIterator;
 use zeno::{Fill, Mask, Stroke};
 
 pub use zeno::Command;
 
 /// Convert Slint's PathDataIterator to zeno's Command format
 #[cfg(feature = "std")]
-pub fn convert_path_data_to_zeno(path_data: PathDataIterator) -> Vec<Command> {
+pub fn convert_path_data_to_zeno(
+    path_data: i_slint_core::graphics::PathDataIterator,
+    rotation: crate::RotationInfo,
+    scale_factor: i_slint_core::lengths::ScaleFactor,
+    offset: euclid::Vector2D<f32, i_slint_core::lengths::PhysicalPx>,
+) -> Vec<Command> {
+    use crate::Transform as _;
+    use i_slint_core::lengths::LogicalPoint;
     use lyon_path::Event;
-    use zeno::Point;
     let mut commands = Vec::new();
+
+    let convert_point = |p| {
+        let p = (LogicalPoint::from_untyped(p) * scale_factor + offset).transformed(rotation);
+        zeno::Point::new(p.x, p.y)
+    };
 
     for event in path_data.iter() {
         match event {
             Event::Begin { at } => {
-                commands.push(Command::MoveTo(Point::new(at.x, at.y)));
+                commands.push(Command::MoveTo(convert_point(at)));
             }
             Event::Line { to, .. } => {
-                commands.push(Command::LineTo(Point::new(to.x, to.y)));
+                commands.push(Command::LineTo(convert_point(to)));
             }
             Event::Quadratic { ctrl, to, .. } => {
-                commands.push(Command::QuadTo(Point::new(ctrl.x, ctrl.y), Point::new(to.x, to.y)));
+                commands.push(Command::QuadTo(convert_point(ctrl), convert_point(to)));
             }
             Event::Cubic { ctrl1, ctrl2, to, .. } => {
                 commands.push(Command::CurveTo(
-                    Point::new(ctrl1.x, ctrl1.y),
-                    Point::new(ctrl2.x, ctrl2.y),
-                    Point::new(to.x, to.y),
+                    convert_point(ctrl1),
+                    convert_point(ctrl2),
+                    convert_point(to),
                 ));
             }
             Event::End { close, .. } => {
