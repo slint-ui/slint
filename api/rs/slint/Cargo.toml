@@ -53,8 +53,8 @@ log = ["dep:log"]
 ## such as `SharedString` and `SharedVector`.
 serde = ["i-slint-core/serde"]
 
-## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
-software-renderer-systemfonts = ["renderer-software", "i-slint-renderer-software/systemfonts"]
+# Deprecated feature, this is now automatically enabled when the `renderer-software` and `std` features are enabled
+software-renderer-systemfonts = ["renderer-software"]
 
 ## Slint uses internally some `thread_local` state.
 ##
