@@ -39,7 +39,7 @@ All notable changes to this project are documented in this file.
  - Fixed some widgets that could still be edited when disabled or read-only
  - SpinBox: added `read-only` property
  - TabWidget: added `orientation` property (#3688)
- - TextEdit: Added `font-family` property
+ - TextEdit and LineEdit: Added `font-family` property
 
 ### Rust
 
@@ -52,6 +52,7 @@ All notable changes to this project are documented in this file.
  - Fixed mingw-llvm builds
  - Fixed build generation failing when compiling multiple .slint files
  - Fixed binary incompatibility with freestanding build (#10077)
+ - It's now possible to access platform native window handles, like a HWND.
 
 ### Python
 
@@ -63,6 +64,7 @@ All notable changes to this project are documented in this file.
  - LSP: Fixed column position of non-acii for UTF16-based editor (#5669)
  - LSP: Fixed `vscode-remote://` url
  - tr-extractor: Make the paths argument required (#10156)
+ - Added gdb pretty printer for `SharedVector` and `Slice`
 
 ## [1.14.1] - 2025-10-23
 
