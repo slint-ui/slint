@@ -20,6 +20,10 @@ on:
     schedule:
         - cron: "0 5 * * *"
 
+permissions:
+    id-token: write  # Required for OIDC
+    contents: read
+
 jobs:
     determine_version:
         runs-on: ubuntu-latest
