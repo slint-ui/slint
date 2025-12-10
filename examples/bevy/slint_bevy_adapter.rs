@@ -12,11 +12,11 @@ use slint::wgpu_26::wgpu;
 use bevy::{
     prelude::*,
     render::{
+        RenderApp, RenderPlugin,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         renderer::RenderContext,
         settings::RenderCreation,
-        RenderApp, RenderPlugin,
     },
 };
 
