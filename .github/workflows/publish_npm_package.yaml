@@ -133,13 +133,11 @@ jobs:
               shell: bash
               working-directory: api/node
               run: |
-                  repo_ty=`pnpm pkg get repository.type`
-                  repo_url=`pnpm pkg get repository.url`
                   npx napi create-npm-dir -t . -c ./binaries.json
                   mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
                   cd npm/${{ matrix.napi-rs-target }}/
-                  pnpm pkg set repository.type=$repo_ty
-                  pnpm pkg set repository.url=$repo_url
+                  pnpm pkg set repository.type=git
+                  pnpm pkg set repository.url=https://github.com/slint-ui/slint
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     pnpm version $PKG_VERSION
                   fi
