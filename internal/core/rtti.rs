@@ -59,6 +59,7 @@ macro_rules! declare_ValueType_2 {
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
             crate::input::Keys,
+            crate::items::MouseCursorInner,
             $(crate::items::$Name,)*
         ];
     };

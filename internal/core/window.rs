@@ -19,7 +19,9 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{
+    ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, MouseCursorInner, PopupClosePolicy,
+};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -189,7 +191,7 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     /// Set the mouse cursor
     // TODO: Make the enum public and make public
-    fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
+    fn set_mouse_cursor(&self, _cursor: MouseCursorInner) {}
 
     /// This method allow editable input field to communicate with the platform about input methods
     fn input_method_request(&self, _: InputMethodRequest) {}
@@ -602,7 +604,10 @@ impl WindowInner {
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
 
-        let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
+        let old_cursor = core::mem::replace(
+            &mut mouse_input_state.cursor,
+            MouseCursorInner::BuiltIn(MouseCursor::Default),
+        );
 
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
@@ -613,7 +618,7 @@ impl WindowInner {
                 }
                 MouseEvent::Moved { position, .. } => {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
-                    mouse_input_state.cursor = MouseCursor::NoDrop;
+                    mouse_input_state.cursor = MouseCursorInner::BuiltIn(MouseCursor::NoDrop);
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
@@ -759,7 +764,7 @@ impl WindowInner {
         if old_cursor != mouse_input_state.cursor
             && let Some(window_adapter) = window_adapter.internal(crate::InternalToken)
         {
-            window_adapter.set_mouse_cursor(mouse_input_state.cursor);
+            window_adapter.set_mouse_cursor(mouse_input_state.cursor.clone());
         }
 
         self.mouse_input_state.set(mouse_input_state);

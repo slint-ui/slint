@@ -21,6 +21,12 @@ pub enum ArrayOutput {
     Vector,
 }
 
+#[derive(Clone, Debug)]
+pub enum MouseCursorInner {
+    BuiltIn(Box<Expression>),
+    CustomCursor { image: Box<Expression>, hotspot_x: Box<Expression>, hotspot_y: Box<Expression> },
+}
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
@@ -165,6 +171,8 @@ pub enum Expression {
     },
 
     EasingCurve(crate::expression_tree::EasingCurve),
+
+    MouseCursor(MouseCursorInner),
 
     LinearGradient {
         angle: Box<Expression>,
@@ -311,6 +319,7 @@ impl Expression {
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
+            Type::Cursor => return None,
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)?),
                 to: Type::Brush,
@@ -371,6 +380,7 @@ impl Expression {
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
+            Self::MouseCursor(_) => Type::Cursor,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
@@ -438,6 +448,16 @@ macro_rules! visit_impl {
             Expression::Array { values, .. } => values.$iter().for_each($visitor),
             Expression::Struct { values, .. } => values.$values().for_each($visitor),
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursorInner::CustomCursor { image, hotspot_x, hotspot_y } => {
+                    $visitor(image);
+                    $visitor(hotspot_x);
+                    $visitor(hotspot_y);
+                }
+                MouseCursorInner::BuiltIn(e) => {
+                    $visitor(e);
+                }
+            },
             Expression::LinearGradient { angle, stops } => {
                 $visitor(angle);
                 for (a, b) in stops {

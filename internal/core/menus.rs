@@ -216,7 +216,7 @@ impl crate::items::Item for MenuItem {
         _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut crate::items::MouseCursor,
+        _: &mut crate::items::MouseCursorInner,
     ) -> crate::input::InputEventFilterResult {
         Default::default()
     }
@@ -226,7 +226,7 @@ impl crate::items::Item for MenuItem {
         _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut crate::items::MouseCursor,
+        _: &mut crate::items::MouseCursorInner,
     ) -> crate::input::InputEventResult {
         Default::default()
     }

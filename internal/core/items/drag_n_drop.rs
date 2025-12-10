@@ -9,6 +9,7 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::items::MouseCursorInner;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -53,7 +54,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if !self.enabled() {
             self.cancel();
@@ -109,7 +110,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
@@ -239,7 +240,7 @@ impl Item for DropArea {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -249,7 +250,7 @@ impl Item for DropArea {
         event: &MouseEvent,
         _: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -259,7 +260,7 @@ impl Item for DropArea {
                 let r = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
                 if r {
                     self.contains_drag.set(true);
-                    *cursor = MouseCursor::Copy;
+                    *cursor = MouseCursorInner::BuiltIn(MouseCursor::Copy);
                     InputEventResult::EventAccepted
                 } else {
                     self.contains_drag.set(false);

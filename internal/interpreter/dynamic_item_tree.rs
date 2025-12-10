@@ -1296,6 +1296,7 @@ pub(crate) fn generate_item_tree<'id>(
         ty: &Type,
         name: &str,
     ) -> Option<(Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)> {
+        dbg!(name);
         Some(match ty {
             Type::Float32 => animated_property_info::<f32>(),
             Type::Int32 => animated_property_info::<i32>(),
@@ -1321,6 +1322,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
+            Type::Cursor => property_info::<i_slint_core::items::MouseCursor>(),
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
@@ -1811,6 +1813,10 @@ pub fn instantiate(
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
                         if is_const {
+                            dbg!(eval::eval_expression(
+                                &binding.expression,
+                                &mut eval::EvalLocalContext::from_component_instance(instance_ref,),
+                            ));
                             prop_rtti
                                 .set(
                                     item,
