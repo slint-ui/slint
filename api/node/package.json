@@ -5,10 +5,7 @@
   "types": "dist/index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/slint-ui/slint"
-  },
+  "repository": "github:slint-ui/slint",
   "keywords": [
     "GUI",
     "UI",
