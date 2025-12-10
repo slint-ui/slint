@@ -11,7 +11,7 @@ use slint::ComponentHandle;
 
 use slint::wgpu_27::wgpu;
 
-use crate::{webview::rendering_context::ServoRenderingAdapter, MyApp, WebviewLogic};
+use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
 
 /// Upgrades a weak reference to `SlintServoAdapter` to a strong reference.
 ///

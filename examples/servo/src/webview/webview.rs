@@ -9,13 +9,13 @@ use winit::dpi::PhysicalSize;
 
 use euclid::Size2D;
 
-use slint::{language::ColorScheme, ComponentHandle, SharedString};
+use slint::{ComponentHandle, SharedString, language::ColorScheme};
 
-use servo::{webrender_api::units::DevicePixel, Servo, ServoBuilder, Theme, WebViewBuilder};
+use servo::{Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel};
 
 use crate::{
-    webview::{AppDelegate, ServoRenderingAdapter, SlintServoAdapter, Waker, WebViewEvents},
     MyApp, Palette, WebviewLogic,
+    webview::{AppDelegate, ServoRenderingAdapter, SlintServoAdapter, Waker, WebViewEvents},
 };
 
 /// A web browser component powered by the Servo engine.

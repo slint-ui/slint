@@ -127,10 +127,6 @@ impl ServoTextureImporter {
             cache: None,
         });
 
-        Self {
-            bind_group_layout,
-            render_pipeline,
-            sampler,
-        }
+        Self { bind_group_layout, render_pipeline, sampler }
     }
 }
