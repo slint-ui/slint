@@ -6,7 +6,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, ImageReference,
+    MinMaxOp, MouseCursor, Unit,
 };
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
@@ -87,6 +88,69 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::CustomCursor => {
+            let mut has_error = None;
+            let image_expected_argument_type_error =
+                "First argument to custom cursor must be image";
+            let hotspot_expected_argument_type_error =
+                "Last arguments to custom cursor must be number literal";
+            let mut image = || match sub_expr.next() {
+                None => {
+                    has_error.get_or_insert((n.to_source_location(), "Not enough arguments"));
+                    ImageReference::None
+                }
+                Some((Expression::ImageReference { resource_ref, .. }, _)) => resource_ref,
+                Some((_, n)) => {
+                    has_error.get_or_insert((
+                        n.to_source_location(),
+                        image_expected_argument_type_error,
+                    ));
+                    ImageReference::None
+                }
+            };
+            let image = image();
+
+            let mut hotspot_coord = || match sub_expr.next() {
+                None => {
+                    has_error.get_or_insert((n.to_source_location(), "Not enough arguments"));
+                    0
+                }
+                Some((Expression::NumberLiteral(val, Unit::None), _)) => val as i32,
+                // handle negative numbers
+                Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
+                    Expression::NumberLiteral(val, Unit::None) => -val as i32,
+                    _ => {
+                        has_error.get_or_insert((
+                            n.to_source_location(),
+                            hotspot_expected_argument_type_error,
+                        ));
+                        0
+                    }
+                },
+                Some((_, n)) => {
+                    has_error.get_or_insert((
+                        n.to_source_location(),
+                        hotspot_expected_argument_type_error,
+                    ));
+                    0
+                }
+            };
+
+            let expr = Expression::MouseCursor(MouseCursor::CustomCursor(
+                image,
+                hotspot_coord(),
+                hotspot_coord(),
+            ));
+            if let Some((_, n)) = sub_expr.next() {
+                has_error
+                    .get_or_insert((n.to_source_location(), "Too many argument for custom cursor"));
+            }
+            if let Some((n, msg)) = has_error {
+                diag.push_error(msg.into(), &n);
+            }
+
+            expr
+        }
     }
 }
 
@@ -348,6 +412,7 @@ fn to_debug_string(
         | Type::Brush
         | Type::Image
         | Type::Easing
+        | Type::Cursor
         | Type::StyledText
         | Type::Array(_) => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())

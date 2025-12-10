@@ -49,45 +49,45 @@ let instance = TestCase::new().unwrap();
 assert!(!instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) });
 assert!(!instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(240.0, 150.0) });
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(290.0, 150.0) });
 // We Since the touch area are not children, only one is active
 assert!(!instance.get_has_hover1());
 assert!(instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
 //FIXME: it currently takes two events for the mouse cursor to change when going from one MouseArea to another
-//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Alias);
+//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Alias);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(330.0, 150.0) });
 assert!(!instance.get_has_hover1());
 assert!(instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Alias);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Alias);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(370.0, 150.0) });
 assert!(!instance.get_has_hover1());
 // here 2 and 3 are both active since one is a children of the other
 assert!(instance.get_has_hover2());
 assert!(instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(390.0, 150.0) });
 assert!(!instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(510.0, 150.0) });
 assert!(!instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 // Now grab
 let button = PointerEventButton::Left;
@@ -95,37 +95,37 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(290.0, 150.0) });
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(330.0, 150.0) });
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(370.0, 150.0) });
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(390.0, 150.0) });
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(510.0, 150.0) });
 assert!(instance.get_has_hover1());
 assert!(!instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Copy);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(370.0, 150.0), button });
 assert!(!instance.get_has_hover1());
 assert!(instance.get_has_hover2());
 assert!(instance.get_has_hover3());
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 ```
 */

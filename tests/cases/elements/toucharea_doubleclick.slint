@@ -259,7 +259,7 @@ let double_click = |x, y| {
 };
 
 
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
      "Unexpected mousecursor at start");
 
 // does not click on anything
@@ -271,7 +271,7 @@ assert_eq!(instance.get_touch3(), 0, "Mis-click registered at touch3");
 assert_eq!(instance.get_touch_double1(), 0, "Mis-click registered at touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 0, "Mis-click registered at touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 0, "Mis-click registered at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "Mis-click changed mouse cursor");
 
 // click on second one
@@ -284,7 +284,7 @@ assert_eq!(instance.get_touch3(), 0, "Click on 2 registered at touch3");
 assert_eq!(instance.get_touch_double1(), 0, "Click on 2 registered at touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 0, "Click on 2 registered at touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 0, "Click on 2 registered at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Pointer,
     "Click on 1 did not change mouse pointer");
 
 // click on first one only
@@ -296,7 +296,7 @@ assert_eq!(instance.get_touch3(), 0, "Click on 1 registered at touch3");
 assert_eq!(instance.get_touch_double1(), 0, "Click on 1 registered at touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 0, "Click on 1 registered at touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 0, "Click on 1 registered at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Move,
     "Click on 2 did not change mouse pointer");
 
 // click on the third
@@ -310,7 +310,7 @@ assert_eq!(instance.get_touch_double2(), 0, "Click on 3 registered at touch2 as 
 assert_eq!(instance.get_touch_double3(), 0, "Click on 3 registered at touch3 as double-click");
 assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:",
     "Click on 3 produced an unexpected sequence of events");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "Click on 3 did not change mouse pointer");
 
 // does not double-click on anything
@@ -322,7 +322,7 @@ assert_eq!(instance.get_touch3(), 1, "Mis-double-click registered at touch3");
 assert_eq!(instance.get_touch_double1(), 0, "Mis-double-click registered at touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 0, "Mis-double-click registered at touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 0, "Mis-double-click registered at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "Mis-double-click on 3 did not change mouse pointer");
 
 // double-click on second one
@@ -337,7 +337,7 @@ assert_eq!(instance.get_touch_double2(), 1, "Double-click on 2 did not register 
 assert_eq!(instance.get_touch_double3(), 0, "Double-click on 2 registered at touch1 as double-click");
 assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:move.other:down.left:click:double_click:up.left:move.other:",
     "Double-click on 2 produced an unexpected sequence of events");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Pointer,
     "Double-click on 2 did not change mouse pointer");
 
 // double-click on first one only
@@ -349,7 +349,7 @@ assert_eq!(instance.get_touch3(), 1, "Double-click on 1 registered at touch3");
 assert_eq!(instance.get_touch_double1(), 1, "Double-click on 1 did not register at touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 1, "Double-click on 1 registered at touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 0, "Double-click on 1 registered at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Move,
     "Double-click on 1 did not change mouse pointer");
 
 // double-click on the third
@@ -361,7 +361,7 @@ assert_eq!(instance.get_touch3(), 3, "Double-click on 3 did not registered at to
 assert_eq!(instance.get_touch_double1(), 1, "Double-click on 3 registered at touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 1, "Double-click on 3 registered at touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 1, "Double-click on 3 did not register at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "Double-click on 3 did not change mouse pointer");
 
 // triple-click on the third (treated as a double click, followed by a single click)
@@ -381,7 +381,7 @@ assert_eq!(instance.get_touch3(), 6, "Triple-click on 3 registered at touch1");
 assert_eq!(instance.get_touch_double1(), 1, "Triple-click on 3 registered at touch1");
 assert_eq!(instance.get_touch_double2(), 1, "Triple-click on 3 registered at touch2");
 assert_eq!(instance.get_touch_double3(), 2, "Triple-click on 3 did not register at touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "Triple-click on 3 did not change mouse pointer");
 
 // click really quickly on two different mouse areas
@@ -398,7 +398,7 @@ assert_eq!(instance.get_touch3(), 6, "click on different touch areas registered 
 assert_eq!(instance.get_touch_double1(), 1, "click on different touch areas registered on touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 1, "click on different touch areas registered on touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 2, "click on different touch areas registered on touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "click on different touch areas changed mouse pointer");
 assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:",
     "click on different touch areas produced an unexpected sequence of events");
@@ -417,7 +417,7 @@ assert_eq!(instance.get_touch3(), 6, "Slow double click did not register on touc
 assert_eq!(instance.get_touch_double1(), 1, "Slow double click registered on touch1 as double-click");
 assert_eq!(instance.get_touch_double2(), 1, "Slow double click registered on touch2 as double-click");
 assert_eq!(instance.get_touch_double3(), 2, "Slow double click registered on touch3 as double-click");
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default,
     "click on different touch areas changed mouse pointer");
 assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:move.other:down.left:click:up.left:move.other:",
     "click on different touch areas produced an unexpected sequence of events");
