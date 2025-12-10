@@ -135,6 +135,9 @@ pub enum Value {
     ArrayOfU16(SharedVector<u16>) = 14,
     /// Correspond to the `keys` type in .slint
     Keys(Keys) = 15,
+    #[doc(hidden)]
+    /// A mouse cursor.
+    MouseCursorInner(i_slint_core::items::MouseCursorInner) = 16,
 }
 
 impl Value {
@@ -187,6 +190,9 @@ impl PartialEq for Value {
             Value::Keys(lhs) => {
                 matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
+            Value::MouseCursorInner(lhs) => {
+                matches!(other, Value::MouseCursorInner(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -216,6 +222,7 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+            Value::MouseCursorInner(m) => write!(f, "Value::MouseCursor({m:?})"),
         }
     }
 }
@@ -256,6 +263,7 @@ declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
+declare_value_conversion!(MouseCursorInner => [i_slint_core::items::MouseCursorInner]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );

@@ -3,7 +3,7 @@
 
 use i_slint_core::{
     input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType, key_codes},
-    items::PointerEventButton,
+    items::{MouseCursorInner, PointerEventButton},
 };
 
 use super::*;
@@ -158,7 +158,7 @@ impl Item for NativeSlider {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -169,7 +169,7 @@ impl Item for NativeSlider {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
+    BuiltInMouseCursor, DropEvent, Item, ItemConsts, ItemRc, PointerEventButton, RenderingResult,
 };
 use crate::Coord;
 use crate::input::{
@@ -10,6 +10,7 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::items::MouseCursorInner;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -57,7 +58,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if !self.enabled() {
             self.cancel();
@@ -113,7 +114,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
@@ -246,7 +247,7 @@ impl Item for DropArea {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -256,7 +257,7 @@ impl Item for DropArea {
         event: &MouseEvent,
         _: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -266,7 +267,7 @@ impl Item for DropArea {
                 let r = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
                 if r {
                     self.contains_drag.set(true);
-                    *cursor = MouseCursor::Copy;
+                    *cursor = MouseCursorInner::BuiltIn(BuiltInMouseCursor::Copy);
                     InputEventResult::EventAccepted
                 } else {
                     self.contains_drag.set(false);

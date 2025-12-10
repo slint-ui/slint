@@ -13,7 +13,9 @@ use super::lower_layout_expression::{
 };
 use super::lower_to_item_tree::{LoweredSubComponentMapping, LoweringState};
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
-use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
+use crate::expression_tree::{
+    BuiltinFunction, Callable, Expression as tree_Expression, MouseCursorInner,
+};
 use crate::langtype::{BuiltinPrivateStruct, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
@@ -230,6 +232,18 @@ pub fn lower_expression(
         },
         tree_Expression::PathData(data) => compile_path(data, ctx),
         tree_Expression::EasingCurve(x) => llr_Expression::EasingCurve(x.clone()),
+        tree_Expression::MouseCursor(cursor) => llr_Expression::MouseCursor(match cursor {
+            MouseCursorInner::BuiltIn(expression) => {
+                crate::llr::MouseCursorInner::BuiltIn(Box::new(lower_expression(expression, ctx)))
+            }
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                crate::llr::MouseCursorInner::CustomMouseCursor {
+                    image: Box::new(lower_expression(image, ctx)),
+                    hotspot_x: Box::new(lower_expression(hotspot_x, ctx)),
+                    hotspot_y: Box::new(lower_expression(hotspot_y, ctx)),
+                }
+            }
+        }),
         tree_Expression::LinearGradient { angle, stops } => llr_Expression::LinearGradient {
             angle: Box::new(lower_expression(angle, ctx)),
             stops: stops
