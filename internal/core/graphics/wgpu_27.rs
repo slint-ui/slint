@@ -164,6 +164,10 @@ use super::RequestedGraphicsAPI;
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter)
 pub fn any_wgpu27_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
+    let allow_cpu = std::env::var("SLINT_WGPU_CPU").is_ok();
+    if allow_cpu {
+        return true;
+    }
     let (instance, backends) = match requested_graphics_api {
         Some(RequestedGraphicsAPI::WGPU27(api::WGPUConfiguration::Manual { instance, .. })) => {
             (instance, wgpu::Backends::all())
@@ -218,11 +222,10 @@ pub fn any_wgpu27_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         }
         Some(_) => return false,
     };
-    let allow_cpu = std::env::var("SLINT_WGPU_CPU").map(|v| v == "1").unwrap_or(false);
     instance
         .enumerate_adapters(backends)
         .into_iter()
-        .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu || allow_cpu)
+        .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
 }
 
 /// Internal helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
