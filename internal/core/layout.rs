@@ -593,6 +593,62 @@ pub fn organize_grid_layout(input_data: Slice<GridLayoutInputData>) -> GridLayou
     organized_data
 }
 
+/// The layout cache generator inserts the pos and size into the result array (which becomes the layout cache property),
+/// including the indirections for repeated items (so that the x,y,width,height properties for repeated items
+/// can point to indices known at compile time, those that contain the indirections)
+/// Example: for repeater_indices=[1,4] (meaning that item at index 1 is repeated 4 times),
+/// result=[0.0, 80.0, 4.0, 5.0, 80.0, 80.0, 160.0, 80.0, 240.0, 80.0, 320.0, 80.0]
+///  i.e. pos1, width1, jump to idx 4, jump to idx 5, pos2, width2, pos3, width3, pos4, width4, pos5, width5
+struct LayoutCacheGenerator<'a> {
+    // Input
+    repeater_indices: &'a [u32],
+    // An always increasing counter, the index of the cell being added
+    counter: usize,
+    // The index/2 in result in which we should add the next repeated item
+    repeat_offset: usize,
+    // The index/2 in repeater_indices
+    next_rep: usize,
+    // The index/2 in result in which we should add the next non-repeated item
+    current_offset: usize,
+    // Output
+    result: &'a mut SharedVector<Coord>,
+}
+
+impl<'a> LayoutCacheGenerator<'a> {
+    fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
+        let repeat_offset =
+            result.len() / 2 - repeater_indices.iter().skip(1).step_by(2).sum::<u32>() as usize;
+        Self { repeater_indices, counter: 0, repeat_offset, next_rep: 0, current_offset: 0, result }
+    }
+    fn add(&mut self, pos: Coord, size: Coord) {
+        let res = self.result.make_mut_slice();
+        let o = loop {
+            if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
+                let nr = *nr as usize;
+                if nr == self.counter {
+                    for o in 0..2 {
+                        res[self.current_offset * 2 + o] = (self.repeat_offset * 2 + o) as _;
+                    }
+                    self.current_offset += 1;
+                }
+                if self.counter >= nr {
+                    if self.counter - nr == self.repeater_indices[self.next_rep * 2 + 1] as usize {
+                        self.next_rep += 1;
+                        continue;
+                    }
+                    self.repeat_offset += 1;
+                    break self.repeat_offset - 1;
+                }
+            }
+            self.current_offset += 1;
+            break self.current_offset - 1;
+        };
+        res[o * 2] = pos;
+        res[o * 2 + 1] = size;
+        self.counter += 1;
+    }
+}
+
 /// return, an array which is of size `data.cells.len() * 2` which for each cell stores:
 /// pos (x or y), size (width or height)
 pub fn solve_grid_layout(
@@ -751,39 +807,9 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         }
     }
 
-    let res = result.make_mut_slice();
-
-    // The index/2 in result in which we should add the next repeated item
-    let mut repeat_offset =
-        res.len() / 2 - repeater_indices.iter().skip(1).step_by(2).sum::<u32>() as usize;
-    // The index/2  in repeater_indices
-    let mut next_rep = 0;
-    // The index/2 in result in which we should add the next non-repeated item
-    let mut current_offset = 0;
-    for (idx, layout) in layout_data.iter().enumerate() {
-        let o = loop {
-            if let Some(nr) = repeater_indices.get(next_rep * 2) {
-                let nr = *nr as usize;
-                if nr == idx {
-                    for o in 0..2 {
-                        res[current_offset * 2 + o] = (repeat_offset * 2 + o) as _;
-                    }
-                    current_offset += 1;
-                }
-                if idx >= nr {
-                    if idx - nr == repeater_indices[next_rep * 2 + 1] as usize {
-                        next_rep += 1;
-                        continue;
-                    }
-                    repeat_offset += 1;
-                    break repeat_offset - 1;
-                }
-            }
-            current_offset += 1;
-            break current_offset - 1;
-        };
-        res[o * 2] = layout.pos;
-        res[o * 2 + 1] = layout.size;
+    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
+    for layout in layout_data.iter() {
+        generator.add(layout.pos, layout.size);
     }
     result
 }
@@ -903,5 +929,72 @@ pub(crate) mod ffi {
         padding: &Padding,
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_layout_cache_generator_2_fixed_cells() {
+        // 2 fixed cells
+        let mut result = SharedVector::<Coord>::default();
+        result.resize(2 * 2, 0 as _);
+        let mut generator = LayoutCacheGenerator::new(&[], &mut result);
+        generator.add(0., 50.); // fixed
+        generator.add(80., 50.); // fixed
+        assert_eq!(result.as_slice(), &[0., 50., 80., 50.]);
+    }
+
+    #[test]
+    fn test_layout_cache_generator_1_fixed_cell_1_repeater() {
+        // 4 cells: 1 fixed cell, 1 repeater with 3 repeated cells
+        let mut result = SharedVector::<Coord>::default();
+        let repeater_indices = &[1, 3];
+        result.resize(4 * 2 + repeater_indices.len(), 0 as _);
+        let mut generator = LayoutCacheGenerator::new(repeater_indices, &mut result);
+        generator.add(0., 50.); // fixed
+        generator.add(80., 50.); // repeated
+        generator.add(160., 50.);
+        generator.add(240., 50.);
+        assert_eq!(
+            result.as_slice(),
+            &[
+                0., 50., // fixed
+                4., 5., // jump to repeater data
+                80., 50., 160., 50., 240., 50. // repeater data
+            ]
+        );
+    }
+
+    #[test]
+    fn test_layout_cache_generator_4_repeaters() {
+        // 8 cells: 1 fixed cell, 1 empty repeater, 1 repeater with 4 repeated cells, 1 fixed cell, 1 repeater with 2 repeated cells, 1 empty repeater
+        let mut result = SharedVector::<Coord>::default();
+        let repeater_indices = &[1, 0, 1, 4, 6, 2, 8, 0];
+        result.resize(8 * 2 + repeater_indices.len(), 0 as _);
+        let mut generator = LayoutCacheGenerator::new(repeater_indices, &mut result);
+        generator.add(0., 50.); // fixed
+        generator.add(80., 10.); // repeated
+        generator.add(160., 10.);
+        generator.add(240., 10.);
+        generator.add(320., 10.); // end of second repeater
+        generator.add(400., 80.); // fixed
+        generator.add(500., 20.); // repeated
+        generator.add(600., 20.); // end of third repeater
+        assert_eq!(
+            result.as_slice(),
+            &[
+                0., 50., // fixed
+                12., 13., // jump to first (empty) repeater (not used)
+                12., 13., // jump to second repeater data
+                400., 80., // fixed
+                20., 21., // jump to third repeater data
+                0., 0., // slot for jumping to fourth repeater (currently empty)
+                80., 10., 160., 10., 240., 10., 320., 10., // first repeater data
+                500., 20., 600., 20. // second repeater data
+            ]
+        );
     }
 }
