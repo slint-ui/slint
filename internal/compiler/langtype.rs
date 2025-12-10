@@ -410,6 +410,8 @@ pub enum ElementType {
     Error,
     /// This should be the base type of the root element of a global component
     Global,
+    /// This should be the base type of the root element of an interface
+    Interface,
 }
 
 impl PartialEq for ElementType {
@@ -418,7 +420,9 @@ impl PartialEq for ElementType {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
             (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
             (Self::Native(a), Self::Native(b)) => Rc::ptr_eq(a, b),
-            (Self::Error, Self::Error) | (Self::Global, Self::Global) => true,
+            (Self::Error, Self::Error)
+            | (Self::Global, Self::Global)
+            | (Self::Interface, Self::Interface) => true,
             _ => false,
         }
     }
@@ -620,6 +624,7 @@ impl ElementType {
             ElementType::Native(_) => None, // Too late, caller should call this function before the native class lowering
             ElementType::Error => None,
             ElementType::Global => None,
+            ElementType::Interface => None,
         }
     }
 }
@@ -632,6 +637,7 @@ impl Display for ElementType {
             Self::Native(b) => b.class_name.fmt(f),
             Self::Error => write!(f, "<error>"),
             Self::Global => Ok(()),
+            Self::Interface => Ok(()),
         }
     }
 }

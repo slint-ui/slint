@@ -99,28 +99,54 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// global Struct { property<int> xx; }
 /// component C { property<int> xx; }
 /// component C inherits D { }
+/// interface I { property<int> xx; }
+/// component E implements I { }
+/// component F uses { I from A } { }
+/// component F uses { I from A } implements J { }
+/// component F uses { I from A } inherits B { }
+/// component F uses { I from A, J from B } { }
+/// component F uses { I from A, J from B } implements J { }
+/// component F uses { I from A, J from B } inherits C { }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
     let is_global = !simple_component && p.peek().as_str() == "global";
+    let is_interface = !simple_component && p.peek().as_str() == "interface";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
-    if !is_global && !simple_component && !is_new_component {
+    if !is_global && !simple_component && !is_new_component && !is_interface {
         p.error(
             "Parse error: expected a top-level item such as a component, a struct, or a global",
         );
         return false;
     }
     let mut p = p.start_node(SyntaxKind::Component);
-    if is_global || is_new_component {
+    if is_global || is_new_component || is_interface {
         p.consume();
     }
     if !p.start_node(SyntaxKind::DeclaredIdentifier).expect(SyntaxKind::Identifier) {
         drop(p.start_node(SyntaxKind::Element));
         return false;
     }
+    if p.peek().as_str() == "uses" {
+        if !is_new_component {
+            p.error("Only components can have 'uses' clauses");
+            drop(p.start_node(SyntaxKind::Element));
+            return false;
+        }
+
+        if !parse_uses_specifier(&mut *p) {
+            drop(p.start_node(SyntaxKind::Element));
+            return false;
+        }
+    }
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            p.warning(format!("':=' to declare a global is deprecated. Remove the ':='"));
+            p.consume();
+        }
+    } else if is_interface {
+        if p.peek().kind() == SyntaxKind::ColonEqual {
+            p.error(format!("':=' to declare an interface is not supported. Remove the ':='"));
             p.consume();
         }
     } else if !is_new_component {
@@ -131,6 +157,8 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             drop(p.start_node(SyntaxKind::Element));
             return false;
         }
+    } else if p.peek().as_str() == "implements" {
+        p.consume();
     } else if p.peek().as_str() == "inherits" {
         p.consume();
     } else if p.peek().kind() == SyntaxKind::LBrace {
@@ -139,12 +167,12 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         parse_element_content(&mut *p);
         return p.expect(SyntaxKind::RBrace);
     } else {
-        p.error("Expected '{' or keyword 'inherits'");
+        p.error("Expected '{', keyword 'implements' or keyword 'inherits'");
         drop(p.start_node(SyntaxKind::Element));
         return false;
     }
 
-    if is_global && p.peek().kind() == SyntaxKind::LBrace {
+    if (is_global || is_interface) && p.peek().kind() == SyntaxKind::LBrace {
         let mut p = p.start_node(SyntaxKind::Element);
         p.consume();
         parse_element_content(&mut *p);
@@ -358,4 +386,60 @@ fn parse_import_identifier(p: &mut impl Parser) -> bool {
         }
     }
     true
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,UsesSpecifier
+/// uses { Interface from child }
+/// uses { Interface from child, }
+/// uses { Interface1 from child1, Interface2 from child2 }
+/// uses { Interface1 from child2, Qualified.Interface from child2 }
+/// uses { Qualified.Interface from child }
+/// uses { Qualified.Interface from child, }
+/// uses { Qualified.Interface from child1, Interface from child2 }
+/// uses { Interface from child1, Qualified.Interface from child2 }
+/// ```
+fn parse_uses_specifier(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "uses");
+    let mut p = p.start_node(SyntaxKind::UsesSpecifier);
+    p.expect(SyntaxKind::Identifier); // "uses"
+    if !p.expect(SyntaxKind::LBrace) {
+        return false;
+    }
+    loop {
+        if p.test(SyntaxKind::RBrace) {
+            return true;
+        }
+        if !parse_uses_identifier(&mut *p) {
+            return false;
+        }
+        if !p.test(SyntaxKind::Comma) && p.nth(0).kind() != SyntaxKind::RBrace {
+            p.error("Expected comma or brace");
+            return false;
+        }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,UsesIdentifier
+/// Interface from child
+/// Fully.Qualified.Interface from child-component
+/// ```
+fn parse_uses_identifier(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::UsesIdentifier);
+
+    if !parse_qualified_name(&mut *p) {
+        drop(p.start_node(SyntaxKind::DeclaredIdentifier));
+        return false;
+    }
+
+    if !(p.nth(0).kind() == SyntaxKind::Identifier && p.peek().as_str() == "from") {
+        p.error("Expected 'from' keyword in uses specifier");
+        drop(p.start_node(SyntaxKind::DeclaredIdentifier));
+        return false;
+    }
+    p.consume();
+
+    let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+    p.expect(SyntaxKind::Identifier)
 }
