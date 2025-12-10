@@ -82,6 +82,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::Struct { ty: _, values } => values.values().all(without_side_effects),
         Expression::PathData(_) => true,
         Expression::EasingCurve(_) => true,
+        Expression::MouseCursor(_) => true,
         Expression::LinearGradient { angle, stops } => {
             without_side_effects(angle)
                 && stops

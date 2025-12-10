@@ -63,6 +63,8 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "std")]
 pub use path::*;
+pub(crate) mod cursor;
+pub use cursor::*;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object

@@ -722,6 +722,14 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.body.insert(
+        "MouseCursor".to_owned(),
+        "    constexpr MouseCursor(MouseCursor::Tag tag = Tag::Default) : tag(tag) {}
+    MouseCursor(MouseCursor::Tag tag, Image image, int hotspot_x, int hotspot_y) : tag(tag), custom_cursor(image, hotspot_x, hotspot_y) {}
+    MouseCursor& operator=(const MouseCursor &other) { tag = other.tag; custom_cursor = other.custom_cursor; return *this; }
+    ~MouseCursor() {}
+        ".into()
+    );
 
     cbindgen::Builder::new()
         .with_config(config)
