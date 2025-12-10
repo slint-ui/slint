@@ -289,7 +289,8 @@ pub fn init_instance_adapter_device_queue_surface(
                 adapter
                     .request_device(&wgpu::DeviceDescriptor {
                         label: wgpu27_settings.device_label.as_deref(),
-                        required_features: wgpu27_settings.device_required_features,
+                        required_features: adapter.features()
+                            & wgpu27_settings.device_required_features,
                         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
                         required_limits: wgpu27_settings
                             .device_required_limits
@@ -353,7 +354,7 @@ pub fn init_instance_adapter_device_queue_surface(
                 adapter
                     .request_device(&wgpu::DeviceDescriptor {
                         label: None,
-                        required_features: wgpu::Features::empty(),
+                        required_features: adapter.features(),
                         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
                         required_limits: wgpu::Limits::downlevel_webgl2_defaults()
                             .using_resolution(adapter.limits()),
