@@ -14,6 +14,7 @@ export component TestCase inherits Window {
     in-out property <string> text <=> edit1.text;
     in-out property <bool> read-only <=> edit1.read-only;
     in-out property <bool> enabled <=> edit1.enabled;
+    in-out property <bool> font-italic <=> edit1.font-italic;
     in-out property <string> font-family <=> edit1.font-family;
     public function select-all() {
         edit1.select-all();
@@ -64,6 +65,12 @@ assert_eq!(instance.get_text(), "Hello👋");
 // Font Family
 instance.set_font_family("sans-sherif".into());
 assert_eq!(instance.get_font_family(), "sans-sherif");
+
+// Font Italic
+assert_eq!(instance.get_font_italic(), false);
+instance.set_font_italic(true);
+assert_eq!(instance.get_font_italic(), true);
+
 
 ```
 
