@@ -4,6 +4,7 @@
 export component LineEditBase inherits Rectangle {
     in property <string> placeholder-text;
     in property <length> font-size <=> text-input.font-size;
+    in property <string> font-family <=> text-input.font-family;
     in-out property <string> text <=> text-input.text;
     in-out property <brush> placeholder-color;
     in property <bool> enabled <=> text-input.enabled;
