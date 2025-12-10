@@ -199,10 +199,11 @@ pub fn any_wgpu26_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         }
         Some(_) => return false,
     };
+    let allow_cpu = std::env::var("SLINT_WGPU_CPU").map(|v| v == "1").unwrap_or(false);
     instance
         .enumerate_adapters(backends)
         .into_iter()
-        .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
+        .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu || allow_cpu)
 }
 
 /// Internal helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
