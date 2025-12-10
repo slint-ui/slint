@@ -410,6 +410,7 @@ pub enum PyValueType {
     StyledText,
     Enumeration,
     Keys,
+    MouseCursor,
 }
 
 impl From<i_slint_compiler::langtype::Type> for PyValueType {
@@ -436,6 +437,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::StyledText => PyValueType::StyledText,
             Type::Enumeration(..) => PyValueType::Enumeration,
             Type::Keys => PyValueType::Keys,
+            Type::MouseCursor => PyValueType::MouseCursor,
             _ => unimplemented!(),
         }
     }
