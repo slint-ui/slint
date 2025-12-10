@@ -165,6 +165,8 @@ jobs:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
+            - name: Update npm as Node 20.x might not have an new enough npm for trusted publishing
+              run: npm install -g npm@latest
             - name: Set version
               working-directory: api/node
               run: |
