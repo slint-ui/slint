@@ -132,7 +132,7 @@ jobs:
             - name: Create package
               shell: bash
               working-directory: api/node
-              run:
+              run: |
                   repo=`pnpm pkg get repository`
                   npx napi create-npm-dir -t . -c ./binaries.json
                   mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
