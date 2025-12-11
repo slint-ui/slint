@@ -879,7 +879,7 @@ pub fn draw_text(
     );
 
     let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, text.text(), None, Default::default());
+        create_text_paragraphs(&layout_builder, text.text(), None, text.link_color());
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
