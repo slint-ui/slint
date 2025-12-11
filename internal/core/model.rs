@@ -829,6 +829,14 @@ pub trait RepeatedItemTree:
     ) -> crate::layout::BoxLayoutCellData {
         crate::layout::BoxLayoutCellData::default()
     }
+
+    /// Returns what's needed to call organize_grid_layout layout if this ItemTree is in a grid layout
+    fn grid_layout_input_data(
+        self: Pin<&Self>,
+        new_row: bool,
+    ) -> crate::layout::GridLayoutInputData {
+        crate::layout::GridLayoutInputData { new_row, ..Default::default() }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

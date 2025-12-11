@@ -9,6 +9,7 @@ use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{
     BuiltinPrivateStruct, BuiltinPublicStruct, ElementType, Struct, StructName, Type,
 };
+use crate::layout::GridLayoutElement;
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -256,6 +257,7 @@ fn lower_sub_component(
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
+        grid_layout_input_for_repeated: None,
         accessible_prop: Default::default(),
         element_infos: Default::default(),
         prop_analysis: Default::default(),
@@ -545,6 +547,15 @@ fn lower_sub_component(
         crate::layout::Orientation::Vertical,
     )
     .into();
+    grid_layout_cell_for_component(component).map(|parent_grid_layout_cell| {
+        sub_component.grid_layout_input_for_repeated = Some(
+            super::lower_expression::get_grid_layout_input_for_repeated(
+                &mut ctx,
+                parent_grid_layout_cell,
+            )
+            .into(),
+        );
+    });
 
     sub_component.accessible_prop = accessible_prop
         .into_iter()
@@ -603,6 +614,33 @@ fn lower_sub_component(
     });
 
     LoweredSubComponent { sub_component, mapping }
+}
+
+fn grid_layout_cell_for_component(component: &Rc<Component>) -> Option<GridLayoutElement> {
+    let parent_element = component.parent_element.upgrade()?;
+    let parent_component = parent_element.borrow().enclosing_component.upgrade().unwrap();
+    let mut result = None;
+    let target_element = parent_element.clone();
+    object_tree::recurse_elem(&parent_component.root_element, &(), &mut |candidate, _| {
+        if result.is_some() {
+            return;
+        }
+        let candidate_ref = candidate.borrow();
+        for dbg in &candidate_ref.debug {
+            if let Some(crate::layout::Layout::GridLayout(grid)) = &dbg.layout {
+                if let Some(found) = grid
+                    .elems
+                    .iter()
+                    .find(|cell| Rc::ptr_eq(&cell.item.element, &target_element))
+                    .cloned()
+                {
+                    result = Some(found);
+                    break;
+                }
+            }
+        }
+    });
+    result
 }
 
 fn lower_geometry(
