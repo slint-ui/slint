@@ -420,7 +420,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))
-        .with_src(crate_dir.join("api/styled_text.rs"))
+        .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
         .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()

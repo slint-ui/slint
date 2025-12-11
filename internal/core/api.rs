@@ -11,14 +11,10 @@ This module contains types that are public and re-exported in the slint-rs as we
 pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
+pub use crate::styled_text::StyledText;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
-
-mod styled_text;
-pub use styled_text::StyledText;
-#[cfg(any(feature = "shared-parley"))]
-pub(crate) use styled_text::*;
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
