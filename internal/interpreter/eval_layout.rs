@@ -199,6 +199,26 @@ fn padding_and_spacing(
     (padding, spacing)
 }
 
+fn repeater_instances(
+    component: InstanceRef,
+    elem: &ElementRc,
+) -> Vec<crate::dynamic_item_tree::DynamicComponentVRc> {
+    generativity::make_guard!(guard);
+    let rep =
+        crate::dynamic_item_tree::get_repeater_by_name(component, elem.borrow().id.as_str(), guard);
+    rep.0.as_ref().ensure_updated(|| {
+        let instance = crate::dynamic_item_tree::instantiate(
+            rep.1.clone(),
+            component.self_weak().get().cloned(),
+            None,
+            None,
+            Default::default(),
+        );
+        instance
+    });
+    rep.0.as_ref().instances_vec()
+}
+
 fn grid_layout_input_data(
     grid_layout: &i_slint_compiler::layout::GridLayout,
     expr_eval: &impl Fn(&NamedReference) -> f32,
@@ -270,23 +290,7 @@ fn box_layout_data(
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
-            generativity::make_guard!(guard);
-            let rep = crate::dynamic_item_tree::get_repeater_by_name(
-                component,
-                cell.element.borrow().id.as_str(),
-                guard,
-            );
-            rep.0.as_ref().ensure_updated(|| {
-                let instance = crate::dynamic_item_tree::instantiate(
-                    rep.1.clone(),
-                    component.self_weak().get().cloned(),
-                    None,
-                    None,
-                    Default::default(),
-                );
-                instance
-            });
-            let component_vec = rep.0.as_ref().instances_vec();
+            let component_vec = repeater_instances(component, &cell.element);
             if let Some(ri) = repeater_indices.as_mut() {
                 ri.push(cells.len() as _);
                 ri.push(component_vec.len() as _);

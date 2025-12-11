@@ -23,6 +23,24 @@ tools = { "ruff" = "0.11.8" }
 description = "Run cargo fmt --all"
 run = "cargo fmt --all"
 
+["fix:rust:format:root"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "."
+
+["fix:rust:format:bevy"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "examples/bevy"
+
+["fix:rust:format:servo"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "examples/servo"
+
+["fix:rust:format:all"]
+depends = ["fix:rust:format:root", "fix:rust:format:bevy", "fix:rust:format:servo"]
+
 ["fix:toml:format"]
 description = "Run taplo format"
 run = "taplo format"
@@ -87,7 +105,7 @@ depends = [
   "fix:cpp:format",
   "fix:legal:copyright",
   "fix:python:format",
-  "fix:rust:format",
+  "fix:rust:format:all",
   "fix:text:trailing_spaces",
   "fix:toml:format",
   "fix:pnpm:lock",

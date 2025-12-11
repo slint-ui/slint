@@ -136,6 +136,8 @@ jobs:
                   npx napi create-npm-dir -t . -c ./binaries.json
                   mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
                   cd npm/${{ matrix.napi-rs-target }}/
+                  pnpm pkg set repository.type=git
+                  pnpm pkg set repository.url=https://github.com/slint-ui/slint
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     pnpm version $PKG_VERSION
                   fi
@@ -165,6 +167,8 @@ jobs:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
+            - name: Update npm as Node 20.x might not have an new enough npm for trusted publishing
+              run: npm install -g npm@latest
             - name: Set version
               working-directory: api/node
               run: |

@@ -114,11 +114,11 @@ inline static void register_item_tree(const vtable::VRc<ItemTreeVTable> *c,
 }
 
 inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutData &data,
-                                            cbindgen_private::Slice<int> repeater_indexes)
+                                            cbindgen_private::Slice<int> repeater_indices)
 {
     SharedVector<float> result;
     cbindgen_private::Slice<uint32_t> ri =
-            make_slice(reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len);
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
     cbindgen_private::slint_solve_box_layout(&data, ri, &result);
     return result;
 }

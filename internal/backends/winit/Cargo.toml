@@ -45,7 +45,14 @@ renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
-renderer-software = ["dep:softbuffer", "dep:imgref", "dep:rgb", "i-slint-renderer-software/systemfonts", "dep:bytemuck"]
+renderer-software = [
+  "dep:softbuffer",
+  "dep:imgref",
+  "dep:rgb",
+  "dep:i-slint-renderer-software",
+  "i-slint-renderer-software/std",
+  "dep:bytemuck",
+]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-26 = [

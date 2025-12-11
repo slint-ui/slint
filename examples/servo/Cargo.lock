@@ -3790,6 +3790,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-renderer-femtovg",
+ "i-slint-renderer-software",
  "input",
  "memmap2",
  "nix",
@@ -3849,6 +3850,7 @@ dependencies = [
  "i-slint-core-macros",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
+ "i-slint-renderer-software",
  "imgref",
  "lyon_path",
  "muda",
@@ -3913,19 +3915,16 @@ version = "1.15.0"
 dependencies = [
  "auto_enums",
  "bitflags 2.10.0",
- "bytemuck",
  "cfg-if",
  "chrono",
  "clru",
  "const-field-offset",
  "derive_more",
  "euclid",
- "fontdue",
  "htmlparser",
  "i-slint-common",
  "i-slint-core-macros",
  "image",
- "integer-sqrt",
  "lyon_algorithms",
  "lyon_extra",
  "lyon_geom",
@@ -3956,7 +3955,6 @@ dependencies = [
  "web-time",
  "webbrowser",
  "wgpu",
- "zeno",
 ]
 
 [[package]]
@@ -4030,6 +4028,24 @@ dependencies = [
  "windows-core 0.58.0",
  "windows-core 0.62.2",
  "write-fonts",
+]
+
+[[package]]
+name = "i-slint-renderer-software"
+version = "1.15.0"
+dependencies = [
+ "bytemuck",
+ "clru",
+ "derive_more",
+ "euclid",
+ "fontdue",
+ "i-slint-common",
+ "i-slint-core",
+ "integer-sqrt",
+ "lyon_path",
+ "num-traits",
+ "skrifa",
+ "zeno",
 ]
 
 [[package]]
@@ -8278,6 +8294,7 @@ name = "slint"
 version = "1.15.0"
 dependencies = [
  "const-field-offset",
+ "fontique",
  "i-slint-backend-android-activity",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
@@ -8286,6 +8303,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "i-slint-renderer-femtovg",
+ "i-slint-renderer-software",
  "num-traits",
  "once_cell",
  "pin-weak",

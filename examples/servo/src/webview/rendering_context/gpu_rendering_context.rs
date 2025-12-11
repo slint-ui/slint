@@ -7,11 +7,11 @@ use euclid::default::Size2D;
 use image::RgbaImage;
 use winit::dpi::PhysicalSize;
 
-use servo::{webrender_api::units::DeviceIntRect, RenderingContext};
+use servo::{RenderingContext, webrender_api::units::DeviceIntRect};
 
 use surfman::{
-    chains::{PreserveBuffer, SwapChain},
     Connection, Device, Surface, SurfaceTexture, SurfaceType,
+    chains::{PreserveBuffer, SwapChain},
 };
 
 use slint::wgpu_27::wgpu;
