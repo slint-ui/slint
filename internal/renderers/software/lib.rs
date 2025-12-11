@@ -763,37 +763,38 @@ impl RendererSealed for SoftwareRenderer {
         let font_request = text_item.font_request(item_rc);
         let font = fonts::match_font(&font_request, scale_factor);
 
-        match (font, parley_disabled(), text_item.text()) {
-            #[cfg(feature = "systemfonts")]
-            (fonts::Font::VectorFont(_), false, _) => {
-                sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
-            }
-            #[cfg(feature = "systemfonts")]
-            (fonts::Font::VectorFont(vf), true, PlainOrStyledText::Plain(text)) => {
-                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
-                let (longest_line_width, height) = layout.text_size(
-                    text.as_str(),
-                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
-                    text_wrap,
-                );
-                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
-                    .cast()
-            }
-            (fonts::Font::PixelFont(pf), _, PlainOrStyledText::Plain(text)) => {
-                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
-                let (longest_line_width, height) = layout.text_size(
-                    text.as_str(),
-                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
-                    text_wrap,
-                );
-                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
-                    .cast()
-            }
-            (_, true, PlainOrStyledText::Styled(_))
-            | (fonts::Font::PixelFont(_), _, PlainOrStyledText::Styled(_)) => {
-                panic!("Unable to get text size of styled text without parley")
-            }
+        #[cfg(feature = "systemfonts")]
+        if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap);
         }
+
+        let content = text_item.text();
+        let string = match &content {
+            PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
+            PlainOrStyledText::Styled(styled_text) => {
+                i_slint_core::styled_text::get_raw_text(styled_text)
+            }
+        };
+        let (longest_line_width, height) = match &font {
+            #[cfg(feature = "systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(vf, &font_request, scale_factor);
+                layout.text_size(
+                    &string,
+                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
+                    text_wrap,
+                )
+            }
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(pf, &font_request, scale_factor);
+                layout.text_size(
+                    &string,
+                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
+                    text_wrap,
+                )
+            }
+        };
+        (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
     }
 
     fn char_size(
@@ -2555,97 +2556,80 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        match (font, parley_disabled(), text.text()) {
-            #[cfg(feature = "systemfonts")]
-            (fonts::Font::VectorFont(_), false, _) => {
-                sharedparley::draw_text(self, text, Some(self_rc), size);
-            }
-            #[cfg(feature = "systemfonts")]
-            (fonts::Font::VectorFont(vf), true, PlainOrStyledText::Plain(string)) => {
-                if string.trim().is_empty() {
-                    return;
-                }
-                let geom = LogicalRect::from(size);
-                if !self.should_draw(&geom) {
-                    return;
-                }
-
-                let color = self.alpha_color(text.color().color());
-                let max_size = (geom.size.cast() * self.scale_factor).cast();
-
-                // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
-                // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
-                // FIXME: we should allow drawing outside of the Text element's boundaries.
-                let physical_clip =
-                    if let Some(logical_clip) = self.current_state.clip.intersection(&geom) {
-                        logical_clip.cast() * self.scale_factor
-                    } else {
-                        return; // This should have been caught earlier already
-                    };
-                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
-
-                let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
-                let (horizontal_alignment, vertical_alignment) = text.alignment();
-
-                let paragraph = TextParagraphLayout {
-                    string: &string,
-                    layout,
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
-                    horizontal_alignment,
-                    vertical_alignment,
-                    wrap: text.wrap(),
-                    overflow: text.overflow(),
-                    single_line: false,
-                };
-
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
-            }
-            (fonts::Font::PixelFont(pf), _, PlainOrStyledText::Plain(string)) => {
-                if string.trim().is_empty() {
-                    return;
-                }
-                let geom = LogicalRect::from(size);
-                if !self.should_draw(&geom) {
-                    return;
-                }
-
-                let color = self.alpha_color(text.color().color());
-                let max_size = (geom.size.cast() * self.scale_factor).cast();
-
-                // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
-                // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
-                // FIXME: we should allow drawing outside of the Text element's boundaries.
-                let physical_clip =
-                    if let Some(logical_clip) = self.current_state.clip.intersection(&geom) {
-                        logical_clip.cast() * self.scale_factor
-                    } else {
-                        return; // This should have been caught earlier already
-                    };
-                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
-
-                let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
-                let (horizontal_alignment, vertical_alignment) = text.alignment();
-
-                let paragraph = TextParagraphLayout {
-                    string: &string,
-                    layout,
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
-                    horizontal_alignment,
-                    vertical_alignment,
-                    wrap: text.wrap(),
-                    overflow: text.overflow(),
-                    single_line: false,
-                };
-
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
-            }
-            (_, true, PlainOrStyledText::Styled(_))
-            | (fonts::Font::PixelFont(_), _, PlainOrStyledText::Styled(_)) => {
-                panic!("Unable to get draw styled text without parley")
-            }
+        #[cfg(feature = "systemfonts")]
+        if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            sharedparley::draw_text(self, text, Some(self_rc), size);
+            return;
         }
+
+        let content = text.text();
+        let string = match &content {
+            PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
+            PlainOrStyledText::Styled(styled_text) => {
+                i_slint_core::styled_text::get_raw_text(styled_text)
+            }
+        };
+
+        if string.trim().is_empty() {
+            return;
+        }
+
+        let geom = LogicalRect::from(size);
+        if !self.should_draw(&geom) {
+            return;
+        }
+
+        let color = self.alpha_color(text.color().color());
+        let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+        // FIXME: we should allow drawing outside of the Text element's boundaries.
+        let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
+        {
+            logical_clip.cast() * self.scale_factor
+        } else {
+            return; // This should have been caught earlier already
+        };
+        let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+        let (horizontal_alignment, vertical_alignment) = text.alignment();
+
+        match &font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(pf, &font_request, self.scale_factor);
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment,
+                    vertical_alignment,
+                    wrap: text.wrap(),
+                    overflow: text.overflow(),
+                    single_line: false,
+                };
+
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            }
+            #[cfg(feature = "systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(vf, &font_request, self.scale_factor);
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment,
+                    vertical_alignment,
+                    wrap: text.wrap(),
+                    overflow: text.overflow(),
+                    single_line: false,
+                };
+
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            }
+        };
     }
 
     fn draw_text_input(

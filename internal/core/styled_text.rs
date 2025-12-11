@@ -536,6 +536,23 @@ new *line*
     );
 }
 
+pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
+    match styled_text.paragraphs.as_slice() {
+        [] => "".into(),
+        [paragraph] => paragraph.text.as_str().into(),
+        _ => {
+            let mut result = alloc::string::String::new();
+            for paragraph in styled_text.paragraphs.iter() {
+                if !result.is_empty() {
+                    result.push('\n');
+                }
+                result.push_str(paragraph.text.as_str());
+            }
+            result.into()
+        }
+    }
+}
+
 /// Bindings for cbindgen
 #[cfg(feature = "ffi")]
 pub mod ffi {
