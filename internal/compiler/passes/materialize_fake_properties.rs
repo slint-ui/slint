@@ -26,6 +26,14 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
             && let Some(ty) =
                 should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
         {
+            // This only brings more trouble down the line
+            if elem.repeated.is_some() {
+                panic!(
+                    "Cannot materialize fake property {} on repeated element {}",
+                    nr.name(),
+                    elem.id
+                );
+            }
             to_materialize.insert(nr.clone(), ty);
         }
     });

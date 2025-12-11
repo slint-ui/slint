@@ -3,15 +3,23 @@
 
 export component TestCase inherits Window {
     default-font-size: 20px;
-    width: 400phx;
+    width: 600phx;
     height: 300phx;
-    out property<string> clicked_text;
-    out property<bool> clicked: false;
+
+    property <[{ name: string, colspan: int}]> model_with_colspan: [
+        { name: "Jules", colspan: 1 },
+        { name: "Emile", colspan: 2 },
+        { name: "Charles", colspan: 1 },
+    ];
+
+    out property <string> clicked_text;
+    out property <bool> clicked: false;
 
     VerticalLayout {
         Rectangle {
             GridLayout {
-                padding-left: 10phx; padding-top: 20phx;
+                padding-left: 10phx;
+                padding-top: 20phx;
                 header_row := Row {
                     Text {
                         colspan: 3;
@@ -19,23 +27,28 @@ export component TestCase inherits Window {
                         height: 50phx;
                     }
                 }
+
                 Row {
-                    for _ in 3 : txt := Text {
+                    for _ in 3: txt := Text {
                         width: 200phx;
                         height: 50phx;
                         text: txt.row + ", " + txt.col;
-                        TouchArea { clicked => {
-                            clicked_text = txt.text;
-                            clicked = true;
-                        } }
+                        TouchArea {
+                            clicked => {
+                                clicked_text = txt.text;
+                                clicked = true;
+                            }
+                        }
                     }
                 }
+
                 Row {
                     // Optional item at the beginning of a row, to test that we set new_row correctly
-                    if clicked : Text {
+                    if clicked: optionalText := Text {
                         width: 200phx; // make sure column 0 doesn't grow larger
                         height: 50phx;
                         text: "Clicked!";
+                        colspan: 2;
                     }
                     // This element exists to test whether the conditional Text above is created or absent (end.col changes accordingly)
                     end := Text {
@@ -44,28 +57,33 @@ export component TestCase inherits Window {
                 }
             }
         }
+
         Rectangle {
             GridLayout {
                 before1 := Text {
                     text: "Cell before a repeater";
-                    height: 50phx;
                 }
                 // This one will have new_row=false, and shouldn't use a new_row local variable in the generated code
                 before2 := Text {
                     text: "Another cell before a repeater";
-                    height: 50phx;
                 }
-                for _ in 2 : repeated := Text {
-                    width: 200phx;
-                    height: 50phx;
-                    text: "repeated";
+
+                for entry in model_with_colspan: repeated := Text {
+                    text: entry.name + " (" + entry.colspan + ")";
+                    colspan: entry.colspan;
+                }
+                // This tests that a variable colspan (different between repeated items) works correctly
+                after := Text {
+                    text: "Cell after the repeater";
                 }
             }
         }
     }
-    property<bool> before_cells_ok: before1.row == 0 && before1.col == 0 && before2.row == 0 && before2.col == 1;
-    out property <bool> test: end.row == 2 && end.col == 0 && before_cells_ok;
-    out property <bool> test_after_clicked: end.row == 2 && end.col == 1 && clicked && before_cells_ok;
+
+    out property <bool> before_cells_ok: before1.row == 0 && before1.col == 0 && before2.row == 0 && before2.col == 1;
+    out property <bool> after_cell_ok: after.row == 0 && after.col == 6;
+    out property <bool> test: end.row == 2 && end.col == 0 && before_cells_ok && after_cell_ok;
+    out property <bool> test_after_clicked: end.row == 2 && end.col == 2 && clicked && before_cells_ok && after_cell_ok;
 }
 
 /*
@@ -86,6 +104,8 @@ assert_eq(instance.get_clicked_text(), "1, 2");
 
 ```rust
 let instance = TestCase::new().unwrap();
+assert!(instance.get_before_cells_ok());
+assert!(instance.get_after_cell_ok());
 assert!(instance.get_test());
 slint_testing::send_mouse_click(&instance, 10. + 5., 75.);
 assert_eq!(instance.get_clicked_text(), "1, 0");
