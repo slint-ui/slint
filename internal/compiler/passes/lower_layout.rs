@@ -389,7 +389,18 @@ impl GridLayout {
         }
 
         let propref_or_default = |name: &'static str| -> Option<RowColExpr> {
-            crate::layout::binding_reference(item_element, name).map(RowColExpr::Named)
+            let nr = crate::layout::binding_reference(item_element, name).map(|nr| {
+                // similar to adjust_references in repeater_component.rs (which happened before these references existed)
+                let e = nr.element();
+                let mut nr = nr.clone();
+                if e.borrow().repeated.is_some()
+                    && let crate::langtype::ElementType::Component(c) = e.borrow().base_type.clone()
+                {
+                    nr = NamedReference::new(&c.root_element, nr.name().clone())
+                };
+                nr
+            });
+            nr.map(RowColExpr::Named)
         };
 
         // MAX means "auto", see to_layout_data()

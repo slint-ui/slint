@@ -2522,18 +2522,19 @@ fn generate_sub_component(
 
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
-    root: &llr::CompilationUnit,
+    unit: &llr::CompilationUnit,
     parent_ctx: ParentScope,
     model_data_type: Option<&Type>,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
-    let repeater_id = ident(&root.sub_components[repeated.sub_tree.root].name);
+    let root_sc = &unit.sub_components[repeated.sub_tree.root];
+    let repeater_id = ident(&root_sc.name);
     let mut repeater_struct = Struct { name: repeater_id.clone(), ..Default::default() };
     generate_item_tree(
         &mut repeater_struct,
         &repeated.sub_tree,
-        root,
+        unit,
         Some(&parent_ctx),
         false,
         repeater_id.clone(),
@@ -2543,7 +2544,7 @@ fn generate_repeated_component(
     );
 
     let ctx = EvaluationContext {
-        compilation_unit: root,
+        compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(&parent_ctx)),
         generator_state: CppGeneratorContext { global_access: "self".into(), conditional_includes },
         argument_types: &[],
@@ -2618,6 +2619,23 @@ fn generate_repeated_component(
                 ..Function::default()
             }),
         ));
+        root_sc.grid_layout_input_for_repeated.as_ref().map(|expr| {
+            repeater_struct.members.push((
+                Access::Public, // Because Repeater accesses it
+                Declaration::Function(Function {
+                    name: "grid_layout_input_for_repeated".into(),
+                    signature:
+                        "(bool new_row) const -> slint::cbindgen_private::GridLayoutInputData"
+                            .to_owned(),
+
+                    statements: Some(vec![
+                        "[[maybe_unused]] auto self = this;".into(),
+                        format!("return {};", compile_expression(&expr.borrow(), &ctx)),
+                    ]),
+                    ..Function::default()
+                }),
+            ));
+        });
     }
 
     if let Some(index_prop) = repeated.index_prop {
@@ -4433,17 +4451,13 @@ fn grid_input_function(
                 write!(
                     push_code,
                     "{maybe_bool} new_row = {new_row};
-                    self->{id}.for_each([&](const auto &/*sub_comp*/) {{
-                        cells_vector.push_back({{ new_row, {col}, {row}, {colspan}, {rowspan} }});
+                    self->{id}.for_each([&](const auto &sub_comp) {{
+                        cells_vector.push_back(sub_comp->grid_layout_input_for_repeated(new_row));
                         new_row = false;
                     }});",
                     new_row = repeater.new_row,
                     maybe_bool = if has_new_row_bool { "" } else { "bool " },
                     id = repeater_id,
-                    col = u16::MAX,
-                    colspan = 1,
-                    row = u16::MAX,
-                    rowspan = 1,
                 )
                 .unwrap();
                 has_new_row_bool = true;
