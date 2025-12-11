@@ -17,17 +17,17 @@ export component StandardButton {
     HorizontalLayout {
         base := Button {
             text:
-                root.kind == StandardButtonKind.ok ? "OK" :
-                root.kind == StandardButtonKind.cancel ? "Cancel" :
-                root.kind == StandardButtonKind.apply ? "Apply" :
-                root.kind == StandardButtonKind.close ? "Close" :
-                root.kind == StandardButtonKind.reset ? "Reset" :
-                root.kind == StandardButtonKind.help ? "Help" :
-                root.kind == StandardButtonKind.yes ? "Yes" :
-                root.kind == StandardButtonKind.no ? "No" :
-                root.kind == StandardButtonKind.abort ? "Abort" :
-                root.kind == StandardButtonKind.retry ? "Retry" :
-                root.kind == StandardButtonKind.ignore ? "Ignore" : "";
+                root.kind == StandardButtonKind.ok ? @tr("OK") :
+                root.kind == StandardButtonKind.cancel ? @tr("Cancel") :
+                root.kind == StandardButtonKind.apply ? @tr("Apply") :
+                root.kind == StandardButtonKind.close ? @tr("Close") :
+                root.kind == StandardButtonKind.reset ? @tr("Reset") :
+                root.kind == StandardButtonKind.help ? @tr("Help") :
+                root.kind == StandardButtonKind.yes ? @tr("Yes") :
+                root.kind == StandardButtonKind.no ? @tr("No") :
+                root.kind == StandardButtonKind.abort ? @tr("Abort") :
+                root.kind == StandardButtonKind.retry ? @tr("Retry") :
+                root.kind == StandardButtonKind.ignore ? @tr("Ignore") : "";
         }
     }
 }
