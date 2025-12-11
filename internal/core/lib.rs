@@ -55,6 +55,7 @@ pub mod rtti;
 pub mod sharedvector;
 pub mod slice;
 pub mod string;
+pub mod styled_text;
 pub mod tests;
 pub mod textlayout;
 pub mod timers;
