@@ -9,7 +9,8 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer, euclid,
+    Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
+    euclid,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
@@ -1544,6 +1545,9 @@ pub struct QtWindow {
     tree_structure_changed: RefCell<bool>,
 
     color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
+
+    // Last icon image set on the window
+    window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 }
 
 impl Drop for QtWindow {
@@ -1578,6 +1582,7 @@ impl QtWindow {
                 cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
                 color_scheme: Default::default(),
+                window_icon_cache_key: Default::default(),
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -1841,16 +1846,30 @@ impl WindowAdapter for QtWindow {
         let background =
             into_qbrush(properties.background(), size.width.into(), size.height.into());
 
-        match (&window_item.icon()).into() {
-            &ImageInner::None => (),
+        let pixmap = match (&window_item.icon()).into() {
+            &ImageInner::None => {
+                if self.window_icon_cache_key.borrow().is_some() {
+                    self.window_icon_cache_key.borrow_mut().take();
+                    Some(qttypes::QPixmap::default())
+                } else {
+                    None
+                }
+            }
             r => {
-                if let Some(pixmap) = image_to_pixmap(r, None) {
-                    cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap"] {
-                        widget_ptr->setWindowIcon(QIcon(pixmap));
-                    }};
+                let icon_image_cache_key = ImageCacheKey::new(r);
+                if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
+                    *self.window_icon_cache_key.borrow_mut() = icon_image_cache_key;
+                    image_to_pixmap(r, None)
+                } else {
+                    None
                 }
             }
         };
+        if let Some(pixmap) = pixmap {
+            cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap"] {
+                widget_ptr->setWindowIcon(QIcon(pixmap));
+            }};
+        }
 
         let fullscreen: bool = properties.is_fullscreen();
         let minimized: bool = properties.is_minimized();
