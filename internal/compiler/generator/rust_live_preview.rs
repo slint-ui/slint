@@ -172,9 +172,8 @@ fn generate_public_component(
         quote!((#n.to_string(), #p.into()))
     });
     let translation_domain = compiler_config.translation_domain.iter();
-    let no_default_translation_context = compiler_config
-        .no_default_translation_context
-        .then(|| quote!(compiler.disable_default_translation_context();));
+    let no_default_translation_context = (compiler_config.default_translation_context == crate::DefaultTranslationContext::None)
+        .then(|| quote!(compiler.set_default_translation_context(sp::live_preview::DefaultTranslationContext::None);));
     let style = compiler_config.style.iter();
 
     quote!(

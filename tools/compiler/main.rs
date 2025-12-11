@@ -163,6 +163,10 @@ fn main() -> std::io::Result<()> {
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
     compiler_config.translation_domain = args.translation_domain;
+    if args.no_default_translation_context {
+        compiler_config.default_translation_context =
+            i_slint_compiler::DefaultTranslationContext::None;
+    }
 
     // Override defaults from command line:
     if let Some(embed) = args.embed_resources {

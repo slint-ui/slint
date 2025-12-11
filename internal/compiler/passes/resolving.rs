@@ -1029,8 +1029,10 @@ impl Expression {
             plural.unwrap_or((SmolStr::default(), Expression::NumberLiteral(1., Unit::None)));
 
         let context = context.or_else(|| {
-            if !ctx.type_loader.is_some_and(|tl| tl.compiler_config.no_default_translation_context)
-            {
+            if !ctx.type_loader.is_some_and(|tl| {
+                tl.compiler_config.default_translation_context
+                    == crate::DefaultTranslationContext::None
+            }) {
                 // Get the component name as a default
                 ctx.component_scope
                     .first()

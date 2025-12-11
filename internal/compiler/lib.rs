@@ -61,6 +61,22 @@ pub enum EmbedResourcesKind {
     EmbedTextures,
 }
 
+/// This enum allow to configure what translation context to use when no context is explicitly
+/// specified in the `@tr("context" => ...)` macro.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum DefaultTranslationContext {
+    /// The default translation context is the component name in which the `@tr` is written.
+    ///
+    /// This is the default behavior of `slint-tr-extractor`.
+    ComponentName,
+    /// Opt out of the default translation context.
+    ///
+    /// The translation file must also have no context for string which didn't specify a context.
+    /// (`slint-tr-extractor` must be invoked with `--no-default-translation-context` argument)
+    None,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 #[non_exhaustive]
 pub enum ComponentSelection {
@@ -143,8 +159,8 @@ pub struct CompilerConfiguration {
     /// When Some, this is the path where the translations are looked at to bundle the translations
     #[cfg(feature = "bundle-translations")]
     pub translation_path_bundle: Option<std::path::PathBuf>,
-    /// Disable the default translation context (the component name)
-    pub no_default_translation_context: bool,
+    /// Default translation context
+    pub default_translation_context: DefaultTranslationContext,
 
     /// Do not generate the hook to create native menus
     pub no_native_menu: bool,
@@ -245,7 +261,7 @@ impl CompilerConfiguration {
             accessibility: true,
             enable_experimental,
             translation_domain: None,
-            no_default_translation_context: false,
+            default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
             cpp_namespace,
             error_on_binding_loop_with_window_layout: false,
