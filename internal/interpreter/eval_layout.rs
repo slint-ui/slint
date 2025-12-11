@@ -94,11 +94,7 @@ pub(crate) fn organize_grid_layout(
     layout: &GridLayout,
     local_context: &mut EvalLocalContext,
 ) -> Value {
-    let component = local_context.component_instance;
-    let expr_eval = |nr: &NamedReference| -> f32 {
-        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
-    };
-    let cells = grid_layout_input_data(layout, local_context, &expr_eval);
+    let cells = grid_layout_input_data(layout, local_context);
     let repeater_indices = grid_repeater_indices(layout, local_context);
     if let Some(buttons_roles) = &layout.dialog_button_roles {
         let roles = buttons_roles
@@ -230,38 +226,46 @@ fn repeater_instances(
 fn grid_layout_input_data(
     grid_layout: &i_slint_compiler::layout::GridLayout,
     ctx: &EvalLocalContext,
-    expr_eval: &impl Fn(&NamedReference) -> f32,
 ) -> Vec<core_layout::GridLayoutInputData> {
     let component = ctx.component_instance;
     let mut result = Vec::with_capacity(grid_layout.elems.len());
     let mut after_repeater_in_same_row = false;
     let mut new_row = true;
     for cell in grid_layout.elems.iter() {
-        let eval_or_default = |expr: &RowColExpr| match expr {
+        let eval_or_default = |expr: &RowColExpr, component: InstanceRef| match expr {
             RowColExpr::Literal(value) => *value,
-            RowColExpr::Named(e) => {
-                let value = expr_eval(e);
+            RowColExpr::Named(nr) => {
+                let value: f32 = eval::load_property(component, &nr.element(), nr.name())
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
                 if value >= 0.0 && value <= u16::MAX as f32 {
                     value as u16
                 } else {
                     panic!(
                         "Expected a positive integer, but got {:?} while evaluating {:?}",
-                        value, e
+                        value, nr
                     );
                 }
             }
         };
-        let row = eval_or_default(&cell.row_expr);
-        let col = eval_or_default(&cell.col_expr);
-        let rowspan = eval_or_default(&cell.rowspan_expr);
-        let colspan = eval_or_default(&cell.colspan_expr);
+
         if cell.new_row {
             after_repeater_in_same_row = false;
         }
         if cell.item.element.borrow().repeated.is_some() {
             let component_vec = repeater_instances(component, &cell.item.element);
             new_row = cell.new_row;
-            for _ in &component_vec {
+            for erased_sub_comp in &component_vec {
+                // Evaluate the row/col/rowspan/colspan expressions in the context of the sub-component
+                generativity::make_guard!(guard);
+                let sub_comp = erased_sub_comp.as_pin_ref();
+                let sub_instance_ref =
+                    unsafe { InstanceRef::from_pin_ref(sub_comp.borrow(), guard) };
+                let row = eval_or_default(&cell.row_expr, sub_instance_ref);
+                let col = eval_or_default(&cell.col_expr, sub_instance_ref);
+                let rowspan = eval_or_default(&cell.rowspan_expr, sub_instance_ref);
+                let colspan = eval_or_default(&cell.colspan_expr, sub_instance_ref);
                 result.push(core_layout::GridLayoutInputData {
                     new_row,
                     col,
@@ -275,6 +279,10 @@ fn grid_layout_input_data(
         } else {
             let new_row =
                 if cell.new_row || !after_repeater_in_same_row { cell.new_row } else { new_row };
+            let row = eval_or_default(&cell.row_expr, component);
+            let col = eval_or_default(&cell.col_expr, component);
+            let rowspan = eval_or_default(&cell.rowspan_expr, component);
+            let colspan = eval_or_default(&cell.colspan_expr, component);
             result.push(core_layout::GridLayoutInputData { new_row, col, row, colspan, rowspan });
         }
     }

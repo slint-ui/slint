@@ -15,7 +15,7 @@ use super::{
 };
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
-use crate::layout::{Orientation, RowColExpr};
+use crate::layout::{GridLayoutElement, Orientation, RowColExpr};
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
@@ -1024,7 +1024,7 @@ fn grid_layout_input_data(
 ) -> GridLayoutInputDataResult {
     let propref_or_default = |named_ref: &RowColExpr| match named_ref {
         RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
-        RowColExpr::Named(e) => llr_Expression::PropertyReference(ctx.map_property_reference(e)),
+        RowColExpr::Named(nr) => llr_Expression::PropertyReference(ctx.map_property_reference(&nr)),
     };
     let input_data_for_cell = |cell: &crate::layout::GridLayoutElement,
                                new_row_expr: llr_Expression| {
@@ -1195,6 +1195,34 @@ pub fn get_layout_info(
     } else {
         layout_info
     }
+}
+
+pub fn get_grid_layout_input_for_repeated(
+    ctx: &mut ExpressionLoweringCtx,
+    grid_cell: GridLayoutElement,
+) -> llr_Expression {
+    let new_row_expr =
+        llr_Expression::ReadLocalVariable { name: SmolStr::new_static("new_row"), ty: Type::Bool };
+
+    fn convert_row_col_expr(expr: &RowColExpr, ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
+        match expr {
+            RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
+            RowColExpr::Named(nr) => {
+                llr_Expression::PropertyReference(ctx.map_property_reference(nr))
+            }
+        }
+    }
+
+    make_struct(
+        BuiltinPrivateStruct::GridLayoutInputData,
+        [
+            ("new_row", Type::Bool, new_row_expr),
+            ("row", Type::Int32, convert_row_col_expr(&grid_cell.row_expr, ctx)),
+            ("col", Type::Int32, convert_row_col_expr(&grid_cell.col_expr, ctx)),
+            ("rowspan", Type::Int32, convert_row_col_expr(&grid_cell.rowspan_expr, ctx)),
+            ("colspan", Type::Int32, convert_row_col_expr(&grid_cell.colspan_expr, ctx)),
+        ],
+    )
 }
 
 fn compile_path(

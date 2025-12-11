@@ -1183,6 +1183,20 @@ fn generate_sub_component(
 
     let layout_info_h = compile_expression_no_parenthesis(&component.layout_info_h.borrow(), &ctx);
     let layout_info_v = compile_expression_no_parenthesis(&component.layout_info_v.borrow(), &ctx);
+    let grid_layout_input_for_repeated_fn =
+        component.grid_layout_input_for_repeated.as_ref().map(|expr| {
+            let expr = compile_expression_no_parenthesis(&expr.borrow(), &ctx);
+            quote! {
+                fn grid_layout_input_for_repeated(
+                    self: ::core::pin::Pin<&Self>,
+                    new_row: bool,
+                ) -> sp::GridLayoutInputData {
+                    #![allow(unused)]
+                    let _self = self;
+                    #expr
+                }
+            }
+        });
 
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
@@ -1293,6 +1307,8 @@ fn generate_sub_component(
                     sp::Orientation::Vertical => #layout_info_v,
                 }
             }
+
+            #grid_layout_input_for_repeated_fn
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
@@ -1888,6 +1904,17 @@ fn generate_repeated_component(
     let root_sc = &unit.sub_components[repeated.sub_tree.root];
     let inner_component_id = self::inner_component_id(root_sc);
 
+    let grid_layout_input_data_fn = root_sc.grid_layout_input_for_repeated.as_ref().map(|_| {
+        quote! {
+            fn grid_layout_input_data(
+                self: ::core::pin::Pin<&Self>,
+                new_row: bool) -> sp::GridLayoutInputData
+            {
+                self.as_ref().grid_layout_input_for_repeated(new_row)
+            }
+        }
+    });
+
     let extra_fn = if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();
         let p_height = access_member(&listview.prop_height, &ctx).unwrap();
@@ -1903,13 +1930,14 @@ fn generate_repeated_component(
             }
         }
     } else {
-        // TODO: we could generate this code only if we know that this component is in a box layout
+        // TODO: we could generate this code only if we know that this component is in a layout
         quote! {
             fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
                 -> sp::BoxLayoutCellData
             {
                 sp::BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
             }
+            #grid_layout_input_data_fn
         }
     };
 
@@ -3477,14 +3505,8 @@ fn grid_input_function(
                         let internal_vec = _self.#repeater_id.instances_vec();
                         #ri
                         let mut new_row = #new_row;
-                        for _sub_comp in &internal_vec {
-                            items_vec.push(sp::GridLayoutInputData {
-                                    r#col: u16::MAX as _,
-                                    r#colspan: 1 as _,
-                                    r#new_row,
-                                    r#row: u16::MAX as _,
-                                    r#rowspan: 1 as _,
-                                });
+                        for sub_comp in &internal_vec {
+                            items_vec.push(sub_comp.as_pin_ref().grid_layout_input_data(new_row));
                             new_row = false;
                         }
                     ));
