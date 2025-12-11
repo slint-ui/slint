@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: lightgray;
+    StyledText {
+        width: 100%;
+        height: 100%;
+        color: #025;
+        text: @markdown("Normal *Italic* **Bold** \nHere is    a [link](https://slint.dev)\n* ``code   `c`  ``\n* <font color='#0a89'>colored **bold**</font> ");
+        horizontal-alignment: center;
+        vertical-alignment: bottom;
+        wrap: word-wrap;
+        font-size: 10px;
+    }
+}
