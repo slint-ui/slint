@@ -303,7 +303,7 @@ mod plural_rule_parser {
         }
     }
 
-    /// `<value> ('=='|'!='|'<'|'>'|'<='|'>=' <cmp_expr>)?`
+    /// `<value> ('=='|'==='|'!=='|'!='|'<'|'>'|'<='|'>=' <cmp_expr>)?`
     fn parse_cmp_expr(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let mut state = parse_value(string)?;
@@ -312,7 +312,9 @@ mod plural_rule_parser {
             return Ok(state);
         }
         for (token, op) in [
+            (b"===" as &[u8], '='),
             (b"==" as &[u8], '='),
+            (b"!==", '!'),
             (b"!=", '!'),
             (b"<=", '≤'),
             (b">=", '≥'),
@@ -453,5 +455,14 @@ mod plural_rule_parser {
             p("(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)"),
             "(((Mod(arg_0, 10.0) = 1.0) & (Mod(arg_0, 100.0) ! 11.0)) ? 0.0 : (((Mod(arg_0, 10.0) ≥ 2.0) & ((Mod(arg_0, 10.0) ≤ 4.0) & ((Mod(arg_0, 100.0) < 10.0) | (Mod(arg_0, 100.0) ≥ 20.0)))) ? 1.0 : 2.0))",
         );
+
+        // cz from Tolgee
+        assert_eq!(
+            p("(n === 1 ? 0 : (n >= 2 && n <= 4) ? 1 : 2)"),
+            "((arg_0 = 1.0) ? 0.0 : (((arg_0 ≥ 2.0) & (arg_0 ≤ 4.0)) ? 1.0 : 2.0))"
+        );
+
+        // de from Tolgee
+        assert_eq!(p("(n !== 1)"), "((arg_0 ! 1.0) ? 1.0 : 0.0)");
     }
 }
