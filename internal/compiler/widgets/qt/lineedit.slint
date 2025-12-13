@@ -1,12 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
+import {
+    LineEditBase,
+    LineEditClearIcon,
+    LineEditPasswordIcon,
+} from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <length> font-size <=> inner.font-size;
     in property <string> font-family <=> inner.font-family;
     in property <string> placeholder-text <=> inner.placeholder-text;
+    in property <bool> font-italic <=> inner.font-italic;
     in property <InputType> input-type;
     in property horizontal-alignment <=> inner.horizontal-alignment;
     in property read-only <=> inner.read-only;
@@ -23,7 +28,10 @@ export component LineEdit {
     accessible-value <=> text;
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
-    accessible-action-set-value(v) => { text = v; edited(v); }
+    accessible-action-set-value(v) => {
+        text = v;
+        edited(v);
+    }
 
     public function set-selection-offsets(start: int, end: int) {
         inner.set-selection-offsets(start, end);
