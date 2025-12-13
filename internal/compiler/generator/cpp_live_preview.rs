@@ -157,7 +157,7 @@ fn generate_public_component(
             component.name,
             compiler_config.style.as_ref().unwrap_or(&String::new()),
             compiler_config.translation_domain.as_ref().unwrap_or(&String::new()),
-            compiler_config.no_default_translation_context,
+            compiler_config.default_translation_context == crate::DefaultTranslationContext::None,
         ),
         format!(
             "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"

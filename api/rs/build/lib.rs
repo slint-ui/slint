@@ -59,6 +59,10 @@ use std::path::Path;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 
+/// Argument of [`CompilerConfiguration::with_default_translation_context()`]
+///
+pub use i_slint_compiler::DefaultTranslationContext;
+
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 #[derive(Clone)]
 pub struct CompilerConfiguration {
@@ -197,13 +201,16 @@ impl CompilerConfiguration {
     }
 
     /// Unless explicitly specified with the `@tr("context" => ...)`, the default translation context is the component name.
-    /// Use this option to disable the default translation context.
+    /// Use this option with [`DefaultTranslationContext::None`] to disable the default translation context.
     ///
     /// The translation file must also not have context
     /// (`--no-default-translation-context` argument of `slint-tr-extractor`)
     #[must_use]
-    pub fn without_default_translation_context(mut self) -> Self {
-        self.config.no_default_translation_context = true;
+    pub fn with_default_translation_context(
+        mut self,
+        default_translation_context: DefaultTranslationContext,
+    ) -> Self {
+        self.config.default_translation_context = default_translation_context;
         self
     }
 
