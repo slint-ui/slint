@@ -12,7 +12,7 @@ if(BOARD STREQUAL "native_sim/native/64")
     set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
     set(BOARD_CONF_NAME "native_sim_64")
 elseif(BOARD STREQUAL "mimxrt1170_evk@B/mimxrt1176/cm7")
-    set(Rust_CARGO_TARGET "thumbv7em-none-eabi")
+    set(Rust_CARGO_TARGET "thumbv7em-none-eabihf")
     set(BOARD_CONF_NAME "mimxrt1170_evk_mimxrt1176_cm7")
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
