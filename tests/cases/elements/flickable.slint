@@ -44,7 +44,7 @@ TestCase := Window {
     property<bool> inner_ta_has_hover: inner_ta.has_hover;
     property<int> clicked;
     property<int> double-clicked;
-    property <int> flicked;
+    property<int> flicked;
 }
 
 /*
@@ -233,6 +233,7 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 use slint::{LogicalPosition, platform::{WindowEvent, Key} };
 let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_offset_x(), 30.);
 assert_eq!(instance.get_offset_y(), 50.);
 
@@ -242,6 +243,7 @@ if !cfg!(target_os = "macos") {
     slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
     instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 15.0, delta_y: -60.0 });
     slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+    slint_testing::mock_elapsed_time(250);
     assert_eq!(instance.get_offset_x(), 30. + 60.);
     assert_eq!(instance.get_offset_y(), 50. - 15.);
 }
@@ -255,6 +257,7 @@ assert_eq!(instance.get_flicked(), 0);
 
 // test scrolling behaviour
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
+slint_testing::mock_elapsed_time(250);
 dbg!(instance.get_flicked());
 assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
 instance.set_flicked(0);
@@ -268,7 +271,8 @@ slint_testing::mock_elapsed_time(10000);
 assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
 instance.set_flicked(0);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 120.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_flicked(), -10500105); //flicked got called after drag
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_flicked(), -10682145); //flicked got called after drag
 instance.set_flicked(0);
 
 ```
