@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Def {
+    // Unnamespaced access
+    TouchArea {
+        mouse-cursor: ew-resize;
+    }
+
+    // Namespaced access
+    TouchArea {
+        mouse-cursor: MouseCursor.ew-resize;
+    }
+
+    // Custom cursor macro
+    TouchArea {
+        mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0, 0);
+    }
+
+    // Invalid unnamespaced access
+    TouchArea {
+        mouse-cursor: square-resize;
+//                    >           <error{Unknown unqualified identifier 'square-resize'}
+    }
+
+    // Invalid namespaced access
+    TouchArea {
+            mouse-cursor: MouseCursor.square-resize;
+//                                    >           <error{'square-resize' is not a member of the namespace Cursor}
+    }
+
+    // Custom cursor macro (one missing argument)
+    TouchArea {
+        mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0);
+//                                >    <error{Not enough arguments}
+    }
+
+    // Custom cursor macro (two missing arguments)
+    TouchArea {
+        mouse-cursor: MouseCursor.custom(@image-url("cursor.png"));
+//                                >    <error{Not enough arguments}
+    }
+
+    // Custom cursor macro (missing all arguments)
+    TouchArea {
+        mouse-cursor: MouseCursor.custom();
+//                                >    <error{Not enough arguments}
+    }
+}

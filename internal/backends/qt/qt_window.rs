@@ -1984,6 +1984,15 @@ impl WindowAdapterInternal for QtWindow {
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let widget_ptr = self.widget_ptr();
+        if let MouseCursor::CustomCursor { image, hotspot_x, hotspot_y } = cursor {
+            let pixmap: qttypes::QPixmap =
+                crate::qt_window::image_to_pixmap((&image).into(), None).unwrap_or_default();
+            cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap", hotspot_x as "int", hotspot_y as "int"] {
+                widget_ptr->setCursor(QCursor{pixmap, hotspot_x, hotspot_y});
+            }};
+            return;
+        }
+
         //unidirectional resize cursors are replaced with bidirectional ones
         let cursor_shape = match cursor {
             MouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,

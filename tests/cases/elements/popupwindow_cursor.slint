@@ -37,26 +37,26 @@ use slint::{platform::WindowEvent, LogicalPosition};
 use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(35.0, 35.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Help);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Help);
 slint_testing::send_mouse_click(&instance, 35., 35.);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(135.0, 35.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::NotAllowed);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::NotAllowed);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(35.0, 35.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 // Close the popup
 
 slint_testing::send_mouse_click(&instance, 135., 35.);
 // FIXME: it takes two events to get that correctly
-// assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Help);
+// assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Help);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(135.0, 35.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Help);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Help);
 ```
 
 */

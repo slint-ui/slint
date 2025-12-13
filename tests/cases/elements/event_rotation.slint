@@ -202,7 +202,7 @@ let double_click = |x, y| {
     slint_testing::send_mouse_click(&instance, x, y);
 };
 
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 // Test clicks on end of rotated child rectangle of rotated rectangle.
 // Click locations come from a screenshot

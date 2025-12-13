@@ -50,13 +50,13 @@ assert_eq!(edits.borrow().clone(), vec!["h", "he", "hel", "hell", "hello"]);
 // Test mouse cursor for issue 6444
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
 use slint::private_unstable_api::re_exports::MouseCursor;
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Text, "after previous click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Text, "after previous click");
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Middle });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Text, "Middle button pressed");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Text, "Middle button pressed");
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Middle });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Text, "Middle button released");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Text, "Middle button released");
 instance.window().dispatch_event(WindowEvent::PointerExited { });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 
 // test page up/down
 for x in 0..10 {

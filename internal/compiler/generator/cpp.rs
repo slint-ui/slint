@@ -7,7 +7,7 @@
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
 use std::collections::HashSet;
-use std::fmt::Write;
+use std::fmt::{Formatter, Write};
 use std::io::BufWriter;
 use std::sync::OnceLock;
 
@@ -457,7 +457,7 @@ pub mod cpp_ast {
 }
 
 use crate::CompilerConfiguration;
-use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
+use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, MouseCursor};
 use crate::langtype::{
     BuiltinPrivateStruct, BuiltinPublicStruct, Enumeration, EnumerationValue, NativeClass,
     StructName, Type,
@@ -559,6 +559,7 @@ impl CppType for Type {
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
+            Type::Cursor => Some("slint::cbindgen_private::MouseCursor".into()),
             _ => None,
         }
     }
@@ -3242,6 +3243,33 @@ fn native_prop_info<'a, 'b>(
     (&sub_component.items[*item_index].ty, prop_name)
 }
 
+impl std::fmt::Display for crate::expression_tree::ImageReference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
+            crate::expression_tree::ImageReference::AbsolutePath(path) => write!(
+                f,
+                r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
+                escape_string(path.as_str())
+            ),
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format!("slint_embedded_resource_{resource_id}");
+                write!(
+                    f,
+                    r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#,
+                    escape_string(extension)
+                )
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                write!(
+                    f,
+                    "slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})"
+                )
+            }
+        }
+    }
+}
+
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
@@ -3550,35 +3578,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
-        Expression::ImageReference { resource_ref, nine_slice } => {
-            let image = match resource_ref {
-                crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(
-                    r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                    escape_string(path.as_str())
-                ),
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format!("slint_embedded_resource_{resource_id}");
-                    format!(
-                        r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#,
-                        escape_string(extension)
-                    )
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    format!(
-                        "slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})"
-                    )
-                }
-            };
-            match &nine_slice {
-                Some([a, b, c, d]) => {
-                    format!(
-                        "([&] {{ auto image = {image}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
-                    )
-                }
-                None => image,
+        Expression::ImageReference { resource_ref, nine_slice } => match &nine_slice {
+            Some([a, b, c, d]) => {
+                format!(
+                    "([&] {{ auto image = {resource_ref}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
+                )
             }
-        }
+            None => format!("{resource_ref}"),
+        },
         Expression::Condition { condition, true_expr, false_expr } => {
             let ty = expr.ty(ctx);
             let cond_code = compile_expression(condition, ctx);
@@ -3643,6 +3650,96 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 )
             }
         }
+        Expression::MouseCursor(MouseCursor::Default) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Default".into()
+        }
+        Expression::MouseCursor(MouseCursor::None) => {
+            "slint::cbindgen_private::MouseCursor::Tag::None".into()
+        }
+        Expression::MouseCursor(MouseCursor::Help) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Help".into()
+        }
+        Expression::MouseCursor(MouseCursor::Pointer) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Pointer".into()
+        }
+        Expression::MouseCursor(MouseCursor::Progress) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Progress".into()
+        }
+        Expression::MouseCursor(MouseCursor::Wait) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Wait".into()
+        }
+        Expression::MouseCursor(MouseCursor::Crosshair) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Crosshair".into()
+        }
+        Expression::MouseCursor(MouseCursor::Text) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Text".into()
+        }
+        Expression::MouseCursor(MouseCursor::Alias) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Alias".into()
+        }
+        Expression::MouseCursor(MouseCursor::Copy) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Copy".into()
+        }
+        Expression::MouseCursor(MouseCursor::Move) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Move".into()
+        }
+        Expression::MouseCursor(MouseCursor::NoDrop) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NoDrop".into()
+        }
+        Expression::MouseCursor(MouseCursor::NotAllowed) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NotAllowed".into()
+        }
+        Expression::MouseCursor(MouseCursor::Grab) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Grab".into()
+        }
+        Expression::MouseCursor(MouseCursor::Grabbing) => {
+            "slint::cbindgen_private::MouseCursor::Tag::Grabbing".into()
+        }
+        Expression::MouseCursor(MouseCursor::ColResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::ColResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::RowResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::RowResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::NResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::EResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::EResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::SResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::SResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::WResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::WResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::NeResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NeResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::NwResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NwResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::SeResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::SeResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::SwResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::SwResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::EwResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::EwResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::NsResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NsResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::NeswResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NeswResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::NwseResize) => {
+            "slint::cbindgen_private::MouseCursor::Tag::NwseResize".into()
+        }
+        Expression::MouseCursor(MouseCursor::CustomCursor(image, hotspot_x, hotspot_y)) => format!(
+            "slint::cbindgen_private::MouseCursor(slint::cbindgen_private::MouseCursor::Tag::CustomCursor, {image}, {hotspot_x}, {hotspot_y})"
+        ),
         Expression::EasingCurve(EasingCurve::Linear) => {
             "slint::cbindgen_private::EasingCurve()".into()
         }

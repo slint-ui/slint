@@ -1243,6 +1243,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
+            Type::Cursor => property_info::<i_slint_core::items::MouseCursor>(),
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {

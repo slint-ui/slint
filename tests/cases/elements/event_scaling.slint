@@ -89,7 +89,7 @@ let instance = TestCase::new().unwrap();
     slint_testing::send_mouse_click(&instance, x, y);
 };*/
 
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.borrow().clone()), MouseCursor::Default);
 assert_eq!(instance.get_touch1(), 0);
 slint_testing::send_mouse_click(&instance, 1.0,1.0);
 assert_eq!(instance.get_touch1(), 1);

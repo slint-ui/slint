@@ -147,6 +147,8 @@ pub enum Expression {
 
     EasingCurve(crate::expression_tree::EasingCurve),
 
+    MouseCursor(crate::expression_tree::MouseCursor),
+
     LinearGradient {
         angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
@@ -251,6 +253,7 @@ impl Expression {
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
+            Type::Cursor => Expression::MouseCursor(crate::expression_tree::MouseCursor::default()),
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)?),
                 to: Type::Brush,
@@ -309,6 +312,7 @@ impl Expression {
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
+            Self::MouseCursor(_) => Type::Cursor,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
@@ -369,6 +373,7 @@ macro_rules! visit_impl {
             Expression::Array { values, .. } => values.$iter().for_each($visitor),
             Expression::Struct { values, .. } => values.$values().for_each($visitor),
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(_) => {}
             Expression::LinearGradient { angle, stops } => {
                 $visitor(angle);
                 for (a, b) in stops {

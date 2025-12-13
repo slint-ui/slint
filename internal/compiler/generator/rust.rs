@@ -13,7 +13,7 @@ Some convention used in the generated code:
 */
 
 use crate::CompilerConfiguration;
-use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, MouseCursor, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::{
@@ -24,7 +24,7 @@ use crate::object_tree::Document;
 use crate::typeloader::LibraryInfo;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote};
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
@@ -82,6 +82,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::Cursor => Some(quote!(sp::MouseCursor)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
@@ -127,6 +128,7 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::Cursor => Some(quote!(sp::MouseCursor)),
         _ => rust_primitive_type(ty),
     }
 }
@@ -2272,6 +2274,32 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
     quote!(&sp::ItemRc::new(#component_rc_tokens, #item_index_tokens))
 }
 
+impl quote::ToTokens for crate::expression_tree::ImageReference {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tks = match self {
+            crate::expression_tree::ImageReference::None => {
+                quote!(sp::Image::default())
+            }
+            crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                let path = path.as_str();
+                quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+            }
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                let format = proc_macro2::Literal::byte_string(extension.as_bytes());
+                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                quote!(
+                    sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
+                )
+            }
+        };
+        tokens.extend(tks);
+    }
+}
+
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => {
@@ -2540,31 +2568,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!( (#op #sub) )
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
-            let image = match resource_ref {
-                crate::expression_tree::ImageReference::None => {
-                    quote!(sp::Image::default())
-                }
-                crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = path.as_str();
-                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
-                }
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                    let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                    quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                    quote!(
-                        sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
-                    )
-                }
-            };
             match &nine_slice {
                 Some([a, b, c, d]) => {
-                    quote! {{ let mut image = #image; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
+                    quote! {{ let mut image = #resource_ref; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
                 }
-                None => image,
+                None => resource_ref.to_token_stream(),
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
@@ -2627,6 +2635,96 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
             quote!(#name.clone())
+        }
+        Expression::MouseCursor(MouseCursor::Default) => {
+            quote!(sp::MouseCursor::Default)
+        }
+        Expression::MouseCursor(MouseCursor::None) => {
+            quote!(sp::MouseCursor::None)
+        }
+        Expression::MouseCursor(MouseCursor::Help) => {
+            quote!(sp::MouseCursor::Help)
+        }
+        Expression::MouseCursor(MouseCursor::Pointer) => {
+            quote!(sp::MouseCursor::Pointer)
+        }
+        Expression::MouseCursor(MouseCursor::Progress) => {
+            quote!(sp::MouseCursor::Progress)
+        }
+        Expression::MouseCursor(MouseCursor::Wait) => {
+            quote!(sp::MouseCursor::Wait)
+        }
+        Expression::MouseCursor(MouseCursor::Crosshair) => {
+            quote!(sp::MouseCursor::Crosshair)
+        }
+        Expression::MouseCursor(MouseCursor::Text) => {
+            quote!(sp::MouseCursor::Text)
+        }
+        Expression::MouseCursor(MouseCursor::Alias) => {
+            quote!(sp::MouseCursor::Alias)
+        }
+        Expression::MouseCursor(MouseCursor::Copy) => {
+            quote!(sp::MouseCursor::Copy)
+        }
+        Expression::MouseCursor(MouseCursor::Move) => {
+            quote!(sp::MouseCursor::Move)
+        }
+        Expression::MouseCursor(MouseCursor::NoDrop) => {
+            quote!(sp::MouseCursor::NoDrop)
+        }
+        Expression::MouseCursor(MouseCursor::NotAllowed) => {
+            quote!(sp::MouseCursor::NotAllowed)
+        }
+        Expression::MouseCursor(MouseCursor::Grab) => {
+            quote!(sp::MouseCursor::Grab)
+        }
+        Expression::MouseCursor(MouseCursor::Grabbing) => {
+            quote!(sp::MouseCursor::Grabbing)
+        }
+        Expression::MouseCursor(MouseCursor::ColResize) => {
+            quote!(sp::MouseCursor::ColResize)
+        }
+        Expression::MouseCursor(MouseCursor::RowResize) => {
+            quote!(sp::MouseCursor::RowResize)
+        }
+        Expression::MouseCursor(MouseCursor::NResize) => {
+            quote!(sp::MouseCursor::NResize)
+        }
+        Expression::MouseCursor(MouseCursor::EResize) => {
+            quote!(sp::MouseCursor::EResize)
+        }
+        Expression::MouseCursor(MouseCursor::SResize) => {
+            quote!(sp::MouseCursor::SResize)
+        }
+        Expression::MouseCursor(MouseCursor::WResize) => {
+            quote!(sp::MouseCursor::WResize)
+        }
+        Expression::MouseCursor(MouseCursor::NeResize) => {
+            quote!(sp::MouseCursor::NeResize)
+        }
+        Expression::MouseCursor(MouseCursor::NwResize) => {
+            quote!(sp::MouseCursor::NwResize)
+        }
+        Expression::MouseCursor(MouseCursor::SeResize) => {
+            quote!(sp::MouseCursor::SeResize)
+        }
+        Expression::MouseCursor(MouseCursor::SwResize) => {
+            quote!(sp::MouseCursor::SwResize)
+        }
+        Expression::MouseCursor(MouseCursor::EwResize) => {
+            quote!(sp::MouseCursor::EwResize)
+        }
+        Expression::MouseCursor(MouseCursor::NsResize) => {
+            quote!(sp::MouseCursor::NsResize)
+        }
+        Expression::MouseCursor(MouseCursor::NeswResize) => {
+            quote!(sp::MouseCursor::NeswResize)
+        }
+        Expression::MouseCursor(MouseCursor::NwseResize) => {
+            quote!(sp::MouseCursor::NwseResize)
+        }
+        Expression::MouseCursor(MouseCursor::CustomCursor(image, hotspot_x, hotspot_y)) => {
+            quote!(sp::MouseCursor::CustomCursor { image: #image, hotspot_y: #hotspot_x, hotspot_x: #hotspot_y })
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
             quote!(sp::EasingCurve::Linear)

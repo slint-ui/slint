@@ -97,7 +97,7 @@ pub struct HeadlessWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    pub mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    pub mouse_cursor: RefCell<i_slint_core::items::MouseCursor>,
     renderer: SkiaRenderer,
 }
 
@@ -107,7 +107,7 @@ impl WindowAdapterInternal for HeadlessWindow {
     }
 
     fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
+        self.mouse_cursor.replace(cursor);
     }
 }
 
