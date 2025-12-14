@@ -118,7 +118,7 @@ jobs:
             uses: zephyrproject-rtos/action-zephyr-setup@v1.0.9
             with:
                 app-path: slint
-                manifest-file-name: demos/printerdemo/zephyr/west.yaml
+                manifest-file-name: demos/zephyr-common/west.yaml
                 sdk-version: 0.16.8
           - name: Export the Zephyr CMake package
             run: west zephyr-export
