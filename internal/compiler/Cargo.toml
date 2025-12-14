@@ -70,7 +70,7 @@ fdsm-ttf-parser = { version = "0.2", optional = true }
 nalgebra = { version = "0.34.0", optional = true }
 rayon = { workspace = true, optional = true }
 # translations
-polib = { version = "0.2", optional = true }
+polib = { version = "0.3", optional = true }
 
 pathdiff = { version = "0.2.3", optional = true }
 
