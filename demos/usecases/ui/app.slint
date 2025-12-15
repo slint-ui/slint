@@ -22,6 +22,11 @@ export component App inherits Window {
     background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.background;
 
     main-view := MainView {
+        x: root.safe-area-inset-left;
+        y: root.safe-area-inset-top;
+        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
+        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+
         break-layout: root.width < 480px;
     }
 

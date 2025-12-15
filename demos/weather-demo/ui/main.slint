@@ -87,6 +87,11 @@ export component AppWindow inherits Window {
     }
 
     stack := StackView {
+        x: root.safe-area-inset-left;
+        y: root.safe-area-inset-top;
+        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
+        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+        
         function show-page(pageType : PageType) {
             if (pageType == PageType.Main) {
                 self.current-index = 0;
