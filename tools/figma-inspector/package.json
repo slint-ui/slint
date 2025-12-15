@@ -26,7 +26,7 @@
     "@types/node": "catalog:",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.1",
+    "@vitejs/plugin-react": "5.1.2",
     "cross-env": "10.1.0",
     "jszip": "3.10.1",
     "shiki": "3.19.0",
@@ -39,8 +39,8 @@
   "dependencies": {
     "figma-kit": "1.0.0-beta.19",
     "html-react-parser": "5.2.10",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-rnd": "10.5.2",
     "zustand": "5.0.9"
   }
