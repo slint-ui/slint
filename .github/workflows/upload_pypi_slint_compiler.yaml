@@ -35,7 +35,7 @@ jobs:
         with:
           working-directory: tools/compiler
           args: --release --out wheelhouse --find-interpreter
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.os }}
           path: tools/compiler/wheelhouse/*.whl
@@ -48,7 +48,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - name: Build sdist
         run: uv build --sdist -o dist tools/compiler
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -64,12 +64,12 @@ jobs:
       id-token: write
     steps:
       - uses: astral-sh/setup-uv@v7
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           path: dist
           merge-multiple: true
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: sdist
           path: dist
@@ -89,12 +89,12 @@ jobs:
       id-token: write
     steps:
       - uses: astral-sh/setup-uv@v7
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           path: dist
           merge-multiple: true
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: sdist
           path: dist

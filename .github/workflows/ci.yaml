@@ -224,7 +224,7 @@ jobs:
               working-directory: ${{ runner.workspace }}/cppbuild
               run: cmake --build . --config Debug --target package
             - name: "Create C++ packages artifact"
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: cpp_bin-${{ matrix.os }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -246,7 +246,7 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
-            - uses: actions/download-artifact@v6
+            - uses: actions/download-artifact@v7
               with:
                   name: cpp_bin-ubuntu-22.04
                   path: cpp-package
@@ -557,7 +557,7 @@ jobs:
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Cache cargo-apk
               id: cargo-apk-cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cargo/bin/cargo-apk
                   key: cargo-apk-cache
@@ -628,7 +628,7 @@ jobs:
               working-directory: tools/figma-inspector
               run: pnpm zip
             - name: Archive zip
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: figma-plugin
                   path: tools/figma-inspector/zip

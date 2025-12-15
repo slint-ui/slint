@@ -76,7 +76,7 @@ jobs:
                   mv target/doc artifact/docs/rust
                   mv target/cppdocs/html artifact/docs/cpp
             - name: "Upload Rust/C++ Docs Artifacts"
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: docs-rust-cpp
                   path: artifact
@@ -155,7 +155,7 @@ jobs:
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
             - name: Upload test results
               if: always()
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                 name: playwright-test-report
                 path: docs/astro/playwright-report/
@@ -173,7 +173,7 @@ jobs:
                 mkdir -p artifact/docs
                 mv docs/astro/dist artifact/docs/slint
             - name: "Upload Astro Docs Artifacts"
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: docs-astro
                   path: artifact
@@ -220,7 +220,7 @@ jobs:
                   mv api/node/docs artifact/docs/node
                   mv api/python/slint/docs artifact/docs/python
             - name: "Upload Python/Node Docs Artifacts"
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: docs-node-python
                   path: artifact
