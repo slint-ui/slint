@@ -921,4 +921,10 @@ pub mod skia {
             core::mem::transmute(r)
         }
     }
+    
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_skia_renderer_render_to_buffer(r: SkiaRendererOpaque, buffer: &mut SharedPixelBuffer<Rgb8Pixel>) {
+        let r = unsafe { &*(r as *const SkiaRenderer) };
+        r.render_into_buffer(buffer).unwrap();
+    }
 }
