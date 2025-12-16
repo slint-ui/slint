@@ -1,0 +1,37 @@
+---
+title: Styled Text
+description: Styled Text
+---
+
+## Features
+
+Styled Text supports the following features:
+
+- Italics
+- Strikethroughs
+- Inline code
+- Links
+- Underlines via `<u>` tags
+- Colors via `color="..."` attributes in `<font>` tags
+- Ordered and unordered lists
+
+### Currently Unsupported
+
+- Headings
+- Images
+- Tables
+- Block Quotes
+- Subscripts
+- Superscripts
+- Horizontal rules
+- Footnotes
+- Math expressions
+- HTML Tags outside of `<u>` and `<font>`
+
+
+
+## Interpolation
+
+Text can be interpolated into strings for styled text with the `@markdown` macro. For example, `@markdown("Hello *{}*", "World")` becomes `"Hello *World"`.
+
+Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello {}", "*World*")` will become `"Hello \*World\*"v`
