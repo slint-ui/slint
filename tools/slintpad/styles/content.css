@@ -202,3 +202,7 @@
     content: "✓";
     padding-left: 5px;
 }
+
+.dialog.about_dialog .slint-logo-link {
+    display: inline-block;
+}
