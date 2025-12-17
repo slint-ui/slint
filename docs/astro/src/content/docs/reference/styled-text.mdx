@@ -3,7 +3,23 @@ title: Styled Text
 description: Styled Text
 ---
 
+import CodeSnippetMD from "@slint/common-files/src/components/CodeSnippetMD.astro";
+
+
 The `StyledText` type renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
+
+<CodeSnippetMD imagePath="/src/assets/generated/styled-text-example.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Styled Text Example'>
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 200px;
+    StyledText {
+      text: @markdown("This is a piece of <u>Styled Text</u>\nwith a red value inserted: <font color=\"red\">{}</font>", 55);
+    }
+}
+```
+</CodeSnippetMD>
+
 
 ## Features
 
@@ -29,8 +45,6 @@ Styled Text supports the following features:
 - Footnotes
 - Math expressions
 - HTML Tags outside of `<u>` and `<font>`
-
-
 
 ## Interpolation
 
