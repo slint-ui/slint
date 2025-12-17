@@ -3,6 +3,8 @@ title: Styled Text
 description: Styled Text
 ---
 
+The `StyledText` type renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
+
 ## Features
 
 Styled Text supports the following features:
@@ -32,6 +34,6 @@ Styled Text supports the following features:
 
 ## Interpolation
 
-Text can be interpolated into strings for styled text with the `@markdown` macro. For example, `@markdown("Hello *{}*", "World")` becomes `"Hello *World"`.
+Text can be interpolated into strings for styled text with the `@markdown` macro. For example, `@markdown("Hello *{}*", "World")` becomes `"Hello *World*"`.
 
-Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello {}", "*World*")` will become `"Hello \*World\*"v`
+Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello {}", "*World*")` will become `"Hello \*World\*"`
