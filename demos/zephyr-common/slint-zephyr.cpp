@@ -80,8 +80,7 @@ struct RotationInfo
             return rotation == RenderingRotation::Rotate180
                     || rotation == RenderingRotation::Rotate90;
         }
-        return rotation == RenderingRotation::Rotate180
-                || rotation == RenderingRotation::Rotate270;
+        return rotation == RenderingRotation::Rotate180 || rotation == RenderingRotation::Rotate270;
     }
 
     bool mirror_height() const
@@ -90,8 +89,7 @@ struct RotationInfo
             return rotation == RenderingRotation::Rotate270
                     || rotation == RenderingRotation::Rotate180;
         }
-        return rotation == RenderingRotation::Rotate90
-                || rotation == RenderingRotation::Rotate180;
+        return rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate180;
     }
 };
 
