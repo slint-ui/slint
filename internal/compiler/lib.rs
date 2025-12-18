@@ -61,7 +61,7 @@ pub enum EmbedResourcesKind {
     EmbedTextures,
 }
 
-/// This enum allow to configure what translation context to use when no context is explicitly
+/// This enum specifies the default translation context when no context is explicitly
 /// specified in the `@tr("context" => ...)` macro.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -72,8 +72,8 @@ pub enum DefaultTranslationContext {
     ComponentName,
     /// Opt out of the default translation context.
     ///
-    /// The translation file must also have no context for string which didn't specify a context.
-    /// (`slint-tr-extractor` must be invoked with `--no-default-translation-context` argument)
+    /// When using this option, invoke `slint-tr-extractor` with `--no-default-translation-context`
+    /// to make sure that the translation files have no context for strings which didn't specify a context.
     None,
 }
 
