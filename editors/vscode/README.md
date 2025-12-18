@@ -28,7 +28,7 @@ visible, it is not necessary to save the file.
 
 ## Reporting Issues
 
-Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/vscode-extension).
+Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/a:editor%20integration).
 
 <!-- lines below this marker are stripped from the release -->
 
