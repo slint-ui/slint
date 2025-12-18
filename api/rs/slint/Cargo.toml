@@ -170,11 +170,11 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software", "dep:fontique"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)
+## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. (Experimental)
+## windowing system.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)

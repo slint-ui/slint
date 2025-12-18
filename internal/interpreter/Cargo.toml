@@ -69,11 +69,11 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)
+## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. (Experimental)
+## windowing system. Requires libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Alias to a backend and renderer that depends on the platform.
