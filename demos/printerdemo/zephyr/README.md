@@ -83,6 +83,8 @@ The `-p always` option of the build command forces a pristine build. The Zephyr 
 
 ## Build and Run the Example on a Device
 
+### NXP MIMXRT1170-EVKB
+
 This sample has been tested on the [NXP MIMXRT1170-EVKB](https://docs.zephyrproject.org/latest/boards/nxp/mimxrt1170_evk/doc/index.html) with a [RK055HDMIPI4MA0 MIPI display](https://docs.zephyrproject.org/latest/boards/shields/rk055hdmipi4ma0/doc/index.html). The board/debug probe may require configuring as described [here](https://docs.zephyrproject.org/latest/boards/nxp/mimxrt1170_evk/doc/index.html#configuring-a-debug-probe).
 
 ```bash
@@ -90,5 +92,32 @@ This sample has been tested on the [NXP MIMXRT1170-EVKB](https://docs.zephyrproj
 west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/demos/printerdemo/zephyr -- -DSHIELD=rk055hdmipi4ma0 -DCMAKE_BUILD_TYPE=Release
 
 # Flash
+west flash
+```
+
+### Renesas EK-RZ/A3M
+
+This sample can run on the [Renesas EK-RZ/A3M](https://www.renesas.com/en/products/microcontrollers-microprocessors/rz-mpus/ek-rza3m-evaluation-kit-rza3m-mpu) evaluation kit with its 5-inch 720x1280 MIPI display.
+
+**Note:** The EK-RZ/A3M requires using Renesas's Zephyr fork. Replace step 4 of the prerequisites with:
+
+```bash
+# If Slint source is already checked out (use west-rza3m.yaml instead of west.yaml):
+cd ..
+west init -l --mf demos/zephyr-common/west-rza3m.yaml ./slint
+
+# If you do not have Slint source yet:
+west init -m https://github.com/slint-ui/slint --mr zephyr --mf demos/zephyr-common/west-rza3m.yaml slint-zephyr
+cd slint-zephyr
+
+# Checkout the repositories:
+west update
+```
+
+```bash
+# Build
+west build -b rza3m_ek -p always slint/demos/printerdemo/zephyr -- -DSHIELD=rtkapplcdms02001be -DCMAKE_BUILD_TYPE=Release
+
+# Flash (using J-Link)
 west flash
 ```
