@@ -138,10 +138,6 @@ compile time. You can enable or disable back-ends using the
 you would disable the `SLINT_FEATURE_BACKEND_WINIT` option in your CMake
 project configuration.
 
-The winit back-end needs a renderer. `SLINT_FEATURE_RENDERER_FEMTOVG` and
-`SLINT_FEATURE_RENDERER_SKIA` are the only stable renderers, the other ones are
-experimental.
-
 ### Cross-compiling
 
 It's possible to cross-compile Slint to a different target architecture when
