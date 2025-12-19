@@ -107,7 +107,7 @@ live-preview = ["dep:slint-interpreter"]
 #! with [`platform::set_platform()`].
 #!
 #! If you enable the Winit backend, you need to also include a renderer.
-#! `renderer-femtovg` is the only stable renderer, the other ones are experimental
+#! `renderer-femtovg` is the default renderer.
 #!
 #! It is also possible to select the backend and renderer at runtime when several
 #! are enabled, using the `SLINT_BACKEND`  environment variable.
@@ -170,11 +170,11 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software", "dep:fontique"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)
+## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. (Experimental)
+## windowing system.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)

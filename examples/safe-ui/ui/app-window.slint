@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AboutSlint, VerticalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    width: 320px;
+    height: 240px;
+    background: #ff000047;
+    VerticalBox {
+        AboutSlint {
+            preferred-height: 150px;
+        }
+    }
+
+    property <[color]> colors: [Colors.green, Colors.orange, Colors.red];
+    property <int> idx: 0;
+
+    Timer {
+        running: true;
+        interval: 1s;
+        triggered => {
+            idx = (idx + 1).mod(colors.length);
+        }
+    }
+
+    first := Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 40px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: colors[idx.mod(colors.length)];
+    }
+
+    second := Rectangle {
+        x: 50px;
+        y: 0px;
+        width: 40px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: colors[(idx + 1).mod(colors.length)];
+    }
+
+    third := Rectangle {
+        x: 100px;
+        y: 0px;
+        width: 40px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: colors[(idx + 2).mod(colors.length)];
+    }
+}

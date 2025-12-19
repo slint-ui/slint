@@ -43,10 +43,10 @@ Before you can run this example, make sure you have done the following:
    ```bash
    # If Slint source is already checked out (this adds the Zephyr source next to the Slint source):
    cd ..
-   west init -l --mf demos/printerdemo/zephyr/west.yaml ./slint
+   west init -l --mf demos/zephyr-common/west.yaml ./slint
 
    # If you do not have Slint source yet (this checks out Slint and Zephyr source into slint-zephyr):
-   west init -m https://github.com/slint-ui/slint --mr zephyr --mf demos/printerdemo/zephyr/west.yaml slint-zephyr
+   west init -m https://github.com/slint-ui/slint --mr zephyr --mf demos/zephyr-common/west.yaml slint-zephyr
    cd slint-zephyr
 
    # Checkout the repositories:

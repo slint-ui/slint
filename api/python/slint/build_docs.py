@@ -5,11 +5,13 @@ import slint
 import pdoc
 import pathlib
 import subprocess
+import typing
 
 
 doc = pdoc.doc.Module(slint)
 
-model_cls = doc.get("Model")
+model_cls = typing.cast(pdoc.doc.Class, doc.get("Model"))
+assert model_cls is not None
 for method in model_cls.inherited_members[("builtins", "PyModelBase")]:
     method.is_inherited = False
     if not method.name.startswith("_") and method.name != "init_self":

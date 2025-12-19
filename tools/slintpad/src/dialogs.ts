@@ -147,7 +147,7 @@ export function about_dialog() {
           <center>
           <h1>Welcome to SlintPad</h1>
 
-          <a href="https://slint.dev/" target="_blank"><img src="https://slint.dev/logo/slint-logo-simple-light.svg"></a>
+          <a href="https://slint.dev/" target="_blank" class="slint-logo-link"><img src="https://slint.dev/logo/slint-logo-simple-light.svg" width="141" height="42"></a>
           </center>
 
           <p><a href="https://slint.dev/" target="_blank">Slint</a> is a toolkit to efficiently develop fluid graphical user interfaces for

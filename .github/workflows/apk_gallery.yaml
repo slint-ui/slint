@@ -28,7 +28,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Cache APK build
               id: cache-apk
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: |
                       ui-libraries/material/target/release/apk/slint_material.apk
@@ -43,7 +43,7 @@ jobs:
                   target: aarch64-linux-android
             - name: Cache cargo-apk
               id: cargo-apk-cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cargo/bin/cargo-apk
                   key: cargo-apk-cache
@@ -66,7 +66,7 @@ jobs:
               working-directory: ui-libraries/material/examples/gallery
               run: cargo apk build --target aarch64-linux-android --lib --release
             - name: "Upload Artifacts"
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: apk_gallery
                   path: |

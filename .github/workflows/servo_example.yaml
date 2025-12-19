@@ -14,6 +14,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    name: servo ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
         # required for servo
@@ -29,9 +30,11 @@ jobs:
         working-directory: examples/servo
         run: cargo build --release
   android_build:
+    name: servo android
     runs-on: ubuntu-latest
     env:
       CARGO_INCREMENTAL: false
+      CARGO_PROFILE_DEV_DEBUG: 0
     steps:
       - uses: actions/checkout@v6
         # required for servo

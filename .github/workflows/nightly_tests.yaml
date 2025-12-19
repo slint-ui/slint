@@ -96,7 +96,7 @@ jobs:
                       extra-cmake-args: ''
                     - board: mimxrt1170_evk@B/mimxrt1176/cm7
                       toolchain: stable
-                      target: thumbv7em-none-eabi
+                      target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
         runs-on: ubuntu-22.04
@@ -118,7 +118,7 @@ jobs:
             uses: zephyrproject-rtos/action-zephyr-setup@v1.0.9
             with:
                 app-path: slint
-                manifest-file-name: demos/printerdemo/zephyr/west.yaml
+                manifest-file-name: demos/zephyr-common/west.yaml
                 sdk-version: 0.16.8
           - name: Export the Zephyr CMake package
             run: west zephyr-export
@@ -260,7 +260,7 @@ jobs:
             - name: "Screenshot"
               run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
             - name: Upload Screenshot Artifact
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                 name: ${{matrix.scheme}}-screenshot
                 path: ${{ matrix.scheme }}.png

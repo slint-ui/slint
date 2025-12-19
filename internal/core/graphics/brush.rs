@@ -365,7 +365,7 @@ impl ConicGradientBrush {
     /// Apply rotation to the gradient (CSS `from <angle>` syntax).
     ///
     /// The `from_angle` parameter is specified in degrees and rotates the entire gradient clockwise.
-    pub fn apply_rotation(&mut self, from_angle: f32) {
+    fn apply_rotation(&mut self, from_angle: f32) {
         // Convert degrees to normalized 0-1 range
         let normalized_from_angle = (from_angle / 360.0) - (from_angle / 360.0).floor();
 
@@ -445,7 +445,7 @@ impl ConicGradientBrush {
     }
 
     /// Returns the starting angle (rotation) of the conic gradient in degrees.
-    pub fn angle(&self) -> f32 {
+    fn angle(&self) -> f32 {
         self.0[0].position
     }
 

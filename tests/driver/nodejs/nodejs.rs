@@ -22,12 +22,13 @@ static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 
     // On Windows pnpm is 'pnpm.cmd', which Rust's process::Command doesn't look for as extension, because
     // it tries to emulate CreateProcess.
-    let pnpm = which::which("pnpm").unwrap();
+    let pnpm = which::which("pnpm").expect("pnpm must be installed to run the nodejs tests");
 
     // installs the slint node package dependencies
     let o = std::process::Command::new(pnpm.clone())
         .arg("install")
         .arg("--ignore-scripts")
+        .arg("--config.confirmModulesPurge=false") // https://github.com/pnpm/pnpm/issues/9973 (and 7727 for the solution)
         .current_dir(node_dir.clone())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -45,7 +46,7 @@ static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
-        .map_err(|err| format!("Could not launch pnpm install: {err}"))
+        .map_err(|err| format!("Could not launch pnpm run: {err}"))
         .unwrap();
 
     check_output(o);
