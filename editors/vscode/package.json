@@ -237,7 +237,7 @@
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },
   "dependencies": {
-    "fs-extra": "11.3.2",
+    "fs-extra": "11.3.3",
     "simple-git": "3.30.0",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1"
@@ -248,7 +248,7 @@
     "@types/fs-extra": "11.0.4",
     "@types/node": "catalog:",
     "@types/vscode": "1.82.0",
-    "esbuild": "0.27.1",
+    "esbuild": "0.27.2",
     "shx": "0.4.0",
     "typescript": "catalog:",
     "vscode-tmgrammar-test": "0.1.3"
