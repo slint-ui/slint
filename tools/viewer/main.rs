@@ -194,7 +194,8 @@ fn init_compiler(
     }
     #[cfg(feature = "gettext")]
     if args.no_default_translation_context {
-        compiler.disable_default_translation_context();
+        compiler
+            .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
     compiler.set_include_paths(args.include_paths.clone());
     compiler.set_library_paths(

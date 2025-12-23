@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 //re-export for the generated code:
-pub use crate::{Compiler, ComponentInstance, Value};
+pub use crate::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 
 /// This struct is used to compile and instantiate a component from a .slint file on disk.
 /// The file is watched for changes and the component is recompiled and instantiated
@@ -357,7 +357,7 @@ mod ffi {
                 .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().into());
         }
         if no_default_translation_context {
-            compiler.disable_default_translation_context();
+            compiler.set_default_translation_context(crate::DefaultTranslationContext::None);
         }
         Rc::into_raw(
             LiveReloadingComponent::new(

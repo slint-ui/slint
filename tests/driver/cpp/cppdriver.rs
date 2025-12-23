@@ -37,7 +37,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
     }
     if source.contains("//no-default-translation-context") {
-        compiler_config.no_default_translation_context = true;
+        compiler_config.default_translation_context =
+            i_slint_compiler::DefaultTranslationContext::None;
     }
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));

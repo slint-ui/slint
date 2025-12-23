@@ -41,6 +41,10 @@ pub use i_slint_core::{
     string::{SharedString, ToSharedString},
 };
 
+/// Argument of [`Compiler::set_default_translation_context()`]
+///
+pub use i_slint_compiler::DefaultTranslationContext;
+
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -815,12 +819,15 @@ impl Compiler {
     }
 
     /// Unless explicitly specified with the `@tr("context" => ...)`, the default translation context is the component name.
-    /// Use this option to disable the default translation context.
+    /// Use this option with [`DefaultTranslationContext::None`] to disable the default translation context.
     ///
     /// The translation file must also not have context
     /// (`--no-default-translation-context` argument of `slint-tr-extractor`)
-    pub fn disable_default_translation_context(&mut self) {
-        self.config.no_default_translation_context = true;
+    pub fn set_default_translation_context(
+        &mut self,
+        default_translation_context: DefaultTranslationContext,
+    ) {
+        self.config.default_translation_context = default_translation_context;
     }
 
     /// Sets the callback that will be invoked when loading imported .slint files. The specified
