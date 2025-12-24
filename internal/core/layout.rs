@@ -690,7 +690,7 @@ pub fn organize_grid_layout(
         }
 
         generator.add(col, cell.colspan, row, cell.rowspan);
-        col += 1;
+        col += cell.colspan;
     }
     organized_data
 }
@@ -1126,6 +1126,48 @@ mod tests {
 
         assert_eq!(result.max_value(num_cells, Orientation::Horizontal, &repeater_indices), 4);
         assert_eq!(result.max_value(num_cells, Orientation::Vertical, &repeater_indices), 8);
+    }
+
+    #[test]
+    fn test_organize_data_with_auto_and_spans() {
+        let input = std::vec![
+            GridLayoutInputData {
+                new_row: true,
+                col: u16::MAX,
+                row: u16::MAX,
+                colspan: 2,
+                rowspan: 1,
+            },
+            GridLayoutInputData {
+                new_row: false,
+                col: u16::MAX,
+                row: u16::MAX,
+                colspan: 1,
+                rowspan: 2,
+            },
+            GridLayoutInputData {
+                new_row: true,
+                col: u16::MAX,
+                row: u16::MAX,
+                colspan: 2,
+                rowspan: 1,
+            },
+        ];
+        let repeater_indices = Slice::from_slice(&[]);
+        let organized_data = organize_grid_layout(Slice::from_slice(&input), repeater_indices);
+        assert_eq!(
+            organized_data.as_slice(),
+            &[
+                0, 2, 0, 1, // row 0, col 0
+                2, 1, 0, 2, // row 0, col 2 (due to colspan of first cell)
+                0, 2, 1, 1, // row 1, col 0
+            ]
+        );
+        let collected_data =
+            collect_from_organized_data(&organized_data, input.len(), repeater_indices);
+        assert_eq!(collected_data.as_slice(), &[(0, 2, 0, 1), (2, 1, 0, 2), (0, 2, 1, 1)]);
+        assert_eq!(organized_data.max_value(3, Orientation::Horizontal, &repeater_indices), 3);
+        assert_eq!(organized_data.max_value(3, Orientation::Vertical, &repeater_indices), 2);
     }
 
     #[test]
