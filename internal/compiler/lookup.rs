@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursor, Unit,
 };
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
@@ -117,6 +117,7 @@ pub enum LookupResultCallable {
 pub enum BuiltinNamespace {
     Colors,
     Easing,
+    Cursor,
     Math,
     Key,
     SlintInternal,
@@ -198,6 +199,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::Easing) => {
                 EasingSpecific.for_each_entry(ctx, f)
             }
+            LookupResult::Namespace(BuiltinNamespace::Cursor) => {
+                CursorSpecific.for_each_entry(ctx, f)
+            }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
@@ -215,6 +219,7 @@ impl LookupObject for LookupResult {
                 (ColorSpecific, ColorFunctions).lookup(ctx, name)
             }
             LookupResult::Namespace(BuiltinNamespace::Easing) => EasingSpecific.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::Cursor) => CursorSpecific.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
@@ -591,6 +596,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Color => ColorSpecific.for_each_entry(ctx, f),
             Type::Brush => ColorSpecific.for_each_entry(ctx, f),
             Type::Easing => EasingSpecific.for_each_entry(ctx, f),
+            Type::Cursor => CursorSpecific.for_each_entry(ctx, f),
             Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
             _ => None,
         }
@@ -601,6 +607,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Color => ColorSpecific.lookup(ctx, name),
             Type::Brush => ColorSpecific.lookup(ctx, name),
             Type::Easing => EasingSpecific.lookup(ctx, name),
+            Type::Cursor => CursorSpecific.lookup(ctx, name),
             Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
             _ => None,
         }
@@ -702,6 +709,48 @@ impl LookupObject for EasingSpecific {
         r.or_else(|| {
             f(&SmolStr::new_static("cubic-bezier"), BuiltinMacroFunction::CubicBezier.into())
         })
+    }
+}
+
+struct CursorSpecific;
+impl LookupObject for CursorSpecific {
+    fn for_each_entry<R>(
+        &self,
+        _ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let mut curve = |n, e| f(&SmolStr::new_static(n), Expression::MouseCursor(e).into());
+        let r = None
+            .or_else(|| curve("default", MouseCursor::Default))
+            .or_else(|| curve("none", MouseCursor::None))
+            .or_else(|| curve("help", MouseCursor::Help))
+            .or_else(|| curve("pointer", MouseCursor::Pointer))
+            .or_else(|| curve("progress", MouseCursor::Progress))
+            .or_else(|| curve("wait", MouseCursor::Wait))
+            .or_else(|| curve("crosshair", MouseCursor::Crosshair))
+            .or_else(|| curve("text", MouseCursor::Text))
+            .or_else(|| curve("alias", MouseCursor::Alias))
+            .or_else(|| curve("copy", MouseCursor::Copy))
+            .or_else(|| curve("move", MouseCursor::Move))
+            .or_else(|| curve("no-drop", MouseCursor::NoDrop))
+            .or_else(|| curve("not-allowed", MouseCursor::NotAllowed))
+            .or_else(|| curve("grab", MouseCursor::Grab))
+            .or_else(|| curve("grabbing", MouseCursor::Grabbing))
+            .or_else(|| curve("col-resize", MouseCursor::ColResize))
+            .or_else(|| curve("row-resize", MouseCursor::RowResize))
+            .or_else(|| curve("n-resize", MouseCursor::NResize))
+            .or_else(|| curve("e-resize", MouseCursor::EResize))
+            .or_else(|| curve("s-resize", MouseCursor::SResize))
+            .or_else(|| curve("w-resize", MouseCursor::WResize))
+            .or_else(|| curve("ne-resize", MouseCursor::NeResize))
+            .or_else(|| curve("nw-resize", MouseCursor::NwResize))
+            .or_else(|| curve("se-resize", MouseCursor::SeResize))
+            .or_else(|| curve("sw-resize", MouseCursor::SwResize))
+            .or_else(|| curve("ew-resize", MouseCursor::EwResize))
+            .or_else(|| curve("ns-resize", MouseCursor::NsResize))
+            .or_else(|| curve("nesw-resize", MouseCursor::NeswResize))
+            .or_else(|| curve("nwse-resize", MouseCursor::NwseResize));
+        r.or_else(|| f(&SmolStr::new_static("custom"), BuiltinMacroFunction::CustomCursor.into()))
     }
 }
 
@@ -848,6 +897,7 @@ impl LookupObject for BuiltinNamespaceLookup {
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Easing", LookupResult::Namespace(BuiltinNamespace::Easing)))
+            .or_else(|| f("MouseCursor", LookupResult::Namespace(BuiltinNamespace::Cursor)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Key", LookupResult::Namespace(BuiltinNamespace::Key)))
             .or_else(|| {

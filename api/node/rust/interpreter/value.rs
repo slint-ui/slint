@@ -294,7 +294,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         | Type::LayoutCache
         | Type::ArrayOfU16
         | Type::ElementReference
-        | Type::StyledText => Err(napi::Error::from_reason("reason")),
+        | Type::StyledText => Err(napi::Error::from_reason("reason")) | Type::Cursor,
     }
 }
 
