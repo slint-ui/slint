@@ -596,6 +596,42 @@ impl SkiaRenderer {
         )
     }
 
+    pub fn render_to_buffer(
+        &self,
+        target_buffer: &mut SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+    ) -> Result<Option<DirtyRegion>, PlatformError> {
+        let window_adapter = self.window_adapter()?;
+        let window = window_adapter.window();
+        let size = window_adapter.window().size();
+        let (width, height) = (size.width, size.height);
+
+        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
+            &skia_safe::ImageInfo::new(
+                (width as i32, height as i32),
+                skia_safe::ColorType::RGBA8888,
+                skia_safe::AlphaType::Opaque,
+                None,
+            ),
+            target_buffer.make_mut_bytes(),
+            None,
+            None,
+        )
+        .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
+
+        let dirty_region = self.render_to_canvas(
+            surface_borrow.canvas(),
+            0.,
+            (0.0, 0.0),
+            None,
+            0,
+            None,
+            window,
+            None,
+        );
+
+        Ok(dirty_region)
+    }
+
     fn render_to_canvas(
         &self,
         skia_canvas: &skia_safe::Canvas,
@@ -959,27 +995,11 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         &self,
     ) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
         let window_adapter = self.window_adapter()?;
-        let window = window_adapter.window();
         let size = window_adapter.window().size();
         let (width, height) = (size.width, size.height);
         let mut target_buffer =
             SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
-
-        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-            &skia_safe::ImageInfo::new(
-                (width as i32, height as i32),
-                skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
-                None,
-            ),
-            target_buffer.make_mut_bytes(),
-            None,
-            None,
-        )
-        .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
-
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window, None);
-
+        self.render_to_buffer(&mut target_buffer)?;
         Ok(target_buffer)
     }
 
