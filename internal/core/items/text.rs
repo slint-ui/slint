@@ -1411,7 +1411,7 @@ impl TextInputVisualRepresentation {
         }
         self.text_without_password = Some(core::mem::replace(
             text,
-            core::iter::repeat(password_character).take(text.chars().count()).collect(),
+            core::iter::repeat_n(password_character, text.chars().count()).collect(),
         ));
         self.password_character = password_character;
     }
