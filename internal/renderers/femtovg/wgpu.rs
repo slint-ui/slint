@@ -61,12 +61,7 @@ impl GraphicsBackend for WGPUBackend {
                 let mut device = self.device.borrow_mut();
                 let device = device.as_mut().unwrap();
 
-                self.surface
-                    .borrow_mut()
-                    .as_mut()
-                    .unwrap()
-                    .configure(device, self.surface_config.borrow().as_ref().unwrap());
-
+                surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
                 surface.get_current_texture()?
             }
         };
