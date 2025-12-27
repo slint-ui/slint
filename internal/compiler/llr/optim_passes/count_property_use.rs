@@ -69,6 +69,9 @@ pub fn count_property_use(root: &CompilationUnit) {
         // 5. the layout info
         sc.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
         sc.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);
+        if let Some(e) = &sc.grid_layout_input_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
 
         // 6. accessibility props and geometries
         for b in sc.accessible_prop.values() {

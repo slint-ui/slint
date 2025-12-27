@@ -821,12 +821,21 @@ pub trait RepeatedItemTree:
         LogicalLength::default()
     }
 
-    /// Returns what's needed to perform the layout if this ItemTrees is in a box layout
+    /// Returns what's needed to perform the layout if this ItemTree is in a layout
+    // PENDING(dfaure) rename to layout_cell_info, this is also used by grid layouts
     fn box_layout_data(
         self: Pin<&Self>,
         _orientation: Orientation,
     ) -> crate::layout::BoxLayoutCellData {
         crate::layout::BoxLayoutCellData::default()
+    }
+
+    /// Returns what's needed to call organize_grid_layout layout if this ItemTree is in a grid layout
+    fn grid_layout_input_data(
+        self: Pin<&Self>,
+        new_row: bool,
+    ) -> crate::layout::GridLayoutInputData {
+        crate::layout::GridLayoutInputData { new_row, ..Default::default() }
     }
 }
 
