@@ -213,8 +213,8 @@ export function removeLeadingSpaces(input: string, spaces = 4): string {
 }
 
 export const trim = (str = "", ch?: string) => {
-    let start = 0,
-        end = str.length || 0;
+    let start = 0;
+    let end = str.length || 0;
     while (start < end && str[start] === ch) {
         ++start;
     }
