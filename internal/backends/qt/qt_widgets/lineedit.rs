@@ -3,7 +3,6 @@
 
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::input::FocusEventResult;
-use i_slint_core::items::InputType;
 
 use super::*;
 
@@ -18,7 +17,6 @@ pub struct NativeLineEdit {
     pub native_padding_bottom: Property<LogicalLength>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
-    pub input_type: Property<InputType>,
     pub clear_icon: Property<Image>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
