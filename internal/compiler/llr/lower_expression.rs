@@ -1022,25 +1022,25 @@ fn grid_layout_input_data(
     layout: &crate::layout::GridLayout,
     ctx: &mut ExpressionLoweringCtx,
 ) -> GridLayoutInputDataResult {
-    let propref_or_default = |named_ref: &RowColExpr| match named_ref {
+    let propref = |named_ref: &RowColExpr| match named_ref {
         RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
         RowColExpr::Named(nr) => llr_Expression::PropertyReference(ctx.map_property_reference(&nr)),
     };
     let input_data_for_cell = |cell: &crate::layout::GridLayoutElement,
                                new_row_expr: llr_Expression| {
-        let row_expr = propref_or_default(&cell.row_expr);
-        let col_expr = propref_or_default(&cell.col_expr);
-        let rowspan_expr = propref_or_default(&cell.rowspan_expr);
-        let colspan_expr = propref_or_default(&cell.colspan_expr);
+        let row_expr = propref(&cell.row_expr);
+        let col_expr = propref(&cell.col_expr);
+        let rowspan_expr = propref(&cell.rowspan_expr);
+        let colspan_expr = propref(&cell.colspan_expr);
 
         make_struct(
             BuiltinPrivateStruct::GridLayoutInputData,
             [
                 ("new_row", Type::Bool, new_row_expr),
-                ("row", Type::Int32, row_expr),
-                ("col", Type::Int32, col_expr),
-                ("rowspan", Type::Int32, rowspan_expr),
-                ("colspan", Type::Int32, colspan_expr),
+                ("row", Type::Float32, row_expr),
+                ("col", Type::Float32, col_expr),
+                ("rowspan", Type::Float32, rowspan_expr),
+                ("colspan", Type::Float32, colspan_expr),
             ],
         )
     };
@@ -1217,10 +1217,10 @@ pub fn get_grid_layout_input_for_repeated(
         BuiltinPrivateStruct::GridLayoutInputData,
         [
             ("new_row", Type::Bool, new_row_expr),
-            ("row", Type::Int32, convert_row_col_expr(&grid_cell.row_expr, ctx)),
-            ("col", Type::Int32, convert_row_col_expr(&grid_cell.col_expr, ctx)),
-            ("rowspan", Type::Int32, convert_row_col_expr(&grid_cell.rowspan_expr, ctx)),
-            ("colspan", Type::Int32, convert_row_col_expr(&grid_cell.colspan_expr, ctx)),
+            ("row", Type::Float32, convert_row_col_expr(&grid_cell.row_expr, ctx)),
+            ("col", Type::Float32, convert_row_col_expr(&grid_cell.col_expr, ctx)),
+            ("rowspan", Type::Float32, convert_row_col_expr(&grid_cell.rowspan_expr, ctx)),
+            ("colspan", Type::Float32, convert_row_col_expr(&grid_cell.colspan_expr, ctx)),
         ],
     )
 }
