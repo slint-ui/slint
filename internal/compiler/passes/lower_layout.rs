@@ -461,26 +461,26 @@ impl GridLayout {
         if let Some(ref layout_item) = result {
             let rep_idx = &layout_item.repeater_index;
             let e = &layout_item.elem;
-            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, &rep_idx, 2, diag);
+            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, rep_idx, 2, diag);
             if !layout_item.item.constraints.fixed_width {
                 set_prop_from_cache(
                     e,
                     "width",
                     layout_cache_prop_h,
                     index * 2 + 1,
-                    &rep_idx,
+                    rep_idx,
                     2,
                     diag,
                 );
             }
-            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, &rep_idx, 2, diag);
+            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, rep_idx, 2, diag);
             if !layout_item.item.constraints.fixed_height {
                 set_prop_from_cache(
                     e,
                     "height",
                     layout_cache_prop_v,
                     index * 2 + 1,
-                    &rep_idx,
+                    rep_idx,
                     2,
                     diag,
                 );
@@ -488,18 +488,10 @@ impl GridLayout {
 
             let org_index = index * 4;
             if col_expr.is_none() {
-                set_prop_from_cache(e, "col", organized_data_prop, org_index, &rep_idx, 4, diag);
+                set_prop_from_cache(e, "col", organized_data_prop, org_index, rep_idx, 4, diag);
             }
             if row_expr.is_none() {
-                set_prop_from_cache(
-                    e,
-                    "row",
-                    organized_data_prop,
-                    org_index + 2,
-                    &rep_idx,
-                    4,
-                    diag,
-                );
+                set_prop_from_cache(e, "row", organized_data_prop, org_index + 2, rep_idx, 4, diag);
             }
 
             let expr_or_default = |expr: &Option<RowColExpr>, default: f64| -> RowColExpr {
