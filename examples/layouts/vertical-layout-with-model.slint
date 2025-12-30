@@ -1,0 +1,60 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: MIT
+
+component Item inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            text: name + " (" + account + ") has " + animal;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    in property <string> name;
+    in property <string> account;
+    in property <string> animal;
+}
+
+component HeaderCell inherits Rectangle {
+    background: #ccc;
+    border-width: 1phx;
+    border-color: #888;
+    Text {
+        text: cell_text;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+
+    in property <string> cell_text;
+}
+
+export component MainWindow inherits Window {
+
+    default-font-size: 20px;
+
+    property <[{ name: string, account: string, animal: string}]> model: [
+        { name: "Olivier", account: "ogoffart", animal: "a cat" },
+        { name: "Simon", account: "tronical", animal: "a dog" },
+        { name: "David", account: "dfaure", animal: "a bird" },
+        { name: "Alice", account: "wonderland", animal: "a white rabbit" },
+        { name: "Randriana Tzimabazafi", account: "rt", animal: "a lizard" },
+        { name: "Verne", account: "jules", animal: "an octopus" },
+        { name: "Pratchett", account: "terry", animal: "turtles (all the way down)" }
+    ];
+
+    VerticalLayout {
+        HeaderCell {
+            cell_text: "User Information";
+            height: 50phx;
+        }
+
+        for person in model: Item {
+            name: person.name;
+            account: person.account;
+            animal: person.animal;
+        }
+    }
+}
