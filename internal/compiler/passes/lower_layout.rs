@@ -502,14 +502,16 @@ impl GridLayout {
                 }
             };
 
-            self.elems.push(GridLayoutElement {
+            let grid_layout_cell = GridLayoutElement {
                 new_row,
                 col_expr: expr_or_default(col_expr, i_slint_common::ROW_COL_AUTO),
                 row_expr: expr_or_default(row_expr, i_slint_common::ROW_COL_AUTO),
                 colspan_expr: expr_or_default(colspan_expr, 1.),
                 rowspan_expr: expr_or_default(rowspan_expr, 1.),
                 item: layout_item.item.clone(),
-            });
+            };
+            layout_item.elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell.clone());
+            self.elems.push(grid_layout_cell);
         }
     }
 }

@@ -63,6 +63,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: elem.is_legacy_syntax,
                 inline_depth: 0,
+                grid_layout_cell: elem.grid_layout_cell.clone(),
             })),
             parent_element,
             ..Component::default()
