@@ -1199,7 +1199,7 @@ pub fn get_layout_info(
 
 pub fn get_grid_layout_input_for_repeated(
     ctx: &mut ExpressionLoweringCtx,
-    grid_cell: GridLayoutElement,
+    grid_cell: &GridLayoutElement,
 ) -> llr_Expression {
     let new_row_expr =
         llr_Expression::ReadLocalVariable { name: SmolStr::new_static("new_row"), ty: Type::Bool };

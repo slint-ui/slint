@@ -392,6 +392,7 @@ fn duplicate_element_with_mapping(
         has_popup_child: elem.has_popup_child,
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
+        grid_layout_cell: elem.grid_layout_cell.clone(),
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     if let ElementType::Component(c) = &mut new.borrow_mut().base_type

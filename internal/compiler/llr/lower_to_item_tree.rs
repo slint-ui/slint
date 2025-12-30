@@ -9,7 +9,6 @@ use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{
     BuiltinPrivateStruct, BuiltinPublicStruct, ElementType, Struct, StructName, Type,
 };
-use crate::layout::GridLayoutElement;
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -547,13 +546,10 @@ fn lower_sub_component(
         crate::layout::Orientation::Vertical,
     )
     .into();
-    if let Some(parent_grid_layout_cell) = grid_layout_cell_for_component(component) {
+    if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
         sub_component.grid_layout_input_for_repeated = Some(
-            super::lower_expression::get_grid_layout_input_for_repeated(
-                &mut ctx,
-                parent_grid_layout_cell,
-            )
-            .into(),
+            super::lower_expression::get_grid_layout_input_for_repeated(&mut ctx, grid_layout_cell)
+                .into(),
         );
     }
 
@@ -614,33 +610,6 @@ fn lower_sub_component(
     });
 
     LoweredSubComponent { sub_component, mapping }
-}
-
-fn grid_layout_cell_for_component(component: &Rc<Component>) -> Option<GridLayoutElement> {
-    let parent_element = component.parent_element.upgrade()?;
-    let parent_component = parent_element.borrow().enclosing_component.upgrade().unwrap();
-    let mut result = None;
-    let target_element = parent_element.clone();
-    object_tree::recurse_elem(&parent_component.root_element, &(), &mut |candidate, _| {
-        if result.is_some() {
-            return;
-        }
-        let candidate_ref = candidate.borrow();
-        for dbg in &candidate_ref.debug {
-            if let Some(crate::layout::Layout::GridLayout(grid)) = &dbg.layout {
-                if let Some(found) = grid
-                    .elems
-                    .iter()
-                    .find(|cell| Rc::ptr_eq(&cell.item.element, &target_element))
-                    .cloned()
-                {
-                    result = Some(found);
-                    break;
-                }
-            }
-        }
-    });
-    result
 }
 
 fn lower_geometry(
