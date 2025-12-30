@@ -873,6 +873,9 @@ pub struct Element {
     /// How many times the element was inlined
     pub inline_depth: i32,
 
+    /// Information about the grid cell containing this element, if applicable
+    pub grid_layout_cell: Option<crate::layout::GridLayoutElement>,
+
     /// Debug information about this element.
     ///
     /// There can be several in case of inlining or optimization (child merged into their parent).

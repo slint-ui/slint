@@ -60,6 +60,7 @@ pub fn ensure_window(
         is_flickable_viewport: false,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
+        grid_layout_cell: None,
         debug: std::mem::take(&mut win_elem_mut.debug),
 
         inline_depth: 0,
