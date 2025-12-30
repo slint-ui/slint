@@ -547,7 +547,7 @@ fn lower_sub_component(
         crate::layout::Orientation::Vertical,
     )
     .into();
-    grid_layout_cell_for_component(component).map(|parent_grid_layout_cell| {
+    if let Some(parent_grid_layout_cell) = grid_layout_cell_for_component(component) {
         sub_component.grid_layout_input_for_repeated = Some(
             super::lower_expression::get_grid_layout_input_for_repeated(
                 &mut ctx,
@@ -555,7 +555,7 @@ fn lower_sub_component(
             )
             .into(),
         );
-    });
+    }
 
     sub_component.accessible_prop = accessible_prop
         .into_iter()
