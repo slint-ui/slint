@@ -1,0 +1,37 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: MIT
+
+component Cell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            text: cell_text;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
+export component MainWindow inherits Window {
+
+    default-font-size: 20px;
+
+    property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+    property <int> columns: 4;
+
+    GridLayout {
+        Row {
+            for text[i] in names: Cell {
+                cell_text: text;
+                width: 100phx;
+                height: 50phx;
+                row: i / columns;
+                col: mod(i, columns);
+            }
+        }
+    }
+}
