@@ -37,7 +37,9 @@ impl MinimalSoftwareWindow {
     ///
     /// Return true if something was redrawn.
     pub fn draw_if_needed(&self, render_callback: impl FnOnce(&SoftwareRenderer)) -> bool {
-        if self.needs_redraw.replace(false) || self.renderer.rendering_metrics_collector.is_some() {
+        if self.needs_redraw.replace(false)
+            || self.renderer.rendering_metrics_collector.as_ref().is_some_and(|m| m.refresh_mode() == i_slint_core::graphics::rendering_metrics_collector::RefreshMode::FullSpeed)
+        {
             render_callback(&self.renderer);
             true
         } else {
