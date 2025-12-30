@@ -233,20 +233,13 @@ fn grid_layout_input_data(
     let mut new_row = true;
     for cell in grid_layout.elems.iter() {
         let eval_or_default = |expr: &RowColExpr, component: InstanceRef| match expr {
-            RowColExpr::Literal(value) => *value,
+            RowColExpr::Literal(value) => *value as f64,
             RowColExpr::Named(nr) => {
-                let value: f32 = eval::load_property(component, &nr.element(), nr.name())
+                // we could check for out-of-bounds here, but organize_grid_layout will also do it
+                eval::load_property(component, &nr.element(), nr.name())
                     .unwrap()
                     .try_into()
-                    .unwrap();
-                if value >= 0.0 && value <= u16::MAX as f32 {
-                    value as u16
-                } else {
-                    panic!(
-                        "Expected a positive integer, but got {:?} while evaluating {:?}",
-                        value, nr
-                    );
-                }
+                    .unwrap()
             }
         };
 
