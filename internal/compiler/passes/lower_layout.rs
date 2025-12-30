@@ -388,7 +388,7 @@ impl GridLayout {
             check_numbering_consistency(col_expr_type, "col");
         }
 
-        let propref_or_default = |name: &'static str| -> Option<RowColExpr> {
+        let propref = |name: &'static str| -> Option<RowColExpr> {
             let nr = crate::layout::binding_reference(item_element, name).map(|nr| {
                 // similar to adjust_references in repeater_component.rs (which happened before these references existed)
                 let e = nr.element();
@@ -403,11 +403,10 @@ impl GridLayout {
             nr.map(RowColExpr::Named)
         };
 
-        // MAX means "auto", see to_layout_data()
-        let row_expr = propref_or_default("row");
-        let col_expr = propref_or_default("col");
-        let rowspan_expr = propref_or_default("rowspan");
-        let colspan_expr = propref_or_default("colspan");
+        let row_expr = propref("row");
+        let col_expr = propref("col");
+        let rowspan_expr = propref("rowspan");
+        let colspan_expr = propref("colspan");
 
         self.add_element_with_coord_as_expr(
             item_element,
@@ -434,8 +433,11 @@ impl GridLayout {
         self.add_element_with_coord_as_expr(
             item_element,
             false, // new_row
-            (&Some(RowColExpr::Literal(row)), &Some(RowColExpr::Literal(col))),
-            (&Some(RowColExpr::Literal(rowspan)), &Some(RowColExpr::Literal(colspan))),
+            (&Some(RowColExpr::Literal(row as f64)), &Some(RowColExpr::Literal(col as f64))),
+            (
+                &Some(RowColExpr::Literal(rowspan as f64)),
+                &Some(RowColExpr::Literal(colspan as f64)),
+            ),
             layout_cache_prop_h,
             layout_cache_prop_v,
             organized_data_prop,
@@ -500,7 +502,7 @@ impl GridLayout {
                 );
             }
 
-            let expr_or_default = |expr: &Option<RowColExpr>, default: u16| -> RowColExpr {
+            let expr_or_default = |expr: &Option<RowColExpr>, default: f64| -> RowColExpr {
                 match expr {
                     Some(RowColExpr::Literal(v)) => RowColExpr::Literal(*v),
                     Some(RowColExpr::Named(nr)) => RowColExpr::Named(nr.clone()),
@@ -510,10 +512,10 @@ impl GridLayout {
 
             self.elems.push(GridLayoutElement {
                 new_row,
-                col_expr: expr_or_default(col_expr, u16::MAX), // MAX means "auto"
-                row_expr: expr_or_default(row_expr, u16::MAX),
-                colspan_expr: expr_or_default(colspan_expr, 1),
-                rowspan_expr: expr_or_default(rowspan_expr, 1),
+                col_expr: expr_or_default(col_expr, i_slint_common::ROW_COL_AUTO),
+                row_expr: expr_or_default(row_expr, i_slint_common::ROW_COL_AUTO),
+                colspan_expr: expr_or_default(colspan_expr, 1.),
+                rowspan_expr: expr_or_default(rowspan_expr, 1.),
                 item: layout_item.item.clone(),
             });
         }

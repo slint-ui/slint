@@ -165,7 +165,7 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
     });
 }
 
-/// Optimized item are not used for the fact that they are items, but their properties
+/// Optimized items are not used for the fact that they are items, but their properties
 /// might still be used.  So we must pretend all the properties are declared in the
 /// item itself so the move_declaration pass can move the declaration in the component root
 fn simplify_optimized_items(items: &[ElementRc]) {

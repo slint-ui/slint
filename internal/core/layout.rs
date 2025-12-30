@@ -7,6 +7,8 @@
 
 use crate::items::{DialogButtonRole, LayoutAlignment};
 use crate::{Coord, SharedVector, slice::Slice};
+use alloc::format;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 pub use crate::items::Orientation;
@@ -439,12 +441,15 @@ pub struct GridLayoutData {
 pub struct GridLayoutInputData {
     /// whether this cell is the first one in a Row element
     pub new_row: bool,
-    /// col and row number (u16::MAX means auto).
-    pub col: u16,
-    pub row: u16,
+    /// col and row number.
+    /// Only ROW_COL_AUTO and the u16 range are valid, values outside of
+    /// that will be clamped with a warning at runtime
+    pub col: f64,
+    pub row: f64,
     /// colspan and rowspan
-    pub colspan: u16,
-    pub rowspan: u16,
+    /// Only the u16 range is valid, values outside of that will be clamped with a warning at runtime
+    pub colspan: f64,
+    pub rowspan: f64,
 }
 
 /// The organized layout data for a GridLayout, after row/col determination:
@@ -652,47 +657,86 @@ pub fn organize_dialog_button_layout(
     for (input_index, cell) in input_data.as_slice().iter().enumerate() {
         let col = column_for_input.iter().position(|&x| x == input_index);
         if let Some(col) = col {
-            organized_data.push_cell(col as u16, cell.colspan, cell.row, cell.rowspan);
+            organized_data.push_cell(col as _, cell.colspan as _, cell.row as _, cell.rowspan as _);
         } else {
             // This is used for the main window (which is the only cell which isn't a button)
             // Given lower_dialog_layout(), this will always be a single cell at 0,0 with a colspan of number_of_buttons
-            organized_data.push_cell(cell.col, cell.colspan, cell.row, cell.rowspan);
+            organized_data.push_cell(
+                cell.col as _,
+                cell.colspan as _,
+                cell.row as _,
+                cell.rowspan as _,
+            );
         }
     }
     organized_data
 }
 
-// Implement "auto" behavior for row/col numbers (unless specified in the slint file).
+type Errors = Vec<String>;
+
 pub fn organize_grid_layout(
     input_data: Slice<GridLayoutInputData>,
     repeater_indices: Slice<u32>,
 ) -> GridLayoutOrganizedData {
+    let (organized_data, errors) = organize_grid_layout_impl(input_data, repeater_indices);
+    for error in errors {
+        crate::debug_log!("Slint layout error: {}", error);
+    }
+    organized_data
+}
+
+// Implement "auto" behavior for row/col numbers (unless specified in the slint file).
+fn organize_grid_layout_impl(
+    input_data: Slice<GridLayoutInputData>,
+    repeater_indices: Slice<u32>,
+) -> (GridLayoutOrganizedData, Errors) {
     let mut organized_data = GridLayoutOrganizedData::default();
     organized_data.resize(input_data.len() * 4 + repeater_indices.len() * 2, 0 as _);
     let mut generator =
         OrganizedDataGenerator::new(repeater_indices.as_slice(), &mut organized_data);
+    let mut errors = Vec::new();
+
+    fn clamp_to_u16(value: f64, field_name: &str, errors: &mut Vec<String>) -> u16 {
+        if value < 0.0 {
+            errors.push(format!("cell {field_name} {value} is negative, clamping to 0"));
+            0
+        } else if value > u16::MAX as f64 {
+            errors
+                .push(format!("cell {field_name} {value} is too large, clamping to {}", u16::MAX));
+            u16::MAX
+        } else {
+            value as u16
+        }
+    }
+
     let mut row = 0;
     let mut col = 0;
     let mut first = true;
-    let auto = u16::MAX;
     for cell in input_data.as_slice().iter() {
         if cell.new_row && !first {
             row += 1;
             col = 0;
         }
         first = false;
-        if cell.row != auto && row != cell.row {
-            row = cell.row;
-            col = 0;
+
+        if cell.row != i_slint_common::ROW_COL_AUTO {
+            let cell_row = clamp_to_u16(cell.row, "row", &mut errors);
+            if row != cell_row {
+                row = cell_row;
+                col = 0;
+            }
         }
-        if cell.col != auto {
-            col = cell.col;
+        if cell.col != i_slint_common::ROW_COL_AUTO {
+            col = clamp_to_u16(cell.col, "col", &mut errors);
         }
 
-        generator.add(col, cell.colspan, row, cell.rowspan);
-        col += cell.colspan;
+        let colspan = clamp_to_u16(cell.colspan, "colspan", &mut errors);
+        let rowspan = clamp_to_u16(cell.rowspan, "rowspan", &mut errors);
+        col = col.min(u16::MAX - colspan); // ensure col + colspan doesn't overflow
+        generator.add(col, colspan, row, rowspan);
+        col += colspan;
     }
-    organized_data
+    (organized_data, errors)
 }
 
 /// The layout cache generator inserts the pos and size into the result array (which becomes the layout cache property),
@@ -1129,43 +1173,38 @@ mod tests {
     }
 
     #[test]
+
     fn test_organize_data_with_auto_and_spans() {
+        let auto = i_slint_common::ROW_COL_AUTO;
         let input = std::vec![
-            GridLayoutInputData {
-                new_row: true,
-                col: u16::MAX,
-                row: u16::MAX,
-                colspan: 2,
-                rowspan: 1,
-            },
-            GridLayoutInputData {
-                new_row: false,
-                col: u16::MAX,
-                row: u16::MAX,
-                colspan: 1,
-                rowspan: 2,
-            },
-            GridLayoutInputData {
-                new_row: true,
-                col: u16::MAX,
-                row: u16::MAX,
-                colspan: 2,
-                rowspan: 1,
-            },
+            GridLayoutInputData { new_row: true, col: auto, row: auto, colspan: 2., rowspan: -1. },
+            GridLayoutInputData { new_row: false, col: auto, row: auto, colspan: 1., rowspan: 2. },
+            GridLayoutInputData { new_row: true, col: auto, row: auto, colspan: 2., rowspan: 1. },
+            GridLayoutInputData { new_row: true, col: -2., row: 80000., colspan: 2., rowspan: 1. },
         ];
         let repeater_indices = Slice::from_slice(&[]);
-        let organized_data = organize_grid_layout(Slice::from_slice(&input), repeater_indices);
+        let (organized_data, errors) =
+            organize_grid_layout_impl(Slice::from_slice(&input), repeater_indices);
         assert_eq!(
             organized_data.as_slice(),
             &[
-                0, 2, 0, 1, // row 0, col 0
+                0, 2, 0, 0, // row 0, col 0, rowspan 0 (see below)
                 2, 1, 0, 2, // row 0, col 2 (due to colspan of first cell)
                 0, 2, 1, 1, // row 1, col 0
+                0, 2, 65535, 1, // row 65535, col 0
             ]
         );
+        assert_eq!(errors.len(), 3);
+        // Note that a rowspan of 0 is valid, it means the cell doesn't occupy any row
+        assert_eq!(errors[0], "cell rowspan -1 is negative, clamping to 0");
+        assert_eq!(errors[1], "cell row 80000 is too large, clamping to 65535");
+        assert_eq!(errors[2], "cell col -2 is negative, clamping to 0");
         let collected_data =
             collect_from_organized_data(&organized_data, input.len(), repeater_indices);
-        assert_eq!(collected_data.as_slice(), &[(0, 2, 0, 1), (2, 1, 0, 2), (0, 2, 1, 1)]);
+        assert_eq!(
+            collected_data.as_slice(),
+            &[(0, 2, 0, 0), (2, 1, 0, 2), (0, 2, 1, 1), (0, 2, 65535, 1)]
+        );
         assert_eq!(organized_data.max_value(3, Orientation::Horizontal, &repeater_indices), 3);
         assert_eq!(organized_data.max_value(3, Orientation::Vertical, &repeater_indices), 2);
     }
@@ -1173,15 +1212,13 @@ mod tests {
     #[test]
     fn test_organize_data_1_empty_repeater() {
         // Row { Text {}    if false: Text {} }, this test shows why we need i32 for cell_nr_adj
-        let input = std::vec![GridLayoutInputData {
-            new_row: true,
-            col: u16::MAX,
-            row: u16::MAX,
-            colspan: 1,
-            rowspan: 1,
-        }];
+        let auto = i_slint_common::ROW_COL_AUTO;
+        let cell =
+            GridLayoutInputData { new_row: true, col: auto, row: auto, colspan: 1., rowspan: 1. };
+        let input = std::vec![cell];
         let repeater_indices = Slice::from_slice(&[1u32, 0u32]);
-        let organized_data = organize_grid_layout(Slice::from_slice(&input), repeater_indices);
+        let (organized_data, errors) =
+            organize_grid_layout_impl(Slice::from_slice(&input), repeater_indices);
         assert_eq!(
             organized_data.as_slice(),
             &[
@@ -1189,6 +1226,7 @@ mod tests {
                 0, 0, 0, 0
             ] // jump to repeater data (not used)
         );
+        assert_eq!(errors.len(), 0);
         let collected_data =
             collect_from_organized_data(&organized_data, input.len(), repeater_indices);
         assert_eq!(collected_data.as_slice(), &[(0, 1, 0, 1)]);
@@ -1197,20 +1235,17 @@ mod tests {
 
     #[test]
     fn test_organize_data_4_repeaters() {
-        let mut cell = GridLayoutInputData {
-            new_row: true,
-            col: u16::MAX,
-            row: u16::MAX,
-            colspan: 1,
-            rowspan: 1,
-        };
+        let auto = i_slint_common::ROW_COL_AUTO;
+        let mut cell =
+            GridLayoutInputData { new_row: true, col: auto, row: auto, colspan: 1., rowspan: 1. };
         let mut input = std::vec![cell.clone()];
         for _ in 0..8 {
             cell.new_row = false;
             input.push(cell.clone());
         }
         let repeater_indices = Slice::from_slice(&[0u32, 0u32, 1u32, 4u32, 6u32, 2u32, 8u32, 0u32]);
-        let organized_data = organize_grid_layout(Slice::from_slice(&input), repeater_indices);
+        let (organized_data, errors) =
+            organize_grid_layout_impl(Slice::from_slice(&input), repeater_indices);
         assert_eq!(
             organized_data.as_slice(),
             &[
@@ -1227,6 +1262,7 @@ mod tests {
                 7, 1, 0, 1 // end of second repeater
             ]
         );
+        assert_eq!(errors.len(), 0);
         let collected_data =
             collect_from_organized_data(&organized_data, input.len(), repeater_indices);
         assert_eq!(
