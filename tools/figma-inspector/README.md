@@ -1,85 +1,119 @@
+# Figma to Slint Property Inspector
 
-## Figma to Slint property inspector
+A Figma plugin that displays Slint code snippets in Figma's Dev mode inspector. When you select a design element, the plugin shows the equivalent Slint markup instead of CSS properties.
 
-### Installing the plugin from Figma
+## Features
 
-The latest release of the Figma Inspector can be installed directly from the Figma website at
+- Converts Figma elements to Slint component snippets
+- Supports Figma variables (references them as Slint property paths)
+- Works in Figma Desktop and VS Code extension
 
-    https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint
+### Supported Elements
 
-or in Figma by searching for the "Figma To Slint" plugin.
+| Figma Node Type | Slint Element |
+|-----------------|---------------|
+| Frame, Rectangle, Group | `Rectangle { }` |
+| Component, Instance | `Rectangle { }` |
+| Text | `Text { }` |
+| Vector | `Path { }` |
 
-### Installing the plugin via nightly snapshot.
+### Converted Properties
 
-Download the nightly snapshot [figma-plugin.zip](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip).
+**Layout:** `x`, `y`, `width`, `height`
 
-The prerequisites are either the Figma Desktop App or the Figma VSCode extension.
-A valid Figma subscription with at least 'Team Professional' is needed.
+**Appearance:**
+- `background` / `fill` (solid colors, linear and radial gradients)
+- `opacity`
+- `border-radius` (uniform or per-corner)
+- `border-width`, `border-color`
 
-In Figma Desktop or the VScode extension have a file open and right click on it. Select Plugins > Development > Import Plugin From Manifest.. and point it at the manifest.json file that you just unzipped.
+**Text:**
+- `text`, `color`
+- `font-family`, `font-size`, `font-weight`
+- `horizontal-alignment`
 
-The Slint properties will now show in the Dev mode inspector in the same place the standard CSS properties
-would have been shown.
+**Path:** `commands` (extracted from SVG), `stroke`, `stroke-width`
+
+### Figma Variables
+
+When enabled, the plugin references Figma variables as Slint property paths:
+
+```slint
+// Without variables
+background: #3b82f6;
+
+// With variables enabled
+background: Colors.current.primary;
+```
+
+## Installation
+
+### From Figma Community (Recommended)
+
+Install directly from [Figma Community](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint) or search for "Figma To Slint" in the Figma plugin browser.
+
+### From Nightly Build
+
+1. Download [figma-plugin.zip](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip)
+2. Extract the archive
+3. In Figma: right-click → `Plugins` → `Development` → `Import Plugin From Manifest...`
+4. Select the `manifest.json` from the extracted folder
+
+### Requirements
+
+- Figma Desktop App or Figma VS Code extension
+- Figma subscription with Dev mode access (Team Professional or higher)
+
+## Development
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) v20 or newer
+- [pnpm](https://pnpm.io/)
+- Figma Desktop App or VS Code extension
 
 ### Build
 
-Figma is a web app (Chromium) and the plugin is just javascript. As with other web apps in the repo
-the prerequisite software needed to develop the plugin are:
-
-You need to install the following components:
-* **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
-* **[pnpm](https://www.pnpm.io/)**
-* **[Figma Desktop App](https://www.figma.com/downloads/)**
-
-You also **MUST** have a valid Figma developer subscription as the plugin works in the Dev mode
-and/or Figma VS Code extension.
-
-To try it out locally type this in this directory:
-
 ```sh
-## only need to run this once
-pnpm install
-
-pnpm build
+pnpm install    # Install dependencies (first time only)
+pnpm build      # Build the plugin
 ```
 
-Then in Figma on an open file right click and select `Plugins > Development > Import Plugin From Manifest..` and point it at the `dist/manifest.json` file that has now been created inside this project.
+Import the plugin in Figma: right-click → `Plugins` → `Development` → `Import Plugin From Manifest...` → select `dist/manifest.json`
 
-You should also ensure `Plugins > Development > Hot Reload Plugin` is ticked.
-
-To develop in hot reload mode:
+### Development Mode
 
 ```sh
 pnpm dev
 ```
 
-As you save code changes the plugin is automatically recompiled and reloaded in Figma for Desktop and/or the Figma VS Code extension.
+Enable hot reload in Figma: `Plugins` → `Development` → `Hot Reload Plugin`
 
+Changes are automatically recompiled and reloaded.
 
 ### Testing
 
-As of writing Figma has real test support. Testing is limited to unit testing some of the functions via `Vitest`.
-
-You can find the test files under `/tests`. This folder also includes the JSON export of a real Figma file
-to test against. The easiest way to update the file is to to edit it in Figma and then use a personal access token to get a JSON version.
-
-To get an access Token in Figma go to the home screen. Then top right click the logged in user name. Then `Settings` and then the `Security` tab. Scroll to the bottom and choose `Generate new token`. Then save the token in a secure private place.
-
-You then need to get the file ID. Open figma.com, login and open the file. You will then have a url like
-`https://www.figma.com/design/njC6jSUbrYpqLRJ2dyV6NT/energy-test-file?node-id=113-2294&p=f&t=5IDwrGIFUnri3Z17-0`. The ID is the part of the URL after `/design/` so in this example `njC6jSUbrYpqLRJ2dyV6NT`.
-
-You can then use `curl` to download the JSON with
+Unit tests use Vitest with exported Figma JSON fixtures.
 
 ```sh
-curl -H 'X-Figma-Token: <YOUR_ACCESS_TOKEN>' \
-'https://api.figma.com/v1/files/<FIGMA_FILE_ID>' \
--o figma_output.json
+pnpm test       # Run tests in watch mode
 ```
 
-Vitest can then be run in hot reload mode for ease of test development with:
+#### Updating Test Fixtures
 
-```sh
-pnpm test
-```
+1. Generate a Figma access token:
+   - Figma home → click username → `Settings` → `Security` → `Generate new token`
 
+2. Get the file ID from the Figma URL:
+   ```
+   https://www.figma.com/design/njC6jSUbrYpqLRJ2dyV6NT/...
+                               └─────────────────────┘
+                                      File ID
+   ```
 
+3. Download the file as JSON:
+   ```sh
+   curl -H 'X-Figma-Token: <TOKEN>' \
+        'https://api.figma.com/v1/files/<FILE_ID>' \
+        -o tests/figma_output.json
+   ```
