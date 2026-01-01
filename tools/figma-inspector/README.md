@@ -38,7 +38,7 @@ A Figma plugin that displays Slint code snippets in Figma's Dev mode inspector. 
 
 When enabled, the plugin references Figma variables as Slint property paths:
 
-```slint
+```slint,no-test
 // Without variables
 background: #3b82f6;
 
