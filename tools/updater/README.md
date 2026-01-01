@@ -52,7 +52,7 @@ slint-updater -i --move-declarations file.slint
 These transforms handle migrations from older Slint syntax versions:
 
 **Component declaration syntax:**
-```slint
+```slint,no-test
 // Old syntax
 MyComponent := Rectangle { }
 
@@ -61,7 +61,7 @@ component MyComponent inherits Rectangle { }
 ```
 
 **Property visibility:**
-```slint
+```slint,no-test
 // Old syntax
 property <int> count: 0;
 
@@ -70,7 +70,7 @@ in-out property <int> count: 0;
 ```
 
 **Struct declaration:**
-```slint
+```slint,no-test
 // Old syntax
 MyStruct := { field: int }
 
