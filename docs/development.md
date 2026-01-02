@@ -74,6 +74,9 @@ HTML documentation can be generated with something like
 cargo doc --document-private-items --no-deps --open
 ```
 
+The documentation that lives on <https://docs.slint.dev> is rendered with Astro Starlight.
+See the ./astro/README.md file for details.
+
 ## Rust to C++ bindings
 
 We use a rather complex mechanism to expose internal data structures implemented in Rust to C++, in a way that allows us to provide a nice C++ API.
