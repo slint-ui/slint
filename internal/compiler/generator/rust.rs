@@ -2832,7 +2832,7 @@ fn compile_builtin_function_call(
                 let popup = &current_sub_component.popup_windows[*popup_index as usize];
                 let popup_window_id =
                     inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
-                let parent_component = access_item_rc(parent_ref, ctx);
+                let parent_item = access_item_rc(parent_ref, ctx);
 
                 let parent_ctx = ParentScope::new(ctx, None);
                 let popup_ctx = EvaluationContext::new_sub_component(
@@ -2847,6 +2847,7 @@ fn compile_builtin_function_call(
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
+                    let parent_item = #parent_item;
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
@@ -2858,7 +2859,7 @@ fn compile_builtin_function_call(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,
-                            #parent_component,
+                            parent_item,
                             false, // is_menu
                         ))
                     );
