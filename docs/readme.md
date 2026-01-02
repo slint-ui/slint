@@ -6,6 +6,7 @@ docs/
 ├── astro/          # The Astro project that builds the Slint language docs
 ├── README.md       # This file
 ├── building.md     # How to build Slint
+├── custom-renderer.md  # Guide to implementing custom renderers
 ├── development.md  # How to develop Slint
 ├── embedded-tutorials.md       # Embedded tutorials template
 ├── install_qt.md   # How to install Qt
