@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue 10342
+
+export component MyPanel {
+//                       >error{The binding for the property 'layoutinfo-v' is part of a binding loop (fb.source-clip-height -> layoutinfo-v -> preferred-height -> height)}
+    fb := Image {
+        width: 100%;
+        source-clip-width: root.width / 0.531px;
+        source-clip-height: root.height / 0.531px;
+//                          >                    <error{The binding for the property 'source-clip-height' is part of a binding loop (fb.source-clip-height -> layoutinfo-v -> preferred-height -> height)}
+    }
+
+}
+//<<<error{The binding for the property 'layoutinfo-v' is part of a binding loop (fb.source-clip-height -> layoutinfo-v -> preferred-height -> height)}
+
+export component MainWindow inherits Window {
+    MyPanel {
+//  >      <error{The binding for the property 'preferred-height' is part of a binding loop (fb.source-clip-height -> layoutinfo-v -> preferred-height -> height)}
+//  >      <^error{The binding for the property 'height' is part of a binding loop (fb.source-clip-height -> layoutinfo-v -> preferred-height -> height)}
+        x: 30px;
+        y: 30px;
+        width: 200px;
+    }
+}

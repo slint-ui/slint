@@ -680,8 +680,13 @@ fn visit_implicit_layout_info_dependencies(
     match base_type.as_str() {
         "Image" => {
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
             if orientation == Orientation::Vertical {
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
+                vis(
+                    &NamedReference::new(item, SmolStr::new_static("source-clip-height")).into(),
+                    N,
+                );
             }
         }
         "Text" | "TextInput" => {
