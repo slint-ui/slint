@@ -323,8 +323,8 @@ export default defineConfig({
                                         label: "Globals",
                                         autogenerate: {
                                             directory:
-                                                "reference/std-widgets/globals"
-                                        }
+                                                "reference/std-widgets/globals",
+                                        },
                                     },
                                     {
                                         label: "Basic Widgets",
