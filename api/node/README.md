@@ -30,7 +30,7 @@ npm install slint-ui
 
 You need to install the following components:
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v16. or newer)
+  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
