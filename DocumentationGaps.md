@@ -48,9 +48,12 @@ This document identifies gaps in the Slint project documentation based on an ana
 - Backend feature flags (`backend-winit-x11` vs `backend-winit-wayland`) - unclear when to use which
 - No verification guide for which backend is actually being used
 
+### Documentation Issues (Fixed)
+
+- ~~Node.js version requirement says "v16" (outdated)~~ → Updated to v20 or newer across all documentation files
+
 ## Outdated/Inconsistent Information
 
-- Node.js version requirement says "v16" (outdated)
 - `docs/embedded-tutorials.md` is a template file with no actual tutorials
 - Python marked Beta in its README but featured equally in main README
 
