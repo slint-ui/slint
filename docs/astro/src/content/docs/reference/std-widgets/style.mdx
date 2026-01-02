@@ -6,6 +6,8 @@ description: std-widgets Style.
 
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 You can modify the look of these widgets by choosing a style.
 
@@ -81,7 +83,7 @@ main_window.run()
 
 ## Using Style Properties In Your Own Components
 
-The global `Palette` and `StyleMetrics` properties can be accessed and will be set to the appropriate values of the current style.
+The global <Link type="Palette" label="Palette"/> and <Link type="StyleMetrics" label="StyleMetrics"/> properties can be accessed and will be set to the appropriate values of the current style.
 
 ```slint playground
 import { Palette, StyleMetrics } from "std-widgets.slint";

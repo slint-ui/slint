@@ -117,7 +117,7 @@
         "href": "reference/primitive-types/#numeric-types"
     },
     "Palette": {
-        "href": "reference/std-widgets/overview/#palette-properties"
+        "href": "reference/std-widgets/globals/palette/"
     },
     "Path": {
         "href": "reference/elements/path/"
@@ -163,6 +163,9 @@
     },
     "StyleWidgets": {
         "href": "reference/std-widgets/style/"
+    },
+    "StyleMetrics": {
+        "href": "reference/std-widgets/globals/stylemetrics/"
     },
     "Text": {
         "href": "reference/elements/text/"
