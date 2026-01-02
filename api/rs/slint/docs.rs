@@ -76,9 +76,9 @@ pub mod generated_code {
         /// ```ignore
         ///     let sample = SampleComponent::new().unwrap();
         ///     let sample_weak = sample.as_weak();
-        ///     sample.as_ref().on_hello(move || {
+        ///     sample.on_hello(move || {
         ///         let sample = sample_weak.unwrap();
-        ///         sample.as_ref().set_counter(42);
+        ///         sample.set_counter(42);
         ///     });
         /// ```
         pub fn on_hello(&self, f: impl Fn() + 'static) {}
