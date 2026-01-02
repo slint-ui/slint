@@ -7,6 +7,7 @@ docs/
 ├── README.md       # This file
 ├── building.md     # How to build Slint
 ├── development.md  # How to develop Slint
+├── animations.md   # Internals of the animation system in Slint
 ├── embedded-tutorials.md       # Embedded tutorials template
 ├── install_qt.md   # How to install Qt
 ├── nightly-release-notes.md    # Release note template
