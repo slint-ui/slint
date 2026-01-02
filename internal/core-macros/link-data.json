@@ -188,6 +188,9 @@
     "VerticalLayout": {
         "href": "reference/layouts/verticallayout/"
     },
+    "VSCode": {
+        "href": "guide/tooling/vscode/"
+    },
     "QtBackend": {
         "href": "guide/backends-and-renderers/backend_qt/"
     },

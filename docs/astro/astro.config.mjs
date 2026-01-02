@@ -64,6 +64,7 @@ export default defineConfig({
                                 items: [
                                     "guide/tooling/vscode",
                                     "guide/tooling/figma-inspector",
+                                    "guide/tooling/other-editors",
                                 ],
                             },
                             {
