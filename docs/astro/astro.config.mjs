@@ -320,6 +320,13 @@ export default defineConfig({
                                     "reference/std-widgets/overview",
                                     "reference/std-widgets/style",
                                     {
+                                        label: "Globals",
+                                        autogenerate: {
+                                            directory:
+                                                "reference/std-widgets/globals"
+                                        }
+                                    },
+                                    {
                                         label: "Basic Widgets",
                                         autogenerate: {
                                             directory:
