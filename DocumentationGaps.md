@@ -2,22 +2,24 @@
 
 This document identifies gaps in the Slint project documentation based on an analysis conducted January 2026.
 
+## Fixed
+
+### Tools (Fixed)
+- ~~`tools/updater/` - Only 23 lines, no migration examples or rollback procedures~~ → README expanded with CLI options, transformation examples, and supported file types
+- ~~`tools/figma-inspector/` - Not mentioned in main README~~ → README rewritten with features, supported elements, converted properties, and Figma variables documentation
+- ~~`tools/docsnapper/` - Purpose unclear, no usage examples~~ → README rewritten with workflow explanation, tag format, attributes, and CLI options
+
+### Examples (Fixed)
+- ~~`examples/fancy_demo/` - No README despite being a substantial example~~ → README added documenting custom widget implementations
+- ~~`examples/cpp/` - No explanation of `platform_native` vs `platform_qt` differences~~ → README added with use cases and comparison table
+- ~~~20 examples not featured in the examples README~~ → Added "Additional Examples", "Embedded/MCU Examples", and "Platform Integration Examples" sections
+
 ## Missing Documentation
 
 ### Platform/Deployment
 - No iOS getting-started template (unlike Rust, C++, Node.js, Python)
 - No production deployment guide (packaging, signing, distribution)
 - No WebAssembly build toolchain documentation
-
-### Tools
-- `tools/updater/` - Only 23 lines, no migration examples or rollback procedures
-- `tools/figma-inspector/` - Not mentioned in main README
-- `tools/docsnapper/` - Purpose unclear, no usage examples
-
-### Examples
-- `examples/fancy_demo/` - No README despite being a substantial example
-- `examples/cpp/` - No explanation of `platform_native` vs `platform_qt` differences
-- ~20 examples not featured in the examples README (wgpu_texture, servo, safe-ui, uefi-demo, MCU examples)
 
 ## Incomplete Documentation
 
