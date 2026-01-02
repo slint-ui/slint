@@ -21,7 +21,7 @@ in detail.
 
 To use Slint with Node.js, ensure the following programs are installed:
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v16. or newer)
+  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
   * **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
