@@ -46,7 +46,7 @@ impl FormatState {
         }
         let mut new_line = String::from("\n");
         for _ in 0..self.indentation_level {
-            new_line += "    ";
+            new_line += "  ";
         }
         self.whitespace_to_add = Some(new_line);
     }
