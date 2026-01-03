@@ -278,7 +278,8 @@ impl LayoutConstraints {
 #[derive(Debug, Clone)]
 pub enum RowColExpr {
     Named(NamedReference),
-    Literal(f64), // u16 range, or ROW_COL_AUTO
+    Literal(u16),
+    Auto,
 }
 
 /// An element in a GridLayout
