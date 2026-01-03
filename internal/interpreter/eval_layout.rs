@@ -233,7 +233,7 @@ fn grid_layout_input_data(
     let mut new_row = true;
     for elem in grid_layout.elems.iter() {
         let eval_or_default = |expr: &RowColExpr, component: InstanceRef| match expr {
-            RowColExpr::Literal(value) => *value as f64,
+            RowColExpr::Literal(value) => *value as f32,
             RowColExpr::Auto => i_slint_common::ROW_COL_AUTO,
             RowColExpr::Named(nr) => {
                 // we could check for out-of-bounds here, but organize_grid_layout will also do it
