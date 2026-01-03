@@ -50,4 +50,4 @@ pub const MENU_SEPARATOR_PLACEHOLDER_TITLE: &str = "\u{E001}⸺";
 /// Internal "magic" value for row and col numbers, to mean "auto", in GridLayoutInputData
 /// Use the value 65536, so it's outside u16 range and not as likely as -1
 /// (we can catch it as a literal at compile time, but not if it's a runtime value)
-pub const ROW_COL_AUTO: f64 = u16::MAX as f64 + 1.;
+pub const ROW_COL_AUTO: f32 = u16::MAX as f32 + 1.;

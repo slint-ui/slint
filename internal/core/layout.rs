@@ -444,12 +444,12 @@ pub struct GridLayoutInputData {
     /// col and row number.
     /// Only ROW_COL_AUTO and the u16 range are valid, values outside of
     /// that will be clamped with a warning at runtime
-    pub col: f64,
-    pub row: f64,
+    pub col: f32,
+    pub row: f32,
     /// colspan and rowspan
     /// Only the u16 range is valid, values outside of that will be clamped with a warning at runtime
-    pub colspan: f64,
-    pub rowspan: f64,
+    pub colspan: f32,
+    pub rowspan: f32,
 }
 
 /// The organized layout data for a GridLayout, after row/col determination:
@@ -696,11 +696,11 @@ fn organize_grid_layout_impl(
         OrganizedDataGenerator::new(repeater_indices.as_slice(), &mut organized_data);
     let mut errors = Vec::new();
 
-    fn clamp_to_u16(value: f64, field_name: &str, errors: &mut Vec<String>) -> u16 {
+    fn clamp_to_u16(value: f32, field_name: &str, errors: &mut Vec<String>) -> u16 {
         if value < 0.0 {
             errors.push(format!("cell {field_name} {value} is negative, clamping to 0"));
             0
-        } else if value > u16::MAX as f64 {
+        } else if value > u16::MAX as f32 {
             errors
                 .push(format!("cell {field_name} {value} is too large, clamping to {}", u16::MAX));
             u16::MAX
