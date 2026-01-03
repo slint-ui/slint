@@ -500,16 +500,19 @@ impl GridLayout {
                 }
             };
 
-            let grid_layout_cell = GridLayoutElement {
+            let grid_layout_cell = GridLayoutCell {
                 new_row,
                 col_expr: expr_or_default(col_expr, RowColExpr::Auto),
                 row_expr: expr_or_default(row_expr, RowColExpr::Auto),
                 colspan_expr: expr_or_default(colspan_expr, RowColExpr::Literal(1)),
                 rowspan_expr: expr_or_default(rowspan_expr, RowColExpr::Literal(1)),
+            };
+            let grid_layout_element = GridLayoutElement {
+                cell: grid_layout_cell.clone(),
                 item: layout_item.item.clone(),
             };
-            layout_item.elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell.clone());
-            self.elems.push(grid_layout_cell);
+            layout_item.elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell);
+            self.elems.push(grid_layout_element);
         }
     }
 }

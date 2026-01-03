@@ -874,7 +874,7 @@ pub struct Element {
     pub inline_depth: i32,
 
     /// Information about the grid cell containing this element, if applicable
-    pub grid_layout_cell: Option<crate::layout::GridLayoutElement>,
+    pub grid_layout_cell: Option<crate::layout::GridLayoutCell>,
 
     /// Debug information about this element.
     ///

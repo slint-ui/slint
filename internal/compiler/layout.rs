@@ -282,22 +282,27 @@ pub enum RowColExpr {
     Auto,
 }
 
-/// An element in a GridLayout
 #[derive(Debug, Clone)]
-pub struct GridLayoutElement {
+pub struct GridLayoutCell {
     pub new_row: bool,
     pub col_expr: RowColExpr,
     pub row_expr: RowColExpr,
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
+}
+
+/// An element in a GridLayout
+#[derive(Debug, Clone)]
+pub struct GridLayoutElement {
+    pub cell: GridLayoutCell,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
     pub fn span(&self, orientation: Orientation) -> &RowColExpr {
         match orientation {
-            Orientation::Horizontal => &self.colspan_expr,
-            Orientation::Vertical => &self.rowspan_expr,
+            Orientation::Horizontal => &self.cell.colspan_expr,
+            Orientation::Vertical => &self.cell.rowspan_expr,
         }
     }
 }
@@ -475,17 +480,17 @@ pub struct GridLayout {
 
 impl GridLayout {
     pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        for cell in &mut self.elems {
-            if let RowColExpr::Named(ref mut e) = cell.col_expr {
+        for elem in &mut self.elems {
+            if let RowColExpr::Named(ref mut e) = elem.cell.col_expr {
                 visitor(e);
             }
-            if let RowColExpr::Named(ref mut e) = cell.row_expr {
+            if let RowColExpr::Named(ref mut e) = elem.cell.row_expr {
                 visitor(e);
             }
-            if let RowColExpr::Named(ref mut e) = cell.colspan_expr {
+            if let RowColExpr::Named(ref mut e) = elem.cell.colspan_expr {
                 visitor(e);
             }
-            if let RowColExpr::Named(ref mut e) = cell.rowspan_expr {
+            if let RowColExpr::Named(ref mut e) = elem.cell.rowspan_expr {
                 visitor(e);
             }
         }

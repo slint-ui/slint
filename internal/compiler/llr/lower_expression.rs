@@ -15,7 +15,7 @@ use super::{
 };
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
-use crate::layout::{GridLayoutElement, Orientation, RowColExpr};
+use crate::layout::{GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
@@ -1027,12 +1027,12 @@ fn grid_layout_input_data(
         RowColExpr::Named(nr) => llr_Expression::PropertyReference(ctx.map_property_reference(&nr)),
         RowColExpr::Auto => llr_Expression::NumberLiteral(i_slint_common::ROW_COL_AUTO as _),
     };
-    let input_data_for_cell = |cell: &crate::layout::GridLayoutElement,
+    let input_data_for_cell = |elem: &crate::layout::GridLayoutElement,
                                new_row_expr: llr_Expression| {
-        let row_expr = propref(&cell.row_expr);
-        let col_expr = propref(&cell.col_expr);
-        let rowspan_expr = propref(&cell.rowspan_expr);
-        let colspan_expr = propref(&cell.colspan_expr);
+        let row_expr = propref(&elem.cell.row_expr);
+        let col_expr = propref(&elem.cell.col_expr);
+        let rowspan_expr = propref(&elem.cell.rowspan_expr);
+        let colspan_expr = propref(&elem.cell.colspan_expr);
 
         make_struct(
             BuiltinPrivateStruct::GridLayoutInputData,
@@ -1056,7 +1056,9 @@ fn grid_layout_input_data(
             values: layout
                 .elems
                 .iter()
-                .map(|cell| input_data_for_cell(cell, llr_Expression::BoolLiteral(cell.new_row)))
+                .map(|elem| {
+                    input_data_for_cell(elem, llr_Expression::BoolLiteral(elem.cell.new_row))
+                })
                 .collect(),
             as_model: false,
         };
@@ -1065,7 +1067,7 @@ fn grid_layout_input_data(
         let mut elements = vec![];
         let mut after_repeater_in_same_row = false;
         for item in &layout.elems {
-            if item.new_row {
+            if item.cell.new_row {
                 after_repeater_in_same_row = false;
             }
             if item.item.element.borrow().repeated.is_some() {
@@ -1079,12 +1081,12 @@ fn grid_layout_input_data(
                     _ => panic!(),
                 };
                 let repeated_element =
-                    GridLayoutRepeatedElement { new_row: item.new_row, repeater_index };
+                    GridLayoutRepeatedElement { new_row: item.cell.new_row, repeater_index };
                 elements.push(Either::Right(repeated_element));
                 after_repeater_in_same_row = true;
             } else {
-                let new_row_expr = if item.new_row || !after_repeater_in_same_row {
-                    llr_Expression::BoolLiteral(item.new_row)
+                let new_row_expr = if item.cell.new_row || !after_repeater_in_same_row {
+                    llr_Expression::BoolLiteral(item.cell.new_row)
                 } else {
                     llr_Expression::ReadLocalVariable {
                         name: SmolStr::new_static("new_row"),
@@ -1200,7 +1202,7 @@ pub fn get_layout_info(
 
 pub fn get_grid_layout_input_for_repeated(
     ctx: &mut ExpressionLoweringCtx,
-    grid_cell: &GridLayoutElement,
+    grid_cell: &GridLayoutCell,
 ) -> llr_Expression {
     let new_row_expr =
         llr_Expression::ReadLocalVariable { name: SmolStr::new_static("new_row"), ty: Type::Bool };
