@@ -433,11 +433,8 @@ impl GridLayout {
         self.add_element_with_coord_as_expr(
             item_element,
             false, // new_row
-            (&Some(RowColExpr::Literal(row as f64)), &Some(RowColExpr::Literal(col as f64))),
-            (
-                &Some(RowColExpr::Literal(rowspan as f64)),
-                &Some(RowColExpr::Literal(colspan as f64)),
-            ),
+            (&Some(RowColExpr::Literal(row)), &Some(RowColExpr::Literal(col))),
+            (&Some(RowColExpr::Literal(rowspan)), &Some(RowColExpr::Literal(colspan))),
             layout_cache_prop_h,
             layout_cache_prop_v,
             organized_data_prop,
@@ -494,20 +491,21 @@ impl GridLayout {
                 set_prop_from_cache(e, "row", organized_data_prop, org_index + 2, rep_idx, 4, diag);
             }
 
-            let expr_or_default = |expr: &Option<RowColExpr>, default: f64| -> RowColExpr {
+            let expr_or_default = |expr: &Option<RowColExpr>, default: RowColExpr| -> RowColExpr {
                 match expr {
                     Some(RowColExpr::Literal(v)) => RowColExpr::Literal(*v),
                     Some(RowColExpr::Named(nr)) => RowColExpr::Named(nr.clone()),
-                    None => RowColExpr::Literal(default),
+                    Some(RowColExpr::Auto) => RowColExpr::Auto,
+                    None => default,
                 }
             };
 
             let grid_layout_cell = GridLayoutElement {
                 new_row,
-                col_expr: expr_or_default(col_expr, i_slint_common::ROW_COL_AUTO),
-                row_expr: expr_or_default(row_expr, i_slint_common::ROW_COL_AUTO),
-                colspan_expr: expr_or_default(colspan_expr, 1.),
-                rowspan_expr: expr_or_default(rowspan_expr, 1.),
+                col_expr: expr_or_default(col_expr, RowColExpr::Auto),
+                row_expr: expr_or_default(row_expr, RowColExpr::Auto),
+                colspan_expr: expr_or_default(colspan_expr, RowColExpr::Literal(1)),
+                rowspan_expr: expr_or_default(rowspan_expr, RowColExpr::Literal(1)),
                 item: layout_item.item.clone(),
             };
             layout_item.elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell.clone());
