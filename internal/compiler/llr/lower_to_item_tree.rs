@@ -256,6 +256,7 @@ fn lower_sub_component(
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
+        child_of_layout: component.root_element.borrow().child_of_layout,
         grid_layout_input_for_repeated: None,
         accessible_prop: Default::default(),
         element_infos: Default::default(),

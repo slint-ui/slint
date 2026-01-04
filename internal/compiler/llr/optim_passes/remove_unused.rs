@@ -294,6 +294,7 @@ mod visitor {
             geometries,
             layout_info_h,
             layout_info_v,
+            child_of_layout: _,
             grid_layout_input_for_repeated,
             accessible_prop,
             element_infos: _,

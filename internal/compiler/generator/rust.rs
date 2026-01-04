@@ -1930,13 +1930,17 @@ fn generate_repeated_component(
             }
         }
     } else {
-        // TODO: we could generate this code only if we know that this component is in a layout
-        quote! {
-            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
-                -> sp::BoxLayoutCellData
-            {
-                sp::BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
+        let box_layout_data_fn = root_sc.child_of_layout.then(|| {
+            quote! {
+                fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
+                    -> sp::BoxLayoutCellData
+                {
+                    sp::BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
+                }
             }
+        });
+        quote! {
+            #box_layout_data_fn
             #grid_layout_input_data_fn
         }
     };
