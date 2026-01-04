@@ -23,8 +23,8 @@ pub struct LiveReloadingComponent {
     compiler: Compiler,
     file_name: PathBuf,
     component_name: String,
-    properties: HashMap<String, Value>,
-    callbacks: HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>,
+    properties: RefCell<HashMap<String, Value>>,
+    callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
 }
 
 impl LiveReloadingComponent {
@@ -125,7 +125,7 @@ impl LiveReloadingComponent {
         }
 
         // Set the properties
-        for (name, value) in self.properties.iter() {
+        for (name, value) in self.properties.borrow_mut().iter() {
             if let Some((global, prop)) = name.split_once('.') {
                 self.instance()
                     .set_global_property(global, prop, value.clone())
@@ -136,7 +136,7 @@ impl LiveReloadingComponent {
                     .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"));
             }
         }
-        for (name, callback) in self.callbacks.iter() {
+        for (name, callback) in self.callbacks.borrow_mut().iter() {
             let callback = callback.clone();
             if let Some((global, prop)) = name.split_once('.') {
                 self.instance()
@@ -160,8 +160,8 @@ impl LiveReloadingComponent {
     }
 
     /// Set a property and remember its value for when the component is reloaded
-    pub fn set_property(&mut self, name: &str, value: Value) {
-        self.properties.insert(name.into(), value.clone());
+    pub fn set_property(&self, name: &str, value: Value) {
+        self.properties.borrow_mut().insert(name.into(), value.clone());
         self.instance()
             .set_property(&name, value)
             .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"))
@@ -182,16 +182,16 @@ impl LiveReloadingComponent {
     }
 
     /// Forward to set_callback
-    pub fn set_callback(&mut self, name: &str, callback: Rc<dyn Fn(&[Value]) -> Value + 'static>) {
-        self.callbacks.insert(name.into(), callback.clone());
+    pub fn set_callback(&self, name: &str, callback: Rc<dyn Fn(&[Value]) -> Value + 'static>) {
+        self.callbacks.borrow_mut().insert(name.into(), callback.clone());
         self.instance()
             .set_callback(&name, move |args| callback(args))
             .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
     }
 
     /// forward to set_global_property
-    pub fn set_global_property(&mut self, global_name: &str, name: &str, value: Value) {
-        self.properties.insert(format!("{global_name}.{name}"), value.clone());
+    pub fn set_global_property(&self, global_name: &str, name: &str, value: Value) {
+        self.properties.borrow_mut().insert(format!("{global_name}.{name}"), value.clone());
         self.instance()
             .set_global_property(global_name, name, value)
             .unwrap_or_else(|e| panic!("Cannot set property {global_name}::{name}: {e}"))
@@ -213,12 +213,12 @@ impl LiveReloadingComponent {
 
     /// Forward to set_global_callback
     pub fn set_global_callback(
-        &mut self,
+        &self,
         global_name: &str,
         name: &str,
         callback: Rc<dyn Fn(&[Value]) -> Value + 'static>,
     ) {
-        self.callbacks.insert(format!("{global_name}.{name}"), callback.clone());
+        self.callbacks.borrow_mut().insert(format!("{global_name}.{name}"), callback.clone());
         self.instance()
             .set_global_callback(global_name, name, move |args| callback(args))
             .unwrap_or_else(|e| panic!("Cannot set callback {global_name}::{name}: {e}"));
