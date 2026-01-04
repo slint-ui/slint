@@ -363,6 +363,7 @@ pub struct SubComponent {
 
     pub layout_info_h: MutExpression,
     pub layout_info_v: MutExpression,
+    pub child_of_layout: bool,
     pub grid_layout_input_for_repeated: Option<MutExpression>,
 
     /// Maps (item_index, property) to an expression
