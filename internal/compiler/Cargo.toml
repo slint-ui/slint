@@ -85,6 +85,12 @@ i-slint-parser-test-macro = { path = "./parser-test-macro" }
 regex = "1.3.7"
 spin_on = { workspace = true }
 rayon = { workspace = true }
+divan = "0.1.14"
+
+[[bench]]
+name = "semantic_analysis"
+harness = false
+required-features = ["rust"]
 
 [package.metadata.docs.rs]
 features = [
