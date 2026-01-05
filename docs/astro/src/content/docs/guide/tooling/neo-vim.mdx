@@ -49,13 +49,26 @@ exists under the `language` server section:
 
 Follow step 1. of the Vim section to get support for `.slint` files.
 
-The easiest way to use the language server itself in Neovim is via the [`neovim/nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig)
-and [`williamboman/nvim-lsp-installer`](https://github.com/williamboman/nvim-lsp-installer) plugins. Once these are installed
-you can run `:LspInstall slint_lsp` to install the lsp binary (on Windows, Linux, and macOS).
+The easiest way to use the language server in Neovim is via the [`neovim/nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig) plugin.
 
-Once the slint_lsp language server is installed and running, you can trigger the live preview
-via the code actions. Unfortunately there are several ways to trigger these, so please check your
-configuration.
+To install the language server you can:
 
-Also, if you use `nvim-treesitter` you can install the Tree Sitter parser for Slint using `TSInstall slint`
+- [install and configure manually](../manual-setup/#slint-lsp)
+- install [Mason](https://github.com/mason-org/mason.nvim) and run `:MasonInstall slint-lsp` (on Windows, Linux and macOS)
+
+### Live Preview
+
+Once the `slint-lsp` language server is installed and running, you can open the live preview
+by placing the caret over a component name and triggering the code actions (bound to `gra` by default).
+Depending on your configuration, this action might be bound to something else, so please check your configuration for the appropriate key binding (`vim.lsp.buf.code_action()`).
+
+You may also want to install a plugin that indicates when code actions are avilable like [kosayoda/nvim-lightbulb](https://github.com/kosayoda/nvim-lightbulb).
+
+**Example with nvim-lightbulb**:
+
+![Opening Live Preview from Neovim](../../../../assets/guide/tooling/nvim-show-preview.webp)
+
+### Tree-sitter
+
+If you use `nvim-treesitter` you can install the Tree Sitter parser for Slint using `TSInstall slint`
 for syntax highlighting and indentation support.
