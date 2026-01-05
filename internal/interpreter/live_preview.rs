@@ -123,7 +123,11 @@ impl LiveReloadingComponent {
             eprintln!("Component {} not found", self.component_name);
             return false;
         }
+        true
+    }
 
+    /// Reload the properties and callbacks after a reload()
+    pub fn reload_properties_and_callbacks(&self) {
         // Set the properties
         for (name, value) in self.properties.borrow_mut().iter() {
             if let Some((global, prop)) = name.split_once('.') {
@@ -150,8 +154,6 @@ impl LiveReloadingComponent {
         }
 
         eprintln!("Reloaded component {} from {}", self.component_name, self.file_name.display());
-
-        true
     }
 
     /// Return the instance
@@ -261,7 +263,10 @@ impl Watcher {
                 WatcherState::Waiting(cx.waker().clone()),
             );
             if matches!(state, WatcherState::Changed) {
-                instance.borrow_mut().reload();
+                let success = instance.borrow_mut().reload();
+                if success {
+                    instance.borrow().reload_properties_and_callbacks();
+                };
             };
             std::task::Poll::Pending
         }));
