@@ -243,6 +243,13 @@ public:
         return *this;
     }
 
+    /// Move-assigns \a other to this StyledText instance.
+    StyledText &operator=(StyledText &&other)
+    {
+        std::swap(inner, other.inner);
+        return *this;
+    }
+
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const StyledText &a, const StyledText &b)
     {
@@ -250,7 +257,7 @@ public:
     }
 
 private:
-    void *paragraphs;
+    void *inner;
 };
 namespace private_api {
 
