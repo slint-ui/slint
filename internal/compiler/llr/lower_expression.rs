@@ -42,7 +42,13 @@ impl ExpressionLoweringCtx<'_> {
         let mut map = &self.inner;
         if !enclosing.is_global() {
             while !Rc::ptr_eq(enclosing, map.component) {
-                map = map.parent.unwrap();
+                map = map.parent.unwrap_or_else(|| {
+                    panic!(
+                        "Could not find component for property reference {from:?} in component {:?}. Started with enclosing={:?}",
+                        self.component.id,
+                        enclosing.id
+                    )
+                });
                 level += 1;
             }
         }
