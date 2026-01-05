@@ -1,0 +1,25 @@
+---
+// cSpell: ignore Wwctiow
+title: Helix
+description: Helix Configuration for Slint
+---
+
+To install the Slint Language server, check the [LSP Documentation](../manual-setup/#slint-lsp).
+
+[Helix](https://helix-editor.com/) works out of the box without further configuration. To check if Helix detects Slint Language server successfully, run this command:
+
+```sh
+hx --health slint
+```
+
+The output should be like:
+
+```
+Configured language servers:
+  ✓ slint-lsp: /home/user/.local/bin/slint-lsp
+Configured debug adapter: None
+Configured formatter: None
+Highlight queries: ✓
+Textobject queries: ✓
+Indent queries: ✓
+```

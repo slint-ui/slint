@@ -1,18 +1,27 @@
 ---
 // cSpell: ignore Wwctiow
-title: Other Editors
-description: Set up Slint for other editors
+title: Manual Setup
+description: Manually set up Slint for your editor
 ---
 
 import Link from '@slint/common-files/src/components/Link.astro';
 
-The easiest way to get started with Slint is to use <Link type="VSCode" label="Visual Studio Code with the Slint extension"/>.
+We provide extensions or configuration files for different editors to better support .slint files.
 
-[Helix](https://helix-editor.com/) should also work well out of the box.
+### Editors
 
-Slint supports any other editors via the Language Server Protocol.
+- [Visual Studio Code](../vscode/)
+- [Kate](../kate/)
+- [Qt Creator](../qt-creator/)
+- [Helix](../helix/)
+- [(Neo-)Vim](../neo-vim/)
+- [Sublime Text](../sublime-text/)
+- [JetBrains IDE](../jetbrains/)
+- [Zed](../zed)
 
-## Slint Language Server (`slint-lsp`)
+If your favorite editor is not in the list of supported editors, it just means we did not test it, not that it doesn't work. We do provide a language server for Slint that should work with most editor that supports the Language Server Protocol (LSP). If you do test your editor with it, we would be happy to accept a pull request that adds instructions here.
+
+## <a name="slint-lsp"/>Slint Language Server (`slint-lsp`)
 
 Most modern editors use the [Language Server Protocol (LSP)](https://microsoft.github.io/language-server-protocol/) to add support for different programming languages.
 Slint provides an LSP implementation with the `slint-lsp` binary.

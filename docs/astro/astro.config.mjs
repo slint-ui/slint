@@ -64,7 +64,20 @@ export default defineConfig({
                                 items: [
                                     "guide/tooling/vscode",
                                     "guide/tooling/figma-inspector",
-                                    "guide/tooling/other-editors",
+                                    {
+                                        label: "Other Editors",
+                                        collapsed: true,
+                                        items: [
+                                            "guide/tooling/kate",
+                                            "guide/tooling/qt-creator",
+                                            "guide/tooling/helix",
+                                            "guide/tooling/neo-vim",
+                                            "guide/tooling/sublime-text",
+                                            "guide/tooling/jetbrains-ide",
+                                            "guide/tooling/zed",
+                                            "guide/tooling/manual-setup",
+                                        ]
+                                    },
                                 ],
                             },
                             {
