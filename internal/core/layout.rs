@@ -317,7 +317,7 @@ mod grid_internal {
         spacing: Coord,
         size: Option<Coord>,
     ) -> Vec<LayoutData> {
-        assert!(organized_data.len() % 4 == 0);
+        assert!(organized_data.len().is_multiple_of(4));
         let num =
             organized_data.max_value(constraints.len(), orientation, &repeater_indices) as usize;
         if num < 1 {
@@ -482,13 +482,14 @@ impl GridLayoutOrganizedData {
             if cell_number < ri_start_cell {
                 break;
             }
-            if ri_cell_count > 0 {
-                if cell_number >= ri_start_cell && cell_number < ri_start_cell + ri_cell_count {
-                    // read the jump index
-                    final_idx = self[(ri_start_cell - cell_nr_adj) as usize * 4] as usize
-                        + ((cell_number - ri_start_cell) * 4) as usize;
-                    break;
-                }
+            if ri_cell_count > 0
+                && cell_number >= ri_start_cell
+                && cell_number < ri_start_cell + ri_cell_count
+            {
+                // read the jump index
+                final_idx = self[(ri_start_cell - cell_nr_adj) as usize * 4] as usize
+                    + ((cell_number - ri_start_cell) * 4) as usize;
+                break;
             }
             // If self contains [cell0] [repeater item pointing to 3 items] [cell4]
             // then cell4 is at position 2, we need to adjust by 3-1=2 cells

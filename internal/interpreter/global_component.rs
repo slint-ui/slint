@@ -115,8 +115,7 @@ impl CompiledGlobal {
             CompiledGlobal::Component { component, .. } => {
                 generativity::make_guard!(guard);
                 let component = component.unerase(guard);
-                let is_exported = !component.original.exported_global_names.borrow().is_empty();
-                is_exported
+                !component.original.exported_global_names.borrow().is_empty()
             }
         }
     }
