@@ -972,7 +972,7 @@ fn grid_layout_cell_constraints(
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
-            element_ty: element_ty.into(),
+            element_ty: element_ty,
             values: layout
                 .elems
                 .iter()
@@ -1027,7 +1027,7 @@ fn grid_layout_input_data(
 ) -> GridLayoutInputDataResult {
     let propref = |named_ref: &RowColExpr| match named_ref {
         RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
-        RowColExpr::Named(nr) => llr_Expression::PropertyReference(ctx.map_property_reference(&nr)),
+        RowColExpr::Named(nr) => llr_Expression::PropertyReference(ctx.map_property_reference(nr)),
         RowColExpr::Auto => llr_Expression::NumberLiteral(i_slint_common::ROW_COL_AUTO as _),
     };
     let input_data_for_cell = |elem: &crate::layout::GridLayoutElement,

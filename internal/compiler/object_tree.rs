@@ -551,10 +551,7 @@ impl Component {
 
     /// This is an interface introduced with the "interface" keyword
     pub fn is_interface(&self) -> bool {
-        match &self.root_element.borrow().base_type {
-            ElementType::Interface => true,
-            _ => false,
-        }
+        matches!(&self.root_element.borrow().base_type, ElementType::Interface)
     }
 
     /// Returns the names of aliases to global singletons, exactly as
@@ -1087,11 +1084,11 @@ fn expected_relationship_to_parent(node: &syntax_nodes::Element) -> Option<Paren
     let implements_inherits_identifier =
         parent.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).nth(1)?;
     let token = implements_inherits_identifier.as_token()?;
-    return match token.text() {
+    match token.text() {
         "inherits" => Some(ParentRelationship::Inherits),
         "implements" => Some(ParentRelationship::Implements),
         _ => None,
-    };
+    }
 }
 
 impl Element {
@@ -1129,7 +1126,7 @@ impl Element {
                 (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements)) => {
                     if !diag.enable_experimental {
                         diag.push_error(
-                            format!("'implements' is an experimental feature"),
+                            "'implements' is an experimental feature".into(),
                             &base_node,
                         );
                         ElementType::Error
@@ -1149,7 +1146,7 @@ impl Element {
                 (Ok(ElementType::Builtin(_bt)), Some(ParentRelationship::Implements)) => {
                     if !diag.enable_experimental {
                         diag.push_error(
-                            format!("'implements' is an experimental feature"),
+                            "'implements' is an experimental feature".into(),
                             &base_node,
                         );
                     } else {
