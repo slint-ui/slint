@@ -1,5 +1,5 @@
 ---
-// cSpell: ignore Wwctiow
+// cSpell: ignore vimrc nvim lspconfig kosayoda
 title: (Neo-)Vim
 description: Vim and Neovim Configuration for Slint
 ---
@@ -24,9 +24,11 @@ Install the [`slint-ui/vim-slint`](https://github.com/slint-ui/vim-slint) plugin
 Alternatively you can add the following to your vim configuration file (e.g. `vimrc`) to
 enable automatic recognition of `.slint` files:
 
+{/* cSpell: disable */}
 ```
 autocmd BufEnter *.slint :setlocal filetype=slint
 ```
+{/* cSpell: enable */}
 
 2. Make sure the slint language server is installed and can be found in PATH.
 
@@ -64,7 +66,7 @@ Once the `slint-lsp` language server is installed and running, you can open the 
 by placing the caret over a component name and triggering the code actions (bound to `gra` by default).
 Depending on your configuration, this action might be bound to something else, so please check your configuration for the appropriate key binding (`vim.lsp.buf.code_action()`).
 
-You may also want to install a plugin that indicates when code actions are avilable like [kosayoda/nvim-lightbulb](https://github.com/kosayoda/nvim-lightbulb).
+You may also want to install a plugin that indicates when code actions are available like [kosayoda/nvim-lightbulb](https://github.com/kosayoda/nvim-lightbulb).
 
 **Example with nvim-lightbulb**:
 
