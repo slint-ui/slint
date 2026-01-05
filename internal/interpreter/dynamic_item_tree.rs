@@ -24,7 +24,7 @@ use i_slint_core::item_tree::{
 use i_slint_core::items::{
     AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
 };
-use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
+use i_slint_core::layout::{LayoutInfo, LayoutItemInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::menus::MenuFromItemTree;
 use i_slint_core::model::{ModelRc, RepeatedItemTree, Repeater};
@@ -171,8 +171,8 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         LogicalLength::new(self.borrow().as_ref().layout_info(Orientation::Horizontal).min)
     }
 
-    fn box_layout_data(self: Pin<&Self>, o: Orientation) -> BoxLayoutCellData {
-        BoxLayoutCellData { constraint: self.borrow().as_ref().layout_info(o) }
+    fn layout_item_info(self: Pin<&Self>, o: Orientation) -> LayoutItemInfo {
+        LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
     }
 }
 

@@ -1930,17 +1930,17 @@ fn generate_repeated_component(
             }
         }
     } else {
-        let box_layout_data_fn = root_sc.child_of_layout.then(|| {
+        let layout_item_info_fn = root_sc.child_of_layout.then(|| {
             quote! {
-                fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
-                    -> sp::BoxLayoutCellData
+                fn layout_item_info(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
+                    -> sp::LayoutItemInfo
                 {
-                    sp::BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
+                    sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
                 }
             }
         });
         quote! {
-            #box_layout_data_fn
+            #layout_item_info_fn
             #grid_layout_input_data_fn
         }
     };
@@ -2738,13 +2738,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             })
         }
-        Expression::BoxLayoutFunction {
+        Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices,
             elements,
             orientation,
             sub_expression,
-        } => box_layout_function(
+        } => generate_with_layout_item_info(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
@@ -2753,9 +2753,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
-        Expression::GridInputFunction {
+        Expression::WithGridInputData {
             cells_variable, repeater_indices, elements, sub_expression
-        } => grid_input_function(
+        } => generate_with_grid_input_data(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
@@ -3464,7 +3464,7 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
     }
 }
 
-fn grid_input_function(
+fn generate_with_grid_input_data(
     cells_variable: &str,
     repeated_indices: Option<&str>,
     elements: &[Either<Expression, llr::GridLayoutRepeatedElement>],
@@ -3533,7 +3533,7 @@ fn grid_input_function(
     } }
 }
 
-fn box_layout_function(
+fn generate_with_layout_item_info(
     cells_variable: &str,
     repeated_indices: Option<&str>,
     elements: &[Either<Expression, llr::RepeatedElementIdx>],
@@ -3575,7 +3575,7 @@ fn box_layout_function(
                         let internal_vec = _self.#repeater_id.instances_vec();
                         #ri
                         for sub_comp in &internal_vec {
-                            items_vec.push(sub_comp.as_pin_ref().box_layout_data(#orientation))
+                            items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation))
                         }
                     ));
             }

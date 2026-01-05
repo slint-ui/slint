@@ -637,7 +637,7 @@ fn compute_grid_layout_info(
         return_ty: crate::typeregister::layout_info_type().into(),
     };
     match constraints_result.compute_cells {
-        Some((cells_variable, elements)) => llr_Expression::BoxLayoutFunction {
+        Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices: Some("repeated_indices".into()),
             elements,
@@ -674,7 +674,7 @@ fn compute_layout_info(
                 }
             };
             match bld.compute_cells {
-                Some((cells_variable, elements)) => llr_Expression::BoxLayoutFunction {
+                Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
                     cells_variable,
                     repeater_indices: None,
                     elements,
@@ -735,7 +735,7 @@ fn organize_grid_layout(
             return_ty: Type::Array(Type::Int32.into()),
         };
         if let Some((cells_variable, elements)) = input_data.compute_cells {
-            llr_Expression::GridInputFunction {
+            llr_Expression::WithGridInputData {
                 cells_variable,
                 repeater_indices: Some("repeated_indices".into()),
                 elements,
@@ -772,31 +772,28 @@ fn solve_grid_layout(
     let constraints_result = grid_layout_cell_constraints(layout, o, ctx);
 
     match constraints_result.compute_cells {
-        Some((cells_variable, elements)) => {
-            // PENDING(dfaure) rename BoxLayoutFunction to RepeatedIndicesLayoutFunction
-            llr_Expression::BoxLayoutFunction {
-                cells_variable: cells_variable.clone(),
-                repeater_indices: Some("repeated_indices".into()),
-                elements,
-                orientation: o,
-                sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "solve_grid_layout".into(),
-                    arguments: vec![
-                        data,
-                        llr_Expression::ReadLocalVariable {
-                            name: cells_variable.into(),
-                            ty: constraints_result.cells.ty(ctx),
-                        },
-                        orientation_expr,
-                        llr_Expression::ReadLocalVariable {
-                            name: "repeated_indices".into(),
-                            ty: Type::Array(Type::Int32.into()),
-                        },
-                    ],
-                    return_ty: Type::LayoutCache,
-                }),
-            }
-        }
+        Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
+            cells_variable: cells_variable.clone(),
+            repeater_indices: Some("repeated_indices".into()),
+            elements,
+            orientation: o,
+            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                function: "solve_grid_layout".into(),
+                arguments: vec![
+                    data,
+                    llr_Expression::ReadLocalVariable {
+                        name: cells_variable.into(),
+                        ty: constraints_result.cells.ty(ctx),
+                    },
+                    orientation_expr,
+                    llr_Expression::ReadLocalVariable {
+                        name: "repeated_indices".into(),
+                        ty: Type::Array(Type::Int32.into()),
+                    },
+                ],
+                return_ty: Type::LayoutCache,
+            }),
+        },
         None => llr_Expression::ExtraBuiltinFunctionCall {
             function: "solve_grid_layout".into(),
             arguments: vec![
@@ -841,7 +838,7 @@ fn solve_layout(
                 ],
             );
             match bld.compute_cells {
-                Some((cells_variable, elements)) => llr_Expression::BoxLayoutFunction {
+                Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
                     cells_variable,
                     repeater_indices: Some("repeated_indices".into()),
                     elements,
@@ -879,14 +876,14 @@ fn solve_layout(
 struct BoxLayoutDataResult {
     alignment: llr_Expression,
     cells: llr_Expression,
-    /// When there are repeater involved, we need to do a BoxLayoutFunction with the
+    /// When there are repeater involved, we need to do a WithLayoutItemInfo with the
     /// given cell variable and elements
     compute_cells: Option<(String, Vec<Either<llr_Expression, RepeatedElementIdx>>)>,
 }
 
 fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
     make_struct(
-        BuiltinPrivateStruct::BoxLayoutCellData,
+        BuiltinPrivateStruct::LayoutItemInfo,
         [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
     )
 }
@@ -952,7 +949,7 @@ fn box_layout_data(
 
 struct GridLayoutCellConstraintsResult {
     cells: llr_Expression,
-    /// When there are repeater involved, we need to do a BoxLayoutFunction with the
+    /// When there are repeater involved, we need to do a WithLayoutItemInfo with the
     /// given cell variable and elements
     compute_cells: Option<(String, Vec<Either<llr_Expression, RepeatedElementIdx>>)>,
 }
@@ -1012,7 +1009,7 @@ fn grid_layout_cell_constraints(
 
 struct GridLayoutInputDataResult {
     cells: llr_Expression,
-    /// When there are repeater involved, we need to do a GridLayoutFunction with the
+    /// When there are repeaters involved, we need to do a WithGridInputData with the
     /// given cell variable and elements
     compute_cells: Option<(String, Vec<Either<llr_Expression, GridLayoutRepeatedElement>>)>,
 }

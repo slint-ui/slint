@@ -175,20 +175,20 @@ pub enum Expression {
         entries_per_item: usize,
     },
     /// Will call the sub_expression, with the cells variable set to the
-    /// array of BoxLayoutCellData from the elements
-    BoxLayoutFunction {
+    /// array of LayoutItemInfo from the elements
+    WithLayoutItemInfo {
         /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
         repeater_indices: Option<SmolStr>,
-        /// Either an expression of type BoxLayoutCellData, or an index to the repeater
+        /// Either an expression of type LayoutItemInfo, or an index to the repeater
         elements: Vec<Either<Expression, RepeatedElementIdx>>,
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
-    GridInputFunction {
+    WithGridInputData {
         /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
@@ -326,8 +326,8 @@ impl Expression {
             Self::ConicGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
-            Self::GridInputFunction { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::TranslationReference { .. } => Type::String,
@@ -408,11 +408,11 @@ macro_rules! visit_impl {
                     $visitor(repeater_index);
                 }
             }
-            Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
+            Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
-            Expression::GridInputFunction { elements, sub_expression, .. } => {
+            Expression::WithGridInputData { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
