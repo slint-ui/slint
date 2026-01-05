@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component A  {
+    cb := ContextMenuArea {
+//        >              <error{Cannot access property or callback 'inner-menu.title' inside of a ContextMenuArea from enclosing component}
+        Menu {
+            inner-menu := Menu { }
+        }
+    }
+
+    if true : TouchArea {
+        clicked => {
+            inner-menu.title = "Hi";
+        }
+    }
+}
+
