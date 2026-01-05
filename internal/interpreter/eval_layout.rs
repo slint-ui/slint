@@ -211,14 +211,13 @@ fn repeater_instances(
     let rep =
         crate::dynamic_item_tree::get_repeater_by_name(component, elem.borrow().id.as_str(), guard);
     rep.0.as_ref().ensure_updated(|| {
-        let instance = crate::dynamic_item_tree::instantiate(
+        crate::dynamic_item_tree::instantiate(
             rep.1.clone(),
             component.self_weak().get().cloned(),
             None,
             None,
             Default::default(),
-        );
-        instance
+        )
     });
     rep.0.as_ref().instances_vec()
 }

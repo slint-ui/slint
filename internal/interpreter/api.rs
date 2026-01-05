@@ -1437,7 +1437,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .get_global(comp.borrow(), &&normalize_identifier(global))
+            .get_global(comp.borrow(), &normalize_identifier(global))
             .map_err(|()| GetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
             .get_property(&normalize_identifier(property))
@@ -1454,7 +1454,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .get_global(comp.borrow(), &&normalize_identifier(global))
+            .get_global(comp.borrow(), &normalize_identifier(global))
             .map_err(|()| SetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
             .set_property(&normalize_identifier(property), value)
