@@ -14,3 +14,4 @@ See [the Slint documentation](http://docs.slint.dev/docs/guide/tooling/manual-se
 - [Sublime Text](https://docs.slint.dev/docs/guide/tooling/sublime-text/)
 - [JetBrains IDE](https://docs.slint.dev/docs/guide/tooling/jetbrains-ide/)
 - [Zed](https://docs.slint.dev/docs/guide/tooling/zed/)
+- [Manual Setup](https://docs.slint.dev/docs/guide/tooling/manual-setup/)
