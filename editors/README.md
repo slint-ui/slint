@@ -2,7 +2,7 @@
 # Editor Configuration for Slint
 
 This folder contains extensions or configuration files for different editor to better support .slint files.
-See [the Slint documentation](http://localhost:4321/docs/guide/tooling/manual-setup/) for details on how to configure your editor of choice.
+See [the Slint documentation](http://docs.slint.dev/docs/guide/tooling/manual-setup/) for details on how to configure your editor of choice.
 
 ## Editors
 
