@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Modified example from issue #348 which allows for better testing from the backend.
+export component TestCase inherits Window {
+    in-out property <duration> dur: 1s;
+
+    // Animations currently follow two different code paths, test that both work.
+    // 1. bindings - if the property has a binding, it uses set_animated_binding
+    out property <float> aaa_binding: is-pressed ? 1.0 : 0.0;
+    animate aaa_binding { duration: dur; }
+    out property <float> zzz_binding: is-pressed ? 1.0 : 0.0;
+    animate zzz_binding { duration: dur; }
+
+    // 2. value - if a value is assigned, it uses set_animated_value
+    in-out property <float> value: 0.0;
+    animate value { duration: dur; }
+
+    in-out property <bool> is-pressed: touch.pressed;
+
+    VerticalLayout {
+        Text {
+            text: aaa_binding;
+        }
+
+        Text {
+            text: zzz_binding;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            dur = dur / 2;
+            if value == 0.0 {
+                value = 1.0;
+            } else {
+                value = 0.0;
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!(expected - 0.05 <= value && value <= expected + 0.05, "Expected {value} to be close to {expected} (+-0.05)");
+}
+
+// Initial: 0.0
+assert_eq!(instance.get_aaa_binding(), 0.0);
+assert_eq!(instance.get_zzz_binding(), 0.0);
+assert_eq!(instance.get_value(), 0.0);
+
+// initial duration is 1s;
+instance.set_is_pressed(true);
+instance.set_value(1.0);
+
+slint_testing::mock_elapsed_time(500);
+// should be around 0.5
+assert_almost_eq(instance.get_aaa_binding(), 0.5);
+assert_almost_eq(instance.get_zzz_binding(), 0.5);
+assert_almost_eq(instance.get_value(), 0.5);
+
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_aaa_binding(), 1.0);
+assert_eq!(instance.get_zzz_binding(), 1.0);
+assert_eq!(instance.get_value(), 1.0);
+
+instance.set_dur(500);
+instance.set_is_pressed(false);
+instance.set_value(0.0);
+
+slint_testing::mock_elapsed_time(250);
+// should be around 0.5
+assert_almost_eq(instance.get_aaa_binding(), 0.5);
+assert_almost_eq(instance.get_zzz_binding(), 0.5);
+assert_almost_eq(instance.get_value(), 0.5);
+
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_aaa_binding(), 0.0);
+assert_eq!(instance.get_zzz_binding(), 0.0);
+assert_eq!(instance.get_value(), 0.0);
+```
+*/
