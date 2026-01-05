@@ -944,9 +944,12 @@ pub fn pretty_print(
         }
     }
     for (name, expr) in &e.bindings {
-        let expr = expr.borrow();
         indent!();
         write!(f, "{name}: ")?;
+        let Ok(expr) = expr.try_borrow() else {
+            writeln!(f, "<borrowed>")?;
+            continue;
+        };
         expression_tree::pretty_print(f, &expr.expression)?;
         if expr.analysis.as_ref().is_some_and(|a| a.is_const) {
             write!(f, "/*const*/")?;
