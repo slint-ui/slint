@@ -27,5 +27,8 @@ proc-macro2 = "1.0.17"
 quote = "1.0"
 spin_on = { workspace = true }
 
+[dev-dependencies]
+slint = { path = "../slint" }
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
