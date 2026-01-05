@@ -2612,8 +2612,8 @@ fn generate_repeated_component(
         repeater_struct.members.push((
             Access::Public, // Because Repeater accesses it
             Declaration::Function(Function {
-                name: "box_layout_data".into(),
-                signature: "(slint::cbindgen_private::Orientation o) const -> slint::cbindgen_private::BoxLayoutCellData".to_owned(),
+                name: "layout_item_info".into(),
+                signature: "(slint::cbindgen_private::Orientation o) const -> slint::cbindgen_private::LayoutItemInfo".to_owned(),
                 statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
 
                 ..Function::default()
@@ -3755,13 +3755,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
             })
         }
-        Expression::BoxLayoutFunction {
+        Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices,
             elements,
             orientation,
             sub_expression,
-        } => box_layout_function(
+        } => generate_with_layout_item_info(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
@@ -3769,12 +3769,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
-        Expression::GridInputFunction {
+        Expression::WithGridInputData {
             cells_variable,
             repeater_indices,
             elements,
             sub_expression,
-        } => grid_input_function(
+        } => generate_with_grid_input_data(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
@@ -4341,7 +4341,7 @@ fn compile_builtin_function_call(
     }
 }
 
-fn box_layout_function(
+fn generate_with_layout_item_info(
     cells_variable: &str,
     repeated_indices: Option<&str>,
     elements: &[Either<llr::Expression, llr::RepeatedElementIdx>],
@@ -4351,7 +4351,7 @@ fn box_layout_function(
 ) -> String {
     let repeated_indices = repeated_indices.map(ident);
     let mut push_code =
-        "std::vector<slint::cbindgen_private::BoxLayoutCellData> cells_vector;".to_owned();
+        "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector;".to_owned();
     let mut repeater_idx = 0usize;
 
     for item in elements {
@@ -4383,7 +4383,7 @@ fn box_layout_function(
                 repeater_idx += 1;
                 write!(
                     push_code,
-                    "self->repeater_{id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->box_layout_data({o})); }});",
+                    "self->repeater_{id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o})); }});",
                     id = repeater,
                     o = to_cpp_orientation(orientation),
                 )
@@ -4401,7 +4401,7 @@ fn box_layout_function(
         format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
     });
     format!(
-        "[&]{{ {} {} slint::cbindgen_private::Slice<slint::cbindgen_private::BoxLayoutCellData>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
+        "[&]{{ {} {} slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
         ri,
         push_code,
         ident(cells_variable),
@@ -4409,7 +4409,7 @@ fn box_layout_function(
     )
 }
 
-fn grid_input_function(
+fn generate_with_grid_input_data(
     cells_variable: &str,
     repeated_indices: Option<&str>,
     elements: &[Either<llr::Expression, llr::GridLayoutRepeatedElement>],

@@ -657,7 +657,7 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
-    BoxLayoutCellData,
+    LayoutItemInfo,
     Padding,
     LayoutInfo,
     FontMetrics,

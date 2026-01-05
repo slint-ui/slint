@@ -142,7 +142,7 @@ impl BuiltinTypes {
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
-                name: BuiltinPrivateStruct::BoxLayoutCellData.into(),
+                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -746,7 +746,7 @@ pub fn path_element_type() -> Type {
     BUILTIN.with(|types| types.path_element_type.clone())
 }
 
-/// The [`Type`] for a runtime BoxLayoutCellData structure
+/// The [`Type`] for a runtime LayoutItemInfo structure
 pub fn box_layout_cell_data_type() -> Type {
     BUILTIN.with(|types| types.box_layout_cell_data_type.clone())
 }

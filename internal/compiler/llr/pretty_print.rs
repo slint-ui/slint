@@ -415,8 +415,8 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     entries_per_item
                 )
             }
-            Expression::BoxLayoutFunction { .. } => write!(f, "BoxLayoutFunction(TODO)",),
-            Expression::GridInputFunction { .. } => write!(f, "GridInputFunction(TODO)",),
+            Expression::WithLayoutItemInfo { .. } => write!(f, "WithLayoutItemInfo(TODO)",),
+            Expression::WithGridInputData { .. } => write!(f, "WithGridInputData(TODO)",),
             Expression::MinMax { ty: _, op, lhs, rhs } => match op {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),

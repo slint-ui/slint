@@ -311,7 +311,7 @@ mod grid_internal {
     /// Used by both solve_grid_layout() and grid_layout_info()
     pub fn to_layout_data(
         organized_data: &GridLayoutOrganizedData,
-        constraints: Slice<BoxLayoutCellData>,
+        constraints: Slice<LayoutItemInfo>,
         orientation: Orientation,
         repeater_indices: Slice<u32>,
         spacing: Coord,
@@ -799,7 +799,7 @@ impl<'a> LayoutCacheGenerator<'a> {
 /// pos (x or y), size (width or height)
 pub fn solve_grid_layout(
     data: &GridLayoutData,
-    constraints: Slice<BoxLayoutCellData>,
+    constraints: Slice<LayoutItemInfo>,
     orientation: Orientation,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
@@ -844,7 +844,7 @@ pub fn solve_grid_layout(
 
 pub fn grid_layout_info(
     organized_data: GridLayoutOrganizedData, // not & because the code generator doesn't support it in ExtraBuiltinFunctionCall
-    constraints: Slice<BoxLayoutCellData>,
+    constraints: Slice<LayoutItemInfo>,
     repeater_indices: Slice<u32>,
     spacing: Coord,
     padding: &Padding,
@@ -879,14 +879,14 @@ pub struct BoxLayoutData<'a> {
     pub spacing: Coord,
     pub padding: Padding,
     pub alignment: LayoutAlignment,
-    pub cells: Slice<'a, BoxLayoutCellData>,
+    pub cells: Slice<'a, LayoutItemInfo>,
 }
 
-// PENDING(dfaure) rename to LayoutCellInfo, this is also used by grid layouts
-// Alternatively we could pass LayoutInfo directly everywhere
 #[repr(C)]
 #[derive(Default, Debug, Clone)]
-pub struct BoxLayoutCellData {
+/// The information about a single item in a layout
+/// For now this only contains the LayoutInfo constraints, but could be extended in the future
+pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
 }
 
@@ -976,7 +976,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
 
 /// Return the LayoutInfo for a BoxLayout with the given cells.
 pub fn box_layout_info(
-    cells: Slice<BoxLayoutCellData>,
+    cells: Slice<LayoutItemInfo>,
     spacing: Coord,
     padding: &Padding,
     alignment: LayoutAlignment,
@@ -1004,7 +1004,7 @@ pub fn box_layout_info(
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
 }
 
-pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding) -> LayoutInfo {
+pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) -> LayoutInfo {
     let extra_w = padding.begin + padding.end;
     let mut fold =
         cells.iter().fold(LayoutInfo { stretch: f32::MAX, ..Default::default() }, |a, b| {
@@ -1045,7 +1045,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_grid_layout(
         data: &GridLayoutData,
-        constraints: Slice<BoxLayoutCellData>,
+        constraints: Slice<LayoutItemInfo>,
         orientation: Orientation,
         repeater_indices: Slice<u32>,
         result: &mut SharedVector<Coord>,
@@ -1056,7 +1056,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_grid_layout_info(
         organized_data: &GridLayoutOrganizedData,
-        constraints: Slice<BoxLayoutCellData>,
+        constraints: Slice<LayoutItemInfo>,
         repeater_indices: Slice<u32>,
         spacing: Coord,
         padding: &Padding,
@@ -1084,7 +1084,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
     pub extern "C" fn slint_box_layout_info(
-        cells: Slice<BoxLayoutCellData>,
+        cells: Slice<LayoutItemInfo>,
         spacing: Coord,
         padding: &Padding,
         alignment: LayoutAlignment,
@@ -1095,7 +1095,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
     pub extern "C" fn slint_box_layout_info_ortho(
-        cells: Slice<BoxLayoutCellData>,
+        cells: Slice<LayoutItemInfo>,
         padding: &Padding,
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
