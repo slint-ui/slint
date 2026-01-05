@@ -1617,6 +1617,7 @@ impl TypeLoader {
             ))
             .chain(
                 (file_to_import == "std-widgets.slint"
+                    || file_to_import == "style-base.slint"
                     || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.resolved_style).into()),
             )
