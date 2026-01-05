@@ -294,15 +294,17 @@ pub struct GridLayoutCell {
 /// An element in a GridLayout
 #[derive(Debug, Clone)]
 pub struct GridLayoutElement {
-    pub cell: GridLayoutCell,
+    // Rc<RefCell<GridLayoutCell>> because shared with the repeated component's element
+    pub cell: Rc<RefCell<GridLayoutCell>>,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
-    pub fn span(&self, orientation: Orientation) -> &RowColExpr {
+    pub fn span(&self, orientation: Orientation) -> RowColExpr {
+        let cell = self.cell.borrow();
         match orientation {
-            Orientation::Horizontal => &self.cell.colspan_expr,
-            Orientation::Vertical => &self.cell.rowspan_expr,
+            Orientation::Horizontal => cell.colspan_expr.clone(),
+            Orientation::Vertical => cell.rowspan_expr.clone(),
         }
     }
 }
@@ -481,16 +483,17 @@ pub struct GridLayout {
 impl GridLayout {
     pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for elem in &mut self.elems {
-            if let RowColExpr::Named(ref mut e) = elem.cell.col_expr {
+            let mut cell = elem.cell.borrow_mut();
+            if let RowColExpr::Named(ref mut e) = cell.col_expr {
                 visitor(e);
             }
-            if let RowColExpr::Named(ref mut e) = elem.cell.row_expr {
+            if let RowColExpr::Named(ref mut e) = cell.row_expr {
                 visitor(e);
             }
-            if let RowColExpr::Named(ref mut e) = elem.cell.colspan_expr {
+            if let RowColExpr::Named(ref mut e) = cell.colspan_expr {
                 visitor(e);
             }
-            if let RowColExpr::Named(ref mut e) = elem.cell.rowspan_expr {
+            if let RowColExpr::Named(ref mut e) = cell.rowspan_expr {
                 visitor(e);
             }
         }

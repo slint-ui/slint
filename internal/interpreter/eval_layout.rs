@@ -244,22 +244,23 @@ fn grid_layout_input_data(
             }
         };
 
-        if elem.cell.new_row {
+        let cell_new_row = elem.cell.borrow().new_row;
+        if cell_new_row {
             after_repeater_in_same_row = false;
         }
         if elem.item.element.borrow().repeated.is_some() {
             let component_vec = repeater_instances(component, &elem.item.element);
-            new_row = elem.cell.new_row;
+            new_row = cell_new_row;
             for erased_sub_comp in &component_vec {
                 // Evaluate the row/col/rowspan/colspan expressions in the context of the sub-component
                 generativity::make_guard!(guard);
                 let sub_comp = erased_sub_comp.as_pin_ref();
                 let sub_instance_ref =
                     unsafe { InstanceRef::from_pin_ref(sub_comp.borrow(), guard) };
-                let row = eval_or_default(&elem.cell.row_expr, sub_instance_ref);
-                let col = eval_or_default(&elem.cell.col_expr, sub_instance_ref);
-                let rowspan = eval_or_default(&elem.cell.rowspan_expr, sub_instance_ref);
-                let colspan = eval_or_default(&elem.cell.colspan_expr, sub_instance_ref);
+                let row = eval_or_default(&elem.cell.borrow().row_expr, sub_instance_ref);
+                let col = eval_or_default(&elem.cell.borrow().col_expr, sub_instance_ref);
+                let rowspan = eval_or_default(&elem.cell.borrow().rowspan_expr, sub_instance_ref);
+                let colspan = eval_or_default(&elem.cell.borrow().colspan_expr, sub_instance_ref);
                 result.push(core_layout::GridLayoutInputData {
                     new_row,
                     col,
@@ -271,15 +272,12 @@ fn grid_layout_input_data(
             }
             after_repeater_in_same_row = true;
         } else {
-            let new_row = if elem.cell.new_row || !after_repeater_in_same_row {
-                elem.cell.new_row
-            } else {
-                new_row
-            };
-            let row = eval_or_default(&elem.cell.row_expr, component);
-            let col = eval_or_default(&elem.cell.col_expr, component);
-            let rowspan = eval_or_default(&elem.cell.rowspan_expr, component);
-            let colspan = eval_or_default(&elem.cell.colspan_expr, component);
+            let new_row =
+                if cell_new_row || !after_repeater_in_same_row { cell_new_row } else { new_row };
+            let row = eval_or_default(&elem.cell.borrow().row_expr, component);
+            let col = eval_or_default(&elem.cell.borrow().col_expr, component);
+            let rowspan = eval_or_default(&elem.cell.borrow().rowspan_expr, component);
+            let colspan = eval_or_default(&elem.cell.borrow().colspan_expr, component);
             result.push(core_layout::GridLayoutInputData { new_row, col, row, colspan, rowspan });
         }
     }

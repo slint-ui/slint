@@ -549,8 +549,11 @@ fn lower_sub_component(
     .into();
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
         sub_component.grid_layout_input_for_repeated = Some(
-            super::lower_expression::get_grid_layout_input_for_repeated(&mut ctx, grid_layout_cell)
-                .into(),
+            super::lower_expression::get_grid_layout_input_for_repeated(
+                &mut ctx,
+                &grid_layout_cell.borrow(),
+            )
+            .into(),
         );
     }
 
