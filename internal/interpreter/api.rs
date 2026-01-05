@@ -1,16 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::items::*;
+use i_slint_core::model::{Model, ModelExt, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
+use i_slint_core::{PathData, SharedVector};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::future::Future;
@@ -20,26 +19,15 @@ use std::rc::Rc;
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
+pub use i_slint_core::api::*;
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_backend_selector::api::*;
-#[cfg(feature = "std")]
-pub use i_slint_common::sharedfontique::{
-    FontHandle, RegisterFontError, register_font_from_memory,
-};
-pub use i_slint_core::api::*;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
-pub use i_slint_core::model::{
-    FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
-    ReverseModel, SortModel, StandardListViewItem, TableColumn, VecModel,
-};
-pub use i_slint_core::sharedvector::SharedVector;
-pub use i_slint_core::timers::{Timer, TimerMode};
-pub use i_slint_core::{
-    format,
-    string::{SharedString, ToSharedString},
-};
+use i_slint_core::items::*;
+
+use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 
 /// Argument of [`Compiler::set_default_translation_context()`]
 ///
