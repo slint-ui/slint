@@ -76,7 +76,7 @@ export default defineConfig({
                                             "guide/tooling/jetbrains-ide",
                                             "guide/tooling/zed",
                                             "guide/tooling/manual-setup",
-                                        ]
+                                        ],
                                     },
                                 ],
                             },
