@@ -311,7 +311,7 @@ fn grid_layout_constraints(
     grid_layout: &i_slint_compiler::layout::GridLayout,
     orientation: Orientation,
     ctx: &mut EvalLocalContext,
-) -> Vec<core_layout::BoxLayoutCellData> {
+) -> Vec<core_layout::LayoutItemInfo> {
     let component = ctx.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
@@ -324,7 +324,7 @@ fn grid_layout_constraints(
             constraints.extend(
                 component_vec
                     .iter()
-                    .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
+                    .map(|x| x.as_pin_ref().layout_item_info(to_runtime(orientation))),
             );
         } else {
             let mut layout_info = get_layout_info(
@@ -339,7 +339,7 @@ fn grid_layout_constraints(
                 orientation,
                 &expr_eval,
             );
-            constraints.push(core_layout::BoxLayoutCellData { constraint: layout_info });
+            constraints.push(core_layout::LayoutItemInfo { constraint: layout_info });
         }
     }
     constraints
@@ -351,7 +351,7 @@ fn box_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
-) -> (Vec<core_layout::BoxLayoutCellData>, i_slint_core::items::LayoutAlignment) {
+) -> (Vec<core_layout::LayoutItemInfo>, i_slint_core::items::LayoutAlignment) {
     let window_adapter = component.window_adapter();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
@@ -364,7 +364,7 @@ fn box_layout_data(
             cells.extend(
                 component_vec
                     .iter()
-                    .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
+                    .map(|x| x.as_pin_ref().layout_item_info(to_runtime(orientation))),
             );
         } else {
             let mut layout_info =
@@ -375,7 +375,7 @@ fn box_layout_data(
                 orientation,
                 &expr_eval,
             );
-            cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
+            cells.push(core_layout::LayoutItemInfo { constraint: layout_info });
         }
     }
     let alignment = box_layout

@@ -822,12 +822,11 @@ pub trait RepeatedItemTree:
     }
 
     /// Returns what's needed to perform the layout if this ItemTree is in a layout
-    // PENDING(dfaure) rename to layout_cell_info, this is also used by grid layouts
-    fn box_layout_data(
+    fn layout_item_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-    ) -> crate::layout::BoxLayoutCellData {
-        crate::layout::BoxLayoutCellData::default()
+    ) -> crate::layout::LayoutItemInfo {
+        crate::layout::LayoutItemInfo::default()
     }
 
     /// Returns what's needed to call organize_grid_layout layout if this ItemTree is in a grid layout

@@ -145,7 +145,7 @@ inline SharedVector<uint16_t> organize_dialog_button_layout(
 
 inline SharedVector<float>
 solve_grid_layout(const cbindgen_private::GridLayoutData &data,
-                  cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> constraints,
+                  cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> constraints,
                   cbindgen_private::Orientation orientation,
                   cbindgen_private::Slice<int> repeater_indices)
 {
@@ -158,7 +158,7 @@ solve_grid_layout(const cbindgen_private::GridLayoutData &data,
 
 inline cbindgen_private::LayoutInfo
 grid_layout_info(const cbindgen_private::GridLayoutOrganizedData &organized_data,
-                 cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> constraints,
+                 cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> constraints,
                  cbindgen_private::Slice<int> repeater_indices, float spacing,
                  const cbindgen_private::Padding &padding,
                  cbindgen_private::Orientation orientation)
@@ -170,7 +170,7 @@ grid_layout_info(const cbindgen_private::GridLayoutOrganizedData &organized_data
 }
 
 inline cbindgen_private::LayoutInfo
-box_layout_info(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cells, float spacing,
+box_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells, float spacing,
                 const cbindgen_private::Padding &padding,
                 cbindgen_private::LayoutAlignment alignment)
 {
@@ -178,7 +178,7 @@ box_layout_info(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cel
 }
 
 inline cbindgen_private::LayoutInfo
-box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cells,
+box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
                       const cbindgen_private::Padding &padding)
 {
     return cbindgen_private::slint_box_layout_info_ortho(cells, &padding);
