@@ -4,9 +4,11 @@ title: (Neo-)Vim
 description: Vim and Neovim Configuration for Slint
 ---
 
+import Link from '@slint/common-files/src/components/Link.astro';
+
 ## Vim
 
-To install the Slint Language server, check the [LSP Documentation](../manual-setup/#slint-lsp).
+To install the Slint Language server, check the <Link type="SlintLSP" label="LSP Documentation"/>.
 
 Vim support the Language Server Protocol via its [Conquer of Completion](https://github.com/neoclide/coc.nvim)
 plugin. Together with the Slint LSP server, this enables inline diagnostics and code completion when
@@ -53,7 +55,7 @@ The easiest way to use the language server in Neovim is via the [`neovim/nvim-ls
 
 To install the language server you can:
 
-- [install and configure manually](../manual-setup/#slint-lsp)
+- <Link type="SlintLSP" label="install and configure manually"/>
 - install [Mason](https://github.com/mason-org/mason.nvim) and run `:MasonInstall slint-lsp` (on Windows, Linux and macOS)
 
 ### Live Preview

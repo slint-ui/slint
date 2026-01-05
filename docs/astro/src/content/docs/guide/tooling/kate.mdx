@@ -4,6 +4,8 @@ title: Kate
 description: Kate Configuration for Slint
 ---
 
+import Link from '@slint/common-files/src/components/Link.astro';
+
 Before we start, it's important to note that Kate relies on the presence of syntax highlighting file for the usage of the LSP.
 Therefore, we'll set up the syntax highlighting first.
 
@@ -23,7 +25,7 @@ On Windows, download [slint.ksyntaxhighlighter.xml][syntax-xml] into `%USERPROFI
 
 ### LSP
 
-After setting up the syntax highlighting, you can now install the Slint Language server. Check the [LSP Documentation](../manual-setup/#slint-lsp) for instructions.
+After setting up the syntax highlighting, you can now install the Slint Language server. Check the <Link type="SlintLSP" label="LSP Documentation"/> for instructions.
 
 Once it is installed, go to *Settings > Configure Kate*. In the *Plugins* section, enable the *LSP-Client* plugin. This will add a *LSP Client* section in the settings dialog. In that *LSP Client* section, go to the *User Server Settings*, and  enter the following in the text area:
 
