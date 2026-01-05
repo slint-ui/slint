@@ -500,13 +500,13 @@ impl GridLayout {
                 }
             };
 
-            let grid_layout_cell = GridLayoutCell {
+            let grid_layout_cell = Rc::new(RefCell::new(GridLayoutCell {
                 new_row,
                 col_expr: expr_or_default(col_expr, RowColExpr::Auto),
                 row_expr: expr_or_default(row_expr, RowColExpr::Auto),
                 colspan_expr: expr_or_default(colspan_expr, RowColExpr::Literal(1)),
                 rowspan_expr: expr_or_default(rowspan_expr, RowColExpr::Literal(1)),
-            };
+            }));
             let grid_layout_element = GridLayoutElement {
                 cell: grid_layout_cell.clone(),
                 item: layout_item.item.clone(),

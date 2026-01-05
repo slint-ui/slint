@@ -1029,10 +1029,10 @@ fn grid_layout_input_data(
     };
     let input_data_for_cell = |elem: &crate::layout::GridLayoutElement,
                                new_row_expr: llr_Expression| {
-        let row_expr = propref(&elem.cell.row_expr);
-        let col_expr = propref(&elem.cell.col_expr);
-        let rowspan_expr = propref(&elem.cell.rowspan_expr);
-        let colspan_expr = propref(&elem.cell.colspan_expr);
+        let row_expr = propref(&elem.cell.borrow().row_expr);
+        let col_expr = propref(&elem.cell.borrow().col_expr);
+        let rowspan_expr = propref(&elem.cell.borrow().rowspan_expr);
+        let colspan_expr = propref(&elem.cell.borrow().colspan_expr);
 
         make_struct(
             BuiltinPrivateStruct::GridLayoutInputData,
@@ -1057,7 +1057,10 @@ fn grid_layout_input_data(
                 .elems
                 .iter()
                 .map(|elem| {
-                    input_data_for_cell(elem, llr_Expression::BoolLiteral(elem.cell.new_row))
+                    input_data_for_cell(
+                        elem,
+                        llr_Expression::BoolLiteral(elem.cell.borrow().new_row),
+                    )
                 })
                 .collect(),
             as_model: false,
@@ -1067,7 +1070,8 @@ fn grid_layout_input_data(
         let mut elements = vec![];
         let mut after_repeater_in_same_row = false;
         for item in &layout.elems {
-            if item.cell.new_row {
+            let new_row = item.cell.borrow().new_row;
+            if new_row {
                 after_repeater_in_same_row = false;
             }
             if item.item.element.borrow().repeated.is_some() {
@@ -1080,13 +1084,12 @@ fn grid_layout_input_data(
                     LoweredElement::Repeated { repeated_index } => *repeated_index,
                     _ => panic!(),
                 };
-                let repeated_element =
-                    GridLayoutRepeatedElement { new_row: item.cell.new_row, repeater_index };
+                let repeated_element = GridLayoutRepeatedElement { new_row, repeater_index };
                 elements.push(Either::Right(repeated_element));
                 after_repeater_in_same_row = true;
             } else {
-                let new_row_expr = if item.cell.new_row || !after_repeater_in_same_row {
-                    llr_Expression::BoolLiteral(item.cell.new_row)
+                let new_row_expr = if new_row || !after_repeater_in_same_row {
+                    llr_Expression::BoolLiteral(new_row)
                 } else {
                     llr_Expression::ReadLocalVariable {
                         name: SmolStr::new_static("new_row"),
