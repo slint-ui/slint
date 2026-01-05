@@ -26,21 +26,54 @@ If your favorite editor is not in the list of supported editors, it just means w
 Most modern editors use the [Language Server Protocol (LSP)](https://microsoft.github.io/language-server-protocol/) to add support for different programming languages.
 Slint provides an LSP implementation with the `slint-lsp` binary.
 
-To install `slint-lsp`, either:
+### Installation
 
-* [Download the binary](https://github.com/slint-ui/slint/releases/latest)
-* Run `cargo install slint-lsp` if you have a Rust installation
+If you have Rust installed, you can install the binary by running the following command:
 
-Please refer to your editors documentation for details on how to set up language servers.
+```sh
+cargo install slint-lsp
+```
 
-### Formatting Slint files
+This makes the latest released version available in `$HOME/.cargo/bin`. If you would like to try a development version, you can also point `cargo install` to the git repository:
+for the released version. Or, to install the development version:
 
-Slint files can be auto-formatted using `slint-lsp format <file-name>`.
+```sh
+cargo install slint-lsp --git https://github.com/slint-ui/slint --force
+```
 
-By default, this will print the formatted file to the terminal.
-Use `-i`/`--inline` to format the file on disk.
 
-If you have slint-lsp configured in your editor, you should be able to format .slint files via your editor as well.
+Alternatively, you can download one of our pre-built binaries for Linux or Windows:
+
+1. Go to [the latest Slint release](https://github.com/slint-ui/slint/releases/latest)
+2. From "Assets" download either `slint-lsp-linux.tar.gz` for a Linux x86-64 binary
+   or `slint-lsp-windows-x86_64.zip` for a Windows x86-64 binary.
+3. Uncompress the downloaded archive into a location of your choice.
+
+Make sure the required dependencies are found. On Debian-like systems install them with the following command:
+
+```shell
+sudo apt install -y build-essential libx11-xcb1 libx11-dev libxcb1-dev libxkbcommon0 libinput10 libinput-dev libgbm1 libgbm-dev
+```
+
+### Editor configuration
+
+Once you have `slint-lsp` installed, configure your editor to use the binary, no arguments are required.
+See our [list of editor configurations](#editors) for details.
+If your editor is not on this list, please refer to your editors documentation for details on how to set up language servers.
+
+### <a name="fmt"/>Formatting Slint files
+
+Slint files can be auto-formatted with `slint-lsp` in the following ways:
+
+- `slint-lsp format <path>` - reads the file and outputs the formatted version to stdout
+- `slint-lsp format -i <path>` - reads the file and saves the output to the same file
+- `slint-lsp format /dev/stdin` - using /dev/stdin you can achieve the special behavior
+  of reading from stdin and writing to stdout
+
+Note that `.slint` files are formatted, while `.md` and `.rs` files are searched for `.slint` blocks.
+All other files are left untouched.
+
+If you have `slint-lsp` configured in your editor, you should be able to format .slint files via your editor as well.
 
 ### Slint Live Preview
 
