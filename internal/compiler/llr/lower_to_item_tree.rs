@@ -172,7 +172,13 @@ impl LoweredSubComponentMapping {
                     },
                 },
             },
-            LoweredElement::Repeated { .. } => unreachable!(),
+            LoweredElement::Repeated { .. } => {
+                panic!(
+                    "Trying to map property {from:?} on a repeated element {} of type {:?}",
+                    element.borrow().id,
+                    element.borrow().base_type
+                );
+            }
             LoweredElement::ComponentPlaceholder { .. } => unreachable!(),
         }
     }
