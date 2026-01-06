@@ -1,0 +1,90 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    default-font-size: 16px;
+    width: 1000phx;
+
+    out property <string> clicked_text;
+
+    property <[{ row: int, col: int}]> xy_model: [
+        { row: 0, col: 2 },
+        { row: 0, col: 1 },
+        { row: 2, col: -1 }, // This one should warn and saturate to 2, 0
+        { row: -500, col: 0 }, // This one should warn and saturate to 0, 0
+        { row: 1, col: 0 },
+    ];
+
+    GridLayout {
+        padding-left: 0phx;
+        padding-top: 0phx;
+        for entry in xy_model: txt := Text {
+            text: entry.row + ", " + entry.col;
+            row: entry.row;
+            col: entry.col;
+            colspan: entry.row == 2 && entry.col == -1 ? 2 : 1;
+            width: 200phx;
+            height: 50phx;
+            TouchArea {
+                clicked => {
+                    clicked_text = txt.text;
+                }
+            }
+        }
+        next := Text {
+            text: "(next)";
+        }
+    }
+
+    out property <bool> test: next.row == 1 && next.col == 1;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_clicked_text(), "-500, 0");
+slint_testing::send_mouse_click(&instance, 200. + 5., 5.);
+assert_eq(instance.get_clicked_text(), "0, 1");
+slint_testing::send_mouse_click(&instance, 400. + 5., 5.);
+assert_eq(instance.get_clicked_text(), "0, 2");
+slint_testing::send_mouse_click(&instance, 5., 50. + 5.);
+assert_eq(instance.get_clicked_text(), "1, 0");
+slint_testing::send_mouse_click(&instance, 5., 100. + 5.);
+assert_eq(instance.get_clicked_text(), "2, -1");
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_clicked_text(), "-500, 0");
+slint_testing::send_mouse_click(&instance, 200. + 5., 5.);
+assert_eq!(instance.get_clicked_text(), "0, 1");
+slint_testing::send_mouse_click(&instance, 400. + 5., 5.);
+assert_eq!(instance.get_clicked_text(), "0, 2");
+slint_testing::send_mouse_click(&instance, 5., 50. + 5.);
+assert_eq!(instance.get_clicked_text(), "1, 0");
+slint_testing::send_mouse_click(&instance, 5., 100. + 5.);
+assert_eq!(instance.get_clicked_text(), "2, -1");
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepEqual(instance.clicked_text, "-500, 0");
+slintlib.private_api.send_mouse_click(instance, 200. + 5., 5.);
+assert.deepEqual(instance.clicked_text, "0, 1");
+slintlib.private_api.send_mouse_click(instance, 400. + 5., 5.);
+assert.deepEqual(instance.clicked_text, "0, 2");
+slintlib.private_api.send_mouse_click(instance, 5., 50. + 5.);
+assert.deepEqual(instance.clicked_text, "1, 0");
+slintlib.private_api.send_mouse_click(instance, 5., 100. + 5.);
+assert.deepEqual(instance.clicked_text, "2, -1");
+assert(instance.test);
+```
+
+*/

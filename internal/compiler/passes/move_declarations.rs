@@ -52,7 +52,7 @@ fn do_move_declarations(component: &Rc<Component>) {
             return;
         }
 
-        // take the bindings so we do nt keep the borrow_mut of the element
+        // take the bindings so we do not keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
         let mut new_bindings = BindingsMap::default();
         for (k, e) in bindings {
@@ -165,7 +165,7 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
     });
 }
 
-/// Optimized item are not used for the fact that they are items, but their properties
+/// Optimized items are not used for the fact that they are items, but their properties
 /// might still be used.  So we must pretend all the properties are declared in the
 /// item itself so the move_declaration pass can move the declaration in the component root
 fn simplify_optimized_items(items: &[ElementRc]) {

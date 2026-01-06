@@ -99,9 +99,5 @@ pub use api::*;
 #[doc(hidden)]
 pub use eval::default_value_for_type;
 
-/// (Re-export from corelib.)
-#[doc(inline)]
-pub use i_slint_core::{Brush, Color, SharedString, SharedVector};
-
 #[cfg(test)]
 mod tests;

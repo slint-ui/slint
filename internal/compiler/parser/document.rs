@@ -141,12 +141,12 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     }
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning(format!("':=' to declare a global is deprecated. Remove the ':='"));
+            p.warning("':=' to declare a global is deprecated. Remove the ':='");
             p.consume();
         }
     } else if is_interface {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.error(format!("':=' to declare an interface is not supported. Remove the ':='"));
+            p.error("':=' to declare an interface is not supported. Remove the ':='");
             p.consume();
         }
     } else if !is_new_component {

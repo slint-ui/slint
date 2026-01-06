@@ -27,6 +27,12 @@ pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
 
+#[derive(Debug, Clone)]
+pub struct GridLayoutRepeatedElement {
+    pub new_row: bool,
+    pub repeater_index: RepeatedElementIdx,
+}
+
 impl PropertyIdx {
     pub const REPEATER_DATA: Self = Self(0);
     pub const REPEATER_INDEX: Self = Self(1);
@@ -357,6 +363,8 @@ pub struct SubComponent {
 
     pub layout_info_h: MutExpression,
     pub layout_info_v: MutExpression,
+    pub child_of_layout: bool,
+    pub grid_layout_input_for_repeated: Option<MutExpression>,
 
     /// Maps (item_index, property) to an expression
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
@@ -511,6 +519,9 @@ impl CompilationUnit {
             }
             visitor(&sc.layout_info_h, ctx);
             visitor(&sc.layout_info_v, ctx);
+            if let Some(e) = &sc.grid_layout_input_for_repeated {
+                visitor(e, ctx);
+            }
             for e in sc.accessible_prop.values() {
                 visitor(e, ctx);
             }

@@ -24,7 +24,7 @@ use i_slint_core::item_tree::{
 use i_slint_core::items::{
     AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
 };
-use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
+use i_slint_core::layout::{LayoutInfo, LayoutItemInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::menus::MenuFromItemTree;
 use i_slint_core::model::{ModelRc, RepeatedItemTree, Repeater};
@@ -171,8 +171,8 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         LogicalLength::new(self.borrow().as_ref().layout_info(Orientation::Horizontal).min)
     }
 
-    fn box_layout_data(self: Pin<&Self>, o: Orientation) -> BoxLayoutCellData {
-        BoxLayoutCellData { constraint: self.borrow().as_ref().layout_info(o) }
+    fn layout_item_info(self: Pin<&Self>, o: Orientation) -> LayoutItemInfo {
+        LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
     }
 }
 
@@ -761,14 +761,13 @@ fn ensure_repeater_updated<'id>(
 ) {
     let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
     let init = || {
-        let instance = instantiate(
+        instantiate(
             rep_in_comp.item_tree_to_repeat.clone(),
             instance_ref.self_weak().get().cloned(),
             None,
             None,
             Default::default(),
-        );
-        instance
+        )
     };
     if let Some(lv) = &rep_in_comp
         .item_tree_to_repeat
@@ -1286,7 +1285,7 @@ pub(crate) fn generate_item_tree<'id>(
                 .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
             continue;
         }
-        let Some((prop, type_info)) = property_info_for_type(&decl.property_type, &name) else {
+        let Some((prop, type_info)) = property_info_for_type(&decl.property_type, name) else {
             continue;
         };
         custom_properties.insert(
@@ -1294,33 +1293,24 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
-    if let Some(parent_element) = component.parent_element.upgrade() {
-        if let Some(r) = &parent_element.borrow().repeated {
-            if !r.is_conditional_element {
-                let (prop, type_info) = property_info::<u32>();
-                custom_properties.insert(
-                    SPECIAL_PROPERTY_INDEX.into(),
-                    PropertiesWithinComponent {
-                        offset: builder.type_builder.add_field(type_info),
-                        prop,
-                    },
-                );
+    if let Some(parent_element) = component.parent_element.upgrade()
+        && let Some(r) = &parent_element.borrow().repeated
+        && !r.is_conditional_element
+    {
+        let (prop, type_info) = property_info::<u32>();
+        custom_properties.insert(
+            SPECIAL_PROPERTY_INDEX.into(),
+            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
+        );
 
-                let model_ty = Expression::RepeaterModelReference {
-                    element: component.parent_element.clone(),
-                }
-                .ty();
-                let (prop, type_info) =
-                    property_info_for_type(&model_ty, &SPECIAL_PROPERTY_MODEL_DATA).unwrap();
-                custom_properties.insert(
-                    SPECIAL_PROPERTY_MODEL_DATA.into(),
-                    PropertiesWithinComponent {
-                        offset: builder.type_builder.add_field(type_info),
-                        prop,
-                    },
-                );
-            }
-        }
+        let model_ty =
+            Expression::RepeaterModelReference { element: component.parent_element.clone() }.ty();
+        let (prop, type_info) =
+            property_info_for_type(&model_ty, SPECIAL_PROPERTY_MODEL_DATA).unwrap();
+        custom_properties.insert(
+            SPECIAL_PROPERTY_MODEL_DATA.into(),
+            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
+        );
     }
 
     let parent_item_tree_offset =
@@ -1587,10 +1577,10 @@ pub fn instantiate(
         {
             continue;
         }
-        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name) {
-            if b.borrow().two_way_bindings.is_empty() {
-                continue;
-            }
+        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name)
+            && b.borrow().two_way_bindings.is_empty()
+        {
+            continue;
         }
         let p = description.custom_properties.get(prop_name).unwrap();
         unsafe {
@@ -1811,13 +1801,12 @@ fn prepare_for_two_way_binding(
         eval::ComponentInstance::InstanceRef(enclosing_component) => {
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+                && let Some(x) = enclosing_component.description.custom_properties.get(name)
             {
-                if let Some(x) = enclosing_component.description.custom_properties.get(name) {
-                    let item = unsafe { Pin::new_unchecked(&*instance_ref.as_ptr().add(x.offset)) };
-                    let common = x.prop.prepare_for_two_way_binding(item);
-                    return (common, map);
-                };
-            };
+                let item = unsafe { Pin::new_unchecked(&*instance_ref.as_ptr().add(x.offset)) };
+                let common = x.prop.prepare_for_two_way_binding(item);
+                return (common, map);
+            }
             let item_info = enclosing_component
                 .description
                 .items
@@ -1851,10 +1840,9 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
         eval::ComponentInstance::InstanceRef(enclosing_component) => {
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+                && let Some(x) = enclosing_component.description.custom_properties.get(nr.name())
             {
-                if let Some(x) = enclosing_component.description.custom_properties.get(nr.name()) {
-                    return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
-                };
+                return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
             };
             let item_info = enclosing_component
                 .description
@@ -2289,7 +2277,7 @@ extern "C" fn supported_accessibility_actions(
 ) -> SupportedAccessibilityAction {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let val = instance_ref.description.original_elements[item_index as usize]
+    instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .accessibility_props
         .0
@@ -2301,8 +2289,7 @@ extern "C" fn supported_accessibility_actions(
             ))
             .unwrap_or_else(|| panic!("Not an accessible action: {value:?}"))
                 | acc
-        });
-    val
+        })
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
@@ -2439,7 +2426,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                 let extra_data = description.extra_data_offset.apply(instance);
                 let window_adapter = // We are the root: Create a window adapter
                     i_slint_backend_selector::with_platform(|_b| {
-                        return _b.create_window_adapter();
+                        _b.create_window_adapter()
                     })?;
 
                 let comp_rc = extra_data.self_weak.get().unwrap().upgrade().unwrap();
@@ -2480,19 +2467,18 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     ) -> Option<InstanceRef<'a, 'id2>> {
         // we need a 'static guard in order to be able to re-borrow with lifetime 'a.
         // Safety: This is the only 'static Id in scope.
-        if let Some(parent_offset) = self.description.parent_item_tree_offset {
-            if let Some(parent) =
+        if let Some(parent_offset) = self.description.parent_item_tree_offset
+            && let Some(parent) =
                 parent_offset.apply(self.as_ref()).get().and_then(vtable::VWeak::upgrade)
-            {
-                let parent_instance = parent.unerase(_guard);
-                // And also assume that the parent lives for at least 'a.  FIXME: this may not be sound
-                let parent_instance = unsafe {
-                    std::mem::transmute::<InstanceRef<'_, 'id2>, InstanceRef<'a, 'id2>>(
-                        parent_instance.borrow_instance(),
-                    )
-                };
-                return Some(parent_instance);
+        {
+            let parent_instance = parent.unerase(_guard);
+            // And also assume that the parent lives for at least 'a.  FIXME: this may not be sound
+            let parent_instance = unsafe {
+                std::mem::transmute::<InstanceRef<'_, 'id2>, InstanceRef<'a, 'id2>>(
+                    parent_instance.borrow_instance(),
+                )
             };
+            return Some(parent_instance);
         }
         None
     }

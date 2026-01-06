@@ -450,7 +450,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
             local_context.return_value.clone().unwrap()
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+        Expression::LayoutCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            entries_per_item,
+        } => {
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
                 &layout_cache_prop.element(),
@@ -462,7 +467,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
                         cache
-                            .get((cache[*index] as usize) + offset * 2)
+                            .get((cache[*index] as usize) + offset * entries_per_item)
                             .copied()
                             .unwrap_or(0.)
                             .into(),
@@ -475,7 +480,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
                         cache
-                            .get((cache[*index] as usize) + offset * 2)
+                            .get((cache[*index] as usize) + offset * entries_per_item)
                             .copied()
                             .unwrap_or(0)
                             .into(),
@@ -1303,12 +1308,13 @@ fn call_builtin_function(
                 rest.first(),
             );
 
-            if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
-                if !no_native && w.supports_native_menu_bar() {
-                    let menubar = vtable::VRc::into_dyn(menu_item_tree);
-                    w.setup_menubar(menubar);
-                    return Value::Void;
-                }
+            if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken)
+                && !no_native
+                && w.supports_native_menu_bar()
+            {
+                let menubar = vtable::VRc::into_dyn(menu_item_tree);
+                w.setup_menubar(menubar);
+                return Value::Void;
             }
 
             let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
@@ -1328,7 +1334,7 @@ fn call_builtin_function(
             set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
                 .unwrap();
 
-            return Value::Void;
+            Value::Void
         }
         BuiltinFunction::MonthDayCount => {
             let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1605,19 +1611,17 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                     }
 
                     let component = element.borrow().enclosing_component.upgrade().unwrap();
-                    if element.borrow().id == component.root_element.borrow().id {
-                        if let Some(x) =
+                    if element.borrow().id == component.root_element.borrow().id
+                        && let Some(x) =
                             enclosing_component.description.custom_properties.get(nr.name())
-                        {
-                            unsafe {
-                                let p = Pin::new_unchecked(
-                                    &*enclosing_component.as_ptr().add(x.offset),
-                                );
-                                x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
-                            }
-                            return;
+                    {
+                        unsafe {
+                            let p =
+                                Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
+                            x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
                         }
-                    };
+                        return;
+                    }
                     let item_info =
                         &enclosing_component.description.items[element.borrow().id.as_str()];
                     let item =

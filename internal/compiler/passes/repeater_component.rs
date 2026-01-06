@@ -63,6 +63,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: elem.is_legacy_syntax,
                 inline_depth: 0,
+                grid_layout_cell: elem.grid_layout_cell.clone(),
             })),
             parent_element,
             ..Component::default()
@@ -92,7 +93,7 @@ fn create_repeater_components(component: &Rc<Component>) {
             e.borrow_mut().enclosing_component = weak.clone()
         });
 
-        // Move all the menus that belong to the new crated component
+        // Move all the menus that belong to the newly created component
         // Could use Vec::extract_if if MSRV >= 1.87
         component.menu_item_tree.borrow_mut().retain(|x| {
             if x.parent_element
@@ -121,7 +122,7 @@ fn create_repeater_components(component: &Rc<Component>) {
     }
 }
 
-/// Make sure that references to property within the repeated element actually point to the reference
+/// Make sure that references to properties within the repeated element actually point to the reference
 /// to the root of the newly created component
 fn adjust_references(comp: &Rc<Component>) {
     visit_all_named_references(comp, &mut |nr| {

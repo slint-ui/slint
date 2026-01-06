@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-TestCase := Rectangle {
+export component TestCase inherits Window {
     width: 300phx;
     height: 300phx;
-    property<[{name: string, account: string, score: float}]> model: [
+    in-out property<[{name: string, account: string, score: float}]> model: [
         {
             name: "Olivier",
             account: "ogoffart",
@@ -18,13 +18,14 @@ TestCase := Rectangle {
         }
     ];
 
-    property <int> clicked_score;
-    property <string> clicked_name;
-    property <int> clicked_internal_state;
-    property <int> clicked_index;
+    in-out property <int> clicked_score;
+    in-out property <string> clicked_name;
+    in-out property <int> clicked_internal_state;
+    in-out property <int> clicked_index;
 
     for person[i] in model: TouchArea {
         x: i*10phx;
+        y: 0phx;
         width: 10phx;
         height: 10phx;
         property <length> model; // this is not the model
@@ -322,4 +323,36 @@ slint_testing::send_mouse_click(&instance, 35., 5.);
 assert_eq(instance.get_clicked_name(), "Olivier");
 ```
 
+////////// Issue #10278
+```rust
+
+type ModelData = (slint::SharedString, slint::SharedString, f32);
+
+struct MyModel {
+    window_weak: slint::Weak<TestCase>,
+}
+
+impl slint::Model for MyModel {
+    type Data = ModelData;
+
+    fn row_count(&self) -> usize {
+        42
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        let name = self.window_weak.unwrap().get_clicked_name();
+        let account = format!("row: {row}").into();
+        Some((name, account, row as f32))
+    }
+
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+
+let instance = TestCase::new().unwrap();
+let model = std::rc::Rc::new(MyModel { window_weak: instance.as_weak() });
+instance.set_model(slint::ModelRc::from(model));
+```
 */

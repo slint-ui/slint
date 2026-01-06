@@ -8,6 +8,7 @@ name = "slint-safeui"
 version = "1.15.0"
 edition = "2024"
 build = "build.rs"
+publish = false
 
 [lib]
 path = "src/lib.rs"
