@@ -396,20 +396,24 @@ fn layout(
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
+    // Returned None if failed to get the elipsis glyph for some rare reason.
+    let get_elipsis_glyph = || {
+        let mut layout = layout_builder.build("…", None, None, None);
+        layout.break_all_lines(None);
+        let line = layout.lines().next()?;
+        let item = line.items().next()?;
+        let run = match item {
+            parley::layout::PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => return None,
+        }?;
+        let glyph = run.positioned_glyphs().next()?;
+        Some(glyph)
+    };
+
     let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
         (options.text_overflow, max_physical_width)
     {
-        let mut layout = layout_builder.build("…", None, None, None);
-        layout.break_all_lines(None);
-        let line = layout.lines().next().unwrap();
-        let item = line.items().next().unwrap();
-        let run = match item {
-            parley::layout::PositionedLayoutItem::GlyphRun(run) => Some(run),
-            _ => None,
-        }
-        .unwrap();
-        let glyph = run.positioned_glyphs().next().unwrap();
-        Some(ElisionInfo { elipsis_glyph: glyph, max_physical_width })
+        get_elipsis_glyph().map(|elipsis_glyph| ElisionInfo { elipsis_glyph, max_physical_width })
     } else {
         None
     };
