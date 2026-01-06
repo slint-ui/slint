@@ -135,16 +135,30 @@ fn main() -> Result<()> {
     if r.has_errors() {
         std::process::exit(-1);
     }
-    let Some(c) = r.components().next() else {
-        match args.component {
-            Some(name) => {
-                eprintln!("Component '{name}' not found in file '{}'", args.path.display());
-            }
+
+    // Find desired component if one is specified from the passed arguments otherwise return the last
+    let c = loop {
+        match r.components().next() {
+            Some(c) => match &args.component {
+                Some(name) => {
+                    if name == c.name() {
+                        break c;
+                    }
+                }
+                None => break c,
+            },
             None => {
-                eprintln!("No component found in file '{}'", args.path.display());
+                match args.component {
+                    Some(name) => {
+                        eprintln!("Component '{name}' not found in file '{}'", args.path.display());
+                    }
+                    None => {
+                        eprintln!("No component found in file '{}'", args.path.display());
+                    }
+                }
+                std::process::exit(-1);
             }
         }
-        std::process::exit(-1);
     };
 
     let component = c.create()?;
@@ -237,7 +251,7 @@ fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>
         notify::ErrorKind::PathNotFound | notify::ErrorKind::Generic(_) => {
             let path = path.to_path_buf();
             let watcher = watcher.clone();
-            static RETRY_DURATION: u64 = 100;
+            const RETRY_DURATION: u64 = 100;
             i_slint_core::timers::Timer::single_shot(
                 std::time::Duration::from_millis(RETRY_DURATION),
                 move || {
