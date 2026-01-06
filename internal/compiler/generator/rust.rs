@@ -633,7 +633,11 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            slint::private_unstable_api::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
+                            slint::private_unstable_api::set_animated_property_binding_for_transition(
+                                #rust_property, &self_rc, #binding_tokens, move |self_rc| {
+                                    #init_self_pin_ref
+                                    (#anim, ::slint::private_unstable_api::re_exports::current_tick())
+                                });
                         } }
                     }
                     Some(llr::Animation::Transition(anim)) => {

@@ -173,10 +173,6 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                 animation_data.from_value = value.clone();
                 // Safety: `animation_data.to_value` is a valid mutable reference
                 unsafe { self.original_binding.update((&mut animation_data.to_value) as *mut T) };
-                if let Some((details, start_time)) = (self.compute_animation_details)() {
-                    animation_data.start_time = start_time;
-                    animation_data.details = details;
-                }
                 let (val, finished) = animation_data.compute_interpolated_value();
                 *value = val;
                 if finished {
@@ -196,7 +192,12 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
         let original_dirty = self.original_binding.access(|b| b.unwrap().dirty.get());
         if original_dirty {
             self.state.set(AnimatedBindingState::ShouldStart);
-            self.animation_data.borrow_mut().reset();
+            let mut animation_data = self.animation_data.borrow_mut();
+            animation_data.reset();
+            if let Some((details, start_time)) = (self.compute_animation_details)() {
+                animation_data.start_time = start_time;
+                animation_data.details = details;
+            }
         }
     }
 }

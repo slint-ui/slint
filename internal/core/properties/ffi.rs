@@ -294,7 +294,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
                 animation_data,
                 compute_animation_details: move || -> properties_animations::AnimationDetail {
-                    let mut start_instant = 0;
+                    let mut start_instant = crate::animations::current_tick().0;
                     let anim = transition_data(user_data, &mut start_instant);
                     Some((anim, crate::animations::Instant(start_instant)))
                 },
