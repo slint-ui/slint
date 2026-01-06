@@ -13,6 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
+publish = false
 
 [dependencies]
 i-slint-compiler = { workspace = true }
