@@ -426,7 +426,11 @@ mod tests {
         spacing: Spacing,
     ) -> bool {
         // Simulate the logic from are_token_touching
-        if token1_end_line == 1 && token1_end_col == 1 && token2_start_line == 1 && token2_start_col == 1 {
+        if token1_end_line == 1
+            && token1_end_col == 1
+            && token2_start_line == 1
+            && token2_start_col == 1
+        {
             // Invalid span info - fall back to spacing
             return spacing == Spacing::Joint;
         }
@@ -460,7 +464,7 @@ mod tests {
         // Test case 4: Valid span info where tokens are not touching (gap between them)
         let result = mock_are_token_touching(5, 10, 5, 12, Spacing::Alone);
         assert!(!result, "tokens with gap should not be touching");
-        
+
         // Also test different lines
         let result = mock_are_token_touching(5, 10, 6, 1, Spacing::Joint);
         assert!(!result, "tokens on different lines should not be touching");
@@ -471,11 +475,11 @@ mod tests {
     // using documentation:
 
     /// Test case 5: fill_token_vec merges identifier and hyphen when touching
-    /// 
+    ///
     /// When given a token stream like: `foo-` (where the hyphen has Joint spacing or
     /// the spans indicate they're touching), fill_token_vec should merge them into
     /// a single identifier token "foo-".
-    /// 
+    ///
     /// Input: [Identifier("foo"), Punct('-', Joint)]
     /// Expected: [Token { kind: Identifier, text: "foo-" }]
     #[test]
@@ -490,10 +494,10 @@ mod tests {
     }
 
     /// Test case 5 (alternate): fill_token_vec keeps separate when not touching
-    /// 
+    ///
     /// When given a token stream like: `foo -` (where the hyphen has Alone spacing and
     /// span info indicates invalid spans), fill_token_vec should keep them separate.
-    /// 
+    ///
     /// Input: [Identifier("foo"), Punct('-', Alone)]
     /// Expected: [Token { kind: Identifier, text: "foo" }, Token { kind: Minus, text: "-" }]
     #[test]
