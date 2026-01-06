@@ -3401,7 +3401,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     ) =>
                 {
                     let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, as_model: _ } => {
+                        Expression::Array { element_ty: _, values, output: _ } => {
                             values.iter().map(|path_elem_expr| {
                                 let (field_count, qualified_elem_type_name) =
                                     match path_elem_expr.ty(ctx) {
@@ -3609,25 +3609,27 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 format!("({cond_code} ? {true_code} : {false_code})")
             }
         }
-        Expression::Array { element_ty, values, as_model } => {
+        Expression::Array { element_ty, values, output } => {
             let ty = element_ty.cpp_type().unwrap();
             let mut val = values
                 .iter()
                 .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
-            if *as_model {
-                format!(
+            match output {
+                llr::ArrayOutput::Model => format!(
                     "std::make_shared<slint::private_api::ArrayModel<{count},{ty}>>({val})",
                     count = values.len(),
                     ty = ty,
                     val = val.join(", ")
-                )
-            } else {
-                format!(
+                ),
+                llr::ArrayOutput::Slice => format!(
                     "slint::private_api::make_slice<{ty}>(std::array<{ty}, {count}>{{ {val} }}.data(), {count})",
                     count = values.len(),
                     ty = ty,
                     val = val.join(", ")
-                )
+                ),
+                llr::ArrayOutput::Vector => {
+                    format!("std::vector<{ty}>{{ {val} }}", ty = ty, val = val.join(", "))
+                }
             }
         }
         Expression::Struct { ty, values } => {
