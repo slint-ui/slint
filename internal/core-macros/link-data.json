@@ -188,6 +188,9 @@
     "VerticalLayout": {
         "href": "reference/layouts/verticallayout/"
     },
+    "VSCode": {
+        "href": "guide/tooling/vscode/"
+    },
     "QtBackend": {
         "href": "guide/backends-and-renderers/backend_qt/"
     },
@@ -238,6 +241,36 @@
     },
     "modules": {
         "href": "guide/language/coding/file/#modules"
+    },
+    "ManualEditorSetup": {
+        "href": "guide/tooling/manual-setup/"
+    },
+    "Kate": {
+        "href": "guide/tooling/kate/"
+    },
+    "QtCreator": {
+        "href": "guide/tooling/qt-creator/"
+    },
+    "Helix": {
+        "href": "guide/tooling/helix/"
+    },
+    "NeoVim": {
+        "href": "guide/tooling/neo-vim/"
+    },
+    "SublimeText": {
+        "href": "guide/tooling/sublime-text/"
+    },
+    "JetBrains": {
+        "href": "guide/tooling/jetbrains-ide/"
+    },
+    "Zed": {
+        "href": "guide/tooling/zed/"
+    },
+    "SlintLSP": {
+        "href": "guide/tooling/manual-setup/#slint-lsp"
+    },
+    "KateSyntaxHighlighting": {
+        "href": "guide/tooling/kate/#syntax-highlighting"
     },
     "index": {
         "href": ""
