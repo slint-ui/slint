@@ -83,4 +83,49 @@ assert_eq!(instance.get_aaa_binding(), 0.0);
 assert_eq!(instance.get_zzz_binding(), 0.0);
 assert_eq!(instance.get_value(), 0.0);
 ```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+// Initial: 0.0
+assert_eq(instance.get_aaa_binding(), 0.0);
+assert_eq(instance.get_zzz_binding(), 0.0);
+assert_eq(instance.get_value(), 0.0);
+
+// initial duration is 1s;
+instance.set_is_pressed(true);
+instance.set_value(1.0);
+
+slint_testing::mock_elapsed_time(500);
+// should be around 0.5
+assert(instance.get_aaa_binding() > 0.45);
+assert(instance.get_aaa_binding() < 0.55);
+assert(instance.get_zzz_binding() > 0.45);
+assert(instance.get_zzz_binding() < 0.55);
+assert(instance.get_value() > 0.45);
+assert(instance.get_value() < 0.55);
+
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_aaa_binding(), 1.0);
+assert_eq(instance.get_zzz_binding(), 1.0);
+assert_eq(instance.get_value(), 1.0);
+
+instance.set_dur(500);
+instance.set_is_pressed(false);
+instance.set_value(0.0);
+
+slint_testing::mock_elapsed_time(250);
+// should be around 0.5
+assert(instance.get_aaa_binding() > 0.45);
+assert(instance.get_aaa_binding() < 0.55);
+assert(instance.get_zzz_binding() > 0.45);
+assert(instance.get_zzz_binding() < 0.55);
+assert(instance.get_value() > 0.45);
+assert(instance.get_value() < 0.55);
+
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.get_aaa_binding(), 0.0);
+assert_eq(instance.get_zzz_binding(), 0.0);
+assert_eq(instance.get_value(), 0.0);
+```
 */
