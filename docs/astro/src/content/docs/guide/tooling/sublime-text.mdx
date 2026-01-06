@@ -1,0 +1,30 @@
+---
+// cSpell: ignore sublimelsp
+title: Sublime Text
+description: Sublime Text Configuration for Slint
+---
+
+import Link from '@slint/common-files/src/components/Link.astro';
+
+To install the Slint Language server, check the <Link type="SlintLSP" label="LSP Documentation"/>.
+
+To setup the LSP:
+
+1. Make sure the slint language server is installed
+2. Using Package Control in Sublime Text, install the LSP package ([sublimelsp/LSP](https://github.com/sublimelsp/LSP))
+3. Download the Slint syntax highlighting files into your User Package folder,
+   e.g. on macOS `~/Library/Application Support/Sublime Text/Packages/User/` :
+   https://raw.githubusercontent.com/slint-ui/slint/master/editors/sublime/Slint.sublime-syntax
+   https://raw.githubusercontent.com/slint-ui/slint/master/editors/sublime/Slint.tmPreferences
+4. Download the LSP package settings file into your User Package folder:
+   https://raw.githubusercontent.com/slint-ui/slint/master/editors/sublime/LSP.sublime-settings
+5. Modify the slint-lsp command path in `LSP.sublime-settings` to point to the cargo installation path in your home folder (**Replace YOUR_USER by your username**):
+   `"command": ["/home/YOUR_USER/.cargo/bin/slint-lsp"]`
+6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Language Server in Project" from Sublime's Command Palette to allow the server to start.
+7. Open a .slint file - if the server starts its name will be in the left side of the status bar.
+
+### Live Preview
+
+In order to **preview a component**, when you have a .slint file open, place your cursor to
+the name of the component you would like to preview and select the "Show preview" button that
+will appear on the right of the editor pane.
