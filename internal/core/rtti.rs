@@ -9,9 +9,9 @@
 #![allow(clippy::result_unit_err)] // We have nothing better to report
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
-use crate::Property;
 use crate::items::PropertyAnimation;
 use crate::properties::InterpolatedPropertyValue;
+use crate::{Property, animations};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -67,7 +67,7 @@ pub enum AnimatedBindingKind {
     /// No animation is on the binding
     NotAnimated,
     /// Single animation
-    Animation(PropertyAnimation),
+    Animation(Box<dyn Fn() -> PropertyAnimation>),
     /// Transition
     Transition(Box<dyn Fn() -> (PropertyAnimation, crate::animations::Instant)>),
 }
@@ -77,7 +77,7 @@ impl AnimatedBindingKind {
     pub fn as_animation(self) -> Option<PropertyAnimation> {
         match self {
             AnimatedBindingKind::NotAnimated => None,
-            AnimatedBindingKind::Animation(a) => Some(a),
+            AnimatedBindingKind::Animation(a) => Some(a()),
             AnimatedBindingKind::Transition(_) => None,
         }
     }
@@ -300,14 +300,14 @@ where
                     Ok(())
                 }
                 AnimatedBindingKind::Animation(animation) => {
-                    p.set_animated_binding(
+                    p.set_animated_binding_for_transition(
                         move || {
                             binding()
                                 .try_into()
                                 .map_err(|_| ())
                                 .expect("binding was of the wrong type")
                         },
-                        animation,
+                        move || (animation(), animations::current_tick()),
                     );
                     Ok(())
                 }
