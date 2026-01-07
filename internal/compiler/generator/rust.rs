@@ -633,7 +633,7 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            slint::private_unstable_api::set_animated_property_binding_for_transition(
+                            slint::private_unstable_api::set_animated_property_binding(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
                                     (#anim, None)
@@ -644,7 +644,7 @@ fn handle_property_init(
                         let animation = compile_expression(animation, ctx);
                         let change_time = compile_expression(change_time, ctx);
                         quote! {
-                            slint::private_unstable_api::set_animated_property_binding_for_transition(
+                            slint::private_unstable_api::set_animated_property_binding(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
                                     (#animation, Some(#change_time))

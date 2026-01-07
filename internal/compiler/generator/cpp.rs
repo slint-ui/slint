@@ -671,7 +671,7 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         // Note: The start_time defaults to the current tick, so doesn't need to be
                         // udpated here.
-                        format!("{prop_access}.set_animated_binding_for_transition({binding_code},
+                        format!("{prop_access}.set_animated_binding({binding_code},
                                 [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                     [[maybe_unused]] auto self = this;
                                     auto anim = {anim};
@@ -685,7 +685,7 @@ fn handle_property_init(
                         let animation = compile_expression(animation, ctx);
                         let change_time = compile_expression(change_time, ctx);
                         format!(
-                            "{prop_access}.set_animated_binding_for_transition({binding_code},
+                            "{prop_access}.set_animated_binding({binding_code},
                             [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
                                 auto animation = {animation};

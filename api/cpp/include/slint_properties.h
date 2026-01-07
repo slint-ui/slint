@@ -104,7 +104,7 @@ struct Property
                                    const cbindgen_private::PropertyAnimation &animation_data) const;
 
     template<typename F, typename Trans>
-    inline void set_animated_binding_for_transition(F binding, Trans animation) const
+    inline void set_animated_binding(F binding, Trans animation) const
     {
         struct UserData
         {

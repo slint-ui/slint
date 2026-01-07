@@ -300,7 +300,7 @@ where
                     Ok(())
                 }
                 AnimatedBindingKind::Animation(animation) => {
-                    p.set_animated_binding_for_transition(
+                    p.set_animated_binding(
                         move || {
                             binding()
                                 .try_into()
@@ -312,7 +312,7 @@ where
                     Ok(())
                 }
                 AnimatedBindingKind::Transition(tr) => {
-                    p.set_animated_binding_for_transition(
+                    p.set_animated_binding(
                         move || {
                             binding()
                                 .try_into()

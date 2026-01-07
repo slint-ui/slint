@@ -64,7 +64,7 @@ pub fn set_property_binding<
     })
 }
 
-pub fn set_animated_property_binding_for_transition<
+pub fn set_animated_property_binding<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
     StrongRef: StrongItemTreeRef + 'static,
 >(
@@ -78,7 +78,7 @@ pub fn set_animated_property_binding_for_transition<
 ) {
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();
-    property.set_animated_binding_for_transition(
+    property.set_animated_binding(
         move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
             compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())

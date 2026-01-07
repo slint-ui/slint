@@ -283,9 +283,9 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         );
     }
 
-    /// Set a binding to this property, providing a callback for the transition animation
-    ///
-    pub fn set_animated_binding_for_transition(
+    /// Set a binding to this property, providing a callback for the animation and an optional
+    /// start_time (relevant for state transitions).
+    pub fn set_animated_binding(
         &self,
         binding: impl Binding<T> + 'static,
         compute_animation_details: impl Fn() -> (PropertyAnimation, Option<crate::animations::Instant>)
