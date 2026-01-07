@@ -483,7 +483,7 @@ fn lower_sub_component(
                 Animation::Static(anim) => {
                     sub_component.animations.insert(prop.local(), anim);
                 }
-                Animation::Transition { .. } => {
+                Animation::Transition(_) => {
                     // Cannot set a property with a transition anyway
                 }
             }

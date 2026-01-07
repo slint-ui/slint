@@ -501,10 +501,8 @@ mod visitor {
     ) {
         visit_expression(expression.get_mut(), scope, state, visitor);
         match animation {
-            Some(Animation::Static(anim)) => visit_expression(anim, scope, state, visitor),
-            Some(Animation::Transition { animation, change_time }) => {
-                visit_expression(animation, scope, state, visitor);
-                visit_expression(change_time, scope, state, visitor);
+            Some(Animation::Static(anim) | Animation::Transition(anim)) => {
+                visit_expression(anim, scope, state, visitor)
             }
             None => (),
         }

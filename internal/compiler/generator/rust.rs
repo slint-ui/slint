@@ -640,14 +640,14 @@ fn handle_property_init(
                                 });
                         } }
                     }
-                    Some(llr::Animation::Transition{animation, change_time}) => {
+                    Some(llr::Animation::Transition(animation)) => {
                         let animation = compile_expression(animation, ctx);
-                        let change_time = compile_expression(change_time, ctx);
                         quote! {
                             slint::private_unstable_api::set_animated_property_binding(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
-                                    (#animation, Some(#change_time))
+                                    let (animation, change_time) = #animation;
+                                    (animation, Some(change_time))
                                 }
                             );
                         }

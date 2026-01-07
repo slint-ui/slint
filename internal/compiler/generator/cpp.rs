@@ -680,16 +680,13 @@ fn handle_property_init(
                                 }});",
                                 )
                     }
-                    Some(llr::Animation::Transition { animation, change_time
-                    }) => {
+                    Some(llr::Animation::Transition(animation)) => {
                         let animation = compile_expression(animation, ctx);
-                        let change_time = compile_expression(change_time, ctx);
                         format!(
                             "{prop_access}.set_animated_binding({binding_code},
                             [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
-                                auto animation = {animation};
-                                auto change_time = {change_time};
+                                auto [animation, change_time] = {animation};
                                 **start_time = change_time;
                                 return animation;
                             }});",
