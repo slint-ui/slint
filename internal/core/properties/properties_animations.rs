@@ -140,7 +140,7 @@ pub(super) struct AnimatedBindingCallable<T, A> {
     pub(super) compute_animation_details: A,
 }
 
-pub(super) type AnimationDetail = Option<(PropertyAnimation, Option<crate::animations::Instant>)>;
+pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::Instant>);
 
 unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable<T>
     for AnimatedBindingCallable<T, A>
@@ -171,12 +171,12 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                 let mut animation_data = self.animation_data.borrow_mut();
                 // animation_data.details.iteration_count = 1.;
                 animation_data.from_value = value.clone();
-                if let Some((details, start_time)) = (self.compute_animation_details)() {
-                    if let Some(start_time) = start_time {
-                        animation_data.start_time = start_time;
-                    }
-                    animation_data.details = details;
+                let (details, start_time) = (self.compute_animation_details)();
+                if let Some(start_time) = start_time {
+                    animation_data.start_time = start_time;
                 }
+                animation_data.details = details;
+
                 // Safety: `animation_data.to_value` is a valid mutable reference
                 unsafe { self.original_binding.update((&mut animation_data.to_value) as *mut T) };
                 let (val, finished) = animation_data.compute_interpolated_value();
@@ -283,46 +283,6 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         );
     }
 
-    /// Set a binding to this property.
-    ///
-    pub fn set_animated_binding(
-        &self,
-        binding: impl Binding<T> + 'static,
-        animation_data: PropertyAnimation,
-    ) {
-        let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {
-            original_binding: PropertyHandle {
-                handle: Cell::new(
-                    (alloc_binding_holder(move |val: &mut T| {
-                        *val = binding.evaluate(val);
-                        BindingResult::KeepBinding
-                    }) as usize)
-                        | 0b10,
-                ),
-            },
-            state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
-            animation_data: RefCell::new(properties_animations::PropertyValueAnimationData::new(
-                T::default(),
-                T::default(),
-                animation_data,
-            )),
-            compute_animation_details: || -> properties_animations::AnimationDetail { None },
-        };
-
-        // Safety: the `AnimatedBindingCallable`'s type match the property type
-        unsafe {
-            self.handle.set_binding(
-                binding_callable,
-                #[cfg(slint_debug_property)]
-                self.debug_name.borrow().as_str(),
-            )
-        };
-        self.handle.mark_dirty(
-            #[cfg(slint_debug_property)]
-            self.debug_name.borrow().as_str(),
-        );
-    }
-
     /// Set a binding to this property, providing a callback for the transition animation
     ///
     pub fn set_animated_binding_for_transition(
@@ -347,7 +307,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 T::default(),
                 PropertyAnimation::default(),
             )),
-            compute_animation_details: move || Some(compute_animation_details()),
+            compute_animation_details,
         };
 
         // Safety: the `AnimatedBindingCallable`'s type match the property type

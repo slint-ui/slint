@@ -64,22 +64,6 @@ pub fn set_property_binding<
     })
 }
 
-pub fn set_animated_property_binding<
-    T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-    StrongRef: StrongItemTreeRef + 'static,
->(
-    property: Pin<&Property<T>>,
-    component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
-    animation_data: PropertyAnimation,
-) {
-    let weak = component_strong.to_weak();
-    property.set_animated_binding(
-        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap()),
-        animation_data,
-    )
-}
-
 pub fn set_animated_property_binding_for_transition<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
     StrongRef: StrongItemTreeRef + 'static,
