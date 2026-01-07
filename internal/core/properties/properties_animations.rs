@@ -797,7 +797,7 @@ mod animation_tests {
                 let compo = w.upgrade().unwrap();
                 get_prop_value(&compo.feed_property)
             },
-            animation_details,
+            move || (animation_details.clone(), None),
         );
 
         compo.feed_property.set(100);
@@ -838,7 +838,7 @@ mod animation_tests {
                 let compo = w.upgrade().unwrap();
                 get_prop_value(&compo.feed_property)
             },
-            animation_details,
+            move || (animation_details.clone(), None),
         );
 
         compo.feed_property.set(100);
@@ -935,7 +935,7 @@ mod animation_tests {
                 let compo = w.upgrade().unwrap();
                 get_prop_value(&compo.feed_property)
             },
-            animation_details,
+            move || (animation_details.clone(), None),
         );
 
         compo.feed_property.set(100);
