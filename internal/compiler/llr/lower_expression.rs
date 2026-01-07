@@ -577,34 +577,18 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                     false_expr: Box::new(get_anim),
                 }
             }
-            let result = llr_Expression::Struct {
-                // This is going to be a tuple
-                ty: Rc::new(Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("0"), animation_ty),
-                        // The type is an instant, which does not exist in our type system
-                        (SmolStr::new_static("1"), Type::Invalid),
-                    ])
-                    .collect(),
-                    name: StructName::None,
-                }),
-                values: IntoIterator::into_iter([
-                    (SmolStr::new_static("0"), get_anim),
-                    (
-                        SmolStr::new_static("1"),
-                        llr_Expression::StructFieldAccess {
-                            base: llr_Expression::ReadLocalVariable {
-                                name: "state".into(),
-                                ty: state_ref.ty(),
-                            }
-                            .into(),
-                            name: "change_time".into(),
-                        },
-                    ),
-                ])
-                .collect(),
-            };
-            Animation::Transition(llr_Expression::CodeBlock(vec![set_state, result]))
+            let change_time = llr_Expression::CodeBlock(vec![
+                set_state,
+                llr_Expression::StructFieldAccess {
+                    base: llr_Expression::ReadLocalVariable {
+                        name: "state".into(),
+                        ty: state_ref.ty(),
+                    }
+                    .into(),
+                    name: "change_time".into(),
+                },
+            ]);
+            Animation::Transition { animation: get_anim, change_time }
         }
     }
 }

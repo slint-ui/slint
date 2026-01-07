@@ -9,9 +9,9 @@
 #![allow(clippy::result_unit_err)] // We have nothing better to report
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
+use crate::Property;
 use crate::items::PropertyAnimation;
 use crate::properties::InterpolatedPropertyValue;
-use crate::{Property, animations};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -307,7 +307,7 @@ where
                                 .map_err(|_| ())
                                 .expect("binding was of the wrong type")
                         },
-                        move || (animation(), animations::current_tick()),
+                        move || (animation(), None),
                     );
                     Ok(())
                 }
@@ -319,7 +319,10 @@ where
                                 .map_err(|_| ())
                                 .expect("binding was of the wrong type")
                         },
-                        tr,
+                        move || {
+                            let (animation, start_time) = tr();
+                            (animation, Some(start_time))
+                        },
                     );
                     Ok(())
                 }

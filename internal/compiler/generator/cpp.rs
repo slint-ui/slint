@@ -672,24 +672,26 @@ fn handle_property_init(
                         // Note: The start_time defaults to the current tick, so doesn't need to be
                         // udpated here.
                         format!("{prop_access}.set_animated_binding_for_transition({binding_code},
-                                [this]([[maybe_unused]] uint64_t *start_time) -> slint::cbindgen_private::PropertyAnimation {{
+                                [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                     [[maybe_unused]] auto self = this;
                                     auto anim = {anim};
+                                    *start_time = nullptr;
                                     return anim;
                                 }});",
                                 )
                     }
-                    Some(llr::Animation::Transition (
-                        anim
-                    )) => {
-                        let anim = compile_expression(anim, ctx);
+                    Some(llr::Animation::Transition { animation, change_time
+                    }) => {
+                        let animation = compile_expression(animation, ctx);
+                        let change_time = compile_expression(change_time, ctx);
                         format!(
                             "{prop_access}.set_animated_binding_for_transition({binding_code},
-                            [this](uint64_t *start_time) -> slint::cbindgen_private::PropertyAnimation {{
+                            [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
-                                auto [anim, time] = {anim};
-                                *start_time = time;
-                                return anim;
+                                auto animation = {animation};
+                                auto change_time = {change_time};
+                                **start_time = change_time;
+                                return animation;
                             }});",
                         )
                     }

@@ -158,8 +158,12 @@ fn visit_property(pr: &MemberReference, ctx: &EvaluationContext) {
 fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext) {
     binding.expression.borrow().visit_property_references(ctx, &mut visit_property);
     match &binding.animation {
-        Some(Animation::Static(e) | Animation::Transition(e)) => {
-            e.visit_property_references(ctx, &mut visit_property)
+        Some(Animation::Transition { animation, change_time }) => {
+            animation.visit_property_references(ctx, &mut visit_property);
+            change_time.visit_property_references(ctx, &mut visit_property);
+        }
+        Some(Animation::Static(e)) => {
+            e.visit_property_references(ctx, &mut visit_property);
         }
         None => (),
     }

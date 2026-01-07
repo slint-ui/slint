@@ -263,7 +263,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     animation_data: Option<&PropertyAnimation>,
     transition_data: Option<
-        extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        extern "C" fn(user_data: *mut c_void, start_instant: &mut *mut u64) -> PropertyAnimation,
     >,
 ) {
     unsafe {
@@ -294,9 +294,21 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
                 animation_data,
                 compute_animation_details: move || -> properties_animations::AnimationDetail {
-                    let mut start_instant = crate::animations::current_tick().0;
-                    let anim = transition_data(user_data, &mut start_instant);
-                    Some((anim, crate::animations::Instant(start_instant)))
+                    // The transition_data function receives a *mut *mut u64 pointer for the
+                    // timestamp.
+                    // If the function sets the pointer to nullptr, it doesn't provide a start_time.
+                    // Otherwise, we assume it has written a value to the start_instant.
+                    // This basically models a `&mut Option<u64>`, which is then converted to an
+                    // `Option<Instant>`
+                    let mut start_instant = 0u64;
+                    let mut start_instant_ref = &mut start_instant as *mut u64;
+                    let anim = transition_data(user_data, &mut start_instant_ref);
+                    let start_instant = if start_instant_ref.is_null() {
+                        None
+                    } else {
+                        Some(crate::animations::Instant(start_instant))
+                    };
+                    Some((anim, start_instant))
                 },
             });
         } else {
@@ -320,7 +332,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_int(
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     animation_data: Option<&PropertyAnimation>,
     transition_data: Option<
-        extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        extern "C" fn(user_data: *mut c_void, start_instant: &mut *mut u64) -> PropertyAnimation,
     >,
 ) {
     unsafe {
@@ -344,7 +356,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_float(
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     animation_data: Option<&PropertyAnimation>,
     transition_data: Option<
-        extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        extern "C" fn(user_data: *mut c_void, start_instant: &mut *mut u64) -> PropertyAnimation,
     >,
 ) {
     unsafe {
@@ -368,7 +380,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_color(
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     animation_data: Option<&PropertyAnimation>,
     transition_data: Option<
-        extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        extern "C" fn(user_data: *mut c_void, start_instant: &mut *mut u64) -> PropertyAnimation,
     >,
 ) {
     unsafe {
@@ -392,7 +404,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     animation_data: Option<&PropertyAnimation>,
     transition_data: Option<
-        extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        extern "C" fn(user_data: *mut c_void, start_instant: &mut *mut u64) -> PropertyAnimation,
     >,
 ) {
     unsafe {

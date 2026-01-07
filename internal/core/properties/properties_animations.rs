@@ -140,7 +140,7 @@ pub(super) struct AnimatedBindingCallable<T, A> {
     pub(super) compute_animation_details: A,
 }
 
-pub(super) type AnimationDetail = Option<(PropertyAnimation, crate::animations::Instant)>;
+pub(super) type AnimationDetail = Option<(PropertyAnimation, Option<crate::animations::Instant>)>;
 
 unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable<T>
     for AnimatedBindingCallable<T, A>
@@ -171,6 +171,12 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                 let mut animation_data = self.animation_data.borrow_mut();
                 // animation_data.details.iteration_count = 1.;
                 animation_data.from_value = value.clone();
+                if let Some((details, start_time)) = (self.compute_animation_details)() {
+                    if let Some(start_time) = start_time {
+                        animation_data.start_time = start_time;
+                    }
+                    animation_data.details = details;
+                }
                 // Safety: `animation_data.to_value` is a valid mutable reference
                 unsafe { self.original_binding.update((&mut animation_data.to_value) as *mut T) };
                 let (val, finished) = animation_data.compute_interpolated_value();
@@ -192,12 +198,7 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
         let original_dirty = self.original_binding.access(|b| b.unwrap().dirty.get());
         if original_dirty {
             self.state.set(AnimatedBindingState::ShouldStart);
-            let mut animation_data = self.animation_data.borrow_mut();
-            animation_data.reset();
-            if let Some((details, start_time)) = (self.compute_animation_details)() {
-                animation_data.start_time = start_time;
-                animation_data.details = details;
-            }
+            self.animation_data.borrow_mut().reset();
         }
     }
 }
@@ -327,7 +328,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     pub fn set_animated_binding_for_transition(
         &self,
         binding: impl Binding<T> + 'static,
-        compute_animation_details: impl Fn() -> (PropertyAnimation, crate::animations::Instant)
+        compute_animation_details: impl Fn() -> (PropertyAnimation, Option<crate::animations::Instant>)
         + 'static,
     ) {
         let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {

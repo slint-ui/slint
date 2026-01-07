@@ -24,7 +24,7 @@ inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
-        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
     cbindgen_private::slint_property_set_animated_binding_int(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
@@ -34,7 +34,7 @@ inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, float *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
-        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
     cbindgen_private::slint_property_set_animated_binding_float(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
@@ -44,7 +44,7 @@ inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, Color *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
-        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
     cbindgen_private::slint_property_set_animated_binding_color(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
@@ -54,7 +54,7 @@ inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, Brush *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
-        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
     cbindgen_private::slint_property_set_animated_binding_brush(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
@@ -135,7 +135,7 @@ struct Property
                 },
                 new UserData { binding, animation },
                 [](void *user_data) { delete reinterpret_cast<UserData *>(user_data); }, nullptr,
-                [](void *user_data, uint64_t *instant) {
+                [](void *user_data, uint64_t **instant) {
                     return reinterpret_cast<UserData *>(user_data)->animation(instant);
                 });
     }

@@ -89,7 +89,8 @@ pub fn set_animated_property_binding_for_transition<
     binding: fn(StrongRef) -> T,
     compute_animation_details: fn(
         StrongRef,
-    ) -> (PropertyAnimation, i_slint_core::animations::Instant),
+    )
+        -> (PropertyAnimation, Option<i_slint_core::animations::Instant>),
 ) {
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();

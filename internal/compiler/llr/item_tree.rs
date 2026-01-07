@@ -57,7 +57,12 @@ impl MutExpression {
 pub enum Animation {
     /// The expression is a Struct with the animation fields
     Static(Expression),
-    Transition(Expression),
+    Transition {
+        // Evaluates to a PropertyAnimation instance
+        animation: Expression,
+        // Evaluates to an animation::Instance
+        change_time: Expression,
+    },
 }
 
 #[derive(Debug, Clone)]

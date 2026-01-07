@@ -636,17 +636,18 @@ fn handle_property_init(
                             slint::private_unstable_api::set_animated_property_binding_for_transition(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
-                                    (#anim, ::slint::private_unstable_api::re_exports::current_tick())
+                                    (#anim, None)
                                 });
                         } }
                     }
-                    Some(llr::Animation::Transition(anim)) => {
-                        let anim = compile_expression(anim, ctx);
+                    Some(llr::Animation::Transition{animation, change_time}) => {
+                        let animation = compile_expression(animation, ctx);
+                        let change_time = compile_expression(change_time, ctx);
                         quote! {
                             slint::private_unstable_api::set_animated_property_binding_for_transition(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
-                                    #anim
+                                    (#animation, Some(#change_time))
                                 }
                             );
                         }
