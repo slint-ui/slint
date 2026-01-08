@@ -4,6 +4,17 @@
 cmake_minimum_required(VERSION 3.21)
 project(SlintSafeUI LANGUAGES C CXX VERSION 1.0)
 
+# Use pixel-bgra8888 as default pixel format
+set(SLINT_SAFEUI_PIXEL_FORMAT "pixel-bgra8888" CACHE STRING "Pixel format for Slint SafeUI")
+set_property(CACHE SLINT_SAFEUI_PIXEL_FORMAT PROPERTY STRINGS
+    "pixel-bgra8888"
+    "pixel-rgb565"
+    "pixel-rgb888"
+)
+
+# Enable default SafeUI panic handler by default
+option(SLINT_SAFEUI_PANIC_HANDLER "Enable default SafeUI Panic Handler" ON)
+
 include(FetchContent)
 FetchContent_Declare(
     Corrosion
@@ -12,10 +23,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 
+set(SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_PIXEL_FORMAT}")
+if(SLINT_SAFEUI_PANIC_HANDLER)
+    list(APPEND SLINT_SAFEUI_FEATURES "panic-handler")
+endif()
+
+message(STATUS "Active Slint SafeUI Features: ${SLINT_SAFEUI_FEATURES}")
+
 corrosion_import_crate(
     MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/core/Cargo.toml"
     CRATES slint-safeui-core
     CRATE_TYPES staticlib
+    FEATURES "${SLINT_SAFEUI_FEATURES}"
 )
 
 add_library(SlintSafeUi INTERFACE)
