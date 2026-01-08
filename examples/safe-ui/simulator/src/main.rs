@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 use std::sync::OnceLock;
+use std::time::Instant;
 
-use slint_safeui_lib::platform::Bgra8888Pixel;
+use slint_safeui_core::platform::Bgra8888Pixel;
 
 const WIDTH_PIXELS: u32 = 640;
 const HEIGHT_PIXELS: u32 = 480;
@@ -52,6 +53,14 @@ extern "C" fn slint_safeui_platform_render(
 }
 
 #[unsafe(no_mangle)]
+extern "C" fn slint_safeui_platform_duration_since_start() -> i32 {
+    static START: OnceLock<Instant> = OnceLock::new();
+    let start = START.get_or_init(Instant::now);
+
+    start.elapsed().as_millis() as i32
+}
+
+#[unsafe(no_mangle)]
 extern "C" fn slint_safeui_platform_get_screen_size(width: *mut u32, height: *mut u32) {
     unsafe {
         *width = WIDTH_PIXELS;
@@ -74,7 +83,7 @@ fn main() {
 
     let _thr = std::thread::spawn(|| {
         SIM_THREAD.set(std::thread::current()).unwrap();
-        slint_safeui_lib::slint_app_main()
+        slint_safeui_core::slint_app_main()
     });
 
     let window = MainWindow::new().unwrap();

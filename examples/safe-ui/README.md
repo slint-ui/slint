@@ -26,8 +26,8 @@ The Linux based underlay starts the gallery demo, rendering with OpenGL on a Mal
 https://github.com/user-attachments/assets/077790db-b325-49d2-9d10-1e1be7c5a660
 
 The overlay is rendered on the Cortex-M7 running FreeRTOS and NXP's SafeAssure framework, to handle driving the Display Processing Unit (DPU) for blending, and to run Slint's event loop.
-The Slint scene rendered can be found in [appwindow.slint](./ui/app-window.slint).
-The application entry point is [./src/lib.rs](./src/lib.rs);
+The Slint scene rendered can be found in [./ui/app-window.slint](./ui/app-window.slint).
+The application entry point is [./core/src/lib.rs](./core/src/lib.rs);
 
 ## Build System Integration
 
@@ -54,17 +54,17 @@ target_link_libraries(my_firmware PRIVATE SlintSafeUi)
 
 ## C System Interface
 
-The basic C system interface is documented in [./src/slint-safeui-platform-interface.h](./src/slint-safeui-platform-interface.h). This header file is also part of the `INTERFACE`
+The basic C system interface is documented in [./core/src/slint-safeui-platform-interface.h](./core/src/slint-safeui-platform-interface.h). This header file is also part of the `INTERFACE`
 of the `SlintSafeUi` CMake target. Implement these functions in your firmware.
 
 Once you've started your UI task, invoke `slint_app_main()` to start the Slint event loop and the UI safety layer.
 
 ## Simulation
 
-For convenience, this example provides a "simulator" feature in [./src/simulator.rs](./src/simulator.rs), so that you can just run this on a desktop system with
+For convenience, this example provides a "simulator" binary target in [./simulator/src/main.rs](./simulator/src/main.rs), so that you can just run this on a desktop system with
 
 ```
-cargo run
+cargo run -p slint-safeui-simulator
 ```
 
 The "simulator" implements the same C system interface and runs the Slint UI safety layer example in a secondary thread.

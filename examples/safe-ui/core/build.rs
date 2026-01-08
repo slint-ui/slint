@@ -21,5 +21,5 @@ fn main() {
         .with_sdf_fonts(true)
         .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer)
         .with_scale_factor(2.);
-    slint_build::compile_with_config("ui/app-window.slint", config).unwrap();
+    slint_build::compile_with_config("../ui/app-window.slint", config).unwrap();
 }
