@@ -238,10 +238,10 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         pub fn slint_log_error(msg: *const core::ffi::c_char);
     }
 
-    let mut STORAGE: [u8; 256] = [0; 256];
+    let mut storage: [u8; 256] = [0; 256];
 
     unsafe {
-        let mut w = FixedBuf::new(&mut STORAGE);
+        let mut w = FixedBuf::new(&mut storage);
         write!(&mut w, "Rust PANIC: {:?}", info).ok();
         slint_log_error(w.as_cstr().as_ptr());
     };
@@ -267,8 +267,8 @@ mod allocator {
                 // Ideally we'd use aligned_alloc, but that function caused heap corruption with esp-idf
                 let ptr = unsafe { malloc(layout.size() + align) as *mut u8 };
                 let shift = align - (ptr as usize % align);
-                let ptr = ptr.add(shift);
-                core::ptr::write(ptr.sub(1), shift as u8);
+                let ptr = unsafe { ptr.add(shift) };
+                unsafe { core::ptr::write(ptr.sub(1), shift as u8) };
                 ptr
             }
         }
