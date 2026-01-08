@@ -46,7 +46,8 @@ All notable changes to this project are documented in this file.
 
 ### Rust
 
- - Added `slint::register_font_from_memory`
+ - Added `slint::fontique` module, guarded with `unstable-fontique-07` feature, to provide access
+   to fontique collection types for registering custom fonts at run-time.
  - Added `slint::language::ColorScheme`
  - In live preview mode, fixed panic when custom Model access the component's property (#10278)
 
