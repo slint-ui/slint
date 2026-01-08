@@ -1,0 +1,27 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-safeui-core"
+version = "1.15.0"
+edition = "2024"
+publish = false
+build = "build.rs"
+license = "MIT"
+
+[lib]
+name = "slint_safeui_core"
+path = "src/lib.rs"
+crate-type = ["rlib", "staticlib"]
+
+[features]
+default = []
+panic-handler = []
+
+[dependencies]
+bytemuck = "1.24.0"
+slint = { path = "../../../api/rs/slint", features = ["compat-1-2", "renderer-software", "libm", "unsafe-single-threaded"] }
+
+[build-dependencies]
+bindgen = "0.72.1"
+slint-build = { path = "../../../api/rs/build", features = ["sdf-fonts"] }

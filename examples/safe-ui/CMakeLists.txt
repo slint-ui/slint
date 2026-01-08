@@ -12,21 +12,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 
-set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "" CACHE INTERNAL "")
-
-corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml"
-    CRATES slint-safeui CRATE_TYPES staticlib)
-
-set_property(
-    TARGET slint_safeui_lib
-    PROPERTY CORROSION_NO_DEFAULT_FEATURES
-    ON
+corrosion_import_crate(
+    MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/core/Cargo.toml"
+    CRATES slint-safeui-core
+    CRATE_TYPES staticlib
 )
 
 add_library(SlintSafeUi INTERFACE)
-target_link_libraries(SlintSafeUi INTERFACE slint_safeui_lib)
+target_link_libraries(SlintSafeUi INTERFACE slint_safeui_core)
 
 target_include_directories(SlintSafeUi INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/core/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/core/src>
 )
