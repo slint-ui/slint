@@ -212,10 +212,6 @@ compile_error!(
 pub use slint_macros::slint;
 
 pub use i_slint_backend_selector::api::*;
-#[cfg(feature = "std")]
-pub use i_slint_common::sharedfontique::{
-    FontHandle, RegisterFontError, register_font_from_memory,
-};
 pub use i_slint_core::api::*;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
@@ -715,4 +711,23 @@ pub mod winit_030 {
     #[deprecated(note = "Renamed to `EventResult`")]
     /// Deprecated alias to [`EventResult`]
     pub type WinitWindowEventResult = EventResult;
+}
+
+#[cfg(feature = "unstable-fontique-07")]
+pub mod fontique {
+    //! Fontique 0.7 specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major Fontique releases become available.
+    //!
+    //! Use the types, functions, and re-exports in this module to register custom fonts at run-time for use
+    //! by Slint's renderers.
+
+    pub use i_slint_common::sharedfontique::fontique;
+
+    /// Returns a new fontique collection that's using secondary storage that's shared for the entire process.
+    /// Changes such as registering fonts and setting fallbacks will be visible to the entire process.
+    pub fn collection() -> fontique::Collection {
+        i_slint_common::sharedfontique::COLLECTION.inner.clone()
+    }
 }
