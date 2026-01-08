@@ -44,6 +44,10 @@ that produces the final binary, use `FetchContent` to pull in the `SlintSafeUi` 
 
 ```cmake
 set(Rust_CARGO_TARGET "thumbv7em-none-eabihf" CACHE STRING "")
+
+set(SLINT_SAFEUI_PANIC_HANDLER ON CACHE BOOL "" FORCE)
+set(SLINT_SAFEUI_PIXEL_FORMAT "pixel-rgb565" CACHE STRING "" FORCE)
+
 include(FetchContent)
 FetchContent_Declare(
     SlintSafeUi
