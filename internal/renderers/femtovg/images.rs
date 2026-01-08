@@ -203,26 +203,6 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     )
                     .unwrap()
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-27"))]
-            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU27Texture(
-                texture,
-            )) => {
-                let texture = texture.clone();
-                let size = texture.size();
-
-                canvas
-                    .borrow_mut()
-                    .create_image_from_native_texture(
-                        <R as TextureImporter>::convert_wgpu_27_texture(texture),
-                        femtovg::ImageInfo::new(
-                            image_flags,
-                            size.width as _,
-                            size.height as _,
-                            femtovg::PixelFormat::Rgba8,
-                        ),
-                    )
-                    .unwrap()
-            }
             #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-26"))]
             ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU26Texture(..)) => {
                 return None;

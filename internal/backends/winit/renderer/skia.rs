@@ -83,16 +83,6 @@ impl WinitSkiaRenderer {
             requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
-
-    #[cfg(feature = "unstable-wgpu-27")]
-    pub fn new_wgpu_27_suspended(
-        shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
-        Ok(Box::new(Self {
-            renderer: SkiaRenderer::default_wgpu_27(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
-        }))
-    }
     #[cfg(feature = "unstable-wgpu-28")]
     pub fn new_wgpu_28_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
@@ -150,10 +140,6 @@ impl WinitSkiaRenderer {
                     #[cfg(feature = "unstable-wgpu-26")]
                     RequestedGraphicsAPI::WGPU26(..) => {
                         return Ok(Self::new_wgpu_26_suspended);
-                    }
-                    #[cfg(feature = "unstable-wgpu-27")]
-                    RequestedGraphicsAPI::WGPU27(..) => {
-                        return Ok(Self::new_wgpu_27_suspended);
                     }
                     #[cfg(feature = "unstable-wgpu-28")]
                     RequestedGraphicsAPI::WGPU28(..) => {

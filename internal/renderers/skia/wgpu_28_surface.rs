@@ -200,8 +200,6 @@ impl super::Surface for WGPUSurface {
         let texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-26")]
             i_slint_core::graphics::WGPUTexture::WGPU26Texture(..) => return None,
-            #[cfg(feature = "unstable-wgpu-27")]
-            i_slint_core::graphics::WGPUTexture::WGPU27Texture(texture) => texture.clone(),
             #[cfg(feature = "unstable-wgpu-28")]
             i_slint_core::graphics::WGPUTexture::WGPU28Texture(texture) => texture.clone(),
         };

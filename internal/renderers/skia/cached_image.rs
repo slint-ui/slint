@@ -102,7 +102,6 @@ pub(crate) fn as_skia_image(
         ),
         #[cfg(any(
             feature = "unstable-wgpu-26",
-            feature = "unstable-wgpu-27",
             feature = "unstable-wgpu-28"
         ))]
         ImageInner::WGPUTexture(any_wgpu_texture) => {

@@ -415,7 +415,6 @@ impl BackendBuilder {
                 enable_skia_renderer,
                 any(
                     feature = "unstable-wgpu-26",
-                    feature = "unstable-wgpu-27",
                     feature = "unstable-wgpu-28"
                 )
             ))]
@@ -432,7 +431,7 @@ impl BackendBuilder {
                             );
                         } else {
                              result = Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
+                                renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
                                     as RendererFactoryFn,
                             );
                         }
@@ -444,13 +443,6 @@ impl BackendBuilder {
                         if matches!(api, RequestedGraphicsAPI::WGPU26(..)) {
                             return Some(
                                 renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
-                                    as RendererFactoryFn,
-                            );
-                        }
-                        #[cfg(feature = "unstable-wgpu-27")]
-                        if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
-                            return Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
                                     as RendererFactoryFn,
                             );
                         }
@@ -493,16 +485,6 @@ impl BackendBuilder {
             #[cfg(feature = "unstable-wgpu-26")]
             (None, Some(RequestedGraphicsAPI::WGPU26(..))) => {
                 renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
-            }
-            #[cfg(feature = "unstable-wgpu-27")]
-            (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
-                cfg_if::cfg_if! {
-                    if #[cfg(enable_skia_renderer)] {
-                        renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-                    } else {
-                        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
-                    }
-                }
             }
             #[cfg(feature = "unstable-wgpu-28")]
             (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
