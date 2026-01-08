@@ -1094,7 +1094,11 @@ pub trait Surface {
         None
     }
 
-    #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(
+        feature = "unstable-wgpu-26",
+        feature = "unstable-wgpu-27",
+        feature = "unstable-wgpu-28"
+    ))]
     fn import_wgpu_texture(
         &self,
         _canvas: &skia_safe::Canvas,

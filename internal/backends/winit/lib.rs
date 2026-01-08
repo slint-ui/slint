@@ -413,7 +413,11 @@ impl BackendBuilder {
             }
             #[cfg(all(
                 enable_skia_renderer,
-                any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
+                any(
+                    feature = "unstable-wgpu-26",
+                    feature = "unstable-wgpu-27",
+                    feature = "unstable-wgpu-28"
+                )
             ))]
             (Some("skia-wgpu"), maybe_graphics_api @ _) => {
                 if let Some(factory) = maybe_graphics_api.map_or_else(
