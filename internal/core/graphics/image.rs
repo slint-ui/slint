@@ -346,7 +346,11 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
-            #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+            #[cfg(any(
+                feature = "unstable-wgpu-26",
+                feature = "unstable-wgpu-27",
+                feature = "unstable-wgpu-28"
+            ))]
             ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
@@ -378,7 +382,11 @@ impl OpaqueImage for NineSliceImage {
 }
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
-#[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+#[cfg(any(
+    feature = "unstable-wgpu-26",
+    feature = "unstable-wgpu-27",
+    feature = "unstable-wgpu-28"
+))]
 #[derive(Clone, Debug)]
 pub enum WGPUTexture {
     /// A texture for WGPU version 26.
@@ -392,7 +400,11 @@ pub enum WGPUTexture {
     WGPU28Texture(wgpu_28::Texture),
 }
 
-#[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+#[cfg(any(
+    feature = "unstable-wgpu-26",
+    feature = "unstable-wgpu-27",
+    feature = "unstable-wgpu-28"
+))]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
         match self {
@@ -442,7 +454,11 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
-    #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(
+        feature = "unstable-wgpu-26",
+        feature = "unstable-wgpu-27",
+        feature = "unstable-wgpu-28"
+    ))]
     WGPUTexture(WGPUTexture) = 8,
 }
 
@@ -561,7 +577,11 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
-            #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+            #[cfg(any(
+                feature = "unstable-wgpu-26",
+                feature = "unstable-wgpu-27",
+                feature = "unstable-wgpu-28"
+            ))]
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }

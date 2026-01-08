@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![warn(missing_docs)]
@@ -222,8 +222,7 @@ pub fn any_wgpu28_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         }
         Some(_) => return false,
     };
-    poll_once(instance
-        .enumerate_adapters(backends))
+    poll_once(instance.enumerate_adapters(backends))
         .unwrap()
         .into_iter()
         .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
