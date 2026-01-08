@@ -9,7 +9,7 @@ use smol::channel::{Receiver, Sender};
 
 use slint::ComponentHandle;
 
-use slint::wgpu_27::wgpu;
+use slint::wgpu_28::wgpu;
 
 use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
 

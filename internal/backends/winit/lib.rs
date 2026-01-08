@@ -389,10 +389,10 @@ impl BackendBuilder {
             #[cfg(feature = "renderer-femtovg-wgpu")]
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
                 if let Some(_api) = maybe_graphics_api {
-                    #[cfg(feature = "unstable-wgpu-27")]
-                    if !matches!(_api, RequestedGraphicsAPI::WGPU27(..)) {
+                    #[cfg(feature = "unstable-wgpu-28")]
+                    if !matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
                         return Err(
-                           "The FemtoVG WGPU renderer only supports the WGPU27 graphics API selection"
+                           "The FemtoVG WGPU renderer only supports the WGPU28 graphics API selection"
                                 .into(),
                         );
                     }
@@ -413,22 +413,22 @@ impl BackendBuilder {
             }
             #[cfg(all(
                 enable_skia_renderer,
-                any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27")
+                any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
             ))]
             (Some("skia-wgpu"), maybe_graphics_api @ _) => {
                 if let Some(factory) = maybe_graphics_api.map_or_else(
                     || {
                         let result;
                         cfg_if::cfg_if!(
-                            if #[cfg(feature = "unstable-wgpu-27")]
+                            if #[cfg(feature = "unstable-wgpu-28")]
                         {
                             result = Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
+                                renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
                                     as RendererFactoryFn,
                             );
                         } else {
                              result = Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
+                                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
                                     as RendererFactoryFn,
                             );
                         }
@@ -447,6 +447,13 @@ impl BackendBuilder {
                         if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
                             return Some(
                                 renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
+                                    as RendererFactoryFn,
+                            );
+                        }
+                        #[cfg(feature = "unstable-wgpu-28")]
+                        if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
+                            return Some(
+                                renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
                                     as RendererFactoryFn,
                             );
                         }
@@ -488,6 +495,16 @@ impl BackendBuilder {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {
                         renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
+                    } else {
+                        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                    }
+                }
+            }
+            #[cfg(feature = "unstable-wgpu-28")]
+            (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
+                cfg_if::cfg_if! {
+                    if #[cfg(enable_skia_renderer)] {
+                        renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
                     } else {
                         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
                     }
