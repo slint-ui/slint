@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 //use alloc::vec::Vec;
 //use core::cell::RefCell;
 
-use crate::pixels::Bgra8888Pixel;
+use crate::pixels::PlatformPixel;
 use slint::platform::software_renderer::MinimalSoftwareWindow;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -50,7 +50,7 @@ impl slint::platform::Platform for Platform {
             //            }
 
             self.window.draw_if_needed(|renderer| {
-                render_wrapper(&|buffer, pixel_stride| {
+                render_wrapper::<PlatformPixel, _>(&|buffer, pixel_stride| {
                     renderer.render(buffer, pixel_stride);
                 })
             });
@@ -84,26 +84,33 @@ impl slint::platform::Platform for Platform {
     }
 }
 
-fn render_wrapper<F: Fn(&mut [Bgra8888Pixel], usize)>(f: &F) {
+fn render_wrapper<P, F>(f: &F)
+where
+    P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
+    F: Fn(&mut [P], usize),
+{
     let user_data = f as *const _ as *const core::ffi::c_void;
 
-    unsafe extern "C" fn c_render_wrap<F: Fn(&mut [Bgra8888Pixel], usize)>(
+    unsafe extern "C" fn c_render_wrap<P, F>(
         user_data: *const core::ffi::c_void,
         buffer: *mut core::ffi::c_char,
         byte_size: core::ffi::c_uint,
         pixel_stride: core::ffi::c_uint,
-    ) {
+    ) where
+        P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
+        F: Fn(&mut [P], usize),
+    {
         let buffer = unsafe {
             core::slice::from_raw_parts_mut(
-                buffer as *mut Bgra8888Pixel,
-                byte_size as usize / core::mem::size_of::<Bgra8888Pixel>(),
+                buffer as *mut P,
+                byte_size as usize / core::mem::size_of::<P>(),
             )
         };
         let f = unsafe { &*(user_data as *const F) };
         f(buffer, pixel_stride as usize)
     }
 
-    unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<F>)) }
+    unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<P, F>)) }
 }
 
 pub fn slint_init_safeui_platform() {

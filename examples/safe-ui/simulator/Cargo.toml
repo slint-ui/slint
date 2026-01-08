@@ -8,6 +8,12 @@ edition = "2024"
 publish = false
 license = "MIT"
 
+[features]
+default = []
+pixel-bgra8888 = ["slint-safeui-core/pixel-bgra8888"]
+pixel-rgb565 = ["slint-safeui-core/pixel-rgb565"]
+pixel-rgb888 = ["slint-safeui-core/pixel-rgb888"]
+
 [dependencies]
 bytemuck = "1.24.0"
 slint = { path = "../../../api/rs/slint", features = ["backend-winit"] }

@@ -17,6 +17,9 @@ crate-type = ["rlib", "staticlib"]
 [features]
 default = []
 panic-handler = []
+pixel-bgra8888 = []
+pixel-rgb565 = []
+pixel-rgb888 = []
 
 [dependencies]
 bytemuck = "1.24.0"
