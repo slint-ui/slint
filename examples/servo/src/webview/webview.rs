@@ -63,8 +63,8 @@ impl WebView {
     pub fn new(
         app: MyApp,
         initial_url: SharedString,
-        device: slint::wgpu_27::wgpu::Device,
-        queue: slint::wgpu_27::wgpu::Queue,
+        device: slint::wgpu_28::wgpu::Device,
+        queue: slint::wgpu_28::wgpu::Queue,
     ) {
         let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 

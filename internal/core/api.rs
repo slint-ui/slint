@@ -308,6 +308,23 @@ pub enum GraphicsAPI<'a> {
         /// The WGPU queue for used for command submission.
         queue: wgpu_27::Queue,
     },
+    /// The rendering is based on WGPU 28.x. Use the provided fields to submit commits to the provided
+    /// WGPU command queue.
+    ///
+    /// *Note*: This function is behind the [`unstable-wgpu-28` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_28`](slint:rust:slint/wgpu_28) module.
+    #[cfg(feature = "unstable-wgpu-28")]
+    #[non_exhaustive]
+    WGPU28 {
+        /// The WGPU instance used for rendering.
+        instance: wgpu_28::Instance,
+        /// The WGPU device used for rendering.
+        device: wgpu_28::Device,
+        /// The WGPU queue for used for command submission.
+        queue: wgpu_28::Queue,
+    },
 }
 
 impl core::fmt::Debug for GraphicsAPI<'_> {
@@ -321,6 +338,8 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             GraphicsAPI::WGPU26 { .. } => write!(f, "GraphicsAPI::WGPU26"),
             #[cfg(feature = "unstable-wgpu-27")]
             GraphicsAPI::WGPU27 { .. } => write!(f, "GraphicsAPI::WGPU27"),
+            #[cfg(feature = "unstable-wgpu-28")]
+            GraphicsAPI::WGPU28 { .. } => write!(f, "GraphicsAPI::WGPU28"),
         }
     }
 }

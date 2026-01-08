@@ -21,8 +21,8 @@ where
     #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
 
-    #[cfg(feature = "unstable-wgpu-27")]
-    fn convert_wgpu_27_texture(wgpu_texture: wgpu_27::Texture) -> Self::NativeTexture;
+    #[cfg(feature = "unstable-wgpu-28")]
+    fn convert_wgpu_28_texture(wgpu_texture: wgpu_28::Texture) -> Self::NativeTexture;
 }
 
 impl TextureImporter for femtovg::renderer::OpenGl {
@@ -31,8 +31,8 @@ impl TextureImporter for femtovg::renderer::OpenGl {
         glow::NativeTexture(opengl_texture)
     }
 
-    #[cfg(feature = "unstable-wgpu-27")]
-    fn convert_wgpu_27_texture(_wgpu_texture: wgpu_27::Texture) -> Self::NativeTexture {
+    #[cfg(feature = "unstable-wgpu-28")]
+    fn convert_wgpu_28_texture(_wgpu_texture: wgpu_28::Texture) -> Self::NativeTexture {
         unimplemented!()
     }
 }
@@ -43,8 +43,8 @@ impl TextureImporter for femtovg::renderer::WGPURenderer {
         todo!()
     }
 
-    #[cfg(feature = "unstable-wgpu-27")]
-    fn convert_wgpu_27_texture(wgpu_texture: wgpu_27::Texture) -> Self::NativeTexture {
+    #[cfg(feature = "unstable-wgpu-28")]
+    fn convert_wgpu_28_texture(wgpu_texture: wgpu_28::Texture) -> Self::NativeTexture {
         wgpu_texture
     }
 }
@@ -174,6 +174,26 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .borrow_mut()
                     .create_image_from_native_texture(
                         <R as TextureImporter>::convert_opengl_texture(*texture_id),
+                        femtovg::ImageInfo::new(
+                            image_flags,
+                            size.width as _,
+                            size.height as _,
+                            femtovg::PixelFormat::Rgba8,
+                        ),
+                    )
+                    .unwrap()
+            }
+            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-28"))]
+            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU28Texture(
+                texture,
+            )) => {
+                let texture = texture.clone();
+                let size = texture.size();
+
+                canvas
+                    .borrow_mut()
+                    .create_image_from_native_texture(
+                        <R as TextureImporter>::convert_wgpu_28_texture(texture),
                         femtovg::ImageInfo::new(
                             image_flags,
                             size.width as _,

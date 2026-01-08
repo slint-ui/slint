@@ -58,6 +58,8 @@ pub use border_radius::*;
 pub mod wgpu_26;
 #[cfg(feature = "unstable-wgpu-27")]
 pub mod wgpu_27;
+#[cfg(feature = "unstable-wgpu-28")]
+pub mod wgpu_28;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
@@ -174,6 +176,9 @@ pub enum RequestedGraphicsAPI {
     #[cfg(feature = "unstable-wgpu-27")]
     /// WGPU 27.x
     WGPU27(wgpu_27::api::WGPUConfiguration),
+    #[cfg(feature = "unstable-wgpu-28")]
+    /// WGPU 28.x
+    WGPU28(wgpu_28::api::WGPUConfiguration),
 }
 
 impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
@@ -200,6 +205,10 @@ impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
             #[cfg(feature = "unstable-wgpu-27")]
             RequestedGraphicsAPI::WGPU27(..) => {
                 Err("WGPU 27.x rendering is not supported with an OpenGL renderer".into())
+            }
+            #[cfg(feature = "unstable-wgpu-28")]
+            RequestedGraphicsAPI::WGPU28(..) => {
+                Err("WGPU 28.x rendering is not supported with an OpenGL renderer".into())
             }
         }
     }
@@ -231,6 +240,17 @@ pub fn create_graphics_api_wgpu_27(
     queue: wgpu_27::wgpu::Queue,
 ) -> crate::api::GraphicsAPI<'static> {
     crate::api::GraphicsAPI::WGPU27 { instance, device, queue }
+}
+
+/// Private API exposed to just the renderers to create GraphicsAPI instance with
+/// non-exhaustive enum variant.
+#[cfg(feature = "unstable-wgpu-28")]
+pub fn create_graphics_api_wgpu_28(
+    instance: wgpu_28::wgpu::Instance,
+    device: wgpu_28::wgpu::Device,
+    queue: wgpu_28::wgpu::Queue,
+) -> crate::api::GraphicsAPI<'static> {
+    crate::api::GraphicsAPI::WGPU28 { instance, device, queue }
 }
 
 /// Internal module for use by cbindgen and the C++ platform API layer.

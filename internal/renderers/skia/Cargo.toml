@@ -46,6 +46,17 @@ unstable-wgpu-27 = [
   "dep:windows-core",
   "dep:windows-core_58",
 ]
+unstable-wgpu-28 = [
+  "i-slint-core/unstable-wgpu-28",
+  "dep:wgpu-28",
+  "dep:spin_on",
+  "dep:metal",
+  "dep:foreign-types",
+  "dep:ash",
+  "dep:windows_58",
+  "dep:windows-core",
+  "dep:windows-core_58",
+]
 default = ["softbuffer"]
 
 [dependencies]
@@ -72,6 +83,7 @@ vulkano = { version = "0.35.0", optional = true, default-features = false }
 
 wgpu-26 = { workspace = true, optional = true }
 wgpu-27 = { workspace = true, optional = true }
+wgpu-28 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
 
 [target.'cfg(any(not(target_vendor = "apple"), target_os = "macos"))'.dependencies]
@@ -92,6 +104,7 @@ windows-core_58 = { package = "windows-core", version = "0.58.0", optional = tru
 skia-safe = { version = "0.90", features = ["d3d"] }
 wgpu-26 = { workspace = true, optional = true, features = ["dx12"] }
 wgpu-27 = { workspace = true, optional = true, features = ["dx12"] }
+wgpu-28 = { workspace = true, optional = true, features = ["dx12"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = { version = "0.6.0" }
@@ -107,6 +120,7 @@ metal = { version = "0.31", optional = true }
 foreign-types = { version = "0.5.0", optional = true }
 wgpu-26 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-27 = { workspace = true, optional = true, features = ["metal"] }
+wgpu-28 = { workspace = true, optional = true, features = ["metal"] }
 
 read-fonts = { workspace = true }
 write-fonts = { version = "0.43" }
@@ -115,6 +129,7 @@ write-fonts = { version = "0.43" }
 skia-safe = { version = "0.90", features = ["gl", "vulkan"] }
 wgpu-26 = { workspace = true, optional = true, features = ["vulkan"] }
 wgpu-27 = { workspace = true, optional = true, features = ["vulkan"] }
+wgpu-28 = { workspace = true, optional = true, features = ["vulkan"] }
 
 [target.'cfg(any(target_os = "ios", target_os="macos", target_os="windows", target_os="android", target_os="linux"))'.dependencies]
 # Text layout is enabled here just so that we can make use of the pre-built Skia libraries.

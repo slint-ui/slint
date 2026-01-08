@@ -5,9 +5,9 @@ use std::{cell::RefCell, rc::Rc};
 
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 
-use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
+use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface, wgpu::wgpu::Texture};
 
-use wgpu_27 as wgpu;
+use wgpu_28 as wgpu;
 
 pub struct WGPUBackend {
     instance: RefCell<Option<wgpu::Instance>>,
@@ -22,7 +22,7 @@ pub struct WGPUWindowSurface {
 }
 
 impl WindowSurface<femtovg::renderer::WGPURenderer> for WGPUWindowSurface {
-    fn render_surface(&self) -> &wgpu::Texture {
+    fn render_surface(&self) -> &Texture {
         &self.surface_texture.texture
     }
 }
@@ -81,7 +81,7 @@ impl GraphicsBackend for WGPUBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-27")]
+    #[cfg(feature = "unstable-wgpu-28")]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -90,7 +90,7 @@ impl GraphicsBackend for WGPUBackend {
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
-            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_27(
+            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_28(
                 instance, device, queue,
             ))))
         } else {
@@ -98,7 +98,7 @@ impl GraphicsBackend for WGPUBackend {
         }
     }
 
-    #[cfg(not(feature = "unstable-wgpu-27"))]
+    #[cfg(not(feature = "unstable-wgpu-28"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -137,7 +137,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_27::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_28::init_instance_adapter_device_queue_surface(
                 window_handle,
                 requested_graphics_api,
                 /* rendering artifacts :( */

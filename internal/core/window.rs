@@ -1871,6 +1871,8 @@ pub mod ffi {
                         crate::api::GraphicsAPI::WGPU26 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                         #[cfg(feature = "unstable-wgpu-27")]
                         crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                        #[cfg(feature = "unstable-wgpu-28")]
+                        crate::api::GraphicsAPI::WGPU28 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                     };
                     (self.callback)(state, cpp_graphics_api, self.user_data)
                 }
