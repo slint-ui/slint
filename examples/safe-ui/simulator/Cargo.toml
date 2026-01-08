@@ -1,0 +1,15 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-safeui-simulator"
+version = "1.15.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[dependencies]
+bytemuck = "1.24.0"
+slint = { path = "../../../api/rs/slint", features = ["backend-winit"] }
+slint-safeui-core = { path = "../core" }
+smol = "2.0.0"

@@ -72,12 +72,10 @@ impl slint::platform::Platform for Platform {
         }
     }
 
-    //#[cfg(not(feature = "simulator"))]
     //fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
     //    Some(Box::new(self.event_queue.clone()) as Box<dyn slint::platform::EventLoopProxy>)
     //}
 
-    #[cfg(not(feature = "simulator"))]
     fn duration_since_start(&self) -> core::time::Duration {
         core::time::Duration::from_millis(unsafe {
             slint_safeui_platform_duration_since_start() as u64
@@ -191,8 +189,8 @@ pub fn slint_init_safeui_platform() {
 //    }
 //}
 
-#[cfg_attr(not(feature = "simulator"), panic_handler)]
-#[cfg(not(feature = "simulator"))]
+#[cfg(feature = "panic-handler")]
+#[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     use core::ffi::CStr;
     use core::fmt::{self, Write};
@@ -251,7 +249,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-#[cfg(not(feature = "simulator"))]
 mod allocator {
     use core::alloc::Layout;
     use core::ffi::c_void;
