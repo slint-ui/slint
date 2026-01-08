@@ -477,7 +477,7 @@ pub mod wgpu_26 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.13", features = ["unstable-wgpu-26"] }
+    //! slint = { version = "~1.15", features = ["unstable-wgpu-26"] }
     //! ```
     //!
     //! `main.rs`:
@@ -574,7 +574,7 @@ pub mod wgpu_27 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.14", features = ["unstable-wgpu-27"] }
+    //! slint = { version = "~1.15", features = ["unstable-wgpu-27"] }
     //! ```
     //!
     //! `main.rs`:
@@ -661,7 +661,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.12", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.15", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
