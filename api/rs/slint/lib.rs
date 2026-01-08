@@ -227,7 +227,7 @@ pub use i_slint_core::model::{
 };
 pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::timers::{Timer, TimerMode};
-pub use i_slint_core::translations::{select_bundled_translation, SelectBundledTranslationError};
+pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 pub use i_slint_core::{
     format,
     string::{SharedString, ToSharedString},
@@ -416,8 +416,8 @@ pub mod platform {
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
     #[cfg(all(feature = "renderer-femtovg", not(target_os = "android")))]
     pub mod femtovg_renderer {
-        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
+        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
 }
 
@@ -698,11 +698,30 @@ pub mod winit_030 {
     //! and [`BackendSelector::with_winit_window_attributes_hook()`](crate::BackendSelector::with_winit_window_attributes_hook()).
 
     pub use i_slint_backend_winit::{
-        winit, CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent,
-        WinitWindowAccessor,
+        CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent, WinitWindowAccessor,
+        winit,
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]
     /// Deprecated alias to [`EventResult`]
     pub type WinitWindowEventResult = EventResult;
+}
+
+#[cfg(feature = "unstable-fontique-07")]
+pub mod fontique {
+    //! Fontique 0.7 specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major Fontique releases become available.
+    //!
+    //! Use the types, functions, and re-exports in this module to register custom fonts at run-time for use
+    //! by Slint's renderers.
+
+    pub use i_slint_common::sharedfontique::fontique;
+
+    /// Returns a new fontique collection that's using secondary storage that's shared for the entire process.
+    /// Changes such as registering fonts and setting fallbacks will be visible to the entire process.
+    pub fn collection() -> fontique::Collection {
+        i_slint_common::sharedfontique::COLLECTION.inner.clone()
+    }
 }
