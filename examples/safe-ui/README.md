@@ -29,6 +29,14 @@ The overlay is rendered on the Cortex-M7 running FreeRTOS and NXP's SafeAssure f
 The Slint scene rendered can be found in [./ui/app-window.slint](./ui/app-window.slint).
 The application entry point is [./core/src/lib.rs](./core/src/lib.rs);
 
+## Supported Pixel Formats
+
+The SafeUI core supports the following pixel formats via Cargo features:
+
+- `pixel-bgra8888` (default) - 32-bit BGRA, 8 bits per channel + alpha
+- `pixel-rgb565` - 16-bit RGB, 5-6-5 bit distribution (memory efficient)
+- `pixel-rgb888` - 24-bit RGB, 8 bits per channel
+
 ## Build System Integration
 
 Integration of this example into an existing safety domain build system works by means of CMake. In your existing `CMakeLists.txt` for your target
@@ -61,10 +69,10 @@ Once you've started your UI task, invoke `slint_app_main()` to start the Slint e
 
 ## Simulation
 
-For convenience, this example provides a "simulator" binary target in [./simulator/src/main.rs](./simulator/src/main.rs), so that you can just run this on a desktop system with
+For convenience, this example provides a "simulator" binary target in [./simulator/src/main.rs](./simulator/src/main.rs), so that you can just run this on a desktop system passing the desired pixel format as cargo feature, e.g with
 
 ```
-cargo run -p slint-safeui-simulator
+cargo run -p slint-safeui-simulator --features pixel-bgra8888
 ```
 
 The "simulator" implements the same C system interface and runs the Slint UI safety layer example in a secondary thread.
