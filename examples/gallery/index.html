@@ -82,7 +82,7 @@
         try {
           const fontData = await fetchFont(fontUrl);
           const uint8Array = new Uint8Array(fontData);
-          const result = await module.load_font_from_bytes(uint8Array);
+          const result = await module.load_font_from_bytes(uint8Array, lang);
         } catch (error) {
           console.error(`Failed to load font for language ${lang}:`, error);
         }

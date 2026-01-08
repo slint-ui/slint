@@ -10,10 +10,55 @@ slint::include_modules!();
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn load_font_from_bytes(font_data: &[u8]) -> Result<(), JsValue> {
-    slint::register_font_from_memory(font_data.to_vec())
-        .map(|_| ())
-        .map_err(|e| JsValue::from_str(&format!("Failed to register font: {}", e)))
+pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Result<(), JsValue> {
+    use slint::fontique::fontique;
+
+    let font_data = font_data.to_vec();
+    let blob = fontique::Blob::new(std::sync::Arc::new(font_data));
+    let mut collection = slint::fontique::collection();
+    let fonts = collection.register_fonts(blob, None);
+
+    scripts_for_locale(locale, |script| {
+        collection
+            .append_fallbacks(fontique::FallbackKey::new(*script, None), fonts.iter().map(|x| x.0));
+    });
+
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn scripts_for_locale(locale: &str, mut callback: impl FnMut(&slint::fontique::fontique::Script)) {
+    use icu_locale_core::subtags::Script;
+    use slint::fontique::fontique;
+
+    let Ok(locale) = icu_locale_core::Locale::try_from_str(locale) else {
+        return;
+    };
+
+    let scripts: &[Script] = match locale.id.language.as_str() {
+        "ja" => &[
+            icu_locale_core::subtags::script!("Hira"),
+            icu_locale_core::subtags::script!("Kana"),
+            icu_locale_core::subtags::script!("Hani"),
+        ],
+        "ko" => {
+            &[icu_locale_core::subtags::script!("Hang"), icu_locale_core::subtags::script!("Hani")]
+        }
+        "zh" => {
+            &[icu_locale_core::subtags::script!("Hans"), icu_locale_core::subtags::script!("Hant")]
+        }
+        _ => {
+            if let Some(script) = locale.id.script {
+                &[script]
+            } else {
+                &[]
+            }
+        }
+    };
+
+    for script in scripts {
+        callback(&fontique::Script::from(script.into_raw()));
+    }
 }
 
 use std::rc::Rc;
