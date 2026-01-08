@@ -27,8 +27,7 @@ spin_on = { workspace = true }
 termcolor = { version = "1.4.1" }
 walkdir = { version = "2.5" }
 
-# Enable image-rs' default features to make all image formats available for preview
-image = { workspace = true, features = ["default"] }
+image = { workspace = true }
 
 [[bin]]
 name = "slint-docsnapper"
