@@ -4,14 +4,14 @@
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use slint_safeui_core::pixels::Bgra8888Pixel;
+use slint_safeui_core::pixels::PlatformPixel;
 
 const WIDTH_PIXELS: u32 = 640;
 const HEIGHT_PIXELS: u32 = 480;
 const PIXEL_STRIDE: u32 = WIDTH_PIXELS;
 
 static SIM_THREAD: OnceLock<std::thread::Thread> = OnceLock::new();
-static PIXEL_CHANNEL: OnceLock<smol::channel::Sender<Vec<Bgra8888Pixel>>> = OnceLock::new();
+static PIXEL_CHANNEL: OnceLock<smol::channel::Sender<Vec<PlatformPixel>>> = OnceLock::new();
 
 #[unsafe(no_mangle)]
 extern "C" fn slint_safeui_platform_wait_for_events(max_wait_milliseconds: i32) {
@@ -39,8 +39,10 @@ extern "C" fn slint_safeui_platform_render(
         pixel_stride: u32,
     ),
 ) {
+    use slint::platform::software_renderer::TargetPixel;
+
     let mut pixels = Vec::new();
-    pixels.resize(PIXEL_STRIDE as usize * HEIGHT_PIXELS as usize, Bgra8888Pixel(0));
+    pixels.resize(PIXEL_STRIDE as usize * HEIGHT_PIXELS as usize, PlatformPixel::background());
     let pixel_bytes: &mut [u8] = bytemuck::cast_slice_mut(&mut pixels);
     render_fn(
         user_data,
