@@ -593,7 +593,6 @@ impl PropertyHandle {
 
         if let Some(binding) = Self::pointer_to_binding(self.handle.get()) {
             unsafe {
-                // In the single threaded case the order between accessing the pointer and the lock is not important
                 self.set_lock_flag(true);
                 let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
                 if (*binding).dependencies.get() == const_sentinel {
