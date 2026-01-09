@@ -5,6 +5,7 @@
 
 extern crate alloc;
 
+pub mod pixels;
 pub mod platform;
 
 slint::include_modules!();
