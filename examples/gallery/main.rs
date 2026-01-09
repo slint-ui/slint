@@ -15,7 +15,7 @@ pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Resu
 
     let font_data = font_data.to_vec();
     let blob = fontique::Blob::new(std::sync::Arc::new(font_data));
-    let mut collection = slint::fontique::collection();
+    let mut collection = slint::fontique::shared_collection();
     let fonts = collection.register_fonts(blob, None);
 
     scripts_for_locale(locale, |script| {
@@ -28,28 +28,23 @@ pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Resu
 
 #[cfg(target_arch = "wasm32")]
 fn scripts_for_locale(locale: &str, mut callback: impl FnMut(&slint::fontique::fontique::Script)) {
-    use icu_locale_core::subtags::Script;
     use slint::fontique::fontique;
 
     let Ok(locale) = icu_locale_core::Locale::try_from_str(locale) else {
         return;
     };
 
-    let scripts: &[Script] = match locale.id.language.as_str() {
+    let scripts: &[fontique::Script] = match locale.id.language.as_str() {
         "ja" => &[
-            icu_locale_core::subtags::script!("Hira"),
-            icu_locale_core::subtags::script!("Kana"),
-            icu_locale_core::subtags::script!("Hani"),
+            fontique::Script::from("Hira"),
+            fontique::Script::from("Kana"),
+            fontique::Script::from("Hani"),
         ],
-        "ko" => {
-            &[icu_locale_core::subtags::script!("Hang"), icu_locale_core::subtags::script!("Hani")]
-        }
-        "zh" => {
-            &[icu_locale_core::subtags::script!("Hans"), icu_locale_core::subtags::script!("Hant")]
-        }
+        "ko" => &[fontique::Script::from("Hang"), fontique::Script::from("Hani")],
+        "zh" => &[fontique::Script::from("Hans"), fontique::Script::from("Hant")],
         _ => {
             if let Some(script) = locale.id.script {
-                &[script]
+                &[fontique::Script::from(script.into_raw())]
             } else {
                 &[]
             }
@@ -57,7 +52,7 @@ fn scripts_for_locale(locale: &str, mut callback: impl FnMut(&slint::fontique::f
     };
 
     for script in scripts {
-        callback(&fontique::Script::from(script.into_raw()));
+        callback(script);
     }
 }
 
