@@ -528,6 +528,7 @@ impl core::fmt::Debug for PropertyHandle {
 
 impl PropertyHandle {
     /// The lock flag specifies that we can get a reference to the Cell or unsafe cell
+    #[inline]
     fn lock_flag(&self) -> bool {
         self.handle.get() & BINDING_BORROWED == BINDING_BORROWED
     }
@@ -541,11 +542,13 @@ impl PropertyHandle {
         })
     }
 
+    #[inline]
     fn is_pointer_to_binding(handle: usize) -> bool {
         handle & BINDING_POINTER_TO_BINDING == BINDING_POINTER_TO_BINDING
     }
 
     /// Get the pointer **without locking** if the handle points to a pointer otherwise None
+    #[inline]
     fn pointer_to_binding(handle: usize) -> Option<*mut BindingHolder> {
         if Self::is_pointer_to_binding(handle) {
             Some((handle & BINDING_POINTER_MASK) as *mut BindingHolder)
@@ -556,6 +559,7 @@ impl PropertyHandle {
 
     /// The handle is not borrowed to any other binding
     /// and the handle does not point to another binding
+    #[inline]
     fn has_no_binding_or_lock(handle: usize) -> bool {
         (handle as usize) & (BINDING_BORROWED | BINDING_POINTER_TO_BINDING) == 0
     }
