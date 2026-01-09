@@ -554,19 +554,6 @@ impl PropertyHandle {
         }
     }
 
-    /// Get the pointer **with locking** if the handle points to a pointer otherwise None
-    unsafe fn pointer_lock(&self) -> Option<*mut BindingHolder> {
-        let handle = self.handle.get();
-        if Self::is_pointer_to_binding(handle) {
-            unsafe {
-                self.set_lock_flag(true);
-            }
-            Some((handle & BINDING_POINTER_MASK) as *mut BindingHolder)
-        } else {
-            None
-        }
-    }
-
     /// The handle is not borrowed to any other binding
     /// and the handle does not point to another binding
     fn has_no_binding_or_lock(handle: usize) -> bool {
@@ -603,8 +590,11 @@ impl PropertyHandle {
 
     fn remove_binding(&self) {
         assert!(!self.lock_flag(), "Recursion detected");
-        unsafe {
-            if let Some(binding) = self.pointer_lock() {
+
+        if let Some(binding) = Self::pointer_to_binding(self.handle.get()) {
+            unsafe {
+                // In the single threaded case the order between accessing the pointer and the lock is not important
+                self.set_lock_flag(true);
                 let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
                 if (*binding).dependencies.get() == const_sentinel {
                     self.handle.set(const_sentinel);
@@ -617,8 +607,8 @@ impl PropertyHandle {
                 }
                 ((*binding).vtable.drop)(binding);
             }
-            debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
         }
+        debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
     }
 
     /// Safety: the BindingCallable must be valid for the type of this property
