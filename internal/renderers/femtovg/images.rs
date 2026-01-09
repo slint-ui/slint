@@ -37,7 +37,7 @@ impl TextureImporter for femtovg::renderer::OpenGl {
     }
 }
 
-#[cfg(all(feature = "wgpu", not(target_family = "wasm")))]
+#[cfg(all(feature = "wgpu-28", not(target_family = "wasm")))]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
     fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
         todo!()
