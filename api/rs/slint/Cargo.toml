@@ -328,5 +328,6 @@ features = [
   "unstable-wgpu-27",
   "unstable-winit-030",
   "unstable-libinput-09",
+  "unstable-fontique-07",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

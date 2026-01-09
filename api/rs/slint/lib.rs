@@ -719,9 +719,42 @@ pub mod fontique {
 
     pub use i_slint_common::sharedfontique::fontique;
 
-    /// Returns a new fontique collection that's using secondary storage that's shared for the entire process.
-    /// Changes such as registering fonts and setting fallbacks will be visible to the entire process.
-    pub fn collection() -> fontique::Collection {
+    #[i_slint_core_macros::slint_doc]
+    /// Returns a clone of [`fontique::Collection`] that's used by Slint for text rendering. It's set up
+    /// with shared storage, so fonts registered with the returned collection or additionally configured font
+    /// fallbacks apply to the entire process.
+    ///
+    /// Note: The recommended way of including custom fonts is at compile time of Slint files. For details,
+    ///       see also the [Font Handling](slint:FontHandling) documentation.
+    ///
+    /// The example below sketches out the steps for registering a downloaded font to add additional glyph
+    /// coverage for Japanese text:
+    ///
+    /// `Cargo.toml`:
+    /// ```toml
+    /// slint = { version = "~1.15", features = ["unstable-fontique-07"] }
+    /// ```
+    ///
+    /// `main.rs`:
+    /// ```rust,no_run
+    /// use slint::fontique::fontique;
+    ///
+    /// fn main() {
+    ///     // ...
+    ///     let downloaded_font: Vec<u8> = todo!();
+    ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
+    ///     let mut collection = slint::fontique::shared_collection();
+    ///     let fonts = collection.register_fonts(blob, None);
+    ///     collection
+    ///         .append_fallbacks(fontique::FallbackKey::new("Hira", None), fonts.iter().map(|x| x.0));
+    ///     collection
+    ///         .append_fallbacks(fontique::FallbackKey::new("Kana", None), fonts.iter().map(|x| x.0));
+    ///     collection
+    ///         .append_fallbacks(fontique::FallbackKey::new("Hani", None), fonts.iter().map(|x| x.0));
+    ///     // ...
+    /// }
+    /// ```
+    pub fn shared_collection() -> fontique::Collection {
         i_slint_common::sharedfontique::COLLECTION.inner.clone()
     }
 }
