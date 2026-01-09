@@ -31,7 +31,8 @@ pub extern "C" fn slint_get_mocked_time() -> u64 {
     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick()).as_millis()
 }
 
-/// Simulate a click on a position within the component.
+/// Simulate a click on a position within the component and releasing after some time.
+/// The time until the release is hardcoded to 50ms
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_send_mouse_click(
     x: f32,
@@ -45,6 +46,27 @@ pub extern "C" fn slint_send_mouse_click(
     window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position, button });
     slint_mock_elapsed_time(50);
     window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+/// Simulate a click on a position within the component and releasing after some time at a different position.
+/// The time until the release is hardcoded to 50ms
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_mouse_click_and_release(
+    click_x: f32,
+    click_y: f32,
+    release_x: f32,
+    release_y: f32,
+    window_adapter: &crate::window::WindowAdapterRc,
+) {
+    let click_position = LogicalPosition::new(click_x, click_y);
+    let release_position = LogicalPosition::new(release_x, release_y);
+    let button = crate::items::PointerEventButton::Left;
+
+    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position: click_position });
+    window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position: click_position, button });
+    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position: release_position });
+    slint_mock_elapsed_time(50);
+    window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position: release_position, button });
 }
 
 /// Simulate a character input event (pressed or released).

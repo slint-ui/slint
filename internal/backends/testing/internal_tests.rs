@@ -11,7 +11,7 @@ pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 use i_slint_core::window::WindowInner;
 
-/// Simulate a mouse click
+/// Simulate a mouse click at `(x, y)` and release after a while at the same position
 pub fn send_mouse_click<
     X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,
     Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
@@ -23,6 +23,26 @@ pub fn send_mouse_click<
     i_slint_core::tests::slint_send_mouse_click(
         x,
         y,
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    );
+}
+
+/// Simulate a mouse click at `(click_x, click_y)` and release at `(release_x, release_y)`
+pub fn send_mouse_click_and_release<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    click_x: f32,
+    click_y: f32,
+    release_x: f32,
+    release_y: f32,
+) {
+    i_slint_core::tests::slint_send_mouse_click_and_release(
+        click_x,
+        click_y,
+        release_x,
+        release_y,
         &WindowInner::from_pub(component.window()).window_adapter(),
     );
 }
