@@ -332,6 +332,7 @@ pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     None
 }
 
+/// All types (datatypes, internal elements, properties, ...) are stored in this type
 #[derive(Debug, Default)]
 pub struct TypeRegister {
     /// The set of property types.

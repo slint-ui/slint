@@ -304,6 +304,9 @@ impl CompilerConfiguration {
     }
 }
 
+/// Prepare for compilation of the source file
+/// - storing parser configuration
+/// - setting up the parser
 fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
