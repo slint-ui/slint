@@ -558,7 +558,9 @@ impl PropertyHandle {
     unsafe fn pointer_lock(&self) -> Option<*mut BindingHolder> {
         let handle = self.handle.get();
         if Self::pointer_to_binding(handle) {
-            self.set_lock_flag(true);
+            unsafe {
+                self.set_lock_flag(true);
+            }
             Some((handle & BINDING_POINTER_MASK) as *mut BindingHolder)
         } else {
             None
