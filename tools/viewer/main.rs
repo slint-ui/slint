@@ -161,6 +161,7 @@ fn main() -> Result<()> {
         CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
     }
 
+    // Show the preview and running the event loop. Closing the window will make it continue
     component.run()?;
 
     if let Some(data_path) = args.save_data {
@@ -239,7 +240,7 @@ fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>
         notify::ErrorKind::PathNotFound | notify::ErrorKind::Generic(_) => {
             let path = path.to_path_buf();
             let watcher = watcher.clone();
-            static RETRY_DURATION: u64 = 100;
+            const RETRY_DURATION: u64 = 100;
             i_slint_core::timers::Timer::single_shot(
                 std::time::Duration::from_millis(RETRY_DURATION),
                 move || {
@@ -262,6 +263,9 @@ fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>
     });
 }
 
+/// Init dialog if `instance` is a Dialog
+/// - Initializing the callbacks for `ok`, `yes`, `close`, `cancel` or `no` to quit the event loop
+/// When one of those callbacks gets triggered the preview gets closed as well
 fn init_dialog(instance: &ComponentInstance) {
     for cb in instance.definition().callbacks() {
         let exit_code = match cb.as_str() {

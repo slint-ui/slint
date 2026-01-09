@@ -1150,6 +1150,7 @@ declare_item_vtable! {
 pub struct PropertyAnimation {
     #[rtti_field]
     pub delay: i32,
+    /// duration in millisecond
     #[rtti_field]
     pub duration: i32,
     #[rtti_field]
