@@ -63,10 +63,16 @@ pub extern "C" fn slint_send_mouse_click_and_release(
     let button = crate::items::PointerEventButton::Left;
 
     window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position: click_position });
-    window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position: click_position, button });
-    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position: release_position });
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerPressed { position: click_position, button });
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: release_position });
     slint_mock_elapsed_time(50);
-    window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position: release_position, button });
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerReleased { position: release_position, button });
 }
 
 /// Simulate a character input event (pressed or released).
