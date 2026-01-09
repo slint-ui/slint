@@ -263,7 +263,7 @@ fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>
 
 /// Init dialog if `instance` is a Dialog
 /// - Initializing the callbacks for `ok`, `yes`, `close`, `cancel` or `no` to quit the event loop
-/// When one onf those callbacks gets triggered the preview gets closed as well
+/// When one of those callbacks gets triggered the preview gets closed as well
 fn init_dialog(instance: &ComponentInstance) {
     for cb in instance.definition().callbacks() {
         let exit_code = match cb.as_str() {
