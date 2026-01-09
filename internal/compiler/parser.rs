@@ -279,7 +279,7 @@ macro_rules! declare_syntax {
     }
 }
 declare_syntax! {
-    // Tokens.
+    // Lexer Tokens.
     // WARNING: when changing this, do not forget to update the tokenizer in the slint-rs-macro crate!
     // The order of token is important because the rules will be run in that order
     // and the first one matching will be chosen.
@@ -329,7 +329,7 @@ declare_syntax! {
         Percent -> "%",
     }
     // syntax kind
-    // rules for the lexer to determine the kind of complex components
+    // rules for the parser to determine the type and all properties of the nodes
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
         /// `DeclaredIdentifier := Element { ... }`
