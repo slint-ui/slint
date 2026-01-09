@@ -394,6 +394,35 @@ mod animation_tests {
         unsafe { Pin::new_unchecked(prop).get() }
     }
 
+    /// If the actual value is equal to the target value, it is not required
+    /// to run an animation
+    #[test]
+    fn properties_test_animation_end_value_equal_actual_value() {
+        let compo = Component::new_test_component();
+
+        let animation_details = PropertyAnimation {
+            delay: -25,
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(100);
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false);
+        let start_time = crate::animations::current_tick();
+        compo.width.set_animated_value(200, animation_data);
+        assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), true);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        compo.width.set_animated_value(150, animation_data);
+        assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false); // We stopped the previous binding and did not add a new one, because the values are equal
+    }
+
     #[test]
     fn properties_test_animation_negative_delay_triggered_by_set() {
         let compo = Component::new_test_component();
