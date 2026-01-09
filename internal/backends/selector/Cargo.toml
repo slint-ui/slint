@@ -25,8 +25,12 @@ backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
-renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
-renderer-femtovg-wgpu = ["i-slint-backend-winit?/renderer-femtovg-wgpu"]
+renderer-femtovg = [
+  "dep:i-slint-renderer-femtovg",
+  "i-slint-backend-winit?/renderer-femtovg",
+  "i-slint-backend-linuxkms?/renderer-femtovg",
+]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "i-slint-backend-winit?/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
 renderer-skia-opengl = [
   "i-slint-backend-winit?/renderer-skia-opengl",
@@ -50,6 +54,7 @@ system-testing = ["i-slint-backend-testing/system-testing"]
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
   "i-slint-renderer-skia?/unstable-wgpu-27",
+  "i-slint-renderer-femtovg?/unstable-wgpu-27",
   "i-slint-backend-winit?/unstable-wgpu-27",
 ]
 
@@ -77,6 +82,7 @@ i-slint-core-macros = { workspace = true }
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
+i-slint-renderer-femtovg = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }

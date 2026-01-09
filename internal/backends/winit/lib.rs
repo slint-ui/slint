@@ -81,10 +81,7 @@ mod renderer {
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
     }
 
-    #[cfg(any(
-        all(feature = "renderer-femtovg", supports_opengl),
-        feature = "renderer-femtovg-wgpu"
-    ))]
+    #[cfg(enable_femtovg_renderer)]
     pub(crate) mod femtovg;
     #[cfg(enable_skia_renderer)]
     pub(crate) mod skia;
