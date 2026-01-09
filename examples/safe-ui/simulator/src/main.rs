@@ -4,7 +4,7 @@
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use slint_safeui_core::platform::Bgra8888Pixel;
+use slint_safeui_core::pixels::Bgra8888Pixel;
 
 const WIDTH_PIXELS: u32 = 640;
 const HEIGHT_PIXELS: u32 = 480;
