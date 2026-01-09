@@ -329,6 +329,7 @@ declare_syntax! {
         Percent -> "%",
     }
     // syntax kind
+    // rules for the lexer to determine the kind of complex components
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
         /// `DeclaredIdentifier := Element { ... }`
@@ -541,6 +542,7 @@ mod parser_trait {
         }
         /// Peek the `n`th token, not including whitespace and comments
         fn nth(&mut self, n: usize) -> Token;
+        /// Consume the token and point to the next token
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
         fn warning(&mut self, e: impl Into<String>);
@@ -616,7 +618,9 @@ pub use parser_trait::*;
 
 pub struct DefaultParser<'a> {
     builder: rowan::GreenNodeBuilder<'static>,
+    /// tokens from the lexer
     tokens: Vec<Token>,
+    /// points on the current token of the token list
     cursor: usize,
     diags: &'a mut BuildDiagnostics,
     source_file: SourceFile,
@@ -633,7 +637,8 @@ impl<'a> DefaultParser<'a> {
         }
     }
 
-    /// Constructor that create a parser from the source code
+    /// Constructor that create a parser from the source code.
+    /// It creates the tokens by lexing the code
     pub fn new(source: &str, diags: &'a mut BuildDiagnostics) -> Self {
         Self::from_tokens(crate::lexer::lex(source), diags)
     }
@@ -670,7 +675,7 @@ impl Parser for DefaultParser<'_> {
         self.builder.finish_node();
     }
 
-    /// Peek the `n`th token, not including whitespace and comments
+    /// Peek the `n`th token starting from the cursor position, not including whitespace and comments
     fn nth(&mut self, mut n: usize) -> Token {
         self.consume_ws();
         let mut c = self.cursor;
@@ -686,7 +691,7 @@ impl Parser for DefaultParser<'_> {
         self.tokens.get(c).cloned().unwrap_or_default()
     }
 
-    /// Consume the current token
+    /// Adds the current token to the node builder and increments the cursor to point on the next token
     fn consume(&mut self) {
         let t = self.current_token();
         self.builder.token(t.kind.into(), t.text.as_str());
