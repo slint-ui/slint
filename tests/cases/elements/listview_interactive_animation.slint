@@ -3,7 +3,7 @@
 
 // Testing if the animation is applied to the flickable after mouse release
 
-import { ListView } from "../../../ui-libraries/material/src/material.slint";
+import { ListView } from "std-widgets.slint";
 export component TestCase inherits Window {
     preferred-width: 300px;
     preferred-height: 300px;
@@ -12,6 +12,7 @@ export component TestCase inherits Window {
     in-out property <length> viewport-y <=> lv.viewport-y;
 
     lv := ListView {
+        mouse-drag-pan-enabled: true;
         for _[num] in 2130000000: Rectangle {
             height: 20px;
             border-width: 1px;
