@@ -135,6 +135,8 @@ fn main() -> Result<()> {
     if r.has_errors() {
         std::process::exit(-1);
     }
+    // If --component is used, r.compents contains only one element (filtered out in init_compiler())
+    // If no component name is specified, the last defined component is shown
     let Some(c) = r.components().next() else {
         match args.component {
             Some(name) => {
