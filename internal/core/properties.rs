@@ -567,6 +567,7 @@ impl PropertyHandle {
         }
     }
 
+    /// Remove self from the dependency of another property
     fn remove_binding(&self) {
         assert!(!self.lock_flag(), "Recursion detected");
         let val = self.handle.get();

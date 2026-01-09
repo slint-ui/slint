@@ -421,6 +421,11 @@ mod animation_tests {
 
         compo.width.set_animated_value(150, animation_details);
         assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false); // We stopped the previous binding and did not add a new one, because the values are equal
+
+        // run all animations
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 150); // If we still have a binding, this value would be 200
     }
 
     #[test]
