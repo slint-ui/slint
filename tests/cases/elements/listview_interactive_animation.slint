@@ -29,7 +29,7 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 
 // Scroll down
-slint_testing::send_mouse_click_and_release(&instance, 5., 130., 5., 5.); // Scrolling up. Larger y is display bottom (Diff: 130 - 5 = 125)
+slint_testing::send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Scrolling up. Larger y is display bottom (Diff: 130 - 5 = 125)
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
 // Due to the animation the value must be more than the diff of scrolling
@@ -38,7 +38,7 @@ assert!(instance.get_viewport_y() < -125., "Received: {}, Desired: smaller than 
 // Now scrolling up again
 let old_viewport_y = instance.get_viewport_y();
 println!("Old viewport y: {:?}", old_viewport_y);
-slint_testing::send_mouse_click_and_release(&instance, 5., 0., 5., 75.); // Larger y is display bottom (Diff: 75 - 0)
+slint_testing::send_mouse_press_and_release(&instance, 5., 0., 5., 75.); // Larger y is display bottom (Diff: 75 - 0)
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
 assert!((instance.get_viewport_y() - old_viewport_y) > 75., "Received: {}, Desired: larger than {}", instance.get_viewport_y() - old_viewport_y, 75);

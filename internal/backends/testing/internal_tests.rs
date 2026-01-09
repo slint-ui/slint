@@ -27,24 +27,35 @@ pub fn send_mouse_click<
     );
 }
 
-/// Simulate a mouse click at `(click_x, click_y)` and release at `(release_x, release_y)`
-pub fn send_mouse_click_and_release<
+/// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
+pub fn send_mouse_press_and_release<
     X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,
     Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
-    click_x: f32,
-    click_y: f32,
-    release_x: f32,
-    release_y: f32,
+    pressed_x: f32,
+    pressed_y: f32,
+    released_x: f32,
+    released_y: f32,
 ) {
-    i_slint_core::tests::slint_send_mouse_click_and_release(
-        click_x,
-        click_y,
-        release_x,
-        release_y,
-        &WindowInner::from_pub(component.window()).window_adapter(),
-    );
+    let window_adapter = WindowInner::from_pub(component.window()).window_adapter();
+    let pressed_position = i_slint_core::api::LogicalPosition::new(pressed_x, pressed_y);
+    let released_position = i_slint_core::api::LogicalPosition::new(released_x, released_y);
+    let button = i_slint_core::items::PointerEventButton::Left;
+
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: pressed_position });
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerPressed { position: pressed_position, button });
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: released_position });
+    mock_elapsed_time(50);
+    window_adapter
+        .window()
+        .dispatch_event(WindowEvent::PointerReleased { position: released_position, button });
 }
 
 /// Simulate entering a sequence of ascii characters key by (pressed or released).
