@@ -511,7 +511,7 @@ struct PropertyHandle {
 
 const BINDING_BORROWED: usize = 0b01;
 const BINDING_POINTER_TO_BINDING: usize = 0b10;
-const BINDING_POINTER_MASK: usize = !0b11;
+const BINDING_POINTER_MASK: usize = !(BINDING_POINTER_TO_BINDING | BINDING_BORROWED);
 
 impl core::fmt::Debug for PropertyHandle {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
