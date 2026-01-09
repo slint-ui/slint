@@ -412,14 +412,14 @@ mod animation_tests {
 
         assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false);
         let start_time = crate::animations::current_tick();
-        compo.width.set_animated_value(200, animation_data);
+        compo.width.set_animated_value(200, animation_details.clone());
         assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), true);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION / 2));
         assert_eq!(get_prop_value(&compo.width), 150);
 
-        compo.width.set_animated_value(150, animation_data);
+        compo.width.set_animated_value(150, animation_details);
         assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false); // We stopped the previous binding and did not add a new one, because the values are equal
     }
 
