@@ -196,6 +196,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
+    pub use i_slint_core::initialization_scope::with_initialization_scope;
     pub use i_slint_core::properties::{
         ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
     };
