@@ -37,6 +37,7 @@ pub mod context;
 pub mod date_time;
 pub mod future;
 pub mod graphics;
+pub mod initialization_scope;
 pub mod input;
 pub mod item_focus;
 pub mod item_rendering;

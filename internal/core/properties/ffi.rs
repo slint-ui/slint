@@ -512,7 +512,12 @@ pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
     unsafe { core::ptr::drop_in_place(ct) };
 }
 
-/// initialize the change tracker
+/// Initialize the change tracker.
+///
+/// When called inside an initialization scope (see `slint_initialization_scope_begin`),
+/// the first evaluation is automatically deferred until the scope ends.
+/// This prevents recursion when initializing change trackers that depend on
+/// properties computed during layout.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_init(
     ct: &ChangeTracker,
@@ -527,6 +532,10 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
         notify_fn: extern "C" fn(user_data: *mut c_void),
+        /// Skip notify on first evaluation
+        skip_first_notify: Cell<bool>,
+        /// When true, we are currently running eval_fn or notify_fn and we shouldn't be dropped
+        evaluating: Cell<bool>,
     }
     impl Drop for C_ChangeTrackerInner {
         fn drop(&mut self) {
@@ -535,21 +544,45 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     }
 
     unsafe fn drop(_self: *mut BindingHolder) {
-        core::mem::drop(unsafe {
-            Box::from_raw(_self as *mut BindingHolder<C_ChangeTrackerInner>)
-        });
+        unsafe {
+            let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
+            // If we're currently evaluating, just mark that drop was requested.
+            // The actual drop will happen when evaluate() finishes.
+            let evaluating = core::ptr::addr_of!((*_self).binding)
+                .as_ref()
+                .unwrap()
+                .evaluating
+                .replace(false);
+            if !evaluating {
+                core::mem::drop(Box::from_raw(_self));
+            }
+        }
     }
 
     unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
-        let pinned_holder = unsafe { Pin::new_unchecked(&*_self) };
-        let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
-        let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
-        let notify =
-            super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
-        if notify {
-            (inner.notify_fn)(inner.user_data);
+        unsafe {
+            let pinned_holder = Pin::new_unchecked(&*_self);
+            let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
+            let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+            // Clear dep_nodes before re-registering dependencies
+            (*core::ptr::addr_of!((*_self).dep_nodes)).take();
+            assert!(!inner.evaluating.get());
+            inner.evaluating.set(true);
+            // Clear skip_first_notify BEFORE evaluating, so subsequent evaluations
+            // will notify even if the first evaluation had no value change
+            let is_first_eval = inner.skip_first_notify.replace(false);
+            let notify =
+                super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+            if notify && !is_first_eval {
+                (inner.notify_fn)(inner.user_data);
+            }
+
+            if !inner.evaluating.replace(false) {
+                // `drop` from the vtable was called while evaluating. Do it now.
+                core::mem::drop(Box::from_raw(_self));
+            }
+            BindingResult::KeepBinding
         }
-        BindingResult::KeepBinding
     }
 
     const VT: &'static BindingVTable = &BindingVTable {
@@ -562,7 +595,14 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 
     ct.clear();
 
-    let inner = C_ChangeTrackerInner { user_data, drop_user_data, eval_fn, notify_fn };
+    let inner = C_ChangeTrackerInner {
+        user_data,
+        drop_user_data,
+        eval_fn,
+        notify_fn,
+        skip_first_notify: Cell::new(true), // Skip first notify
+        evaluating: Cell::new(false),
+    };
 
     let holder = BindingHolder {
         dependencies: Cell::new(0),
@@ -579,13 +619,275 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     let raw = Box::into_raw(Box::new(holder));
     unsafe { ct.set_internal(raw as *mut BindingHolder) };
 
-    let pinned_holder = unsafe { Pin::new_unchecked(&*(raw as *mut BindingHolder)) };
-    let inner = unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap() };
-    super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+    // Match Rust ChangeTracker::init behavior:
+    // - If in initialization scope: defer evaluation to end of scope
+    // - If not in scope: evaluate immediately
+    if crate::initialization_scope::is_in_initialization_scope() {
+        let raw_ptr = raw as usize;
+        crate::initialization_scope::defer_initialization(move || {
+            let raw = raw_ptr as *mut BindingHolder;
+            unsafe {
+                ((*core::ptr::addr_of!((*raw).vtable)).evaluate)(raw, core::ptr::null_mut());
+            }
+        });
+    } else {
+        // Evaluate immediately (skip_first_notify ensures no notify callback)
+        unsafe {
+            ((*core::ptr::addr_of!((*raw).vtable)).evaluate)(
+                raw as *const BindingHolder,
+                core::ptr::null_mut(),
+            );
+        }
+    }
+}
+
+/// Initialize the change tracker with delayed first evaluation.
+///
+/// Same as `slint_change_tracker_init`, but the first evaluation is deferred
+/// to `slint_change_tracker_run_change_handlers()`. This means the change tracker
+/// will consider the value as default initialized, and the notify function will
+/// be called the first time if the initial value differs from the default.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_change_tracker_init_delayed(
+    ct: &ChangeTracker,
+    user_data: *mut c_void,
+    drop_user_data: extern "C" fn(user_data: *mut c_void),
+    eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
+    notify_fn: extern "C" fn(user_data: *mut c_void),
+) {
+    #[allow(non_camel_case_types)]
+    struct C_ChangeTrackerInner {
+        user_data: *mut c_void,
+        drop_user_data: extern "C" fn(user_data: *mut c_void),
+        eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
+        notify_fn: extern "C" fn(user_data: *mut c_void),
+        /// Skip notify on first evaluation (set to true for init_delayed)
+        skip_first_notify: Cell<bool>,
+        /// When true, we are currently running eval_fn or notify_fn and we shouldn't be dropped
+        evaluating: Cell<bool>,
+    }
+    impl Drop for C_ChangeTrackerInner {
+        fn drop(&mut self) {
+            (self.drop_user_data)(self.user_data);
+        }
+    }
+
+    unsafe fn drop(_self: *mut BindingHolder) {
+        unsafe {
+            let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
+            // If we're currently evaluating, just mark that drop was requested.
+            // The actual drop will happen when evaluate() finishes.
+            let evaluating = core::ptr::addr_of!((*_self).binding)
+                .as_ref()
+                .unwrap()
+                .evaluating
+                .replace(false);
+            if !evaluating {
+                core::mem::drop(Box::from_raw(_self));
+            }
+        }
+    }
+
+    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
+        unsafe {
+            let pinned_holder = Pin::new_unchecked(&*_self);
+            let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
+            let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+            // Clear dep_nodes before re-registering dependencies
+            (*core::ptr::addr_of!((*_self).dep_nodes)).take();
+            assert!(!inner.evaluating.get());
+            inner.evaluating.set(true);
+            // Clear skip_first_notify BEFORE evaluating, so subsequent evaluations
+            // will notify even if the first evaluation had no value change
+            let is_first_eval = inner.skip_first_notify.replace(false);
+            let notify =
+                super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+            if notify && !is_first_eval {
+                (inner.notify_fn)(inner.user_data);
+            }
+
+            if !inner.evaluating.replace(false) {
+                // `drop` from the vtable was called while evaluating. Do it now.
+                core::mem::drop(Box::from_raw(_self));
+            }
+            BindingResult::KeepBinding
+        }
+    }
+
+    const VT: &'static BindingVTable = &BindingVTable {
+        drop,
+        evaluate,
+        mark_dirty: ChangeTracker::mark_dirty,
+        intercept_set: |_, _| false,
+        intercept_set_binding: |_, _| false,
+    };
+
+    ct.clear();
+
+    let inner = C_ChangeTrackerInner {
+        user_data,
+        drop_user_data,
+        eval_fn,
+        notify_fn,
+        skip_first_notify: Cell::new(true), // Skip first notify for init_delayed
+        evaluating: Cell::new(false),
+    };
+
+    let holder = BindingHolder {
+        dependencies: Cell::new(0),
+        dep_nodes: Default::default(),
+        vtable: VT,
+        dirty: Cell::new(false),
+        is_two_way_binding: false,
+        pinned: PhantomPinned,
+        binding: inner,
+        #[cfg(slint_debug_property)]
+        debug_name: "<ChangeTracker>".into(),
+    };
+
+    let raw = Box::into_raw(Box::new(holder));
+    unsafe { ct.set_internal(raw as *mut BindingHolder) };
+
+    // Queue for run_change_handlers() - this is the key difference from init()
+    let mut dep_nodes = super::single_linked_list_pin::SingleLinkedListPinHead::default();
+    let node = dep_nodes.push_front(super::DependencyNode::new(raw as *const BindingHolder));
+    super::change_tracker::CHANGED_NODES.with(|changed_nodes| {
+        changed_nodes.append(node);
+    });
+    unsafe { (*core::ptr::addr_of_mut!((*raw).dep_nodes)).set(dep_nodes) };
+}
+
+/// Run all pending change handlers.
+///
+/// This processes any change trackers that have been queued for evaluation
+/// via mark_dirty. Note that with the new initialization scope mechanism,
+/// initial evaluations are handled automatically when the scope closes.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_change_tracker_run_change_handlers() {
+    ChangeTracker::run_change_handlers();
+}
+
+/// Begin an initialization scope.
+///
+/// Any change tracker initialization that occurs before `slint_initialization_scope_end`
+/// is called will have its first evaluation deferred until the scope ends.
+/// This prevents recursion when initializing change trackers that depend on
+/// properties computed during layout.
+///
+/// Returns 1 if a new scope was created, 0 if we're already inside a scope.
+/// If this returns 1, you MUST call `slint_initialization_scope_end(1)` to process
+/// the deferred tasks.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_initialization_scope_begin() -> u8 {
+    if crate::initialization_scope::begin_initialization_scope() {
+        1 // New scope created
+    } else {
+        0 // Already in a scope
+    }
+}
+
+/// End an initialization scope.
+///
+/// This processes all deferred initialization tasks that were queued since
+/// the corresponding `slint_initialization_scope_begin` call.
+///
+/// The `handle` parameter must be the value returned by the matching begin call.
+/// If handle is 0, this is a no-op (we're in a nested scope).
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_initialization_scope_end(handle: u8) {
+    if handle != 0 {
+        crate::initialization_scope::end_initialization_scope();
+    }
 }
 
 /// return the current animation tick for the `animation-tick` function
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
     crate::animations::animation_tick()
+}
+
+/// Test that dropping a change tracker during its notify callback doesn't cause use-after-free.
+/// This is the FFI equivalent of the `delete_from_eval_fn` test in change_tracker.rs.
+///
+/// The scenario: change tracker is dropped during notify_fn execution (not first eval).
+/// Without the `evaluating` guard, this would cause use-after-free because the evaluate
+/// function would continue to use freed memory after notify_fn returns.
+#[test]
+fn ffi_delete_from_notify_fn_delayed() {
+    use super::Property;
+    use std::cell::RefCell;
+    use std::pin::Pin;
+    use std::rc::Rc;
+
+    // A property that the change tracker will depend on
+    let prop = Rc::pin(Property::new(1i32));
+
+    // Shared state: the ChangeTracker wrapped in Option so we can take() it during notify
+    struct TestData {
+        ct: RefCell<Option<ChangeTracker>>,
+        prop: Pin<Rc<Property<i32>>>,
+        eval_count: RefCell<i32>,
+        notify_count: RefCell<i32>,
+    }
+
+    let data = Rc::new(TestData {
+        ct: RefCell::new(Some(ChangeTracker::default())),
+        prop: prop.clone(),
+        eval_count: RefCell::new(0),
+        notify_count: RefCell::new(0),
+    });
+
+    extern "C" fn drop_data(user_data: *mut c_void) {
+        unsafe {
+            drop(Rc::from_raw(user_data as *const TestData));
+        }
+    }
+
+    extern "C" fn eval_fn(user_data: *mut c_void) -> bool {
+        let data = unsafe { &*(user_data as *const TestData) };
+        let count = *data.eval_count.borrow();
+        *data.eval_count.borrow_mut() = count + 1;
+        // Access the property to register dependency
+        let old_val = if count == 0 { 0 } else { data.prop.as_ref().get() - 1 };
+        let new_val = data.prop.as_ref().get();
+        new_val != old_val // Return true if value changed
+    }
+
+    extern "C" fn notify_fn(user_data: *mut c_void) {
+        let data = unsafe { &*(user_data as *const TestData) };
+        *data.notify_count.borrow_mut() += 1;
+        // Drop the change tracker during notify - this is the critical test
+        // Without the evaluating guard, the memory would be freed while
+        // evaluate() is still running
+        data.ct.borrow_mut().take();
+    }
+
+    // Initialize the change tracker using FFI
+    // With the new API, init() automatically defers when we're not in a scope,
+    // wrapping the evaluation in its own scope.
+    {
+        let ct_ref = data.ct.borrow();
+        let ct = ct_ref.as_ref().unwrap();
+        let data_ptr = Rc::into_raw(data.clone()) as *mut c_void;
+
+        unsafe {
+            slint_change_tracker_init(ct, data_ptr, drop_data, eval_fn, notify_fn);
+        }
+    }
+
+    // First evaluation happened during init (deferred then immediately processed)
+    // eval_fn is called, but notify is skipped (first eval skips notify)
+    assert_eq!(*data.eval_count.borrow(), 1);
+    assert_eq!(*data.notify_count.borrow(), 0); // First eval skips notify
+    assert!(data.ct.borrow().is_some()); // Tracker still exists
+
+    // Change the property to trigger a second evaluation
+    prop.as_ref().set(2);
+
+    // Second run - now notify_fn will be called, which drops the tracker
+    // This should not crash even though notify_fn drops the tracker mid-evaluation
+    ChangeTracker::run_change_handlers();
+    assert_eq!(*data.eval_count.borrow(), 2);
+    assert_eq!(*data.notify_count.borrow(), 1);
+    assert!(data.ct.borrow().is_none()); // Tracker was dropped in notify_fn
 }
