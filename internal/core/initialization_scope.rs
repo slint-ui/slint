@@ -48,11 +48,7 @@ pub fn with_initialization_scope<R>(f: impl FnOnce() -> R) -> R {
             // Take the current batch of tasks
             let mut borrow = q.borrow_mut();
             let vec = borrow.as_mut().unwrap();
-            if vec.is_empty() {
-                None
-            } else {
-                Some(core::mem::take(vec))
-            }
+            if vec.is_empty() { None } else { Some(core::mem::take(vec)) }
         });
 
         match batch {
@@ -129,11 +125,7 @@ pub fn end_initialization_scope() {
         let batch = PENDING_INITIALIZATIONS.with(|q| {
             let mut borrow = q.borrow_mut();
             if let Some(vec) = borrow.as_mut() {
-                if vec.is_empty() {
-                    None
-                } else {
-                    Some(core::mem::take(vec))
-                }
+                if vec.is_empty() { None } else { Some(core::mem::take(vec)) }
             } else {
                 None
             }
