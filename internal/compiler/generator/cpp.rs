@@ -1838,6 +1838,13 @@ fn generate_item_tree(
 
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
+    } else {
+        create_code.push("self->globals = parent->globals;".into());
+        let parent = parent_ctx.unwrap();
+        let parent_struct_name = ident(&root.sub_components[parent.sub_component].name);
+        create_code.push(format!(
+            "self->parent = vtable::VRcMapped<slint::private_api::ItemTreeVTable, const {parent_struct_name}>(parent->self_weak.lock().value(), parent);"
+        ));
     }
 
     let global_access = if parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
