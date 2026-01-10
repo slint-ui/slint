@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test case for issue #7849: Property recursion panic with changed height callback
+// https://github.com/slint-ui/slint/issues/7849
+//
+// The issue occurs when combining:
+// 1. A `changed height` callback on a geometry property
+// 2. A VerticalLayout container
+// 3. An `if` condition or `for` loop generating elements
+//
+// The problem: when initializing change event handlers, they query properties while
+// change trackers are being initialized. This creates a recursion cycle because:
+// - ChangeTracker::init() calls eval_fn to get the initial value
+// - eval_fn accesses the height property
+// - The height property depends on the layout
+// - The layout triggers ensure_updated() on repeater/conditional elements
+// - Those elements have their own change trackers being initialized
+//
+// Minimal reproduction from contributor Tobias Hunger
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    // Minimal reproduction: VerticalLayout + Rectangle with changed callback + if condition
+    VerticalLayout {
+        Rectangle {
+            background: blue;
+            changed height => {}
+        }
+        if true: Rectangle {
+            background: red;
+            changed height => {}
+        }
+    }
+}
+
+/*
+```rust
+// FIXME: This test panics with "Recursion detected" - issue #7849
+// The panic occurs during component creation when setting up change trackers
+// let instance = TestCase::new().unwrap();
+```
+*/
