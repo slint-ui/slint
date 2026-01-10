@@ -1845,6 +1845,13 @@ fn generate_item_tree(
 
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
+    } else {
+        create_code.push("self->globals = parent->globals;".into());
+        let parent = parent_ctx.unwrap();
+        let parent_struct_name = ident(&root.sub_components[parent.sub_component].name);
+        create_code.push(format!(
+            "self->parent = vtable::VRcMapped<slint::private_api::ItemTreeVTable, const {parent_struct_name}>(parent->self_weak.lock().value(), parent);"
+        ));
     }
 
     let global_access = if parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
@@ -1860,7 +1867,10 @@ fn generate_item_tree(
     if parent_ctx.is_none() && !is_popup_menu {
         create_code.push("self->user_init();".to_string());
         // End initialization scope - this processes all deferred change tracker evaluations
-        create_code.push("slint::cbindgen_private::slint_initialization_scope_end(init_scope_handle);".to_string());
+        create_code.push(
+            "slint::cbindgen_private::slint_initialization_scope_end(init_scope_handle);"
+                .to_string(),
+        );
         // initialize the Window in this point to be consistent with Rust
         create_code.push("self->window();".to_string());
         create_code.push("slint::private_api::ChangeTracker::run_change_handlers();".to_string());

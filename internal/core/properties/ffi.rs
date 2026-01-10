@@ -524,11 +524,8 @@ pub unsafe extern "C" fn slint_change_tracker_init(
             let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
             // If we're currently evaluating, just mark that drop was requested.
             // The actual drop will happen when evaluate() finishes.
-            let evaluating = core::ptr::addr_of!((*_self).binding)
-                .as_ref()
-                .unwrap()
-                .evaluating
-                .replace(false);
+            let evaluating =
+                core::ptr::addr_of!((*_self).binding).as_ref().unwrap().evaluating.replace(false);
             if !evaluating {
                 core::mem::drop(Box::from_raw(_self));
             }
@@ -547,8 +544,8 @@ pub unsafe extern "C" fn slint_change_tracker_init(
             // Clear skip_first_notify BEFORE evaluating, so subsequent evaluations
             // will notify even if the first evaluation had no value change
             let is_first_eval = inner.skip_first_notify.replace(false);
-            let notify =
-                super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+            let notify = super::CURRENT_BINDING
+                .set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
             if notify && !is_first_eval {
                 (inner.notify_fn)(inner.user_data);
             }
@@ -653,11 +650,8 @@ pub unsafe extern "C" fn slint_change_tracker_init_delayed(
             let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
             // If we're currently evaluating, just mark that drop was requested.
             // The actual drop will happen when evaluate() finishes.
-            let evaluating = core::ptr::addr_of!((*_self).binding)
-                .as_ref()
-                .unwrap()
-                .evaluating
-                .replace(false);
+            let evaluating =
+                core::ptr::addr_of!((*_self).binding).as_ref().unwrap().evaluating.replace(false);
             if !evaluating {
                 core::mem::drop(Box::from_raw(_self));
             }
@@ -676,8 +670,8 @@ pub unsafe extern "C" fn slint_change_tracker_init_delayed(
             // Clear skip_first_notify BEFORE evaluating, so subsequent evaluations
             // will notify even if the first evaluation had no value change
             let is_first_eval = inner.skip_first_notify.replace(false);
-            let notify =
-                super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+            let notify = super::CURRENT_BINDING
+                .set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
             if notify && !is_first_eval {
                 (inner.notify_fn)(inner.user_data);
             }
