@@ -192,6 +192,7 @@ pub mod re_exports {
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
+    pub use i_slint_core::initialization_scope::with_initialization_scope;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
         MouseEvent, key_codes::Key,
@@ -211,7 +212,6 @@ pub mod re_exports {
     };
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
-    pub use i_slint_core::initialization_scope::with_initialization_scope;
     pub use i_slint_core::properties::{
         ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
     };

@@ -1860,7 +1860,10 @@ fn generate_item_tree(
     if parent_ctx.is_none() && !is_popup_menu {
         create_code.push("self->user_init();".to_string());
         // End initialization scope - this processes all deferred change tracker evaluations
-        create_code.push("slint::cbindgen_private::slint_initialization_scope_end(init_scope_handle);".to_string());
+        create_code.push(
+            "slint::cbindgen_private::slint_initialization_scope_end(init_scope_handle);"
+                .to_string(),
+        );
         // initialize the Window in this point to be consistent with Rust
         create_code.push("self->window();".to_string());
         create_code.push("slint::private_api::ChangeTracker::run_change_handlers();".to_string());
