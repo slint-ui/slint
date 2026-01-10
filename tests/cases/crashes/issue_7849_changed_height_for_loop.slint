@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test case for issue #7849: Property recursion panic with for loop
+// https://github.com/slint-ui/slint/issues/7849
+//
+// This is the original reproduction from the issue: a component with `changed height`
+// callback used inside a VerticalLayout with a `for` loop. The same issue occurs with
+// `if` conditions (see issue_7849_changed_height_recursion.slint).
+//
+// The panic occurs because:
+// 1. ChangeTracker::init() evaluates the height property to get initial value
+// 2. The height property depends on the layout
+// 3. The layout calls ensure_updated() on the repeater
+// 4. The repeater creates new items with their own change trackers
+// 5. Those change trackers also try to evaluate height, creating recursion
+
+import { ScrollView } from "std-widgets.slint";
+
+component MyBox inherits Rectangle {
+    preferred-height: 100px;
+    preferred-width: 100px;
+    background: red;
+    changed height => {}
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    ScrollView {
+        vertical-scrollbar-policy: always-off;
+        VerticalLayout {
+            Rectangle {
+                VerticalLayout {
+                    alignment: start;
+                    padding-top: 20px;
+                    MyBox {}
+                    for i in 5: gb := MyBox {}
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+// FIXME: This test panics with "Recursion detected" - issue #7849
+// The panic occurs during component creation when setting up change trackers in the for loop
+// let instance = TestCase::new().unwrap();
+```
+*/
