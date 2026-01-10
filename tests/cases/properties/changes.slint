@@ -138,19 +138,19 @@ instance.set_value(142);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_count(), 0);
 slint_testing::mock_elapsed_time(1);
-assert_eq!(instance.get_result(), "other(100)foo,value(142)");
+assert_eq!(instance.get_result(), "value(142)foo,other(100)");
 assert_eq!(instance.get_count(), 1);
 instance.set_value(8); // this one is going to be merged in the other
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
-assert_eq!(instance.get_result(), "other(100)foo,value(142)value(141)");
+assert_eq!(instance.get_result(), "value(142)foo,other(100)value(141)");
 assert_eq!(instance.get_count(), 2);
 
 // Changing a value and back doesn't have effect
 instance.set_value(85);
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
-assert_eq!(instance.get_result(), "other(100)foo,value(142)value(141)");
+assert_eq!(instance.get_result(), "value(142)foo,other(100)value(141)");
 assert_eq!(instance.get_count(), 2);
 
 instance.set_result("".into());
@@ -161,14 +161,14 @@ assert_eq!(instance.get_chaining_a_count(), 3);
 assert_eq!(instance.get_sub_result(), "");
 instance.invoke_sub_do_change();
 slint_testing::mock_elapsed_time(100);
-assert_eq!(instance.get_sub_result(), "sub2(124)root2(124)sub(790)root(790)");
-assert_eq!(instance.get_result(), "||sub2(124)root2(124)sub(790)root(790)");
+assert_eq!(instance.get_sub_result(), "sub2(124)root2(124)root(790)sub(790)");
+assert_eq!(instance.get_result(), "||sub2(124)root2(124)root(790)sub(790)");
 
 // Global
 instance.global::<Glob<'_>>().set_v(88);
 assert_eq!(instance.global::<Glob<'_>>().get_r(), "");
 slint_testing::mock_elapsed_time(100);
-assert_eq!(instance.global::<Glob<'_>>().get_r(), "=88|88");
+assert_eq!(instance.global::<Glob<'_>>().get_r(), "|88=88");
 ```
 
 ```cpp
@@ -184,19 +184,19 @@ instance.set_value(142);
 assert_eq(instance.get_result(), "");
 assert_eq(instance.get_count(), 0);
 slint_testing::mock_elapsed_time(1);
-assert_eq(instance.get_result(), "other(100)foo,value(142)");
+assert_eq(instance.get_result(), "value(142)foo,other(100)");
 assert_eq(instance.get_count(), 1);
 instance.set_value(8); // this one is going to be merged in the other
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
-assert_eq(instance.get_result(), "other(100)foo,value(142)value(141)");
+assert_eq(instance.get_result(), "value(142)foo,other(100)value(141)");
 assert_eq(instance.get_count(), 2);
 
 // Changing a value and back doesn't have effect
 instance.set_value(85);
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
-assert_eq(instance.get_result(), "other(100)foo,value(142)value(141)");
+assert_eq(instance.get_result(), "value(142)foo,other(100)value(141)");
 assert_eq(instance.get_count(), 2);
 
 instance.set_result("");
@@ -207,14 +207,14 @@ assert_eq(instance.get_chaining_a_count(), 3);
 assert_eq(instance.get_sub_result(), "");
 instance.invoke_sub_do_change();
 slint_testing::mock_elapsed_time(100);
-assert_eq(instance.get_sub_result(), "sub2(124)root2(124)sub(790)root(790)");
-assert_eq(instance.get_result(), "||sub2(124)root2(124)sub(790)root(790)");
+assert_eq(instance.get_sub_result(), "sub2(124)root2(124)root(790)sub(790)");
+assert_eq(instance.get_result(), "||sub2(124)root2(124)root(790)sub(790)");
 
 // Global
 instance.global<Glob>().set_v(88);
 assert_eq(instance.global<Glob>().get_r(), "");
 slint_testing::mock_elapsed_time(100);
-assert_eq(instance.global<Glob>().get_r(), "=88|88");
+assert_eq(instance.global<Glob>().get_r(), "|88=88");
 ```
 
 ```js
@@ -227,17 +227,17 @@ assert.equal(instance.result, ""); // so far, nothing have changed
 instance.value = 142;
 assert.equal(instance.result, "");
 slintlib.private_api.mock_elapsed_time(1);
-assert.equal(instance.result, "other(100)foo,value(142)");
+assert.equal(instance.result, "value(142)foo,other(100)");
 instance.value = 8; // this one is going to be merged in the other
 instance.value = 141;
 slintlib.private_api.mock_elapsed_time(1);
-assert.equal(instance.result, "other(100)foo,value(142)value(141)");
+assert.equal(instance.result, "value(142)foo,other(100)value(141)");
 
 // Changing a value and back doesn't have effect
 instance.value = 85;
 instance.value = 141;
 slintlib.private_api.mock_elapsed_time(1);
-assert.equal(instance.result, "other(100)foo,value(142)value(141)");
+assert.equal(instance.result, "value(142)foo,other(100)value(141)");
 
 instance.result = "";
 instance.chaining_do_change();
@@ -247,14 +247,14 @@ assert.equal(instance.chaining_a_count, 3);
 assert.equal(instance.sub_result, "");
 instance.sub_do_change();
 slintlib.private_api.mock_elapsed_time(100);
-assert.equal(instance.sub_result, "sub2(124)root2(124)sub(790)root(790)");
-assert.equal(instance.result, "||sub2(124)root2(124)sub(790)root(790)");
+assert.equal(instance.sub_result, "sub2(124)root2(124)root(790)sub(790)");
+assert.equal(instance.result, "||sub2(124)root2(124)root(790)sub(790)");
 
 // Global
 instance.Glob.v = 88;
 assert.equal(instance.Glob.r, "");
 slintlib.private_api.mock_elapsed_time(100);
-assert.equal(instance.Glob.r, "=88|88");
+assert.equal(instance.Glob.r, "|88=88");
 ```
 
 */

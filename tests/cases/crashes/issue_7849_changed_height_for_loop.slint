@@ -45,8 +45,8 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-// FIXME: This test panics with "Recursion detected" - issue #7849
-// The panic occurs during component creation when setting up change trackers in the for loop
-// let instance = TestCase::new().unwrap();
+// This test previously panicked with "Recursion detected" - issue #7849
+// Fixed by using init_delayed() for change trackers
+let _instance = TestCase::new().unwrap();
 ```
 */
