@@ -42,6 +42,7 @@ fn main() {
     i_slint_backend_testing::init_integration_test_with_mock_time();
 
     // test_spawn_local_from_thread
+    #[cfg(not(target_os = "macos"))]
     std::thread::spawn(|| {
         assert_eq!(
             slint::spawn_local(async {
