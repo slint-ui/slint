@@ -138,7 +138,7 @@ impl TargetPixel for DumbBufferPixelBgra8888 {
         *self = x.into();
     }
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32))
+        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
     }
     fn background() -> Self {
         Self(0)
