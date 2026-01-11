@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::{
-    items::{AnimationDirection, PropertyAnimation},
+    items::{AnimationDirection, Interpolation, PropertyAnimation},
     lengths::LogicalLength,
 };
 #[cfg(not(feature = "std"))]
@@ -99,7 +99,11 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                         if reversed(current_iteration) { 1. - progress } else { progress }
                     };
                     let t = crate::animations::easing_curve(&self.details.easing, progress);
-                    let val = self.from_value.interpolate(&self.to_value, t);
+                    let val = self.from_value.interpolate_with_mode(
+                        &self.to_value,
+                        t,
+                        self.details.interpolation,
+                    );
 
                     (val, false)
                 } else {
@@ -212,11 +216,92 @@ pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     /// easing curves it may over- or undershoot though.
     #[must_use]
     fn interpolate(&self, target_value: &Self, t: f32) -> Self;
+
+    /// Returns the interpolated value with a specific interpolation mode.
+    /// This is particularly useful for angle values where the interpolation path matters.
+    /// The default implementation ignores the mode and uses linear interpolation.
+    #[must_use]
+    fn interpolate_with_mode(&self, target_value: &Self, t: f32, _mode: Interpolation) -> Self {
+        self.interpolate(target_value, t)
+    }
 }
 
 impl InterpolatedPropertyValue for f32 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + t * (target_value - self)
+    }
+
+    fn interpolate_with_mode(&self, target_value: &Self, t: f32, mode: Interpolation) -> Self {
+        // Slint stores angles in DEGREES (not radians), so we use 180° and 360° as constants
+        const HALF_ROTATION: f32 = 180.0;
+        const FULL_ROTATION: f32 = 360.0;
+
+        match mode {
+            Interpolation::Linear => self.interpolate(target_value, t),
+            Interpolation::AngleShorter => {
+                // Normalize the difference to find the shorter arc
+                let mut diff = target_value - self;
+                // Normalize diff to be within [-180, 180]
+                while diff > HALF_ROTATION {
+                    diff -= FULL_ROTATION;
+                }
+                while diff < -HALF_ROTATION {
+                    diff += FULL_ROTATION;
+                }
+                self + t * diff
+            }
+            Interpolation::AngleLonger => {
+                // Normalize the difference to find the longer arc
+                let mut diff = target_value - self;
+                // Normalize diff to be within [-180, 180] first
+                while diff > HALF_ROTATION {
+                    diff -= FULL_ROTATION;
+                }
+                while diff < -HALF_ROTATION {
+                    diff += FULL_ROTATION;
+                }
+                // Then flip to the longer arc
+                if diff > 0.0 {
+                    diff -= FULL_ROTATION;
+                } else if diff < 0.0 {
+                    diff += FULL_ROTATION;
+                }
+                // If diff is exactly 0, no rotation needed
+                self + t * diff
+            }
+            Interpolation::AngleClockwise => {
+                // Always rotate clockwise (positive direction)
+                let mut diff = target_value - self;
+                // First normalize to [-180, 180]
+                while diff > HALF_ROTATION {
+                    diff -= FULL_ROTATION;
+                }
+                while diff < -HALF_ROTATION {
+                    diff += FULL_ROTATION;
+                }
+                // If diff is not positive, add 360 to make it clockwise
+                if diff <= 0.0 {
+                    diff += FULL_ROTATION;
+                }
+                self + t * diff
+            }
+            Interpolation::AngleCounterclockwise => {
+                // Always rotate counterclockwise (negative direction)
+                let mut diff = target_value - self;
+                // First normalize to [-180, 180]
+                while diff > HALF_ROTATION {
+                    diff -= FULL_ROTATION;
+                }
+                while diff < -HALF_ROTATION {
+                    diff += FULL_ROTATION;
+                }
+                // If diff is not negative, subtract 360 to make it counterclockwise
+                if diff >= 0.0 {
+                    diff -= FULL_ROTATION;
+                }
+                self + t * diff
+            }
+        }
     }
 }
 
@@ -1001,5 +1086,146 @@ mod animation_tests {
             .with(|driver| driver.update_animations(start_time + 2 * DURATION + DURATION / 2));
 
         assert_eq!(get_prop_value(&compo.width), 300);
+    }
+
+    // Tests for Interpolation modes (angle interpolation)
+    // Note: Slint stores angles in DEGREES (not radians)
+    mod interpolation_tests {
+        use super::*;
+
+        const EPSILON: f32 = 0.1; // 0.1 degree tolerance
+
+        fn approx_eq(a: f32, b: f32) -> bool {
+            (a - b).abs() < EPSILON
+        }
+
+        #[test]
+        fn test_linear_interpolation() {
+            // Linear interpolation: 10° to 350° should go through 180° (340° rotation)
+            let from = 10.0_f32;
+            let to = 350.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::Linear);
+            let expected = 180.0_f32;
+            assert!(approx_eq(mid, expected), "Linear: expected {}°, got {}°", expected, mid);
+        }
+
+        #[test]
+        fn test_angle_shorter_interpolation() {
+            // Shorter arc: 10° to 350° should go counterclockwise (20° rotation)
+            // At t=0.5, we should be at 0° (or 360°)
+            let from = 10.0_f32;
+            let to = 350.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleShorter);
+            let expected = 0.0_f32;
+            assert!(
+                approx_eq(mid, expected),
+                "AngleShorter mid: expected {}°, got {}°",
+                expected,
+                mid
+            );
+
+            // At t=1.0, we should be at -10° (equivalent to 350°)
+            let end = from.interpolate_with_mode(&to, 1.0, Interpolation::AngleShorter);
+            let expected_end = -10.0_f32;
+            assert!(
+                approx_eq(end, expected_end),
+                "AngleShorter end: expected {}°, got {}°",
+                expected_end,
+                end
+            );
+        }
+
+        #[test]
+        fn test_angle_longer_interpolation() {
+            // Longer arc: 10° to 100° normally takes 90° clockwise (shorter)
+            // Longer should take 270° counterclockwise
+            let from = 10.0_f32;
+            let to = 100.0_f32;
+
+            // At t=0.5, we should be at 10° - 135° = -125°
+            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleLonger);
+            let expected = -125.0_f32;
+            assert!(
+                approx_eq(mid, expected),
+                "AngleLonger mid: expected {}°, got {}°",
+                expected,
+                mid
+            );
+        }
+
+        #[test]
+        fn test_angle_clockwise_interpolation() {
+            // Clockwise: always go in positive direction
+            // From 350° to 10°, should go 350° -> 360° -> 10° (20° rotation)
+            let from = 350.0_f32;
+            let to = 10.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleClockwise);
+            // Mid should be at 360°
+            let expected = 360.0_f32;
+            assert!(
+                approx_eq(mid, expected),
+                "AngleClockwise mid: expected {}°, got {}°",
+                expected,
+                mid
+            );
+
+            // At t=1.0, we should be at 370° (which is 10° + 360°)
+            let end = from.interpolate_with_mode(&to, 1.0, Interpolation::AngleClockwise);
+            let expected_end = 370.0_f32;
+            assert!(
+                approx_eq(end, expected_end),
+                "AngleClockwise end: expected {}°, got {}°",
+                expected_end,
+                end
+            );
+        }
+
+        #[test]
+        fn test_angle_counterclockwise_interpolation() {
+            // Counterclockwise: always go in negative direction
+            // From 10° to 350°, should go 10° -> 0° -> -10° (20° counterclockwise)
+            let from = 10.0_f32;
+            let to = 350.0_f32;
+
+            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleCounterclockwise);
+            // Mid should be at 0°
+            let expected = 0.0_f32;
+            assert!(
+                approx_eq(mid, expected),
+                "AngleCounterclockwise mid: expected {}°, got {}°",
+                expected,
+                mid
+            );
+
+            // At t=1.0, we should be at -10° (which is 350° - 360°)
+            let end = from.interpolate_with_mode(&to, 1.0, Interpolation::AngleCounterclockwise);
+            let expected_end = -10.0_f32;
+            assert!(
+                approx_eq(end, expected_end),
+                "AngleCounterclockwise end: expected {}°, got {}°",
+                expected_end,
+                end
+            );
+        }
+
+        #[test]
+        fn test_angle_shorter_already_shortest() {
+            // When the linear path is already shortest, AngleShorter should behave like Linear
+            let from = 10.0_f32;
+            let to = 100.0_f32;
+
+            let mid_linear = from.interpolate_with_mode(&to, 0.5, Interpolation::Linear);
+            let mid_shorter = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleShorter);
+
+            assert!(
+                approx_eq(mid_linear, mid_shorter),
+                "AngleShorter should equal Linear when path is already shortest: {}° vs {}°",
+                mid_linear,
+                mid_shorter
+            );
+        }
     }
 }

@@ -28,6 +28,12 @@ TestCase := Rectangle {
         direction: alternate-reverse;
         iteration-count: 2;
     }
+
+    property<angle> rotation: 10deg;
+    animate rotation {
+        duration: 600ms;
+        interpolation: angle-shorter;
+    }
 }
 
 /*
