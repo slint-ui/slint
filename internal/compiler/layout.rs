@@ -279,24 +279,32 @@ impl LayoutConstraints {
 pub enum RowColExpr {
     Named(NamedReference),
     Literal(u16),
+    Auto,
 }
 
-/// An element in a GridLayout
 #[derive(Debug, Clone)]
-pub struct GridLayoutElement {
+pub struct GridLayoutCell {
     pub new_row: bool,
     pub col_expr: RowColExpr,
     pub row_expr: RowColExpr,
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
+}
+
+/// An element in a GridLayout
+#[derive(Debug, Clone)]
+pub struct GridLayoutElement {
+    // Rc<RefCell<GridLayoutCell>> because shared with the repeated component's element
+    pub cell: Rc<RefCell<GridLayoutCell>>,
     pub item: LayoutItem,
 }
 
 impl GridLayoutElement {
-    pub fn span(&self, orientation: Orientation) -> &RowColExpr {
+    pub fn span(&self, orientation: Orientation) -> RowColExpr {
+        let cell = self.cell.borrow();
         match orientation {
-            Orientation::Horizontal => &self.colspan_expr,
-            Orientation::Vertical => &self.rowspan_expr,
+            Orientation::Horizontal => cell.colspan_expr.clone(),
+            Orientation::Vertical => cell.rowspan_expr.clone(),
         }
     }
 }
@@ -474,7 +482,8 @@ pub struct GridLayout {
 
 impl GridLayout {
     pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        for cell in &mut self.elems {
+        for elem in &mut self.elems {
+            let mut cell = elem.cell.borrow_mut();
             if let RowColExpr::Named(ref mut e) = cell.col_expr {
                 visitor(e);
             }

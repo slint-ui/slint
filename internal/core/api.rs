@@ -7,14 +7,19 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-#[cfg(target_has_atomic = "ptr")]
-pub use crate::future::*;
-use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
-pub use crate::styled_text::StyledText;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
+
+#[cfg(target_has_atomic = "ptr")]
+pub use crate::future::*;
+pub use crate::graphics::{
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
+};
+pub use crate::sharedvector::SharedVector;
+pub use crate::styled_text::StyledText;
+pub use crate::{format, string::SharedString, string::ToSharedString};
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
@@ -791,8 +796,6 @@ impl Window {
         self.0.window_adapter().renderer().take_snapshot()
     }
 }
-
-pub use crate::SharedString;
 
 #[i_slint_core_macros::slint_doc]
 /// This trait is used to obtain references to global singletons exported in `.slint`

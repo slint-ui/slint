@@ -116,7 +116,7 @@ fn generate_public_component(
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let f = ::core::cell::RefCell::new(f);
-                    self.0.borrow_mut().set_callback(#prop_name, sp::Rc::new(move |values| {
+                    self.0.borrow().set_callback(#prop_name, sp::Rc::new(move |values| {
                         let [#(#args_name,)*] = values else { panic!("invalid number of argument for callback {}::{}", #component_name, #prop_name) };
                         (*f.borrow_mut())(#(#args_name.clone().try_into().unwrap_or_else(|_| panic!("invalid argument for callback {}::{}", #component_name, #prop_name)),)*).into()
                     }))
@@ -155,7 +155,7 @@ fn generate_public_component(
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
-                        self.0.borrow_mut().set_property(#prop_name, #convert_to_value(value))
+                        self.0.borrow().set_property(#prop_name, #convert_to_value(value))
                     }
                 ));
             } else {
@@ -172,9 +172,8 @@ fn generate_public_component(
         quote!((#n.to_string(), #p.into()))
     });
     let translation_domain = compiler_config.translation_domain.iter();
-    let no_default_translation_context = compiler_config
-        .no_default_translation_context
-        .then(|| quote!(compiler.disable_default_translation_context();));
+    let no_default_translation_context = (compiler_config.default_translation_context == crate::DefaultTranslationContext::None)
+        .then(|| quote!(compiler.set_default_translation_context(sp::live_preview::DefaultTranslationContext::None);));
     let style = compiler_config.style.iter();
 
     quote!(
@@ -275,7 +274,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let f = ::core::cell::RefCell::new(f);
-                    self.0.borrow_mut().set_global_callback(#global_name, #prop_name, sp::Rc::new(move |values| {
+                    self.0.borrow().set_global_callback(#global_name, #prop_name, sp::Rc::new(move |values| {
                         let [#(#args_name,)*] = values else { panic!("invalid number of argument for callback {}::{}", #global_name, #prop_name) };
                         (*f.borrow_mut())(#(#args_name.clone().try_into().unwrap_or_else(|_| panic!("invalid argument for callback {}::{}", #global_name, #prop_name)),)*).into()
                     }))
@@ -314,7 +313,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
-                        self.0.borrow_mut().set_global_property(#global_name, #prop_name, #convert_to_value(value))
+                        self.0.borrow().set_global_property(#global_name, #prop_name, #convert_to_value(value))
                     }
                 ));
             } else {

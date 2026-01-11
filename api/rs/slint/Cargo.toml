@@ -200,7 +200,7 @@ backend-android-activity-05 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.14", features = ["unstable-wgpu-26"] }
+## slint = { version = "~1.15", features = ["unstable-wgpu-26"] }
 ## ```
 unstable-wgpu-26 = [
   "i-slint-core/unstable-wgpu-26",
@@ -219,7 +219,7 @@ unstable-wgpu-26 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.14", features = ["unstable-wgpu-27"] }
+## slint = { version = "~1.15", features = ["unstable-wgpu-27"] }
 ## ```
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
@@ -236,7 +236,7 @@ unstable-wgpu-27 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.12", features = ["unstable-winit-030"] }
+## slint = { version = "~1.15", features = ["unstable-winit-030"] }
 ## ```
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
 
@@ -250,9 +250,22 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.13", features = ["unstable-libinput-09"] }
+## slint = { version = "~1.15", features = ["unstable-libinput-09"] }
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
+
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.7.0/fontique/) related APIs.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
+## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.15", features = ["unstable-fontique-07"] }
+## ```
+unstable-fontique-07 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -321,5 +334,6 @@ features = [
   "unstable-wgpu-27",
   "unstable-winit-030",
   "unstable-libinput-09",
+  "unstable-fontique-07",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

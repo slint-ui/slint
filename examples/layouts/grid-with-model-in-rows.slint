@@ -1,0 +1,63 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: MIT
+
+component Cell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            text: cell_text;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
+component HeaderCell inherits Cell {
+    background: #ccc;
+}
+
+export component MainWindow inherits Window {
+
+    default-font-size: 20px;
+
+   property <[{ name: string, account: string, animal: string }]> model: [
+        { name: "Olivier", account: "ogoffart", animal: "cat" },
+        { name: "Simon", account: "tronical", animal: "dog" },
+        { name: "David", account: "dfaure", animal: "bird" },
+        { name: "Alice", account: "wonderland", animal: "white rabbit" },
+        { name: "Randriana Tzimabazafi", account: "rt", animal: "lizard" },
+        { name: "Verne", account: "jules", animal: "octopus" },
+        { name: "Pratchett", account: "terry", animal: "turtles (all the way down)" }
+    ];
+
+    grid := GridLayout {
+        Row {
+            HeaderCell {
+                cell_text: "Name";
+            }
+            for person in model: Cell {
+                cell_text: person.name;
+            }
+        }
+        Row {
+            HeaderCell {
+                cell_text: "Account";
+            }
+            for person in model: Cell {
+                cell_text: person.account;
+            }
+        }
+        Row {
+            HeaderCell {
+                cell_text: "Animal";
+            }
+            for person in model: Cell {
+                cell_text: person.animal;
+            }
+        }
+    }
+}

@@ -88,8 +88,8 @@ export component Slider {
         x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
         y: base.vertical ? clamp((parent.height - self.height) * (root.maximum - root.value) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
         background: MaterialPalette.accent-background;
-        width: base.vertical ? root.width : root.height;
-        height: base.vertical ? root.width : root.height;
+        width: base.vertical ? root.min-width : root.min-height;
+        height: self.width;
         border-radius: max(self.width, self.height) / 2;
         drop-shadow-color: MaterialPalette.shadow;
         drop-shadow-blur: Elevation.level1;

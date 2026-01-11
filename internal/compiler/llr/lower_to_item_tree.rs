@@ -172,7 +172,13 @@ impl LoweredSubComponentMapping {
                     },
                 },
             },
-            LoweredElement::Repeated { .. } => unreachable!(),
+            LoweredElement::Repeated { .. } => {
+                panic!(
+                    "Trying to map property {from:?} on a repeated element {} of type {:?}",
+                    element.borrow().id,
+                    element.borrow().base_type
+                );
+            }
             LoweredElement::ComponentPlaceholder { .. } => unreachable!(),
         }
     }
@@ -256,6 +262,8 @@ fn lower_sub_component(
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
+        child_of_layout: component.root_element.borrow().child_of_layout,
+        grid_layout_input_for_repeated: None,
         accessible_prop: Default::default(),
         element_infos: Default::default(),
         prop_analysis: Default::default(),
@@ -545,6 +553,15 @@ fn lower_sub_component(
         crate::layout::Orientation::Vertical,
     )
     .into();
+    if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
+        sub_component.grid_layout_input_for_repeated = Some(
+            super::lower_expression::get_grid_layout_input_for_repeated(
+                &mut ctx,
+                &grid_layout_cell.borrow(),
+            )
+            .into(),
+        );
+    }
 
     sub_component.accessible_prop = accessible_prop
         .into_iter()

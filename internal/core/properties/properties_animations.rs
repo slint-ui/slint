@@ -10,9 +10,15 @@ use crate::{
 use num_traits::Float;
 
 enum AnimationState {
+    /// The animation will start after the delay is finished
     Delaying,
-    Animating { current_iteration: u64 },
-    Done { iteration_count: u64 },
+    /// Actual animation
+    Animating {
+        current_iteration: u64,
+    },
+    Done {
+        iteration_count: u64,
+    },
 }
 
 pub(super) struct PropertyValueAnimationData<T> {
@@ -30,6 +36,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
         Self { from_value, to_value, details, start_time, state: AnimationState::Delaying }
     }
 
+    /// Single iteration of the animation
     pub fn compute_interpolated_value(&mut self) -> (T, bool) {
         let new_tick = crate::animations::current_tick();
         let mut time_progress = new_tick.duration_since(self.start_time).as_millis() as u64;

@@ -46,6 +46,9 @@ test_example!(example_fancy_switches, "examples/fancy-switches/demo.slint");
 test_example!(example_home_automation, "demos/home-automation/ui/demo.slint");
 test_example!(example_energy_monitor, "demos/energy-monitor/ui/desktop_window.slint");
 test_example!(example_weather, "demos/weather-demo/ui/main.slint");
+test_example!(example_grid_model_rows, "examples/layouts/grid-with-model-in-rows.slint");
+test_example!(example_vector_as_grid, "examples/layouts/vector-as-grid.slint");
+test_example!(example_vlayout, "examples/layouts/vertical-layout-with-model.slint");
 
 fn main() {
     println!("Nothing to see here, please run me through cargo test :)");

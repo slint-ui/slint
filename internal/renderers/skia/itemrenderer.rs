@@ -334,8 +334,8 @@ impl<'a> SkiaItemRenderer<'a> {
                 )
             })
         }) {
-            let _saved_canvas = self.pixel_align_origin();
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
+            let _saved_canvas = self.pixel_align_origin();
             self.canvas.draw_image_with_sampling_options(
                 layer_image,
                 skia_safe::Point::default(),

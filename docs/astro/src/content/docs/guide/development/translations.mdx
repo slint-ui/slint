@@ -98,9 +98,9 @@ Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you 
 Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
 </TabItem>
 <TabItem label="Rust" icon="rust">
-With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.without_default_translation_context">`slint_build::CompilerConfiguration::without_default_translation_context()`</LangRefLink>
+With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.set_default_translation_context">`slint_build::CompilerConfiguration::set_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
 when using a build script.
-With <LangRefLink lang="rust-slint-interpreter" relpath="struct.compiler#method.disable_default_translation_context">`slint_interpreter::Compiler::disable_default_translation_context()`</LangRefLink>
+With <LangRefLink lang="rust-slint-interpreter" relpath="struct.compiler#method.set_default_translation_context">`slint_interpreter::Compiler::set_default_translation_context(slint_interpreter::DefaultTranslationContext::None)`</LangRefLink>
 when using the `slint-interpreter` crate.
 </TabItem>
 </Tabs>

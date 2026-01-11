@@ -17,6 +17,7 @@ export component TestCase inherits Window {
     in-out property <string> text <=> edit.text;
     in-out property <bool> read-only <=> edit.read-only;
     in-out property <bool> enabled <=> edit.enabled;
+    in-out property <bool> font-italic <=> edit.font-italic;
     public function paste() {
         edit.paste();
     }
@@ -108,6 +109,10 @@ instance.set_read_only(false);
 instance.set_enabled(false);
 instance.invoke_paste();
 assert_eq!(instance.get_text(), "XxxHello👋");
+
+assert_eq!(instance.get_font_italic(), false);
+instance.set_font_italic(true);
+assert_eq!(instance.get_font_italic(), true);
 ```
 
 */

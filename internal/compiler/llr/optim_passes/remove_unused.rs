@@ -294,6 +294,8 @@ mod visitor {
             geometries,
             layout_info_h,
             layout_info_v,
+            child_of_layout: _,
+            grid_layout_input_for_repeated,
             accessible_prop,
             element_infos: _,
             prop_analysis,
@@ -377,6 +379,9 @@ mod visitor {
         }
         visit_expression(layout_info_h.get_mut(), &scope, state, visitor);
         visit_expression(layout_info_v.get_mut(), &scope, state, visitor);
+        if let Some(e) = grid_layout_input_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
 
         for a in accessible_prop.values_mut() {
             visit_expression(a.get_mut(), &scope, state, visitor);

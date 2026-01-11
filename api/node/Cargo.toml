@@ -15,6 +15,7 @@ rust-version.workspace = true
 version.workspace = true
 categories = ["gui", "development-tools"]
 build = "build.rs"
+publish = false
 
 [lib]
 crate-type = ["cdylib"]
