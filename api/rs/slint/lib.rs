@@ -348,6 +348,15 @@ pub fn spawn_local<F: core::future::Future + 'static>(
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
+/// This function spawns a new std::thread and executes the provided closure `action` in that thread.
+/// It returns a handle that can be awaited as standard [`Future`](core::future::Future) (hence it's executor-agnostic).
+#[cfg(feature = "std")]
+pub fn spawn_blocking<T: Send + 'static, F: FnMut() -> T + Send + 'static>(
+    action: F,
+) -> SpawnBlockingJoinHandle<T> {
+    i_slint_core::future::spawn_blocking(action)
+}
+
 #[i_slint_core_macros::slint_doc]
 /// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
