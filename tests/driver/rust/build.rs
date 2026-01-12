@@ -1,17 +1,59 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::collections::HashMap;
+use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+fn generated_file_for_test<'a>(
+    testcase: &test_driver_lib::TestCase,
+    generated_files: &'a mut HashMap<PathBuf, BufWriter<File>>,
+    fallback: &'a mut BufWriter<File>,
+) -> Result<&'a mut BufWriter<File>, std::io::Error> {
+    let base: Option<&Path> = testcase.relative_path.iter().next().map(|folder| folder.as_ref());
+    let case_root_dir: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
+
+    // For each folder in cases/ generate a separate file.
+    // This allows splitting the test cases into multiple test binaries, which allows
+    // parallelizing the compilation.
+    if base.map(|path| case_root_dir.join(path).is_dir()).unwrap_or_default() {
+        let base = base.unwrap().to_owned();
+
+        let mut generated_file = base.clone();
+        assert!(generated_file.set_extension("rs"));
+        let generated_path = Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(&generated_file);
+        if generated_files.get(&base).is_none() {
+            // Ensure there is an appropriate test binary
+            let test_file: PathBuf = [
+                env!("CARGO_MANIFEST_DIR"),
+                "tests",
+                generated_file.to_str().expect("Failed to convert path to string"),
+            ]
+            .iter()
+            .collect();
+            assert!(test_file.exists(), "Missing test binary for subfolder: {}", base.display());
+            generated_files.insert(base.clone(), BufWriter::new(File::create(generated_path)?));
+        }
+        Ok(generated_files.get_mut(&base).unwrap())
+    } else {
+        Ok(fallback)
+    }
+}
 
 fn main() -> std::io::Result<()> {
     let live_preview = std::env::var("SLINT_LIVE_PREVIEW").is_ok();
 
-    let mut generated_file = BufWriter::new(std::fs::File::create(
+    let mut generated_file = BufWriter::new(File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?);
 
+    let mut generated_files = HashMap::new();
+
     for testcase in test_driver_lib::collect_test_cases("cases")? {
+        let generated_file =
+            generated_file_for_test(&testcase, &mut generated_files, &mut generated_file)?;
+
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
@@ -39,7 +81,7 @@ fn main() -> std::io::Result<()> {
             ""
         };
 
-        let mut output = BufWriter::new(std::fs::File::create(
+        let mut output = BufWriter::new(File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
         )?);
 
@@ -74,6 +116,9 @@ fn main() -> std::io::Result<()> {
     }
 
     generated_file.flush()?;
+    for file in generated_files.values_mut() {
+        file.flush()?;
+    }
 
     // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.
