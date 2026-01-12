@@ -160,7 +160,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
             });
 
             match format {
-                drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 | drm::buffer::DrmFourcc::Bgra8888 => {
+                drm::buffer::DrmFourcc::Xrgb8888
+                | drm::buffer::DrmFourcc::Argb8888
+                | drm::buffer::DrmFourcc::Bgra8888 => {
                     let buffer: &mut [DumbBufferPixelXrgb888] =
                         bytemuck::cast_slice_mut(pixels.as_mut());
                     self.renderer.render(buffer, self.size.width as usize);
