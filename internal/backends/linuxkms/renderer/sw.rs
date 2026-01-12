@@ -95,9 +95,9 @@ impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     fn from(pixel: DumbBufferPixelBgra8888) -> Self {
         let v = pixel.0;
         PremultipliedRgbaColor {
-            red: (v >> 0) as u8,
+            red: (v >> 16) as u8,
             green: (v >> 8) as u8,
-            blue: (v >> 16) as u8,
+            blue: (v >> 0) as u8,
             alpha: (v >> 24) as u8,
         }
     }
@@ -108,9 +108,9 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelBgra8888 {
     fn from(pixel: PremultipliedRgbaColor) -> Self {
         Self(
             (pixel.alpha as u32) << 24
-                | ((pixel.blue as u32) << 16)
+                | ((pixel.red as u32) << 16) // B and R swapped
                 | ((pixel.green as u32) << 8)
-                | (pixel.red as u32),
+                | (pixel.blue as u32),
         )
     }
 }
@@ -223,7 +223,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                     return Err(format!(
                         "Unsupported frame buffer format {format} used with software renderer"
                     )
-                    .into());
+                        .into());
                 }
             }
 
