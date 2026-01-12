@@ -2339,8 +2339,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
-                (Type::Struct (lhs), Type::Struct (rhs)) => {
-                    debug_assert_eq!(lhs.fields, rhs.fields, "cast of struct with deferent fields should be handled before llr");
+                (Type::Struct(lhs), Type::Struct(rhs)) => {
+                    debug_assert_eq!(
+                        lhs.fields, rhs.fields,
+                        "cast of struct with deferent fields should be handled before llr"
+                    );
                     match (&lhs.name, &rhs.name) {
                         (StructName::None, targetstruct) if targetstruct.is_some() => {
                             // Convert from an anonymous struct to a named one
@@ -2383,7 +2386,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     };
                     quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
-                (Type::Struct { .. }, Type::PathData) if matches!(from.as_ref(), Expression::Struct { .. }) => {
+                (Type::Struct { .. }, Type::PathData)
+                    if matches!(from.as_ref(), Expression::Struct { .. }) =>
+                {
                     let (events, points) = match from.as_ref() {
                         Expression::Struct { ty: _, values } => (
                             compile_expression(&values["events"], ctx),
@@ -2400,7 +2405,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
                 (Type::Enumeration(e), Type::String) => {
                     let cases = e.values.iter().enumerate().map(|(idx, v)| {
-                        let c = compile_expression(&Expression::EnumerationValue(EnumerationValue{ value: idx, enumeration: e.clone() }), ctx);
+                        let c = compile_expression(
+                            &Expression::EnumerationValue(EnumerationValue {
+                                value: idx,
+                                enumeration: e.clone(),
+                            }),
+                            ctx,
+                        );
                         let v = v.as_str();
                         quote!(#c => sp::SharedString::from(#v))
                     });
@@ -2448,11 +2459,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let f = ident(function);
             let a = arguments.iter().map(|a| {
                 let arg = compile_expression(a, ctx);
-                if matches!(a.ty(ctx), Type::Struct { .. }) {
-                    quote!(&#arg)
-                } else {
-                    arg
-                }
+                if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
             });
             quote! { sp::#f(#(#a as _),*) }
         }
@@ -2481,7 +2488,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let mut body = TokenStream::new();
             for (i, e) in sub.iter().enumerate() {
                 body.extend(compile_expression_no_parenthesis(e, ctx));
-                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable{..}) {
+                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
                     body.extend(quote!(;));
                 }
             }
@@ -2494,7 +2501,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
             let mut path = quote!(_self);
-            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
+            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+                unreachable!()
+            };
             let mut repeater_index = None;
             for _ in 0..=*level {
                 let x = par.unwrap();
@@ -2506,9 +2515,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let repeater_index = repeater_index.unwrap();
             let sub_component = &ctx.compilation_unit.sub_components[sc];
             let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
+            let index_prop =
+                llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
-            let repeater = access_component_field_offset(&inner_component_id(sub_component), &format_ident!("repeater{}", usize::from(repeater_index)));
+            let repeater = access_component_field_offset(
+                &inner_component_id(sub_component),
+                &format_ident!("repeater{}", usize::from(repeater_index)),
+            );
             quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
@@ -2637,7 +2650,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
                 let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data()) {
+                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data())
+                {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
@@ -2732,7 +2746,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(sp::#base_ident::#value_ident)
             }
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index, entries_per_item } => {
+        Expression::LayoutCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            entries_per_item,
+        } => {
             access_member(layout_cache_prop, ctx).map_or_default(|cache| {
                 if let Some(ri) = repeater_index {
                     let offset = compile_expression(ri, ctx);
@@ -2777,7 +2796,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 Some(t) => {
                     let rhs = compile_expression(rhs, ctx);
                     (quote!((#lhs as #t)), quote!(#rhs as #t))
-                },
+                }
                 None => {
                     let rhs = compile_expression_no_parenthesis(rhs, ctx);
                     (lhs, rhs)
@@ -2805,10 +2824,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         #plural as _
                     ))
                 }
-                None => quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice())),
-
+                None => {
+                    quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+                }
             }
-        },
+        }
     }
 }
 
