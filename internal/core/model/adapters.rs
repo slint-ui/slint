@@ -912,11 +912,6 @@ where
 
         Self(container)
     }
-
-    /// Returns a reference to the inner model
-    pub fn source_model(&self) -> &M {
-        &self.0.as_ref().get().get_ref().wrapped_model
-    }
 }
 
 impl<M> SortModel<M, AscendingSortHelper>
@@ -943,6 +938,17 @@ where
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
 
         Self(container)
+    }
+}
+
+impl<M, S> SortModel<M, S>
+where
+    M: Model + 'static,
+    S: SortHelper<M::Data>,
+{
+    /// Returns a reference to the inner model
+    pub fn source_model(&self) -> &M {
+        &self.0.as_ref().get().get_ref().wrapped_model
     }
 
     /// Manually reapply the sorting. You need to run this e.g. if the sort function depends
@@ -1131,6 +1137,10 @@ mod sort_tests {
         for (i, v) in expected.iter().enumerate() {
             assert_eq!(model.row_data(i), Some(*v), "Expected {v} at index {i}");
         }
+
+        assert!(Rc::ptr_eq(model.source_model(), &wrapped_rc));
+        model.reset();
+        assert_eq!(*observer.reset.borrow(), 1);
     }
 
     #[test]
@@ -1173,6 +1183,8 @@ mod sort_tests {
         assert_eq!(model.row_data(5), Some("a"));
         assert_eq!(model.row_data(6), None);
         assert_eq!(model.row_data(7), None);
+
+        assert!(Rc::ptr_eq(model.source_model(), &wrapped_rc));
     }
 }
 
