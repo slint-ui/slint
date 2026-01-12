@@ -118,4 +118,7 @@ jobs:
                   name: screenshots-${{ inputs.os }}
                   path: |
                       tests/screenshots/references
+            - name: Print Disk Usage
+              if: always()
+              run: df -h
 
