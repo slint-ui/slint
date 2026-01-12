@@ -12,6 +12,7 @@ pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use std::rc::Rc;
 
+/// Get the window adapter of the `component` window
 pub fn get_window_adapter<Component: ComponentHandle>(
     component: &Component,
 ) -> Rc<dyn WindowAdapter + 'static> {
