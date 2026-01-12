@@ -17,7 +17,7 @@ run = "cargo xtask check_license_headers --fix-it"
 ["fix:python:format"]
 description = "Run ruff format"
 run = "ruff format"
-tools = { "aqua:astral-sh/ruff" = "0.11.8" }
+tools = { "ruff" = "0.11.8" }
 
 ["fix:rust:format"]
 description = "Run cargo fmt --all"
