@@ -61,10 +61,6 @@ const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = 
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct DumbBufferPixelXrgb888(pub u32);
 
-#[repr(transparent)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct DumbBufferPixelBgra8888(pub u32);
-
 impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
     #[inline]
     fn from(pixel: DumbBufferPixelXrgb888) -> Self {
@@ -90,6 +86,26 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelXrgb888 {
     }
 }
 
+impl TargetPixel for DumbBufferPixelXrgb888 {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        let mut x = PremultipliedRgbaColor::from(*self);
+        x.blend(color);
+        *self = x.into();
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
+    }
+
+    fn background() -> Self {
+        Self(0)
+    }
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct DumbBufferPixelBgra8888(pub u32);
+
 impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     #[inline]
     fn from(pixel: DumbBufferPixelBgra8888) -> Self {
@@ -108,26 +124,10 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelBgra8888 {
     fn from(pixel: PremultipliedRgbaColor) -> Self {
         Self(
             (pixel.alpha as u32) << 24
-                | ((pixel.red as u32) << 16) // B and R swapped
+                | ((pixel.red as u32) << 16)
                 | ((pixel.green as u32) << 8)
                 | (pixel.blue as u32),
         )
-    }
-}
-
-impl TargetPixel for DumbBufferPixelXrgb888 {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let mut x = PremultipliedRgbaColor::from(*self);
-        x.blend(color);
-        *self = x.into();
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
-    }
-
-    fn background() -> Self {
-        Self(0)
     }
 }
 
