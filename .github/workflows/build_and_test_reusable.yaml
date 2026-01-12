@@ -56,6 +56,18 @@ jobs:
         runs-on: ${{ inputs.os }}
 
         steps:
+            - name: Maximize build space
+              if: runner.os == 'Linux'
+              run: |
+                df -h
+                [ -d /usr/local/lib/android ] && sudo rm -rf /usr/local/lib/android
+                [ -d /usr/share/dotnet ] && sudo rm -rf /usr/share/dotnet
+                # For now, comment out a few of these deletion commands to speed up the runner startup
+                # [ -d /opt/ghc ] && sudo rm -rf /opt/ghc
+                # [ -d /opt/hostedtoolcache/CodeQL ] && sudo rm -rf /opt/hostedtoolcache/CodeQL
+                # Pruning docker images could free up another 3GB
+                # sudo docker image prune --all --force
+                df -h
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
