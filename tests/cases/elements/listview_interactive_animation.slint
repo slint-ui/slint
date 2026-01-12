@@ -27,10 +27,7 @@ export component TestCase inherits Window {
 
 ```rust
 /// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
-pub fn send_mouse_press_and_release<
-    /*X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,*/
-    Component: /*Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + */slint::ComponentHandle,
->(
+pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
     component: &Component,
     pressed_x: f32,
     pressed_y: f32,
