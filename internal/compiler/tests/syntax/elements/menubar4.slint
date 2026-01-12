@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component B inherits Window {
+    callback activate <=> item.activated;
+    MenuBar {
+//  >      <error{Cannot access property or callback 'item.activated' inside of a MenuBar from enclosing component}
+        Menu {
+            title: "hello";
+            item := MenuItem {
+                title: "world";
+            }
+        }
+    }
+}

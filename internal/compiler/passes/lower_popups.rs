@@ -112,10 +112,6 @@ fn lower_popup_window(
         parent_cip.insertion_index -= 1;
     }
 
-    if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
-        popup_window_element.borrow_mut().base_type = window_type.clone();
-    }
-
     let map_close_on_click_value = |b: &BindingExpression| {
         let Expression::BoolLiteral(v) = super::ignore_debug_hooks(&b.expression) else {
             assert!(diag.has_errors());
@@ -213,28 +209,11 @@ fn lower_popup_window(
         popup_mut.geometry_props.as_mut().unwrap().y = dummy2;
     }
 
-    // Throw error when accessing the popup from outside
-    // FIXME:
-    // - the span is the span of the PopupWindow, that's wrong, we should have the span of the reference
-    // - There are other object reference than in the NamedReference
-    // - Maybe this should actually be allowed
-    visit_all_named_references(&parent_component, &mut |nr| {
-        let element = &nr.element();
-        if check_element(element, &weak, diag, popup_window_element) {
-            // just set it to whatever is a valid NamedReference, otherwise we'll panic later
-            *nr = coord_x.clone();
-        }
-    });
-    visit_all_expressions(&parent_component, |exp, _| {
-        exp.visit_recursive_mut(&mut |exp| {
-            if let Expression::ElementReference(element) = exp {
-                let elem = element.upgrade().unwrap();
-                if !Rc::ptr_eq(&elem, popup_window_element) {
-                    check_element(&elem, &weak, diag, popup_window_element);
-                }
-            }
-        });
-    });
+    check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
+
+    if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
+        popup_window_element.borrow_mut().base_type = window_type.clone();
+    }
 
     super::focus_handling::call_focus_on_init(&popup_comp);
 
@@ -251,15 +230,63 @@ fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut Buil
     diag.push_error(format!("The {prop} property only supports constants at the moment"), span);
 }
 
+/// Throw error when accessing the popup from outside
+// FIXME:
+// - the span is the span of the PopupWindow, that's wrong, we should have the span of the reference
+// - There are other object reference than in the NamedReference
+// - Maybe this should actually be allowed
+pub fn check_no_reference_to_popup(
+    popup_window_element: &ElementRc,
+    parent_component: &Rc<Component>,
+    new_weak: &Weak<Component>,
+    random_valid_ref: &NamedReference,
+    diag: &mut BuildDiagnostics,
+) {
+    visit_all_named_references(parent_component, &mut |nr| {
+        let element = &nr.element();
+        if check_element(element, new_weak, diag, popup_window_element, nr.name()) {
+            // just set it to whatever is a valid NamedReference, otherwise we'll panic later
+            *nr = random_valid_ref.clone();
+        }
+    });
+    visit_all_expressions(parent_component, |exp, _| {
+        exp.visit_recursive_mut(&mut |exp| {
+            if let Expression::ElementReference(element) = exp {
+                let elem = element.upgrade().unwrap();
+                if !Rc::ptr_eq(&elem, popup_window_element) {
+                    check_element(&elem, new_weak, diag, popup_window_element, &"");
+                }
+            }
+        });
+    });
+}
+
 fn check_element(
     element: &ElementRc,
     popup_comp: &Weak<Component>,
     diag: &mut BuildDiagnostics,
     popup_window_element: &ElementRc,
+    prop_name: &str,
 ) -> bool {
     if Weak::ptr_eq(&element.borrow().enclosing_component, popup_comp) {
+        let element_name = popup_window_element
+            .borrow()
+            .builtin_type()
+            .map(|t| t.name.clone())
+            .unwrap_or_else(|| SmolStr::new_static("PopupWindow"));
+        let id = element.borrow().id.clone();
+        let what = if prop_name.is_empty() {
+            if id.is_empty() { "something".into() } else { format!("element '{id}'") }
+        } else {
+            if id.is_empty() {
+                format!("property or callback '{prop_name}'")
+            } else {
+                format!("property or callback '{id}.{prop_name}'")
+            }
+        };
+
         diag.push_error(
-            "Cannot access the inside of a PopupWindow from enclosing component".into(),
+            format!("Cannot access {what} inside of a {element_name} from enclosing component"),
             &*popup_window_element.borrow(),
         );
         true
