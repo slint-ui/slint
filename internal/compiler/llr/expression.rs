@@ -14,6 +14,13 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
+pub enum ArrayOutput {
+    Slice,
+    Model,
+    Vector,
+}
+
+#[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
@@ -137,8 +144,8 @@ pub enum Expression {
     Array {
         element_ty: Type,
         values: Vec<Expression>,
-        /// When true, this should be converted to a model. When false, this should stay as a slice
-        as_model: bool,
+        /// Choose what will be generated: a slice, a model, or a vector
+        output: ArrayOutput,
     },
     Struct {
         ty: Rc<crate::langtype::Struct>,
@@ -252,7 +259,7 @@ impl Expression {
             Type::Array(element_ty) => Expression::Array {
                 element_ty: (**element_ty).clone(),
                 values: Vec::new(),
-                as_model: true,
+                output: ArrayOutput::Model,
             },
             Type::Struct(s) => Expression::Struct {
                 ty: s.clone(),

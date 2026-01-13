@@ -17,8 +17,8 @@ use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorCla
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression, ParentScope,
-    TypeResolutionContext as _,
+    self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
+    ParentScope, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
 use crate::typeloader::LibraryInfo;
@@ -2362,7 +2362,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     ) =>
                 {
                     let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, as_model: _ } => values
+                        Expression::Array { element_ty: _, values, output: _ } => values
                             .iter()
                             .map(|path_elem_expr|
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
@@ -2612,17 +2612,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             )
         }
-        Expression::Array { values, element_ty, as_model } => {
+        Expression::Array { values, element_ty, output } => {
             let val = values.iter().map(|e| compile_expression(e, ctx));
-            if *as_model {
-                let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-                quote!(sp::ModelRc::new(
-                    sp::VecModel::<#rust_element_ty>::from(
-                        sp::vec![#(#val as _),*]
-                    )
-                ))
-            } else {
-                quote!(sp::Slice::from_slice(&[#(#val),*]))
+            match output {
+                ArrayOutput::Model => {
+                    let rust_element_ty = rust_primitive_type(element_ty).unwrap();
+                    quote!(sp::ModelRc::new(
+                        sp::VecModel::<#rust_element_ty>::from(
+                            sp::vec![#(#val as _),*]
+                        )
+                    ))
+                }
+                ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
+                ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
             }
         }
         Expression::Struct { ty, values } => {
