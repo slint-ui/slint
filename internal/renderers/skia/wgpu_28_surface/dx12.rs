@@ -114,9 +114,9 @@ pub unsafe fn make_dx12_context(
                 None;
             dx12_queue_raw.GetDevice(&mut dx12_device_old as _).unwrap();
             let dx12_device_old = dx12_device_old.unwrap();
-            let dx12_device = windows_core::Interface::from_raw(
-                windows_core::Interface::into_raw(dx12_device_old),
-            );
+            let dx12_device = windows_core::Interface::from_raw(windows_core::Interface::into_raw(
+                dx12_device_old,
+            ));
 
             let idxgiadapter_3: windows::Win32::Graphics::Dxgi::IDXGIAdapter3 =
                 dx12_adapter.as_raw().clone().into();
