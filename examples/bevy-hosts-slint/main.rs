@@ -271,7 +271,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>, mut images: ResMut<Assets<Image>>) {
     let size = Extent3d {
         width: 800,
         height: 600,
@@ -308,6 +308,32 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // Camera with dark gray clear color so we can see the UI
     commands.spawn((
         Camera2d,
+        Camera {
+            clear_color: ClearColorConfig::None,
+            order: 2,
+            ..default()
+        },
+    ));
+
+    // 3D Scene Setup
+    commands.spawn((
+        SceneRoot(assets.load("Monkey.gltf#Scene0")),
+        Transform::from_scale(Vec3::splat(4.0)),
+    ));
+
+    commands.spawn((
+        PointLight {
+            intensity: 2_000_000.0,
+            range: 100.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(8.0, 16.0, 8.0),
+    ));
+
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
             clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),
             ..default()
