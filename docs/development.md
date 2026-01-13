@@ -65,6 +65,104 @@ See [testing.md](./testing.md)
 
 Some manual tests
 
+## Architecture Overview
+
+This section provides a high-level overview of Slint's internal architecture for developers contributing to the project.
+
+### Compiler Pipeline
+
+The Slint compiler transforms `.slint` source files into target language code through these stages:
+
+```mermaid
+flowchart LR
+    A[".slint Source"] --> B["Lexer"]
+    B --> C["Parser"]
+    C --> D["Object Tree"]
+    D --> E["Passes"]
+    E --> F["LLR"]
+    F --> G["Code Generators"]
+    G --> H["Rust / C++ / etc."]
+```
+
+| Stage | Location | Description |
+|-------|----------|-------------|
+| **Lexer** | `internal/compiler/lexer.rs` | Tokenizes `.slint` source into tokens |
+| **Parser** | `internal/compiler/parser.rs` | Builds syntax tree from tokens |
+| **Object Tree** | `internal/compiler/object_tree.rs` | High-level IR representing components and elements |
+| **Passes** | `internal/compiler/passes/` | ~50 transformation and optimization passes |
+| **LLR** | `internal/compiler/llr/` | Low-Level Representation for code generation |
+| **Generators** | `internal/compiler/generator/` | Target-specific code generators (Rust, C++, etc.) |
+
+### Compiler Passes
+
+Passes are organized into three phases in `internal/compiler/passes.rs`:
+
+**1. Import Passes** (`run_import_passes`)
+- `inject_debug_hooks` - Add debugging support
+- `infer_aliases_types` - Resolve type aliases
+- `resolving` - Resolve expressions, types, and references
+- `purity_check` - Verify function purity
+- `check_expressions` - Validate expression semantics
+
+**2. Transformation Passes** (main `run_passes`)
+- `lower_*` passes - Transform high-level constructs (states, layouts, popups, etc.)
+- `inlining` - Inline components as needed
+- `collect_*` passes - Gather globals, structs, subcomponents
+- `focus_handling` - Set up focus navigation
+- `default_geometry` - Calculate default sizes
+
+**3. Optimization Passes**
+- `const_propagation` - Propagate constant values
+- `remove_aliases` - Eliminate property aliases
+- `remove_unused_properties` - Dead code elimination
+- `deduplicate_property_read` - Optimize property access
+- `optimize_useless_rectangles` - Remove unnecessary elements
+
+### Property Binding & Propagation
+
+Slint's reactive property system is implemented in `internal/core/properties.rs`:
+
+```mermaid
+flowchart TD
+    A["Property A"] -->|"dependency"| B["Binding"]
+    B -->|"evaluates"| C["Property B"]
+    C -->|"notifies"| D["Dependents"]
+    D -->|"re-evaluate"| B
+```
+
+**Key concepts:**
+- **Properties** (`Property<T>`) hold values and track dependencies
+- **Bindings** are expressions that compute property values
+- **Dependency tracking** uses a doubly-linked list (`DependencyListHead`/`DependencyNode`)
+- When a property changes, all dependent bindings are marked dirty and re-evaluated
+
+The binding evaluation is lazy - properties are only recomputed when read after being marked dirty.
+
+### Backend Selection
+
+The backend selector (`internal/backends/selector/`) chooses the platform abstraction at runtime.
+
+**Environment Variable: `SLINT_BACKEND`**
+
+| Value | Description |
+|-------|-------------|
+| `qt` | Qt backend (native look, requires Qt) |
+| `winit` | Winit backend (cross-platform, default on most systems) |
+| `winit-femtovg` | Winit with FemtoVG OpenGL renderer |
+| `winit-skia` | Winit with Skia renderer |
+| `winit-software` | Winit with software renderer |
+| `linuxkms` | Direct Linux KMS/DRM (embedded systems) |
+| `testing` | Testing backend (headless) |
+
+**Default Priority** (when `SLINT_BACKEND` is not set):
+1. **Qt** - if `i-slint-backend-qt` feature is enabled and Qt is available
+2. **Winit** - if `i-slint-backend-winit` feature is enabled
+3. **LinuxKMS** - on Linux with `i-slint-backend-linuxkms` feature
+
+**Verifying the Active Backend:**
+Currently, there's no built-in way to query which backend is active at runtime. Check the features enabled in your `Cargo.toml` and any `SLINT_BACKEND` environment variable.
+
+
 ## Documentation
 
 There are some documentations comments in the code.
