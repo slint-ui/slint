@@ -14,7 +14,6 @@ use bevy::{
         mouse::MouseButtonInput,
         ButtonState,
     },
-    window::CursorMoved,
 };
 use slint::{
     platform::software_renderer::PremultipliedRgbaColor,
@@ -165,7 +164,6 @@ struct CursorState {
 }
 
 fn handle_input(
-    mut cursor_moved: MessageReader<CursorMoved>,
     mut mouse_button: MessageReader<MouseButtonInput>,
     windows: Query<&Window>,
     mut cursor_state: ResMut<CursorState>,
@@ -181,7 +179,7 @@ fn handle_input(
 
     let adapter = &slint_context.adapter;
 
-    let Ok(_window) = windows.single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
 
@@ -201,53 +199,55 @@ fn handle_input(
     let Some((camera, camera_transform)) = camera_query.iter().next() else { return };
     let Some((quad_global, _quad_local)) = quad_query.iter_mut().next() else { return };
 
-    // Handle cursor movement and raycasting
-    for event in cursor_moved.read() {
-        let cursor_position = event.position;
-        
-        // Raycast from camera
-        let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { continue };
-        
-        // Intersect with Quad (Plane)
-        let plane_normal = quad_global.up();
-        let plane_point = quad_global.translation();
-        
-        let denominator = ray.direction.dot(*plane_normal);
-        if denominator.abs() > f32::EPSILON {
-            let t = (plane_point - ray.origin).dot(*plane_normal) / denominator;
-            if t >= 0.0 {
-                let intersection_point = ray.origin + ray.direction * t;
-                
-                // Convert to local coordinates of the quad
-                let local_point = quad_global.affine().inverse().transform_point3(intersection_point);
-                
-                // Quad size is 1.0 x 1.0 (defined in setup)
-                let quad_width = 1.0;
-                let quad_height = 1.0;
-                
-                if local_point.x.abs() <= quad_width / 2.0 && local_point.y.abs() <= quad_height / 2.0 {
-                    // Normalize to 0..1 (UV)
-                    // Local x: -w/2 .. w/2 -> 0 .. 1
-                    let u = (local_point.x + quad_width / 2.0) / quad_width;
-                    // Local y: -h/2 .. h/2 -> 1 .. 0 (Slint is top-down)
-                    let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
+    // Continuous Raycasting
+    if let Some(cursor_position) = window.cursor_position() {
+        let mut hit = false;
+        if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
+            // Intersect with Quad (Plane)
+            let plane_normal = quad_global.up();
+            let plane_point = quad_global.translation();
+            
+            let denominator = ray.direction.dot(*plane_normal);
+            if denominator.abs() > f32::EPSILON {
+                let t = (plane_point - ray.origin).dot(*plane_normal) / denominator;
+                if t >= 0.0 {
+                    let intersection_point = ray.origin + ray.direction * t;
                     
-                    let slint_x = u * texture_width;
-                    let slint_y = v * texture_height;
+                    // Convert to local coordinates of the quad
+                    let local_point = quad_global.affine().inverse().transform_point3(intersection_point);
                     
-                    let position = LogicalPosition::new(
-                        slint_x / scale_factor,
-                        slint_y / scale_factor,
-                    );
-                    cursor_state.position = Some(position);
-                    adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
-                } else {
-                    if cursor_state.position.is_some() {
-                        cursor_state.position = None;
-                        adapter.slint_window.dispatch_event(WindowEvent::PointerExited);
+                    // Quad size is 1.0 x 1.0 (defined in setup)
+                    let quad_width = 1.0;
+                    let quad_height = 1.0;
+                    
+                    if local_point.x.abs() <= quad_width / 2.0 && local_point.y.abs() <= quad_height / 2.0 {
+                        // Normalize to 0..1 (UV)
+                        // Local x: -w/2 .. w/2 -> 0 .. 1
+                        let u = (local_point.x + quad_width / 2.0) / quad_width;
+                        // Local y: -h/2 .. h/2 -> 1 .. 0 (Slint is top-down)
+                        let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
+                        
+                        let slint_x = u * texture_width;
+                        let slint_y = v * texture_height;
+                        
+                        let position = LogicalPosition::new(
+                            slint_x / scale_factor,
+                            slint_y / scale_factor,
+                        );
+                        
+                        // Only dispatch if position changed significantly? 
+                        // Slint filters duplicates efficiently, so it's fine to send.
+                        cursor_state.position = Some(position);
+                        adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
+                        hit = true;
                     }
                 }
             }
+        }
+        
+        if !hit && cursor_state.position.is_some() {
+            cursor_state.position = None;
+            adapter.slint_window.dispatch_event(WindowEvent::PointerExited);
         }
     }
 
