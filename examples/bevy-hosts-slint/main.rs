@@ -58,6 +58,8 @@ impl FromWorld for SlintContext {
     fn from_world(_world: &mut World) -> Self {
         let instance = Demo::new().unwrap();
 
+        instance.window().show().unwrap();
+
         // Get the adapter from thread_local
         let adapter = SLINT_WINDOWS.with(|windows| {
             windows.borrow().first().and_then(|w| w.upgrade())
@@ -204,7 +206,7 @@ fn handle_input(
         let mut hit = false;
         if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
             // Intersect with Quad (Plane)
-            let plane_normal = quad_global.up();
+            let plane_normal = quad_global.back();
             let plane_point = quad_global.translation();
             
             let denominator = ray.direction.dot(*plane_normal);
