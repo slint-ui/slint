@@ -1685,16 +1685,48 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     }
 
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_texture_line(
-                &geometry,
-                PhysicalLength::new(line),
-                &texture,
-                buffer,
-                extra_left_clip,
-                extra_right_clip,
-            );
-        });
+        let x_range = geometry.min_x() as usize..geometry.max_x() as usize;
+
+        let stride = texture.pixel_stride as usize * texture.format.bpp();
+
+        let source_lines = std::iter::repeat(texture.data.chunks(stride)).flatten();
+
+        match texture.format {
+            TexturePixelFormat::Rgb => {
+                for (output_y, source_line) in
+                    (geometry.min_y()..geometry.max_y()).zip(source_lines)
+                {
+                    let output_line = self.buffer.line_slice(output_y as _);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line.as_chunks::<3>().0).flatten();
+
+                    for (pixel, &[r, g, b]) in line_pixels.into_iter().zip(source_values) {
+                        *pixel = TargetPixel::from_rgb(r, g, b);
+                    }
+                }
+            }
+            TexturePixelFormat::AlphaMap => {
+                let color = texture.extra.colorize;
+
+                for (output_y, source_line) in
+                    (geometry.min_y()..geometry.max_y()).zip(source_lines)
+                {
+                    let output_line = self.buffer.line_slice(output_y as _);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line).flatten();
+
+                    for (pixel, &alpha) in line_pixels.into_iter().zip(source_values) {
+                        pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        )));
+                    }
+                }
+            }
+            other => panic!("{:?}", other),
+        }
     }
 }
 
