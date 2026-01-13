@@ -75,7 +75,10 @@ impl FromWorld for SlintContext {
 }
 
 #[derive(Component)]
-struct SlintScene(Handle<Image>);
+struct SlintScene {
+    image: Handle<Image>,
+    material: Handle<StandardMaterial>,
+}
 
 #[derive(Component)]
 struct ColorfulCube;
@@ -191,7 +194,7 @@ fn handle_input(
     let Some(scene) = slint_scenes.iter().next() else {
         return;
     };
-    let Some(image) = images.get(&scene.0) else {
+    let Some(image) = images.get(&scene.image) else {
         return;
     };
 
@@ -239,13 +242,9 @@ fn handle_input(
                             slint_y / scale_factor,
                         );
                         
-                        // Only dispatch if position changed significantly? 
-                        // Slint filters duplicates efficiently, so it's fine to send.
                         cursor_state.position = Some(position);
                         adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
                         hit = true;
-                    } else {
-                        // println!("Outside bounds: local_point={:?}", local_point);
                     }
                 }
             }
@@ -260,23 +259,17 @@ fn handle_input(
     // Handle mouse button events
     for event in mouse_button.read() {
         if let Some(position) = cursor_state.position {
+            let button = match event.button {
+                MouseButton::Left => slint::platform::PointerEventButton::Left,
+                MouseButton::Right => slint::platform::PointerEventButton::Right,
+                MouseButton::Middle => slint::platform::PointerEventButton::Middle,
+                _ => slint::platform::PointerEventButton::Other,
+            };
             match event.state {
                 ButtonState::Pressed => {
-                    let button = match event.button {
-                        MouseButton::Left => slint::platform::PointerEventButton::Left,
-                        MouseButton::Right => slint::platform::PointerEventButton::Right,
-                        MouseButton::Middle => slint::platform::PointerEventButton::Middle,
-                        _ => slint::platform::PointerEventButton::Other,
-                    };
                     adapter.slint_window.dispatch_event(WindowEvent::PointerPressed { button, position });
                 }
                 ButtonState::Released => {
-                    let button = match event.button {
-                        MouseButton::Left => slint::platform::PointerEventButton::Left,
-                        MouseButton::Right => slint::platform::PointerEventButton::Right,
-                        MouseButton::Middle => slint::platform::PointerEventButton::Middle,
-                        _ => slint::platform::PointerEventButton::Other,
-                    };
                     adapter.slint_window.dispatch_event(WindowEvent::PointerReleased { button, position });
                 }
             }
@@ -351,15 +344,18 @@ fn setup(
 
     let image_handle = images.add(image);
 
-    commands.spawn(SlintScene(image_handle.clone()));
-
     // Slint UI Material
     let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(image_handle),
+        base_color_texture: Some(image_handle.clone()),
         unlit: true,
         alpha_mode: AlphaMode::Blend,
         cull_mode: None,
         ..default()
+    });
+
+    commands.spawn(SlintScene {
+        image: image_handle,
+        material: material_handle.clone(),
     });
 
     // Colorful Cube Material
@@ -418,6 +414,7 @@ fn setup(
 
 fn render_slint(
     mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     slint_scenes: Query<&SlintScene>,
     slint_context: Option<NonSend<SlintContext>>,
     windows: Query<&Window>,
@@ -432,7 +429,7 @@ fn render_slint(
     slint::platform::update_timers_and_animations();
 
     for scene in slint_scenes.iter() {
-        let image = images.get_mut(&scene.0).unwrap();
+        let image = images.get_mut(&scene.image).unwrap();
 
         let requested_size = slint::PhysicalSize::new(
             image.texture_descriptor.size.width,
@@ -462,8 +459,9 @@ fn render_slint(
             data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
         }
 
-        // Mark the image as changed so Bevy knows to update the GPU texture
-        image.texture_descriptor.label = Some("SlintUI");
+        // WORKAROUND: Force GPU texture re-upload by triggering change detection on the material
+        // See: https://github.com/bevyengine/bevy/issues/17350
+        materials.get_mut(&scene.material);
     }
 }
 
