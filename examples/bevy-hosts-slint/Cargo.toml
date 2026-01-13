@@ -1,0 +1,24 @@
+[workspace]
+
+[package]
+name = "bevy-hosts-slint"
+version = "0.1.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2024"
+publish = false
+license = "MIT"
+description = "Slint Bevy Integration Example"
+
+[[bin]]
+name = "bevy_example"
+path = "main.rs"
+
+[dependencies]
+slint = { path = "../../../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-systemfonts",  "std", "unstable-wgpu-26"] }
+spin_on = { version = "0.1" }
+bevy = { version = "0.17.0", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_sprite", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded", "reflect_auto_register", "debug"] }
+bevy_image = { version = "0.17.0", features = ["zstd_rust"] }
+bytemuck = "1.13.1"
+smol = { version = "2.0.0" }
+async-compat = { version = "0.2.4" }
+reqwest = { version = "0.12", features = ["stream"] }
