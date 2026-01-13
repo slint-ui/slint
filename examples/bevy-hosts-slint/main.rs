@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, PrimitiveTopology,
         },
     },
     input::{
@@ -271,7 +271,13 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>, mut images: ResMut<Assets<Image>>) {
+fn setup(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let size = Extent3d {
         width: 800,
         height: 600,
@@ -315,10 +321,24 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, mut images: ResMut<As
         },
     ));
 
+    // Colorful Cube behind the UI
+    let cube_mesh = meshes.add(create_colorful_cube());
+    let cube_material = materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        unlit: false,
+        ..default()
+    });
+    
+    commands.spawn((
+        Mesh3d(cube_mesh),
+        MeshMaterial3d(cube_material),
+        Transform::from_xyz(0.0, 0.0, -2.0).with_rotation(Quat::from_rotation_y(0.5)),
+    ));
+
     // 3D Scene Setup
     commands.spawn((
         SceneRoot(assets.load("Monkey.gltf#Scene0")),
-        Transform::from_scale(Vec3::splat(4.0)),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(4.0, 0.0, -5.0)),
     ));
 
     commands.spawn((
@@ -387,4 +407,80 @@ fn render_slint(
             data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
         }
     }
+}
+
+fn create_colorful_cube() -> Mesh {
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, bevy::asset::RenderAssetUsages::default());
+
+    // Vertices for a cube (24 vertices for hard edges)
+    // 6 faces * 4 vertices
+    let raw_vertices = vec![
+        // Front (z+)
+        [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5],
+        // Back (z-)
+        [-0.5, 0.5, -0.5], [0.5, 0.5, -0.5], [0.5, -0.5, -0.5], [-0.5, -0.5, -0.5],
+        // Right (x+)
+        [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [0.5, -0.5, 0.5],
+        // Left (x-)
+        [-0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5],
+        // Top (y+)
+        [-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5],
+        // Bottom (y-)
+        [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5],
+    ];
+
+    let raw_colors = vec![
+        // Front - Red
+        [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0],
+        // Back - Green
+        [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0],
+        // Right - Blue
+        [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0],
+        // Left - Yellow
+        [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0],
+        // Top - Cyan
+        [0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0],
+        // Bottom - Magenta
+        [1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0],
+    ];
+
+    let raw_normals = vec![
+        // Front
+        [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],
+        // Back
+        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+        // Right
+        [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+        // Left
+        [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+        // Top
+        [0.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0],
+        // Bottom
+        [0.0, -1.0, 0.0], [0.0, -1.0, 0.0], [0.0, -1.0, 0.0], [0.0, -1.0, 0.0],
+    ];
+
+    let indices = vec![
+        0, 1, 2, 2, 3, 0, // Front
+        4, 5, 6, 6, 7, 4, // Back
+        8, 9, 10, 10, 11, 8, // Right
+        12, 13, 14, 14, 15, 12, // Left
+        16, 17, 18, 18, 19, 16, // Top
+        20, 21, 22, 22, 23, 20, // Bottom
+    ];
+
+    let mut vertices = Vec::new();
+    let mut colors = Vec::new();
+    let mut normals = Vec::new();
+
+    for i in indices {
+        vertices.push(raw_vertices[i]);
+        colors.push(raw_colors[i]);
+        normals.push(raw_normals[i]);
+    }
+
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+
+    mesh
 }
