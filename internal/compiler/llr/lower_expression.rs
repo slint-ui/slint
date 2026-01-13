@@ -16,6 +16,7 @@ use super::{
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
 use crate::layout::{GridLayoutCell, Orientation, RowColExpr};
+use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
@@ -144,9 +145,11 @@ pub fn lower_expression(
             Callable::Builtin(f) => {
                 let mut arguments =
                     arguments.iter().map(|e| lower_expression(e, ctx)).collect::<Vec<_>>();
+                // https://github.com/rust-lang/rust-clippy/issues/16191
+                #[allow(clippy::collapsible_if)]
                 if *f == BuiltinFunction::Translate {
-                    if let llr_Expression::Array { as_model, .. } = &mut arguments[3] {
-                        *as_model = false;
+                    if let llr_Expression::Array { output, .. } = &mut arguments[3] {
+                        *output = llr_ArrayOutput::Slice;
                     }
                     #[cfg(feature = "bundle-translations")]
                     if let Some(translation_builder) = ctx.state.translation_builder.as_mut() {
@@ -212,7 +215,7 @@ pub fn lower_expression(
         tree_Expression::Array { element_ty, values } => llr_Expression::Array {
             element_ty: element_ty.clone(),
             values: values.iter().map(|e| lower_expression(e, ctx)).collect::<_>(),
-            as_model: true,
+            output: llr_ArrayOutput::Model,
         },
         tree_Expression::Struct { ty, values } => llr_Expression::Struct {
             ty: ty.clone(),
@@ -628,7 +631,7 @@ fn compute_grid_layout_info(
                 llr_Expression::Array {
                     element_ty: Type::Int32,
                     values: Vec::new(),
-                    as_model: false,
+                    output: llr_ArrayOutput::Slice,
                 }
             } else {
                 llr_Expression::ReadLocalVariable {
@@ -713,7 +716,7 @@ fn organize_grid_layout(
         let roles_expr = llr_Expression::Array {
             element_ty: Type::Enumeration(e),
             values: roles,
-            as_model: false,
+            output: llr_ArrayOutput::Slice,
         };
         llr_Expression::ExtraBuiltinFunctionCall {
             function: "organize_dialog_button_layout".into(),
@@ -729,7 +732,7 @@ fn organize_grid_layout(
                     llr_Expression::Array {
                         element_ty: Type::Int32,
                         values: Vec::new(),
-                        as_model: false,
+                        output: llr_ArrayOutput::Slice,
                     }
                 } else {
                     llr_Expression::ReadLocalVariable {
@@ -810,7 +813,7 @@ fn solve_grid_layout(
                     // empty array of repeated indices
                     element_ty: Type::Int32,
                     values: Vec::new(),
-                    as_model: false,
+                    output: llr_ArrayOutput::Slice,
                 },
             ],
             return_ty: Type::LayoutCache,
@@ -868,7 +871,7 @@ fn solve_layout(
                         llr_Expression::Array {
                             element_ty: Type::Int32,
                             values: Vec::new(),
-                            as_model: false,
+                            output: llr_ArrayOutput::Slice,
                         },
                     ],
                     return_ty: Type::LayoutCache,
@@ -926,7 +929,7 @@ fn box_layout_data(
                 })
                 .collect(),
             element_ty,
-            as_model: false,
+            output: llr_ArrayOutput::Slice,
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: None }
     } else {
@@ -972,7 +975,7 @@ fn grid_layout_cell_constraints(
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
-            element_ty: element_ty,
+            element_ty,
             values: layout
                 .elems
                 .iter()
@@ -982,7 +985,7 @@ fn grid_layout_cell_constraints(
                     make_layout_cell_data_struct(layout_info)
                 })
                 .collect(),
-            as_model: false,
+            output: llr_ArrayOutput::Slice,
         };
         GridLayoutCellConstraintsResult { cells, compute_cells: None }
     } else {
@@ -1066,7 +1069,7 @@ fn grid_layout_input_data(
                     )
                 })
                 .collect(),
-            as_model: false,
+            output: llr_ArrayOutput::Slice,
         };
         GridLayoutInputDataResult { cells, compute_cells: None }
     } else {
@@ -1244,7 +1247,7 @@ fn compile_path(
             from: llr_Expression::Array {
                 element_ty: crate::typeregister::path_element_type(),
                 values: elements,
-                as_model: false,
+                output: llr_ArrayOutput::Slice,
             }
             .into(),
             to: Type::PathData,
@@ -1328,7 +1331,7 @@ fn compile_path(
                             llr_Expression::Array {
                                 element_ty: event_type,
                                 values: events,
-                                as_model: false,
+                                output: llr_ArrayOutput::Slice,
                             },
                         ),
                         (
@@ -1336,7 +1339,7 @@ fn compile_path(
                             llr_Expression::Array {
                                 element_ty: point_type,
                                 values: points,
-                                as_model: false,
+                                output: llr_ArrayOutput::Slice,
                             },
                         ),
                     ])
