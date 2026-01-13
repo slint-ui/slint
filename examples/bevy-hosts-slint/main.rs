@@ -156,6 +156,9 @@ impl slint::platform::Platform for SlintBevyPlatform {
 
 
 
+#[derive(Component)]
+struct SlintQuad;
+
 #[derive(Resource, Default)]
 struct CursorState {
     position: Option<LogicalPosition>,
@@ -168,7 +171,8 @@ fn handle_input(
     mut cursor_state: ResMut<CursorState>,
     slint_context: Option<NonSend<SlintContext>>,
     slint_scenes: Query<&SlintScene>,
-    sprites: Query<(&Sprite, &Transform)>,
+    mut quad_query: Query<(&GlobalTransform, &mut Transform), With<SlintQuad>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     images: Res<Assets<Image>>,
 ) {
     let Some(slint_context) = slint_context else {
@@ -177,7 +181,7 @@ fn handle_input(
 
     let adapter = &slint_context.adapter;
 
-    let Ok(window) = windows.single() else {
+    let Ok(_window) = windows.single() else {
         return;
     };
 
@@ -189,75 +193,86 @@ fn handle_input(
         return;
     };
 
-    // Find the sprite displaying the Slint UI to get its transform
-    let mut sprite_transform = None;
-    for (sprite, transform) in sprites.iter() {
-        // Check if this sprite is using our Slint image
-        if &sprite.image == &scene.0 {
-            sprite_transform = Some(transform);
-            break;
-        }
-    }
-
     let texture_width = image.texture_descriptor.size.width as f32;
     let texture_height = image.texture_descriptor.size.height as f32;
-    let window_width = window.width();
-    let window_height = window.height();
     let scale_factor = adapter.scale_factor.get();
 
-    // Handle cursor movement
+    // Get camera and quad
+    let Some((camera, camera_transform)) = camera_query.iter().next() else { return };
+    let Some((quad_global, _quad_local)) = quad_query.iter_mut().next() else { return };
+
+    // Handle cursor movement and raycasting
     for event in cursor_moved.read() {
-        // Convert window coordinates (top-left origin) to Bevy world coordinates (center origin)
-        // Bevy window coordinates: (0,0) at top-left
-        // Bevy world coordinates: (0,0) at center
-        let world_x = event.position.x - (window_width / 2.0);
-        let world_y = (window_height / 2.0) - event.position.y;
-
-        // Get sprite position (default to center if not found)
-        let sprite_pos = sprite_transform.map(|t| t.translation).unwrap_or(Vec3::ZERO);
-
-        // Calculate position relative to sprite
-        let sprite_local_x = world_x - sprite_pos.x + (texture_width / 2.0);
-        let sprite_local_y = world_y - sprite_pos.y + (texture_height / 2.0);
-
-        // Flip Y for Slint (top-left origin)
-        let slint_y = texture_height - sprite_local_y;
-
-        // Convert to logical coordinates
-        let position = LogicalPosition::new(
-            sprite_local_x / scale_factor,
-            slint_y / scale_factor,
-        );
-        cursor_state.position = Some(position);
-
-
-        adapter.slint_window.dispatch_event(WindowEvent::PointerMoved {
-            position,
-        });
+        let cursor_position = event.position;
+        
+        // Raycast from camera
+        let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { continue };
+        
+        // Intersect with Quad (Plane)
+        let plane_normal = quad_global.up();
+        let plane_point = quad_global.translation();
+        
+        let denominator = ray.direction.dot(*plane_normal);
+        if denominator.abs() > f32::EPSILON {
+            let t = (plane_point - ray.origin).dot(*plane_normal) / denominator;
+            if t >= 0.0 {
+                let intersection_point = ray.origin + ray.direction * t;
+                
+                // Convert to local coordinates of the quad
+                let local_point = quad_global.affine().inverse().transform_point3(intersection_point);
+                
+                // Quad size is 1.0 x 1.0 (defined in setup)
+                let quad_width = 1.0;
+                let quad_height = 1.0;
+                
+                if local_point.x.abs() <= quad_width / 2.0 && local_point.y.abs() <= quad_height / 2.0 {
+                    // Normalize to 0..1 (UV)
+                    // Local x: -w/2 .. w/2 -> 0 .. 1
+                    let u = (local_point.x + quad_width / 2.0) / quad_width;
+                    // Local y: -h/2 .. h/2 -> 1 .. 0 (Slint is top-down)
+                    let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
+                    
+                    let slint_x = u * texture_width;
+                    let slint_y = v * texture_height;
+                    
+                    let position = LogicalPosition::new(
+                        slint_x / scale_factor,
+                        slint_y / scale_factor,
+                    );
+                    cursor_state.position = Some(position);
+                    adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
+                } else {
+                    if cursor_state.position.is_some() {
+                        cursor_state.position = None;
+                        adapter.slint_window.dispatch_event(WindowEvent::PointerExited);
+                    }
+                }
+            }
+        }
     }
 
     // Handle mouse button events
     for event in mouse_button.read() {
-        let position = cursor_state.position.unwrap_or_else(|| LogicalPosition::new(0.0, 0.0));
-
-        match event.state {
-            ButtonState::Pressed => {
-                let button = match event.button {
-                    MouseButton::Left => slint::platform::PointerEventButton::Left,
-                    MouseButton::Right => slint::platform::PointerEventButton::Right,
-                    MouseButton::Middle => slint::platform::PointerEventButton::Middle,
-                    _ => slint::platform::PointerEventButton::Other,
-                };
-                adapter.slint_window.dispatch_event(WindowEvent::PointerPressed { button, position });
-            }
-            ButtonState::Released => {
-                let button = match event.button {
-                    MouseButton::Left => slint::platform::PointerEventButton::Left,
-                    MouseButton::Right => slint::platform::PointerEventButton::Right,
-                    MouseButton::Middle => slint::platform::PointerEventButton::Middle,
-                    _ => slint::platform::PointerEventButton::Other,
-                };
-                adapter.slint_window.dispatch_event(WindowEvent::PointerReleased { button, position });
+        if let Some(position) = cursor_state.position {
+            match event.state {
+                ButtonState::Pressed => {
+                    let button = match event.button {
+                        MouseButton::Left => slint::platform::PointerEventButton::Left,
+                        MouseButton::Right => slint::platform::PointerEventButton::Right,
+                        MouseButton::Middle => slint::platform::PointerEventButton::Middle,
+                        _ => slint::platform::PointerEventButton::Other,
+                    };
+                    adapter.slint_window.dispatch_event(WindowEvent::PointerPressed { button, position });
+                }
+                ButtonState::Released => {
+                    let button = match event.button {
+                        MouseButton::Left => slint::platform::PointerEventButton::Left,
+                        MouseButton::Right => slint::platform::PointerEventButton::Right,
+                        MouseButton::Middle => slint::platform::PointerEventButton::Middle,
+                        _ => slint::platform::PointerEventButton::Other,
+                    };
+                    adapter.slint_window.dispatch_event(WindowEvent::PointerReleased { button, position });
+                }
             }
         }
     }
@@ -332,30 +347,26 @@ fn setup(
 
     commands.spawn(SlintScene(image_handle.clone()));
 
-    // Spawn our Slint UI texture sprite
-    commands.spawn((
-        Sprite::from_image(image_handle),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-    ));
+    // Slint UI Material
+    let material_handle = materials.add(StandardMaterial {
+        base_color_texture: Some(image_handle),
+        unlit: true,
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        ..default()
+    });
 
-    // Camera with dark gray clear color so we can see the UI
-    commands.spawn((
-        Camera2d,
-        Camera {
-            clear_color: ClearColorConfig::None,
-            order: 2,
-            ..default()
-        },
-    ));
-
-    // Colorful Cube behind the UI
-    let cube_mesh = meshes.add(create_colorful_cube());
+    // Colorful Cube Material
     let cube_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         unlit: false,
         ..default()
     });
-    
+
+    let cube_mesh = meshes.add(create_colorful_cube());
+    let quad_mesh = meshes.add(Mesh::from(Rectangle::new(1.0, 1.0)));
+
+    // Spawn Cube with Slint UI as child
     commands.spawn((
         Mesh3d(cube_mesh),
         MeshMaterial3d(cube_material),
@@ -363,7 +374,15 @@ fn setup(
             .with_rotation(Quat::from_rotation_y(0.5))
             .with_scale(Vec3::splat(2.0)),
         ColorfulCube,
-    ));
+    )).with_children(|parent| {
+        // Spawn Slint UI on the front face (Z+)
+        parent.spawn((
+            Mesh3d(quad_mesh),
+            MeshMaterial3d(material_handle),
+            Transform::from_xyz(0.0, 0.0, 0.51), // Slightly in front to avoid z-fighting
+            SlintQuad,
+        ));
+    });
 
     // 3D Scene Setup
     commands.spawn((
