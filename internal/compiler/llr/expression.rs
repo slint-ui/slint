@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    GlobalIdx, GridLayoutRepeatedElement, LocalMemberIndex, LocalMemberReference, MemberReference,
-    RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
+    GlobalIdx, GridLayoutRepeatedElement, LayoutRepeatedElement, LocalMemberIndex,
+    LocalMemberReference, MemberReference, RepeatedElementIdx, SubComponentIdx,
+    SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
@@ -187,9 +188,11 @@ pub enum Expression {
         /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
-        repeater_indices: Option<SmolStr>,
-        /// Either an expression of type LayoutItemInfo, or an index to the repeater
-        elements: Vec<Either<Expression, RepeatedElementIdx>>,
+        repeater_indices_var_name: Option<SmolStr>,
+        /// The name for the local variable that contains the repeater steps
+        repeater_steps_var_name: Option<SmolStr>,
+        /// Either an expression of type LayoutItemInfo, or information about the repeater
+        elements: Vec<Either<Expression, LayoutRepeatedElement>>,
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
@@ -199,7 +202,9 @@ pub enum Expression {
         /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
-        repeater_indices: Option<SmolStr>,
+        repeater_indices_var_name: SmolStr,
+        /// The name for the local variable that contains the repeater steps
+        repeater_steps_var_name: SmolStr,
         /// Either an expression of type GridLayoutInputData, or information about the repeated element
         elements: Vec<Either<Expression, GridLayoutRepeatedElement>>,
         sub_expression: Box<Expression>,

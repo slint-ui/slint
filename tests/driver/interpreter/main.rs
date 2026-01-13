@@ -47,6 +47,7 @@ test_example!(example_home_automation, "demos/home-automation/ui/demo.slint");
 test_example!(example_energy_monitor, "demos/energy-monitor/ui/desktop_window.slint");
 test_example!(example_weather, "demos/weather-demo/ui/main.slint");
 test_example!(example_grid_model_rows, "examples/layouts/grid-with-model-in-rows.slint");
+test_example!(example_grid_with_repeated_rows, "examples/layouts/grid-with-repeated-rows.slint");
 test_example!(example_vector_as_grid, "examples/layouts/vector-as-grid.slint");
 test_example!(example_vlayout, "examples/layouts/vertical-layout-with-model.slint");
 
