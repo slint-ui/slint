@@ -65,6 +65,8 @@ impl FromWorld for SlintContext {
             windows.borrow().first().and_then(|w| w.upgrade())
         }).expect("Slint window adapter should be created when Demo is initialized");
 
+        adapter.slint_window.dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+
         Self {
             _instance: instance,
             adapter,
