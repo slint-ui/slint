@@ -4,6 +4,7 @@
 use std::sync::OnceLock;
 use std::time::Instant;
 
+use slint::platform::software_renderer::TargetPixel;
 use slint_safeui_core::pixels::PlatformPixel;
 
 pub const WIDTH_PIXELS: u32 = 640;
@@ -11,14 +12,49 @@ pub const HEIGHT_PIXELS: u32 = 480;
 const PIXEL_STRIDE: u32 = WIDTH_PIXELS;
 
 static SIM_THREAD: OnceLock<std::thread::Thread> = OnceLock::new();
-static PIXEL_CHANNEL: OnceLock<smol::channel::Sender<Vec<PlatformPixel>>> = OnceLock::new();
+static PIXEL_CHANNEL: OnceLock<smol::channel::Sender<Vec<slint::Rgb8Pixel>>> = OnceLock::new();
 
-pub fn init_channel(sender: smol::channel::Sender<Vec<PlatformPixel>>) {
+pub fn init_channel(sender: smol::channel::Sender<Vec<slint::Rgb8Pixel>>) {
     PIXEL_CHANNEL.set(sender).unwrap();
 }
 
 pub fn set_sim_thread(thread: std::thread::Thread) {
     SIM_THREAD.set(thread).unwrap();
+}
+
+fn convert_to_rgb8(pixels: &[PlatformPixel]) -> Vec<slint::Rgb8Pixel> {
+    pixels
+        .iter()
+        .map(|&pixel| {
+            #[cfg(feature = "pixel-bgra8888")]
+            {
+                let v = pixel.0;
+                slint::Rgb8Pixel {
+                    r: ((v >> 16) & 0xFF) as u8,
+                    g: ((v >> 8) & 0xFF) as u8,
+                    b: (v & 0xFF) as u8,
+                }
+            }
+
+            #[cfg(feature = "pixel-rgb565")]
+            {
+                let r5 = ((pixel.0 >> 11) & 0x1F) as u8;
+                let g6 = ((pixel.0 >> 5) & 0x3F) as u8;
+                let b5 = (pixel.0 & 0x1F) as u8;
+
+                slint::Rgb8Pixel {
+                    r: (r5 << 3) | (r5 >> 2),
+                    g: (g6 << 2) | (g6 >> 4),
+                    b: (b5 << 3) | (b5 >> 2),
+                }
+            }
+
+            #[cfg(feature = "pixel-rgb888")]
+            {
+                pixel
+            }
+        })
+        .collect()
 }
 
 #[unsafe(no_mangle)]
@@ -47,10 +83,8 @@ extern "C" fn slint_safeui_platform_render(
         pixel_stride: u32,
     ),
 ) {
-    use slint::platform::software_renderer::TargetPixel;
-
-    let mut pixels = Vec::new();
-    pixels.resize(PIXEL_STRIDE as usize * HEIGHT_PIXELS as usize, PlatformPixel::background());
+    let mut pixels =
+        vec![PlatformPixel::background(); PIXEL_STRIDE as usize * HEIGHT_PIXELS as usize];
     let pixel_bytes: &mut [u8] = bytemuck::cast_slice_mut(&mut pixels);
     render_fn(
         user_data,
@@ -59,7 +93,8 @@ extern "C" fn slint_safeui_platform_render(
         PIXEL_STRIDE,
     );
 
-    PIXEL_CHANNEL.get().unwrap().send_blocking(pixels).unwrap();
+    let display_pixels = convert_to_rgb8(&pixels);
+    PIXEL_CHANNEL.get().unwrap().send_blocking(display_pixels).unwrap();
 }
 
 #[unsafe(no_mangle)]
