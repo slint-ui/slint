@@ -7,13 +7,10 @@ use alloc::rc::Rc;
 //use alloc::vec::Vec;
 //use core::cell::RefCell;
 
-use crate::pixels::PlatformPixel;
-use slint::platform::software_renderer::MinimalSoftwareWindow;
-
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 struct Platform {
-    window: Rc<MinimalSoftwareWindow>,
+    window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
     //event_queue: Queue,
 }
 
@@ -50,7 +47,7 @@ impl slint::platform::Platform for Platform {
             //            }
 
             self.window.draw_if_needed(|renderer| {
-                render_wrapper::<PlatformPixel, _>(&|buffer, pixel_stride| {
+                render_wrapper::<crate::pixels::PlatformPixel, _>(&|buffer, pixel_stride| {
                     renderer.render(buffer, pixel_stride);
                 })
             });

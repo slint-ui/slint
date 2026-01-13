@@ -35,12 +35,8 @@ fn main() {
                 let mut pixel_buf: slint::SharedPixelBuffer<slint::Rgb8Pixel> =
                     slint::SharedPixelBuffer::new(WIDTH_PIXELS, HEIGHT_PIXELS);
                 let pixel_dest = pixel_buf.make_mut_slice();
-                for i in 0..(WIDTH_PIXELS * HEIGHT_PIXELS) as usize {
-                    let src = slint::platform::software_renderer::PremultipliedRgbaColor::from(
-                        source_pixels[i],
-                    );
-                    pixel_dest[i] = slint::Rgb8Pixel { r: src.red, g: src.green, b: src.blue };
-                }
+                pixel_dest.copy_from_slice(&source_pixels);
+
                 window.set_image(slint::Image::from_rgb8(pixel_buf));
             }
         }
