@@ -74,6 +74,9 @@ impl FromWorld for SlintContext {
 #[derive(Component)]
 struct SlintScene(Handle<Image>);
 
+#[derive(Component)]
+struct ColorfulCube;
+
 struct BevyWindowAdapter {
     size: Cell<slint::PhysicalSize>,
     scale_factor: Cell<f32>,
@@ -266,9 +269,33 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<CursorState>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (handle_input, render_slint).chain())
+        .add_systems(Update, (handle_input, render_slint, rotate_cube).chain())
         .init_non_send_resource::<SlintContext>()
         .run();
+}
+
+fn rotate_cube(
+    time: Res<Time>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Transform, With<ColorfulCube>>,
+) {
+    for mut transform in query.iter_mut() {
+        let speed = 2.0;
+        let delta = speed * time.delta_secs();
+
+        if keyboard.pressed(KeyCode::ArrowUp) {
+            transform.rotate_x(delta);
+        }
+        if keyboard.pressed(KeyCode::ArrowDown) {
+            transform.rotate_x(-delta);
+        }
+        if keyboard.pressed(KeyCode::ArrowLeft) {
+            transform.rotate_y(delta);
+        }
+        if keyboard.pressed(KeyCode::ArrowRight) {
+            transform.rotate_y(-delta);
+        }
+    }
 }
 
 fn setup(
@@ -335,6 +362,7 @@ fn setup(
         Transform::from_xyz(0.0, 0.0, -2.0)
             .with_rotation(Quat::from_rotation_y(0.5))
             .with_scale(Vec3::splat(2.0)),
+        ColorfulCube,
     ));
 
     // 3D Scene Setup
