@@ -44,7 +44,6 @@ struct DemoResource(Demo);
 impl FromWorld for DemoResource {
     fn from_world(_world: &mut World) -> Self {
         let instance = Demo::new().unwrap();
-        instance.show().unwrap();
         Self(instance)
     }
 }
@@ -72,13 +71,13 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
         &self.software_renderer
     }
 
-    fn set_visible(&self, visible: bool) -> Result<(), slint::PlatformError> {
-        if visible {
-            self.slint_window
-                .dispatch_event(slint::platform::WindowEvent::Resized {
-                    size: self.size.get().to_logical(1.),
-                })
-        }
+    fn set_visible(&self, _visible: bool) -> Result<(), slint::PlatformError> {
+        // We don't create a native window - rendering happens to texture
+        // Dispatch initial resize event to set up the window size
+        self.slint_window
+            .dispatch_event(slint::platform::WindowEvent::Resized {
+                size: self.size.get().to_logical(1.),
+            });
         Ok(())
     }
 
@@ -89,11 +88,18 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
 
 impl BevyWindowAdapter {
     fn new() -> Rc<Self> {
-        Rc::new_cyclic(|self_weak: &Weak<Self>| Self {
-            size: Cell::new(slint::PhysicalSize::new(256, 256)),
-            slint_window: slint::Window::new(self_weak.clone()),
-            software_renderer: Default::default(),
-            needs_redraw: Cell::new(true),
+        Rc::new_cyclic(|self_weak: &Weak<Self>| {
+            let adapter = Self {
+                size: Cell::new(slint::PhysicalSize::new(256, 256)),
+                slint_window: slint::Window::new(self_weak.clone()),
+                software_renderer: Default::default(),
+                needs_redraw: Cell::new(true),
+            };
+            // Dispatch initial resize to initialize the window
+            adapter.slint_window.dispatch_event(slint::platform::WindowEvent::Resized {
+                size: adapter.size.get().to_logical(1.),
+            });
+            adapter
         })
     }
 
