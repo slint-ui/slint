@@ -759,8 +759,10 @@ pub enum Expression {
         /// When set, this is the index within a repeater, and the index is then the location of another offset.
         /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index * entries_per_item]`
         repeater_index: Option<Box<Expression>>,
-        /// The number of entries per item (2 for LayoutCache, 4 for GridLayoutInputData)
+        /// The number of entries to skip per repeater iteration.
         /// This is only used when repeater_index is set
+        /// This is `base_entries_per_item * step` where base is 2 for LayoutCache or 4 for GridLayoutInputData,
+        /// and step is the number of children in a repeated Row (1 for non-Row elements)
         entries_per_item: usize,
     },
 

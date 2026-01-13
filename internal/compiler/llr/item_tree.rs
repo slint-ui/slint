@@ -28,14 +28,31 @@ pub struct ItemInstanceIdx(usize);
 pub struct RepeatedElementIdx(usize);
 
 #[derive(Debug, Clone)]
+pub struct LayoutRepeatedElement {
+    pub repeater_index: RepeatedElementIdx,
+    /// Children count when the repeater contributes multiple children
+    /// (e.g. repeated rows). `None` means a single child per repeater entry.
+    pub repeated_children_count: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
 pub struct GridLayoutRepeatedElement {
     pub new_row: bool,
     pub repeater_index: RepeatedElementIdx,
+    pub repeated_children_count: Option<usize>,
 }
 
 impl PropertyIdx {
     pub const REPEATER_DATA: Self = Self(0);
     pub const REPEATER_INDEX: Self = Self(1);
+}
+
+/// Layout info (constraints) for a direct child of a repeated Row in a GridLayout.
+/// Used to generate `layout_item_info` which returns layout info for a specific child.
+#[derive(Debug, Clone)]
+pub struct GridLayoutChildLayoutInfo {
+    pub layout_info_h: MutExpression,
+    pub layout_info_v: MutExpression,
 }
 
 #[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
@@ -365,6 +382,12 @@ pub struct SubComponent {
     pub layout_info_v: MutExpression,
     pub child_of_layout: bool,
     pub grid_layout_input_for_repeated: Option<MutExpression>,
+    /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
+    /// needs to be able to return layout info for individual children
+    pub is_repeated_row: bool,
+    /// The list of direct grid layout children for a repeated Row.
+    /// Used to generate `layout_item_info` which returns layout info for a specific child.
+    pub grid_layout_children: Vec<GridLayoutChildLayoutInfo>,
 
     /// Maps (item_index, property) to an expression
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,

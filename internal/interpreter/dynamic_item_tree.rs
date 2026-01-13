@@ -171,7 +171,37 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         LogicalLength::new(self.borrow().as_ref().layout_info(Orientation::Horizontal).min)
     }
 
-    fn layout_item_info(self: Pin<&Self>, o: Orientation) -> LayoutItemInfo {
+    fn layout_item_info(
+        self: Pin<&Self>,
+        o: Orientation,
+        child_index: Option<usize>,
+    ) -> LayoutItemInfo {
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+
+        if let Some(index) = child_index {
+            let instance_ref = s.borrow_instance();
+            let root_element = &s.description.original.root_element;
+
+            let children = root_element.borrow().children.clone();
+            if let Some(child_elem) = children.get(index) {
+                // Get the layout info for this child element
+                let layout_info = crate::eval_layout::get_layout_info(
+                    child_elem,
+                    instance_ref,
+                    &instance_ref.window_adapter(),
+                    crate::eval_layout::from_runtime(o),
+                );
+                return LayoutItemInfo { constraint: layout_info };
+            } else {
+                panic!(
+                    "child_index {} out of bounds for repeated item {}",
+                    index,
+                    s.description().id()
+                );
+            }
+        }
+
         LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
     }
 }

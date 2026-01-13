@@ -482,6 +482,7 @@ jobs:
                             --skip example_fancy_switches \
                             --skip example_sprite_sheet \
                             --skip example_grid_model_rows \
+                            --skip example_grid_with_repeated_rows \
                             --skip example_vector_as_grid \
                             --skip example_vlayout \
                             --skip test_interpreter_elements_path_fit \
