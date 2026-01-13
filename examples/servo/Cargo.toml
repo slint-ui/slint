@@ -57,7 +57,7 @@ slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"
 slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-28"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
-metal = "0.32.0"
+metal = "0.33.0"
 objc2 = "0.6.3"
 objc2-io-surface = "0.3.2"
 objc2-foundation = "0.3.2"

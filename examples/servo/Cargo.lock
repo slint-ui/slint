@@ -7943,7 +7943,7 @@ dependencies = [
  "image",
  "libservo",
  "log",
- "metal 0.32.0",
+ "metal 0.33.0",
  "objc2 0.6.3",
  "objc2-foundation 0.3.2",
  "objc2-io-surface",

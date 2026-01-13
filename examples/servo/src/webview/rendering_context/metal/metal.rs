@@ -86,7 +86,7 @@ impl WPGPUTextureFromMetal {
                 .as_hal::<wgpu::wgc::api::Metal>()
                 .expect("WGPU device is not using Metal backend");
 
-            let device_raw = metal_device.raw_device().lock().clone();
+            let device_raw = metal_device.raw_device().clone();
 
             let descriptor = MTLTextureDescriptor::new();
             descriptor.setDepth(1);
@@ -244,6 +244,7 @@ impl WPGPUTextureFromMetal {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     },
                 })],
+                multiview_mask: None,
             });
 
             render_pass.set_pipeline(&self.texture_importer.render_pipeline);

@@ -535,7 +535,7 @@ jobs:
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v6
             - run: apt-get update && apt-get install -y libfontconfig1-dev
-            - uses: dtolnay/rust-toolchain@stable
+            - uses: dtolnay/rust-toolchain@1.92
             - uses: esp-rs/xtensa-toolchain@v1.6
               with:
                   default: true
