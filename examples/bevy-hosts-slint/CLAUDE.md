@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Slint + Bevy integration example demonstrating how to embed Slint UI components within a Bevy game engine application. The example renders a Slint UI (with buttons, text, sliders) as a texture in a Bevy scene alongside 3D content.
+This is a working Slint + Bevy integration example demonstrating how to embed Slint UI components within a Bevy game engine application. The example renders a Slint UI (with buttons, text, sliders) as a texture in a Bevy scene alongside 3D content.
 
-This example is part of the larger Slint repository located at `/Users/till/Code/Rust/slint/slint`.
+This example is part of the larger Slint repository and has been updated to work with:
+- Bevy 0.17 (Required Components pattern)
+- Current Slint API (platform adapter pattern)
 
 ## Key Architecture
 
@@ -94,6 +96,15 @@ This example has been updated for Bevy 0.17, which introduced several breaking c
 - **Sprite API**: Changed to `Sprite::from_image(handle)` instead of separate `Sprite` and `Handle<Image>` components
 - **Image Data**: `image.data` is now `Option<Vec<u8>>` instead of `Vec<u8>`
 - **Removed**: `close_on_esc` utility function (was in `bevy::window`)
+
+### Slint API Updates
+
+The example has been updated to work with current Slint platform adapter patterns:
+
+- Window adapter initialization moved out of `Rc::new_cyclic` closure to avoid panics
+- Initial `Resized` event dispatched in `create_window_adapter` after Rc is fully constructed
+- No explicit `.show()` call needed - window is initialized automatically
+- `set_visible` implementation simplified to always dispatch resize event
 
 ## File Structure
 
