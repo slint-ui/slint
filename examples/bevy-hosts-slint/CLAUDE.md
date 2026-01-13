@@ -80,8 +80,9 @@ cargo run --release
 - **slint**: Uses local path dependency (`../../../slint/api/rs/slint`) with software renderer
   - Features: `compat-1-2`, `renderer-software`, `software-renderer-systemfonts`, `std`, `unstable-wgpu-26`
 - **bevy**: Game engine (0.17.0) with minimal feature set for 2D/3D rendering
-  - Required features: `bevy_core_pipeline`, `bevy_pbr`, `bevy_sprite`, `bevy_window`, `bevy_scene`, `bevy_gltf`
+  - Required features: `bevy_core_pipeline`, `bevy_pbr`, `bevy_sprite`, `bevy_winit`, `bevy_window`, `bevy_scene`, `bevy_gltf`
   - Note: `bevy_sprite` is essential for rendering the Slint UI as a 2D sprite
+  - Note: `bevy_winit` is **required** to create an actual OS window (without it, app runs headless)
 - **bytemuck**: For safe transmutation of pixel buffer to byte slice
 - **spin_on**, **smol**, **async-compat**: For async/event loop integration
 - **reqwest**: HTTP client (likely for asset loading)
