@@ -89,7 +89,7 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
 impl BevyWindowAdapter {
     fn new() -> Rc<Self> {
         Rc::new_cyclic(|self_weak: &Weak<Self>| Self {
-            size: Cell::new(slint::PhysicalSize::new(256, 256)),
+            size: Cell::new(slint::PhysicalSize::new(800, 600)),
             slint_window: slint::Window::new(self_weak.clone()),
             software_renderer: Default::default(),
             needs_redraw: Cell::new(true),
@@ -149,8 +149,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, mut images: ResMut<As
     ));
 
     let size = Extent3d {
-        width: 128,
-        height: 128,
+        width: 800,
+        height: 600,
         ..default()
     };
 
@@ -182,6 +182,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, mut images: ResMut<As
 
     commands.spawn((
         Sprite::from_image(image_handle),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
     commands.spawn((
@@ -224,18 +225,20 @@ fn render_slint(
             let width = requested_size.width;
             let height = requested_size.height;
 
-            if adapter.needs_redraw.take() {
-                let mut buffer =
-                    vec![PremultipliedRgbaColor::default(); width as usize * height as usize];
-                adapter.software_renderer.render(
-                    buffer.as_mut_slice(),
-                    image.texture_descriptor.size.width as usize,
-                );
+            // Always render, not just when needs_redraw is set
+            let mut buffer =
+                vec![PremultipliedRgbaColor::default(); width as usize * height as usize];
+            adapter.software_renderer.render(
+                buffer.as_mut_slice(),
+                image.texture_descriptor.size.width as usize,
+            );
 
-                if let Some(data) = image.data.as_mut() {
-                    data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
-                }                
+            if let Some(data) = image.data.as_mut() {
+                data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
             }
+
+            // Request redraw for next frame
+            adapter.needs_redraw.set(true);
         }
     }
 }
