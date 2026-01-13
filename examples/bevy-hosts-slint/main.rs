@@ -244,6 +244,8 @@ fn handle_input(
                         cursor_state.position = Some(position);
                         adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
                         hit = true;
+                    } else {
+                        // println!("Outside bounds: local_point={:?}", local_point);
                     }
                 }
             }
@@ -459,6 +461,9 @@ fn render_slint(
         if let Some(data) = image.data.as_mut() {
             data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
         }
+
+        // Mark the image as changed so Bevy knows to update the GPU texture
+        image.texture_descriptor.label = Some("SlintUI");
     }
 }
 
