@@ -88,18 +88,11 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
 
 impl BevyWindowAdapter {
     fn new() -> Rc<Self> {
-        Rc::new_cyclic(|self_weak: &Weak<Self>| {
-            let adapter = Self {
-                size: Cell::new(slint::PhysicalSize::new(256, 256)),
-                slint_window: slint::Window::new(self_weak.clone()),
-                software_renderer: Default::default(),
-                needs_redraw: Cell::new(true),
-            };
-            // Dispatch initial resize to initialize the window
-            adapter.slint_window.dispatch_event(slint::platform::WindowEvent::Resized {
-                size: adapter.size.get().to_logical(1.),
-            });
-            adapter
+        Rc::new_cyclic(|self_weak: &Weak<Self>| Self {
+            size: Cell::new(slint::PhysicalSize::new(256, 256)),
+            slint_window: slint::Window::new(self_weak.clone()),
+            software_renderer: Default::default(),
+            needs_redraw: Cell::new(true),
         })
     }
 
@@ -123,6 +116,10 @@ impl slint::platform::Platform for SlintBevyPlatform {
         &self,
     ) -> Result<std::rc::Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         let adapter = BevyWindowAdapter::new();
+        // Dispatch initial resize event to initialize the window
+        adapter.slint_window.dispatch_event(slint::platform::WindowEvent::Resized {
+            size: adapter.size.get().to_logical(1.),
+        });
         SLINT_WINDOWS.with(|windows| windows.borrow_mut().push(Rc::downgrade(&adapter)));
         Ok(adapter)
     }
