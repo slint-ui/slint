@@ -18,7 +18,12 @@ fn generated_file_for_test<'a>(
     // This allows splitting the test cases into multiple test binaries, which allows
     // parallelizing the compilation.
     if base.map(|path| case_root_dir.join(path).is_dir()).unwrap_or_default() {
-        let base = base.unwrap().to_owned();
+        let mut base = base.unwrap().to_owned();
+        if base.starts_with("widgets") {
+            if let Some(style) = testcase.requested_style {
+                base = PathBuf::from(format!("{}-{}", base.display(), style));
+            }
+        }
 
         let mut generated_file = base.clone();
         assert!(generated_file.set_extension("rs"));
@@ -49,6 +54,12 @@ fn main() -> std::io::Result<()> {
     )?);
 
     let mut generated_files = HashMap::new();
+    // The widgets-qt path may or may not be generated, depending on the environment, but
+    // we always need to at least create the file as otherwise the widgets-qt.rs test file will
+    // fail to compile.
+    let widgets_qt_path =
+        PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join("widgets-qt.rs");
+    generated_files.insert(widgets_qt_path.clone(), BufWriter::new(File::create(widgets_qt_path)?));
 
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         let generated_file =

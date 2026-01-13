@@ -7,4 +7,4 @@
 #![deny(rust_2024_compatibility)]
 
 #[cfg(test)]
-include!(concat!(env!("OUT_DIR"), "/widgets.rs"));
+include!(concat!(env!("OUT_DIR"), "/widgets-fluent.rs"));
