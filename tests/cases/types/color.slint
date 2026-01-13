@@ -53,6 +53,14 @@ Test := Rectangle {
     property<float> bwood_sat: 0.39189186692237854;
     property<float> bwood_bri: 0.8705882430076599;
 
+    // oklch color creation
+    property<color> oklch1: oklch(0.5, 0.1, 180);
+    property<color> oklch2: oklch(0.7, 0.15, 90, 0.8);
+
+    // oklch conversion - approximate values for known colors
+    // Red in oklch: L≈0.63, C≈0.26, H≈29
+    // Blue in oklch: L≈0.45, C≈0.31, H≈264
+
     out property <bool> test_rgb: Colors.blue.blue == 255 && Colors.blue.red == 0 && Colors.blue.green == 0 && Colors.blue.alpha == 255
         && Colors.rgb(45, 12, 78).red == 45 && Colors.rgb(45, 12, 78).green == 12 && Colors.rgba(45, 12, 78, 12/255).alpha == 12 && Colors.rgba(145, 112, 178, 85%).alpha == floor(85% * 255)
         && #abc.green == (11 * 16 + 11) && #abcd.alpha == (13 * 16 + 13) && #abcdef.red == (10 * 16 + 11);
@@ -64,8 +72,22 @@ Test := Rectangle {
     out property <bool> test_hsv_sat: b1.to-hsv().saturation == b1sat && r1.to-hsv().saturation == r1sat && y1.to-hsv().saturation == y1sat && gr1.to-hsv().saturation == gr1sat && bwood.to-hsv().saturation == bwood_sat;
     out property <bool> test_hsv_bri: b1.to-hsv().value == b1bri && r1.to-hsv().value == r1bri && y1.to-hsv().value == y1bri && gr1.to-hsv().value == gr1bri && bwood.to-hsv().value == bwood_bri;
 
+    // oklch tests - test that to-oklch() returns reasonable values
+    // Red: L should be around 0.6, chroma > 0.2, hue around 29
+    out property <bool> test_oklch_red: r1.to-oklch().lightness > 0.5 && r1.to-oklch().lightness < 0.7
+        && r1.to-oklch().chroma > 0.2 && r1.to-oklch().hue > 20 && r1.to-oklch().hue < 40;
+    // Blue: L should be around 0.45, chroma > 0.2, hue around 264
+    out property <bool> test_oklch_blue: b1.to-oklch().lightness > 0.4 && b1.to-oklch().lightness < 0.5
+        && b1.to-oklch().chroma > 0.2 && b1.to-oklch().hue > 250 && b1.to-oklch().hue < 280;
+    // White: L should be ~1, chroma should be ~0
+    out property <bool> test_oklch_white: Colors.white.to-oklch().lightness > 0.99 && Colors.white.to-oklch().chroma < 0.01;
+    // Test oklch() function creates valid colors
+    out property <bool> test_oklch_create: oklch1.to-oklch().lightness > 0.4 && oklch1.to-oklch().lightness < 0.6
+        && oklch2.to-oklch().alpha > 0.79 && oklch2.to-oklch().alpha < 0.81;
+
     property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
-        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap;
+        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap
+        && test_oklch_red && test_oklch_blue && test_oklch_white && test_oklch_create;
 }
 
 /*

@@ -49,6 +49,20 @@ struct HsvaColor
     float alpha;
 };
 
+/// OklchColor stores the lightness, chroma, hue, and alpha components of a color in the Oklch
+/// color space (a perceptually uniform color space).
+struct OklchColor
+{
+    /// The lightness component, between 0 (black) and 1 (white).
+    float lightness;
+    /// The chroma component (saturation), typically between 0 (grayscale) and ~0.4 (vivid).
+    float chroma;
+    /// The hue component in degrees between 0 and 360.
+    float hue;
+    /// The alpha component, between 0 and 1.
+    float alpha;
+};
+
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 class Color
@@ -152,6 +166,28 @@ public:
         cbindgen_private::types::slint_color_to_hsva(&inner, &hsv.hue, &hsv.saturation, &hsv.value,
                                                      &hsv.alpha);
         return hsv;
+    }
+
+    /// Construct a color from the Oklch color space components.
+    /// Oklch is a perceptually uniform color space.
+    /// The lightness is expected to be in the range between 0 and 1,
+    /// chroma typically between 0 and 0.4, hue between 0 and 360,
+    /// and alpha between 0 and 1.
+    [[nodiscard]] static Color from_oklch(float l, float c, float h, float a)
+    {
+        Color ret;
+        ret.inner = cbindgen_private::types::slint_color_from_oklch(l, c, h, a);
+        return ret;
+    }
+
+    /// Convert this color to the Oklch color space.
+    /// @returns a new OklchColor.
+    [[nodiscard]] OklchColor to_oklch() const
+    {
+        OklchColor oklch {};
+        cbindgen_private::types::slint_color_to_oklch(&inner, &oklch.lightness, &oklch.chroma,
+                                                       &oklch.hue, &oklch.alpha);
+        return oklch;
     }
 
     /// Returns the red channel of the color as u8 in the range 0..255.

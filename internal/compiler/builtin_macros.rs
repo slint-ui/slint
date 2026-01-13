@@ -87,6 +87,7 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag),
     }
 }
 
@@ -284,6 +285,30 @@ fn hsv_macro(
     }
     Expression::FunctionCall {
         function: BuiltinFunction::Hsv.into(),
+        arguments,
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn oklch_macro(
+    node: &dyn Spanned,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() < 3 || args.len() > 4 {
+        diag.push_error(
+            format!("This function needs 3 or 4 arguments, but {} were provided", args.len()),
+            node,
+        );
+        return Expression::Invalid;
+    }
+    let mut arguments: Vec<_> =
+        args.into_iter().map(|(expr, n)| expr.maybe_convert_to(Type::Float32, &n, diag)).collect();
+    if arguments.len() < 4 {
+        arguments.push(Expression::NumberLiteral(1., Unit::None))
+    }
+    Expression::FunctionCall {
+        function: BuiltinFunction::Oklch.into(),
         arguments,
         source_location: Some(node.to_source_location()),
     }

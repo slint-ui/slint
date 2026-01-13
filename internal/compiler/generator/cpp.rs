@@ -3979,6 +3979,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorHsvaStruct => {
             format!("{}.to_hsva()", a.next().unwrap())
         }
+        BuiltinFunction::ColorOklchStruct => {
+            format!("{}.to_oklch()", a.next().unwrap())
+        }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }
@@ -4014,6 +4017,14 @@ fn compile_builtin_function_call(
                 s = a.next().unwrap(),
                 v = a.next().unwrap(),
                 a = a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::Oklch => {
+            format!("slint::Color::from_oklch(std::clamp(static_cast<float>({l}), 0.f, 1.f), std::max(static_cast<float>({c}), 0.f), static_cast<float>({h}), std::clamp(static_cast<float>({alpha}), 0.f, 1.f))",
+                l = a.next().unwrap(),
+                c = a.next().unwrap(),
+                h = a.next().unwrap(),
+                alpha = a.next().unwrap(),
             )
         }
         BuiltinFunction::ColorScheme => {

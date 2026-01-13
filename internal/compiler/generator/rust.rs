@@ -3230,6 +3230,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
+        BuiltinFunction::ColorOklchStruct => quote!( #(#a)*.to_oklch()),
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();
@@ -3283,6 +3284,16 @@ fn compile_builtin_function_call(
                 let v: f32 = (#v as f32).max(0.).min(1.) as f32;
                 let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
                 sp::Color::from_hsva(#h as f32, s, v, a)
+            })
+        }
+        BuiltinFunction::Oklch => {
+            let (l, c, h, alpha) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!({
+                let l: f32 = (#l as f32).max(0.).min(1.) as f32;
+                let c: f32 = (#c as f32).max(0.) as f32;
+                let alpha: f32 = (#alpha as f32).max(0.).min(1.) as f32;
+                sp::Color::from_oklch(l, c, #h as f32, alpha)
             })
         }
         BuiltinFunction::ColorScheme => {
