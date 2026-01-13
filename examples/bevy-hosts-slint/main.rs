@@ -16,7 +16,6 @@ use bevy::{
     },
     window::CursorMoved,
 };
-use bevy::prelude::ClearColorConfig;
 use slint::{
     platform::software_renderer::PremultipliedRgbaColor,
     PhysicalSize,
@@ -51,45 +50,24 @@ export component Demo inherits Window {
 }
 }
 
-#[allow(dead_code)]
-struct DemoResource(Demo);
+struct SlintContext {
+    _instance: Demo,
+    adapter: Rc<BevyWindowAdapter>,
+}
 
-impl FromWorld for DemoResource {
-    fn from_world(world: &mut World) -> Self {
+impl FromWorld for SlintContext {
+    fn from_world(_world: &mut World) -> Self {
         let instance = Demo::new().unwrap();
-        // Access the window to ensure it's created and get the adapter
-        let window = instance.window();
 
-        // Make the window visible - this activates event processing
-        window.show().unwrap();
-
-        // Get the adapter from thread_local and store it in a Bevy resource
+        // Get the adapter from thread_local
         let adapter = SLINT_WINDOWS.with(|windows| {
             windows.borrow().first().and_then(|w| w.upgrade())
-        });
+        }).expect("Slint window adapter should be created when Demo is initialized");
 
-        if let Some(adapter) = adapter {
-            // Get the actual scale factor from the Bevy window if available
-            let mut bevy_window_query = world.query::<&Window>();
-            if let Some(bevy_window) = bevy_window_query.iter(world).next() {
-                let scale_factor = bevy_window.scale_factor();
-                adapter.scale_factor.set(scale_factor);
-                // Dispatch scale factor changed event
-                adapter.slint_window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
-                    scale_factor,
-                });
-                // Also dispatch resize with correct scale
-                adapter.slint_window.dispatch_event(slint::platform::WindowEvent::Resized {
-                    size: adapter.size.get().to_logical(scale_factor),
-                });
-                // Make the window active so it can receive input
-                adapter.slint_window.dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
-            }
-
-            world.insert_non_send_resource(SlintAdapter(adapter));
+        Self {
+            _instance: instance,
+            adapter,
         }
-
-        Self(instance)
     }
 }
 
@@ -101,7 +79,6 @@ struct BevyWindowAdapter {
     scale_factor: Cell<f32>,
     slint_window: slint::Window,
     software_renderer: slint::platform::software_renderer::SoftwareRenderer,
-    needs_redraw: Cell<bool>,
 }
 
 impl slint::platform::WindowAdapter for BevyWindowAdapter {
@@ -118,18 +95,10 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
     }
 
     fn set_visible(&self, _visible: bool) -> Result<(), slint::PlatformError> {
-        // We don't create a native window - rendering happens to texture
-        // Dispatch initial resize event to set up the window size
-        self.slint_window
-            .dispatch_event(slint::platform::WindowEvent::Resized {
-                size: self.size.get().to_logical(self.scale_factor.get()),
-            });
         Ok(())
     }
 
-    fn request_redraw(&self) {
-        self.needs_redraw.set(true);
-    }
+    fn request_redraw(&self) {}
 }
 
 impl BevyWindowAdapter {
@@ -139,7 +108,6 @@ impl BevyWindowAdapter {
             scale_factor: Cell::new(2.0), // Default to 2.0 for Retina displays
             slint_window: slint::Window::new(self_weak.clone()),
             software_renderer: Default::default(),
-            needs_redraw: Cell::new(true),
         })
     }
 
@@ -160,8 +128,6 @@ impl BevyWindowAdapter {
 thread_local! {
     static SLINT_WINDOWS: RefCell<Vec<Weak<BevyWindowAdapter>>> = RefCell::new(Vec::new());
 }
-
-struct SlintAdapter(Rc<BevyWindowAdapter>);
 
 struct SlintBevyPlatform {}
 
@@ -197,16 +163,16 @@ fn handle_input(
     mut mouse_button: MessageReader<MouseButtonInput>,
     windows: Query<&Window>,
     mut cursor_state: ResMut<CursorState>,
-    adapter_res: Option<NonSend<SlintAdapter>>,
+    slint_context: Option<NonSend<SlintContext>>,
     slint_scenes: Query<&SlintScene>,
     sprites: Query<(&Sprite, &Transform)>,
     images: Res<Assets<Image>>,
 ) {
-    let Some(adapter_res) = adapter_res else {
+    let Some(slint_context) = slint_context else {
         return;
     };
 
-    let adapter = &adapter_res.0;
+    let adapter = &slint_context.adapter;
 
     let Ok(window) = windows.single() else {
         return;
@@ -301,11 +267,11 @@ fn main() {
         .init_resource::<CursorState>()
         .add_systems(Startup, setup)
         .add_systems(Update, (handle_input, render_slint).chain())
-        .init_non_send_resource::<DemoResource>()
+        .init_non_send_resource::<SlintContext>()
         .run();
 }
 
-fn setup(mut commands: Commands, _assets: Res<AssetServer>, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let size = Extent3d {
         width: 800,
         height: 600,
@@ -352,15 +318,14 @@ fn setup(mut commands: Commands, _assets: Res<AssetServer>, mut images: ResMut<A
 fn render_slint(
     mut images: ResMut<Assets<Image>>,
     slint_scenes: Query<&SlintScene>,
-    _demo_res: NonSend<DemoResource>,
-    adapter_res: Option<NonSend<SlintAdapter>>,
+    slint_context: Option<NonSend<SlintContext>>,
     windows: Query<&Window>,
 ) {
-    let Some(adapter_res) = adapter_res else {
+    let Some(slint_context) = slint_context else {
         return;
     };
 
-    let adapter = &adapter_res.0;
+    let adapter = &slint_context.adapter;
 
     // Process pending Slint events and updates BEFORE rendering
     slint::platform::update_timers_and_animations();
@@ -395,11 +360,5 @@ fn render_slint(
         if let Some(data) = image.data.as_mut() {
             data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
         }
-
-        // Mark the image as changed so Bevy knows to update the GPU texture
-        image.texture_descriptor.label = Some("SlintUI");
-
-        // Request redraw for next frame
-        adapter.needs_redraw.set(true);
     }
 }
