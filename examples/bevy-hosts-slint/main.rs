@@ -332,7 +332,9 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_mesh),
         MeshMaterial3d(cube_material),
-        Transform::from_xyz(0.0, 0.0, -2.0).with_rotation(Quat::from_rotation_y(0.5)),
+        Transform::from_xyz(0.0, 0.0, -2.0)
+            .with_rotation(Quat::from_rotation_y(0.5))
+            .with_scale(Vec3::splat(2.0)),
     ));
 
     // 3D Scene Setup
