@@ -281,7 +281,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - uses: ./.github/actions/install-linux-dependencies
               with:
-                  extra-packages: libwayland-dev
+                  extra-packages: libwayland-dev libasound2-dev
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
             - name: Build Bevy Example
