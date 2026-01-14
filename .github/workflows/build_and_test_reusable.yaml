@@ -56,6 +56,18 @@ jobs:
         runs-on: ${{ inputs.os }}
 
         steps:
+            - name: Maximize build space
+              if: runner.os == 'Linux'
+              run: |
+                df -h
+                [ -d /usr/local/lib/android ] && sudo rm -rf /usr/local/lib/android
+                [ -d /usr/share/dotnet ] && sudo rm -rf /usr/share/dotnet
+                # For now, comment out a few of these deletion commands to speed up the runner startup
+                # [ -d /opt/ghc ] && sudo rm -rf /opt/ghc
+                # [ -d /opt/hostedtoolcache/CodeQL ] && sudo rm -rf /opt/hostedtoolcache/CodeQL
+                # Pruning docker images could free up another 3GB
+                # sudo docker image prune --all --force
+                df -h
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
@@ -102,7 +114,7 @@ jobs:
             - name: live-preview for rust test
               env:
                 SLINT_LIVE_PREVIEW: 1
-              run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
+              run: cargo test --verbose --all-features --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
             - name: Upload build timing report
               if: always()
@@ -118,4 +130,7 @@ jobs:
                   name: screenshots-${{ inputs.os }}
                   path: |
                       tests/screenshots/references
+            - name: Print Disk Usage
+              if: always()
+              run: df -h
 
