@@ -18,10 +18,6 @@ path = "main.rs"
 
 [dependencies]
 slint = { path = "../../../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-systemfonts",  "std"] }
-spin_on = { version = "0.1" }
 bevy = { version = "0.18.0" }
 bevy_image = { version = "0.18.0", features = ["zstd_rust"] }
 bytemuck = "1.13.1"
-smol = { version = "2.0.0" }
-async-compat = { version = "0.2.4" }
-reqwest = { version = "0.12", features = ["stream"] }
