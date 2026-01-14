@@ -1,3 +1,9 @@
+# Copyright © 2024 Slint project authors (see AUTHORS or LICENSE-MIT)
+# SPDX-License-Identifier: MIT
+
+# This example is not part of the Slint Cargo workspace because of the git dependency to bevy. Once bevy
+# releases a version to crates.io that depends on WGPU 26, we can re-insert the example into the workspace.
+
 [workspace]
 
 [package]

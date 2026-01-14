@@ -1,3 +1,6 @@
+// Copyright © 2024 Slint project authors (see AUTHORS or LICENSE-MIT)
+// SPDX-License-Identifier: MIT
+
 //! # Slint + Bevy Integration Example
 //!
 //! This example demonstrates how to embed Slint UI components within a Bevy game engine application.
