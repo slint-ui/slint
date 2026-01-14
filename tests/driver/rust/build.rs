@@ -15,6 +15,7 @@ fn validate_test_file(base: &OsStr, path: &Path) -> std::io::Result<()> {
     let template = include_str!("template.rs");
     let expected = template.replace("{FILENAME}", &base.to_string_lossy());
 
+    println!("cargo::rerun-if-env-changed=SLINT_UPDATE_TESTS");
     // If requested, update the file to match the template instead of failing.
     if std::env::var("SLINT_UPDATE_TESTS").is_ok() {
         std::fs::write(path, expected)?;
