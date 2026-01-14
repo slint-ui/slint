@@ -2,13 +2,34 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
+fn make_generator_file(path: &Path) -> std::io::Result<BufWriter<File>> {
+    let mut new_file = BufWriter::new(File::create(path)?);
+    new_file.write_all(include_bytes!("generator_template.rs"))?;
+    Ok(new_file)
+}
+
+fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>> {
+    // Always re-generate all files, to ensure SLINT_TEST_FILTER can actually filter out test cases.
+    let mut generated_files = HashMap::new();
+    let tests_folder: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
+    for file in std::fs::read_dir(tests_folder)? {
+        let file = file?.path();
+        let base = file.file_stem().expect("Missing file name!");
+        let generated_path =
+            PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join(file.file_name().unwrap());
+        generated_files.insert(base.into(), make_generator_file(&generated_path)?);
+    }
+    Ok(generated_files)
+}
+
 fn generated_file_for_test<'a>(
     testcase: &test_driver_lib::TestCase,
-    generated_files: &'a mut HashMap<PathBuf, BufWriter<File>>,
+    generated_files: &'a mut HashMap<OsString, BufWriter<File>>,
     fallback: &'a mut BufWriter<File>,
 ) -> Result<&'a mut BufWriter<File>, std::io::Error> {
     let base: Option<&Path> = testcase.relative_path.iter().next().map(|folder| folder.as_ref());
@@ -25,20 +46,12 @@ fn generated_file_for_test<'a>(
             }
         }
 
-        let mut generated_file = base.clone();
-        assert!(generated_file.set_extension("rs"));
-        let generated_path = Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(&generated_file);
+        let base = base.into_os_string();
         if generated_files.get(&base).is_none() {
-            // Ensure there is an appropriate test binary
-            let test_file: PathBuf = [
-                env!("CARGO_MANIFEST_DIR"),
-                "tests",
-                generated_file.to_str().expect("Failed to convert path to string"),
-            ]
-            .iter()
-            .collect();
-            assert!(test_file.exists(), "Missing test binary for subfolder: {}", base.display());
-            generated_files.insert(base.clone(), BufWriter::new(File::create(generated_path)?));
+            // The generated file hashmap is filled from the list of available test binaries.
+            // Panic if we cannot find a generator file to write into, as that means there is no
+            // corresponding test binary.
+            panic!("Missing test binary for subfolder: {}", base.display());
         }
         Ok(generated_files.get_mut(&base).unwrap())
     } else {
@@ -49,17 +62,11 @@ fn generated_file_for_test<'a>(
 fn main() -> std::io::Result<()> {
     let live_preview = std::env::var("SLINT_LIVE_PREVIEW").is_ok();
 
-    let mut generated_file = BufWriter::new(File::create(
-        Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
-    )?);
+    let mut generated_file = make_generator_file(
+        &Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
+    )?;
 
-    let mut generated_files = HashMap::new();
-    // The widgets-qt path may or may not be generated, depending on the environment, but
-    // we always need to at least create the file as otherwise the widgets-qt.rs test file will
-    // fail to compile.
-    let widgets_qt_path =
-        PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join("widgets-qt.rs");
-    generated_files.insert(widgets_qt_path.clone(), BufWriter::new(File::create(widgets_qt_path)?));
+    let mut generated_files = make_generator_files()?;
 
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         let generated_file =
