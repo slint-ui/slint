@@ -1,6 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     rc::{Rc, Weak},
+    time::Instant,
 };
 
 use bevy::{
@@ -28,6 +29,7 @@ import { VerticalBox, Button, Slider } from "std-widgets.slint";
 export component Demo inherits Window {
     background: #ff00ff3f;
     in-out property <int> click-count: 0;
+    in-out property <float> slider-value: 0;
 
     VerticalBox {
         alignment: start;
@@ -43,8 +45,21 @@ export component Demo inherits Window {
         }
         Slider {
             maximum: 100;
-            value: 60;
+            value: slider-value;
         }
+    }
+
+    // Continuous oscillating animation
+    animate slider-value {
+        duration: 2s;
+        easing: ease-in-out;
+        iteration-count: -1; // infinite
+        direction: alternate; // go back and forth
+    }
+
+    // Trigger animation on init
+    init => {
+        slider-value = 100;
     }
 }
 }
@@ -56,6 +71,10 @@ struct SlintContext {
 
 impl FromWorld for SlintContext {
     fn from_world(_world: &mut World) -> Self {
+        // Initialize Slint timers before creating component to ensure animations work
+        // See: https://github.com/slint-ui/slint/issues/2809
+        slint::platform::update_timers_and_animations();
+
         let instance = Demo::new().unwrap();
 
         instance.window().show().unwrap();
@@ -136,6 +155,7 @@ impl BevyWindowAdapter {
 
 thread_local! {
     static SLINT_WINDOWS: RefCell<Vec<Weak<BevyWindowAdapter>>> = RefCell::new(Vec::new());
+    static PLATFORM_START_TIME: Instant = Instant::now();
 }
 
 struct SlintBevyPlatform {}
@@ -157,6 +177,10 @@ impl slint::platform::Platform for SlintBevyPlatform {
             windows.borrow_mut().push(Rc::downgrade(&adapter));
         });
         Ok(adapter)
+    }
+
+    fn duration_since_start(&self) -> core::time::Duration {
+        PLATFORM_START_TIME.with(|start| start.elapsed())
     }
 }
 
