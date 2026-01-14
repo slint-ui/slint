@@ -750,25 +750,15 @@ fn render_slint(
             adapter.resize(requested_size, scale_factor);
         }
 
-        let width = requested_size.width;
-        let height = requested_size.height;
-
-        // Allocate a pixel buffer for Slint to render into
-        // PremultipliedRgbaColor is Slint's output format (R, G, B, A with premultiplied alpha)
-        let mut buffer =
-            vec![PremultipliedRgbaColor::default(); width as usize * height as usize];
-
-        // Render the Slint UI into the pixel buffer
-        // The second parameter is the stride (pixels per row)
-        adapter.software_renderer.render(
-            buffer.as_mut_slice(),
-            image.texture_descriptor.size.width as usize,
-        );
-
-        // Copy the pixel buffer to the Bevy texture's CPU-side storage
-        // bytemuck::cast_slice safely reinterprets the PremultipliedRgbaColor as bytes
+        // Render the Slint UI directly into the Bevy texture's CPU-side storage.
+        // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
         if let Some(data) = image.data.as_mut() {
-            data.clone_from_slice(bytemuck::cast_slice(buffer.as_slice()));
+            // Render the Slint UI into the pixel buffer
+            // The second parameter is the stride (pixels per row)
+            adapter.software_renderer.render(
+                bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data),
+                image.texture_descriptor.size.width as usize,
+            );
         }
 
         // WORKAROUND: Force GPU texture re-upload by accessing the material mutably
