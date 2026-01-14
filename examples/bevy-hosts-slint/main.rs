@@ -337,13 +337,6 @@ impl slint::platform::Platform for SlintBevyPlatform {
         Ok(adapter)
     }
 
-    /// Returns the duration since the platform was initialized.
-    ///
-    /// This is used by Slint's animation and timer systems to track time.
-    /// The start time is captured in a thread-local variable on first access.
-    fn duration_since_start(&self) -> core::time::Duration {
-        PLATFORM_START_TIME.with(|start| start.elapsed())
-    }
 }
 
 
