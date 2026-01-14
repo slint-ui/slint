@@ -1684,7 +1684,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         }
     }
 
-    fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
+    fn process_texture_fast(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
         let x_range = geometry.min_x() as usize..geometry.max_x() as usize;
 
         let stride = texture.pixel_stride as usize * texture.format.bpp();
@@ -1725,8 +1725,33 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                     }
                 }
             }
-            other => panic!("{:?}", other),
+            other => todo!("{:?}", other),
         }
+    }
+
+    fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
+        match texture {
+            SceneTexture {extra:SceneTextureExtra { rotation: RenderingRotation::NoRotation, dx: Fixed(256), dy: Fixed(256), off_x: Fixed(0), off_y: Fixed(0),..},..} => {
+                self.process_texture_fast(geometry, texture)
+            },
+            _ =>
+            {
+
+                self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+                    draw_functions::draw_texture_line(
+                        &geometry,
+                        PhysicalLength::new(line),
+                        &texture,
+                        buffer,
+                        extra_left_clip,
+                        extra_right_clip,
+                    );
+                })
+
+            }
+        }
+
+
     }
 }
 
