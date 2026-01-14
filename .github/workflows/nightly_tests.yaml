@@ -280,6 +280,8 @@ jobs:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra_packages: libwayland-dev
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
             - name: Build Bevy Example
