@@ -4,6 +4,7 @@ description: Dialog element api.
 ---
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/dialog-example.png"  imageWidth="200" imageHeight="100"  imageAlt='dialog example'>
 
@@ -23,7 +24,7 @@ export component Example inherits Dialog {
 ```
 </CodeSnippetMD>
 
-Dialog is like a window, but it has buttons that are automatically laid out.
+Dialog can be used in place of <Link type="Window"/>, but it has buttons that are automatically laid out.
 
 A Dialog should have one main element as child, that isn't a button.
 The dialog can have any number of `StandardButton` widgets or other buttons
@@ -40,13 +41,4 @@ Each of these automatically-generated callbacks is an alias for the `clicked` ca
 
 ## Properties
 
-### icon
-<SlintProperty propName="icon" typeName="image">
-The window icon shown in the title bar or the task bar on window managers supporting it.
-</SlintProperty>
-
-
-### title
-<SlintProperty propName="icon" typeName="string">
-The window title that is shown in the title bar.
-</SlintProperty>
+Same as <Link type="Window"/>.
