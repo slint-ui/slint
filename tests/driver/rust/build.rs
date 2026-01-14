@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -11,13 +11,40 @@ fn make_generator_file(path: &Path) -> std::io::Result<BufWriter<File>> {
     Ok(BufWriter::new(File::create(path)?))
 }
 
+fn validate_test_file(base: &OsStr, path: &Path) -> std::io::Result<()> {
+    let template = include_str!("template.rs");
+    let expected = template.replace("{FILENAME}", &base.to_string_lossy());
+
+    // If requested, update the file to match the template instead of failing.
+    if std::env::var("SLINT_UPDATE_TESTS").is_ok() {
+        std::fs::write(path, expected)?;
+        println!("cargo:warning=Updated test file: {}", path.display());
+        return Ok(());
+    }
+
+    assert!(std::fs::exists(&path).unwrap_or_default(), "Missing test binary: {}", path.display());
+    let file_contents = std::fs::read_to_string(&path)?;
+    let normalize = |s: &str| s.replace("\r\n", "\n").trim_end().to_string();
+
+    assert_eq!(
+        normalize(&file_contents),
+        normalize(&expected),
+        "Test file '{}' does not match template.",
+        path.display(),
+    );
+    Ok(())
+}
+
 fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>> {
     // Always re-generate all files, to ensure SLINT_TEST_FILTER can actually filter out test cases.
     let mut generated_files = HashMap::new();
     let tests_folder: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
+
     for file in std::fs::read_dir(tests_folder)? {
         let file = file?.path();
         let base = file.file_stem().expect("Missing file name!");
+        validate_test_file(base, &file)?;
+
         let generated_path =
             PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join(file.file_name().unwrap());
         generated_files.insert(base.into(), make_generator_file(&generated_path)?);
@@ -101,7 +128,9 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
         )?);
 
-        output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
+        output.write_all(
+            b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n",
+        )?;
 
         #[cfg(not(feature = "build-time"))]
         if !generate_macro(&source, &mut output, testcase)? {

@@ -7,4 +7,4 @@
 // needs to be crate-level
 #![deny(rust_2024_compatibility)]
 
-include!(concat!(env!("OUT_DIR"), "/widgets-qt.rs"));
+include!(concat!(env!("OUT_DIR"), "/{FILENAME}.rs"));
