@@ -17,7 +17,7 @@ name = "bevy_example"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-systemfonts",  "std"] }
+slint = { path = "../../../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-systemfonts", "std"] }
 bevy = { version = "0.18.0" }
 bevy_image = { version = "0.18.0", features = ["zstd_rust"] }
 bytemuck = "1.13.1"
