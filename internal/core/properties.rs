@@ -564,6 +564,12 @@ impl PropertyHandle {
         (handle as usize) & (BINDING_BORROWED | BINDING_POINTER_TO_BINDING) == 0
     }
 
+    fn pointer_to_binding(handle: usize) -> bool {
+        const BINDING_BORROWED: usize = 0b01;
+        const BINDING_POINTER_TO_BINDING: usize = 0b10;
+        handle & BINDING_POINTER_TO_BINDING == BINDING_POINTER_TO_BINDING
+    }
+
     /// Access the value.
     /// Panics if the function try to recursively access the value
     fn access<R>(&self, f: impl FnOnce(Option<Pin<&mut BindingHolder>>) -> R) -> R {
@@ -592,6 +598,7 @@ impl PropertyHandle {
         }
     }
 
+    /// Remove self from the dependency of another property
     fn remove_binding(&self) {
         assert!(!self.lock_flag(), "Recursion detected");
 
