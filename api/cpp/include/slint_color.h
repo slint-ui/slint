@@ -186,7 +186,7 @@ public:
     {
         OklchColor oklch {};
         cbindgen_private::types::slint_color_to_oklch(&inner, &oklch.lightness, &oklch.chroma,
-                                                       &oklch.hue, &oklch.alpha);
+                                                      &oklch.hue, &oklch.alpha);
         return oklch;
     }
 
