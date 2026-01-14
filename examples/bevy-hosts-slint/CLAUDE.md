@@ -114,8 +114,7 @@ bevy-hosts-slint/
 ├── main.rs              # All code in single file
 ├── Cargo.toml           # Package manifest
 ├── assets/
-│   ├── Monkey.gltf      # 3D model rendered in Bevy scene
-│   └── icon.png         # Application icon
+│   └── Monkey.gltf      # 3D model rendered in Bevy scene
 ├── src/                 # Empty (binary uses main.rs)
 └── target/              # Build artifacts
 ```

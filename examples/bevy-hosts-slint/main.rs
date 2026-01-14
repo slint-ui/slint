@@ -566,7 +566,7 @@ fn rotate_cube(
 ///    transparency and unlit rendering (so the UI appears flat and consistent)
 /// 3. **Create Colorful Cube**: Spawns a rotating cube with vertex colors at (0, 0, -0.5)
 /// 4. **Attach UI Quad**: Adds a child quad mesh to the cube's front face that displays the Slint UI
-/// 5. **Load 3D Model**: Loads a monkey model from GLTF at (4, 0, -5)
+/// 5. **Load 3D Model**: Loads a cow model from GLTF
 /// 6. **Add Lighting**: Places a point light to illuminate the 3D scene
 /// 7. **Setup Camera**: Creates a 3D camera at (0, 0, 6) looking at the origin
 ///
@@ -666,12 +666,12 @@ fn setup(
         ));
     });
 
-    // Load and spawn a 3D model (Suzanne the monkey) to demonstrate
+    // Load and spawn a 3D model to demonstrate
     // that Slint UI and regular 3D content can coexist
     commands.spawn((
-        SceneRoot(assets.load("Monkey.gltf#Scene0")),
+        SceneRoot(assets.load("cow.gltf#Scene0")),
         Transform::from_scale(Vec3::splat(4.0))
-            .with_translation(Vec3::new(4.0, 0.0, -5.0)),  // Off to the right side
+            .with_translation(Vec3::new(4.0, 0.0, -30.0)),  // Off to the right side
     ));
 
     // Add a point light to illuminate the 3D scene
@@ -688,7 +688,7 @@ fn setup(
 
     // Create the main 3D camera
     // It's positioned at (0, 0, 6) looking towards the origin
-    // This gives a good view of both the cube and the monkey model
+    // This gives a good view of both the cube and the cow model
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
