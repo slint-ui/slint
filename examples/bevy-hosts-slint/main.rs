@@ -678,7 +678,7 @@ fn setup(
     // Position it above and to the side for dramatic lighting
     commands.spawn((
         PointLight {
-            intensity: 2_000_000.0,  // Bright light (Bevy 0.17+ uses lumen values)
+            intensity: 2_000_000.0,  // Bright light (Bevy 0.18+ uses lumen values)
             range: 100.0,
             shadows_enabled: true,
             ..default()
