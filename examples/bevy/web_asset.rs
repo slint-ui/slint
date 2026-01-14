@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use bevy::asset::io::{AssetReader, AssetSource, AssetSourceId};
+use bevy::asset::io::{AssetReader, AssetSourceBuilder, AssetSourceId};
 use bevy::prelude::*;
 use slint::SharedString;
 
@@ -98,8 +98,7 @@ impl Plugin for WebAssetReaderPlugin {
         let progress_channel = self.0.clone();
         app.register_asset_source(
             AssetSourceId::Name("https".into()),
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetLoader(progress_channel.clone()))),
+            AssetSourceBuilder::new(move || Box::new(WebAssetLoader(progress_channel.clone()))),
         );
     }
 }
