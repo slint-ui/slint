@@ -285,6 +285,9 @@ jobs:
             - name: Build Bevy Example
               run: cargo build
               working-directory: examples/bevy
+            - name: Build bevy-hosts-slint Example
+              run: cargo build
+              working-directory: examples/bevy-hosts-slint
 
     android_wgpu:
         runs-on: ubuntu-latest
