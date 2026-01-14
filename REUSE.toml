@@ -305,7 +305,7 @@ SPDX-License-Identifier = "CC-BY-4.0"
 [[annotations]]
 path = ["examples/bevy-hosts-slint/**.gltf"]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "Copyright (c) 2024 e-verse">
+SPDX-FileCopyrightText = "Copyright (c) 2024 e-verse"
 SPDX-License-Identifier = "MIT"
 
 
