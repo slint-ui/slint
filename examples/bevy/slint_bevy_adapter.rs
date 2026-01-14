@@ -7,9 +7,10 @@
 //! bevy [`App`] in a thread separate from the main thread and supply textures of the rendered
 //! scenes via channels.
 
-use slint::wgpu_26::wgpu;
+use slint::wgpu_27::wgpu;
 
 use bevy::{
+    camera::RenderTarget,
     prelude::*,
     render::{
         RenderApp, RenderPlugin,
@@ -69,7 +70,7 @@ pub async fn run_bevy_app_with_slint(
     .await;
 
     let selector =
-        slint::BackendSelector::new().require_wgpu_26(slint::wgpu_26::WGPUConfiguration::Manual {
+        slint::BackendSelector::new().require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
             instance: (**instance.0).clone(),
             adapter: (**adapter.0).clone(),
             device: render_device.wgpu_device().clone(),
@@ -155,12 +156,13 @@ pub async fn run_bevy_app_with_slint(
                         bevy::render::texture::ManualTextureView {
                             texture_view: texture_view.into(),
                             size: (next_back_buffer.width(), next_back_buffer.height()).into(),
-                            format: bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+                            view_format:
+                                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
                         },
                     );
-                    let mut cameras = world.query::<&mut Camera>();
+                    let mut cameras = world.query::<(&mut Camera, &mut RenderTarget)>();
                     if let Some(mut c) = cameras.iter_mut(world).next() {
-                        c.target = bevy::camera::RenderTarget::TextureView(texture_view_handle);
+                        *c.1 = bevy::camera::RenderTarget::TextureView(texture_view_handle);
                     }
                 }
 
