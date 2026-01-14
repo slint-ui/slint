@@ -458,7 +458,7 @@ fn handle_input(
                 }
             }
         }
-        
+
         // If the cursor was previously over the quad but is no longer, send a PointerExited event
         if !hit && cursor_state.position.is_some() {
             cursor_state.position = None;
