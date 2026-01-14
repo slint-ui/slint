@@ -11,7 +11,7 @@ It shows how to render a Slint component into a Bevy `Image` (texture) and displ
 
 ## Features
 
-- **Custom Platform Backend**: Implements a `SlintBevyPlatform` to bridge Slint's windowing to Bevy.
+- **Custom Platform Backend**: Implements a `slint::platform::Platform` to bridge Slint's windowing to Bevy.
 - **Texture Rendering**: Uses Slint's software renderer to draw the UI into a pixel buffer, which is then copied to a Bevy texture.
 - **Input Forwarding**: Captures mouse events (movement and clicks) in Bevy and translates them to Slint pointer events, enabling interactive UI elements like buttons and sliders.
 - **3D Scene Integration**: The UI is rendered as a 2D sprite alongside 3D objects (a monkey model).
