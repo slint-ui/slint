@@ -222,7 +222,7 @@ jobs:
             matrix:
                 include:
                     - os: macos-14
-                      rust_version: "1.88"
+                      rust_version: "1.92"
                     - os: windows-2022
                       rust_version: "nightly"
                     - os: ubuntu-22.04
