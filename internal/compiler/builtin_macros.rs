@@ -302,8 +302,29 @@ fn oklch_macro(
         );
         return Expression::Invalid;
     }
-    let mut arguments: Vec<_> =
-        args.into_iter().map(|(expr, n)| expr.maybe_convert_to(Type::Float32, &n, diag)).collect();
+    let mut arguments: Vec<_> = args
+        .into_iter()
+        .enumerate()
+        .map(|(i, (expr, n))| {
+            // For chroma (index 1), 100% should equal 0.4, not 1.0
+            if i == 1 && expr.ty() == Type::Percent {
+                Expression::BinaryExpression {
+                    lhs: Box::new(expr),
+                    rhs: Box::new(Expression::NumberLiteral(0.004, Unit::None)),
+                    op: '*',
+                }
+            // For hue (index 2), convert angle to degrees
+            } else if i == 2 && expr.ty() == Type::Angle {
+                Expression::BinaryExpression {
+                    lhs: Box::new(expr),
+                    rhs: Box::new(Expression::NumberLiteral(1., Unit::Deg)),
+                    op: '/',
+                }
+            } else {
+                expr.maybe_convert_to(Type::Float32, &n, diag)
+            }
+        })
+        .collect();
     if arguments.len() < 4 {
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }

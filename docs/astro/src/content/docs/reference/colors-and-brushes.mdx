@@ -72,9 +72,9 @@ The saturation, value, and optional alpha parameter are expected to be within th
 
 Returns a color using the [Oklch color space](https://en.wikipedia.org/wiki/Oklab_color_space) (a perceptually uniform color space).
 
-- `l` (lightness): 0 (black) to 1 (white)
-- `c` (chroma): 0 (grayscale) to ~0.4 (vivid)
-- `h` (hue): 0-360 degrees
+- `l` (lightness): 0 (black) to 1 (white), or 0% to 100%
+- `c` (chroma): 0 (grayscale) to ~0.4 (vivid), or 0% to 100% (where 100% = 0.4)
+- `h` (hue): 0-360 degrees, or as an angle (e.g., `180deg`, `0.5turn`)
 - `a` (alpha): 0-1, defaults to 1
 
 ## Color Methods

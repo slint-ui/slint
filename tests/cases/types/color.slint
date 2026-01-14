@@ -56,6 +56,13 @@ Test := Rectangle {
     // oklch color creation
     property<color> oklch1: oklch(0.5, 0.1, 180);
     property<color> oklch2: oklch(0.7, 0.15, 90, 0.8);
+    // oklch with percentage - 100% chroma equals 0.4
+    property<color> oklch_pct1: oklch(50%, 100%, 180);
+    property<color> oklch_pct2: oklch(0.5, 0.4, 180);
+    // oklch with angle hue
+    property<color> oklch_angle1: oklch(0.5, 0.1, 180deg);
+    property<color> oklch_angle2: oklch(0.5, 0.1, 180);
+    property<color> oklch_angle3: oklch(0.5, 0.1, 0.5turn);
 
     // oklch conversion - approximate values for known colors
     // Red in oklch: L≈0.63, C≈0.26, H≈29
@@ -84,10 +91,14 @@ Test := Rectangle {
     // Test oklch() function creates valid colors
     out property <bool> test_oklch_create: oklch1.to-oklch().lightness > 0.4 && oklch1.to-oklch().lightness < 0.6
         && oklch2.to-oklch().alpha > 0.79 && oklch2.to-oklch().alpha < 0.81;
+    // Test oklch percentage: 100% chroma should equal 0.4
+    out property <bool> test_oklch_percent: oklch_pct1 == oklch_pct2;
+    // Test oklch angle hue: 180deg == 180 == 0.5turn
+    out property <bool> test_oklch_angle: oklch_angle1 == oklch_angle2 && oklch_angle1 == oklch_angle3;
 
     property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
         && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap
-        && test_oklch_red && test_oklch_blue && test_oklch_white && test_oklch_create;
+        && test_oklch_red && test_oklch_blue && test_oklch_white && test_oklch_create && test_oklch_percent && test_oklch_angle;
 }
 
 /*
