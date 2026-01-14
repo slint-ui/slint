@@ -114,7 +114,7 @@ jobs:
             - name: live-preview for rust test
               env:
                 SLINT_LIVE_PREVIEW: 1
-              run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
+              run: cargo test --verbose --all-features --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
             - name: Upload build timing report
               if: always()
