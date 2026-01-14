@@ -30,7 +30,7 @@ fn validate_test_file(base: &OsStr, path: &Path) -> std::io::Result<()> {
     assert_eq!(
         normalize(&file_contents),
         normalize(&expected),
-        "Test file '{}' does not match template.",
+        "Test file '{}' does not match template.\nRun with SLINT_UPDATE_TESTS=1 to update from template.",
         path.display(),
     );
     Ok(())
