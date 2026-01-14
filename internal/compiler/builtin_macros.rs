@@ -278,8 +278,22 @@ fn hsv_macro(
         );
         return Expression::Invalid;
     }
-    let mut arguments: Vec<_> =
-        args.into_iter().map(|(expr, n)| expr.maybe_convert_to(Type::Float32, &n, diag)).collect();
+    let mut arguments: Vec<_> = args
+        .into_iter()
+        .enumerate()
+        .map(|(i, (expr, n))| {
+            // For hue (index 0), convert angle to degrees
+            if i == 0 && expr.ty() == Type::Angle {
+                Expression::BinaryExpression {
+                    lhs: Box::new(expr),
+                    rhs: Box::new(Expression::NumberLiteral(1., Unit::Deg)),
+                    op: '/',
+                }
+            } else {
+                expr.maybe_convert_to(Type::Float32, &n, diag)
+            }
+        })
+        .collect();
     if arguments.len() < 4 {
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }

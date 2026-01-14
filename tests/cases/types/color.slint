@@ -53,6 +53,10 @@ Test := Rectangle {
     property<float> bwood_sat: 0.39189186692237854;
     property<float> bwood_bri: 0.8705882430076599;
 
+    // hsv with angle hue
+    property<color> hsv_angle1: hsv(240deg, 1, 1);
+    property<color> hsv_angle2: hsv(240, 1, 1);
+
     // oklch color creation
     property<color> oklch1: oklch(0.5, 0.1, 180);
     property<color> oklch2: oklch(0.7, 0.15, 90, 0.8);
@@ -78,6 +82,8 @@ Test := Rectangle {
     out property <bool> test_hsv_hue: b1.to-hsv().hue == b1hue && r1.to-hsv().hue == r1hue && y1.to-hsv().hue == y1hue && gr1.to-hsv().hue == gr1hue && bwood.to-hsv().hue == bwood_hue;
     out property <bool> test_hsv_sat: b1.to-hsv().saturation == b1sat && r1.to-hsv().saturation == r1sat && y1.to-hsv().saturation == y1sat && gr1.to-hsv().saturation == gr1sat && bwood.to-hsv().saturation == bwood_sat;
     out property <bool> test_hsv_bri: b1.to-hsv().value == b1bri && r1.to-hsv().value == r1bri && y1.to-hsv().value == y1bri && gr1.to-hsv().value == gr1bri && bwood.to-hsv().value == bwood_bri;
+    // Test hsv angle hue: 240deg == 240
+    out property <bool> test_hsv_angle: hsv_angle1 == hsv_angle2 && hsv_angle1 == Colors.blue;
 
     // oklch tests - test that to-oklch() returns reasonable values
     // Red: L should be around 0.6, chroma > 0.2, hue around 29
@@ -97,7 +103,7 @@ Test := Rectangle {
     out property <bool> test_oklch_angle: oklch_angle1 == oklch_angle2 && oklch_angle1 == oklch_angle3;
 
     property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
-        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap
+        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap && test_hsv_angle
         && test_oklch_red && test_oklch_blue && test_oklch_white && test_oklch_create && test_oklch_percent && test_oklch_angle;
 }
 
