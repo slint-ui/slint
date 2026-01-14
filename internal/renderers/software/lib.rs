@@ -1686,6 +1686,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
 
     fn process_texture_fast(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
         let x_range = geometry.min_x() as usize..geometry.max_x() as usize;
+        let y_range = geometry.min_y() as usize..geometry.max_y() as usize;
 
         let stride = texture.pixel_stride as usize * texture.format.bpp();
 
@@ -1694,9 +1695,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         match texture.format {
             TexturePixelFormat::Rgb => {
                 for (output_y, source_line) in
-                    (geometry.min_y()..geometry.max_y()).zip(source_lines)
+                    y_range.zip(source_lines)
                 {
-                    let output_line = self.buffer.line_slice(output_y as _);
+                    let output_line = self.buffer.line_slice(output_y);
                     let line_pixels = &mut output_line[x_range.clone()];
                     let source_values = std::iter::repeat(source_line.as_chunks::<3>().0).flatten();
 
@@ -1709,9 +1710,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                 let color = texture.extra.colorize;
 
                 for (output_y, source_line) in
-                    (geometry.min_y()..geometry.max_y()).zip(source_lines)
+                    y_range.zip(source_lines)
                 {
-                    let output_line = self.buffer.line_slice(output_y as _);
+                    let output_line = self.buffer.line_slice(output_y);
                     let line_pixels = &mut output_line[x_range.clone()];
                     let source_values = std::iter::repeat(source_line).flatten();
 
@@ -1730,12 +1731,16 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     }
 
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        match texture {
-            SceneTexture {extra:SceneTextureExtra { rotation: RenderingRotation::NoRotation, dx: Fixed(256), dy: Fixed(256), off_x: Fixed(0), off_y: Fixed(0),..},..} => {
+        match (&texture, self.dirty_region.count) {
+            (SceneTexture {extra:SceneTextureExtra { rotation: RenderingRotation::NoRotation, dx: Fixed(256), dy: Fixed(256), off_x: Fixed(0), off_y: Fixed(0), alpha: 255,..},..}, /*1*/_) => {
                 self.process_texture_fast(geometry, texture)
             },
             _ =>
             {
+                if self.dirty_region.count != 1 {
+                    std::dbg!(self.dirty_region.count);
+                    //return;
+                }
 
                 self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
                     draw_functions::draw_texture_line(
