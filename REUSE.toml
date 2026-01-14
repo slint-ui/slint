@@ -307,5 +307,3 @@ path = ["examples/bevy-hosts-slint/**.gltf"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2024 e-verse"
 SPDX-License-Identifier = "MIT"
-
-
