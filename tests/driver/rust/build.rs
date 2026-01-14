@@ -245,6 +245,8 @@ fn generate_source(
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
+    println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
