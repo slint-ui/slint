@@ -8,9 +8,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn make_generator_file(path: &Path) -> std::io::Result<BufWriter<File>> {
-    let mut new_file = BufWriter::new(File::create(path)?);
-    new_file.write_all(include_bytes!("generator_template.rs"))?;
-    Ok(new_file)
+    Ok(BufWriter::new(File::create(path)?))
 }
 
 fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>> {
@@ -102,6 +100,8 @@ fn main() -> std::io::Result<()> {
         let mut output = BufWriter::new(File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
         )?);
+
+        output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
 
         #[cfg(not(feature = "build-time"))]
         if !generate_macro(&source, &mut output, testcase)? {
