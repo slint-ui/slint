@@ -47,6 +47,7 @@
       <item>@image-url</item>
       <item>@linear-gradient</item>
       <item>@radial-gradient</item>
+      <item>@conic-gradient</item>
     </list>
     <contexts>
       <context attribute="Normal Text" lineEndContext="#stay" name="Normal Text">
