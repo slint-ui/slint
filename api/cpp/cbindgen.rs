@@ -302,6 +302,7 @@ fn gen_corelib(
         "SwipeGestureHandler",
         "Flickable",
         "SimpleText",
+        "StyledTextItem",
         "ComplexText",
         "Path",
         "WindowItem",
