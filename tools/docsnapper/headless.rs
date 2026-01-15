@@ -40,7 +40,6 @@ impl i_slint_core::platform::Platform for HeadlessBackend {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
             ime_requests: Default::default(),
-            mouse_cursor: Default::default(),
             renderer: SkiaRenderer::default_software(&SkiaSharedContext::default()),
         }))
     }
@@ -97,17 +96,12 @@ pub struct HeadlessWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    pub mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
     renderer: SkiaRenderer,
 }
 
 impl WindowAdapterInternal for HeadlessWindow {
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
-    }
-
-    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
     }
 }
 
