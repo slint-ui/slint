@@ -11,11 +11,55 @@ On this page we share different techniques and tools we've built into Slint that
 
 Use the <Link type="DebugFn" label="debug()" /> function to print the values of properties to stderr.
 
-## Slow Motion Animations
+## Debugging Animations
 
 Animations in the user interface need to be carefully designed to have the correct duration and changes in element positioning or size need to follow an easing curve.
 
-To inspect the animations in your application, set the `SLINT_SLOW_ANIMATIONS` environment variable before running the program. This variable accepts an unsigned integer value that is the factor by which to globally slow down the steps of all animations, automatically. This means that you don't have to make any manual changes to the `.slint` markup and recompile. For example,`SLINT_SLOW_ANIMATIONS=4` slows down animations by a factor of four.
+### Slow Motion Animations
+
+To inspect the animations in your application, set the `SLINT_SLOW_ANIMATIONS` environment variable before running the program. This variable accepts an unsigned integer value that is the factor by which to globally slow down the steps of all animations, automatically. This means that you don't have to make any manual changes to the `.slint` markup and recompile.
+
+```sh
+# Slow animations by a factor of 2
+SLINT_SLOW_ANIMATIONS=2 cargo run
+
+# Slow by a factor of 10 for detailed inspection
+SLINT_SLOW_ANIMATIONS=10 cargo run
+```
+
+This is particularly useful for:
+- Verifying easing curves look correct
+- Checking that animation start and end states are correct
+- Debugging timing issues between multiple animations
+- Inspecting complex state transitions
+
+### Checking for Active Animations
+
+In Rust, you can programmatically check if animations are currently running:
+
+```rust
+if window.has_active_animations() {
+    // Animations are in progress
+}
+```
+
+This is useful when you need to synchronize application logic with animation completion.
+
+### Mock Time in Tests
+
+For automated testing, Slint provides a mock time system that allows precise control over animation timing. Instead of waiting for real time to pass, you can advance the animation clock directly:
+
+```rust
+use slint_testing::mock_elapsed_time;
+
+// Advance animation time by 100ms
+mock_elapsed_time(100);
+
+// Advance to complete a 300ms animation
+mock_elapsed_time(300);
+```
+
+This enables deterministic animation testing without slow, flaky time-based waits.
 
 ## User Interface Scaling
 

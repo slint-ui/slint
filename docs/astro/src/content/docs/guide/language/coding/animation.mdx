@@ -70,3 +70,30 @@ Can be any of the following. See [`easings.net`](https://easings.net/) for a vis
 Use this to set or change the direction of the animation.
 </SlintProperty>
 
+## Performance Considerations
+
+Each animated property re-evaluates its binding every frame, marks dependents dirty, and triggers re-rendering of affected items. For best performance, avoid animating properties that cause layout recalculations.
+
+```slint
+export component Example inherits Window {
+    preferred-width: 200px;
+    preferred-height: 100px;
+
+    Rectangle {
+        // Good: Animate position (no layout recalculation)
+        x: 0px;
+        animate x { duration: 300ms; }
+    }
+
+    Rectangle {
+        // Avoid: Animating width/height causes layout recalculation
+        width: area.pressed ? 100px : 200px;
+        animate width { duration: 300ms; }
+
+        area := TouchArea {}
+    }
+}
+```
+
+Properties like `x`, `y`, `opacity`, `rotation-angle`, and `background` are efficient to animate. Properties like `width`, `height`, `preferred-width`, and `preferred-height` trigger layout recalculations and should be animated sparingly.
+
