@@ -48,22 +48,16 @@ use std::{
 };
 
 use bevy::{
+    input::{ButtonState, mouse::MouseButtonInput},
     prelude::*,
-    render::{
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, PrimitiveTopology,
-        },
-    },
-    input::{
-        mouse::MouseButtonInput,
-        ButtonState,
+    render::render_resource::{
+        Extent3d, PrimitiveTopology, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
     },
 };
 use slint::{
+    LogicalPosition, PhysicalSize, platform::WindowEvent,
     platform::software_renderer::PremultipliedRgbaColor,
-    PhysicalSize,
-    platform::WindowEvent,
-    LogicalPosition,
 };
 
 // Define the Slint UI component inline using the slint! macro.
@@ -147,17 +141,16 @@ impl FromWorld for SlintContext {
         instance.window().show().unwrap();
 
         // Get the adapter from thread_local storage where it was stored by SlintBevyPlatform
-        let adapter = SLINT_WINDOWS.with(|windows| {
-            windows.borrow().first().and_then(|w| w.upgrade())
-        }).expect("Slint window adapter should be created when Demo is initialized");
+        let adapter = SLINT_WINDOWS
+            .with(|windows| windows.borrow().first().and_then(|w| w.upgrade()))
+            .expect("Slint window adapter should be created when Demo is initialized");
 
         // Notify Slint that the window is active and ready to receive events
-        adapter.slint_window.dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+        adapter
+            .slint_window
+            .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
 
-        Self {
-            _instance: instance,
-            adapter,
-        }
+        Self { _instance: instance, adapter }
     }
 }
 
@@ -270,15 +263,12 @@ impl BevyWindowAdapter {
         self.size.set(new_size);
         self.scale_factor.set(scale_factor);
         // Notify Slint of the size change (in logical coordinates)
-        self.slint_window
-            .dispatch_event(slint::platform::WindowEvent::Resized {
-                size: self.size.get().to_logical(scale_factor),
-            });
+        self.slint_window.dispatch_event(slint::platform::WindowEvent::Resized {
+            size: self.size.get().to_logical(scale_factor),
+        });
         // Notify Slint of the scale factor change
         self.slint_window
-            .dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
-                scale_factor,
-            });
+            .dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged { scale_factor });
     }
 }
 
@@ -327,19 +317,16 @@ impl slint::platform::Platform for SlintBevyPlatform {
         adapter.slint_window.dispatch_event(slint::platform::WindowEvent::Resized {
             size: adapter.size.get().to_logical(scale_factor),
         });
-        adapter.slint_window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
-            scale_factor,
-        });
+        adapter
+            .slint_window
+            .dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged { scale_factor });
         // Store a weak reference so we can retrieve it later
         SLINT_WINDOWS.with(|windows| {
             windows.borrow_mut().push(Rc::downgrade(&adapter));
         });
         Ok(adapter)
     }
-
 }
-
-
 
 /// Marker component for the quad mesh that displays the Slint UI.
 ///
@@ -426,14 +413,17 @@ fn handle_input(
                     let intersection_point = ray.origin + ray.direction * t;
 
                     // Transform from world space to the quad's local coordinate system
-                    let local_point = quad_global.affine().inverse().transform_point3(intersection_point);
+                    let local_point =
+                        quad_global.affine().inverse().transform_point3(intersection_point);
 
                     // The quad mesh is 1.0 x 1.0 units (centered at origin in local space)
                     let quad_width = 1.0;
                     let quad_height = 1.0;
 
                     // Check if the intersection point is within the quad's bounds
-                    if local_point.x.abs() <= quad_width / 2.0 && local_point.y.abs() <= quad_height / 2.0 {
+                    if local_point.x.abs() <= quad_width / 2.0
+                        && local_point.y.abs() <= quad_height / 2.0
+                    {
                         // Convert local coordinates to UV coordinates (0..1 range)
                         // Local x: -0.5 .. 0.5 -> UV u: 0 .. 1
                         let u = (local_point.x + quad_width / 2.0) / quad_width;
@@ -445,10 +435,8 @@ fn handle_input(
                         let slint_y = v * texture_height;
 
                         // Convert physical pixels to logical coordinates using the scale factor
-                        let position = LogicalPosition::new(
-                            slint_x / scale_factor,
-                            slint_y / scale_factor,
-                        );
+                        let position =
+                            LogicalPosition::new(slint_x / scale_factor, slint_y / scale_factor);
 
                         // Update cursor state and notify Slint of pointer movement
                         cursor_state.position = Some(position);
@@ -479,10 +467,14 @@ fn handle_input(
             };
             match event.state {
                 ButtonState::Pressed => {
-                    adapter.slint_window.dispatch_event(WindowEvent::PointerPressed { button, position });
+                    adapter
+                        .slint_window
+                        .dispatch_event(WindowEvent::PointerPressed { button, position });
                 }
                 ButtonState::Released => {
-                    adapter.slint_window.dispatch_event(WindowEvent::PointerReleased { button, position });
+                    adapter
+                        .slint_window
+                        .dispatch_event(WindowEvent::PointerReleased { button, position });
                 }
             }
         }
@@ -579,11 +571,7 @@ fn setup(
 ) {
     // Define the size of the Slint UI texture
     // This can be any size, but larger = more detail at the cost of performance
-    let size = Extent3d {
-        width: 800,
-        height: 600,
-        ..default()
-    };
+    let size = Extent3d { width: 800, height: 600, ..default() };
 
     // Create a Bevy image/texture for the Slint UI to render into
     let mut image = Image {
@@ -595,7 +583,7 @@ fn setup(
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING  // Can be used in shaders
-                | TextureUsages::COPY_DST,         // Can be written to by CPU
+                | TextureUsages::COPY_DST, // Can be written to by CPU
             view_formats: &[],
         },
         ..default()
@@ -620,10 +608,7 @@ fn setup(
 
     // Spawn an entity to track the Slint texture and material
     // The render_slint system will query for this component to find the texture to update
-    commands.spawn(SlintScene {
-        image: image_handle,
-        material: material_handle.clone(),
-    });
+    commands.spawn(SlintScene { image: image_handle, material: material_handle.clone() });
 
     // Create a material for the colorful cube (uses vertex colors with lighting)
     let cube_material = materials.add(StandardMaterial {
@@ -638,40 +623,41 @@ fn setup(
 
     // Spawn the colorful cube with the Slint UI as a child entity
     // The cube is scaled 2x and positioned close to the camera
-    commands.spawn((
-        Mesh3d(cube_mesh),
-        MeshMaterial3d(cube_material),
-        Transform::from_xyz(0.0, 0.0, -0.5)  // Close to camera at z=6
-            .with_rotation(Quat::from_rotation_y(0.5))  // Initial rotation for visual interest
-            .with_scale(Vec3::splat(2.0)),  // Scale up 2x
-        ColorfulCube,
-    )).with_children(|parent| {
-        // Attach the UI quad as a child of the cube
-        // Being a child means it inherits the cube's transform (rotation, scale)
-        parent.spawn((
-            Mesh3d(quad_mesh),
-            MeshMaterial3d(material_handle),
-            // Position on the front face (+Z in local space)
-            // 0.51 is slightly in front of the cube face (which is at 0.5 in a 1x1 cube)
-            // to prevent z-fighting artifacts
-            Transform::from_xyz(0.0, 0.0, 0.51),
-            SlintQuad,  // Marker for input handling system to find this quad
-        ));
-    });
+    commands
+        .spawn((
+            Mesh3d(cube_mesh),
+            MeshMaterial3d(cube_material),
+            Transform::from_xyz(0.0, 0.0, -0.5) // Close to camera at z=6
+                .with_rotation(Quat::from_rotation_y(0.5)) // Initial rotation for visual interest
+                .with_scale(Vec3::splat(2.0)), // Scale up 2x
+            ColorfulCube,
+        ))
+        .with_children(|parent| {
+            // Attach the UI quad as a child of the cube
+            // Being a child means it inherits the cube's transform (rotation, scale)
+            parent.spawn((
+                Mesh3d(quad_mesh),
+                MeshMaterial3d(material_handle),
+                // Position on the front face (+Z in local space)
+                // 0.51 is slightly in front of the cube face (which is at 0.5 in a 1x1 cube)
+                // to prevent z-fighting artifacts
+                Transform::from_xyz(0.0, 0.0, 0.51),
+                SlintQuad, // Marker for input handling system to find this quad
+            ));
+        });
 
     // Load and spawn a 3D model to demonstrate
     // that Slint UI and regular 3D content can coexist
     commands.spawn((
         SceneRoot(assets.load("cow.gltf#Scene0")),
-        Transform::from_scale(Vec3::splat(4.0))
-            .with_translation(Vec3::new(4.0, 0.0, -30.0)),  // Off to the right side
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(4.0, 0.0, -30.0)), // Off to the right side
     ));
 
     // Add a point light to illuminate the 3D scene
     // Position it above and to the side for dramatic lighting
     commands.spawn((
         PointLight {
-            intensity: 2_000_000.0,  // Bright light (Bevy 0.18+ uses lumen values)
+            intensity: 2_000_000.0, // Bright light (Bevy 0.18+ uses lumen values)
             range: 100.0,
             shadows_enabled: true,
             ..default()
@@ -686,7 +672,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
-            clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),  // Dark gray background
+            clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)), // Dark gray background
             ..default()
         },
     ));
@@ -793,66 +779,121 @@ fn render_slint(
 ///
 /// This is standard practice for rendering sharp-edged objects with flat shading.
 fn create_colorful_cube() -> Mesh {
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, bevy::asset::RenderAssetUsages::default());
+    let mut mesh =
+        Mesh::new(PrimitiveTopology::TriangleList, bevy::asset::RenderAssetUsages::default());
 
     // Define vertex positions for all 6 faces
     // Each face has 4 vertices, defined in counter-clockwise order when viewed from outside
     let raw_vertices = vec![
         // Front (z+)
-        [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5],
+        [-0.5, -0.5, 0.5],
+        [0.5, -0.5, 0.5],
+        [0.5, 0.5, 0.5],
+        [-0.5, 0.5, 0.5],
         // Back (z-)
-        [-0.5, 0.5, -0.5], [0.5, 0.5, -0.5], [0.5, -0.5, -0.5], [-0.5, -0.5, -0.5],
+        [-0.5, 0.5, -0.5],
+        [0.5, 0.5, -0.5],
+        [0.5, -0.5, -0.5],
+        [-0.5, -0.5, -0.5],
         // Right (x+)
-        [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [0.5, -0.5, 0.5],
+        [0.5, -0.5, -0.5],
+        [0.5, 0.5, -0.5],
+        [0.5, 0.5, 0.5],
+        [0.5, -0.5, 0.5],
         // Left (x-)
-        [-0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5],
+        [-0.5, -0.5, 0.5],
+        [-0.5, 0.5, 0.5],
+        [-0.5, 0.5, -0.5],
+        [-0.5, -0.5, -0.5],
         // Top (y+)
-        [-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5],
+        [-0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5],
+        [0.5, 0.5, -0.5],
+        [-0.5, 0.5, -0.5],
         // Bottom (y-)
-        [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5],
+        [-0.5, -0.5, -0.5],
+        [0.5, -0.5, -0.5],
+        [0.5, -0.5, 0.5],
+        [-0.5, -0.5, 0.5],
     ];
 
     // Define colors for each vertex (RGBA format)
     // Each face gets a single color applied to all 4 of its vertices
     let raw_colors = vec![
         // Front face - Red
-        [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0, 1.0],
         // Back face - Green
-        [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0],
         // Right face - Blue
-        [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 1.0, 1.0],
         // Left face - Yellow
-        [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0],
+        [1.0, 1.0, 0.0, 1.0],
+        [1.0, 1.0, 0.0, 1.0],
+        [1.0, 1.0, 0.0, 1.0],
+        [1.0, 1.0, 0.0, 1.0],
         // Top face - Cyan
-        [0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0, 1.0],
         // Bottom face - Magenta
-        [1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0],
+        [1.0, 0.0, 1.0, 1.0],
+        [1.0, 0.0, 1.0, 1.0],
+        [1.0, 0.0, 1.0, 1.0],
+        [1.0, 0.0, 1.0, 1.0],
     ];
 
     // Define surface normals for lighting calculations
     // Each face has a single normal vector pointing outward perpendicular to the surface
     let raw_normals = vec![
         // Front
-        [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
         // Back
-        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
         // Right
-        [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
         // Left
-        [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
         // Top
-        [0.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
         // Bottom
-        [0.0, -1.0, 0.0], [0.0, -1.0, 0.0], [0.0, -1.0, 0.0], [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
     ];
 
     // Define triangle indices (3 indices per triangle, 2 triangles per face)
     // Each face is made of 2 triangles in counter-clockwise winding order
     // Vertex indices reference the raw_vertices array
     let indices = vec![
-        0, 1, 2, 2, 3, 0,       // Front face (2 triangles)
-        4, 5, 6, 6, 7, 4,       // Back face
-        8, 9, 10, 10, 11, 8,    // Right face
+        0, 1, 2, 2, 3, 0, // Front face (2 triangles)
+        4, 5, 6, 6, 7, 4, // Back face
+        8, 9, 10, 10, 11, 8, // Right face
         12, 13, 14, 14, 15, 12, // Left face
         16, 17, 18, 18, 19, 16, // Top face
         20, 21, 22, 22, 23, 20, // Bottom face
