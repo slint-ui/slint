@@ -7,7 +7,7 @@ module.exports = grammar({
   name: "slint",
 
   extras: ($) => [/[\s\r\n]+/, $.comment],
-  conflicts: ($) => [[$._assignment_value_block], [$.assignment_block]],
+  conflicts: ($) => [[$._assignment_value_block], [$.assignment_block], [$.easing_kind_identifier, $.interpolation_mode_identifier]],
 
   rules: {
     sourcefile: ($) => repeat($._definition),
