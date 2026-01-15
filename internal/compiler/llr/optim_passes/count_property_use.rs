@@ -159,7 +159,7 @@ fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext
     binding.expression.borrow().visit_property_references(ctx, &mut visit_property);
     match &binding.animation {
         Some(Animation::Static(e) | Animation::Transition(e)) => {
-            e.visit_property_references(ctx, &mut visit_property)
+            e.visit_property_references(ctx, &mut visit_property);
         }
         None => (),
     }

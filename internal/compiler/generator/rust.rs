@@ -633,16 +633,21 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            slint::private_unstable_api::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
-                        } }
-                    }
-                    Some(llr::Animation::Transition(anim)) => {
-                        let anim = compile_expression(anim, ctx);
-                        quote! {
-                            slint::private_unstable_api::set_animated_property_binding_for_transition(
+                            slint::private_unstable_api::set_animated_property_binding(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
-                                    #anim
+                                    (#anim, None)
+                                });
+                        } }
+                    }
+                    Some(llr::Animation::Transition(animation)) => {
+                        let animation = compile_expression(animation, ctx);
+                        quote! {
+                            slint::private_unstable_api::set_animated_property_binding(
+                                #rust_property, &self_rc, #binding_tokens, move |self_rc| {
+                                    #init_self_pin_ref
+                                    let (animation, change_time) = #animation;
+                                    (animation, Some(change_time))
                                 }
                             );
                         }
