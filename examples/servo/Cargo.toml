@@ -40,9 +40,9 @@ termcolor = "1.4.1"
 thiserror = "2.0.17"
 foreign-types-shared = "0.3.1"
 
-wgpu-hal = "27.0.2"
-wgpu-core = "27.0.1"
-wgpu = { version = "27.0.1", features = ["metal"] }
+wgpu-hal = "28.0.0"
+wgpu-core = "28.0.0"
+wgpu = { version = "28.0.0", features = ["metal"] }
 
 libservo = { git = "https://github.com/servo/servo", rev = "158bf97e" }
 embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", features = ["baked-default-resources"] }
@@ -51,13 +51,13 @@ embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", fe
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-27"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-28"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-27"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-28"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
-metal = "0.32.0"
+metal = "0.33.0"
 objc2 = "0.6.3"
 objc2-io-surface = "0.3.2"
 objc2-foundation = "0.3.2"

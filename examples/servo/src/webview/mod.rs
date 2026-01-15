@@ -75,7 +75,7 @@
 //!     });
 //!
 //!     slint::BackendSelector::new()
-//!         .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
+//!         .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Manual {
 //!             instance,
 //!             adapter,
 //!             device: device.clone(),

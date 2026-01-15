@@ -9,7 +9,7 @@ use winit::dpi::PhysicalSize;
 
 use servo::{RenderingContext, SoftwareRenderingContext, webrender_api::units::DeviceIntRect};
 
-use {super::GPURenderingContext, slint::wgpu_27::wgpu};
+use {super::GPURenderingContext, slint::wgpu_28::wgpu};
 
 pub fn create_software_context(size: PhysicalSize<u32>) -> Box<dyn ServoRenderingAdapter> {
     let rendering_context = Rc::new(

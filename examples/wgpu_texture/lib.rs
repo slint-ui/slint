@@ -3,7 +3,7 @@
 
 slint::include_modules!();
 
-use slint::wgpu_27::{WGPUConfiguration, WGPUSettings, wgpu};
+use slint::wgpu_28::{WGPUConfiguration, WGPUSettings, wgpu};
 
 struct DemoRenderer {
     device: wgpu::Device,
@@ -31,10 +31,7 @@ impl DemoRenderer {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::FRAGMENT,
-                range: 0..16, // full size in bytes, aligned
-            }],
+            immediate_size: 16,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -55,7 +52,7 @@ impl DemoRenderer {
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -116,13 +113,10 @@ impl DemoRenderer {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             rpass.set_pipeline(&self.pipeline);
-            rpass.set_push_constants(
-                wgpu::ShaderStages::FRAGMENT, // Stage (your constants are for fragment shader)
-                0,                            // Offset in bytes (start at 0)
-                bytemuck::bytes_of(&push_constants),
-            );
+            rpass.set_immediates(0, bytemuck::bytes_of(&push_constants));
             rpass.draw(0..3, 0..1);
         }
 
@@ -134,11 +128,11 @@ impl DemoRenderer {
 
 pub fn main() {
     let mut wgpu_settings = WGPUSettings::default();
-    wgpu_settings.device_required_features = wgpu::Features::PUSH_CONSTANTS;
-    wgpu_settings.device_required_limits.max_push_constant_size = 16;
+    wgpu_settings.device_required_features = wgpu::Features::IMMEDIATES;
+    wgpu_settings.device_required_limits.max_immediate_size = 16;
 
     slint::BackendSelector::new()
-        .require_wgpu_27(WGPUConfiguration::Automatic(wgpu_settings))
+        .require_wgpu_28(WGPUConfiguration::Automatic(wgpu_settings))
         .select()
         .expect("Unable to create Slint backend with WGPU based renderer");
 
@@ -155,7 +149,7 @@ pub fn main() {
             match state {
                 slint::RenderingState::RenderingSetup => {
                     match graphics_api {
-                        slint::GraphicsAPI::WGPU27 { device, queue, .. } => {
+                        slint::GraphicsAPI::WGPU28 { device, queue, .. } => {
                             renderer = Some(DemoRenderer::new(device, queue));
                         }
                         _ => return,
