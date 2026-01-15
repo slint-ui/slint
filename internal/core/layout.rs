@@ -569,6 +569,7 @@ impl<'a> OrganizedDataGenerator<'a> {
                 count * step
             })
             .sum();
+        assert!(result.len() >= total_repeated_cells * 4);
         let repeat_offset = result.len() / 4 - total_repeated_cells;
         Self {
             repeater_indices,

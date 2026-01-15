@@ -81,6 +81,7 @@ pub fn handle_visible(
 }
 
 fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
+    let child_grid_layout_cell = child.borrow_mut().grid_layout_cell.take();
     let element = Element {
         id: format_smolstr!("{}-visibility", child.borrow().id),
         base_type: ElementType::Native(native_clip.clone()),
@@ -99,6 +100,7 @@ fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -
             ),
         ))
         .collect(),
+        grid_layout_cell: child_grid_layout_cell,
         ..Default::default()
     };
     Element::make_rc(element)
