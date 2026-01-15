@@ -16,6 +16,6 @@ pixel-rgb888 = ["slint-safeui-core/pixel-rgb888"]
 
 [dependencies]
 bytemuck = "1.24.0"
-slint = { path = "../../../api/rs/slint", features = ["backend-winit"] }
+slint = { path = "../../../api/rs/slint" }
 slint-safeui-core = { path = "../core" }
 smol = "2.0.0"
