@@ -12,13 +12,6 @@ pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use std::rc::Rc;
 
-/// Get the window adapter of the `component` window
-pub fn get_window_adapter<Component: ComponentHandle>(
-    component: &Component,
-) -> Rc<dyn WindowAdapter + 'static> {
-    WindowInner::from_pub(component.window()).window_adapter()
-}
-
 /// Simulate a mouse click at `(x, y)` and release after a while at the same position
 pub fn send_mouse_click<
     X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,

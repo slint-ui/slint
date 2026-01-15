@@ -36,24 +36,16 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
 ) {
     use slint::*;
 
-    let window_adapter = slint_testing::get_window_adapter(component);
+    let window = component.window();
     let pressed_position = LogicalPosition::new(pressed_x, pressed_y);
     let released_position = LogicalPosition::new(released_x, released_y);
     let button = platform::PointerEventButton::Left;
 
-    window_adapter
-        .window()
-        .dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
-    window_adapter
-        .window()
-        .dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
-    window_adapter
-        .window()
-        .dispatch_event(platform::WindowEvent::PointerMoved { position: released_position });
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
+    window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: released_position });
     slint_testing::mock_elapsed_time(50);
-    window_adapter
-        .window()
-        .dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
+    window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
 }
 
 let instance = TestCase::new().unwrap();
