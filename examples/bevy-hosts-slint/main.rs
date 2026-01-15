@@ -44,7 +44,6 @@
 use std::{
     cell::{Cell, RefCell},
     rc::{Rc, Weak},
-    time::Instant,
 };
 
 use bevy::{
@@ -281,10 +280,6 @@ thread_local! {
     /// Storage for weak references to all created window adapters.
     /// When a new Slint component is created, the platform stores a weak reference here.
     static SLINT_WINDOWS: RefCell<Vec<Weak<BevyWindowAdapter>>> = RefCell::new(Vec::new());
-
-    /// Platform start time used for Slint's animation and timer system.
-    /// This is captured once per thread when first accessed.
-    static PLATFORM_START_TIME: Instant = Instant::now();
 }
 
 /// Custom Slint platform implementation for Bevy integration.
