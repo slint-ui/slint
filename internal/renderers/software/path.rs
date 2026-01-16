@@ -3,9 +3,10 @@
 
 //! Path rendering support for the software renderer using zeno
 
+use std::vec;
+
 use super::PhysicalRect;
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
-use alloc::vec::Vec;
 use zeno::{Fill, Mask, Stroke};
 
 pub use zeno::Command;
