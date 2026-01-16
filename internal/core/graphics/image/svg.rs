@@ -84,7 +84,7 @@ pub fn load_from_path(
     let option = usvg::Options::default();
     usvg::Tree::from_data(&svg_data, &option)
         .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        .map_err(std::io::Error::other)
 }
 
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
