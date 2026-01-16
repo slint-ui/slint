@@ -41,7 +41,7 @@ export component MenuFrame inherits MenuFrameBase {
     drop-shadow-color: FluentPalette.shadow;
     drop-shadow-offset-y: 8px;
     drop-shadow-blur: 16px;
-    margin: 1px;
+    margin: 5px;
     layout-min-width: 280px;
 }
 
@@ -53,11 +53,13 @@ export component MenuItem {
     callback clear-current <=> base.clear-current;
     callback activate <=> base.activate;
 
-    min-height: entry.is-separator ? 1px : max(40px, base.min-height);
-    max-height: entry.is-separator ? 1px : base.max-height;
+    min-height: entry.is-separator ? 9px : max(32px, base.min-height);
+    max-height: entry.is-separator ? 9px : base.max-height;
 
     HorizontalLayout {
-        padding: 5px;
+        padding: entry.is-separator ? 4px : 1px;
+        padding-left: entry.is-separator ? 0px : 1px;
+        padding-right: entry.is-separator ? 0px : 1px;
 
         base := MenuItemBase {
             default-foreground: FluentPalette.foreground;
