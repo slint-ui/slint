@@ -506,7 +506,7 @@ fn test_join() {
     fn th(base: &str, path: &str, expected: Option<&str>) {
         let base = PathBuf::from(base);
         let path = PathBuf::from(path);
-        let expected = expected.map(|e| PathBuf::from(e));
+        let expected = expected.map(PathBuf::from);
 
         let result = join(&base, &path);
         assert_eq!(result, expected);
