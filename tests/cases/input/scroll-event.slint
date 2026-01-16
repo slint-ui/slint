@@ -48,6 +48,7 @@ use slint::{LogicalPosition, platform::WindowEvent };
 let instance = TestCase::new().unwrap();
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 30.0), delta_x: -3.0, delta_y: -50.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_result(), "ta1{-3,-50 at 5,10}");
 assert_eq!(instance.get_offset_y(), 0.0);
 assert_eq!(instance.get_offset_x(), 0.0);
@@ -55,6 +56,7 @@ assert_eq!(instance.get_offset_x(), 0.0);
 instance.set_result("".into());
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(155.0, 50.0), delta_x: -30.0, delta_y: -50.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_result(), "ta2{-30,-50 at 35,30}");
 assert_eq!(instance.get_offset_x(), 30.0);
 assert_eq!(instance.get_offset_y(), 50.0);
