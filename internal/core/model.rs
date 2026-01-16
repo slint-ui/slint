@@ -923,7 +923,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         self.is_dirty.set(true);
         inner.instances.splice(
             index..index,
-            core::iter::repeat((RepeatedInstanceState::Dirty, None)).take(count),
+            core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
         );
         for c in inner.instances[index + count..].iter_mut() {
             // Because all the indexes are dirty

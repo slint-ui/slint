@@ -697,12 +697,12 @@ fn test_serialize_deserialize_sharedstring() {
 #[test]
 fn test_extend_from_chars() {
     let mut s = SharedString::from("x");
-    s.extend(core::iter::repeat('a').take(4).chain(core::iter::once('🍌')));
+    s.extend(core::iter::repeat_n('a', 4).chain(core::iter::once('🍌')));
     assert_eq!(s.as_str(), "xaaaa🍌");
 }
 
 #[test]
 fn test_collect_from_chars() {
-    let s: SharedString = core::iter::repeat('a').take(4).chain(core::iter::once('🍌')).collect();
+    let s: SharedString = core::iter::repeat_n('a', 4).chain(core::iter::once('🍌')).collect();
     assert_eq!(s.as_str(), "aaaa🍌");
 }
