@@ -28,7 +28,7 @@ impl GlyphRenderer for PixelFont {
     fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph> {
         let glyph_index = Self::glyph_id_to_glyph_index(glyph_id);
         let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-        if bitmap_glyph.data.len() == 0 {
+        if bitmap_glyph.data.is_empty() {
             // For example, ' ' has no glyph data
             return None;
         }

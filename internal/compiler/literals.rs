@@ -115,7 +115,7 @@ fn test_parse_number_literal() {
     let cannot_parse = Err("Cannot parse number literal".to_smolstr());
     assert_eq!(doit("12.10.12phx"), cannot_parse);
 
-    let valid_units = Unit::iter().filter(|x| x.to_string().len() > 0).join(", ");
+    let valid_units = Unit::iter().filter(|x| !x.to_string().is_empty()).join(", ");
     let wrong_unit_spaced =
         Err(format_smolstr!("Invalid unit ' phx'. Valid units are: {}", valid_units));
     assert_eq!(doit("10000001 phx"), wrong_unit_spaced);
