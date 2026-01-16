@@ -122,8 +122,7 @@ impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
         Self {
             width,
             height,
-            data: core::iter::repeat(Pixel::default())
-                .take(width as usize * height as usize)
+            data: core::iter::repeat_n(Pixel::default(), width as usize * height as usize)
                 .collect(),
         }
     }
