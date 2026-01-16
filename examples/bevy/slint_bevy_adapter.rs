@@ -48,13 +48,7 @@ pub async fn run_bevy_app_with_slint(
     (smol::channel::Receiver<wgpu::Texture>, smol::channel::Sender<ControlMessage>),
     slint::PlatformError,
 > {
-    #[allow(unused_mut)]
-    let mut backends = wgpu::Backends::from_env().unwrap_or_default();
-
-    // Skia’s Vulkan backend is currently broken on Windows.
-    // See: https://github.com/slint-ui/slint/issues/9320
-    #[cfg(target_family = "windows")]
-    backends.remove(wgpu::Backends::VULKAN);
+    let backends = wgpu::Backends::from_env().unwrap_or_default();
 
     let bevy::render::settings::RenderResources(
         render_device,
@@ -176,18 +170,16 @@ pub async fn run_bevy_app_with_slint(
         app.set_runner(runner);
         app.insert_resource(BackBuffer(None));
         bevy_app_pre_default_plugins_callback(&mut app);
-        app.add_plugins(
-            DefaultPlugins.set(ImagePlugin::default_nearest()).set(RenderPlugin {
-                render_creation: RenderCreation::manual(
-                    render_device,
-                    render_queue,
-                    adapter_info,
-                    adapter,
-                    instance,
-                ),
-                ..default()
-            }), //.disable::<bevy::winit::WinitPlugin>(),
-        );
+        app.add_plugins(DefaultPlugins.set(RenderPlugin {
+            render_creation: RenderCreation::manual(
+                render_device,
+                render_queue,
+                adapter_info,
+                adapter,
+                instance,
+            ),
+            ..default()
+        }));
         app.add_plugins(SlintRenderToTexturePlugin(bevy_front_buffer_sender));
         app.add_plugins(ExtractResourcePlugin::<BackBuffer>::default());
 
