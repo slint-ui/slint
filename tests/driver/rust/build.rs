@@ -1,17 +1,103 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
+use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+fn make_generator_file(path: &Path) -> std::io::Result<BufWriter<File>> {
+    Ok(BufWriter::new(File::create(path)?))
+}
+
+fn validate_test_file(base: &OsStr, path: &Path) -> std::io::Result<()> {
+    let template = include_str!("template.rs");
+    let expected = template.replace("{FILENAME}", &base.to_string_lossy());
+
+    println!("cargo::rerun-if-env-changed=SLINT_UPDATE_TESTS");
+    // If requested, update the file to match the template instead of failing.
+    if std::env::var("SLINT_UPDATE_TESTS").is_ok() {
+        std::fs::write(path, expected)?;
+        println!("cargo:warning=Updated test file: {}", path.display());
+        return Ok(());
+    }
+
+    assert!(std::fs::exists(&path).unwrap_or_default(), "Missing test binary: {}", path.display());
+    let file_contents = std::fs::read_to_string(&path)?;
+    let normalize = |s: &str| s.replace("\r\n", "\n").trim_end().to_string();
+
+    assert_eq!(
+        normalize(&file_contents),
+        normalize(&expected),
+        "Test file '{}' does not match template.\nRun with SLINT_UPDATE_TESTS=1 to update from template.",
+        path.display(),
+    );
+    Ok(())
+}
+
+fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>> {
+    // Always re-generate all files, to ensure SLINT_TEST_FILTER can actually filter out test cases.
+    let mut generated_files = HashMap::new();
+    let tests_folder: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
+
+    for file in std::fs::read_dir(tests_folder)? {
+        let file = file?.path();
+        let base = file.file_stem().expect("Missing file name!");
+        validate_test_file(base, &file)?;
+
+        let generated_path =
+            PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join(file.file_name().unwrap());
+        generated_files.insert(base.into(), make_generator_file(&generated_path)?);
+    }
+    Ok(generated_files)
+}
+
+fn generated_file_for_test<'a>(
+    testcase: &test_driver_lib::TestCase,
+    generated_files: &'a mut HashMap<OsString, BufWriter<File>>,
+    fallback: &'a mut BufWriter<File>,
+) -> Result<&'a mut BufWriter<File>, std::io::Error> {
+    let base: Option<&Path> = testcase.relative_path.iter().next().map(|folder| folder.as_ref());
+    let case_root_dir: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
+
+    // For each folder in cases/ generate a separate file.
+    // This allows splitting the test cases into multiple test binaries, which allows
+    // parallelizing the compilation.
+    if base.map(|path| case_root_dir.join(path).is_dir()).unwrap_or_default() {
+        let mut base = base.unwrap().to_owned();
+        if base.starts_with("widgets") {
+            if let Some(style) = testcase.requested_style {
+                base = PathBuf::from(format!("{}-{}", base.display(), style));
+            }
+        }
+
+        let base = base.into_os_string();
+        if generated_files.get(&base).is_none() {
+            // The generated file hashmap is filled from the list of available test binaries.
+            // Panic if we cannot find a generator file to write into, as that means there is no
+            // corresponding test binary.
+            panic!("Missing test binary for subfolder: {}", base.display());
+        }
+        Ok(generated_files.get_mut(&base).unwrap())
+    } else {
+        Ok(fallback)
+    }
+}
 
 fn main() -> std::io::Result<()> {
     let live_preview = std::env::var("SLINT_LIVE_PREVIEW").is_ok();
 
-    let mut generated_file = BufWriter::new(std::fs::File::create(
-        Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
-    )?);
+    let mut generated_file = make_generator_file(
+        &Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
+    )?;
+
+    let mut generated_files = make_generator_files()?;
 
     for testcase in test_driver_lib::collect_test_cases("cases")? {
+        let generated_file =
+            generated_file_for_test(&testcase, &mut generated_files, &mut generated_file)?;
+
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
@@ -39,9 +125,13 @@ fn main() -> std::io::Result<()> {
             ""
         };
 
-        let mut output = BufWriter::new(std::fs::File::create(
+        let mut output = BufWriter::new(File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
         )?);
+
+        output.write_all(
+            b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n",
+        )?;
 
         #[cfg(not(feature = "build-time"))]
         if !generate_macro(&source, &mut output, testcase)? {
@@ -74,6 +164,9 @@ fn main() -> std::io::Result<()> {
     }
 
     generated_file.flush()?;
+    for file in generated_files.values_mut() {
+        file.flush()?;
+    }
 
     // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.
@@ -153,6 +246,8 @@ fn generate_source(
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
+    println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
@@ -175,7 +270,8 @@ fn generate_source(
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
     }
     if source.contains("//no-default-translation-context") {
-        compiler_config.no_default_translation_context = true;
+        compiler_config.default_translation_context =
+            i_slint_compiler::DefaultTranslationContext::None;
     }
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));

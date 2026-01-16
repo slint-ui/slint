@@ -25,6 +25,38 @@ These examples demonstrate the main features of Slint and how to use them in dif
 | [7GUIs![7 GUI's demo image](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7 GUI's demo image")](./7guis/) | Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks. <br/> [Project...](./7guis/) |  |
 | [Slint & Bevy![Bevy demo image](https://github.com/user-attachments/assets/69785864-b6ae-40e1-8f62-4f70677d930e "Bevy demo image")](./7guis/) | A demo that shows how to embed [Bevy](https://bevyengine.org) into Slint <br/> [Project...](./bevy/) |  |
 
+### Additional Examples
+
+These examples demonstrate specialized features or integrations:
+
+| Example | Description |
+| --- | --- |
+| [fancy_demo](./fancy_demo/) | Custom widget implementations built from scratch (buttons, sliders, checkboxes, MDI windows) |
+| [fancy-switches](./fancy-switches/) | Fancy toggle switch animations |
+| [dial](./dial/) | Rotary dial control |
+| [speedometer](./speedometer/) | Animated speedometer gauge |
+| [orbit-animation](./orbit-animation/) | Orbital animation effects |
+| [sprite-sheet](./sprite-sheet/) | Sprite sheet animation |
+| [repeater](./repeater/) | Demonstrates the `for` repeater element |
+| [gstreamer-player](./gstreamer-player/) | Video playback using GStreamer |
+| [wgpu_texture](./wgpu_texture/) | Custom rendering with wgpu into a Slint texture |
+
+### Embedded/MCU Examples
+
+| Example | Description |
+| --- | --- |
+| [mcu-board-support](./mcu-board-support/) | Board support packages for various MCU targets |
+| [mcu-embassy](./mcu-embassy/) | Embassy async runtime integration for MCUs |
+| [uefi-demo](./uefi-demo/) | Running Slint in a UEFI environment |
+
+### Platform Integration Examples
+
+| Example | Description |
+| --- | --- |
+| [cpp](./cpp/) | C++ platform API examples (native WIN32, Qt integration, Qt viewer) |
+| [servo](./servo/) | Integration with the Servo web engine |
+| [safe-ui](./safe-ui/) | Safety-critical UI patterns |
+
 #### External examples
 | Thumbnail  | Description |
 | --- | --- |

@@ -33,6 +33,11 @@ description = "Run cargo fmt --all"
 run = "cargo fmt --all"
 dir = "examples/bevy"
 
+["fix:rust:format:bevy-hosts"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "examples/bevy-hosts-slint"
+
 ["fix:rust:format:servo"]
 description = "Run cargo fmt --all"
 run = "cargo fmt --all"
@@ -44,7 +49,13 @@ run = "cargo fmt --all"
 dir = "examples/safe-ui"
 
 ["fix:rust:format:all"]
-depends = ["fix:rust:format:root", "fix:rust:format:bevy", "fix:rust:format:servo", "fix:rust:format:safeui"]
+depends = [
+  "fix:rust:format:root",
+  "fix:rust:format:bevy",
+  "fix:rust:format:bevy-hosts",
+  "fix:rust:format:servo",
+  "fix:rust:format:safeui",
+]
 
 ["fix:toml:format"]
 description = "Run taplo format"

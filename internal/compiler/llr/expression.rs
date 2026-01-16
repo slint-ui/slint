@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    GlobalIdx, LocalMemberIndex, LocalMemberReference, MemberReference, RepeatedElementIdx,
-    SubComponentIdx, SubComponentInstanceIdx,
+    GlobalIdx, GridLayoutRepeatedElement, LocalMemberIndex, LocalMemberReference, MemberReference,
+    RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
@@ -12,6 +12,13 @@ use itertools::Either;
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+
+#[derive(Debug, Clone)]
+pub enum ArrayOutput {
+    Slice,
+    Model,
+    Vector,
+}
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -137,8 +144,8 @@ pub enum Expression {
     Array {
         element_ty: Type,
         values: Vec<Expression>,
-        /// When true, this should be converted to a model. When false, this should stay as a slice
-        as_model: bool,
+        /// Choose what will be generated: a slice, a model, or a vector
+        output: ArrayOutput,
     },
     Struct {
         ty: Rc<crate::langtype::Struct>,
@@ -167,25 +174,37 @@ pub enum Expression {
 
     EnumerationValue(crate::langtype::EnumerationValue),
 
+    /// See LayoutCacheAccess in expression_tree.rs
     LayoutCacheAccess {
         layout_cache_prop: MemberReference,
         index: usize,
-        /// When set, this is the index within a repeater, and the index is then the location of another offset.
-        /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
         repeater_index: Option<Box<Expression>>,
+        entries_per_item: usize,
     },
-    /// Will call the sub_expression, with the cell variable set to the
-    /// array of BoxLayoutCellData from the elements
-    BoxLayoutFunction {
-        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the sell
+    /// Will call the sub_expression, with the cells variable set to the
+    /// array of LayoutItemInfo from the elements
+    WithLayoutItemInfo {
+        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
         repeater_indices: Option<SmolStr>,
-        /// Either an expression of type BoxLayoutCellData, or an index to the repeater
+        /// Either an expression of type LayoutItemInfo, or an index to the repeater
         elements: Vec<Either<Expression, RepeatedElementIdx>>,
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
+    /// Will call the sub_expression, with the cells variable set to the
+    /// array of GridLayoutInputData from the elements
+    WithGridInputData {
+        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the cells
+        cells_variable: String,
+        /// The name for the local variable that contains the repeater indices
+        repeater_indices: Option<SmolStr>,
+        /// Either an expression of type GridLayoutInputData, or information about the repeated element
+        elements: Vec<Either<Expression, GridLayoutRepeatedElement>>,
+        sub_expression: Box<Expression>,
+    },
+
     MinMax {
         ty: Type,
         op: MinMaxOp,
@@ -240,7 +259,7 @@ impl Expression {
             Type::Array(element_ty) => Expression::Array {
                 element_ty: (**element_ty).clone(),
                 values: Vec::new(),
-                as_model: true,
+                output: ArrayOutput::Model,
             },
             Type::Struct(s) => Expression::Struct {
                 ty: s.clone(),
@@ -314,7 +333,8 @@ impl Expression {
             Self::ConicGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::TranslationReference { .. } => Type::String,
@@ -395,7 +415,11 @@ macro_rules! visit_impl {
                     $visitor(repeater_index);
                 }
             }
-            Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
+            Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
+                $visitor(sub_expression);
+                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
+            }
+            Expression::WithGridInputData { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }

@@ -280,11 +280,16 @@ jobs:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: libwayland-dev libasound2-dev
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
             - name: Build Bevy Example
               run: cargo build
               working-directory: examples/bevy
+            - name: Build bevy-hosts-slint Example
+              run: cargo build
+              working-directory: examples/bevy-hosts-slint
 
     android_wgpu:
         runs-on: ubuntu-latest

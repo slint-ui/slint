@@ -41,10 +41,10 @@ pub const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
-    ("col", Type::Int32),
-    ("row", Type::Int32),
-    ("colspan", Type::Int32),
-    ("rowspan", Type::Int32),
+    ("col", Type::Float32),
+    ("row", Type::Float32),
+    ("colspan", Type::Float32),
+    ("rowspan", Type::Float32),
 ];
 
 macro_rules! declare_enums {
@@ -142,7 +142,7 @@ impl BuiltinTypes {
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
-                name: BuiltinPrivateStruct::BoxLayoutCellData.into(),
+                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -332,6 +332,7 @@ pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     None
 }
 
+/// All types (datatypes, internal elements, properties, ...) are stored in this type
 #[derive(Debug, Default)]
 pub struct TypeRegister {
     /// The set of property types.
@@ -746,7 +747,7 @@ pub fn path_element_type() -> Type {
     BUILTIN.with(|types| types.path_element_type.clone())
 }
 
-/// The [`Type`] for a runtime BoxLayoutCellData structure
+/// The [`Type`] for a runtime LayoutItemInfo structure
 pub fn box_layout_cell_data_type() -> Type {
     BUILTIN.with(|types| types.box_layout_cell_data_type.clone())
 }

@@ -39,6 +39,11 @@ The size of the font of the input text.
 The name of the font family selected for rendering the text.
 </SlintProperty>
 
+### font-italic
+<SlintProperty propName="font-italic" typeName="bool" defaultValue="false">
+The italic state of the font of the input text
+</SlintProperty>
+
 ### text
 <SlintProperty propName="text" typeName="string" propertyVisibility="in-out" >
 The text being edited
@@ -65,12 +70,12 @@ When false, nothing can be entered.
 When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
 </SlintProperty>
 
-### `wrap`
+### wrap
 <SlintProperty propName="wrap" typeName="enum" enumName="TextWrap">
 The way the text wraps (default: word-wrap).
 </SlintProperty>
 
-### `horizontal-alignment`
+### horizontal-alignment
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' >
 The horizontal alignment of the text.
 </SlintProperty>

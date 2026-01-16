@@ -117,6 +117,11 @@ pub fn with_global_context<R>(
     GLOBAL_CONTEXT.with(|p| match p.get() {
         Some(ctx) => Ok(f(ctx)),
         None => {
+            if crate::platform::with_event_loop_proxy(|proxy| proxy.is_some()) {
+                return Err(PlatformError::SetPlatformError(
+                    crate::platform::SetPlatformError::AlreadySet,
+                ));
+            }
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             Ok(f(p.get().unwrap()))
         }

@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
  - Diagnostics now report range instead of just a position
  - Translations: allow to opt out of default context
  - Fixed debug performance overlay not working (#10198)
+ - Qt backend: worked around leak in Plasma when setting a window icon.
 
 ### Slint Language
 
@@ -29,7 +30,9 @@ All notable changes to this project are documented in this file.
  - Added `stroke-line-join` for Path (#9912)
  - Added `from <angle>` syntax to `@conic-gradient`
  - `row`, `col`, `colspan`, and `rowspan` properties can now be changed at runtime
+ - Support for `if` and `for` in `GridLayout`
  - New `StyledText` element for displaying rich text, as well as `styled-text` type
+ - Fixed missing dependency detection on `Image.source-clip`
 
 ### Widgets
 
@@ -39,12 +42,14 @@ All notable changes to this project are documented in this file.
  - Fixed some widgets that could still be edited when disabled or read-only
  - SpinBox: added `read-only` property
  - TabWidget: added `orientation` property (#3688)
- - TextEdit and LineEdit: Added `font-family` property
+ - TextEdit and LineEdit: Added `font-family` and `font-italic` properties
 
 ### Rust
 
- - Added `slint::register_font_from_memory`
+ - Added `slint::fontique` module, guarded with `unstable-fontique-07` feature, to provide access
+   to fontique collection types for registering custom fonts at run-time.
  - Added `slint::language::ColorScheme`
+ - In live preview mode, fixed panic when custom Model access the component's property (#10278)
 
 ### C++
 

@@ -10,10 +10,50 @@ slint::include_modules!();
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn load_font_from_bytes(font_data: &[u8]) -> Result<(), JsValue> {
-    slint::register_font_from_memory(font_data.to_vec())
-        .map(|_| ())
-        .map_err(|e| JsValue::from_str(&format!("Failed to register font: {}", e)))
+pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Result<(), JsValue> {
+    use slint::fontique::fontique;
+
+    let font_data = font_data.to_vec();
+    let blob = fontique::Blob::new(std::sync::Arc::new(font_data));
+    let mut collection = slint::fontique::shared_collection();
+    let fonts = collection.register_fonts(blob, None);
+
+    scripts_for_locale(locale, |script| {
+        collection
+            .append_fallbacks(fontique::FallbackKey::new(*script, None), fonts.iter().map(|x| x.0));
+    });
+
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn scripts_for_locale(locale: &str, mut callback: impl FnMut(&slint::fontique::fontique::Script)) {
+    use slint::fontique::fontique;
+
+    let Ok(locale) = icu_locale_core::Locale::try_from_str(locale) else {
+        return;
+    };
+
+    let scripts: &[fontique::Script] = match locale.id.language.as_str() {
+        "ja" => &[
+            fontique::Script::from("Hira"),
+            fontique::Script::from("Kana"),
+            fontique::Script::from("Hani"),
+        ],
+        "ko" => &[fontique::Script::from("Hang"), fontique::Script::from("Hani")],
+        "zh" => &[fontique::Script::from("Hans"), fontique::Script::from("Hant")],
+        _ => {
+            if let Some(script) = locale.id.script {
+                &[fontique::Script::from(script.into_raw())]
+            } else {
+                &[]
+            }
+        }
+    };
+
+    for script in scripts {
+        callback(script);
+    }
 }
 
 use std::rc::Rc;

@@ -17,8 +17,8 @@ use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorCla
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression, ParentScope,
-    TypeResolutionContext as _,
+    self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
+    ParentScope, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
 use crate::typeloader::LibraryInfo;
@@ -1183,6 +1183,20 @@ fn generate_sub_component(
 
     let layout_info_h = compile_expression_no_parenthesis(&component.layout_info_h.borrow(), &ctx);
     let layout_info_v = compile_expression_no_parenthesis(&component.layout_info_v.borrow(), &ctx);
+    let grid_layout_input_for_repeated_fn =
+        component.grid_layout_input_for_repeated.as_ref().map(|expr| {
+            let expr = compile_expression_no_parenthesis(&expr.borrow(), &ctx);
+            quote! {
+                fn grid_layout_input_for_repeated(
+                    self: ::core::pin::Pin<&Self>,
+                    new_row: bool,
+                ) -> sp::GridLayoutInputData {
+                    #![allow(unused)]
+                    let _self = self;
+                    #expr
+                }
+            }
+        });
 
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
@@ -1293,6 +1307,8 @@ fn generate_sub_component(
                     sp::Orientation::Vertical => #layout_info_v,
                 }
             }
+
+            #grid_layout_input_for_repeated_fn
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
@@ -1888,6 +1904,17 @@ fn generate_repeated_component(
     let root_sc = &unit.sub_components[repeated.sub_tree.root];
     let inner_component_id = self::inner_component_id(root_sc);
 
+    let grid_layout_input_data_fn = root_sc.grid_layout_input_for_repeated.as_ref().map(|_| {
+        quote! {
+            fn grid_layout_input_data(
+                self: ::core::pin::Pin<&Self>,
+                new_row: bool) -> sp::GridLayoutInputData
+            {
+                self.as_ref().grid_layout_input_for_repeated(new_row)
+            }
+        }
+    });
+
     let extra_fn = if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();
         let p_height = access_member(&listview.prop_height, &ctx).unwrap();
@@ -1903,13 +1930,18 @@ fn generate_repeated_component(
             }
         }
     } else {
-        // TODO: we could generate this code only if we know that this component is in a box layout
-        quote! {
-            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
-                -> sp::BoxLayoutCellData
-            {
-                sp::BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
+        let layout_item_info_fn = root_sc.child_of_layout.then(|| {
+            quote! {
+                fn layout_item_info(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
+                    -> sp::LayoutItemInfo
+                {
+                    sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                }
             }
+        });
+        quote! {
+            #layout_item_info_fn
+            #grid_layout_input_data_fn
         }
     };
 
@@ -2330,7 +2362,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     ) =>
                 {
                     let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, as_model: _ } => values
+                        Expression::Array { element_ty: _, values, output: _ } => values
                             .iter()
                             .map(|path_elem_expr|
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
@@ -2580,17 +2612,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             )
         }
-        Expression::Array { values, element_ty, as_model } => {
+        Expression::Array { values, element_ty, output } => {
             let val = values.iter().map(|e| compile_expression(e, ctx));
-            if *as_model {
-                let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-                quote!(sp::ModelRc::new(
-                    sp::VecModel::<#rust_element_ty>::from(
-                        sp::vec![#(#val as _),*]
-                    )
-                ))
-            } else {
-                quote!(sp::Slice::from_slice(&[#(#val),*]))
+            match output {
+                ArrayOutput::Model => {
+                    let rust_element_ty = rust_primitive_type(element_ty).unwrap();
+                    quote!(sp::ModelRc::new(
+                        sp::VecModel::<#rust_element_ty>::from(
+                            sp::vec![#(#val as _),*]
+                        )
+                    ))
+                }
+                ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
+                ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
             }
         }
         Expression::Struct { ty, values } => {
@@ -2693,26 +2727,26 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(sp::#base_ident::#value_ident)
             }
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index, entries_per_item } => {
             access_member(layout_cache_prop, ctx).map_or_default(|cache| {
                 if let Some(ri) = repeater_index {
                     let offset = compile_expression(ri, ctx);
                     quote!({
                         let cache = #cache.get();
-                        *cache.get((cache[#index] as usize) + #offset as usize * 2).unwrap_or(&(0 as sp::Coord))
+                        *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
                     })
                 } else {
                     quote!(#cache.get()[#index])
                 }
             })
         }
-        Expression::BoxLayoutFunction {
+        Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices,
             elements,
             orientation,
             sub_expression,
-        } => box_layout_function(
+        } => generate_with_layout_item_info(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
@@ -2720,6 +2754,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
             ctx,
         ),
+
+        Expression::WithGridInputData {
+            cells_variable, repeater_indices, elements, sub_expression
+        } => generate_with_grid_input_data(
+            cells_variable,
+            repeater_indices.as_ref().map(SmolStr::as_str),
+            elements.as_ref(),
+            sub_expression,
+            ctx,
+        ),
+
         Expression::MinMax { ty, op, lhs, rhs } => {
             let lhs = compile_expression(lhs, ctx);
             let t = rust_primitive_type(ty);
@@ -2832,7 +2877,7 @@ fn compile_builtin_function_call(
                 let popup = &current_sub_component.popup_windows[*popup_index as usize];
                 let popup_window_id =
                     inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
-                let parent_component = access_item_rc(parent_ref, ctx);
+                let parent_item = access_item_rc(parent_ref, ctx);
 
                 let parent_ctx = ParentScope::new(ctx, None);
                 let popup_ctx = EvaluationContext::new_sub_component(
@@ -2847,6 +2892,7 @@ fn compile_builtin_function_call(
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
+                    let parent_item = #parent_item;
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
@@ -2858,7 +2904,7 @@ fn compile_builtin_function_call(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,
-                            #parent_component,
+                            parent_item,
                             false, // is_menu
                         ))
                     );
@@ -3420,7 +3466,76 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
     }
 }
 
-fn box_layout_function(
+fn generate_with_grid_input_data(
+    cells_variable: &str,
+    repeated_indices: Option<&str>,
+    elements: &[Either<Expression, llr::GridLayoutRepeatedElement>],
+    sub_expression: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let repeated_indices = repeated_indices.map(ident);
+    let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
+    let mut fixed_count = 0usize;
+    let mut repeated_count = quote!();
+    let mut push_code = Vec::new();
+    let mut repeater_idx = 0usize;
+    for item in elements {
+        match item {
+            Either::Left(value) => {
+                let value = compile_expression(value, ctx);
+                fixed_count += 1;
+                push_code.push(quote!(items_vec.push(#value);))
+            }
+            Either::Right(repeater) => {
+                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                let rep_inner_component_id = self::inner_component_id(
+                    &ctx.compilation_unit.sub_components[ctx
+                        .current_sub_component()
+                        .unwrap()
+                        .repeated[repeater.repeater_index]
+                        .sub_tree
+                        .root],
+                );
+                repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
+                let ri = repeated_indices.as_ref().map(|ri| {
+                    quote!(
+                        #ri[#repeater_idx * 2] = items_vec.len() as u32;
+                        #ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
+                    )
+                });
+                repeater_idx += 1;
+                let new_row = repeater.new_row;
+                push_code.push(quote!(
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
+                        );
+                        let internal_vec = _self.#repeater_id.instances_vec();
+                        #ri
+                        let mut new_row = #new_row;
+                        for sub_comp in &internal_vec {
+                            items_vec.push(sub_comp.as_pin_ref().grid_layout_input_data(new_row));
+                            new_row = false;
+                        }
+                    ));
+            }
+        }
+    }
+    let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
+    let ri2 = repeated_indices.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let cells_variable = ident(cells_variable);
+    let sub_expression = compile_expression(sub_expression, ctx);
+
+    quote! { {
+        #ri
+        let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count);
+        #(#push_code)*
+        let #cells_variable = sp::Slice::from_slice(&items_vec);
+        #ri2
+        #sub_expression
+    } }
+}
+
+fn generate_with_layout_item_info(
     cells_variable: &str,
     repeated_indices: Option<&str>,
     elements: &[Either<Expression, llr::RepeatedElementIdx>],
@@ -3462,7 +3577,7 @@ fn box_layout_function(
                         let internal_vec = _self.#repeater_id.instances_vec();
                         #ri
                         for sub_comp in &internal_vec {
-                            items_vec.push(sub_comp.as_pin_ref().box_layout_data(#orientation))
+                            items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation))
                         }
                     ));
             }

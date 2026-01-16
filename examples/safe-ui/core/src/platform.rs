@@ -7,12 +7,10 @@ use alloc::rc::Rc;
 //use alloc::vec::Vec;
 //use core::cell::RefCell;
 
-use slint::platform::software_renderer::MinimalSoftwareWindow;
-
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 struct Platform {
-    window: Rc<MinimalSoftwareWindow>,
+    window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
     //event_queue: Queue,
 }
 
@@ -49,7 +47,7 @@ impl slint::platform::Platform for Platform {
             //            }
 
             self.window.draw_if_needed(|renderer| {
-                render_wrapper(&|buffer, pixel_stride| {
+                render_wrapper::<crate::pixels::PlatformPixel, _>(&|buffer, pixel_stride| {
                     renderer.render(buffer, pixel_stride);
                 })
             });
@@ -72,12 +70,10 @@ impl slint::platform::Platform for Platform {
         }
     }
 
-    //#[cfg(not(feature = "simulator"))]
     //fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
     //    Some(Box::new(self.event_queue.clone()) as Box<dyn slint::platform::EventLoopProxy>)
     //}
 
-    #[cfg(not(feature = "simulator"))]
     fn duration_since_start(&self) -> core::time::Duration {
         core::time::Duration::from_millis(unsafe {
             slint_safeui_platform_duration_since_start() as u64
@@ -85,69 +81,33 @@ impl slint::platform::Platform for Platform {
     }
 }
 
-fn render_wrapper<F: Fn(&mut [Bgra8888Pixel], usize)>(f: &F) {
+fn render_wrapper<P, F>(f: &F)
+where
+    P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
+    F: Fn(&mut [P], usize),
+{
     let user_data = f as *const _ as *const core::ffi::c_void;
 
-    unsafe extern "C" fn c_render_wrap<F: Fn(&mut [Bgra8888Pixel], usize)>(
+    unsafe extern "C" fn c_render_wrap<P, F>(
         user_data: *const core::ffi::c_void,
         buffer: *mut core::ffi::c_char,
         byte_size: core::ffi::c_uint,
         pixel_stride: core::ffi::c_uint,
-    ) {
+    ) where
+        P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
+        F: Fn(&mut [P], usize),
+    {
         let buffer = unsafe {
             core::slice::from_raw_parts_mut(
-                buffer as *mut Bgra8888Pixel,
-                byte_size as usize / core::mem::size_of::<Bgra8888Pixel>(),
+                buffer as *mut P,
+                byte_size as usize / core::mem::size_of::<P>(),
             )
         };
         let f = unsafe { &*(user_data as *const F) };
         f(buffer, pixel_stride as usize)
     }
 
-    unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<F>)) }
-}
-
-#[repr(transparent)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Bgra8888Pixel(pub u32);
-
-impl From<Bgra8888Pixel> for slint::platform::software_renderer::PremultipliedRgbaColor {
-    #[inline]
-    fn from(pixel: Bgra8888Pixel) -> Self {
-        let v = pixel.0;
-        slint::platform::software_renderer::PremultipliedRgbaColor {
-            blue: (v >> 0) as u8,
-            green: (v >> 8) as u8,
-            red: (v >> 16) as u8,
-            alpha: (v >> 24) as u8,
-        }
-    }
-}
-
-impl From<slint::platform::software_renderer::PremultipliedRgbaColor> for Bgra8888Pixel {
-    #[inline]
-    fn from(pixel: slint::platform::software_renderer::PremultipliedRgbaColor) -> Self {
-        Self(
-            (pixel.alpha as u32) << 24
-                | ((pixel.red as u32) << 16)
-                | ((pixel.green as u32) << 8)
-                | (pixel.blue as u32),
-        )
-    }
-}
-
-impl slint::platform::software_renderer::TargetPixel for Bgra8888Pixel {
-    fn blend(&mut self, color: slint::platform::software_renderer::PremultipliedRgbaColor) {
-        let mut x = slint::platform::software_renderer::PremultipliedRgbaColor::from(*self);
-        x.blend(color);
-        *self = x.into();
-    }
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
-    }
-    fn background() -> Self {
-        Self(0)
-    }
+    unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<P, F>)) }
 }
 
 pub fn slint_init_safeui_platform() {
@@ -191,8 +151,8 @@ pub fn slint_init_safeui_platform() {
 //    }
 //}
 
-#[cfg_attr(not(feature = "simulator"), panic_handler)]
-#[cfg(not(feature = "simulator"))]
+#[cfg(feature = "panic-handler")]
+#[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     use core::ffi::CStr;
     use core::fmt::{self, Write};
@@ -240,10 +200,10 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         pub fn slint_log_error(msg: *const core::ffi::c_char);
     }
 
-    let mut STORAGE: [u8; 256] = [0; 256];
+    let mut storage: [u8; 256] = [0; 256];
 
     unsafe {
-        let mut w = FixedBuf::new(&mut STORAGE);
+        let mut w = FixedBuf::new(&mut storage);
         write!(&mut w, "Rust PANIC: {:?}", info).ok();
         slint_log_error(w.as_cstr().as_ptr());
     };
@@ -251,7 +211,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-#[cfg(not(feature = "simulator"))]
 mod allocator {
     use core::alloc::Layout;
     use core::ffi::c_void;
@@ -270,8 +229,8 @@ mod allocator {
                 // Ideally we'd use aligned_alloc, but that function caused heap corruption with esp-idf
                 let ptr = unsafe { malloc(layout.size() + align) as *mut u8 };
                 let shift = align - (ptr as usize % align);
-                let ptr = ptr.add(shift);
-                core::ptr::write(ptr.sub(1), shift as u8);
+                let ptr = unsafe { ptr.add(shift) };
+                unsafe { core::ptr::write(ptr.sub(1), shift as u8) };
                 ptr
             }
         }

@@ -509,6 +509,10 @@ struct PropertyHandle {
     handle: Cell<usize>,
 }
 
+const BINDING_BORROWED: usize = 0b01;
+const BINDING_POINTER_TO_BINDING: usize = 0b10;
+const BINDING_POINTER_MASK: usize = !(BINDING_POINTER_TO_BINDING | BINDING_BORROWED);
+
 impl core::fmt::Debug for PropertyHandle {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let handle = self.handle.get();
@@ -516,21 +520,48 @@ impl core::fmt::Debug for PropertyHandle {
             f,
             "PropertyHandle {{ handle: 0x{:x}, locked: {}, binding: {} }}",
             handle & !0b11,
-            (handle & 0b01) == 0b01,
-            (handle & 0b10) == 0b10
+            self.lock_flag(),
+            PropertyHandle::is_pointer_to_binding(handle)
         )
     }
 }
 
 impl PropertyHandle {
     /// The lock flag specifies that we can get a reference to the Cell or unsafe cell
+    #[inline]
     fn lock_flag(&self) -> bool {
-        self.handle.get() & 0b1 == 1
+        self.handle.get() & BINDING_BORROWED == BINDING_BORROWED
     }
     /// Sets the lock_flag.
     /// Safety: the lock flag must not be unset if there exist references to what's inside the cell
     unsafe fn set_lock_flag(&self, set: bool) {
-        self.handle.set(if set { self.handle.get() | 0b1 } else { self.handle.get() & !0b1 })
+        self.handle.set(if set {
+            self.handle.get() | BINDING_BORROWED
+        } else {
+            self.handle.get() & !BINDING_BORROWED
+        })
+    }
+
+    #[inline]
+    fn is_pointer_to_binding(handle: usize) -> bool {
+        handle & BINDING_POINTER_TO_BINDING == BINDING_POINTER_TO_BINDING
+    }
+
+    /// Get the pointer **without locking** if the handle points to a pointer otherwise None
+    #[inline]
+    fn pointer_to_binding(handle: usize) -> Option<*mut BindingHolder> {
+        if Self::is_pointer_to_binding(handle) {
+            Some((handle & BINDING_POINTER_MASK) as *mut BindingHolder)
+        } else {
+            None
+        }
+    }
+
+    /// The handle is not borrowed to any other binding
+    /// and the handle does not point to another binding
+    #[inline]
+    fn has_no_binding_or_lock(handle: usize) -> bool {
+        (handle as usize) & (BINDING_BORROWED | BINDING_POINTER_TO_BINDING) == 0
     }
 
     /// Access the value.
@@ -540,8 +571,8 @@ impl PropertyHandle {
         if self.lock_flag() {
             unsafe {
                 let handle = self.handle.get();
-                if handle & 0b10 == 0b10 {
-                    let binding = &mut *((handle & !0b11) as *mut BindingHolder);
+                if let Some(binding_pointer) = Self::pointer_to_binding(handle) {
+                    let binding = &mut *(binding_pointer);
                     let debug_name = &binding.debug_name;
                     panic!("Recursion detected with property {debug_name}");
                 }
@@ -552,8 +583,8 @@ impl PropertyHandle {
             self.set_lock_flag(true);
             scopeguard::defer! { self.set_lock_flag(false); }
             let handle = self.handle.get();
-            let binding = if handle & 0b10 == 0b10 {
-                Some(Pin::new_unchecked(&mut *((handle & !0b11) as *mut BindingHolder)))
+            let binding = if let Some(pointer) = Self::pointer_to_binding(handle) {
+                Some(Pin::new_unchecked(&mut *(pointer)))
             } else {
                 None
             };
@@ -563,11 +594,10 @@ impl PropertyHandle {
 
     fn remove_binding(&self) {
         assert!(!self.lock_flag(), "Recursion detected");
-        let val = self.handle.get();
-        if val & 0b10 == 0b10 {
+
+        if let Some(binding) = Self::pointer_to_binding(self.handle.get()) {
             unsafe {
                 self.set_lock_flag(true);
-                let binding = (val & !0b11) as *mut BindingHolder;
                 let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
                 if (*binding).dependencies.get() == const_sentinel {
                     self.handle.set(const_sentinel);
@@ -580,8 +610,8 @@ impl PropertyHandle {
                 }
                 ((*binding).vtable.drop)(binding);
             }
-            debug_assert!(self.handle.get() & 0b11 == 0);
         }
+        debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
     }
 
     /// Safety: the BindingCallable must be valid for the type of this property
@@ -612,8 +642,8 @@ impl PropertyHandle {
         }
 
         self.remove_binding();
-        debug_assert!((binding as usize) & 0b11 == 0);
-        debug_assert!(self.handle.get() & 0b11 == 0);
+        debug_assert!(Self::has_no_binding_or_lock(binding as usize));
+        debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
         let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
         let is_constant = self.handle.get() == const_sentinel;
         unsafe {
@@ -626,7 +656,7 @@ impl PropertyHandle {
                 );
             }
         }
-        self.handle.set((binding as usize) | 0b10);
+        self.handle.set((binding as usize) | BINDING_POINTER_TO_BINDING);
         if !is_constant {
             self.mark_dirty(
                 #[cfg(slint_debug_property)]
@@ -637,7 +667,7 @@ impl PropertyHandle {
 
     fn dependencies(&self) -> *mut DependencyListHead {
         assert!(!self.lock_flag(), "Recursion detected");
-        if (self.handle.get() & 0b10) != 0 {
+        if Self::is_pointer_to_binding(self.handle.get()) {
             self.access(|binding| binding.unwrap().dependencies.as_ptr() as *mut DependencyListHead)
         } else {
             self.handle.as_ptr() as *mut DependencyListHead
@@ -746,7 +776,7 @@ impl PropertyHandle {
 impl Drop for PropertyHandle {
     fn drop(&mut self) {
         self.remove_binding();
-        debug_assert!(self.handle.get() & 0b11 == 0);
+        debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
         if self.handle.get() as *const u32 != (&CONSTANT_PROPERTY_SENTINEL) as *const u32 {
             unsafe {
                 DependencyListHead::drop(self.handle.as_ptr() as *mut _);
@@ -1084,8 +1114,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     /// If the property is a two way binding, return the common property
     pub(crate) fn check_common_property(self: Pin<&Self>) -> Option<Pin<Rc<Property<T>>>> {
         let handle_val = self.handle.handle.get();
-        if handle_val & 0b10 == 0b10 {
-            let holder = (handle_val & !0b11) as *const BindingHolder;
+        if let Some(holder) = PropertyHandle::pointer_to_binding(handle_val) {
             // Safety: the handle is a pointer to a binding
             if unsafe { *&raw const (*holder).is_two_way_binding } {
                 // Safety: the handle is a pointer to a binding whose B is a TwoWayBinding<T>
@@ -1136,7 +1165,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         }
 
         let prop2_handle_val = prop2.handle.handle.get();
-        let handle = if prop2_handle_val & 0b10 == 0b10 {
+        let handle = if PropertyHandle::is_pointer_to_binding(prop2_handle_val) {
             // If prop2 is a binding, just "steal it"
             prop2.handle.handle.set(0);
             PropertyHandle { handle: Cell::new(prop2_handle_val) }
@@ -1181,7 +1210,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             common_property
         } else {
             let prop1_handle_val = prop1.handle.handle.get();
-            let handle = if prop1_handle_val & 0b10 == 0b10 {
+            let handle = if PropertyHandle::is_pointer_to_binding(prop1_handle_val) {
                 // If prop1 is a binding, just "steal it"
                 prop1.handle.handle.set(0);
                 PropertyHandle { handle: Cell::new(prop1_handle_val) }
@@ -1309,8 +1338,8 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         );
 
         let old_handle = prop2.handle.handle.get();
-        let has_binding = old_handle & 0b11 == 0b10;
-        if has_binding {
+        let old_pointer = PropertyHandle::pointer_to_binding(old_handle);
+        if old_pointer.is_some() {
             prop2.handle.handle.set(0);
         }
 
@@ -1321,8 +1350,8 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 debug_name.as_str(),
             );
 
-            if has_binding {
-                prop2.handle.set_binding_impl((old_handle & !0b11) as *mut BindingHolder);
+            if let Some(binding) = old_pointer {
+                prop2.handle.set_binding_impl(binding);
             }
         };
     }
@@ -1811,6 +1840,17 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
         };
         Self { holder }
     }
+}
+
+#[test]
+fn test_property_handler_binding() {
+    assert_eq!(PropertyHandle::has_no_binding_or_lock(BINDING_BORROWED), false);
+    assert_eq!(PropertyHandle::has_no_binding_or_lock(BINDING_POINTER_TO_BINDING), false);
+    assert_eq!(
+        PropertyHandle::has_no_binding_or_lock(BINDING_BORROWED | BINDING_POINTER_TO_BINDING),
+        false
+    );
+    assert_eq!(PropertyHandle::has_no_binding_or_lock(0), true);
 }
 
 #[test]
