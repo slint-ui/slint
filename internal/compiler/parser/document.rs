@@ -157,9 +157,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             drop(p.start_node(SyntaxKind::Element));
             return false;
         }
-    } else if p.peek().as_str() == "implements" {
-        p.consume();
-    } else if p.peek().as_str() == "inherits" {
+    } else if p.peek().as_str() == "implements" || p.peek().as_str() == "inherits" {
         p.consume();
     } else if p.peek().kind() == SyntaxKind::LBrace {
         let mut p = p.start_node(SyntaxKind::Element);
