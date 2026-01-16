@@ -364,18 +364,18 @@ fn region_line_ranges(
                             return true;
                         }
                         r.start = it.start;
-                        return false;
+                        false
                     } else if it.start <= r.end {
                         if it.end <= r.end {
-                            return false;
+                            false
                         } else {
                             it.start = r.start;
                             tmp = None;
-                            return true;
+                            true
                         }
                     } else {
                         core::mem::swap(it, r);
-                        return true;
+                        true
                     }
                 } else {
                     true
