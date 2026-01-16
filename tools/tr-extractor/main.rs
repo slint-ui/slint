@@ -62,8 +62,7 @@ fn main() -> std::io::Result<()> {
         .unwrap_or_else(|| format!("{}.po", args.domain.as_deref().unwrap_or("messages")).into());
 
     let mut messages = if args.join_existing {
-        polib::po_file::parse(&output)
-            .map_err(|x| std::io::Error::new(std::io::ErrorKind::Other, x))?
+        polib::po_file::parse(&output).map_err(|x| std::io::Error::other(x))?
     } else {
         let package = args.package_name.as_ref().map(|x| x.as_ref()).unwrap_or("PACKAGE");
         let version = args.package_version.as_ref().map(|x| x.as_ref()).unwrap_or("VERSION");
@@ -98,9 +97,8 @@ fn process_file(
     args: &Cli,
 ) -> std::io::Result<()> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag).ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::Other, diag.to_string_vec().join(", "))
-    })?;
+    let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag)
+        .ok_or_else(|| std::io::Error::other(diag.to_string_vec().join(", ")))?;
     visit_node(syntax_node, messages, None, args);
 
     Ok(())
