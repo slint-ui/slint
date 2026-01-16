@@ -277,12 +277,10 @@ fn check_element(
         let id = element.borrow().id.clone();
         let what = if prop_name.is_empty() {
             if id.is_empty() { "something".into() } else { format!("element '{id}'") }
+        } else if id.is_empty() {
+            format!("property or callback '{prop_name}'")
         } else {
-            if id.is_empty() {
-                format!("property or callback '{prop_name}'")
-            } else {
-                format!("property or callback '{id}.{prop_name}'")
-            }
+            format!("property or callback '{id}.{prop_name}'")
         };
 
         diag.push_error(
