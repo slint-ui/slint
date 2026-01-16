@@ -108,13 +108,13 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    mouse_cursor: RefCell<i_slint_core::items::MouseCursor>,
 }
 
 impl TestingWindow {
     #[allow(dead_code)] // Used by various tests
     pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
-        self.mouse_cursor.get()
+        self.mouse_cursor.borrow().clone()
     }
 }
 
@@ -124,7 +124,7 @@ impl WindowAdapterInternal for TestingWindow {
     }
 
     fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
+        self.mouse_cursor.replace(cursor);
     }
 }
 

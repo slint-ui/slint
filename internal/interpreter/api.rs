@@ -134,6 +134,9 @@ pub enum Value {
     StyledText(i_slint_core::api::StyledText) = 13,
     #[doc(hidden)]
     ArrayOfU16(SharedVector<u16>) = 14,
+    #[doc(hidden)]
+    /// A mouse cursor.
+    MouseCursor(i_slint_core::items::MouseCursor) = 15,
 }
 
 impl Value {
@@ -183,6 +186,7 @@ impl PartialEq for Value {
             Value::StyledText(lhs) => {
                 matches!(other, Value::StyledText(rhs) if lhs == rhs)
             }
+            Value::MouseCursor(lhs) => matches!(other, Value::MouseCursor(rhs) if lhs == rhs),
         }
     }
 }
@@ -211,6 +215,7 @@ impl std::fmt::Debug for Value {
             Value::ArrayOfU16(data) => {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
+            Value::MouseCursor(m) => write!(f, "Value::MouseCursor({m:?})"),
         }
     }
 }
@@ -251,6 +256,7 @@ declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
+declare_value_conversion!(MouseCursor => [i_slint_core::items::MouseCursor]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );

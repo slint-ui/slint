@@ -55,6 +55,7 @@ macro_rules! declare_ValueType_2 {
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::api::StyledText,
+            crate::items::MouseCursor,
             $(crate::items::$Name,)*
         ];
     };

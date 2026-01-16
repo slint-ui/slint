@@ -61,6 +61,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::Array { .. } => return isize::MAX,
         Expression::Struct { .. } => 1,
         Expression::EasingCurve(_) => 1,
+        Expression::MouseCursor(_) => 1,
         Expression::LinearGradient { .. } => ALLOC_COST,
         Expression::RadialGradient { .. } => ALLOC_COST,
         Expression::ConicGradient { .. } => ALLOC_COST,

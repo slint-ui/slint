@@ -16,8 +16,8 @@ use super::{
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
 use crate::layout::{GridLayoutCell, Orientation, RowColExpr};
-use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
+use crate::llr::{ArrayOutput as llr_ArrayOutput, MouseCursor};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
 use crate::typeregister::BUILTIN;
@@ -226,6 +226,45 @@ pub fn lower_expression(
         },
         tree_Expression::PathData(data) => compile_path(data, ctx),
         tree_Expression::EasingCurve(x) => llr_Expression::EasingCurve(x.clone()),
+        tree_Expression::MouseCursor(x) => llr_Expression::MouseCursor(match x {
+            crate::expression_tree::MouseCursor::Default => MouseCursor::Default,
+            crate::expression_tree::MouseCursor::None => MouseCursor::None,
+            crate::expression_tree::MouseCursor::Help => MouseCursor::Help,
+            crate::expression_tree::MouseCursor::Pointer => MouseCursor::Pointer,
+            crate::expression_tree::MouseCursor::Progress => MouseCursor::Progress,
+            crate::expression_tree::MouseCursor::Wait => MouseCursor::Wait,
+            crate::expression_tree::MouseCursor::Crosshair => MouseCursor::Crosshair,
+            crate::expression_tree::MouseCursor::Text => MouseCursor::Text,
+            crate::expression_tree::MouseCursor::Alias => MouseCursor::Alias,
+            crate::expression_tree::MouseCursor::Copy => MouseCursor::Copy,
+            crate::expression_tree::MouseCursor::Move => MouseCursor::Move,
+            crate::expression_tree::MouseCursor::NoDrop => MouseCursor::NoDrop,
+            crate::expression_tree::MouseCursor::NotAllowed => MouseCursor::NotAllowed,
+            crate::expression_tree::MouseCursor::Grab => MouseCursor::Grab,
+            crate::expression_tree::MouseCursor::Grabbing => MouseCursor::Grabbing,
+            crate::expression_tree::MouseCursor::ColResize => MouseCursor::ColResize,
+            crate::expression_tree::MouseCursor::RowResize => MouseCursor::RowResize,
+            crate::expression_tree::MouseCursor::NResize => MouseCursor::NResize,
+            crate::expression_tree::MouseCursor::EResize => MouseCursor::EResize,
+            crate::expression_tree::MouseCursor::SResize => MouseCursor::SResize,
+            crate::expression_tree::MouseCursor::WResize => MouseCursor::WResize,
+            crate::expression_tree::MouseCursor::NeResize => MouseCursor::NeResize,
+            crate::expression_tree::MouseCursor::NwResize => MouseCursor::NwResize,
+            crate::expression_tree::MouseCursor::SeResize => MouseCursor::SeResize,
+            crate::expression_tree::MouseCursor::SwResize => MouseCursor::SwResize,
+            crate::expression_tree::MouseCursor::EwResize => MouseCursor::EwResize,
+            crate::expression_tree::MouseCursor::NsResize => MouseCursor::NsResize,
+            crate::expression_tree::MouseCursor::NeswResize => MouseCursor::NeswResize,
+            crate::expression_tree::MouseCursor::NwseResize => MouseCursor::NwseResize,
+            crate::expression_tree::MouseCursor::CustomCursor { image, hotspot_x, hotspot_y } => {
+                dbg!(image);
+                MouseCursor::CustomCursor {
+                    image: Box::new(lower_expression(image, ctx)),
+                    hotspot_x: Box::new(lower_expression(hotspot_x, ctx)),
+                    hotspot_y: Box::new(lower_expression(hotspot_y, ctx)),
+                }
+            }
+        }),
         tree_Expression::LinearGradient { angle, stops } => llr_Expression::LinearGradient {
             angle: Box::new(lower_expression(angle, ctx)),
             stops: stops
