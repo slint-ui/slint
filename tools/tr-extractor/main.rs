@@ -87,7 +87,7 @@ fn main() -> std::io::Result<()> {
         process_file(path, &mut messages, &args)?
     }
 
-    polib::po_file::write(&messages, &output)?;
+    polib::po_file::write_to_file(&messages, &output)?;
     Ok(())
 }
 
@@ -145,7 +145,7 @@ fn visit_node(
                         }
                     }
 
-                    let comment = msg.comments_mut();
+                    let comment = msg.extracted_comments_mut();
                     if comment.is_empty() {
                         if let Some(c) = tr
                             .child_token(SyntaxKind::StringLiteral)
