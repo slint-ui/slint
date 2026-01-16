@@ -75,8 +75,7 @@ fn render_path_with_style<T: TargetPixel>(
     }
 
     // Create a buffer for the mask output
-    let mut mask_buffer = Vec::with_capacity(path_width * path_height);
-    mask_buffer.resize(path_width * path_height, 0u8);
+    let mut mask_buffer = vec![0u8; path_width * path_height];
 
     // Render the full path into the mask
     Mask::new(commands)
