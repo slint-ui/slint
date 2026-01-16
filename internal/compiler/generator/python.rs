@@ -433,7 +433,7 @@ mod python_ast {
             for import in &self.imports {
                 writeln!(f, "import {}", import)?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
             for decl in &self.declarations {
                 writeln!(f, "{}", decl)?;
             }
@@ -475,7 +475,7 @@ mod python_ast {
             }
 
             if !self.fields.is_empty() {
-                writeln!(f, "")?;
+                writeln!(f)?;
             }
 
             for fundecl in &self.function_declarations {
