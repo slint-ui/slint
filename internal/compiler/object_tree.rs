@@ -2211,7 +2211,7 @@ fn apply_uses_statement(
                     .and_then(|node| node.child_token(SyntaxKind::Identifier))
                     .map_or_else(
                         || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
-                        |token| parser::NodeOrToken::Token(token),
+                        parser::NodeOrToken::Token,
                     );
 
                 diag.push_error(

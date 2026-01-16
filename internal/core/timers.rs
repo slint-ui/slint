@@ -478,7 +478,7 @@ pub(crate) mod ffi {
         } else {
             timer.start(mode, core::time::Duration::from_millis(duration), move || wrap.call());
         }
-        timer.id.take().map(|x| usize::from(x)).unwrap_or(0)
+        timer.id.take().map(usize::from).unwrap_or(0)
     }
 
     /// Execute a callback with a delay in millisecond
