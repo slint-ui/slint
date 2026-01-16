@@ -12,6 +12,21 @@
     };
     devShells.${system} = {
       default = with pkgs;
+      let
+        runtime-libs = [
+          fontconfig
+          wayland
+          libxkbcommon
+          libGL
+
+          xorg.libX11
+          xorg.libXcursor
+          xorg.libXi
+          xorg.libXrandr # To use the x11 feature
+          vulkan-loader
+        ];
+      in
+
         mkShell {
           hardeningDisable = [ "fortify" ];
           nativeBuildInputs = [renderdoc cargo-udeps];
@@ -42,18 +57,12 @@
             pnpm
             perf
             hotspot
-          ];
-          LD_LIBRARY_PATH = lib.makeLibraryPath [
-            fontconfig
-            wayland
-            libxkbcommon
-            libGL
 
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXi
-            xorg.libXrandr # To use the x11 feature
+            alsa-lib
+            fontconfig
+            runtime-libs
           ];
+          LD_LIBRARY_PATH = lib.makeLibraryPath runtime-libs;
         };
       spelling = with pkgs;
         mkShell {
