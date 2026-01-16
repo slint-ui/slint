@@ -49,9 +49,9 @@ impl TryFrom<&str> for RenderingRotation {
             180 => Self::Rotate180,
             270 => Self::Rotate270,
             _ => {
-                return Err(format!(
-                    "Invalid value for rotation. Must be one of 0, 90, 180, or 270"
-                ));
+                return Err(
+                    "Invalid value for rotation. Must be one of 0, 90, 180, or 270".to_string()
+                );
             }
         })
     }

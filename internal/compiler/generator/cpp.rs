@@ -1826,7 +1826,7 @@ fn generate_item_tree(
                     .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
-            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));"));
+            create_code.push("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));".to_string());
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -3842,7 +3842,7 @@ fn compile_builtin_function_call(
             format!("{}.scale_factor()", access_window_field(ctx))
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            format!("slint::private_api::get_resolved_default_font_size(*this)")
+            "slint::private_api::get_resolved_default_font_size(*this)".to_string()
         }
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
@@ -4316,7 +4316,7 @@ fn compile_builtin_function_call(
             "self->update_timers()".into()
         }
         BuiltinFunction::DetectOperatingSystem => {
-            format!("slint::cbindgen_private::slint_detect_operating_system()")
+            "slint::cbindgen_private::slint_detect_operating_system()".to_string()
         }
         // start and stop are unreachable because they are lowered to simple assignment of running
         BuiltinFunction::StartTimer => unreachable!(),
