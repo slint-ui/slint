@@ -28,6 +28,10 @@ inputs:
         description: "Enable Rust caching (default: true)"
         required: false
         default: "true"
+    cache-workspace-crates:
+        description: "Cache the crates in the workspace, not just dependencies (default: false)"
+        required: false
+        default: "false"
     save_if:
         description: "Condition to save the cache"
         required: false
@@ -69,5 +73,6 @@ runs:
         - uses: Swatinem/rust-cache@v2
           if: inputs.cache == 'true'
           with:
+              cache-workspace-crates: ${{ inputs.cache-workspace-crates }}
               key: ${{ inputs.key }}-1
               save-if: ${{ inputs.save_if }}
