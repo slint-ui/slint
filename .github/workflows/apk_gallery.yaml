@@ -61,13 +61,19 @@ jobs:
               run: |
                   mkdir -p /home/runner/.android
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
-            - name: Build
+            - name: Build apk
               if: steps.cache-apk.outputs.cache-hit != 'true'
               working-directory: ui-libraries/material/examples/gallery
               run: cargo apk build --target aarch64-linux-android --lib --release
+            - name: Install xbuild
+              run: cargo install xbuild
+            - name: Build aab
+              working-directory: ui-libraries/material/examples/gallery
+              run: x build --format 'aab'
             - name: "Upload Artifacts"
               uses: actions/upload-artifact@v6
               with:
                   name: apk_gallery
                   path: |
                       target/release/apk/slint_material.apk
+                      target/x/release/android/material-gallery.aab
