@@ -71,6 +71,7 @@ use slint::{
 slint::slint! {
 
 import { VerticalBox, Button, Slider } from "std-widgets.slint";
+
 export component Demo inherits Window {
     background: #ff00ff3f;
     in-out property <int> click-count: 0;
@@ -79,8 +80,8 @@ export component Demo inherits Window {
     VerticalBox {
         alignment: start;
         Text {
-            text: "Hello World - Clicks: " + click-count;
-            color: green;
+            text: "Clicks: " + click-count;
+            color: white;
         }
         Button {
             text: "Press me";
@@ -564,7 +565,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Define the size of the Slint UI texture
-    // This can be any size, but larger = more detail at the cost of performance
     let size = Extent3d { width: 800, height: 600, ..default() };
 
     // Create a Bevy image/texture for the Slint UI to render into
@@ -573,26 +573,20 @@ fn setup(
             label: Some("SlintUI"),
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8Unorm, // 8-bit RGBA to match Slint's output
+            format: TextureFormat::Rgba8Unorm,
             mip_level_count: 1,
             sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING  // Can be used in shaders
-                | TextureUsages::COPY_DST, // Can be written to by CPU
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             view_formats: &[],
         },
         ..default()
     };
-
-    // Allocate the pixel buffer for the texture
     image.resize(size);
 
     let image_handle = images.add(image);
 
-    // Create a material for the Slint UI with special properties:
-    // - unlit: true -> No lighting calculations, UI appears flat and consistent
-    // - alpha_mode: Blend -> Support transparency (Slint UI can have transparent backgrounds)
-    // - cull_mode: None -> Visible from both sides (useful as the quad rotates)
-    let material_handle = materials.add(StandardMaterial {
+    // Create a material for the Slint UI
+    let slint_material = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle.clone()),
         unlit: true,
         alpha_mode: AlphaMode::Blend,
@@ -601,57 +595,51 @@ fn setup(
     });
 
     // Spawn an entity to track the Slint texture and material
-    // The render_slint system will query for this component to find the texture to update
-    commands.spawn(SlintScene { image: image_handle, material: material_handle.clone() });
+    commands.spawn(SlintScene {
+        image: image_handle,
+        material: slint_material.clone(),
+    });
 
-    // Create a material for the cube
+    // Create a material for the cube with a distinct color
     let cube_material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        unlit: false, // This cube uses lighting, unlike the UI
+        base_color: Color::srgb(0.2, 0.7, 0.9), // Cyan/teal color
+        unlit: false,
         ..default()
     });
 
     // Create meshes using Bevy's built-in primitives
     let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let quad_mesh = meshes.add(Rectangle::new(1.0, 1.0)); // 1x1 quad for UI
+    let quad_mesh = meshes.add(Rectangle::new(1.0, 1.0));
 
     // Spawn the cube with the Slint UI as a child entity
-    // The cube is scaled 2x and positioned close to the camera
     commands
         .spawn((
             Mesh3d(cube_mesh),
             MeshMaterial3d(cube_material),
-            Transform::from_xyz(0.0, 0.0, -0.5) // Close to camera at z=6
-                .with_rotation(Quat::from_rotation_y(0.5)) // Initial rotation for visual interest
-                .with_scale(Vec3::splat(2.0)), // Scale up 2x
+            Transform::from_xyz(0.0, 0.0, -0.5)
+                .with_rotation(Quat::from_rotation_y(0.5))
+                .with_scale(Vec3::splat(2.0)),
             Cube,
         ))
         .with_children(|parent| {
-            // Attach the UI quad as a child of the cube
-            // Being a child means it inherits the cube's transform (rotation, scale)
             parent.spawn((
                 Mesh3d(quad_mesh),
-                MeshMaterial3d(material_handle),
-                // Position on the front face (+Z in local space)
-                // 0.51 is slightly in front of the cube face (which is at 0.5 in a 1x1 cube)
-                // to prevent z-fighting artifacts
+                MeshMaterial3d(slint_material),
                 Transform::from_xyz(0.0, 0.0, 0.51),
-                SlintQuad, // Marker for input handling system to find this quad
+                SlintQuad,
             ));
         });
 
-    // Load and spawn a 3D model to demonstrate
-    // that Slint UI and regular 3D content can coexist
+    // Load and spawn the cow model
     commands.spawn((
         SceneRoot(assets.load("cow.gltf#Scene0")),
-        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(4.0, 0.0, -30.0)), // Off to the right side
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(-2.0, 2.0, -30.0)),
     ));
 
-    // Add a point light to illuminate the 3D scene
-    // Position it above and to the side for dramatic lighting
+    // Add a point light
     commands.spawn((
         PointLight {
-            intensity: 2_000_000.0, // Bright light (Bevy 0.18+ uses lumen values)
+            intensity: 2_000_000.0,
             range: 100.0,
             shadows_enabled: true,
             ..default()
@@ -659,17 +647,44 @@ fn setup(
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 
-    // Create the main 3D camera
-    // It's positioned at (0, 0, 6) looking towards the origin
-    // This gives a good view of both the cube and the cow model
+    // Create the 3D camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
-            clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)), // Dark gray background
+            clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),
             ..default()
         },
     ));
+
+    // Create a static info overlay using Bevy's built-in UI system
+    // This demonstrates that Slint and Bevy UI can coexist
+    commands.spawn(Node {
+        position_type: PositionType::Absolute,
+        left: Val::Px(10.0),
+        top: Val::Px(10.0),
+        padding: UiRect::all(Val::Px(10.0)),
+        flex_direction: FlexDirection::Column,
+        row_gap: Val::Px(4.0),
+        ..default()
+    }).insert(BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)))
+      .with_children(|parent| {
+        parent.spawn((
+            Text::new("Slint + Bevy Integration Demo"),
+            TextFont { font_size: 16.0, ..default() },
+            TextColor(Color::WHITE),
+        ));
+        parent.spawn((
+            Text::new("UI rendered via Slint software renderer"),
+            TextFont { font_size: 12.0, ..default() },
+            TextColor(Color::srgb(0.8, 0.8, 0.8)),
+        ));
+        parent.spawn((
+            Text::new("Use arrow keys to rotate the cube"),
+            TextFont { font_size: 12.0, ..default() },
+            TextColor(Color::srgb(0.8, 0.8, 0.8)),
+        ));
+    });
 }
 
 /// Bevy system that renders the Slint UI to a texture each frame.
@@ -705,12 +720,15 @@ fn render_slint(
         return;
     };
 
-    let adapter = &slint_context.adapter;
-
     // CRITICAL: Update timers and animations BEFORE rendering
     // This processes all pending events, updates animations, and advances timers
     // Must be called at least once per frame for animations to work
     slint::platform::update_timers_and_animations();
+
+    // Get the actual scale factor from the Bevy window
+    let scale_factor = windows.single().map(|w| w.scale_factor()).unwrap_or(2.0);
+
+    let adapter = &slint_context.adapter;
 
     for scene in slint_scenes.iter() {
         let image = images.get_mut(&scene.image).unwrap();
@@ -719,10 +737,6 @@ fn render_slint(
             image.texture_descriptor.size.width,
             image.texture_descriptor.size.height,
         );
-
-        // Get the actual scale factor from the Bevy window
-        // This is used to convert between physical pixels and logical coordinates
-        let scale_factor = windows.single().map(|w| w.scale_factor()).unwrap_or(2.0);
 
         // If the texture size or DPI scale changed, notify Slint's layout engine
         // This triggers a re-layout of the UI at the new size
