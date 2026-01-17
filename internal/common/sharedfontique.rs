@@ -67,12 +67,10 @@ pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::ne
         let path = std::path::Path::new(&path);
         if path.extension().is_some() {
             add_font_from_path(path.to_owned());
-        } else {
-            if let Ok(dir) = std::fs::read_dir(path) {
-                for file in dir {
-                    if let Ok(file) = file {
-                        add_font_from_path(file.path());
-                    }
+        } else if let Ok(dir) = std::fs::read_dir(path) {
+            for file in dir {
+                if let Ok(file) = file {
+                    add_font_from_path(file.path());
                 }
             }
         }

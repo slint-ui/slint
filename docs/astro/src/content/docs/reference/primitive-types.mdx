@@ -81,6 +81,16 @@ export component ChangeCaseOfString {
 }
 ```
 
+The `to-float` method can be used to convert `string` to a `float`. It returns 0 if the string isn’t a valid number. You can check with `is-float` if the string contains a valid number.
+
+```slint
+export component StringToFloat {
+    property<float> hello: "hello".to-float(); // 0
+    property<bool> goodbye: "goodbye".is-float(); // false
+    property<float> value: "1.5".to-float(); // 1.5
+}
+```
+
 </SlintProperty>
 
 ## Numeric Types
