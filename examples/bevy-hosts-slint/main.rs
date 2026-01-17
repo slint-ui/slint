@@ -136,9 +136,9 @@ impl FromWorld for SlintContext {
         // See: https://github.com/slint-ui/slint/issues/2809
         slint::platform::update_timers_and_animations();
 
-        let instance = Demo::new().unwrap();
+        let instance = Demo::new().expect("Failed to create Slint Demo component");
 
-        instance.window().show().unwrap();
+        instance.window().show().expect("Failed to show Slint window");
 
         // Get the adapter from thread_local storage where it was stored by SlintBevyPlatform
         let adapter = SLINT_WINDOWS
@@ -727,36 +727,36 @@ fn render_slint(
 
     let adapter = &slint_context.adapter;
 
-    for scene in slint_scenes.iter() {
-        let image = images.get_mut(&scene.image).unwrap();
+    // Only one SlintScene is spawned, so we use .next() to make this explicit
+    let Some(scene) = slint_scenes.iter().next() else { return };
+    let image = images.get_mut(&scene.image).unwrap();
 
-        let requested_size = slint::PhysicalSize::new(
-            image.texture_descriptor.size.width,
-            image.texture_descriptor.size.height,
-        );
+    let requested_size = slint::PhysicalSize::new(
+        image.texture_descriptor.size.width,
+        image.texture_descriptor.size.height,
+    );
 
-        // If the texture size or DPI scale changed, notify Slint's layout engine
-        // This triggers a re-layout of the UI at the new size
-        if requested_size != adapter.size.get() || scale_factor != adapter.scale_factor.get() {
-            adapter.resize(requested_size, scale_factor);
-        }
-
-        // Render the Slint UI directly into the Bevy texture's CPU-side storage.
-        // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
-        if let Some(data) = image.data.as_mut() {
-            // Render the Slint UI into the pixel buffer
-            // The second parameter is the stride (pixels per row)
-            adapter.software_renderer.render(
-                bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data),
-                image.texture_descriptor.size.width as usize,
-            );
-        }
-
-        // WORKAROUND: Force GPU texture re-upload by accessing the material mutably
-        // This triggers Bevy's change detection, which schedules a GPU upload
-        // Without this, the texture may not update on the GPU even though CPU data changed
-        // See: https://github.com/bevyengine/bevy/issues/17350
-        materials.get_mut(&scene.material);
+    // If the texture size or DPI scale changed, notify Slint's layout engine
+    // This triggers a re-layout of the UI at the new size
+    if requested_size != adapter.size.get() || scale_factor != adapter.scale_factor.get() {
+        adapter.resize(requested_size, scale_factor);
     }
+
+    // Render the Slint UI directly into the Bevy texture's CPU-side storage.
+    // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
+    if let Some(data) = image.data.as_mut() {
+        // Render the Slint UI into the pixel buffer
+        // The second parameter is the stride (pixels per row)
+        adapter.software_renderer.render(
+            bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data),
+            image.texture_descriptor.size.width as usize,
+        );
+    }
+
+    // WORKAROUND: Force GPU texture re-upload by accessing the material mutably
+    // This triggers Bevy's change detection, which schedules a GPU upload
+    // Without this, the texture may not update on the GPU even though CPU data changed
+    // See: https://github.com/bevyengine/bevy/issues/17350
+    materials.get_mut(&scene.material);
 }
 
