@@ -104,7 +104,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             |mut app| {
                 app.insert_resource(CameraPos(Vec3::new(3., 4.0, 4.0)))
-                    //                    .insert_resource(ModelBasePath("".into()))
                     .insert_resource(ModelBasePath(
                         "https://github.com/KhronosGroup/glTF-Sample-Assets/raw/refs/heads/main/"
                             .into(),
@@ -224,24 +223,9 @@ struct CameraPos(Vec3);
 #[derive(Resource)]
 struct ModelBasePath(String);
 
-fn setup(mut commands: Commands, camera: Res<CameraPos>) {
+fn setup(mut commands: Commands) {
     commands.spawn(DirectionalLight { illuminance: 100_000.0, ..default() });
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_translation(camera.0).looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
-        PointLight { color: Color::linear_rgb(0.5, 0., 0.), ..default() },
-    ));
-
-    /*
-    commands.spawn(SceneRoot(
-        //asset_server.load(GltfAssetLabel::Scene(0).from_asset("DamagedHelmet.glb")),
-        asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"), //  GltfAssetLabel::Scene(0)
-                                                                                   //      .from_asset("https://github.com/KhronosGroup/glTF-Sample-Assets/raw/refs/heads/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"),
-        ),
-    ));
-    */
+    commands.spawn((Camera3d::default(), PointLight::default()));
 }
 
 fn reload_model_from_channel(
@@ -260,12 +244,9 @@ fn reload_model_from_channel(
         for loaded_bundle in loaded_bundles.iter() {
             commands.entity(loaded_bundle).despawn();
         }
-        commands.spawn(SceneRoot(
-            //asset_server.load(GltfAssetLabel::Scene(0).from_asset("DamagedHelmet.glb")),
-            asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset(format!("{}{}", base_path.0, new_model.path)),
-            ),
-        ));
+        commands.spawn(SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset(format!("{}{}", base_path.0, new_model.path)),
+        )));
         camera.0 = new_model.center;
     }
 }
@@ -277,7 +258,6 @@ fn animate_camera(
 ) {
     let now = time.elapsed_secs();
     for mut transform in cameras.iter_mut() {
-        // transform.translation = vec3(ops::cos(now), 0.0, ops::sin(now)) * vec3(3.0, 4.0, 4.0);
         transform.translation = vec3(ops::cos(now), 0.0, ops::sin(now)) * camera.0;
         transform.look_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y);
     }
