@@ -65,6 +65,8 @@ jobs:
               if: steps.cache-apk.outputs.cache-hit != 'true'
               working-directory: ui-libraries/material/examples/gallery
               run: cargo apk build --target aarch64-linux-android --lib --release
+            - name: Add NDK LLVM to PATH
+              run: export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
             - name: Install xbuild
               run: cargo install xbuild
             - name: Build aab
