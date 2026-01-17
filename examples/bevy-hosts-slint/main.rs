@@ -592,10 +592,7 @@ fn setup(
     });
 
     // Spawn an entity to track the Slint texture and material
-    commands.spawn(SlintScene {
-        image: image_handle,
-        material: slint_material.clone(),
-    });
+    commands.spawn(SlintScene { image: image_handle, material: slint_material.clone() });
 
     // Create a material for the cube with a distinct color
     let cube_material = materials.add(StandardMaterial {
@@ -635,12 +632,7 @@ fn setup(
 
     // Add a point light
     commands.spawn((
-        PointLight {
-            intensity: 2_000_000.0,
-            range: 100.0,
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight { intensity: 2_000_000.0, range: 100.0, shadows_enabled: true, ..default() },
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 
@@ -648,40 +640,39 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
-            clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),
-            ..default()
-        },
+        Camera { clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)), ..default() },
     ));
 
     // Create a static info overlay using Bevy's built-in UI system
     // This demonstrates that Slint and Bevy UI can coexist
-    commands.spawn(Node {
-        position_type: PositionType::Absolute,
-        left: Val::Px(10.0),
-        top: Val::Px(10.0),
-        padding: UiRect::all(Val::Px(10.0)),
-        flex_direction: FlexDirection::Column,
-        row_gap: Val::Px(4.0),
-        ..default()
-    }).insert(BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)))
-      .with_children(|parent| {
-        parent.spawn((
-            Text::new("Slint + Bevy Integration Demo"),
-            TextFont { font_size: 16.0, ..default() },
-            TextColor(Color::WHITE),
-        ));
-        parent.spawn((
-            Text::new("UI rendered via Slint software renderer"),
-            TextFont { font_size: 12.0, ..default() },
-            TextColor(Color::srgb(0.8, 0.8, 0.8)),
-        ));
-        parent.spawn((
-            Text::new("Use arrow keys to rotate the cube"),
-            TextFont { font_size: 12.0, ..default() },
-            TextColor(Color::srgb(0.8, 0.8, 0.8)),
-        ));
-    });
+    commands
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(10.0),
+            top: Val::Px(10.0),
+            padding: UiRect::all(Val::Px(10.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(4.0),
+            ..default()
+        })
+        .insert(BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Slint + Bevy Integration Demo"),
+                TextFont { font_size: 16.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
+            parent.spawn((
+                Text::new("UI rendered via Slint software renderer"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(Color::srgb(0.8, 0.8, 0.8)),
+            ));
+            parent.spawn((
+                Text::new("Use arrow keys to rotate the cube"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(Color::srgb(0.8, 0.8, 0.8)),
+            ));
+        });
 }
 
 /// Bevy system that renders the Slint UI to a texture each frame.
@@ -759,4 +750,3 @@ fn render_slint(
     // See: https://github.com/bevyengine/bevy/issues/17350
     materials.get_mut(&scene.material);
 }
-
