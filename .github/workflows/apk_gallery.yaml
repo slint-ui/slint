@@ -69,7 +69,7 @@ jobs:
               run: cargo install xbuild
             - name: Build aab
               working-directory: ui-libraries/material/examples/gallery
-              run: x build --format 'aab'
+              run: x build --platform android --arch arm64 --release --format 'aab'
             - name: "Upload Artifacts"
               uses: actions/upload-artifact@v6
               with:
