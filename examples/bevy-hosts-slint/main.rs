@@ -48,6 +48,7 @@ use std::{
 
 use bevy::{
     input::{ButtonState, mouse::MouseButtonInput},
+    math::primitives::InfinitePlane3d,
     prelude::*,
     render::render_resource::{
         Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -394,50 +395,46 @@ fn handle_input(
     if let Some(cursor_position) = window.cursor_position() {
         let mut hit = false;
         if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
-            // Compute ray-plane intersection to find where the cursor hits the quad
-            // The quad is a flat plane in 3D space, so we use plane intersection math
+            // Use Bevy's built-in ray-plane intersection
+            // The quad's back direction is its normal (pointing toward the camera)
             let plane_normal = quad_global.back();
-            let plane_point = quad_global.translation();
+            let plane_origin = quad_global.translation();
+            let plane = InfinitePlane3d::new(*plane_normal);
 
-            // Standard ray-plane intersection formula: t = dot(plane_point - ray_origin, plane_normal) / dot(ray_direction, plane_normal)
-            let denominator = ray.direction.dot(*plane_normal);
-            if denominator.abs() > f32::EPSILON {
-                let t = (plane_point - ray.origin).dot(*plane_normal) / denominator;
-                if t >= 0.0 {
-                    // Compute the 3D intersection point
-                    let intersection_point = ray.origin + ray.direction * t;
+            if let Some(distance) = ray.intersect_plane(plane_origin, plane) {
+                // Compute the 3D intersection point
+                let intersection_point = ray.get_point(distance);
 
-                    // Transform from world space to the quad's local coordinate system
-                    let local_point =
-                        quad_global.affine().inverse().transform_point3(intersection_point);
+                // Transform from world space to the quad's local coordinate system
+                let local_point =
+                    quad_global.affine().inverse().transform_point3(intersection_point);
 
-                    // The quad mesh is 1.0 x 1.0 units (centered at origin in local space)
-                    let quad_width = 1.0;
-                    let quad_height = 1.0;
+                // The quad mesh is 1.0 x 1.0 units (centered at origin in local space)
+                let quad_width = 1.0;
+                let quad_height = 1.0;
 
-                    // Check if the intersection point is within the quad's bounds
-                    if local_point.x.abs() <= quad_width / 2.0
-                        && local_point.y.abs() <= quad_height / 2.0
-                    {
-                        // Convert local coordinates to UV coordinates (0..1 range)
-                        // Local x: -0.5 .. 0.5 -> UV u: 0 .. 1
-                        let u = (local_point.x + quad_width / 2.0) / quad_width;
-                        // Local y: -0.5 .. 0.5 -> UV v: 1 .. 0 (flip Y because Slint's origin is top-left)
-                        let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
+                // Check if the intersection point is within the quad's bounds
+                if local_point.x.abs() <= quad_width / 2.0
+                    && local_point.y.abs() <= quad_height / 2.0
+                {
+                    // Convert local coordinates to UV coordinates (0..1 range)
+                    // Local x: -0.5 .. 0.5 -> UV u: 0 .. 1
+                    let u = (local_point.x + quad_width / 2.0) / quad_width;
+                    // Local y: -0.5 .. 0.5 -> UV v: 1 .. 0 (flip Y because Slint's origin is top-left)
+                    let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
 
-                        // Convert UV coordinates to pixel coordinates
-                        let slint_x = u * texture_width;
-                        let slint_y = v * texture_height;
+                    // Convert UV coordinates to pixel coordinates
+                    let slint_x = u * texture_width;
+                    let slint_y = v * texture_height;
 
-                        // Convert physical pixels to logical coordinates using the scale factor
-                        let position =
-                            LogicalPosition::new(slint_x / scale_factor, slint_y / scale_factor);
+                    // Convert physical pixels to logical coordinates using the scale factor
+                    let position =
+                        LogicalPosition::new(slint_x / scale_factor, slint_y / scale_factor);
 
-                        // Update cursor state and notify Slint of pointer movement
-                        cursor_state.position = Some(position);
-                        adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
-                        hit = true;
-                    }
+                    // Update cursor state and notify Slint of pointer movement
+                    cursor_state.position = Some(position);
+                    adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
+                    hit = true;
                 }
             }
         }
