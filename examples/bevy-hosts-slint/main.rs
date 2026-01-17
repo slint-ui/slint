@@ -50,8 +50,7 @@ use bevy::{
     input::{ButtonState, mouse::MouseButtonInput},
     prelude::*,
     render::render_resource::{
-        Extent3d, PrimitiveTopology, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
 };
 use slint::{
@@ -165,11 +164,11 @@ struct SlintScene {
     material: Handle<StandardMaterial>,
 }
 
-/// Marker component for the colorful rotating cube in the scene.
+/// Marker component for the rotating cube in the scene.
 ///
 /// Used by the `rotate_cube` system to identify which entity to rotate in response to arrow keys.
 #[derive(Component)]
-struct ColorfulCube;
+struct Cube;
 
 /// Custom window adapter that bridges Slint's windowing model to Bevy's texture-based rendering.
 ///
@@ -503,7 +502,7 @@ fn main() {
         .run();
 }
 
-/// Bevy system that rotates the colorful cube based on arrow key input.
+/// Bevy system that rotates the cube based on arrow key input.
 ///
 /// This is a simple demo feature to show that the 3D scene continues to update
 /// independently of the Slint UI overlay.
@@ -516,7 +515,7 @@ fn main() {
 fn rotate_cube(
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<ColorfulCube>>,
+    mut query: Query<&mut Transform, With<Cube>>,
 ) {
     for mut transform in query.iter_mut() {
         let speed = 2.0;
@@ -544,7 +543,7 @@ fn rotate_cube(
 /// 1. **Create Slint UI Texture**: Creates an 800x600 RGBA texture that Slint will render into
 /// 2. **Create Material**: Creates a Bevy material with the Slint texture, configured for
 ///    transparency and unlit rendering (so the UI appears flat and consistent)
-/// 3. **Create Colorful Cube**: Spawns a rotating cube with vertex colors at (0, 0, -0.5)
+/// 3. **Create Cube**: Spawns a rotating cube at (0, 0, -0.5)
 /// 4. **Attach UI Quad**: Adds a child quad mesh to the cube's front face that displays the Slint UI
 /// 5. **Load 3D Model**: Loads a cow model from GLTF
 /// 6. **Add Lighting**: Places a point light to illuminate the 3D scene
@@ -605,18 +604,18 @@ fn setup(
     // The render_slint system will query for this component to find the texture to update
     commands.spawn(SlintScene { image: image_handle, material: material_handle.clone() });
 
-    // Create a material for the colorful cube (uses vertex colors with lighting)
+    // Create a material for the cube
     let cube_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         unlit: false, // This cube uses lighting, unlike the UI
         ..default()
     });
 
-    // Create meshes
-    let cube_mesh = meshes.add(create_colorful_cube());
-    let quad_mesh = meshes.add(Mesh::from(Rectangle::new(1.0, 1.0))); // 1x1 quad for UI
+    // Create meshes using Bevy's built-in primitives
+    let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    let quad_mesh = meshes.add(Rectangle::new(1.0, 1.0)); // 1x1 quad for UI
 
-    // Spawn the colorful cube with the Slint UI as a child entity
+    // Spawn the cube with the Slint UI as a child entity
     // The cube is scaled 2x and positioned close to the camera
     commands
         .spawn((
@@ -625,7 +624,7 @@ fn setup(
             Transform::from_xyz(0.0, 0.0, -0.5) // Close to camera at z=6
                 .with_rotation(Quat::from_rotation_y(0.5)) // Initial rotation for visual interest
                 .with_scale(Vec3::splat(2.0)), // Scale up 2x
-            ColorfulCube,
+            Cube,
         ))
         .with_children(|parent| {
             // Attach the UI quad as a child of the cube
@@ -750,169 +749,3 @@ fn render_slint(
     }
 }
 
-/// Creates a procedural cube mesh with vertex colors (one color per face).
-///
-/// This function demonstrates how to create custom geometry in Bevy with vertex attributes.
-///
-/// ## Mesh Structure
-///
-/// - **24 vertices** (4 per face, 6 faces) instead of 8 to support hard edges and per-face colors
-/// - **36 indices** (6 triangles * 2 triangles per face)
-/// - Each face has a unique solid color (Red, Green, Blue, Yellow, Cyan, Magenta)
-///
-/// ## Vertex Attributes
-///
-/// - `POSITION`: 3D coordinates of each vertex
-/// - `COLOR`: Per-vertex RGBA color (used instead of texture)
-/// - `NORMAL`: Surface normal for lighting calculations
-///
-/// ## Why 24 vertices instead of 8?
-///
-/// Using 24 vertices (instead of sharing 8 corner vertices) allows each face to have:
-/// - Its own flat normals for crisp lighting on each face
-/// - Its own unique color without blending at edges
-///
-/// This is standard practice for rendering sharp-edged objects with flat shading.
-fn create_colorful_cube() -> Mesh {
-    let mut mesh =
-        Mesh::new(PrimitiveTopology::TriangleList, bevy::asset::RenderAssetUsages::default());
-
-    // Define vertex positions for all 6 faces
-    // Each face has 4 vertices, defined in counter-clockwise order when viewed from outside
-    let raw_vertices = vec![
-        // Front (z+)
-        [-0.5, -0.5, 0.5],
-        [0.5, -0.5, 0.5],
-        [0.5, 0.5, 0.5],
-        [-0.5, 0.5, 0.5],
-        // Back (z-)
-        [-0.5, 0.5, -0.5],
-        [0.5, 0.5, -0.5],
-        [0.5, -0.5, -0.5],
-        [-0.5, -0.5, -0.5],
-        // Right (x+)
-        [0.5, -0.5, -0.5],
-        [0.5, 0.5, -0.5],
-        [0.5, 0.5, 0.5],
-        [0.5, -0.5, 0.5],
-        // Left (x-)
-        [-0.5, -0.5, 0.5],
-        [-0.5, 0.5, 0.5],
-        [-0.5, 0.5, -0.5],
-        [-0.5, -0.5, -0.5],
-        // Top (y+)
-        [-0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5],
-        [0.5, 0.5, -0.5],
-        [-0.5, 0.5, -0.5],
-        // Bottom (y-)
-        [-0.5, -0.5, -0.5],
-        [0.5, -0.5, -0.5],
-        [0.5, -0.5, 0.5],
-        [-0.5, -0.5, 0.5],
-    ];
-
-    // Define colors for each vertex (RGBA format)
-    // Each face gets a single color applied to all 4 of its vertices
-    let raw_colors = vec![
-        // Front face - Red
-        [1.0, 0.0, 0.0, 1.0],
-        [1.0, 0.0, 0.0, 1.0],
-        [1.0, 0.0, 0.0, 1.0],
-        [1.0, 0.0, 0.0, 1.0],
-        // Back face - Green
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        // Right face - Blue
-        [0.0, 0.0, 1.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        // Left face - Yellow
-        [1.0, 1.0, 0.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        // Top face - Cyan
-        [0.0, 1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
-        // Bottom face - Magenta
-        [1.0, 0.0, 1.0, 1.0],
-        [1.0, 0.0, 1.0, 1.0],
-        [1.0, 0.0, 1.0, 1.0],
-        [1.0, 0.0, 1.0, 1.0],
-    ];
-
-    // Define surface normals for lighting calculations
-    // Each face has a single normal vector pointing outward perpendicular to the surface
-    let raw_normals = vec![
-        // Front
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        // Back
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        // Right
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        // Left
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        // Top
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        // Bottom
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-    ];
-
-    // Define triangle indices (3 indices per triangle, 2 triangles per face)
-    // Each face is made of 2 triangles in counter-clockwise winding order
-    // Vertex indices reference the raw_vertices array
-    let indices = vec![
-        0, 1, 2, 2, 3, 0, // Front face (2 triangles)
-        4, 5, 6, 6, 7, 4, // Back face
-        8, 9, 10, 10, 11, 8, // Right face
-        12, 13, 14, 14, 15, 12, // Left face
-        16, 17, 18, 18, 19, 16, // Top face
-        20, 21, 22, 22, 23, 20, // Bottom face
-    ];
-
-    // Expand the indexed vertex data into a flat list of vertices
-    // This converts from indexed geometry (24 vertices, 36 indices)
-    // to a vertex list (36 vertices, no indices)
-    // While this uses more memory, it's simpler for demonstration purposes
-    let mut vertices = Vec::new();
-    let mut colors = Vec::new();
-    let mut normals = Vec::new();
-
-    for i in indices {
-        vertices.push(raw_vertices[i]);
-        colors.push(raw_colors[i]);
-        normals.push(raw_normals[i]);
-    }
-
-    // Insert vertex attributes into the mesh
-    // Bevy's rendering pipeline uses these standard attribute names
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-
-    mesh
-}
