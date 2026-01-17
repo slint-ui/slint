@@ -272,7 +272,7 @@ impl BevyWindowAdapter {
     }
 }
 
-// Thread-local storage for Slint window adapters and timing.
+// Thread-local storage for Slint window adapters.
 //
 // Since Slint uses Rc (not Arc), all Slint types must live on a single thread.
 // We use thread-local storage to keep track of created window adapters so that
@@ -361,7 +361,7 @@ fn handle_input(
     mut cursor_state: ResMut<CursorState>,
     slint_context: Option<NonSend<SlintContext>>,
     slint_scenes: Query<&SlintScene>,
-    mut quad_query: Query<(&GlobalTransform, &mut Transform), With<SlintQuad>>,
+    quad_query: Query<&GlobalTransform, With<SlintQuad>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     images: Res<Assets<Image>>,
 ) {
@@ -389,7 +389,7 @@ fn handle_input(
 
     // Get camera and quad transforms for raycasting
     let Some((camera, camera_transform)) = camera_query.iter().next() else { return };
-    let Some((quad_global, _quad_local)) = quad_query.iter_mut().next() else { return };
+    let Some(quad_global) = quad_query.iter().next() else { return };
 
     // Perform raycasting every frame to detect cursor position on the UI quad
     if let Some(cursor_position) = window.cursor_position() {
