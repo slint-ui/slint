@@ -16,7 +16,7 @@ name = "gallery_lib"
 
 [[bin]]
 path = "src/main.rs"
-name = "material_gallery"
+name = "material-gallery"
 
 [dependencies]
 slint = { path = "../../../../api/rs/slint", features = ["backend-android-activity-06"] }
