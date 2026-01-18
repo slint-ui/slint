@@ -64,16 +64,12 @@ jobs:
               if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
               run: cargo install cargo-apk
             - uses: Swatinem/rust-cache@v2
-              if: steps.cache-apk.outputs.cache-hit != 'true'
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
               with:
-                  key: apk-build
+                  key: android-build
             - name: Install xbuild
               if: steps.xbuild-cache.outputs.cache-hit != 'true'
               run: cargo install xbuild
-            - uses: Swatinem/rust-cache@v2
-              if: steps.cache-aab.outputs.cache-hit != 'true'
-              with:
-                  key: aab-build
             - name: Cache APK build
               id: cache-apk
               uses: actions/cache@v5
