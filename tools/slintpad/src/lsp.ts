@@ -262,9 +262,6 @@ export class Lsp {
         if (this.#preview_connector === null) {
             slint_preview.run_event_loop();
 
-            const params = new URLSearchParams(window.location.search);
-            const experimental = params.get("SLINT_EXPERIMENTAL_FEATURES");
-
             this.#preview_connector =
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await slint_preview.PreviewConnector.create(
@@ -276,7 +273,6 @@ export class Lsp {
                     },
                     resource_url_mapper,
                     style,
-                    experimental === "1",
                     slintpad_callback,
                 );
         }
