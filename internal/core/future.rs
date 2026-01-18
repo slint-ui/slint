@@ -146,3 +146,108 @@ pub(crate) fn spawn_local_with_ctx<F: Future + 'static>(
     arc.wake_by_ref();
     Ok(JoinHandle(arc))
 }
+
+/// This function spawns a new std::thread and executes the provided closure `action` in that thread.
+/// It returns a handle that can be awaited as standard [`Future`](core::future::Future) (hence it's executor-agnostic).
+#[cfg(feature = "std")]
+pub fn spawn_blocking<T: Send + 'static, F: FnMut() -> T + Send + 'static>(
+    mut action: F,
+) -> SpawnBlockingJoinHandle<T> {
+    let shared_thread_info: std::sync::Arc<std::sync::Mutex<SpawnBlockingThreadInfo<T>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(SpawnBlockingThreadInfo::default()));
+    let shared_clone = shared_thread_info.clone();
+    let join_handle = SpawnBlockingJoinHandle::new(shared_thread_info);
+
+    // Keep the `info` locked to be able to safely update the thread handle
+    let mut info = shared_clone.lock().expect("Nobody waiting here");
+
+    let shared_clone = shared_clone.clone();
+    let handle = std::thread::spawn(move || {
+        let ret = action();
+        {
+            let mut info =
+                shared_clone.lock().expect("Something bad happened in another thread...");
+
+            info.action_result = Some(ret);
+            if let Some(waker) = info.waker.take() {
+                waker.wake();
+            }
+        }
+    });
+    info.handle = Some(handle);
+    join_handle
+}
+
+/// The return value of the `spawn_blocking()` function
+///
+/// Can be used to await the thread executing the blocking action.
+///
+/// This trait implements future. Polling it after it finished or aborted may result in a panic.
+#[cfg(feature = "std")]
+pub struct SpawnBlockingJoinHandle<T> {
+    thread_info: std::sync::Arc<std::sync::Mutex<SpawnBlockingThreadInfo<T>>>,
+}
+
+#[cfg(feature = "std")]
+impl<T> SpawnBlockingJoinHandle<T> {
+    fn new(shared: std::sync::Arc<std::sync::Mutex<SpawnBlockingThreadInfo<T>>>) -> Self {
+        Self { thread_info: shared }
+    }
+}
+
+/// Implementation of an executor-agnostic [`Future`](core::future::Future), that waits until the `JoinHandle` related to the action spawned in another thread terminates, and returns it's result.
+#[cfg(feature = "std")]
+impl<T> core::future::Future for SpawnBlockingJoinHandle<T> {
+    type Output = Result<T, Box<dyn core::any::Any + Send>>;
+
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
+        let mut thread_info =
+            self.thread_info.lock().expect("Something bad happened in another thread...");
+
+        if thread_info.waker.is_none() {
+            // store waker to wake this future later on, from the spawned std::thread
+            thread_info.waker = Some(cx.waker().clone());
+        }
+
+        // This is done to cover the error-path caused by one of the threads crashing.
+        // With this in place a panic will be propagated
+        if let Some(handle) = thread_info.handle.take() {
+            if handle.is_finished() {
+                let thread_result = handle.join();
+
+                // Here we care only to propagate the errors in the thread, the happy path is handled with the `action_result` below
+                if let Err(e) = thread_result {
+                    return core::task::Poll::Ready(Err(e));
+                }
+            } else {
+                thread_info.handle = Some(handle)
+            }
+        }
+        // Happy path, when the action was executed and terminated smoothly
+        if let Some(action_result) = thread_info.action_result.take() {
+            return core::task::Poll::Ready(Ok(action_result));
+        }
+        core::task::Poll::Pending
+    }
+}
+
+/// Struct holding the information required to be passed between the future-polling and the std::thread
+#[cfg(feature = "std")]
+struct SpawnBlockingThreadInfo<T> {
+    /// Holds the action's result, as soon the action is terminated. This is used to propagate the action's result out of the std::thread into the future's output.
+    action_result: Option<T>,
+    /// Holds the future's waker, as soon as the future is polled.
+    waker: Option<core::task::Waker>,
+    /// Holds the std::thread handle, as soon as the std::thread is spawned. This is used to propagate eventual sever errors (like panic) on the action or std::thread
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(feature = "std")]
+impl<T> Default for SpawnBlockingThreadInfo<T> {
+    fn default() -> Self {
+        Self { action_result: None, waker: None, handle: None }
+    }
+}
