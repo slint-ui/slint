@@ -744,7 +744,10 @@ impl<'a, T> EvaluationContext<'a, T> {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
                 }
-                sc.items[*item_index].ty.lookup_property(prop_name).unwrap()
+                let item = &sc.items[*item_index];
+                item.ty
+                    .lookup_property(prop_name)
+                    .expect(&*format!("Failed to lookup property {prop_name} for {}", item.name))
             }
         }
     }
