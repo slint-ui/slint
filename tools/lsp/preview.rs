@@ -1359,8 +1359,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 }
 
 async fn parse_source(
-    include_paths: Vec<PathBuf>,
-    library_paths: HashMap<String, PathBuf>,
+    config: common::PreviewConfig,
     path: PathBuf,
     version: common::SourceFileVersion,
     source_code: String,
@@ -1398,8 +1397,9 @@ async fn parse_source(
     if !style.is_empty() {
         cc.style = Some(style);
     }
-    cc.include_paths = include_paths;
-    cc.library_paths = library_paths;
+    cc.include_paths = config.include_paths;
+    cc.library_paths = config.library_paths;
+    cc.enable_experimental |= config.enable_experimental;
 
     let (open_file_fallback, source_file_versions) =
         common::document_cache::document_cache_parts_setup(
@@ -1435,9 +1435,11 @@ async fn reload_preview_impl(
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let (version, source) = get_url_from_cache(&component.url);
 
+    let format =
+        if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
+
     let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
-        config.include_paths,
-        config.library_paths,
+        config,
         path,
         version,
         source,
@@ -1472,8 +1474,6 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    let format =
-        if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions, format)?;
 
     finish_parsing(&component.url, loaded_component_name, success);
@@ -1925,8 +1925,7 @@ pub mod test {
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            Vec::new(),
-            std::collections::HashMap::new(),
+            Default::default(),
             path,
             Some(24),
             source_code.to_string(),
