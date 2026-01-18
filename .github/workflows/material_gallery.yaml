@@ -26,35 +26,7 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
-            # 1. Install Dependencies
-            - uses: ./.github/actions/install-linux-dependencies
-
-            - name: Install Rust
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  target: aarch64-linux-android
-            
-            - name: Install Android API level 30
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-
-            # 2. Setup Environment
-            - name: Add NDK LLVM to PATH
-              run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-            - name: Dump keystore
-              run: |
-                  mkdir -p /home/runner/.android
-                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
-
-            # 3. Caching
-            - name: Cache xbuild
-              id: xbuild-cache
-              uses: actions/cache@v5
-              with:
-                  path: |
-                      ~/.cargo/bin/x
-                      ~/.cargo/bin/xbuild
-                  key: xbuild-cache
-
+            # 1. Check Artifact Caches
             - name: Cache apk build
               id: cache-apk
               uses: actions/cache@v5
@@ -71,15 +43,48 @@ jobs:
                       target/x/release/android/material-gallery.aab
                   key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
 
-            # Project Dependencies Cache (runs if either build is needed)
+            # 2. Install Dependencies (Run only if artifacts are missing)
+            - uses: ./.github/actions/install-linux-dependencies
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+
+            - name: Install Rust
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  target: aarch64-linux-android
+            
+            - name: Install Android API level 30
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+
+            # 3. Setup Environment (Run only if artifacts are missing)
+            - name: Add NDK LLVM to PATH
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+              run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+            - name: Dump keystore
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+              run: |
+                  mkdir -p /home/runner/.android
+                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+
+            # 4. Tool Caching & Installation
+            - name: Cache xbuild
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+              id: xbuild-cache
+              uses: actions/cache@v5
+              with:
+                  path: |
+                      ~/.cargo/bin/x
+                      ~/.cargo/bin/xbuild
+                  key: xbuild-cache
+
             - uses: Swatinem/rust-cache@v2
               if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
               with:
                   key: android-build
 
-            # 4. Tool Installation
             - name: Install xbuild
-              if: steps.xbuild-cache.outputs.cache-hit != 'true'
+              if: (steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true') && steps.xbuild-cache.outputs.cache-hit != 'true'
               run: cargo install xbuild
 
             # 5. Build
