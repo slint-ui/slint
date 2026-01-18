@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-name: Build an APK for the gallery example
+name: Build an APK and AAB for the gallery example
 
 on:
     workflow_dispatch:
@@ -13,7 +13,7 @@ on:
                   required: true
 
 jobs:
-    apk_build:
+    build:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
