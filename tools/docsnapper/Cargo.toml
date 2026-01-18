@@ -17,7 +17,7 @@ publish = false
 
 [dependencies]
 i-slint-compiler = { workspace = true }
-i-slint-core = { workspace = true }
+i-slint-core = { workspace = true, features = ["experimental-rich-text"] }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
 i-slint-renderer-skia = { workspace = true, features = ["default", "wayland"] }
 
