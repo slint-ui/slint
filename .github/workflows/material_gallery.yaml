@@ -99,6 +99,5 @@ jobs:
               with:
                   name: material_gallery
                   path: |
-                  path: |
                       target/x/release/android/material-gallery.apk
                       target/x/release/android/material-gallery.aab
