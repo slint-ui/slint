@@ -56,6 +56,10 @@ function configuration_from_url(): Map<string, any>[] {
         }
         obj.set("libraryPaths", lib_map);
     }
+    const experimental = params.get("EXPERIMENTAL");
+    if (experimental) {
+        obj.set("experimental", true);
+    }
     return [obj];
 }
 
