@@ -42,6 +42,8 @@ mod itemrenderer;
 pub mod opengl;
 #[cfg(feature = "wgpu-28")]
 pub mod wgpu;
+#[cfg(feature = "wgpu-27")]
+pub use wgpu::FemtoVGWGPURendererExt;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_surface(&self) -> &R::Surface;
