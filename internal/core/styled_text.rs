@@ -107,7 +107,7 @@ impl StyledText {
             }
             match list_item_type {
                 Some(ListItemType::Unordered) => {
-                    if indentation % 3 == 0 {
+                    if indentation.is_multiple_of(3) {
                         text.push_str("• ")
                     } else if indentation % 3 == 1 {
                         text.push_str("◦ ")
