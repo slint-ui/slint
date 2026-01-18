@@ -148,11 +148,7 @@ impl DocumentCache {
         );
 
         Self {
-            type_loader: TypeLoader::new(
-                i_slint_compiler::typeregister::TypeRegister::builtin(),
-                compiler_config,
-                &mut BuildDiagnostics::default(),
-            ),
+            type_loader: TypeLoader::new(compiler_config, &mut BuildDiagnostics::default()),
             open_import_fallback,
             source_file_versions,
             format,

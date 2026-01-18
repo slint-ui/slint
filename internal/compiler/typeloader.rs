@@ -885,11 +885,7 @@ struct BorrowedTypeLoader<'a> {
 }
 
 impl TypeLoader {
-    pub fn new(
-        global_type_registry: Rc<RefCell<TypeRegister>>,
-        compiler_config: CompilerConfiguration,
-        diag: &mut BuildDiagnostics,
-    ) -> Self {
+    pub fn new(compiler_config: CompilerConfiguration, diag: &mut BuildDiagnostics) -> Self {
         let mut style = compiler_config
             .style
             .clone()
@@ -901,7 +897,11 @@ impl TypeLoader {
         }
 
         let myself = Self {
-            global_type_registry,
+            global_type_registry: if compiler_config.enable_experimental {
+                crate::typeregister::TypeRegister::builtin_experimental()
+            } else {
+                crate::typeregister::TypeRegister::builtin()
+            },
             compiler_config,
             resolved_style: style.clone(),
             all_documents: Default::default(),
@@ -1806,13 +1806,10 @@ fn test_dependency_loading() {
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
-    let global_registry = TypeRegister::builtin();
-
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
-
     let mut build_diagnostics = BuildDiagnostics::default();
 
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
 
     let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
@@ -1849,13 +1846,10 @@ fn test_dependency_loading_from_rust() {
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
-    let global_registry = TypeRegister::builtin();
-
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
-
     let mut build_diagnostics = BuildDiagnostics::default();
 
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
 
     let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
@@ -1902,10 +1896,9 @@ X := XX {}
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -1935,10 +1928,9 @@ component Foo { XX {} }
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -1971,9 +1963,8 @@ fn test_manual_import() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     let maybe_button_type = spin_on::spin_on(loader.import_component(
         "std-widgets.slint",
@@ -1997,9 +1988,8 @@ fn test_builtin_style() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("fluent".into());
 
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let _loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     assert!(!build_diagnostics.has_errors());
 }
@@ -2016,9 +2006,8 @@ fn test_user_style() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("TestStyle".into());
 
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let _loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     assert!(!build_diagnostics.has_errors());
 }
@@ -2035,9 +2024,8 @@ fn test_unknown_style() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("FooBar".into());
 
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let _loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
@@ -2073,10 +2061,9 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -2117,10 +2104,9 @@ import { E } from "@unknown/lib.slint";
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -2169,7 +2155,6 @@ import { E } from "@unknown/lib.slint";
 #[test]
 fn test_snapshotting() {
     let mut type_loader = TypeLoader::new(
-        crate::typeregister::TypeRegister::builtin(),
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
         &mut BuildDiagnostics::default(),
     );
