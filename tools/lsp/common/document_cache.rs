@@ -48,6 +48,10 @@ pub struct CompilerConfiguration {
     pub resource_url_mapper:
         Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
     pub format: super::ByteFormat,
+    /// Whether to enable experimental features.
+    /// Note that the i_slint_compiler::CompilerConfiguration still reads the environment variable
+    /// in native build, so this is used to transmit the value when compiled to WASM.
+    pub enable_experimental: bool,
 }
 
 impl Default for CompilerConfiguration {
@@ -61,6 +65,7 @@ impl Default for CompilerConfiguration {
             open_import_fallback: None,
             resource_url_mapper: std::mem::take(&mut cc.resource_url_mapper),
             format: super::ByteFormat::Utf8,
+            enable_experimental: cc.enable_experimental,
         }
     }
 }
@@ -72,6 +77,7 @@ impl CompilerConfiguration {
         result.library_paths = std::mem::take(&mut self.library_paths);
         result.style = std::mem::take(&mut self.style);
         result.resource_url_mapper = std::mem::take(&mut self.resource_url_mapper);
+        result.enable_experimental |= self.enable_experimental;
 
         (result, self.open_import_fallback)
     }
@@ -284,8 +290,13 @@ impl DocumentCache {
         style: Option<String>,
         include_paths: Option<Vec<PathBuf>>,
         library_paths: Option<HashMap<String, PathBuf>>,
+        enable_experimental: bool,
     ) -> Result<CompilerConfiguration> {
-        if style.is_none() && include_paths.is_none() && library_paths.is_none() {
+        if style.is_none()
+            && include_paths.is_none()
+            && library_paths.is_none()
+            && !enable_experimental
+        {
             return Ok(self.compiler_configuration());
         }
 
@@ -303,6 +314,12 @@ impl DocumentCache {
 
         if let Some(lp) = library_paths {
             self.type_loader.compiler_config.library_paths = lp;
+        }
+
+        if enable_experimental && !self.type_loader.compiler_config.enable_experimental {
+            self.type_loader.compiler_config.enable_experimental = true;
+            *self.type_loader.global_type_registry.borrow_mut() =
+                Rc::into_inner(TypeRegister::builtin_experimental()).unwrap().into_inner();
         }
 
         self.invalidate_everything();
@@ -366,6 +383,7 @@ impl DocumentCache {
             open_import_fallback: None, // We need to re-generate this anyway
             resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
             format: self.format,
+            enable_experimental: self.type_loader.compiler_config.enable_experimental,
         }
     }
 

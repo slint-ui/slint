@@ -1422,11 +1422,12 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         )?
         .await?;
 
-    let (hide_ui, include_paths, library_paths, style) = {
+    let (hide_ui, include_paths, library_paths, style, experimental) = {
         let mut hide_ui = None;
         let mut include_paths = None;
         let mut library_paths = None;
         let mut style = None;
+        let mut experimental = false;
 
         for v in r {
             if let Some(o) = v.as_object() {
@@ -1455,13 +1456,16 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
                     }
                 }
                 hide_ui = o.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
+                if o.get("experimental").and_then(|v| v.as_bool()) == Some(true) {
+                    experimental = true;
+                }
             }
         }
-        (hide_ui, include_paths, library_paths, style)
+        (hide_ui, include_paths, library_paths, style, experimental)
     };
 
     let document_cache = &mut ctx.document_cache.borrow_mut();
-    let cc = document_cache.reconfigure(style, include_paths, library_paths).await?;
+    let cc = document_cache.reconfigure(style, include_paths, library_paths, experimental).await?;
 
     let config = common::PreviewConfig {
         hide_ui,
@@ -1469,6 +1473,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
         format_utf8: cc.format == common::ByteFormat::Utf8,
+        enable_experimental: cc.enable_experimental,
     };
     *ctx.preview_config.borrow_mut() = config.clone();
     let mut diag = BuildDiagnostics::default();
