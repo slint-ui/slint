@@ -25,30 +25,34 @@ jobs:
             working-directory: ui-libraries/material
         steps:
             - uses: actions/checkout@v6
+
+            # 1. Install Dependencies
             - uses: ./.github/actions/install-linux-dependencies
+
             - name: Install Rust
-              if: steps.cache-apk.outputs.cache-hit != 'true'
               uses: dtolnay/rust-toolchain@stable
               with:
                   target: aarch64-linux-android
+            
             - name: Install Android API level 30
-              if: steps.cache-apk.outputs.cache-hit != 'true'
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+
+            # 2. Setup Environment
             - name: Add NDK LLVM to PATH
               run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
             - name: Dump keystore
               run: |
                   mkdir -p /home/runner/.android
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+
+            # 3. Caching
             - name: Cache cargo-apk
               id: cargo-apk-cache
               uses: actions/cache@v5
               with:
                   path: ~/.cargo/bin/cargo-apk
                   key: cargo-apk-cache
-            # Only build cargo-apk if not cached
-            - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+
             - name: Cache xbuild
               id: xbuild-cache
               uses: actions/cache@v5
@@ -57,41 +61,50 @@ jobs:
                       ~/.cargo/bin/x
                       ~/.cargo/bin/xbuild
                   key: xbuild-cache
-            # Only build xbuild if not cached
-            - uses: dtolnay/rust-toolchain@stable
-              if: steps.xbuild-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install cargo-apk
-            - uses: Swatinem/rust-cache@v2
-              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
-              with:
-                  key: android-build
-            - name: Install xbuild
-              if: steps.xbuild-cache.outputs.cache-hit != 'true'
-              run: cargo install xbuild
-            - name: Cache APK build
+
+            - name: Cache apk build
               id: cache-apk
               uses: actions/cache@v5
               with:
                   path: |
                       ui-libraries/material/target/release/apk/slint_material.apk
                   key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
-            - name: Cache AAB build
+
+            - name: Cache aab build
               id: cache-aab
               uses: actions/cache@v5
               with:
                   path: |
                       ui-libraries/material/target/x/release/android/material-gallery.aab
                   key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
+
+            # Project Dependencies Cache (runs if either build is needed)
+            - uses: Swatinem/rust-cache@v2
+              if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+              with:
+                  key: android-build
+
+            # 4. Tool Installation
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install cargo-apk
+
+            - name: Install xbuild
+              if: steps.xbuild-cache.outputs.cache-hit != 'true'
+              run: cargo install xbuild
+
+            # 5. Build
             - name: Build apk
               if: steps.cache-apk.outputs.cache-hit != 'true'
               working-directory: ui-libraries/material/examples/gallery
               run: cargo apk build --target aarch64-linux-android --lib --release
+
             - name: Build aab
               if: steps.cache-aab.outputs.cache-hit != 'true'
               working-directory: ui-libraries/material/examples/gallery
-              run: x build --platform android --arch arm64 --release --format 'aab'            
+              run: x build --platform android --arch arm64 --release --format 'aab'
+
+            # 6. Upload
             - name: "Upload Artifacts"
               uses: actions/upload-artifact@v6
               with:
