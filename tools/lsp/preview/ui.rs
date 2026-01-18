@@ -33,7 +33,6 @@ pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 pub fn create_ui(
     to_lsp: &Rc<dyn common::PreviewToLsp>,
     style: &str,
-    experimental: bool,
 ) -> Result<PreviewUi, PlatformError> {
     #[cfg(all(target_vendor = "apple", not(target_arch = "wasm32")))]
     crate::preview::connector::native::init_apple_platform()?;
@@ -68,7 +67,6 @@ pub fn create_ui(
     let api = ui.global::<Api>();
 
     api.set_current_style(style.clone().into());
-    api.set_experimental(experimental);
     api.set_known_styles(style_model.into());
 
     api.on_add_new_component(super::add_new_component);

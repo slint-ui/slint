@@ -56,8 +56,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
-    let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
-    let ui = ui::create_ui(&to_lsp, &"", experimental)?;
+    let ui = ui::create_ui(&to_lsp, &"")?;
 
     to_lsp
         .send_telemetry(&mut [(
