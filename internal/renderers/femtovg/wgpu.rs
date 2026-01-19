@@ -177,3 +177,45 @@ impl FemtoVGRenderer<WGPUBackend> {
         Ok(())
     }
 }
+
+/// Extension trait for FemtoVGRenderer with any WGPU-based backend.
+/// This allows custom backends that use `femtovg::renderer::WGPURenderer` to initialize
+/// the canvas without needing access to internal types.
+pub trait FemtoVGWGPURendererExt {
+    /// Initialize the renderer's canvas with the provided WGPU device and queue.
+    /// This must be called before rendering can occur.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGWGPURendererExt};
+    ///
+    /// // After obtaining device and queue from Bevy or another source:
+    /// renderer.set_wgpu_device_and_queue(device, queue)?;
+    /// ```
+    fn set_wgpu_device_and_queue(
+        &self,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+}
+
+impl<B: GraphicsBackend<Renderer = femtovg::renderer::WGPURenderer>> FemtoVGWGPURendererExt
+    for FemtoVGRenderer<B>
+{
+    fn set_wgpu_device_and_queue(
+        &self,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
+        let femtovg_canvas = femtovg::Canvas::new_with_text_context(
+            wgpu_renderer,
+            crate::font_cache::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .map_err(|e| format!("Failed to create femtovg canvas: {:?}", e))?;
+
+        let canvas = Rc::new(RefCell::new(femtovg_canvas));
+        self.reset_canvas(canvas);
+        Ok(())
+    }
+}
