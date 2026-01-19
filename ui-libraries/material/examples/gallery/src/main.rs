@@ -5,5 +5,5 @@
 // Just forward to the library in main
 
 fn main() {
-    gallery_lib::main();
+    material_gallery::main();
 }
