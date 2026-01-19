@@ -80,4 +80,22 @@ export X := Rectangle {
         col: 3;
 //           ><error{col used outside of a GridLayout's cell}
     }
+
+    lay4 := GridLayout {
+        for _ in 5: Text {
+            // Using row/col properties here is allowed, to be able to get row and col from a model
+            row: 2;
+            col: 3;
+        }
+        for _ in 5: Row {
+            Rectangle {
+                row: 1;
+//                   ><error{The property 'row' cannot be set for elements placed in this layout, because the layout is already setting it}
+                col: 2;
+//                   ><error{The property 'col' cannot be set for elements placed in this layout, because the layout is already setting it}
+                rowspan: 2;
+                colspan: 2;
+            }
+        }
+    }
 }

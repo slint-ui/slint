@@ -1,0 +1,191 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A Cell component (sub-component) to test alongside native Text items
+component Cell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    in property <string> cell_text;
+    callback clicked();
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            text: cell_text;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    default-font-size: 20px;
+    width: 600phx;
+
+    property <[{ name: string, account: string, score: float}]> model: [
+        { name: "Olivier", account: "ogoffart", score: 456.0 },
+        { name: "Simon", account: "tronical", score: 789.0 },
+        { name: "David", account: "dfaure", score: 789.0 },
+        { name: "Alice", account: "wonderland", score: 123.0 },
+        { name: "Bob", account: "builder", score: 234.0 },
+    ];
+    property <[string]> headings: ["Name", "Account", "Score"];
+
+    out property <string> clicked_text;
+    out property <int> clicked_row: -1;
+    out property <int> clicked_col: -1;
+
+    GridLayout {
+        // Empty repeated Row should have no effect
+        for person in model: Row { }
+
+        // Let's mix this with regular repeating-inside-row
+        Row {
+            for title in headings: Text {
+                text: title;
+                min-height: 100px;
+            }
+        }
+
+        for person[idx] in model: Row {
+            // First column: builtin Text item
+            name_elem := Text {
+                text: person.name;
+                TouchArea {
+                    clicked => {
+                        clicked_text = person.name;
+                        clicked_row = name_elem.row;
+                        clicked_col = name_elem.col;
+                    }
+                }
+                min-height: idx == 0 ? 150px : 10px; // check that constraints work
+            }
+            // Second column: Cell sub-component
+            account_elem := Cell {
+                cell_text: person.account;
+                clicked => {
+                    clicked_text = person.account;
+                    clicked_row = account_elem.row;
+                    clicked_col = account_elem.col;
+                }
+                min-height: idx > 0 ? 150px : 10px; // check that constraints work on components too
+            }
+            // Third column: bulitin Text item
+            score_elem := Text {
+                text: person.score;
+                TouchArea {
+                    clicked => {
+                        clicked_text = "" + person.score;
+                        clicked_row = score_elem.row;
+                        clicked_col = score_elem.col;
+                    }
+                }
+            }
+        }
+        if (clicked_row == -1): optional_row := Row {
+            Text {
+                text: "click on one of the cells";
+                colspan: 3;
+                min-height: 150px;
+            }
+        }
+        end := Text {
+            text: "end marker";
+        }
+    }
+
+    out property <int> end_row: end.row;
+    out property <int> end_y: end.y / 1px;
+    out property <bool> test: end.row == 7 && end.col == 0 && end.y == 1000px;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+// Click on first row, first column (Text item - "Olivier")
+slint_testing::send_mouse_click(&instance, 5., 105.);
+assert_eq(instance.get_clicked_text(), "Olivier");
+assert_eq(instance.get_clicked_row(), 1);
+assert_eq(instance.get_clicked_col(), 0);
+assert_eq(instance.get_end_row(), 6);
+// Click on first row, second column (Cell sub-component - "ogoffart")
+slint_testing::send_mouse_click(&instance, 220., 105.);
+assert_eq(instance.get_clicked_text(), "ogoffart");
+assert_eq(instance.get_clicked_row(), 1);
+assert_eq(instance.get_clicked_col(), 1);
+// Click on first row, third column (Text item - score)
+slint_testing::send_mouse_click(&instance, 455., 105.);
+assert_eq(instance.get_clicked_text(), "456");
+assert_eq(instance.get_clicked_row(), 1);
+assert_eq(instance.get_clicked_col(), 2);
+// Click on third row, second column (Cell sub-component - "dfaure")
+slint_testing::send_mouse_click(&instance, 220., 405.);
+assert_eq(instance.get_clicked_text(), "dfaure");
+assert_eq(instance.get_clicked_row(), 3);
+assert_eq(instance.get_clicked_col(), 1);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_end_y(), 1000);
+assert!(instance.get_test());
+// Click on first row, first column (Text item - "Olivier")
+slint_testing::send_mouse_click(&instance, 5., 105.);
+assert_eq!(instance.get_clicked_text(), "Olivier");
+assert_eq!(instance.get_clicked_row(), 1);
+assert_eq!(instance.get_clicked_col(), 0);
+assert_eq!(instance.get_end_row(), 6);
+// Click on first row, second column (Cell sub-component - "ogoffart")
+slint_testing::send_mouse_click(&instance, 220., 105.);
+assert_eq!(instance.get_clicked_text(), "ogoffart");
+assert_eq!(instance.get_clicked_row(), 1);
+assert_eq!(instance.get_clicked_col(), 1);
+// Click on first row, third column (Text item - score)
+slint_testing::send_mouse_click(&instance, 455., 105.);
+assert_eq!(instance.get_clicked_text(), "456");
+assert_eq!(instance.get_clicked_row(), 1);
+assert_eq!(instance.get_clicked_col(), 2);
+// Click on third row, second column (Cell sub-component - "dfaure")
+slint_testing::send_mouse_click(&instance, 220., 405.);
+assert_eq!(instance.get_clicked_text(), "dfaure");
+assert_eq!(instance.get_clicked_row(), 3);
+assert_eq!(instance.get_clicked_col(), 1);
+
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+// Click on first row, first column (Text item - "Olivier")
+slintlib.private_api.send_mouse_click(instance, 5., 105.);
+assert.deepEqual(instance.clicked_text, "Olivier");
+assert.equal(instance.clicked_row, 1);
+assert.equal(instance.clicked_col, 0);
+assert.equal(instance.end_row, 6);
+// Click on first row, second column (Cell sub-component - "ogoffart")
+slintlib.private_api.send_mouse_click(instance, 220., 105.);
+assert.deepEqual(instance.clicked_text, "ogoffart");
+assert.equal(instance.clicked_row, 1);
+assert.equal(instance.clicked_col, 1);
+// Click on first row, third column (Text item - score)
+slintlib.private_api.send_mouse_click(instance, 455., 105.);
+assert.deepEqual(instance.clicked_text, "456");
+assert.equal(instance.clicked_row, 1);
+assert.equal(instance.clicked_col, 2);
+// Click on third row, second column (Cell sub-component - "dfaure")
+slintlib.private_api.send_mouse_click(instance, 220., 405.);
+assert.deepEqual(instance.clicked_text, "dfaure");
+assert.equal(instance.clicked_row, 3);
+assert.equal(instance.clicked_col, 1);
+```
+
+*/

@@ -18,7 +18,7 @@ export component TestCase inherits Window {
     GridLayout {
         padding-left: 0phx;
         padding-top: 0phx;
-        for entry in xy_model: txt := Text {
+        for entry[i] in xy_model: txt := Text {
             text: entry.row + ", " + entry.col;
             row: entry.row;
             col: entry.col;
@@ -30,6 +30,7 @@ export component TestCase inherits Window {
                     clicked_text = txt.text;
                 }
             }
+            visible: i < root.xy_model.length;
         }
         next := Text {
             text: "(next)";

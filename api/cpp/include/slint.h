@@ -125,12 +125,15 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
 
 inline SharedVector<uint16_t>
 organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data,
-                     cbindgen_private::Slice<int> repeater_indices)
+                     cbindgen_private::Slice<int> repeater_indices,
+                     cbindgen_private::Slice<int> repeater_steps)
 {
     SharedVector<uint16_t> result;
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
-    cbindgen_private::slint_organize_grid_layout(input_data, ri, &result);
+    cbindgen_private::Slice<uint32_t> rs =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_steps.ptr), repeater_steps.len);
+    cbindgen_private::slint_organize_grid_layout(input_data, ri, rs, &result);
     return result;
 }
 
@@ -147,25 +150,31 @@ inline SharedVector<float>
 solve_grid_layout(const cbindgen_private::GridLayoutData &data,
                   cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> constraints,
                   cbindgen_private::Orientation orientation,
-                  cbindgen_private::Slice<int> repeater_indices)
+                  cbindgen_private::Slice<int> repeater_indices,
+                  cbindgen_private::Slice<int> repeater_steps)
 {
     SharedVector<float> result;
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
-    cbindgen_private::slint_solve_grid_layout(&data, constraints, orientation, ri, &result);
+    cbindgen_private::Slice<uint32_t> rs =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_steps.ptr), repeater_steps.len);
+    cbindgen_private::slint_solve_grid_layout(&data, constraints, orientation, ri, rs, &result);
     return result;
 }
 
 inline cbindgen_private::LayoutInfo
 grid_layout_info(const cbindgen_private::GridLayoutOrganizedData &organized_data,
                  cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> constraints,
-                 cbindgen_private::Slice<int> repeater_indices, float spacing,
+                 cbindgen_private::Slice<int> repeater_indices,
+                 cbindgen_private::Slice<int> repeater_steps, float spacing,
                  const cbindgen_private::Padding &padding,
                  cbindgen_private::Orientation orientation)
 {
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
-    return cbindgen_private::slint_grid_layout_info(&organized_data, constraints, ri, spacing,
+    cbindgen_private::Slice<uint32_t> rs =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_steps.ptr), repeater_steps.len);
+    return cbindgen_private::slint_grid_layout_info(&organized_data, constraints, ri, rs, spacing,
                                                     &padding, orientation);
 }
 
