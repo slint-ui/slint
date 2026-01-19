@@ -203,7 +203,10 @@ fn lower_grid_layout(
             if layout_child.borrow().repeated.is_some()
                 && let ElementType::Component(comp) = &layout_child.borrow().base_type
             {
-                comp.root_element.borrow().base_type.type_name() == Some("Row")
+                match &comp.root_element.borrow().base_type {
+                    ElementType::Builtin(b) => b.name == "Row",
+                    _ => false,
+                }
             } else {
                 false
             }
