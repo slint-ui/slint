@@ -93,6 +93,20 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
+    /// Creates a new renderer with the given graphics backend.
+    pub fn new(graphics_backend: B) -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            canvas: RefCell::new(None),
+            graphics_cache: Default::default(),
+            texture_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
+            graphics_backend,
+        }
+    }
+
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(
