@@ -559,7 +559,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Define the size of the Slint UI texture
-    let size = Extent3d { width: 800, height: 600, ..default() };
+    let size = Extent3d { width: 600, height: 600, ..default() };
 
     // Create a Bevy image/texture for the Slint UI to render into
     let mut image = Image {
