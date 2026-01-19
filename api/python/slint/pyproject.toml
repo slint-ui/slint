@@ -28,7 +28,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
 ]
-description = "Python API for Slint UI Toolkit"
+description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
 readme = "README.md"
 
 [project.urls]
