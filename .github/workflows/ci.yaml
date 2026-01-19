@@ -80,7 +80,6 @@ jobs:
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }} --exclude material-gallery
             save_if: ${{ matrix.save_if }}
-            timeout_minutes: 120
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
