@@ -1281,12 +1281,15 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             }
 
             // Now re-compute some coordinate such a way that the scrollbar are adjusted.
-            inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord;
+            inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord; // mean over all instance heights
             inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
             viewport_height.set(inner.cached_item_height * row_count as Coord);
             viewport_width.set(vp_width);
             let new_viewport_y = -inner.anchor_y + new_offset_y;
-            viewport_y.set(new_viewport_y);
+            if new_viewport_y != viewport_y.get() {
+                // If the new value gets set, all bindings are removed which means also an animation gets removed
+                viewport_y.set(new_viewport_y);
+            }
             inner.previous_viewport_y = new_viewport_y;
             break;
         }
