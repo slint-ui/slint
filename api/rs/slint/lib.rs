@@ -409,10 +409,10 @@ pub mod platform {
     #[cfg(all(feature = "renderer-femtovg", not(target_os = "android")))]
     pub mod femtovg_renderer {
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
-        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
         /// Use this type to render to a WGPU texture using FemtoVG.
         #[cfg(feature = "unstable-wgpu-27")]
         pub use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
+        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
 
     #[cfg(feature = "renderer-software")]

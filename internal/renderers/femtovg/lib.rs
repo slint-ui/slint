@@ -93,7 +93,6 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
-
     #[cfg(feature = "wgpu-27")]
     pub(crate) fn new_internal(graphics_backend: B) -> Self {
         Self {
