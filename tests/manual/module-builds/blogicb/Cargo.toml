@@ -8,7 +8,7 @@ authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 publish = false
 license = "MIT"
-version = "0.1.0"
+version.workspace = true
 
 [dependencies]
 slint = { path = "../../../../api/rs/slint" }
