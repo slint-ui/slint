@@ -301,18 +301,7 @@ impl Diagnostic {
 
     /// Return the length of this diagnostic in UTF-8 encoded bytes.
     pub fn length(&self) -> usize {
-        let length = self.span.span.length;
-        // If the length is 0, try to return a length of at least one character.
-        // Make sure this does fall on a new character, as otherwise string indexing may break.
-        // See also: https://github.com/slint-ui/slint/issues/10273
-        if length == 0 {
-            if let Some(source) = self.span.source_file.as_ref().and_then(|file| file.source()) {
-                let offset = self.span.span.offset;
-                let next_char = source.ceil_char_boundary(offset + 1);
-                return next_char - offset;
-            }
-        }
-        length
+        self.span.span.length
     }
 
     // NOTE: The return-type differs from the Spanned trait.
