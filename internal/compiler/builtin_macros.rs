@@ -6,7 +6,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp,
+    MouseCursor, Unit,
 };
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
@@ -87,6 +88,82 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::CustomCursor => {
+            let mut has_error = None;
+            let image_expected_argument_type_error =
+                "The first argument to custom cursor must be image";
+            let hotspot_expected_argument_type_error =
+                "The last two arguments to custom cursor must be an integer";
+            let not_enough_arguments_error = "Not enough arguments";
+
+            let image = match sub_expr.next() {
+                Some((e, _)) => match e.ty() {
+                    Type::Image => e,
+                    _ => {
+                        has_error.get_or_insert((
+                            n.to_source_location(),
+                            image_expected_argument_type_error,
+                        ));
+                        Expression::Invalid
+                    }
+                },
+                None => {
+                    has_error.get_or_insert((n.to_source_location(), not_enough_arguments_error));
+                    Expression::Invalid
+                }
+            };
+            let hotspot_x = match sub_expr.next() {
+                Some((e, _)) => {
+                    if e.ty().can_convert(&Type::Int32) {
+                        e
+                    } else {
+                        has_error.get_or_insert((
+                            n.to_source_location(),
+                            hotspot_expected_argument_type_error,
+                        ));
+                        Expression::Invalid
+                    }
+                }
+                None => {
+                    has_error.get_or_insert((n.to_source_location(), not_enough_arguments_error));
+                    Expression::Invalid
+                }
+            };
+            let hotspot_y = match sub_expr.next() {
+                Some((e, _)) => {
+                    if e.ty().can_convert(&Type::Int32) {
+                        e
+                    } else {
+                        has_error.get_or_insert((
+                            n.to_source_location(),
+                            hotspot_expected_argument_type_error,
+                        ));
+                        Expression::Invalid
+                    }
+                }
+                None => {
+                    has_error.get_or_insert((n.to_source_location(), not_enough_arguments_error));
+                    Expression::Invalid
+                }
+            };
+
+            let expr = Expression::MouseCursor(MouseCursor::CustomCursor {
+                image: Box::new(image),
+                hotspot_x: Box::new(hotspot_x),
+                hotspot_y: Box::new(hotspot_y),
+            });
+            if let Some((_, n)) = sub_expr.next() {
+                has_error.get_or_insert((
+                    n.to_source_location(),
+                    "Too many arguments for custom cursor",
+                ));
+            }
+            if let Some((n, msg)) = has_error {
+                diag.push_error(msg.into(), &n);
+            }
+
+            expr
+        }
     }
 }
 
@@ -348,6 +425,7 @@ fn to_debug_string(
         | Type::Brush
         | Type::Image
         | Type::Easing
+        | Type::Cursor
         | Type::StyledText
         | Type::Array(_) => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())

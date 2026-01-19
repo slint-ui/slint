@@ -20,6 +20,45 @@ pub enum ArrayOutput {
     Vector,
 }
 
+#[derive(Clone, Debug, Default)]
+pub enum MouseCursor {
+    #[default]
+    Default,
+    None,
+    Help,
+    Pointer,
+    Progress,
+    Wait,
+    Crosshair,
+    Text,
+    Alias,
+    Copy,
+    Move,
+    NoDrop,
+    NotAllowed,
+    Grab,
+    Grabbing,
+    ColResize,
+    RowResize,
+    NResize,
+    EResize,
+    SResize,
+    WResize,
+    NeResize,
+    NwResize,
+    SeResize,
+    SwResize,
+    EwResize,
+    NsResize,
+    NeswResize,
+    NwseResize,
+    CustomCursor {
+        image: Box<Expression>,
+        hotspot_x: Box<Expression>,
+        hotspot_y: Box<Expression>,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
@@ -154,6 +193,8 @@ pub enum Expression {
 
     EasingCurve(crate::expression_tree::EasingCurve),
 
+    MouseCursor(MouseCursor),
+
     LinearGradient {
         angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
@@ -270,6 +311,7 @@ impl Expression {
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
+            Type::Cursor => Expression::MouseCursor(MouseCursor::default()),
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)?),
                 to: Type::Brush,
@@ -328,6 +370,7 @@ impl Expression {
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
+            Self::MouseCursor(_) => Type::Cursor,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
@@ -389,6 +432,14 @@ macro_rules! visit_impl {
             Expression::Array { values, .. } => values.$iter().for_each($visitor),
             Expression::Struct { values, .. } => values.$values().for_each($visitor),
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursor::CustomCursor { image, hotspot_x, hotspot_y } => {
+                    $visitor(image);
+                    $visitor(hotspot_x);
+                    $visitor(hotspot_y);
+                }
+                _ => {}
+            },
             Expression::LinearGradient { angle, stops } => {
                 $visitor(angle);
                 for (a, b) in stops {
@@ -744,7 +795,10 @@ impl<'a, T> EvaluationContext<'a, T> {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
                 }
-                sc.items[*item_index].ty.lookup_property(prop_name).unwrap()
+                let item = &sc.items[*item_index];
+                item.ty
+                    .lookup_property(prop_name)
+                    .expect(&*format!("Failed to lookup property {prop_name} for a {}", item.name))
             }
         }
     }

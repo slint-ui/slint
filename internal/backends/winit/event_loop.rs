@@ -9,7 +9,7 @@
 */
 use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
-use crate::winitwindowadapter::WindowVisibility;
+use crate::winitwindowadapter::{WindowVisibility, WinitWindowAdapter};
 use crate::{SharedBackendData, SlintEvent};
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
@@ -175,6 +175,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
+        self.maybe_set_custom_cursor(&window, &event_loop);
+
         match event {
             WindowEvent::RedrawRequested => {
                 self.loop_error = window.draw().err();
@@ -600,6 +602,20 @@ impl EventLoopState {
                 }
                 Ok(self)
             }
+        }
+    }
+
+    /// Sets the cursor to a custom source, if it needs to be set.
+    pub fn maybe_set_custom_cursor(
+        &self,
+        window: &WinitWindowAdapter,
+        event_loop: &ActiveEventLoop,
+    ) {
+        // If there is a new custom cursor, update it.
+        let custom_cursor_source = window.custom_cursor_source.take();
+        if let Some(source) = custom_cursor_source {
+            let custom_cursor = event_loop.create_custom_cursor(source);
+            window.winit_window().unwrap().set_cursor(custom_cursor);
         }
     }
 
