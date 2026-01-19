@@ -12,7 +12,7 @@ license.workspace = true
 [lib]
 crate-type = ["lib", "cdylib"]
 path = "src/lib.rs"
-name = "material_gallery"
+name = "gallery_lib"
 
 [[bin]]
 path = "src/main.rs"
