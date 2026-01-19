@@ -56,6 +56,10 @@ function configuration_from_url(): Map<string, any>[] {
         }
         obj.set("libraryPaths", lib_map);
     }
+    const experimental = params.get("EXPERIMENTAL");
+    if (experimental) {
+        obj.set("experimental", true);
+    }
     return [obj];
 }
 
@@ -262,9 +266,6 @@ export class Lsp {
         if (this.#preview_connector === null) {
             slint_preview.run_event_loop();
 
-            const params = new URLSearchParams(window.location.search);
-            const experimental = params.get("SLINT_EXPERIMENTAL_FEATURES");
-
             this.#preview_connector =
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await slint_preview.PreviewConnector.create(
@@ -276,7 +277,6 @@ export class Lsp {
                     },
                     resource_url_mapper,
                     style,
-                    experimental === "1",
                     slintpad_callback,
                 );
         }

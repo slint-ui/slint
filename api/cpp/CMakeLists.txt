@@ -9,13 +9,13 @@ project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.15.0)
 include(FeatureSummary)
 include(CMakeDependentOption)
 
-find_package(Corrosion QUIET 0.5)
+find_package(Corrosion QUIET 0.6)
 if (NOT Corrosion_FOUND)
     include(FetchContent)
     FetchContent_Declare(
         Corrosion
         GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-        GIT_TAG v0.6.0
+        GIT_TAG v0.6.1
     )
 
     FetchContent_MakeAvailable(Corrosion)

@@ -1404,11 +1404,29 @@ impl WindowItem {
             italic: local_italic,
         }
     }
+
+    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        let _ = WindowInner::from_pub(window_adapter.window()).hide();
+    }
 }
 
 impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_hide(
+    window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    _self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        window_item.hide(window_adapter);
+    }
 }
 
 declare_item_vtable! {

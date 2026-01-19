@@ -669,19 +669,26 @@ fn handle_property_init(
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
-                        format!("{prop_access}.set_animated_binding({binding_code}, {anim});")
+                        // Note: The start_time defaults to the current tick, so doesn't need to be
+                        // udpated here.
+                        format!("{prop_access}.set_animated_binding({binding_code},
+                                [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
+                                    [[maybe_unused]] auto self = this;
+                                    auto anim = {anim};
+                                    *start_time = nullptr;
+                                    return anim;
+                                }});",
+                                )
                     }
-                    Some(llr::Animation::Transition (
-                        anim
-                    )) => {
-                        let anim = compile_expression(anim, ctx);
+                    Some(llr::Animation::Transition(animation)) => {
+                        let animation = compile_expression(animation, ctx);
                         format!(
-                            "{prop_access}.set_animated_binding_for_transition({binding_code},
-                            [this](uint64_t *start_time) -> slint::cbindgen_private::PropertyAnimation {{
+                            "{prop_access}.set_animated_binding({binding_code},
+                            [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
-                                auto [anim, time] = {anim};
-                                *start_time = time;
-                                return anim;
+                                auto [animation, change_time] = {animation};
+                                **start_time = change_time;
+                                return animation;
                             }});",
                         )
                     }
@@ -3981,6 +3988,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorHsvaStruct => {
             format!("{}.to_hsva()", a.next().unwrap())
         }
+        BuiltinFunction::ColorOklchStruct => {
+            format!("{}.to_oklch()", a.next().unwrap())
+        }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }
@@ -4016,6 +4026,14 @@ fn compile_builtin_function_call(
                 s = a.next().unwrap(),
                 v = a.next().unwrap(),
                 a = a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::Oklch => {
+            format!("slint::Color::from_oklch(std::clamp(static_cast<float>({l}), 0.f, 1.f), std::max(static_cast<float>({c}), 0.f), static_cast<float>({h}), std::clamp(static_cast<float>({alpha}), 0.f, 1.f))",
+                l = a.next().unwrap(),
+                c = a.next().unwrap(),
+                h = a.next().unwrap(),
+                alpha = a.next().unwrap(),
             )
         }
         BuiltinFunction::ColorScheme => {

@@ -380,6 +380,17 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return diag.report_macro_diagnostic(&tokens);
     }
 
+    if std::env::var("RUST_ANALYZER_INTERNALS_DO_NOT_USE").is_ok() {
+        // When running on rust-analyzer, only generate the API (using the live preview) to make rust-analyzer faster and use less memory
+        // (This uses an unstable env variable, but it is just an optimization)
+        return generator::rust_live_preview::generate(&root_component, &loader.compiler_config)
+            .unwrap_or_else(|e| {
+                let e_str = e.to_string();
+                quote!(compile_error!(#e_str))
+            })
+            .into();
+    }
+
     let mut result = generator::rust::generate(&root_component, &loader.compiler_config)
         .unwrap_or_else(|e| {
             let e_str = e.to_string();

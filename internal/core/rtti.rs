@@ -67,7 +67,7 @@ pub enum AnimatedBindingKind {
     /// No animation is on the binding
     NotAnimated,
     /// Single animation
-    Animation(PropertyAnimation),
+    Animation(Box<dyn Fn() -> PropertyAnimation>),
     /// Transition
     Transition(Box<dyn Fn() -> (PropertyAnimation, crate::animations::Instant)>),
 }
@@ -77,7 +77,7 @@ impl AnimatedBindingKind {
     pub fn as_animation(self) -> Option<PropertyAnimation> {
         match self {
             AnimatedBindingKind::NotAnimated => None,
-            AnimatedBindingKind::Animation(a) => Some(a),
+            AnimatedBindingKind::Animation(a) => Some(a()),
             AnimatedBindingKind::Transition(_) => None,
         }
     }
@@ -307,19 +307,22 @@ where
                                 .map_err(|_| ())
                                 .expect("binding was of the wrong type")
                         },
-                        animation,
+                        move || (animation(), None),
                     );
                     Ok(())
                 }
                 AnimatedBindingKind::Transition(tr) => {
-                    p.set_animated_binding_for_transition(
+                    p.set_animated_binding(
                         move || {
                             binding()
                                 .try_into()
                                 .map_err(|_| ())
                                 .expect("binding was of the wrong type")
                         },
-                        tr,
+                        move || {
+                            let (animation, start_time) = tr();
+                            (animation, Some(start_time))
+                        },
                     );
                     Ok(())
                 }

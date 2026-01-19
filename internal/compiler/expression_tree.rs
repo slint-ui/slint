@@ -75,6 +75,7 @@ pub enum BuiltinFunction {
     StringToUppercase,
     ColorRgbaStruct,
     ColorHsvaStruct,
+    ColorOklchStruct,
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
@@ -84,6 +85,7 @@ pub enum BuiltinFunction {
     ArrayLength,
     Rgb,
     Hsv,
+    Oklch,
     ColorScheme,
     SupportsNativeMenuBar,
     /// Setup the menu bar
@@ -142,6 +144,7 @@ pub enum BuiltinMacroFunction {
     /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
     Rgb,
     Hsv,
+    Oklch,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
 }
@@ -231,6 +234,16 @@ declare_builtin_function_types!(
         .collect(),
         name: BuiltinPublicStruct::Color.into(),
     })),
+    ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("lightness"), Type::Float32),
+            (SmolStr::new_static("chroma"), Type::Float32),
+            (SmolStr::new_static("hue"), Type::Float32),
+            (SmolStr::new_static("alpha"), Type::Float32),
+        ])
+        .collect(),
+        name: BuiltinPublicStruct::Color.into(),
+    })),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
@@ -247,6 +260,7 @@ declare_builtin_function_types!(
     ArrayLength: (Type::Model) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
+    Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     ColorScheme: () -> Type::Enumeration(
         typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
     ),
@@ -343,6 +357,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
+            | BuiltinFunction::ColorOklchStruct
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
@@ -359,6 +374,7 @@ impl BuiltinFunction {
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
+            BuiltinFunction::Oklch => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => false,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
@@ -429,6 +445,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
+            | BuiltinFunction::ColorOklchStruct
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
@@ -438,6 +455,7 @@ impl BuiltinFunction {
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
+            BuiltinFunction::Oklch => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => true,
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::SetTextInputFocused => false,

@@ -1406,10 +1406,28 @@ pub fn animation_for_property(
 ) -> AnimatedBindingKind {
     match animation {
         Some(i_slint_compiler::object_tree::PropertyAnimation::Static(anim_elem)) => {
-            AnimatedBindingKind::Animation(eval::new_struct_with_bindings(
-                &anim_elem.borrow().bindings,
-                &mut eval::EvalLocalContext::from_component_instance(component),
-            ))
+            AnimatedBindingKind::Animation(Box::new({
+                let component_ptr = component.as_ptr();
+                let vtable = NonNull::from(&component.description.ct).cast();
+                let anim_elem = Rc::clone(&anim_elem);
+                move || -> PropertyAnimation {
+                    generativity::make_guard!(guard);
+                    let component = unsafe {
+                        InstanceRef::from_pin_ref(
+                            Pin::new_unchecked(vtable::VRef::from_raw(
+                                vtable,
+                                NonNull::new_unchecked(component_ptr as *mut u8),
+                            )),
+                            guard,
+                        )
+                    };
+
+                    eval::new_struct_with_bindings(
+                        &anim_elem.borrow().bindings,
+                        &mut eval::EvalLocalContext::from_component_instance(component),
+                    )
+                }
+            }))
         }
         Some(i_slint_compiler::object_tree::PropertyAnimation::Transition {
             animations,

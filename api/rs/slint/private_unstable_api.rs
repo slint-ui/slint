@@ -71,29 +71,14 @@ pub fn set_animated_property_binding<
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> T,
-    animation_data: PropertyAnimation,
-) {
-    let weak = component_strong.to_weak();
-    property.set_animated_binding(
-        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap()),
-        animation_data,
-    )
-}
-
-pub fn set_animated_property_binding_for_transition<
-    T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-    StrongRef: StrongItemTreeRef + 'static,
->(
-    property: Pin<&Property<T>>,
-    component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
     compute_animation_details: fn(
         StrongRef,
-    ) -> (PropertyAnimation, i_slint_core::animations::Instant),
+    )
+        -> (PropertyAnimation, Option<i_slint_core::animations::Instant>),
 ) {
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();
-    property.set_animated_binding_for_transition(
+    property.set_animated_binding(
         move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
             compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
@@ -186,7 +171,7 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
-    pub use i_slint_core::animations::{EasingCurve, animation_tick};
+    pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::{LogicalPosition, StyledText};
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;

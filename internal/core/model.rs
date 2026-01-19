@@ -880,6 +880,7 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     #[pin]
     model: Property<ModelRc<T::Data>>,
     #[pin]
+    /// Set to true when the model becomes dirty.
     is_dirty: Property<bool>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
     #[pin]
@@ -1061,7 +1062,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
         // Query is_dirty to track model changes
-        self.data().project_ref().is_dirty.get();
+        let _ = self.data().project_ref().is_dirty.get();
         self.data().project_ref().is_dirty.set(false);
 
         let mut vp_width = listview_width;
@@ -1280,12 +1281,15 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             }
 
             // Now re-compute some coordinate such a way that the scrollbar are adjusted.
-            inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord;
+            inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord; // mean over all instance heights
             inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
             viewport_height.set(inner.cached_item_height * row_count as Coord);
             viewport_width.set(vp_width);
             let new_viewport_y = -inner.anchor_y + new_offset_y;
-            viewport_y.set(new_viewport_y);
+            if new_viewport_y != viewport_y.get() {
+                // If the new value gets set, all bindings are removed which means also an animation gets removed
+                viewport_y.set(new_viewport_y);
+            }
             inner.previous_viewport_y = new_viewport_y;
             break;
         }

@@ -141,7 +141,6 @@ fn init_state(syntax_node: &SyntaxNode, diag: &mut BuildDiagnostics) -> State {
     let mut state = State::default();
     let doc = syntax_node.clone().into();
     let mut type_loader = TypeLoader::new(
-        i_slint_compiler::typeregister::TypeRegister::builtin(),
         i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Llr,
         ),

@@ -79,8 +79,10 @@ pub async fn run_passes(
     let style_metrics = {
         // Ignore import errors
         let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+        // Import from style-base.slint instead of std-widgets.slint to avoid loading
+        // the entire widget library just to get StyleMetrics.
         type_loader
-            .import_component("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
+            .import_component("style-base.slint", "StyleMetrics", &mut build_diags_to_ignore)
             .await
             .unwrap_or_else(|| panic!("can't load style metrics"))
     };
@@ -88,8 +90,10 @@ pub async fn run_passes(
     let palette = {
         // Ignore import errors
         let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+        // Import from style-base.slint instead of std-widgets.slint to avoid loading
+        // the entire widget library just to get Palette.
         type_loader
-            .import_component("std-widgets.slint", "Palette", &mut build_diags_to_ignore)
+            .import_component("style-base.slint", "Palette", &mut build_diags_to_ignore)
             .await
             .unwrap_or_else(|| panic!("can't load palette"))
     };
