@@ -191,7 +191,8 @@ impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
 }
 
 struct WgpuTextureBackend {
-    device: wgpu::Device,
+    /// The device is kept alive for the duration of the backend's existence.
+    _device: wgpu::Device,
     queue: wgpu::Queue,
     current_texture: RefCell<Option<wgpu::Texture>>,
 }
@@ -244,13 +245,17 @@ impl GraphicsBackend for WgpuTextureBackend {
     }
 }
 
-/// A wrapper around FemtoVGRenderer that targets a WGPU Texture.
+/// Use the FemtoVG renderer with WGPU when implementing a custom Slint platform where you want the scene to be rendered
+/// into a WGPU texture. The rendering is done using the [FemtoVG](https://github.com/femtovg/femtovg) library.
 pub struct FemtoVGWGPURenderer(FemtoVGRenderer<WgpuTextureBackend>);
 
 impl FemtoVGWGPURenderer {
+    /// Creates a new FemtoVGWGPURenderer.
+    ///
+    /// The `device` and `queue` are the WGPU device and queue that will be used for rendering.
     pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, PlatformError> {
         let backend = WgpuTextureBackend {
-            device: device.clone(),
+            _device: device.clone(),
             queue: queue.clone(),
             current_texture: RefCell::new(None),
         };
@@ -268,6 +273,9 @@ impl FemtoVGWGPURenderer {
         Ok(Self(renderer))
     }
 
+    /// Render the scene to the given texture.
+    ///
+    /// The texture must be a valid WGPU texture.
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
         *self.0.graphics_backend.current_texture.borrow_mut() = Some(texture.clone());
         let result = self.0.render();
