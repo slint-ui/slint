@@ -401,10 +401,7 @@ fn handle_input(
             let plane_origin = quad_global.translation();
             let plane = InfinitePlane3d::new(*plane_normal);
 
-            if let Some(distance) = ray.intersect_plane(plane_origin, plane) {
-                // Compute the 3D intersection point
-                let intersection_point = ray.get_point(distance);
-
+            if let Some(intersection_point) = ray.plane_intersection_point(plane_origin, plane) {
                 // Transform from world space to the quad's local coordinate system
                 let local_point =
                     quad_global.affine().inverse().transform_point3(intersection_point);
