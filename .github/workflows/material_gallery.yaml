@@ -52,7 +52,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-linux-android
-            
+
       - name: Install Android API level 30
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
