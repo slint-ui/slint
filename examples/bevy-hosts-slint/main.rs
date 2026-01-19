@@ -579,8 +579,11 @@ fn setup(
 
     let image_handle = images.add(image);
 
-    // Create a material for the Slint UI
-    let slint_material = materials.add(StandardMaterial {
+    // Create a material for the Slint UI with special properties:
+    // - unlit: true -> No lighting calculations, UI appears flat and consistent
+    // - alpha_mode: Blend -> Support transparency (Slint UI can have transparent backgrounds)
+    // - cull_mode: None -> Visible from both sides (useful as the quad rotates)
+    let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle.clone()),
         unlit: true,
         alpha_mode: AlphaMode::Blend,
@@ -589,7 +592,8 @@ fn setup(
     });
 
     // Spawn an entity to track the Slint texture and material
-    commands.spawn(SlintScene { image: image_handle, material: slint_material.clone() });
+    // The render_slint system will query for this component to find the texture to update
+    commands.spawn(SlintScene { image: image_handle, material: material_handle.clone() });
 
     // Create a material for the cube with a distinct color
     let cube_material = materials.add(StandardMaterial {
@@ -613,11 +617,16 @@ fn setup(
             Cube,
         ))
         .with_children(|parent| {
+            // Attach the UI quad as a child of the cube
+            // Being a child means it inherits the cube's transform (rotation, scale)
             parent.spawn((
                 Mesh3d(quad_mesh),
-                MeshMaterial3d(slint_material),
+                MeshMaterial3d(material_handle),
+                // Position on the front face (+Z in local space)
+                // 0.5001 is slightly in front of the cube face (which is at 0.5 in a 1x1 cube)
+                // to prevent z-fighting artifacts
                 Transform::from_xyz(0.0, 0.0, 0.5001),
-                SlintQuad,
+                SlintQuad, // Marker for input handling system to find this quad
             ));
         });
 
