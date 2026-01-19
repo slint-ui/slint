@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{cell::RefCell, rc::Rc, pin::Pin};
+use std::{cell::RefCell, pin::Pin, rc::Rc};
 
-use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
+use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 
 use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface, wgpu::wgpu::Texture};
 
@@ -212,7 +212,8 @@ impl GraphicsBackend for WgpuTextureBackend {
     fn begin_surface_rendering(
         &self,
     ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
-        let texture = self.current_texture.borrow().clone().ok_or("No texture set for rendering")?;
+        let texture =
+            self.current_texture.borrow().clone().ok_or("No texture set for rendering")?;
         Ok(TextureWindowSurface { texture })
     }
 
@@ -231,7 +232,7 @@ impl GraphicsBackend for WgpuTextureBackend {
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
-         Ok(callback(None)) 
+        Ok(callback(None))
     }
 
     fn resize(
@@ -254,7 +255,7 @@ impl FemtoVGWGPURenderer {
             current_texture: RefCell::new(None),
         };
         let renderer = FemtoVGRenderer::new(backend);
-        
+
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
         let femtovg_canvas = femtovg::Canvas::new_with_text_context(
             wgpu_renderer,
@@ -365,7 +366,12 @@ impl RendererSealed for FemtoVGWGPURenderer {
         self.0.resize(size)
     }
 
-    fn take_snapshot(&self) -> Result<i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    fn take_snapshot(
+        &self,
+    ) -> Result<
+        i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+        PlatformError,
+    > {
         self.0.take_snapshot()
     }
 
