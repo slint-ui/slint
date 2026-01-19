@@ -289,12 +289,35 @@ pub struct GridLayoutCell {
     pub row_expr: RowColExpr,
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
+    pub child_items: Option<Vec<LayoutItem>>, // for repeated rows
+}
+
+impl GridLayoutCell {
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        if let RowColExpr::Named(ref mut e) = self.col_expr {
+            visitor(e);
+        }
+        if let RowColExpr::Named(ref mut e) = self.row_expr {
+            visitor(e);
+        }
+        if let RowColExpr::Named(ref mut e) = self.colspan_expr {
+            visitor(e);
+        }
+        if let RowColExpr::Named(ref mut e) = self.rowspan_expr {
+            visitor(e);
+        }
+        if let Some(children) = &mut self.child_items {
+            for child in children {
+                child.constraints.visit_named_references(visitor);
+            }
+        }
+    }
 }
 
 /// An element in a GridLayout
 #[derive(Debug, Clone)]
 pub struct GridLayoutElement {
-    // Rc<RefCell<GridLayoutCell>> because shared with the repeated component's element
+    /// `Rc<RefCell<GridLayoutCell>>` because shared with the repeated component's element
     pub cell: Rc<RefCell<GridLayoutCell>>,
     pub item: LayoutItem,
 }
@@ -501,8 +524,13 @@ impl GridLayout {
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.visit_rowcol_named_references(visitor);
-        for cell in &mut self.elems {
-            cell.item.constraints.visit_named_references(visitor);
+        for layout_elem in &mut self.elems {
+            layout_elem.item.constraints.visit_named_references(visitor);
+            if let Some(child_items) = &mut layout_elem.cell.borrow_mut().child_items {
+                for child in child_items {
+                    child.constraints.visit_named_references(visitor);
+                }
+            }
         }
         self.geometry.visit_named_references(visitor);
     }

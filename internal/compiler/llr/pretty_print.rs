@@ -351,6 +351,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::ArrayIndexAssignment { array, index, value } => {
                 write!(f, "{}[{}] = {}", e(array), e(index), e(value))
             }
+            Expression::SliceIndexAssignment { slice_name, index, value } => {
+                write!(f, "{}[{}] = {}", slice_name, index, e(value))
+            }
             Expression::BinaryExpression { lhs, rhs, op } => {
                 write!(f, "({} {} {})", e(lhs), op, e(rhs))
             }

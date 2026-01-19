@@ -36,7 +36,7 @@ jobs:
       uses: ./.github/workflows/wasm_gallery.yaml
   apk_demo:
       if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-      uses: ./.github/workflows/apk_gallery.yaml
+      uses: ./.github/workflows/material_gallery.yaml
       secrets:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/download-artifact@v7
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         with:
-          name: apk_gallery
+          name: material_gallery
           path: ui-libraries/material/docs/dist/apk
       - name: prepare zip archive
         working-directory: ui-libraries/material

@@ -2767,6 +2767,13 @@ pub fn visit_all_named_references_in_element(
         pd.is_alias.as_mut().map(&mut vis);
     }
     elem.borrow_mut().property_declarations = property_declarations;
+
+    // Visit grid_layout_cell for repeated Row elements
+    let grid_layout_cell = elem.borrow_mut().grid_layout_cell.take();
+    if let Some(grid_layout_cell) = grid_layout_cell {
+        grid_layout_cell.borrow_mut().visit_named_references(&mut vis);
+        elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell);
+    }
 }
 
 /// Visit all named reference in this component and sub component

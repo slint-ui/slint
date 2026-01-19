@@ -40,6 +40,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
         Expression::ArrayIndexAssignment { .. } => return isize::MAX,
+        Expression::SliceIndexAssignment { .. } => return isize::MAX,
         Expression::BinaryExpression { .. } => 1,
         Expression::UnaryOp { .. } => 1,
         // Avoid inlining calls to load the image from the cache, as in the worst case the image isn't cached
