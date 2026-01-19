@@ -43,6 +43,7 @@ impl GraphicsBackend for WGPUBackend {
     }
 
     fn clear_graphics_context(&self) {
+        self.surface_config.borrow_mut().take();
         self.surface.borrow_mut().take();
         self.queue.borrow_mut().take();
         self.device.borrow_mut().take();
@@ -110,21 +111,20 @@ impl GraphicsBackend for WGPUBackend {
         width: std::num::NonZeroU32,
         height: std::num::NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Try to get hold of the wgpu types, but if we receive the resize event while suspended, ignore it.
         let mut surface_config = self.surface_config.borrow_mut();
-        let Some(surface_config) = surface_config.as_mut() else {
-            // When the backend dispatches a resize event while the renderer is suspended, ignore resize requests.
-            return Ok(());
-        };
+        let Some(surface_config) = surface_config.as_mut() else { return Ok(()) };
+        let mut device = self.device.borrow_mut();
+        let Some(device) = device.as_mut() else { return Ok(()) };
+        let mut surface = self.surface.borrow_mut();
+        let Some(surface) = surface.as_mut() else { return Ok(()) };
 
         // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
         surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = width.get();
         surface_config.height = height.get();
 
-        let mut device = self.device.borrow_mut();
-        let device = device.as_mut().unwrap();
-
-        self.surface.borrow_mut().as_mut().unwrap().configure(device, surface_config);
+        surface.configure(device, surface_config);
         Ok(())
     }
 }
