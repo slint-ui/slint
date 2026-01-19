@@ -43,7 +43,7 @@ pub mod opengl;
 #[cfg(feature = "wgpu-27")]
 pub mod wgpu;
 #[cfg(feature = "wgpu-27")]
-pub use wgpu::FemtoVGWGPURendererExt;
+pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_surface(&self) -> &R::Surface;
@@ -289,7 +289,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         })
     }
 
-    fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
+    pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
         self.rendering_first_time.set(true);
     }
