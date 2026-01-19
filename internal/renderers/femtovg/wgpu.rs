@@ -219,3 +219,87 @@ impl<B: GraphicsBackend<Renderer = femtovg::renderer::WGPURenderer>> FemtoVGWGPU
         Ok(())
     }
 }
+
+pub struct TextureWindowSurface {
+    texture: wgpu::Texture,
+}
+
+impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
+    fn render_surface(&self) -> &wgpu::Texture {
+        &self.texture
+    }
+}
+
+pub struct WgpuTextureBackend {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    current_texture: RefCell<Option<wgpu::Texture>>,
+}
+
+impl GraphicsBackend for WgpuTextureBackend {
+    type Renderer = femtovg::renderer::WGPURenderer;
+    type WindowSurface = TextureWindowSurface;
+    const NAME: &'static str = "WGPU Texture";
+
+    fn new_suspended() -> Self {
+        panic!("Suspended backend not supported for WgpuTextureBackend (requires device/queue)");
+    }
+
+    fn clear_graphics_context(&self) {
+        // Nothing to clear here, we don't own the device/queue/texture
+    }
+
+    fn begin_surface_rendering(
+        &self,
+    ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
+        let texture = self.current_texture.borrow().clone().ok_or("No texture set for rendering")?;
+        Ok(TextureWindowSurface { texture })
+    }
+
+    fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {
+        self.queue.submit(Some(commands));
+    }
+
+    fn present_surface(
+        &self,
+        _surface: Self::WindowSurface,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
+
+    fn with_graphics_api<
+R>(
+        &self,
+        callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
+    ) -> Result<R, i_slint_core::platform::PlatformError> {
+         Ok(callback(None)) 
+    }
+
+    fn resize(
+        &self,
+        _width: std::num::NonZeroU32,
+        _height: std::num::NonZeroU32,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
+}
+
+impl FemtoVGRenderer<WgpuTextureBackend> {
+    pub fn new_with_wgpu(device: wgpu::Device, queue: wgpu::Queue) -> Self {
+        let backend = WgpuTextureBackend {
+            device: device.clone(),
+            queue: queue.clone(),
+            current_texture: RefCell::new(None),
+        };
+        let renderer = Self::new(backend);
+        renderer.set_wgpu_device_and_queue(device, queue).expect("Failed to initialize canvas");
+        renderer
+    }
+
+    pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), i_slint_core::platform::PlatformError> {
+        *self.graphics_backend.current_texture.borrow_mut() = Some(texture.clone());
+        let result = self.render();
+        *self.graphics_backend.current_texture.borrow_mut() = None;
+        result
+    }
+}
