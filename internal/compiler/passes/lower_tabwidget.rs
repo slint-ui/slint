@@ -20,6 +20,20 @@ pub async fn lower_tabwidget(
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
+    // First check if any TabWidget is used - avoid loading std-widgets.slint if not needed
+    let mut has_tabwidget = false;
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
+                has_tabwidget = true;
+            }
+        })
+    });
+
+    if !has_tabwidget {
+        return;
+    }
+
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tabwidget_impl = type_loader
