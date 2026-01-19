@@ -1,0 +1,26 @@
+# Copyright © 2024 Slint project authors (see AUTHORS or LICENSE-MIT)
+# SPDX-License-Identifier: MIT
+
+[workspace]
+
+[package]
+name = "bevy-hosts-slint-gpu"
+version = "0.1.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2024"
+publish = false
+license = "MIT"
+description = "Slint Bevy Integration Example (GPU)"
+
+[[bin]]
+name = "bevy_hosts_slint_gpu"
+path = "main.rs"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["unstable-wgpu-27", "std", "compat-1-2"] }
+i-slint-core = { path = "../../internal/core" }
+i-slint-renderer-femtovg = { path = "../../internal/renderers/femtovg", features = ["wgpu", "wgpu-27"] }
+bevy = { version = "0.18.0" }
+bevy_image = { version = "0.18.0", features = ["zstd_rust"] }
+wgpu-27 = { package = "wgpu", version = "27", default-features = false, features = ["wgsl"] }
+femtovg = { version = "0.19.3", features = ["image-loading"] }
