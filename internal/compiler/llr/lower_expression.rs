@@ -1239,7 +1239,7 @@ pub fn get_grid_layout_input_for_repeated(
     ctx: &mut ExpressionLoweringCtx,
     grid_cell: &GridLayoutCell,
 ) -> llr_Expression {
-    let mut array_values = Vec::new();
+    let mut assignments = Vec::new();
 
     // grid_cell.new_row is the static information from the slint file.
     // In practice, for repeated items within a row, whether we should start a new row
@@ -1262,9 +1262,10 @@ pub fn get_grid_layout_input_for_repeated(
         }
     }
 
+    // Generate assignments to the `result` slice parameter: result[i] = struct { ... }
     let item_count = grid_cell.child_items.as_ref().map_or(1, |c| c.len());
-    for _ in 0..item_count {
-        array_values.push(make_struct(
+    for i in 0..item_count {
+        let value = make_struct(
             BuiltinPrivateStruct::GridLayoutInputData,
             [
                 ("new_row", Type::Bool, new_row_expr),
@@ -1273,14 +1274,16 @@ pub fn get_grid_layout_input_for_repeated(
                 ("rowspan", Type::Float32, convert_row_col_expr(&grid_cell.rowspan_expr, ctx)),
                 ("colspan", Type::Float32, convert_row_col_expr(&grid_cell.colspan_expr, ctx)),
             ],
-        ));
+        );
+        // Generate: result[i] = value
+        assignments.push(llr_Expression::SliceIndexAssignment {
+            slice_name: SmolStr::new_static("result"),
+            index: i,
+            value: value.into(),
+        });
         new_row_expr = llr_Expression::BoolLiteral(false);
     }
-    llr_Expression::Array {
-        element_ty: grid_layout_input_data_ty(),
-        values: array_values,
-        output: llr_ArrayOutput::Vector,
-    }
+    llr_Expression::CodeBlock(assignments)
 }
 
 fn compile_path(
