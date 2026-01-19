@@ -38,7 +38,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
-        "@expressive-code/core": "0.41.5",
+        "@expressive-code/core": "0.41.6",
         "@playwright/test": "catalog:",
         "cspell": "catalog:",
         "@astrojs/markdown-remark": "6.3.10",
