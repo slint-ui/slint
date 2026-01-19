@@ -2337,7 +2337,7 @@ fn animation_element_from_node(
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> Option<ElementRc> {
-    let anim_type = tr.property_animation_type_for_property(prop_type);
+    let anim_type = tr.property_animation_type_for_property(prop_type.clone());
     if !matches!(anim_type, ElementType::Builtin(..)) {
         diag.push_error(
             format!(
@@ -2348,6 +2348,36 @@ fn animation_element_from_node(
         );
         None
     } else {
+        // Check if angle-* interpolation mode is used with a non-angle property
+        for binding in anim.Binding() {
+            let Some(ident) = binding.child_token(SyntaxKind::Identifier) else { continue };
+            if parser::normalize_identifier(ident.text()) != "interpolation" {
+                continue;
+            }
+            // Check if the binding value is a simple identifier (QualifiedName)
+            let binding_expr = binding.BindingExpression();
+            let Some(expr) = binding_expr.Expression() else { continue };
+            let Some(qn) = expr.QualifiedName() else { continue };
+            let mode = qn.text().to_string();
+            let normalized_mode = parser::normalize_identifier(&mode);
+            // Check for angle-* interpolation modes
+            if matches!(
+                normalized_mode.as_str(),
+                "angle-shorter" | "angle-longer" | "angle-clockwise" | "angle-counterclockwise"
+            ) && prop_type != Type::Angle
+            {
+                diag.push_error(
+                    format!(
+                        "The '{}' interpolation mode can only be used with angle properties, but '{}' has type {}",
+                        mode.trim(),
+                        prop_name.text().to_string().trim(),
+                        prop_type
+                    ),
+                    &qn,
+                );
+            }
+        }
+
         let mut anim_element =
             Element { id: "".into(), base_type: anim_type, ..Default::default() };
         anim_element.parse_bindings(

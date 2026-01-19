@@ -10,4 +10,32 @@ export TestCase := Rectangle {
         x: 0phx;
 //      ^error{Unknown property x in PropertyAnimation}
     }
+
+    // Test: angle-* interpolation modes should only be used with angle properties
+    animate width {
+        interpolation: angle-shorter;
+//                     >           <error{The 'angle-shorter' interpolation mode can only be used with angle properties, but 'width' has type length}
+    }
+    animate height {
+        interpolation: angle-longer;
+//                     >          <error{The 'angle-longer' interpolation mode can only be used with angle properties, but 'height' has type length}
+    }
+    animate opacity {
+        interpolation: angle-clockwise;
+//                     >             <error{The 'angle-clockwise' interpolation mode can only be used with angle properties, but 'opacity' has type float}
+    }
+
+    // Valid: linear interpolation can be used with any property type
+    animate min-width {
+        interpolation: linear;
+    }
+
+    // Valid: angle-* interpolation with angle properties
+    property <angle> my-angle;
+    animate my-angle {
+        interpolation: angle-shorter;
+    }
+    animate transform-rotation {
+        interpolation: angle-counterclockwise;
+    }
 }
