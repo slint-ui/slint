@@ -28,6 +28,8 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
 ]
+description = "Python API for Slint UI Toolkit"
+readme = "README.md"
 
 [project.urls]
 Homepage = "https://slint.dev"
