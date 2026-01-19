@@ -41,7 +41,7 @@ fn scripts_for_locale(locale: &str, mut callback: impl FnMut(&slint::fontique::f
             fontique::Script::from("Hani"),
         ],
         "ko" => &[fontique::Script::from("Hang"), fontique::Script::from("Hani")],
-        "zh" => &[fontique::Script::from("Hans"), fontique::Script::from("Hant")],
+        "zh" => &[fontique::Script::from("Hani")],
         _ => {
             if let Some(script) = locale.id.script {
                 &[fontique::Script::from(script.into_raw())]
