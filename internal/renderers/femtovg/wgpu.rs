@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, pin::Pin};
 
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
+use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::RendererSealed;
 
 use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface, wgpu::wgpu::Texture};
 
@@ -178,49 +180,7 @@ impl FemtoVGRenderer<WGPUBackend> {
     }
 }
 
-/// Extension trait for FemtoVGRenderer with any WGPU-based backend.
-/// This allows custom backends that use `femtovg::renderer::WGPURenderer` to initialize
-/// the canvas without needing access to internal types.
-pub trait FemtoVGWGPURendererExt {
-    /// Initialize the renderer's canvas with the provided WGPU device and queue.
-    /// This must be called before rendering can occur.
-    ///
-    /// # Example
-    /// ```ignore
-    /// use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGWGPURendererExt};
-    ///
-    /// // After obtaining device and queue from Bevy or another source:
-    /// renderer.set_wgpu_device_and_queue(device, queue)?;
-    /// ```
-    fn set_wgpu_device_and_queue(
-        &self,
-        device: wgpu::Device,
-        queue: wgpu::Queue,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-}
-
-impl<B: GraphicsBackend<Renderer = femtovg::renderer::WGPURenderer>> FemtoVGWGPURendererExt
-    for FemtoVGRenderer<B>
-{
-    fn set_wgpu_device_and_queue(
-        &self,
-        device: wgpu::Device,
-        queue: wgpu::Queue,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
-        let femtovg_canvas = femtovg::Canvas::new_with_text_context(
-            wgpu_renderer,
-            crate::font_cache::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .map_err(|e| format!("Failed to create femtovg canvas: {:?}", e))?;
-
-        let canvas = Rc::new(RefCell::new(femtovg_canvas));
-        self.reset_canvas(canvas);
-        Ok(())
-    }
-}
-
-pub struct TextureWindowSurface {
+struct TextureWindowSurface {
     texture: wgpu::Texture,
 }
 
@@ -230,7 +190,7 @@ impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
     }
 }
 
-pub struct WgpuTextureBackend {
+struct WgpuTextureBackend {
     device: wgpu::Device,
     queue: wgpu::Queue,
     current_texture: RefCell<Option<wgpu::Texture>>,
@@ -267,8 +227,7 @@ impl GraphicsBackend for WgpuTextureBackend {
         Ok(())
     }
 
-    fn with_graphics_api<
-R>(
+    fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
@@ -284,22 +243,133 @@ R>(
     }
 }
 
-impl FemtoVGRenderer<WgpuTextureBackend> {
-    pub fn new_with_wgpu(device: wgpu::Device, queue: wgpu::Queue) -> Self {
+/// A wrapper around FemtoVGRenderer that targets a WGPU Texture.
+pub struct FemtoVGWGPURenderer(FemtoVGRenderer<WgpuTextureBackend>);
+
+impl FemtoVGWGPURenderer {
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, PlatformError> {
         let backend = WgpuTextureBackend {
             device: device.clone(),
             queue: queue.clone(),
             current_texture: RefCell::new(None),
         };
-        let renderer = Self::new(backend);
-        renderer.set_wgpu_device_and_queue(device, queue).expect("Failed to initialize canvas");
-        renderer
+        let renderer = FemtoVGRenderer::new(backend);
+        
+        let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
+        let femtovg_canvas = femtovg::Canvas::new_with_text_context(
+            wgpu_renderer,
+            crate::font_cache::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .map_err(|e| format!("Failed to create femtovg canvas: {:?}", e))?;
+
+        let canvas = Rc::new(RefCell::new(femtovg_canvas));
+        renderer.reset_canvas(canvas);
+        Ok(Self(renderer))
     }
 
-    pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), i_slint_core::platform::PlatformError> {
-        *self.graphics_backend.current_texture.borrow_mut() = Some(texture.clone());
-        let result = self.render();
-        *self.graphics_backend.current_texture.borrow_mut() = None;
+    pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+        *self.0.graphics_backend.current_texture.borrow_mut() = Some(texture.clone());
+        let result = self.0.render();
+        *self.0.graphics_backend.current_texture.borrow_mut() = None;
         result
+    }
+}
+
+impl RendererSealed for FemtoVGWGPURenderer {
+    fn text_size(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::items::ItemRc,
+        max_width: Option<i_slint_core::lengths::LogicalLength>,
+        text_wrap: i_slint_core::items::TextWrap,
+    ) -> i_slint_core::lengths::LogicalSize {
+        self.0.text_size(text_item, item_rc, max_width, text_wrap)
+    }
+
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &i_slint_core::items::ItemRc,
+        ch: char,
+    ) -> i_slint_core::lengths::LogicalSize {
+        self.0.char_size(text_item, item_rc, ch)
+    }
+
+    fn font_metrics(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+    ) -> i_slint_core::items::FontMetrics {
+        self.0.font_metrics(font_request)
+    }
+
+    fn text_input_byte_offset_for_position(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::items::ItemRc,
+        pos: i_slint_core::lengths::LogicalPoint,
+    ) -> usize {
+        self.0.text_input_byte_offset_for_position(text_input, item_rc, pos)
+    }
+
+    fn text_input_cursor_rect_for_byte_offset(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::items::ItemRc,
+        byte_offset: usize,
+    ) -> i_slint_core::lengths::LogicalRect {
+        self.0.text_input_cursor_rect_for_byte_offset(text_input, item_rc, byte_offset)
+    }
+
+    fn register_font_from_memory(
+        &self,
+        data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.0.register_font_from_memory(data)
+    }
+
+    fn register_font_from_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.0.register_font_from_path(path)
+    }
+
+    fn default_font_size(&self) -> i_slint_core::lengths::LogicalLength {
+        self.0.default_font_size()
+    }
+
+    fn set_rendering_notifier(
+        &self,
+        callback: Box<dyn i_slint_core::api::RenderingNotifier>,
+    ) -> Result<(), i_slint_core::api::SetRenderingNotifierError> {
+        self.0.set_rendering_notifier(callback)
+    }
+
+    fn free_graphics_resources(
+        &self,
+        component: i_slint_core::item_tree::ItemTreeRef,
+        items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) -> Result<(), PlatformError> {
+        self.0.free_graphics_resources(component, items)
+    }
+
+    fn set_window_adapter(&self, window_adapter: &Rc<dyn i_slint_core::window::WindowAdapter>) {
+        self.0.set_window_adapter(window_adapter)
+    }
+
+    fn window_adapter(&self) -> Option<Rc<dyn i_slint_core::window::WindowAdapter>> {
+        RendererSealed::window_adapter(&self.0)
+    }
+
+    fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
+        self.0.resize(size)
+    }
+
+    fn take_snapshot(&self) -> Result<i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+        self.0.take_snapshot()
+    }
+
+    fn supports_transformations(&self) -> bool {
+        self.0.supports_transformations()
     }
 }
