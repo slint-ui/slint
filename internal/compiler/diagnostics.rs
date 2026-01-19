@@ -299,11 +299,9 @@ impl Diagnostic {
         }
     }
 
-    /// Return the length of this diagnostic in characters.
+    /// Return the length of this diagnostic in UTF-8 encoded bytes.
     pub fn length(&self) -> usize {
-        // The length should always be at least 1, even if the span indicates a
-        // length of 0, as otherwise there is no character to display the diagnostic on.
-        self.span.span.length.max(1)
+        self.span.span.length
     }
 
     // NOTE: The return-type differs from the Spanned trait.
