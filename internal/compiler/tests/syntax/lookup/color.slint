@@ -50,7 +50,13 @@ export X := Rectangle {
 //                                 >  <error{This function needs 3 or 4 arguments, but 5 were provided}
         property<color> c5: Colors.hsv(1,2,3,4,5);
 //                                 > <error{This function needs 3 or 4 arguments, but 5 were provided}
+        property<color> c6: Colors.oklch(1,2,3,4,5);
+//                                 >   <error{This function needs 3 or 4 arguments, but 5 were provided}
+        property<color> c7: oklch(0.5, 0.1, 180);
+        property<color> c8: oklch(0.5, 0.1, 180, 0.8);
 
+        // Test to-oklch() method
+        property<{ lightness: float, chroma: float, hue: float, alpha: float }> oklch-result: Colors.blue.to-oklch();
 
     }
 
