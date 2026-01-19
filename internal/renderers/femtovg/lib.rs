@@ -93,8 +93,8 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
-    /// Creates a new renderer with the given graphics backend.
-    pub fn new(graphics_backend: B) -> Self {
+
+    pub(crate) fn new_internal(graphics_backend: B) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),

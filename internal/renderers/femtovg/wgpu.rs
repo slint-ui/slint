@@ -254,7 +254,7 @@ impl FemtoVGWGPURenderer {
             queue: queue.clone(),
             current_texture: RefCell::new(None),
         };
-        let renderer = FemtoVGRenderer::new(backend);
+        let renderer = FemtoVGRenderer::new_internal(backend);
 
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
         let femtovg_canvas = femtovg::Canvas::new_with_text_context(
