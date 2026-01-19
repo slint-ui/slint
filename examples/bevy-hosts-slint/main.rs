@@ -616,7 +616,7 @@ fn setup(
             parent.spawn((
                 Mesh3d(quad_mesh),
                 MeshMaterial3d(slint_material),
-                Transform::from_xyz(0.0, 0.0, 0.51),
+                Transform::from_xyz(0.0, 0.0, 0.5001),
                 SlintQuad,
             ));
         });
