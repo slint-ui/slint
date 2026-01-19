@@ -282,7 +282,7 @@ fn handle_input(
     let Some(quad_global) = quad_query.iter().next() else { return };
 
     let new_pos = raycast_slint(window, camera, quad_global, scale_factor);
-    
+
     match (cursor_state.position, new_pos) {
         (_, Some(pos)) => {
             cursor_state.position = Some(pos);
