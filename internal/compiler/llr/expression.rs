@@ -117,6 +117,14 @@ pub enum Expression {
         index: Box<Expression>,
         value: Box<Expression>,
     },
+    /// An assignment to a mutable slice element: `slice[idx] = value`
+    /// Unlike ArrayIndexAssignment, this writes directly to the slice without model semantics
+    SliceIndexAssignment {
+        /// Name of the slice variable (e.g., "result")
+        slice_name: SmolStr,
+        index: usize,
+        value: Box<Expression>,
+    },
 
     BinaryExpression {
         lhs: Box<Expression>,
@@ -320,6 +328,7 @@ impl Expression {
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
             Self::ArrayIndexAssignment { .. } => Type::Void,
+            Self::SliceIndexAssignment { .. } => Type::Void,
             Self::BinaryExpression { lhs, rhs: _, op } => {
                 if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
                     Type::Bool
@@ -376,6 +385,9 @@ macro_rules! visit_impl {
             Expression::ArrayIndexAssignment { array, index, value } => {
                 $visitor(array);
                 $visitor(index);
+                $visitor(value);
+            }
+            Expression::SliceIndexAssignment { value, .. } => {
                 $visitor(value);
             }
             Expression::BinaryExpression { lhs, rhs, .. } => {

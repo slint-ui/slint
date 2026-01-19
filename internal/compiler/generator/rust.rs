@@ -1195,7 +1195,8 @@ fn generate_sub_component(
                 fn grid_layout_input_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                     new_row: bool,
-                ) -> Vec<sp::GridLayoutInputData> {
+                    result: &mut [sp::GridLayoutInputData],
+                ) {
                     #![allow(unused)]
                     let _self = self;
                     #expr
@@ -1913,9 +1914,10 @@ fn generate_repeated_component(
         quote! {
             fn grid_layout_input_data(
                 self: ::core::pin::Pin<&Self>,
-                new_row: bool) -> Vec<sp::GridLayoutInputData>
-            {
-                self.as_ref().grid_layout_input_for_repeated(new_row)
+                new_row: bool,
+                result: &mut [sp::GridLayoutInputData],
+            ) {
+                self.as_ref().grid_layout_input_for_repeated(new_row, result)
             }
         }
     });
@@ -2578,6 +2580,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let index_e = compile_expression(index, ctx);
             let value_e = compile_expression(value, ctx);
             quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
+        }
+        Expression::SliceIndexAssignment { slice_name, index, value } => {
+            let slice_ident = ident(slice_name);
+            let value_e = compile_expression(value, ctx);
+            quote!(#slice_ident[#index] = #value_e)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);
@@ -3656,9 +3663,14 @@ fn generate_with_grid_input_data(
                 );
 
                 let new_row = repeater.new_row;
-                let loop_code = quote!(for sub_comp in &internal_vec {
-                    items_vec.extend(sub_comp.as_pin_ref().grid_layout_input_data(new_row));
-                    new_row = false;
+                let loop_code = quote!({
+                    let start_offset = items_vec.len();
+                    items_vec.extend(core::iter::repeat_with(Default::default).take(internal_vec.len() * #repeated_item_count));
+                    for (i, sub_comp) in internal_vec.iter().enumerate() {
+                        let offset = start_offset + i * #repeated_item_count;
+                        sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + #repeated_item_count]);
+                        new_row = false;
+                    }
                 });
                 push_code.push(quote!(
                     #common_push_code

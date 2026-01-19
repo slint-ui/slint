@@ -2661,16 +2661,23 @@ fn generate_repeated_component(
             layout_item_info_fn,
         ));
         root_sc.grid_layout_input_for_repeated.as_ref().map(|expr| {
+            let compiled_expr = compile_expression(&expr.borrow(), &ctx);
+            // Ensure the expression is terminated as a statement (CodeBlock with 1 item doesn't add semicolon)
+            let statement = if compiled_expr.is_empty() || compiled_expr.ends_with(';') || compiled_expr.ends_with('}') {
+                compiled_expr
+            } else {
+                format!("{compiled_expr};")
+            };
             repeater_struct.members.push((
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
                     name: "grid_layout_input_for_repeated".into(),
                     signature:
-                        "([[maybe_unused]] bool new_row) const -> std::vector<slint::cbindgen_private::GridLayoutInputData>"
+                        "([[maybe_unused]] bool new_row, [[maybe_unused]] std::span<slint::cbindgen_private::GridLayoutInputData> result) const -> void"
                             .to_owned(),
                     statements: Some(vec![
                         "[[maybe_unused]] auto self = this;".into(),
-                        format!("return {};", compile_expression(&expr.borrow(), &ctx)),
+                        statement,
                     ]),
                     ..Function::default()
                 }),
@@ -3575,6 +3582,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(
                 "[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})"
             )
+        }
+        Expression::SliceIndexAssignment { slice_name, index, value } => {
+            let value_e = compile_expression(value, ctx);
+            format!("{slice_name}[{index}] = {value_e}")
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_str = compile_expression(lhs, ctx);
@@ -4549,14 +4560,20 @@ fn generate_with_grid_input_data(
                 write!(
                     push_code,
                     "{maybe_bool} new_row = {new_row};
-                    self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                        for (const auto &data : sub_comp->grid_layout_input_for_repeated(new_row)) {{
-                            cells_vector.push_back(data);
+                    {{
+                        auto start_offset = cells_vector.size();
+                        cells_vector.resize(start_offset + self->{repeater_id}.len() * {repeated_item_count});
+                        std::size_t i = 0;
+                        self->{repeater_id}.for_each([&](const auto &sub_comp) {{
+                            auto offset = start_offset + i * {repeated_item_count};
+                            sub_comp->grid_layout_input_for_repeated(new_row, std::span(cells_vector).subspan(offset, {repeated_item_count}));
                             new_row = false;
-                        }}
-                    }});",
+                            ++i;
+                        }});
+                    }}",
                     new_row = repeater.new_row,
                     maybe_bool = if has_new_row_bool { "" } else { "bool " },
+                    repeated_item_count = repeater.repeated_children_count.unwrap_or(1),
                 )
                 .unwrap();
                 has_new_row_bool = true;
