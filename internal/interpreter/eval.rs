@@ -1139,6 +1139,24 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ColorOklchStruct => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ColorOklchStruct")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                let color = brush.color().to_oklch();
+                let values = IntoIterator::into_iter([
+                    ("lightness".to_string(), Value::Number(color.lightness.into())),
+                    ("chroma".to_string(), Value::Number(color.chroma.into())),
+                    ("hue".to_string(), Value::Number(color.hue.into())),
+                    ("alpha".to_string(), Value::Number(color.alpha.into())),
+                ])
+                .collect();
+                Value::Struct(values)
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ColorBrighter => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorBrighter")
@@ -1273,6 +1291,16 @@ fn call_builtin_function(
             let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
             let a = (1. * a).clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_hsva(h, s, v, a)))
+        }
+        BuiltinFunction::Oklch => {
+            let l: f32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let c: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let h: f32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
+            let l = l.clamp(0., 1.);
+            let c = c.max(0.);
+            let a = a.clamp(0., 1.);
+            Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
         BuiltinFunction::ColorScheme => local_context
             .component_instance

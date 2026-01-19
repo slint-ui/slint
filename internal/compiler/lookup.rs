@@ -819,6 +819,7 @@ impl LookupObject for ColorFunctions {
         None.or_else(|| f("rgb", BuiltinMacroFunction::Rgb))
             .or_else(|| f("rgba", BuiltinMacroFunction::Rgb))
             .or_else(|| f("hsv", BuiltinMacroFunction::Hsv))
+            .or_else(|| f("oklch", BuiltinMacroFunction::Oklch))
     }
 }
 
@@ -989,7 +990,10 @@ impl LookupObject for ColorExpression<'_> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
-            let base = if f == BuiltinFunction::ColorHsvaStruct && self.0.ty() == Type::Brush {
+            let base = if (f == BuiltinFunction::ColorHsvaStruct
+                || f == BuiltinFunction::ColorOklchStruct)
+                && self.0.ty() == Type::Brush
+            {
                 Expression::Cast { from: Box::new(self.0.clone()), to: Type::Color }
             } else {
                 self.0.clone()
@@ -1022,6 +1026,7 @@ impl LookupObject for ColorExpression<'_> {
             .or_else(|| f("blue", field_access("blue")))
             .or_else(|| f("alpha", field_access("alpha")))
             .or_else(|| f("to-hsv", member_function(BuiltinFunction::ColorHsvaStruct)))
+            .or_else(|| f("to-oklch", member_function(BuiltinFunction::ColorOklchStruct)))
             .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
             .or_else(|| f("transparentize", member_function(BuiltinFunction::ColorTransparentize)))

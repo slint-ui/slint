@@ -6,6 +6,9 @@ This module contains color related types for the run-time library.
 */
 
 use crate::properties::InterpolatedPropertyValue;
+#[cfg(not(feature = "std"))]
+#[allow(unused_imports)]
+use num_traits::Float;
 
 /// RgbaColor stores the red, green, blue and alpha components of a color
 /// with the precision of the generic parameter T. For example if T is f32,
@@ -239,6 +242,28 @@ impl Color {
     pub fn from_hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
         let hsva = HsvaColor { hue, saturation, value, alpha };
         <RgbaColor<f32>>::from(hsva).into()
+    }
+
+    /// Converts this color to the Oklch color space.
+    ///
+    /// Oklch is a perceptually uniform color space with:
+    /// - Lightness (L): 0 to 1
+    /// - Chroma (C): typically 0 to ~0.4
+    /// - Hue (h): 0 to 360 degrees
+    pub fn to_oklch(&self) -> OklchColor {
+        let rgba: RgbaColor<f32> = (*self).into();
+        rgba.into()
+    }
+
+    /// Construct a color from the Oklch color space parameters.
+    ///
+    /// - `lightness`: 0 to 1 (black to white)
+    /// - `chroma`: typically 0 to ~0.4 (grayscale to vivid)
+    /// - `hue`: 0 to 360 degrees
+    /// - `alpha`: 0 to 1
+    pub fn from_oklch(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
+        let oklch = OklchColor { lightness, chroma, hue, alpha };
+        <RgbaColor<f32>>::from(oklch).into()
     }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
@@ -502,6 +527,158 @@ impl From<Color> for HsvaColor {
     }
 }
 
+/// OklchColor stores the lightness, chroma, hue and alpha components of a color
+/// in the Oklch color space as `f32` fields.
+/// Oklch is a perceptually uniform color space, useful for color manipulation.
+/// This is merely a helper struct for use with [`Color`].
+///
+/// Reference: <https://bottosson.github.io/posts/oklab/>
+#[derive(Copy, Clone, PartialOrd, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct OklchColor {
+    /// The lightness component, between 0 (black) and 1 (white).
+    pub lightness: f32,
+    /// The chroma component (color intensity), typically between 0 and about 0.4.
+    pub chroma: f32,
+    /// The hue component in degrees between 0 and 360.
+    pub hue: f32,
+    /// The alpha component, between 0 and 1.
+    pub alpha: f32,
+}
+
+impl PartialEq for OklchColor {
+    fn eq(&self, other: &Self) -> bool {
+        (self.lightness - other.lightness).abs() < 0.00001
+            && (self.chroma - other.chroma).abs() < 0.00001
+            && (self.hue - other.hue).abs() < 0.00001
+            && (self.alpha - other.alpha).abs() < 0.00001
+    }
+}
+
+/// Helper struct for Oklab color space (intermediate representation).
+#[derive(Copy, Clone, Debug)]
+struct OklabColor {
+    l: f32,
+    a: f32,
+    b: f32,
+    alpha: f32,
+}
+
+impl From<OklchColor> for OklabColor {
+    fn from(oklch: OklchColor) -> Self {
+        let hue_rad = oklch.hue * core::f32::consts::PI / 180.0;
+        Self {
+            l: oklch.lightness,
+            a: oklch.chroma * hue_rad.cos(),
+            b: oklch.chroma * hue_rad.sin(),
+            alpha: oklch.alpha,
+        }
+    }
+}
+
+impl From<OklabColor> for OklchColor {
+    fn from(oklab: OklabColor) -> Self {
+        let chroma = (oklab.a * oklab.a + oklab.b * oklab.b).sqrt();
+        let hue = if chroma < 0.00001 {
+            0.0
+        } else {
+            let hue_rad = oklab.b.atan2(oklab.a);
+            num_traits::Euclid::rem_euclid(&(hue_rad * 180.0 / core::f32::consts::PI), &360.0)
+        };
+        Self { lightness: oklab.l, chroma, hue, alpha: oklab.alpha }
+    }
+}
+
+/// Convert sRGB component to linear RGB.
+fn srgb_to_linear(c: f32) -> f32 {
+    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+}
+
+/// Convert linear RGB component to sRGB.
+fn linear_to_srgb(c: f32) -> f32 {
+    if c <= 0.0031308 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 }
+}
+
+impl From<RgbaColor<f32>> for OklabColor {
+    fn from(col: RgbaColor<f32>) -> Self {
+        // Convert sRGB to linear RGB
+        let r = srgb_to_linear(col.red);
+        let g = srgb_to_linear(col.green);
+        let b = srgb_to_linear(col.blue);
+
+        // Linear RGB to LMS (using Oklab M1 matrix)
+        let l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+        let m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+        let s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+        // Cube root
+        let l_ = l.cbrt();
+        let m_ = m.cbrt();
+        let s_ = s.cbrt();
+
+        // LMS' to Oklab (using M2 matrix)
+        Self {
+            l: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+            a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+            b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+            alpha: col.alpha,
+        }
+    }
+}
+
+impl From<OklabColor> for RgbaColor<f32> {
+    fn from(oklab: OklabColor) -> Self {
+        // Oklab to LMS' (inverse of M2 matrix)
+        let l_ = oklab.l + 0.3963377774 * oklab.a + 0.2158037573 * oklab.b;
+        let m_ = oklab.l - 0.1055613458 * oklab.a - 0.0638541728 * oklab.b;
+        let s_ = oklab.l - 0.0894841775 * oklab.a - 1.2914855480 * oklab.b;
+
+        // Cube to get LMS
+        let l = l_ * l_ * l_;
+        let m = m_ * m_ * m_;
+        let s = s_ * s_ * s_;
+
+        // LMS to linear RGB (inverse of M1 matrix)
+        let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+        let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+        let b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+        // Convert linear RGB to sRGB and clamp
+        Self {
+            red: linear_to_srgb(r).clamp(0.0, 1.0),
+            green: linear_to_srgb(g).clamp(0.0, 1.0),
+            blue: linear_to_srgb(b).clamp(0.0, 1.0),
+            alpha: oklab.alpha,
+        }
+    }
+}
+
+impl From<OklchColor> for RgbaColor<f32> {
+    fn from(oklch: OklchColor) -> Self {
+        let oklab = OklabColor::from(oklch);
+        RgbaColor::from(oklab)
+    }
+}
+
+impl From<RgbaColor<f32>> for OklchColor {
+    fn from(col: RgbaColor<f32>) -> Self {
+        let oklab = OklabColor::from(col);
+        OklchColor::from(oklab)
+    }
+}
+
+impl From<OklchColor> for Color {
+    fn from(value: OklchColor) -> Self {
+        RgbaColor::from(value).into()
+    }
+}
+
+impl From<Color> for OklchColor {
+    fn from(value: Color) -> Self {
+        value.to_oklch()
+    }
+}
+
 #[test]
 fn test_rgb_to_hsv() {
     // White
@@ -574,6 +751,83 @@ fn test_transparent_transition() {
     assert_eq!(interpolated, Color::from_argb_f32(0.75, 0.8, 0.8, 0.8));
 }
 
+#[test]
+fn test_oklch_roundtrip() {
+    // Test that Oklch roundtrips correctly through RGB
+    // Use colors with low chroma that are definitely within sRGB gamut
+    let test_colors = [
+        OklchColor { lightness: 0.5, chroma: 0.08, hue: 30.0, alpha: 1.0 },
+        OklchColor { lightness: 0.6, chroma: 0.1, hue: 120.0, alpha: 0.8 },
+        OklchColor { lightness: 0.4, chroma: 0.08, hue: 240.0, alpha: 1.0 },
+        OklchColor { lightness: 0.8, chroma: 0.05, hue: 0.0, alpha: 1.0 },
+        // Grayscale (chroma = 0)
+        OklchColor { lightness: 0.5, chroma: 0.0, hue: 0.0, alpha: 1.0 },
+    ];
+
+    for oklch in test_colors {
+        let rgba = RgbaColor::<f32>::from(oklch);
+        let roundtrip = OklchColor::from(rgba);
+        // Allow some tolerance due to floating point operations and gamut mapping
+        assert!(
+            (oklch.lightness - roundtrip.lightness).abs() < 0.01,
+            "Lightness mismatch: {:?} vs {:?}",
+            oklch,
+            roundtrip
+        );
+        // Skip chroma/hue comparison for grayscale since hue is undefined
+        if oklch.chroma > 0.001 {
+            assert!(
+                (oklch.chroma - roundtrip.chroma).abs() < 0.02,
+                "Chroma mismatch: {:?} vs {:?}",
+                oklch,
+                roundtrip
+            );
+            // Hue can wrap around, so we need to handle that
+            let hue_diff = (oklch.hue - roundtrip.hue).abs();
+            let hue_diff = hue_diff.min(360.0 - hue_diff);
+            assert!(hue_diff < 2.0, "Hue mismatch: {:?} vs {:?}", oklch, roundtrip);
+        }
+    }
+}
+
+#[test]
+fn test_oklch_known_values() {
+    // Test conversion of a known Oklch value to RGB
+    // These values are approximate and verified against online converters
+    let red_oklch = OklchColor { lightness: 0.63, chroma: 0.26, hue: 29.0, alpha: 1.0 };
+    let red_rgba = RgbaColor::<f32>::from(red_oklch);
+    // Red should have high red component and low green/blue
+    assert!(red_rgba.red > 0.8, "Red component should be high: {}", red_rgba.red);
+    assert!(red_rgba.green < 0.3, "Green component should be low: {}", red_rgba.green);
+    assert!(red_rgba.blue < 0.3, "Blue component should be low: {}", red_rgba.blue);
+}
+
+#[test]
+fn test_rgb_to_oklch() {
+    // White: should have high lightness, zero chroma
+    let white = OklchColor::from(RgbaColor::<f32> { red: 1., green: 1., blue: 1., alpha: 0.5 });
+    assert!((white.lightness - 1.0).abs() < 0.01, "White lightness should be ~1.0");
+    assert!(white.chroma < 0.001, "White chroma should be ~0");
+    assert!((white.alpha - 0.5).abs() < 0.001, "Alpha should be preserved");
+
+    // Black: should have zero lightness, zero chroma
+    let black = OklchColor::from(RgbaColor::<f32> { red: 0., green: 0., blue: 0., alpha: 1.0 });
+    assert!(black.lightness < 0.01, "Black lightness should be ~0");
+    assert!(black.chroma < 0.001, "Black chroma should be ~0");
+
+    // Pure red: should have hue around 29 degrees (red in Oklch)
+    let red = OklchColor::from(RgbaColor::<f32> { red: 1., green: 0., blue: 0., alpha: 1.0 });
+    assert!(red.lightness > 0.5 && red.lightness < 0.7, "Red lightness should be ~0.63");
+    assert!(red.chroma > 0.2, "Red should have significant chroma");
+    assert!(red.hue > 20.0 && red.hue < 40.0, "Red hue should be around 29 degrees");
+
+    // Pure blue: should have hue around 264 degrees
+    let blue = OklchColor::from(RgbaColor::<f32> { red: 0., green: 0., blue: 1., alpha: 1.0 });
+    assert!(blue.lightness > 0.4 && blue.lightness < 0.5, "Blue lightness should be ~0.45");
+    assert!(blue.chroma > 0.2, "Blue should have significant chroma");
+    assert!(blue.hue > 250.0 && blue.hue < 280.0, "Blue hue should be around 264 degrees");
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -627,5 +881,25 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_color_from_hsva(h: f32, s: f32, v: f32, a: f32) -> Color {
         Color::from_hsva(h, s, v, a)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_color_from_oklch(l: f32, c: f32, h: f32, a: f32) -> Color {
+        Color::from_oklch(l, c, h, a)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_color_to_oklch(
+        col: &Color,
+        l: &mut f32,
+        c: &mut f32,
+        h: &mut f32,
+        a: &mut f32,
+    ) {
+        let oklch = col.to_oklch();
+        *l = oklch.lightness;
+        *c = oklch.chroma;
+        *h = oklch.hue;
+        *a = oklch.alpha;
     }
 }
