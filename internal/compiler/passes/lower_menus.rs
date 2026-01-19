@@ -125,6 +125,20 @@ pub async fn lower_menus(
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
+    // First check if any MenuBar or ContextMenuArea is used - avoid loading std-widgets.slint if not needed
+    let mut has_menubar_or_context_menu = false;
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "MenuBar" | "ContextMenuArea" | "ContextMenuInternal")) {
+                has_menubar_or_context_menu = true;
+            }
+        })
+    });
+
+    if !has_menubar_or_context_menu {
+        return;
+    }
+
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
 
