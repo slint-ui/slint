@@ -46,6 +46,13 @@ jobs:
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
 
             # 3. Caching
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
+              uses: actions/cache@v5
+              with:
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
+
             - name: Cache xbuild
               id: xbuild-cache
               uses: actions/cache@v5
@@ -60,7 +67,7 @@ jobs:
               uses: actions/cache@v5
               with:
                   path: |
-                      target/x/release/android/material-gallery.apk
+                      ui-libraries/material/target/release/apk/slint_material.apk
                   key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
 
             - name: Cache aab build
@@ -68,7 +75,7 @@ jobs:
               uses: actions/cache@v5
               with:
                   path: |
-                      target/x/release/android/material-gallery.aab
+                      ui-libraries/material/target/x/release/android/material-gallery.aab
                   key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
 
             # Project Dependencies Cache (runs if either build is needed)
@@ -78,6 +85,10 @@ jobs:
                   key: android-build
 
             # 4. Tool Installation
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install cargo-apk
+
             - name: Install xbuild
               if: steps.xbuild-cache.outputs.cache-hit != 'true'
               run: cargo install xbuild
@@ -86,7 +97,7 @@ jobs:
             - name: Build apk
               if: steps.cache-apk.outputs.cache-hit != 'true'
               working-directory: ui-libraries/material/examples/gallery
-              run: x build --platform android --arch arm64 --release --format 'apk'
+              run: cargo apk build --target aarch64-linux-android --lib --release
 
             - name: Build aab
               if: steps.cache-aab.outputs.cache-hit != 'true'
@@ -99,6 +110,5 @@ jobs:
               with:
                   name: material_gallery
                   path: |
-                  path: |
-                      target/x/release/android/material-gallery.apk
+                      target/release/apk/slint_material.apk
                       target/x/release/android/material-gallery.aab
