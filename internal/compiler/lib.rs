@@ -320,13 +320,7 @@ fn prepare_for_compile(
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
 
-    let global_type_registry = if compiler_config.enable_experimental {
-        crate::typeregister::TypeRegister::builtin_experimental()
-    } else {
-        crate::typeregister::TypeRegister::builtin()
-    };
-
-    typeloader::TypeLoader::new(global_type_registry, compiler_config, diagnostics)
+    typeloader::TypeLoader::new(compiler_config, diagnostics)
 }
 
 pub async fn compile_syntax_node(

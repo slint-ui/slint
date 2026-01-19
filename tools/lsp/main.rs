@@ -370,6 +370,8 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             common::ByteFormat::Utf16
         },
         resource_url_mapper: None,
+        // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
+        enable_experimental: false,
     };
 
     let ctx = Rc::new(Context {
