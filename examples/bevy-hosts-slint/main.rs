@@ -570,7 +570,7 @@ fn setup(
             label: Some("SlintUI"),
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8Unorm,
+            format: TextureFormat::Rgba8Unorm, // 8-bit RGBA to match Slint's output
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
