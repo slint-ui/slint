@@ -24,17 +24,6 @@ x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
 vulkan = ["skia-safe/vulkan", "dep:ash", "vulkano"]
 kms = ["softbuffer/kms"]
-unstable-wgpu-26 = [
-  "i-slint-core/unstable-wgpu-26",
-  "dep:wgpu-26",
-  "dep:spin_on",
-  "dep:metal",
-  "dep:foreign-types",
-  "dep:ash",
-  "dep:windows_58",
-  "dep:windows-core",
-  "dep:windows-core_58",
-]
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
   "dep:wgpu-27",
@@ -81,7 +70,6 @@ unicode-segmentation = { workspace = true }
 ash = { version = "^0.38.0", optional = true }
 vulkano = { version = "0.35.0", optional = true, default-features = false }
 
-wgpu-26 = { workspace = true, optional = true }
 wgpu-27 = { workspace = true, optional = true }
 wgpu-28 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
@@ -102,7 +90,6 @@ windows_58 = { package = "windows", version = "0.58.0", optional = true, feature
 windows-core = { workspace = true, optional = true }
 windows-core_58 = { package = "windows-core", version = "0.58.0", optional = true }
 skia-safe = { version = "0.90", features = ["d3d"] }
-wgpu-26 = { workspace = true, optional = true, features = ["dx12"] }
 wgpu-27 = { workspace = true, optional = true, features = ["dx12"] }
 wgpu-28 = { workspace = true, optional = true, features = ["dx12"] }
 
@@ -118,7 +105,6 @@ raw-window-metal = "1.0"
 
 metal = { version = "0.31", optional = true }
 foreign-types = { version = "0.5.0", optional = true }
-wgpu-26 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-27 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-28 = { workspace = true, optional = true, features = ["metal"] }
 
@@ -127,7 +113,6 @@ write-fonts = { version = "0.43" }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.90", features = ["gl", "vulkan"] }
-wgpu-26 = { workspace = true, optional = true, features = ["vulkan"] }
 wgpu-27 = { workspace = true, optional = true, features = ["vulkan"] }
 wgpu-28 = { workspace = true, optional = true, features = ["vulkan"] }
 

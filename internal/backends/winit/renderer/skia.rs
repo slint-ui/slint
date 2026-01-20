@@ -74,16 +74,6 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(feature = "unstable-wgpu-26")]
-    pub fn new_wgpu_26_suspended(
-        shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
-        Ok(Box::new(Self {
-            renderer: SkiaRenderer::default_wgpu_26(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
-        }))
-    }
-
     #[cfg(feature = "unstable-wgpu-27")]
     pub fn new_wgpu_27_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
@@ -146,10 +136,6 @@ impl WinitSkiaRenderer {
                             "Direct3D rendering requested but this is only supported on Windows"
                         )
                         .into());
-                    }
-                    #[cfg(feature = "unstable-wgpu-26")]
-                    RequestedGraphicsAPI::WGPU26(..) => {
-                        return Ok(Self::new_wgpu_26_suspended);
                     }
                     #[cfg(feature = "unstable-wgpu-27")]
                     RequestedGraphicsAPI::WGPU27(..) => {

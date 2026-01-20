@@ -20,7 +20,6 @@ default = []
 opengl = []
 wgpu = ["wgpu-28"]
 wgpu-28 = ["dep:wgpu-28", "femtovg/wgpu", "i-slint-core/unstable-wgpu-28"]
-unstable-wgpu-26 = []
 unstable-wgpu-27 = []
 unstable-wgpu-28 = ["wgpu-28"]
 
