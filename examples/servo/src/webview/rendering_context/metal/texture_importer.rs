@@ -86,6 +86,7 @@ impl ServoTextureImporter {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Metal Texture Flip Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
+            immediate_size: 0,
         });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {

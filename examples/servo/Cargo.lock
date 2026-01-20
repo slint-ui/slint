@@ -4023,9 +4023,7 @@ dependencies = [
  "unicode-segmentation",
  "vtable",
  "wgpu",
- "windows 0.58.0",
  "windows 0.62.2",
- "windows-core 0.58.0",
  "windows-core 0.62.2",
  "write-fonts",
 ]

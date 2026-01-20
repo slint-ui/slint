@@ -42,9 +42,7 @@ unstable-wgpu-28 = [
   "dep:metal",
   "dep:foreign-types",
   "dep:ash",
-  "dep:windows_58",
   "dep:windows-core",
-  "dep:windows-core_58",
 ]
 default = ["softbuffer"]
 
