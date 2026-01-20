@@ -90,7 +90,6 @@ class InputHandle extends ImageView {
         cursorX = x;
         cursorY = y;
 
-        y += mPopupWindow.getHeight();
         if (attr == android.R.attr.textSelectHandleLeft) {
             x -= 3 * mPopupWindow.getWidth() / 4;
         } else if (attr == android.R.attr.textSelectHandleRight) {
@@ -370,13 +369,6 @@ class SlintInputView extends View {
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
                 outRect.set(selectionRect);
-                int actionBarHeight = 0;
-                TypedValue tv = new TypedValue();
-                if (getContext().getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
-                    actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data,
-                            getContext().getResources().getDisplayMetrics());
-                }
-                outRect.top -= actionBarHeight;
                 if (outRect.top < 0) {
                     // FIXME: I don't know why this is the case, but without that, the menu doesn't
                     // show at the right position when there is no room on top.
