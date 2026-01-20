@@ -323,8 +323,11 @@ fn basic_lexer_test() {
 
     // Fuzzer tests:
     compare(r#"/**"#, &[(SyntaxKind::Div, "/"), (SyntaxKind::Star, "*"), (SyntaxKind::Star, "*")]);
-    compare(r#""\"#, &[(SyntaxKind::Error, "\"\\")]);
-    compare(r#""\ޱ"#, &[(SyntaxKind::Error, "\"\\ޱ")]);
+    compare(r#""\"#, &[(SyntaxKind::Error, "\""), (SyntaxKind::Error, "\\")]);
+    compare(
+        r#""\ޱ"#,
+        &[(SyntaxKind::Error, "\""), (SyntaxKind::Error, "\\"), (SyntaxKind::Identifier, "ޱ")],
+    );
 }
 
 /// Given the source of a rust file, find the occurrence of each `slint!(...)`macro.
