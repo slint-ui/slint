@@ -106,8 +106,8 @@ jobs:
                   cache: ${{ inputs.cache }}
             - name: Cargo update
               if: inputs.update
-              # When runing with the lastest rust, ignore the rust_version field from the Cargo.toml because we want to test with the latest versions of the dependencies (that's what our users might get)
-              run: cargo update --ignore-rust-version
+              # Ignore rust_version for stable/nightly to test with latest dependencies
+              run: cargo update ${{ (inputs.rust_version == 'stable' || inputs.rust_version == 'nightly') && '--ignore-rust-version' || '' }}
             - name: Run tests
               run:  cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
