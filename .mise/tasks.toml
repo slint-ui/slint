@@ -10,9 +10,16 @@ description = "Run clang format fix on all C++ files"
 run = '''fd '.*\.(h|H|hpp|hxx|h\+\+|c|C|cpp|cxx|c\+\+)$' -0 | xargs -0 clang-format -i'''
 tools = { "pipx:clang-format" = "20.1.3" }
 
+["fix:rust:lockfile"]
+description = "Update the lockfile (if absolutely necessary)"
+# Use cargo build -p xtask to test if the lockfile needs upating.
+# The fix:legal:copyright task needs the xtask anyhow, so this has a double use.
+run = "cargo build --locked -p xtask || (echo \"### Updating Lockfile! ###\" && cargo update)"
+
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
 run = "cargo xtask check_license_headers --fix-it"
+depends = ["fix:rust:lockfile"]
 
 ["fix:python:format"]
 description = "Run ruff format"
