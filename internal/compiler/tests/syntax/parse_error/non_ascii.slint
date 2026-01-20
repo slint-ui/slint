@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Bug { i§n property <string> text: "SLINT"; }
+//                      ><error{Parse error}
+// Note: Visually the error above only spans the § character, even though it is marked with ><.
+// This is because the character is two bytes in size.
+
+export component Bug { 👋§äß property <string> text: "SLINT"; }
+//                     >  <error{Parse error}
+// Note: Again, multi-byte character

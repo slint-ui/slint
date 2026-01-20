@@ -207,27 +207,23 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
         offset += 3;
     }
     while !source.is_empty() {
-        if let Some((len, kind)) = crate::parser::lex_next_token(source, &mut state) {
-            result.push(crate::parser::Token {
-                kind,
-                text: source[..len].into(),
-                offset,
-                length: len,
-                ..Default::default()
-            });
-            offset += len;
-            source = &source[len..];
-        } else {
-            // FIXME: recover
-            result.push(crate::parser::Token {
-                kind: SyntaxKind::Error,
-                text: source.into(),
-                offset,
-                ..Default::default()
-            });
-            //offset += source.len();
-            break;
-        }
+        let (len, kind) = crate::parser::lex_next_token(source, &mut state).unwrap_or_else(|| {
+            // Recover from errors by returning "Error" tokens for all individual characters
+            // that the lexer could not handle.
+            //
+            // Note: Make sure to actually consume a whole character (may be more than 1 byte with
+            // UTF-8 multi-byte characters)
+            (source.ceil_char_boundary(1), SyntaxKind::Error)
+        });
+        result.push(crate::parser::Token {
+            kind,
+            text: source[..len].into(),
+            offset,
+            length: len,
+            ..Default::default()
+        });
+        offset += len;
+        source = &source[len..];
     }
     result
 }
