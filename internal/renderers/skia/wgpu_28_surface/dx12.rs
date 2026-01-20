@@ -118,12 +118,12 @@ pub unsafe fn make_dx12_context(
                 windows_core_58::Interface::into_raw(dx12_device_old),
             );
 
-            let idxgiadapter_1: windows_58::Win32::Graphics::Dxgi::IDXGIAdapter1 =
+            let idxgiadapter_3: windows_58::Win32::Graphics::Dxgi::IDXGIAdapter3 =
                 dx12_adapter.as_raw().clone().into();
 
             skia_safe::gpu::d3d::BackendContext {
                 adapter: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(
-                    idxgiadapter_1,
+                    idxgiadapter_3,
                 )),
                 device: dx12_device,
                 queue: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(

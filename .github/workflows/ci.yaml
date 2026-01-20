@@ -181,7 +181,7 @@ jobs:
             matrix:
                 include:
                     - os: macos-14
-                      rust_version: "1.92"
+                      rust_version: "1.88"
                     - os: windows-2022
                       rust_version: "nightly"
                     - os: ubuntu-22.04
@@ -541,6 +541,7 @@ jobs:
                   default: true
                   buildtargets: esp32
                   ldproxy: false
+                  version: "1.92.0"
             - uses: Swatinem/rust-cache@v2
             - name: Build and Test Printer demo
               shell: bash

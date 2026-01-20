@@ -219,7 +219,7 @@ unstable-wgpu-27 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.14", features = ["unstable-wgpu-28"] }
+## slint = { version = "~1.15", features = ["unstable-wgpu-28"] }
 ## ```
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",

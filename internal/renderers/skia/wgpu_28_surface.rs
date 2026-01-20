@@ -199,7 +199,7 @@ impl super::Surface for WGPUSurface {
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-27")]
-            i_slint_core::graphics::WGPUTexture::WGPU27Texture(texture) => texture.clone(),
+            i_slint_core::graphics::WGPUTexture::WGPU27Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-28")]
             i_slint_core::graphics::WGPUTexture::WGPU28Texture(texture) => texture.clone(),
         };

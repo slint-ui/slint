@@ -202,6 +202,8 @@ impl super::Surface for WGPUSurface {
         let texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-27")]
             i_slint_core::graphics::WGPUTexture::WGPU27Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-28")]
+            i_slint_core::graphics::WGPUTexture::WGPU28Texture(..) => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before

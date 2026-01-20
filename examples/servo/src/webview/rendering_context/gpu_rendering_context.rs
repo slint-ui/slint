@@ -291,6 +291,7 @@ impl GPURenderingContext {
                         // Free the memory
                         vulkan_device.free_memory(memory, None);
                     })),
+                    wgpu_hal::vulkan::TextureMemory::External,
                 ),
                 &wgpu::TextureDescriptor {
                     label: None,
