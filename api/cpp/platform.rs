@@ -578,20 +578,20 @@ mod software_renderer {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb8(
         r: SoftwareRendererOpaque,
-        buffer: *mut CppTargetPixelBuffer<Rgb8Pixel>,
+        buffer: &mut CppTargetPixelBuffer<Rgb8Pixel>,
     ) -> PhysicalRegion {
-        let renderer = &*(r as *const SoftwareRenderer);
-        unsafe { renderer.render_into_buffer(&mut *buffer) }
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        renderer.render_into_buffer(buffer)
     }
 
     #[cfg(feature = "experimental")]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb565(
         r: SoftwareRendererOpaque,
-        buffer: *mut CppTargetPixelBuffer<Rgb565Pixel>,
+        buffer: &mut CppTargetPixelBuffer<Rgb565Pixel>,
     ) -> PhysicalRegion {
-        let renderer = &*(r as *const SoftwareRenderer);
-        unsafe { renderer.render_into_buffer(&mut *buffer) }
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        renderer.render_into_buffer(buffer)
     }
 
     #[unsafe(no_mangle)]
