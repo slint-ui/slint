@@ -110,12 +110,12 @@ pub unsafe fn make_dx12_context(
 
         maybe_dx12_queue.map(|dx12_queue| {
             let dx12_queue_raw = dx12_queue.as_raw();
-            let mut dx12_device_old: Option<windows_58::Win32::Graphics::Direct3D12::ID3D12Device> =
+            let mut dx12_device_old: Option<windows::Win32::Graphics::Direct3D12::ID3D12Device> =
                 None;
             dx12_queue_raw.GetDevice(&mut dx12_device_old as _).unwrap();
             let dx12_device_old = dx12_device_old.unwrap();
             let dx12_device = windows_core::Interface::from_raw(
-                windows_core_58::Interface::into_raw(dx12_device_old),
+                windows_core::Interface::into_raw(dx12_device_old),
             );
 
             let idxgiadapter_3: windows::Win32::Graphics::Dxgi::IDXGIAdapter3 =
