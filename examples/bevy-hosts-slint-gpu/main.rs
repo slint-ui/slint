@@ -360,7 +360,7 @@ fn setup(
             Transform::from_xyz(0.0, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(0.5))
                 .with_scale(Vec3::splat(2.0)),
-            ColorfulCube,
+            Cube,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -476,7 +476,7 @@ thread_local! {
 fn rotate_cube(
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<ColorfulCube>>,
+    mut query: Query<&mut Transform, With<Cube>>,
 ) {
     for mut transform in query.iter_mut() {
         let speed = 2.0;
