@@ -578,7 +578,7 @@ async fn handle_preview_to_lsp_message(
             }
         }
         M::RequestState { .. } => {
-            crate::language::request_state(ctx);
+            crate::language::send_state_to_preview(ctx);
         }
         M::SendWorkspaceEdit { label, edit } => {
             let _ = send_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit)).await;

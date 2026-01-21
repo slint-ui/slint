@@ -82,7 +82,7 @@ fn create_populate_command(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub fn request_state(ctx: &std::rc::Rc<Context>) {
+pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
     for (url, node) in document_cache.all_url_documents() {

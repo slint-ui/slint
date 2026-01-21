@@ -294,7 +294,7 @@ impl SlintServer {
                 // Nothing to do!
             }
             M::RequestState { .. } => {
-                crate::language::request_state(&self.ctx);
+                crate::language::send_state_to_preview(&self.ctx);
             }
             M::SendWorkspaceEdit { label, edit } => {
                 forward_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
