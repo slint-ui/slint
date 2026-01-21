@@ -209,7 +209,7 @@ struct SlintQuad;
 
 /// Marker for the rotating cube that the UI quad is attached to.
 #[derive(Component)]
-struct ColorfulCube;
+struct Cube;
 
 /// Resource for passing the WGPU texture from render world to main world.
 /// Lives in the render app.
