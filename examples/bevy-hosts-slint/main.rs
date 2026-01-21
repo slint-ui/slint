@@ -48,10 +48,10 @@ use std::{
 
 use bevy::{
     input::{ButtonState, mouse::MouseButtonInput},
+    math::primitives::InfinitePlane3d,
     prelude::*,
     render::render_resource::{
-        Extent3d, PrimitiveTopology, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
 };
 use slint::{
@@ -72,6 +72,7 @@ use slint::{
 slint::slint! {
 
 import { VerticalBox, Button, Slider } from "std-widgets.slint";
+
 export component Demo inherits Window {
     background: #ff00ff3f;
     in-out property <int> click-count: 0;
@@ -80,8 +81,8 @@ export component Demo inherits Window {
     VerticalBox {
         alignment: start;
         Text {
-            text: "Hello World - Clicks: " + click-count;
-            color: green;
+            text: "Clicks: " + click-count;
+            color: white;
         }
         Button {
             text: "Press me";
@@ -135,9 +136,9 @@ impl FromWorld for SlintContext {
         // See: https://github.com/slint-ui/slint/issues/2809
         slint::platform::update_timers_and_animations();
 
-        let instance = Demo::new().unwrap();
+        let instance = Demo::new().expect("Failed to create Slint Demo component");
 
-        instance.window().show().unwrap();
+        instance.window().show().expect("Failed to show Slint window");
 
         // Get the adapter from thread_local storage where it was stored by SlintBevyPlatform
         let adapter = SLINT_WINDOWS
@@ -165,11 +166,11 @@ struct SlintScene {
     material: Handle<StandardMaterial>,
 }
 
-/// Marker component for the colorful rotating cube in the scene.
+/// Marker component for the rotating cube in the scene.
 ///
 /// Used by the `rotate_cube` system to identify which entity to rotate in response to arrow keys.
 #[derive(Component)]
-struct ColorfulCube;
+struct Cube;
 
 /// Custom window adapter that bridges Slint's windowing model to Bevy's texture-based rendering.
 ///
@@ -271,7 +272,7 @@ impl BevyWindowAdapter {
     }
 }
 
-// Thread-local storage for Slint window adapters and timing.
+// Thread-local storage for Slint window adapters.
 //
 // Since Slint uses Rc (not Arc), all Slint types must live on a single thread.
 // We use thread-local storage to keep track of created window adapters so that
@@ -360,7 +361,7 @@ fn handle_input(
     mut cursor_state: ResMut<CursorState>,
     slint_context: Option<NonSend<SlintContext>>,
     slint_scenes: Query<&SlintScene>,
-    mut quad_query: Query<(&GlobalTransform, &mut Transform), With<SlintQuad>>,
+    quad_query: Query<&GlobalTransform, With<SlintQuad>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     images: Res<Assets<Image>>,
 ) {
@@ -388,56 +389,49 @@ fn handle_input(
 
     // Get camera and quad transforms for raycasting
     let Some((camera, camera_transform)) = camera_query.iter().next() else { return };
-    let Some((quad_global, _quad_local)) = quad_query.iter_mut().next() else { return };
+    let Some(quad_global) = quad_query.iter().next() else { return };
 
     // Perform raycasting every frame to detect cursor position on the UI quad
     if let Some(cursor_position) = window.cursor_position() {
         let mut hit = false;
         if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
-            // Compute ray-plane intersection to find where the cursor hits the quad
-            // The quad is a flat plane in 3D space, so we use plane intersection math
+            // Use Bevy's built-in ray-plane intersection
+            // The quad's back direction is its normal (pointing toward the camera)
             let plane_normal = quad_global.back();
-            let plane_point = quad_global.translation();
+            let plane_origin = quad_global.translation();
+            let plane = InfinitePlane3d::new(*plane_normal);
 
-            // Standard ray-plane intersection formula: t = dot(plane_point - ray_origin, plane_normal) / dot(ray_direction, plane_normal)
-            let denominator = ray.direction.dot(*plane_normal);
-            if denominator.abs() > f32::EPSILON {
-                let t = (plane_point - ray.origin).dot(*plane_normal) / denominator;
-                if t >= 0.0 {
-                    // Compute the 3D intersection point
-                    let intersection_point = ray.origin + ray.direction * t;
+            if let Some(intersection_point) = ray.plane_intersection_point(plane_origin, plane) {
+                // Transform from world space to the quad's local coordinate system
+                let local_point =
+                    quad_global.affine().inverse().transform_point3(intersection_point);
 
-                    // Transform from world space to the quad's local coordinate system
-                    let local_point =
-                        quad_global.affine().inverse().transform_point3(intersection_point);
+                // The quad mesh is 1.0 x 1.0 units (centered at origin in local space)
+                let quad_width = 1.0;
+                let quad_height = 1.0;
 
-                    // The quad mesh is 1.0 x 1.0 units (centered at origin in local space)
-                    let quad_width = 1.0;
-                    let quad_height = 1.0;
+                // Check if the intersection point is within the quad's bounds
+                if local_point.x.abs() <= quad_width / 2.0
+                    && local_point.y.abs() <= quad_height / 2.0
+                {
+                    // Convert local coordinates to UV coordinates (0..1 range)
+                    // Local x: -0.5 .. 0.5 -> UV u: 0 .. 1
+                    let u = (local_point.x + quad_width / 2.0) / quad_width;
+                    // Local y: -0.5 .. 0.5 -> UV v: 1 .. 0 (flip Y because Slint's origin is top-left)
+                    let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
 
-                    // Check if the intersection point is within the quad's bounds
-                    if local_point.x.abs() <= quad_width / 2.0
-                        && local_point.y.abs() <= quad_height / 2.0
-                    {
-                        // Convert local coordinates to UV coordinates (0..1 range)
-                        // Local x: -0.5 .. 0.5 -> UV u: 0 .. 1
-                        let u = (local_point.x + quad_width / 2.0) / quad_width;
-                        // Local y: -0.5 .. 0.5 -> UV v: 1 .. 0 (flip Y because Slint's origin is top-left)
-                        let v = 1.0 - (local_point.y + quad_height / 2.0) / quad_height;
+                    // Convert UV coordinates to pixel coordinates
+                    let slint_x = u * texture_width;
+                    let slint_y = v * texture_height;
 
-                        // Convert UV coordinates to pixel coordinates
-                        let slint_x = u * texture_width;
-                        let slint_y = v * texture_height;
+                    // Convert physical pixels to logical coordinates using the scale factor
+                    let position =
+                        LogicalPosition::new(slint_x / scale_factor, slint_y / scale_factor);
 
-                        // Convert physical pixels to logical coordinates using the scale factor
-                        let position =
-                            LogicalPosition::new(slint_x / scale_factor, slint_y / scale_factor);
-
-                        // Update cursor state and notify Slint of pointer movement
-                        cursor_state.position = Some(position);
-                        adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
-                        hit = true;
-                    }
+                    // Update cursor state and notify Slint of pointer movement
+                    cursor_state.position = Some(position);
+                    adapter.slint_window.dispatch_event(WindowEvent::PointerMoved { position });
+                    hit = true;
                 }
             }
         }
@@ -503,7 +497,7 @@ fn main() {
         .run();
 }
 
-/// Bevy system that rotates the colorful cube based on arrow key input.
+/// Bevy system that rotates the cube based on arrow key input.
 ///
 /// This is a simple demo feature to show that the 3D scene continues to update
 /// independently of the Slint UI overlay.
@@ -516,7 +510,7 @@ fn main() {
 fn rotate_cube(
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<ColorfulCube>>,
+    mut query: Query<&mut Transform, With<Cube>>,
 ) {
     for mut transform in query.iter_mut() {
         let speed = 2.0;
@@ -544,7 +538,7 @@ fn rotate_cube(
 /// 1. **Create Slint UI Texture**: Creates an 800x600 RGBA texture that Slint will render into
 /// 2. **Create Material**: Creates a Bevy material with the Slint texture, configured for
 ///    transparency and unlit rendering (so the UI appears flat and consistent)
-/// 3. **Create Colorful Cube**: Spawns a rotating cube with vertex colors at (0, 0, -0.5)
+/// 3. **Create Cube**: Spawns a rotating cube at (0, 0, -0.5)
 /// 4. **Attach UI Quad**: Adds a child quad mesh to the cube's front face that displays the Slint UI
 /// 5. **Load 3D Model**: Loads a cow model from GLTF
 /// 6. **Add Lighting**: Places a point light to illuminate the 3D scene
@@ -565,8 +559,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Define the size of the Slint UI texture
-    // This can be any size, but larger = more detail at the cost of performance
-    let size = Extent3d { width: 800, height: 600, ..default() };
+    let size = Extent3d { width: 600, height: 600, ..default() };
 
     // Create a Bevy image/texture for the Slint UI to render into
     let mut image = Image {
@@ -577,14 +570,11 @@ fn setup(
             format: TextureFormat::Rgba8Unorm, // 8-bit RGBA to match Slint's output
             mip_level_count: 1,
             sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING  // Can be used in shaders
-                | TextureUsages::COPY_DST, // Can be written to by CPU
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             view_formats: &[],
         },
         ..default()
     };
-
-    // Allocate the pixel buffer for the texture
     image.resize(size);
 
     let image_handle = images.add(image);
@@ -605,27 +595,26 @@ fn setup(
     // The render_slint system will query for this component to find the texture to update
     commands.spawn(SlintScene { image: image_handle, material: material_handle.clone() });
 
-    // Create a material for the colorful cube (uses vertex colors with lighting)
+    // Create a material for the cube with a distinct color
     let cube_material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        unlit: false, // This cube uses lighting, unlike the UI
+        base_color: Color::srgb(0.2, 0.7, 0.9), // Cyan/teal color
+        unlit: false,
         ..default()
     });
 
-    // Create meshes
-    let cube_mesh = meshes.add(create_colorful_cube());
-    let quad_mesh = meshes.add(Mesh::from(Rectangle::new(1.0, 1.0))); // 1x1 quad for UI
+    // Create meshes using Bevy's built-in primitives
+    let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    let quad_mesh = meshes.add(Rectangle::new(1.0, 1.0));
 
-    // Spawn the colorful cube with the Slint UI as a child entity
-    // The cube is scaled 2x and positioned close to the camera
+    // Spawn the cube with the Slint UI as a child entity
     commands
         .spawn((
             Mesh3d(cube_mesh),
             MeshMaterial3d(cube_material),
-            Transform::from_xyz(0.0, 0.0, -0.5) // Close to camera at z=6
-                .with_rotation(Quat::from_rotation_y(0.5)) // Initial rotation for visual interest
-                .with_scale(Vec3::splat(2.0)), // Scale up 2x
-            ColorfulCube,
+            Transform::from_xyz(0.0, 0.0, -0.5)
+                .with_rotation(Quat::from_rotation_y(0.5))
+                .with_scale(Vec3::splat(2.0)),
+            Cube,
         ))
         .with_children(|parent| {
             // Attach the UI quad as a child of the cube
@@ -634,43 +623,62 @@ fn setup(
                 Mesh3d(quad_mesh),
                 MeshMaterial3d(material_handle),
                 // Position on the front face (+Z in local space)
-                // 0.51 is slightly in front of the cube face (which is at 0.5 in a 1x1 cube)
+                // 0.5001 is slightly in front of the cube face (which is at 0.5 in a 1x1 cube)
                 // to prevent z-fighting artifacts
-                Transform::from_xyz(0.0, 0.0, 0.51),
+                Transform::from_xyz(0.0, 0.0, 0.5001),
                 SlintQuad, // Marker for input handling system to find this quad
             ));
         });
 
-    // Load and spawn a 3D model to demonstrate
-    // that Slint UI and regular 3D content can coexist
+    // Load and spawn the cow model
     commands.spawn((
         SceneRoot(assets.load("cow.gltf#Scene0")),
-        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(4.0, 0.0, -30.0)), // Off to the right side
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(-2.0, 2.0, -30.0)),
     ));
 
-    // Add a point light to illuminate the 3D scene
-    // Position it above and to the side for dramatic lighting
+    // Add a point light
     commands.spawn((
-        PointLight {
-            intensity: 2_000_000.0, // Bright light (Bevy 0.18+ uses lumen values)
-            range: 100.0,
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight { intensity: 2_000_000.0, range: 100.0, shadows_enabled: true, ..default() },
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 
-    // Create the main 3D camera
-    // It's positioned at (0, 0, 6) looking towards the origin
-    // This gives a good view of both the cube and the cow model
+    // Create the 3D camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
-            clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)), // Dark gray background
-            ..default()
-        },
+        Camera { clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)), ..default() },
     ));
+
+    // Create a static info overlay using Bevy's built-in UI system
+    // This demonstrates that Slint and Bevy UI can coexist
+    commands
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(10.0),
+            top: Val::Px(10.0),
+            padding: UiRect::all(Val::Px(10.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(4.0),
+            ..default()
+        })
+        .insert(BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Slint + Bevy Integration Demo"),
+                TextFont { font_size: 16.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
+            parent.spawn((
+                Text::new("UI rendered via Slint software renderer"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(Color::srgb(0.8, 0.8, 0.8)),
+            ));
+            parent.spawn((
+                Text::new("Use arrow keys to rotate the cube"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(Color::srgb(0.8, 0.8, 0.8)),
+            ));
+        });
 }
 
 /// Bevy system that renders the Slint UI to a texture each frame.
@@ -706,213 +714,45 @@ fn render_slint(
         return;
     };
 
-    let adapter = &slint_context.adapter;
-
     // CRITICAL: Update timers and animations BEFORE rendering
     // This processes all pending events, updates animations, and advances timers
     // Must be called at least once per frame for animations to work
     slint::platform::update_timers_and_animations();
 
-    for scene in slint_scenes.iter() {
-        let image = images.get_mut(&scene.image).unwrap();
+    // Get the actual scale factor from the Bevy window
+    let scale_factor = windows.single().map(|w| w.scale_factor()).unwrap_or(2.0);
 
-        let requested_size = slint::PhysicalSize::new(
-            image.texture_descriptor.size.width,
-            image.texture_descriptor.size.height,
+    let adapter = &slint_context.adapter;
+
+    // Only one SlintScene is spawned, so we use .next() to make this explicit
+    let Some(scene) = slint_scenes.iter().next() else { return };
+    let image = images.get_mut(&scene.image).unwrap();
+
+    let requested_size = slint::PhysicalSize::new(
+        image.texture_descriptor.size.width,
+        image.texture_descriptor.size.height,
+    );
+
+    // If the texture size or DPI scale changed, notify Slint's layout engine
+    // This triggers a re-layout of the UI at the new size
+    if requested_size != adapter.size.get() || scale_factor != adapter.scale_factor.get() {
+        adapter.resize(requested_size, scale_factor);
+    }
+
+    // Render the Slint UI directly into the Bevy texture's CPU-side storage.
+    // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
+    if let Some(data) = image.data.as_mut() {
+        // Render the Slint UI into the pixel buffer
+        // The second parameter is the stride (pixels per row)
+        adapter.software_renderer.render(
+            bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data),
+            image.texture_descriptor.size.width as usize,
         );
-
-        // Get the actual scale factor from the Bevy window
-        // This is used to convert between physical pixels and logical coordinates
-        let scale_factor = windows.single().map(|w| w.scale_factor()).unwrap_or(2.0);
-
-        // If the texture size or DPI scale changed, notify Slint's layout engine
-        // This triggers a re-layout of the UI at the new size
-        if requested_size != adapter.size.get() || scale_factor != adapter.scale_factor.get() {
-            adapter.resize(requested_size, scale_factor);
-        }
-
-        // Render the Slint UI directly into the Bevy texture's CPU-side storage.
-        // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
-        if let Some(data) = image.data.as_mut() {
-            // Render the Slint UI into the pixel buffer
-            // The second parameter is the stride (pixels per row)
-            adapter.software_renderer.render(
-                bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data),
-                image.texture_descriptor.size.width as usize,
-            );
-        }
-
-        // WORKAROUND: Force GPU texture re-upload by accessing the material mutably
-        // This triggers Bevy's change detection, which schedules a GPU upload
-        // Without this, the texture may not update on the GPU even though CPU data changed
-        // See: https://github.com/bevyengine/bevy/issues/17350
-        materials.get_mut(&scene.material);
-    }
-}
-
-/// Creates a procedural cube mesh with vertex colors (one color per face).
-///
-/// This function demonstrates how to create custom geometry in Bevy with vertex attributes.
-///
-/// ## Mesh Structure
-///
-/// - **24 vertices** (4 per face, 6 faces) instead of 8 to support hard edges and per-face colors
-/// - **36 indices** (6 triangles * 2 triangles per face)
-/// - Each face has a unique solid color (Red, Green, Blue, Yellow, Cyan, Magenta)
-///
-/// ## Vertex Attributes
-///
-/// - `POSITION`: 3D coordinates of each vertex
-/// - `COLOR`: Per-vertex RGBA color (used instead of texture)
-/// - `NORMAL`: Surface normal for lighting calculations
-///
-/// ## Why 24 vertices instead of 8?
-///
-/// Using 24 vertices (instead of sharing 8 corner vertices) allows each face to have:
-/// - Its own flat normals for crisp lighting on each face
-/// - Its own unique color without blending at edges
-///
-/// This is standard practice for rendering sharp-edged objects with flat shading.
-fn create_colorful_cube() -> Mesh {
-    let mut mesh =
-        Mesh::new(PrimitiveTopology::TriangleList, bevy::asset::RenderAssetUsages::default());
-
-    // Define vertex positions for all 6 faces
-    // Each face has 4 vertices, defined in counter-clockwise order when viewed from outside
-    let raw_vertices = vec![
-        // Front (z+)
-        [-0.5, -0.5, 0.5],
-        [0.5, -0.5, 0.5],
-        [0.5, 0.5, 0.5],
-        [-0.5, 0.5, 0.5],
-        // Back (z-)
-        [-0.5, 0.5, -0.5],
-        [0.5, 0.5, -0.5],
-        [0.5, -0.5, -0.5],
-        [-0.5, -0.5, -0.5],
-        // Right (x+)
-        [0.5, -0.5, -0.5],
-        [0.5, 0.5, -0.5],
-        [0.5, 0.5, 0.5],
-        [0.5, -0.5, 0.5],
-        // Left (x-)
-        [-0.5, -0.5, 0.5],
-        [-0.5, 0.5, 0.5],
-        [-0.5, 0.5, -0.5],
-        [-0.5, -0.5, -0.5],
-        // Top (y+)
-        [-0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5],
-        [0.5, 0.5, -0.5],
-        [-0.5, 0.5, -0.5],
-        // Bottom (y-)
-        [-0.5, -0.5, -0.5],
-        [0.5, -0.5, -0.5],
-        [0.5, -0.5, 0.5],
-        [-0.5, -0.5, 0.5],
-    ];
-
-    // Define colors for each vertex (RGBA format)
-    // Each face gets a single color applied to all 4 of its vertices
-    let raw_colors = vec![
-        // Front face - Red
-        [1.0, 0.0, 0.0, 1.0],
-        [1.0, 0.0, 0.0, 1.0],
-        [1.0, 0.0, 0.0, 1.0],
-        [1.0, 0.0, 0.0, 1.0],
-        // Back face - Green
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        // Right face - Blue
-        [0.0, 0.0, 1.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        // Left face - Yellow
-        [1.0, 1.0, 0.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        // Top face - Cyan
-        [0.0, 1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
-        // Bottom face - Magenta
-        [1.0, 0.0, 1.0, 1.0],
-        [1.0, 0.0, 1.0, 1.0],
-        [1.0, 0.0, 1.0, 1.0],
-        [1.0, 0.0, 1.0, 1.0],
-    ];
-
-    // Define surface normals for lighting calculations
-    // Each face has a single normal vector pointing outward perpendicular to the surface
-    let raw_normals = vec![
-        // Front
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        // Back
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        // Right
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        // Left
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        // Top
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        // Bottom
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-    ];
-
-    // Define triangle indices (3 indices per triangle, 2 triangles per face)
-    // Each face is made of 2 triangles in counter-clockwise winding order
-    // Vertex indices reference the raw_vertices array
-    let indices = vec![
-        0, 1, 2, 2, 3, 0, // Front face (2 triangles)
-        4, 5, 6, 6, 7, 4, // Back face
-        8, 9, 10, 10, 11, 8, // Right face
-        12, 13, 14, 14, 15, 12, // Left face
-        16, 17, 18, 18, 19, 16, // Top face
-        20, 21, 22, 22, 23, 20, // Bottom face
-    ];
-
-    // Expand the indexed vertex data into a flat list of vertices
-    // This converts from indexed geometry (24 vertices, 36 indices)
-    // to a vertex list (36 vertices, no indices)
-    // While this uses more memory, it's simpler for demonstration purposes
-    let mut vertices = Vec::new();
-    let mut colors = Vec::new();
-    let mut normals = Vec::new();
-
-    for i in indices {
-        vertices.push(raw_vertices[i]);
-        colors.push(raw_colors[i]);
-        normals.push(raw_normals[i]);
     }
 
-    // Insert vertex attributes into the mesh
-    // Bevy's rendering pipeline uses these standard attribute names
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-
-    mesh
+    // WORKAROUND: Force GPU texture re-upload by accessing the material mutably
+    // This triggers Bevy's change detection, which schedules a GPU upload
+    // Without this, the texture may not update on the GPU even though CPU data changed
+    // See: https://github.com/bevyengine/bevy/issues/17350
+    materials.get_mut(&scene.material);
 }
