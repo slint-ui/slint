@@ -6,6 +6,8 @@ export component TestCase inherits Window {
     width: 200px;
     height: 200px;
 
+    forward-focus: edit1;
+
     edit1 := LineEdit {
         y: 0px;
         width: 10 * self.height; // Test that there is no height for width dependency (loop)
@@ -28,6 +30,13 @@ export component TestCase inherits Window {
 /*
 
 ```rust
+
+fn ctrl_key(instance: &TestCase, key: &str) {
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+    slint_testing::send_keyboard_string_sequence(instance, key);
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+}
+
 use slint::{SharedString};
 
 let instance = TestCase::new().unwrap();
@@ -41,26 +50,40 @@ instance.set_text("Hello👋".into());
 assert_eq!(instance.get_text(), "Hello👋");
 
 instance.invoke_select_all();
-
 instance.invoke_cut();
-assert_eq!(instance.get_text(), "");
+assert_eq!(instance.get_text(), "", "cut should remove the text");
+
+instance.set_text("Hello👋".into());
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "Hello👋");
+ctrl_key(&instance, "a");
+ctrl_key(&instance, "x");
+assert_eq!(instance.get_text(), "", "shortcut should have worked");
+ctrl_key(&instance, "v");
+assert_eq!(instance.get_text(), "Hello👋");
+
 
 // Read Only
-instance.set_text("Hello👋".into());
-assert_eq!(instance.get_text(), "Hello👋");
+instance.set_text("👋Hello".into());
+assert_eq!(instance.get_text(), "👋Hello");
 instance.set_read_only(true);
-instance.invoke_select_all();
-
+ctrl_key(&instance, "a");
+ctrl_key(&instance, "x");
+assert_eq!(instance.get_text(), "👋Hello");
 instance.invoke_cut();
-assert_eq!(instance.get_text(), "Hello👋");
+assert_eq!(instance.get_text(), "", "programmatic should have worked even if read-only");
 
 instance.set_read_only(false);
 
 // Enabled
+ctrl_key(&instance, "v");
 instance.set_enabled(false);
 instance.invoke_select_all();
+ctrl_key(&instance, "x");
+assert_eq!(instance.get_text(), "👋Hello");
 instance.invoke_cut();
-assert_eq!(instance.get_text(), "Hello👋");
+assert_eq!(instance.get_text(), "", "programmatic should have worked even if disabled");
+instance.set_text("👋Hello".into());
 
 // Font Family
 instance.set_font_family("sans-sherif".into());

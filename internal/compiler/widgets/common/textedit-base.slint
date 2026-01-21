@@ -47,9 +47,7 @@ export component TextEditBase inherits Rectangle {
     }
 
     public function cut() {
-        if (!root.read_only && root.enabled) {
-           text-input.cut();
-        }
+        text-input.cut();
     }
 
     public function copy() {
@@ -57,9 +55,7 @@ export component TextEditBase inherits Rectangle {
     }
 
     public function paste() {
-        if (!root.read_only && root.enabled) {
-           text-input.paste();
-        }
+        text-input.paste();
     }
 
     forward-focus: text-input;

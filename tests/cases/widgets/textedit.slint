@@ -31,6 +31,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use slint::SharedString;
 
+fn ctrl_key(instance: &TestCase, key: &str) {
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+    slint_testing::send_keyboard_string_sequence(instance, key);
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+}
+
 let instance = TestCase::new().unwrap();
 
 let edits = Rc::new(RefCell::new(Vec::new()));
@@ -94,6 +100,11 @@ slint_testing::send_keyboard_string_sequence(&instance, "Xxx");
 assert_eq!(instance.get_text(), "Xxx");
 instance.invoke_paste();
 assert_eq!(instance.get_text(), "XxxHello👋");
+ctrl_key(&instance, "a");
+slint_testing::send_keyboard_string_sequence(&instance, "Xxx");
+assert_eq!(instance.get_text(), "Xxx");
+ctrl_key(&instance, "v");
+assert_eq!(instance.get_text(), "XxxHello👋");
 
 let mut edit_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::edit");
 let edit = edit_search.next().unwrap();
@@ -102,13 +113,17 @@ instance.set_read_only(true);
 assert_eq!(edit.accessible_read_only(), Some(true));
 
 instance.set_read_only(true);
-instance.invoke_paste();
+ctrl_key(&instance, "v");
 assert_eq!(instance.get_text(), "XxxHello👋");
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "XxxHello👋Hello👋");
 instance.set_read_only(false);
 
 instance.set_enabled(false);
+ctrl_key(&instance, "v");
+assert_eq!(instance.get_text(), "XxxHello👋Hello👋");
 instance.invoke_paste();
-assert_eq!(instance.get_text(), "XxxHello👋");
+assert_eq!(instance.get_text(), "XxxHello👋Hello👋Hello👋");
 
 assert_eq!(instance.get_font_italic(), false);
 instance.set_font_italic(true);
