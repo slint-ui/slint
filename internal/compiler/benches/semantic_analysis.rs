@@ -397,7 +397,6 @@ mod phase_breakdown {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
         divan::black_box(i_slint_compiler::typeloader::TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
             config,
             &mut diag,
         ));
@@ -409,7 +408,6 @@ mod phase_breakdown {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
         let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
             config,
             &mut diag,
         );
@@ -460,7 +458,6 @@ mod phase_breakdown {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
         let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
             config,
             &mut diag,
         );
@@ -491,7 +488,6 @@ mod phase_breakdown {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
         let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
             config,
             &mut diag,
         );
@@ -528,7 +524,6 @@ mod phase_breakdown {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
         let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
             config,
             &mut diag,
         );
