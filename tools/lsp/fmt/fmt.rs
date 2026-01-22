@@ -168,6 +168,9 @@ fn format_node(
         SyntaxKind::UsesSpecifier => {
             return format_uses_specifier(node, writer, state);
         }
+        SyntaxKind::ImplementsSpecifier => {
+            return format_implements_specifier(node, writer, state);
+        }
         _ => (),
     }
 
@@ -1529,6 +1532,26 @@ fn format_uses_specifier(
             }
             _ => {
                 state.skip_all_whitespace = true;
+                fold(n, writer, state)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn format_implements_specifier(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let sub = node.children_with_tokens();
+    for n in sub {
+        match n.kind() {
+            SyntaxKind::Identifier | SyntaxKind::QualifiedName => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => {
                 fold(n, writer, state)?;
             }
         }

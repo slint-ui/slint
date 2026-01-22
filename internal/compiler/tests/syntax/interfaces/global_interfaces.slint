@@ -6,7 +6,7 @@ export interface HelloInterface {
 }
 
 export global GlobalHello implements
+//                        >        <error{Globals cannot implement an interface}
  HelloInterface {
-//>            <<error{Syntax error: expected '{'}
     message := "Hello from Global";
 }
