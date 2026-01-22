@@ -3,17 +3,9 @@
 
 import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
-export component LineEdit {
-    in property <length> font-size <=> inner.font-size;
-    in property <string> font-family <=> inner.font-family;
-    in property <string> placeholder-text <=> inner.placeholder-text;
-    in property <bool> font-italic <=> inner.font-italic;
-    in property <InputType> input-type;
-    in property horizontal-alignment <=> inner.horizontal-alignment;
-    in property read-only <=> inner.read-only;
-    in property <bool> enabled: true;
-    out property <bool> has-focus <=> inner.has-focus;
-    in-out property <string> text <=> inner.text;
+import { LineEditInterface } from "../common/lineedit-interface.slint";
+
+export component LineEdit uses { LineEditInterface from inner } {
 
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
@@ -70,10 +62,8 @@ export component LineEdit {
         padding-bottom: native.native-padding-bottom;
 
         inner := LineEditBase {
-            input-type: root.input-type;
             placeholder-color: self.enabled ? NativeStyleMetrics.placeholder-color : NativeStyleMetrics.placeholder-color-disabled;
             text-color: self.enabled ? NativeStyleMetrics.textedit-text-color : NativeStyleMetrics.textedit-text-color-disabled;
-            enabled: root.enabled;
             margin: layout.padding-left + layout.padding-right;
         }
 
