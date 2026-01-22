@@ -85,7 +85,7 @@ jobs:
 
       - name: Install xbuild
         if: (steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true') && steps.xbuild-cache.outputs.cache-hit != 'true'
-        run: cargo install xbuild
+        run: cargo install --git https://github.com/burhankhanzada/xbuild --branch update xbuild
 
       # 5. Build
       - name: Build apk
