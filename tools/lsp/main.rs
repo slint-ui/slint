@@ -476,7 +476,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
-            reload_document(
+            load_document(
                 ctx,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
