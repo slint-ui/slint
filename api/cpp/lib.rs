@@ -241,11 +241,6 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_open_url(url: &SharedString) {
-    i_slint_core::open_url(url)
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedString {
     *text = i_slint_core::escape_markdown(text).into();
     text
