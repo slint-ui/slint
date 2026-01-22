@@ -351,17 +351,30 @@ impl DocumentCache {
         self.type_loader.reload_cached_file(&path, diag).await;
     }
 
-    pub fn drop_document(&mut self, url: &Url) -> Result<()> {
+    /// Drop a document from the cache.
+    /// Returns the list of dependencies that were invalidated.
+    ///
+    /// Compared to [Self::invalidate_url], this actually causes the document to be reloaded from
+    /// disk, not just reparsed.
+    pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let Some(path) = uri_to_file(url) else {
             // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
             eprintln!("Failed to convert path for dropping document: {url}");
-            return Ok(());
+            return Ok(Default::default());
         };
-        Ok(self.type_loader.drop_document(&path)?)
+        Ok(self
+            .type_loader
+            .drop_document(&path)?
+            .iter()
+            .filter_map(|path| file_to_uri(path))
+            .collect())
     }
 
     /// Invalidate a document and all its dependencies.
     /// return the list of dependencies that were invalidated.
+    ///
+    /// Compared to [Self::drop_document], the CST remains in the cache, and only the type
+    /// information is dropped from the cache, which causes the document to be re-analyzed.
     pub fn invalidate_url(&mut self, url: &Url) -> HashSet<Url> {
         let Some(path) = uri_to_file(url) else { return HashSet::new() };
         self.type_loader

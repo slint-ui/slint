@@ -225,6 +225,7 @@ pub fn create(
             to_show: Default::default(),
             open_urls: Default::default(),
             to_preview,
+            pending_recompile: Default::default(),
         }),
         reentry_guard,
         rh: Rc::new(rh),

@@ -931,17 +931,18 @@ impl TypeLoader {
     }
 
     /// Drop a document from the TypeLoader and invalidate all of its dependencies.
+    /// Returns the list of all (transitive) dependencies.
     ///
     /// This forces the compiler to entirely reload the document from scratch.
     /// To only cause a re-analyze, but not a reparse, use [Self::invalidate_document]
-    pub fn drop_document(&mut self, path: &Path) -> Result<(), std::io::Error> {
-        self.invalidate_document(path);
+    pub fn drop_document(&mut self, path: &Path) -> Result<HashSet<PathBuf>, std::io::Error> {
+        let dependencies = self.invalidate_document(path);
         self.all_documents.docs.remove(path);
 
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
         } else {
-            Ok(())
+            Ok(dependencies)
         }
     }
 
