@@ -2135,6 +2135,7 @@ fn lang_type_to_value_type() {
 
 #[test]
 fn test_multi_components() {
+    i_slint_backend_testing::init_no_event_loop();
     let result = spin_on::spin_on(
         Compiler::default().build_from_source(
             r#"
