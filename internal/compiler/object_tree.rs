@@ -1072,28 +1072,6 @@ pub struct RepeatedElementInfo {
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
-#[derive(Debug, PartialEq)]
-/// The kind of relationship a component has the component or interface it derives from, if any.
-enum ParentRelationship {
-    /// The component inherits from the parent component.
-    Inherits,
-    /// The component implements the parent interface.
-    Implements,
-}
-
-/// Determine the expected relationship to the parent component/interface, if any.
-fn expected_relationship_to_parent(node: &syntax_nodes::Element) -> Option<ParentRelationship> {
-    let parent = node.parent().filter(|p| p.kind() == SyntaxKind::Component)?;
-    let implements_inherits_identifier =
-        parent.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).nth(1)?;
-    let token = implements_inherits_identifier.as_token()?;
-    match token.text() {
-        "inherits" => Some(ParentRelationship::Inherits),
-        "implements" => Some(ParentRelationship::Implements),
-        _ => None,
-    }
-}
-
 impl Element {
     pub fn make_rc(self) -> ElementRc {
         let r = ElementRc::new(RefCell::new(self));
@@ -1111,57 +1089,19 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let mut interfaces: Vec<Rc<Component>> = Vec::new();
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
-            match (
-                parent_type.lookup_type_for_child_element(&base_string, tr),
-                expected_relationship_to_parent(&node),
-            ) {
-                (Ok(ElementType::Component(c)), _) if c.is_global() => {
+            match parent_type.lookup_type_for_child_element(&base_string, tr) {
+                Ok(ElementType::Component(c)) if c.is_global() => {
                     diag.push_error(
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
                     ElementType::Error
                 }
-                (Ok(ElementType::Component(c)), Some(ParentRelationship::Implements)) => {
-                    if !diag.enable_experimental {
-                        diag.push_error(
-                            "'implements' is an experimental feature".into(),
-                            &base_node,
-                        );
-                        ElementType::Error
-                    } else if !c.is_interface() {
-                        diag.push_error(
-                            format!("Cannot implement {}. It is not an interface", base_string),
-                            &base_node,
-                        );
-                        ElementType::Error
-                    } else {
-                        c.used.set(true);
-                        interfaces.push(c);
-                        // We are implementing an interface - not inheriting from it
-                        tr.empty_type()
-                    }
-                }
-                (Ok(ElementType::Builtin(_bt)), Some(ParentRelationship::Implements)) => {
-                    if !diag.enable_experimental {
-                        diag.push_error(
-                            "'implements' is an experimental feature".into(),
-                            &base_node,
-                        );
-                    } else {
-                        diag.push_error(
-                            format!("Cannot implement {}. It is not an interface", base_string),
-                            &base_node,
-                        );
-                    }
-                    ElementType::Error
-                }
-                (Ok(ty), _) => ty,
-                (Err(err), _) => {
+                Ok(ty) => ty,
+                Err(err) => {
                     diag.push_error(err, &base_node);
                     ElementType::Error
                 }
@@ -1228,13 +1168,7 @@ impl Element {
             ..Default::default()
         };
 
-        for interface in interfaces.iter() {
-            for (prop_name, prop_decl) in
-                interface.root_element.borrow().property_declarations.iter()
-            {
-                r.property_declarations.insert(prop_name.clone(), prop_decl.clone());
-            }
-        }
+        apply_implements_specifier(&mut r, get_implements_specifier(&node), tr, diag);
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
@@ -2151,6 +2085,67 @@ fn apply_default_type_properties(element: &mut Element) {
                     RefCell::new(binding)
                 });
             }
+        }
+    }
+}
+
+fn get_implements_specifier(
+    node: &syntax_nodes::Element,
+) -> Option<syntax_nodes::ImplementsSpecifier> {
+    let parent: syntax_nodes::Component =
+        node.parent().filter(|p| p.kind() == SyntaxKind::Component)?.into();
+    parent.ImplementsSpecifier()
+}
+
+fn apply_implements_specifier(
+    e: &mut Element,
+    implements_specifier: Option<syntax_nodes::ImplementsSpecifier>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(implements_specifier) = implements_specifier else {
+        return;
+    };
+
+    if !diag.enable_experimental {
+        diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
+        return;
+    }
+
+    let interface_name =
+        QualifiedTypeName::from_node(implements_specifier.QualifiedName().clone().into())
+            .to_smolstr();
+
+    let mut interfaces: Vec<Rc<Component>> = Vec::new();
+    match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
+        Ok(ElementType::Component(c)) => {
+            if !c.is_interface() {
+                diag.push_error(
+                    format!("Cannot implement {}. It is not an interface", interface_name),
+                    &implements_specifier.QualifiedName(),
+                );
+                return;
+            }
+
+            c.used.set(true);
+            interfaces.push(c);
+        }
+        Ok(_) => {
+            diag.push_error(
+                format!("Cannot implement {}. It is not an interface", interface_name),
+                &implements_specifier.QualifiedName(),
+            );
+            return;
+        }
+        Err(err) => {
+            diag.push_error(err, &implements_specifier.QualifiedName());
+            return;
+        }
+    }
+
+    for interface in interfaces.iter() {
+        for (prop_name, prop_decl) in interface.root_element.borrow().property_declarations.iter() {
+            e.property_declarations.insert(prop_name.clone(), prop_decl.clone());
         }
     }
 }

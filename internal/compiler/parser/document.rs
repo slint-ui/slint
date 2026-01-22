@@ -101,12 +101,14 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// component C inherits D { }
 /// interface I { property<int> xx; }
 /// component E implements I { }
+/// component E implements I inherits D { }
 /// component F uses { I from A } { }
 /// component F uses { I from A } implements J { }
 /// component F uses { I from A } inherits B { }
 /// component F uses { I from A, J from B } { }
 /// component F uses { I from A, J from B } implements J { }
 /// component F uses { I from A, J from B } inherits C { }
+/// component F uses { I from A, J from B } implements J inherits D { }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
@@ -139,6 +141,21 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             return false;
         }
     }
+    if p.peek().as_str() == "implements" {
+        if is_global {
+            p.error("Globals cannot implement an interface");
+            drop(p.start_node(SyntaxKind::Element));
+            return false;
+        } else if is_interface {
+            p.error("Interfaces cannot implement another interface");
+            drop(p.start_node(SyntaxKind::Element));
+            return false;
+        }
+        if !parse_implements_specifier(&mut *p) {
+            drop(p.start_node(SyntaxKind::Element));
+            return false;
+        }
+    }
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
             p.warning("':=' to declare a global is deprecated. Remove the ':='");
@@ -157,7 +174,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             drop(p.start_node(SyntaxKind::Element));
             return false;
         }
-    } else if p.peek().as_str() == "implements" || p.peek().as_str() == "inherits" {
+    } else if p.peek().as_str() == "inherits" {
         p.consume();
     } else if p.peek().kind() == SyntaxKind::LBrace {
         let mut p = p.start_node(SyntaxKind::Element);
@@ -440,4 +457,16 @@ fn parse_uses_identifier(p: &mut impl Parser) -> bool {
 
     let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
     p.expect(SyntaxKind::Identifier)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ImplementsSpecifier
+/// implements Foo
+/// implements Foo.Bar
+/// ```
+fn parse_implements_specifier(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "implements");
+    let mut p = p.start_node(SyntaxKind::ImplementsSpecifier);
+    p.expect(SyntaxKind::Identifier); // "implements"
+    parse_qualified_name(&mut *p)
 }
