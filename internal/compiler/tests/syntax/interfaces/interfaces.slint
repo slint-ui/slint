@@ -16,6 +16,16 @@ export component LineEditBase implements LineEditInterface {
     text-input := TextInput { }
 }
 
+interface Inverter {
+    pure callback invert(bool) -> bool;
+}
+
+export component InverterImpl implements Inverter {
+    invert(b) => {
+        return !b;
+    }
+}
+
 export component LineEditBase2 implements LineEditInterface inherits Rectangle { }
 
 export component MyLineEdit uses { LineEditInterface from base } {
