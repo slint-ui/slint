@@ -509,7 +509,7 @@ impl Component {
                 match node.child_text(SyntaxKind::Identifier) {
                     Some(t) if t == "global" => ElementType::Global,
                     Some(t) if t == "interface" => {
-                        if !diag.enable_experimental {
+                        if !diag.enable_experimental && !tr.expose_internal_types {
                             diag.push_error("'interface' is an experimental feature".into(), &node);
                             ElementType::Error
                         } else {
@@ -2107,7 +2107,7 @@ fn apply_implements_specifier(
         return;
     };
 
-    if !diag.enable_experimental {
+    if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
         return;
     }
@@ -2160,7 +2160,7 @@ fn apply_uses_statement(
         return;
     };
 
-    if !diag.enable_experimental {
+    if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'uses' is an experimental feature".into(), &uses_specifier);
         return;
     }
