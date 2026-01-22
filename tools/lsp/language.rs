@@ -12,6 +12,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
+use crate::common::uri_to_file;
 use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
@@ -151,6 +152,9 @@ pub struct Context {
     /// File currently open in the editor
     pub open_urls: RefCell<HashSet<lsp_types::Url>>,
     pub to_preview: Rc<dyn common::LspToPreview>,
+    /// Files to recompile after all other operations are done
+    /// (i.e. recompilations triggered by updates to unopened files)
+    pub pending_recompile: RefCell<HashSet<lsp_types::Url>>,
 }
 
 /// An error from a LSP request
@@ -792,7 +796,7 @@ pub async fn open_document(
 
 pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     ctx.open_urls.borrow_mut().remove(&url);
-    invalidate_document(ctx, url).await
+    drop_document(ctx, url).await
 }
 
 pub async fn load_document(
@@ -806,6 +810,20 @@ pub async fn load_document(
         load_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
     send_diagnostics(&ctx.server_notifier, document_cache, &extra_files, diag);
+
+    Ok(())
+}
+
+pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    let mut document_cache = ctx.document_cache.borrow_mut();
+
+    let mut diagnostics = BuildDiagnostics::default();
+
+    document_cache.reload_cached_file(&url, &mut diagnostics).await;
+    let mut extra_files = HashSet::new();
+    extra_files.extend(uri_to_file(&url));
+
+    send_diagnostics(&ctx.server_notifier, &mut *document_cache, &extra_files, diagnostics);
 
     Ok(())
 }
@@ -855,18 +873,27 @@ fn send_diagnostics(
     }
 }
 
-pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    let dependencies = ctx.document_cache.borrow_mut().drop_document(&url)?;
+
+    let open_urls = ctx.open_urls.borrow();
+    let open_dependencies = open_urls.intersection(&dependencies).cloned();
+    ctx.pending_recompile.borrow_mut().extend(open_dependencies);
+    Ok(())
+}
+
+pub async fn drop_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() });
 
-    ctx.document_cache.borrow_mut().drop_document(&url)
+    drop_document_impl(ctx, url)
 }
 
 pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
-    ctx.document_cache.borrow_mut().drop_document(&url)
+    drop_document_impl(ctx, url)
 }
 
 pub async fn trigger_file_watcher(
@@ -878,7 +905,7 @@ pub async fn trigger_file_watcher(
         if typ == lsp_types::FileChangeType::DELETED {
             delete_document(ctx, url).await?;
         } else {
-            invalidate_document(ctx, url).await?;
+            drop_document(ctx, url).await?;
         }
     }
     Ok(())
