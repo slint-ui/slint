@@ -167,33 +167,3 @@ pub fn detect_operating_system() -> OperatingSystemType {
 pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
-
-pub fn escape_markdown(text: &str) -> alloc::string::String {
-    let mut out = alloc::string::String::with_capacity(text.len());
-
-    for c in text.chars() {
-        match c {
-            '*' => out.push_str("\\*"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '_' => out.push_str("\\_"),
-            '#' => out.push_str("\\#"),
-            '-' => out.push_str("\\-"),
-            '`' => out.push_str("\\`"),
-            '&' => out.push_str("\\&"),
-            _ => out.push(c),
-        }
-    }
-
-    out
-}
-
-#[cfg_attr(not(feature = "std"), allow(unused))]
-pub fn parse_markdown(text: &str) -> crate::api::StyledText {
-    #[cfg(feature = "std")]
-    {
-        crate::api::StyledText::parse(text).unwrap()
-    }
-    #[cfg(not(feature = "std"))]
-    Default::default()
-}

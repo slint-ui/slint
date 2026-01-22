@@ -10,6 +10,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
+use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use smol_str::SmolStr;
@@ -51,6 +52,7 @@ pub enum ValueType {
     /// Correspond to `image` type in .slint.
     Image,
     /// Correspond to `styled-text` type in .slint.
+    #[doc(hidden)]
     StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
@@ -130,8 +132,9 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
+    #[doc(hidden)] // make visible when we make StyledText public
     /// Correspond to the `styled-text` type in .slint
-    StyledText(i_slint_core::api::StyledText) = 13,
+    StyledText(StyledText) = 13,
     #[doc(hidden)]
     ArrayOfU16(SharedVector<u16>) = 14,
 }
@@ -253,7 +256,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
-declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );
+declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`

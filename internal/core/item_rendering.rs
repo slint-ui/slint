@@ -299,7 +299,7 @@ pub trait HasFont {
 #[allow(missing_docs)]
 pub enum PlainOrStyledText {
     Plain(SharedString),
-    Styled(crate::api::StyledText),
+    Styled(crate::styled_text::StyledText),
 }
 
 /// Trait for an item that represents an string towards the renderer

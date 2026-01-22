@@ -1544,12 +1544,12 @@ fn call_builtin_function(
         BuiltinFunction::EscapeMarkdown => {
             let text: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::String(corelib::escape_markdown(&text).into())
+            Value::String(corelib::styled_text::escape_markdown(&text).into())
         }
         BuiltinFunction::ParseMarkdown => {
             let text: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::parse_markdown(&text))
+            Value::StyledText(corelib::styled_text::parse_markdown(&text))
         }
     }
 }

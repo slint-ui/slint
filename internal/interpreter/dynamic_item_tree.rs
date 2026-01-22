@@ -14,7 +14,7 @@ use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDecla
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
-use i_slint_core::api::{LogicalPosition, StyledText};
+use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::item_tree::{
     IndexRange, ItemRc, ItemTree, ItemTreeNode, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable,
@@ -32,6 +32,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::{ChangeTracker, InterpolatedPropertyValue};
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
+use i_slint_core::styled_text::StyledText;
 use i_slint_core::timers::Timer;
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};

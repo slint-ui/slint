@@ -54,7 +54,7 @@ macro_rules! declare_ValueType_2 {
             crate::items::MenuEntry,
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
-            crate::api::StyledText,
+            crate::styled_text::StyledText,
             $(crate::items::$Name,)*
         ];
     };
