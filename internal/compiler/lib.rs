@@ -52,7 +52,7 @@ pub enum EmbedResourcesKind {
     Nothing,
     /// Only embed builtin resources
     OnlyBuiltinResources,
-    /// Do not embed resources, but list them in the Document as it they were embedded
+    /// Do not embed resources, but list them in the Document as if they were embedded
     ListAllResources,
     /// Embed all images resources (the content of their files)
     EmbedAllResources,
