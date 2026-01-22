@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::common;
 use crate::language::convert_diagnostics;
-use crate::language::reload_document_impl;
+use crate::language::load_document_impl;
 
 use super::Context;
 
@@ -46,7 +46,7 @@ pub fn loaded_document_cache_with_file_name(
     };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
     let (extra_files, diag) =
-        spin_on::spin_on(reload_document_impl(None, content, url.clone(), Some(42), &mut dc));
+        spin_on::spin_on(load_document_impl(None, content, url.clone(), Some(42), &mut dc));
 
     let diag = convert_diagnostics(&extra_files, diag, dc.format);
     (dc, url, diag)
@@ -119,7 +119,7 @@ pub fn load(
 ) -> (Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
     let url = Url::from_file_path(path).unwrap();
 
-    let (main_file, diag) = spin_on::spin_on(reload_document_impl(
+    let (main_file, diag) = spin_on::spin_on(load_document_impl(
         ctx,
         content.into(),
         url.clone(),

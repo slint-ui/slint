@@ -75,7 +75,7 @@ slint_init({}).then(() => {
     });
 
     connection.onDidChangeTextDocument(async (param) => {
-        await the_lsp.reload_document(
+        await the_lsp.load_document(
             param.contentChanges[param.contentChanges.length - 1].text,
             param.textDocument.uri,
             param.textDocument.version,

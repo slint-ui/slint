@@ -709,7 +709,7 @@ pub async fn populate_command(
     Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
 }
 
-pub(crate) async fn reload_document_impl(
+pub(crate) async fn load_document_impl(
     ctx: Option<&Rc<Context>>,
     content: String,
     url: lsp_types::Url,
@@ -787,7 +787,7 @@ pub async fn open_document(
 ) -> common::Result<()> {
     ctx.open_urls.borrow_mut().insert(url.clone());
 
-    reload_document(ctx, content, url, version, document_cache).await
+    load_document(ctx, content, url, version, document_cache).await
 }
 
 pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
@@ -795,7 +795,7 @@ pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::R
     invalidate_document(ctx, url).await
 }
 
-pub async fn reload_document(
+pub async fn load_document(
     ctx: &Rc<Context>,
     content: String,
     url: lsp_types::Url,
@@ -803,7 +803,7 @@ pub async fn reload_document(
     document_cache: &mut common::DocumentCache,
 ) -> common::Result<()> {
     let (extra_files, diag) =
-        reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
+        load_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
     send_diagnostics(&ctx.server_notifier, document_cache, &extra_files, diag);
 
@@ -1504,7 +1504,7 @@ pub mod tests {
     use lsp_types::WorkspaceEdit;
 
     #[test]
-    fn test_reload_document_invalid_contents() {
+    fn test_load_document_invalid_contents() {
         let (_, url, diag) = loaded_document_cache("This is not valid!".into());
 
         assert!(diag.len() == 1); // Only one URL is known
@@ -1515,7 +1515,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_reload_document_valid_contents() {
+    fn test_load_document_valid_contents() {
         let (_, url, diag) =
             loaded_document_cache(r#"export component Main inherits Rectangle { }"#.into());
 
