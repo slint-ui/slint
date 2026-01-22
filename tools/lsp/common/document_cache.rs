@@ -111,21 +111,21 @@ impl DocumentCache {
         open_import_fallback: Option<OpenImportFallback>,
         source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     ) -> (Option<OpenImportFallback>, Rc<RefCell<SourceFileVersionMap>>) {
-        let sfv = source_file_versions.clone();
+        let source_versions = source_file_versions.clone();
         if let Some(open_import_fallback) = open_import_fallback.clone() {
             compiler_config.open_import_fallback = Some(Rc::new(move |file_name: String| {
-                let flfb = open_import_fallback(file_name.clone());
-                let sfv = sfv.clone();
+                let open_import = open_import_fallback(file_name.clone());
+                let source_versions = source_versions.clone();
                 Box::pin(async move {
-                    flfb.await.map(|r| {
+                    open_import.await.map(|r| {
                         let path = PathBuf::from(file_name);
                         match r {
                             Ok((v, c)) => {
-                                sfv.borrow_mut().insert(path, v);
+                                source_versions.borrow_mut().insert(path, v);
                                 Ok(c)
                             }
                             Err(e) => {
-                                sfv.borrow_mut().remove(&path);
+                                source_versions.borrow_mut().remove(&path);
                                 Err(e)
                             }
                         }
