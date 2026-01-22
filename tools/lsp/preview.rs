@@ -20,7 +20,7 @@ use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use lsp_types::Url;
-use slint::PlatformError;
+use slint::{PlatformError, VecModel};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -71,6 +71,8 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     let ui_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         *preview_state.to_lsp.borrow_mut() = Some(to_lsp);
+        let api: ui::Api = ui.global();
+        api.set_debug_state(Rc::clone(&preview_state.debug_model).into());
         preview_state.ui = Some(ui.clone_strong());
         ui
     });
@@ -118,6 +120,7 @@ type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 #[derive(Default)]
 pub struct PreviewState {
     pub ui: Option<ui::PreviewUi>,
+    pub debug_model: Rc<VecModel<ui::DebugItem>>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
@@ -165,6 +168,38 @@ impl PreviewState {
 
     pub fn format(&self) -> common::ByteFormat {
         self.document_cache.borrow().as_ref().map_or(common::ByteFormat::Utf8, |dc| dc.format)
+    }
+
+    pub fn update_debug(&self) {
+        self.debug_model.clear();
+        let mut sorted = self
+            .source_code
+            .iter()
+            .map(|(url, value)| {
+                let file = url
+                    .to_file_path()
+                    .ok()
+                    .and_then(|path| {
+                        path.file_name()
+                            .map(|file| slint::SharedString::from(&*file.to_string_lossy()))
+                    })
+                    .unwrap_or_default();
+                (url, file, value)
+            })
+            .collect::<Vec<_>>();
+        sorted.sort_by_key(|(_url, file_name, _value)| file_name.clone());
+
+        for (url, file_name, value) in sorted {
+            let file = url.to_file_path().ok();
+            let file_source = file
+                .as_ref()
+                .and_then(|file| std::fs::read_to_string(file).ok())
+                .unwrap_or_default();
+            let diff = if file_source != value.code { " DIFF!" } else { "" };
+            let state =
+                format!("Version: {:?} - Code: {}{diff}", value.version, value.code.len()).into();
+            self.debug_model.push(ui::DebugItem { file: file_name, state });
+        }
     }
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}

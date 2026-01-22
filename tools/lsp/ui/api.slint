@@ -240,6 +240,11 @@ export struct LogMessage {
     level: LogMessageLevel,
 }
 
+export struct DebugItem {
+    file: string,
+    state: string
+}
+
 /// A node in the outline tree
 export struct OutlineTreeNode {
     indent-level: int,
@@ -292,6 +297,9 @@ export global Api {
     // ## Log Output
     in-out property <[LogMessage]> log-output;
     in-out property <bool> auto-clear-console: true;
+
+    // ## Preview internal state
+    in-out property <[DebugItem]> debug-state;
 
     // ## Drawing Area
     // Borders around things

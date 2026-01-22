@@ -11,7 +11,10 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
-use crate::{common, preview};
+use crate::{
+    common,
+    preview::{self, PREVIEW_STATE},
+};
 
 pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
     use common::LspToPreviewMessage as M;
@@ -31,4 +34,6 @@ pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
             preview::highlight(url, offset.into());
         }
     }
+
+    PREVIEW_STATE.with_borrow(|state| state.update_debug());
 }

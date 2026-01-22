@@ -313,70 +313,102 @@ export component ConsolePanel inherits SimpleColumn {
             scroll-to-bottom();
         }
 
-        lv := ListView {
-            for lm[index] in Api.log-output: Rectangle {
-                height: helper-message.height + 6px;
-                // helper-message is used to calculate the height of the message
-                // as TextInput gets into a binding loop if used alone.
-                helper-message := Text {
-                    x: 10px;
-                    width: message.width;
-                    text: lm.message;
-                    font-family: message.font-family;
-                    font-size: message.font-size;
-                    horizontal-alignment: message.horizontal-alignment;
-                    font-weight: message.font-weight;
-                    wrap: message.wrap;
-                    visible: false;
+        HorizontalLayout {
+            VerticalLayout {
+                horizontal-stretch: 1;
+                Text {
+                    text: @tr("Live Preview Debug information... 🐞");
                 }
 
-                message := TextInput {
-                    x: 10px;
-                    width: parent.width - 80px;
-                    read-only: true;
-                    text: lm.message;
-                    color: lm.level == LogMessageLevel.Error ? ConsoleStyles.slint-blue : ConsoleStyles.text-color;
-                    font-family: "Source Code Pro";
-                    font-size: 11px;
-                    horizontal-alignment: left;
-                    vertical-alignment: center;
-                    font-weight: 200;
-                    wrap: TextWrap.word-wrap;
-                }
+                debug-view := ScrollView {
+                    preferred-width: debug-info.preferred-width + 20px;
+                    debug-info := GridLayout {
+                        spacing-horizontal: 10px;
+                        for item in Api.debug-state: Row {
+                            Text {
+                                horizontal-stretch: 0;
+                                text: "\{item.file}";
+                                horizontal-alignment: TextHorizontalAlignment.left;
+                                overflow: TextOverflow.elide;
+                            }
 
-                if !lm.file.is-empty: Rectangle {
-                    width: 40px;
-                    height: 14px;
-                    x: parent.width - self.width - EditorSizeSettings.standard-margin;
-                    file-link := Text {
-                        text: "\{lm.line}:\{lm.column}";
-                        color: ConsoleStyles.text-color;
-                        font-family: "Source Code Pro";
-                        font-size: 11px;
-                    }
-
-                    Rectangle {
-                        y: parent.height - self.height;
-                        width: file-link.width;
-                        height: 1px;
-                        background: ConsoleStyles.text-color;
-                        opacity: ta.has-hover ? 1.0 : 0.5;
-                    }
-
-                    ta := TouchArea {
-                        mouse-cursor: MouseCursor.pointer;
-                        clicked => {
-                            Api.show-document(lm.file, lm.line, lm.column);
+                            Text {
+                                horizontal-stretch: 1;
+                                text: "\{item.state}";
+                                horizontal-alignment: TextHorizontalAlignment.left;
+                                overflow: TextOverflow.elide;
+                            }
                         }
                     }
                 }
-                Rectangle {
-                    y: parent.height - self.height;
-                    height: 1px;
-                    background: ConsoleStyles.text-color;
-                    opacity: 0.2;
+            }
+
+            lv := ListView {
+                for lm[index] in Api.log-output: Rectangle {
+                    height: helper-message.height + 6px;
+                    // helper-message is used to calculate the height of the message
+                    // as TextInput gets into a binding loop if used alone.
+                    helper-message := Text {
+                        x: 10px;
+                        width: message.width;
+                        text: lm.message;
+                        font-family: message.font-family;
+                        font-size: message.font-size;
+                        horizontal-alignment: message.horizontal-alignment;
+                        font-weight: message.font-weight;
+                        wrap: message.wrap;
+                        visible: false;
+                    }
+
+                    message := TextInput {
+                        x: 10px;
+                        width: parent.width - 80px;
+                        read-only: true;
+                        text: lm.message;
+                        color: lm.level == LogMessageLevel.Error ? ConsoleStyles.slint-blue : ConsoleStyles.text-color;
+                        font-family: "Source Code Pro";
+                        font-size: 11px;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                        font-weight: 200;
+                        wrap: TextWrap.word-wrap;
+                    }
+
+                    if !lm.file.is-empty: Rectangle {
+                        width: 40px;
+                        height: 14px;
+                        x: parent.width - self.width - EditorSizeSettings.standard-margin;
+                        file-link := Text {
+                            text: "\{lm.line}:\{lm.column}";
+                            color: ConsoleStyles.text-color;
+                            font-family: "Source Code Pro";
+                            font-size: 11px;
+                        }
+
+                        Rectangle {
+                            y: parent.height - self.height;
+                            width: file-link.width;
+                            height: 1px;
+                            background: ConsoleStyles.text-color;
+                            opacity: ta.has-hover ? 1.0 : 0.5;
+                        }
+
+                        ta := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                Api.show-document(lm.file, lm.line, lm.column);
+                            }
+                        }
+                    }
+                    Rectangle {
+                        y: parent.height - self.height;
+                        height: 1px;
+                        background: ConsoleStyles.text-color;
+                        opacity: 0.2;
+                    }
                 }
             }
         }
+
     }
 }
