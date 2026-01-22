@@ -41,7 +41,6 @@ std = [
   "chrono/wasmbind",
   "chrono/clock",
   "dep:sys-locale",
-  "dep:webbrowser",
   "shared-fontique",
   "dep:pulldown-cmark",
   "dep:thiserror",
@@ -128,7 +127,6 @@ wgpu-27 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
-webbrowser = { version = "1.0.6", optional = true }
 htmlparser = { version = "0.2.1", optional = true }
 thiserror = { version = "2.0.17", optional = true }
 
