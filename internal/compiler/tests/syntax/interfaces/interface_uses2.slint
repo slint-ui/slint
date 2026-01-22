@@ -3,10 +3,11 @@
 
 
 interface InterfaceI {
-    out property<bool> test;
+    out property <bool> test;
 }
 
-component Base implements InterfaceI {}
+component Base implements InterfaceI { }
 
-export component AnotherInvalidUses uses { from Base } {}
-//                                              >  <error{Expected 'from' keyword in uses specifier}
+export component AnotherInvalidUses uses { from
+Base } {}
+//>  <<<error{Expected 'from' keyword in uses specifier}

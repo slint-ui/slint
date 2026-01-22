@@ -2,22 +2,26 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export interface InvalidInterface {
-    Rectangle {}
-//  >          <error{An interface cannot have sub elements}
-    for x in 2: Text {}
-//  >                 <error{An interface cannot have sub elements}
+    Rectangle { }
+//  >           <error{An interface cannot have sub elements}
+    for x in 2: Text { }
+//  >                  <error{An interface cannot have sub elements}
 
     out property <int> i;
     animate i { duration: 100ms; }
 //  >                            <error{An interface cannot have animations}
-    states [ ]
-//  >        <error{An interface cannot have states}
+    states [
+//  >error{An interface cannot have states}
+    ]
+//  <error{An interface cannot have states}
     transitions [ ]
 //  >             <error{An interface cannot have transitions}
 //  >             <^error{'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition}
     callback init;
 //  >            <error{An interface cannot have an 'init' callback}
-    init => { debug("nope"); }
+    init => {
 //  >error{An interface cannot have an 'init' callback}
+        debug("nope");
+    }
 }
 //<<<<error{An interface cannot have an 'init' callback}
