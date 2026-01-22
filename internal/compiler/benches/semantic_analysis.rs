@@ -396,10 +396,7 @@ mod phase_breakdown {
     fn phase2_prepare_compile() {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        divan::black_box(i_slint_compiler::typeloader::TypeLoader::new(
-            config,
-            &mut diag,
-        ));
+        divan::black_box(i_slint_compiler::typeloader::TypeLoader::new(config, &mut diag));
     }
 
     /// Phase 3: Load dependencies (slint-widgets.slint and its deps)
@@ -407,10 +404,7 @@ mod phase_breakdown {
     fn phase3_load_dependencies() {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            config,
-            &mut diag,
-        );
+        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(config, &mut diag);
         let doc_node: i_slint_compiler::parser::syntax_nodes::Document =
             parse_source(EMPTY_COMPONENT).into();
         let type_registry = Rc::new(RefCell::new(
@@ -457,10 +451,7 @@ mod phase_breakdown {
     fn phase4a_document_from_node() {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            config,
-            &mut diag,
-        );
+        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(config, &mut diag);
         let doc_node: i_slint_compiler::parser::syntax_nodes::Document =
             parse_source(EMPTY_COMPONENT).into();
         let type_registry = Rc::new(RefCell::new(
@@ -487,10 +478,7 @@ mod phase_breakdown {
     fn phase4b_run_passes() {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            config,
-            &mut diag,
-        );
+        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(config, &mut diag);
         let doc_node: i_slint_compiler::parser::syntax_nodes::Document =
             parse_source(EMPTY_COMPONENT).into();
         let type_registry = Rc::new(RefCell::new(
@@ -523,10 +511,7 @@ mod phase_breakdown {
     fn phase4b1_import_style_components() {
         let mut diag = BuildDiagnostics::default();
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(
-            config,
-            &mut diag,
-        );
+        let mut loader = i_slint_compiler::typeloader::TypeLoader::new(config, &mut diag);
 
         // Benchmark just the import_component calls
         let mut build_diags_to_ignore = BuildDiagnostics::default();
