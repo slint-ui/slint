@@ -23,7 +23,7 @@ catalog:
   '@expressive-code/plugin-line-numbers': 0.41.6
   '@playwright/test': 1.57.0
   '@types/node': 20.16.10
-  astro: 5.16.11
+  astro: 5.16.13
   astro-embed: 0.12.0
   cspell: 9.6.0
   playwright-ctrf-json-reporter: 0.0.27
