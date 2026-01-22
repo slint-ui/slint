@@ -479,16 +479,7 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            #[cfg(feature = "unstable-wgpu-27")]
-            (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
-                cfg_if::cfg_if! {
-                    if #[cfg(enable_skia_renderer)] {
-                        renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-                    } else {
-                        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
-                    }
-                }
-            }
+            // femtovg only supports wgpu 28
             #[cfg(feature = "unstable-wgpu-28")]
             (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
                 cfg_if::cfg_if! {

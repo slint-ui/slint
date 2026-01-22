@@ -569,7 +569,7 @@ pub mod wgpu_28 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.14", features = ["unstable-wgpu-28"] }
+    //! slint = { version = "~1.15", features = ["unstable-wgpu-28"] }
     //! ```
     //!
     //! `main.rs`:
