@@ -213,6 +213,8 @@ impl RequestHandler {
 }
 
 fn main() {
+    env_logger::init();
+
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         // Safety: there are no other threads at this point
@@ -344,6 +346,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
+                log::trace!("Importing file: {}", path);
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
@@ -489,6 +492,11 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
+            log::debug!(
+                "Document changed: {} (version: {})",
+                params.text_document.uri,
+                params.text_document.version
+            );
             load_document(
                 ctx,
                 params.content_changes.pop().unwrap().text,
@@ -502,6 +510,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         DidChangeWatchedFiles::METHOD => {
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
             for fe in params.changes {
+                log::debug!("Watched file changed: {} (type: {:?})", fe.uri, fe.typ);
                 trigger_file_watcher(ctx, fe.uri, fe.typ).await?;
             }
             Ok(())
@@ -567,6 +576,12 @@ async fn handle_preview_to_lsp_message(
     use crate::common::PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
+            if diagnostics.is_empty() {
+                // This is very common, so we log it at trace level
+                log::trace!("Preview: Empty diagnostics {}", uri);
+            } else {
+                log::debug!("Preview: {} diagnostics for {}", diagnostics.len(), uri);
+            }
             crate::common::lsp_to_editor::notify_lsp_diagnostics(
                 &ctx.server_notifier,
                 uri,

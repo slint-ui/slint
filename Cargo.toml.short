@@ -1,0 +1,193 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[workspace]
+members = [
+  'api/cpp',
+  'api/node',
+  'api/rs/build',
+  'api/rs/macros',
+  'api/rs/slint',
+  'api/python/slint',
+  'api/wasm-interpreter',
+  'editors/zed',
+  # 'examples/7guis',
+  # 'examples/gallery',
+  # 'examples/imagefilter/rust',
+  # 'examples/maps',
+  # 'examples/memory',
+  # 'examples/opengl_underlay',
+  # 'examples/opengl_texture',
+  # 'examples/wgpu_texture',
+  # 'examples/ffmpeg',
+  # 'examples/gstreamer-player',
+  # 'examples/plotter',
+  'demos/printerdemo/rust',
+  'demos/printerdemo_mcu',
+  # 'examples/slide_puzzle',
+  # 'examples/speedometer/rust',
+  # 'examples/todo/rust',
+  # 'examples/todo-mvc/rust',
+  # 'examples/virtual_keyboard/rust',
+  # 'examples/carousel/rust',
+  'demos/energy-monitor',
+  'demos/home-automation/rust',
+  # 'examples/mcu-board-support',
+  # 'examples/mcu-embassy',
+  # 'examples/uefi-demo',
+  'demos/weather-demo',
+  'demos/usecases/rust',
+  'helper_crates/const-field-offset',
+  'helper_crates/vtable',
+  'helper_crates/vtable/macro',
+  'internal/backends/winit',
+  'internal/backends/android-activity',
+  'internal/backends/qt',
+  'internal/backends/selector',
+  'internal/backends/testing',
+  'internal/backends/linuxkms',
+  'internal/renderers/software',
+  'internal/renderers/skia',
+  'internal/renderers/femtovg',
+  'internal/common',
+  'internal/compiler',
+  'internal/compiler/parser-test-macro',
+  'internal/core',
+  'internal/core-macros',
+  'internal/interpreter',
+  'tests/doctests',
+  'tests/driver/cpp',
+  'tests/driver/driverlib',
+  'tests/driver/interpreter',
+  'tests/driver/nodejs',
+  'tests/driver/python',
+  'tests/driver/rust',
+  'tests/screenshots',
+  'tests/manual/windowattributes',
+  'tests/manual/module-builds/blogica',
+  'tests/manual/module-builds/blogicb',
+  'tests/manual/module-builds/app',
+  'tools/compiler',
+  'tools/docsnapper',
+  'tools/figma_import',
+  'tools/lsp',
+  'tools/updater',
+  'tools/viewer',
+  'tools/tr-extractor',
+  "ui-libraries/material/examples/gallery",
+  'xtask',
+]
+
+default-members = [
+  'api/rs/build',
+  'api/rs/slint',
+  # 'examples/gallery',
+  # 'examples/memory',
+  'demos/printerdemo/rust',
+  # 'examples/slide_puzzle',
+  # 'examples/speedometer/rust',
+  # 'examples/todo/rust',
+  # 'examples/virtual_keyboard/rust',
+  # 'examples/carousel/rust',
+  'demos/energy-monitor',
+  'internal/backends/winit',
+  'internal/backends/qt',
+  'internal/backends/selector',
+  'internal/compiler',
+  'internal/core',
+  'internal/interpreter',
+  'tests/doctests',
+  'tests/driver/interpreter',
+  'tests/driver/rust',
+  'tests/screenshots',
+  'tools/compiler',
+  'tools/figma_import',
+  'tools/lsp',
+  'tools/viewer',
+]
+
+resolver = "3"
+
+[workspace.package]
+description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+authors = ["Slint Developers <info@slint.dev>"]
+documentation = "https://slint.dev/docs"
+edition = "2024"
+homepage = "https://slint.dev"
+keywords = ["gui", "toolkit", "graphics", "design", "ui"]
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+repository = "https://github.com/slint-ui/slint"
+rust-version = "1.88"
+version = "1.15.0"
+
+[workspace.dependencies]
+i-slint-backend-android-activity = { version = "=1.15.0", path = "internal/backends/android-activity", default-features = false }
+i-slint-backend-linuxkms = { version = "=1.15.0", path = "internal/backends/linuxkms", default-features = false }
+i-slint-backend-qt = { version = "=1.15.0", path = "internal/backends/qt", default-features = false }
+i-slint-backend-selector = { version = "=1.15.0", path = "internal/backends/selector", default-features = false }
+i-slint-backend-testing = { version = "=1.15.0", path = "internal/backends/testing", default-features = false }
+i-slint-backend-winit = { version = "=1.15.0", path = "internal/backends/winit", default-features = false }
+i-slint-common = { version = "=1.15.0", path = "internal/common", default-features = false }
+i-slint-compiler = { version = "=1.15.0", path = "internal/compiler", default-features = false }
+i-slint-core = { version = "=1.15.0", path = "internal/core", default-features = false }
+i-slint-core-macros = { version = "=1.15.0", path = "internal/core-macros", default-features = false }
+i-slint-renderer-femtovg = { version = "=1.15.0", path = "internal/renderers/femtovg", default-features = false }
+i-slint-renderer-skia = { version = "=1.15.0", path = "internal/renderers/skia", default-features = false }
+i-slint-renderer-software = { version = "=1.15.0", path = "internal/renderers/software", default-features = false }
+slint = { version = "=1.15.0", path = "api/rs/slint", default-features = false }
+slint-build = { version = "=1.15.0", path = "api/rs/build", default-features = false }
+slint-cpp = { version = "=1.15.0", path = "api/cpp", default-features = false }
+slint-interpreter = { version = "=1.15.0", path = "internal/interpreter", default-features = false }
+slint-macros = { version = "=1.15.0", path = "api/rs/macros", default-features = false }
+
+vtable = { version = "0.3", path = "helper_crates/vtable" }
+
+by_address = { version = "1.0.4" }
+bytemuck = { version = "1.13.1" }
+cbindgen = { version = "0.29", default-features = false }
+cfg_aliases = { version = "0.2.0" }
+clap = { version = "4.0", features = ["derive", "wrap_help"] }
+clru = { version = "0.6.0" }
+css-color-parser2 = { version = "1.0.1" }
+derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
+euclid = { version = "0.22.1", default-features = false }
+fontdue = { version = "0.9.0" }
+glutin = { version = "0.32.0", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+itertools = { version = "0.14" }
+log = { version = "0.4.17" }
+resvg = { version = "0.45.0", default-features = false, features = ["text", "raster-images"] }
+rowan = { version = "0.16.1" }
+rustybuzz = { version = "0.20.0" }
+send_wrapper = { version = "0.6.0" }
+serde = { version = "1.0.163", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0.96" }
+softbuffer = { version = "0.4.4", default-features = false }
+spin_on = { version = "0.1" }
+strum = { version = "0.27.1", default-features = false, features = ["derive"] }
+toml_edit = { version = "0.24.0" }
+ttf-parser = { version = "0.25" }
+typed-index-collections = "3.2"
+web-sys = { version = "0.3.72", default-features = false }
+smol_str = { version = "0.3.1" }
+rayon = { version = "1.10.0", default-features = false }
+raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
+unicode-segmentation = { version = "1.12.0" }
+glow = { version = "0.16" }
+tikv-jemallocator = { version = "0.6" }
+wgpu-26 = { package = "wgpu", version = "26", default-features = false }
+wgpu-27 = { package = "wgpu", version = "27", default-features = false }
+input = { version = "0.9.0", default-features = false }
+tr = { version = "0.1", default-features = false }
+fontique = { version = "0.7.0" }
+read-fonts = { version = "0.35" }
+skrifa = { version = "0.37" }
+windows = { version = "0.62" }
+windows-core = { version = "0.62.0" }
+
+[profile.release]
+lto = true
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
