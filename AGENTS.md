@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding assistants when working with code in this repository.
 
 ## Project Overview
 
@@ -77,12 +77,19 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
 
 - **`internal/core/`** - Runtime library (properties, layout, animations, accessibility)
 
+- **`internal/core-macros/`** - Procedural macros for i-slint-core
+
+- **`internal/common/`** - Shared code and data structures between compiler and runtime
+
 - **`internal/interpreter/`** - Dynamic compilation for scripting languages
 
 - **`internal/backends/`** - Platform windowing/input:
   - `winit/` - Cross-platform (primary)
   - `qt/` - Qt integration
-  - `android-activity/`, `linuxkms/`
+  - `android-activity/` - Android platform support
+  - `linuxkms/` - Linux KMS/DRM direct rendering
+  - `selector/` - Runtime backend selection
+  - `testing/` - Testing backend for automated tests
 
 - **`internal/renderers/`** - Rendering engines:
   - `femtovg/` - OpenGL ES 2.0
@@ -97,12 +104,25 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
 - `cpp/` - C++ API with CMake integration
 - `node/` - Node.js bindings (Neon)
 - `python/` - Python bindings (PyO3)
+- `wasm-interpreter/` - WebAssembly bindings for browser use
 
 ### Tools
 
 - `tools/lsp/` - Language Server Protocol for editor integration
 - `tools/compiler/` - CLI compiler
 - `tools/viewer/` - .slint file viewer with hot reload
+- `tools/slintpad/` - Web-based Slint editor/playground
+- `tools/figma_import/` - Import designs from Figma
+- `tools/tr-extractor/` - Translation string extractor for i18n
+- `tools/updater/` - Migration tool for Slint version updates
+
+### Editor Support (`editors/`)
+
+- `vscode/` - Visual Studio Code extension
+- `zed/` - Zed editor integration
+- `kate/` - Kate editor syntax highlighting
+- `sublime/` - Sublime Text support
+- `tree-sitter-slint/` - Tree-sitter grammar for syntax highlighting
 
 ### Key Patterns
 
