@@ -98,6 +98,13 @@ jobs:
         working-directory: ui-libraries/material/examples/gallery
         run: x build --platform android --arch arm64 --release --format 'aab'
 
+      - name: Verify aab
+        if: steps.cache-aab.outputs.cache-hit != 'true'
+        working-directory: ui-libraries/material/examples/gallery
+        run: |
+          wget https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          java -jar bundletool-all-1.18.3.jar validate --bundle $GITHUB_WORKSPACE/target/x/release/android/material-gallery.aab
+
       # 6. Upload
       - name: "Upload Artifacts"
         uses: actions/upload-artifact@v6
