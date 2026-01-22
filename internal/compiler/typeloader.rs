@@ -20,6 +20,8 @@ use itertools::Itertools;
 
 enum LoadedDocument {
     Document(Document),
+    /// A dependency of this file has changed, so we need to re-analyze it.
+    /// The file contents have not changed, so we can keep the parsed CST around.
     Invalidated(syntax_nodes::Document),
 }
 
@@ -928,17 +930,14 @@ impl TypeLoader {
         myself
     }
 
+    /// Drop a document from the TypeLoader and invalidate all of its dependencies.
+    ///
+    /// This forces the compiler to entirely reload the document from scratch.
+    /// To only cause a re-analyze, but not a reparse, use [Self::invalidate_document]
     pub fn drop_document(&mut self, path: &Path) -> Result<(), std::io::Error> {
-        if let Some((LoadedDocument::Document(doc), _)) = self.all_documents.docs.remove(path) {
-            for dep in &doc.imports {
-                self.all_documents
-                    .dependencies
-                    .entry(Path::new(&dep.file).into())
-                    .or_default()
-                    .remove(path);
-            }
-        }
-        self.all_documents.dependencies.remove(path);
+        self.invalidate_document(path);
+        self.all_documents.docs.remove(path);
+
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
         } else {
@@ -947,13 +946,18 @@ impl TypeLoader {
     }
 
     /// Invalidate a document and all its dependencies.
+    ///
+    /// This will keep the CST of the document in cache, but mark that it needs to be re-analyzed
+    /// to reconstruct its types.
+    ///
+    /// To entirely forget a document and cause a complete re-parse, use [Self::drop_document].
     pub fn invalidate_document(&mut self, path: &Path) -> HashSet<PathBuf> {
         if let Some((d, _)) = self.all_documents.docs.get_mut(path) {
             if let LoadedDocument::Document(doc) = d {
-                for dep in &doc.imports {
+                for import in &doc.imports {
                     self.all_documents
                         .dependencies
-                        .entry(Path::new(&dep.file).into())
+                        .entry(Path::new(&import.file).into())
                         .or_default()
                         .remove(path);
                 }
@@ -1798,11 +1802,11 @@ fn test_dependency_loading() {
         HashMap::from([("library".into(), test_source_path.join("library").join("lib.slint"))]);
     compiler_config.style = Some("fluent".into());
 
-    let mut main_test_path = test_source_path;
+    let mut main_test_path = test_source_path.clone();
     main_test_path.push("dependency_test_main.slint");
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse_file(main_test_path, &mut test_diags).unwrap();
+    let doc_node = crate::parser::parse_file(&main_test_path, &mut test_diags).unwrap();
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
@@ -1821,6 +1825,36 @@ fn test_dependency_loading() {
     assert!(!build_diagnostics.has_errors());
     assert_eq!(foreign_imports.len(), 3);
     assert!(foreign_imports.iter().all(|x| matches!(x.import_kind, ImportKind::ImportList(..))));
+
+    let imported_files: Vec<_> = [
+        "incpath/local_helper_type.slint",
+        "incpath/dependency_from_incpath.slint",
+        "dependency_local.slint",
+        "library/lib.slint",
+        "library/dependency_from_library.slint",
+    ]
+    .into_iter()
+    .map(|path| test_source_path.join(path))
+    .collect();
+    for file in &imported_files {
+        assert!(loader.get_document(file).is_some());
+    }
+
+    // Test Typeloader invalidation/dropping
+    // Dropping/invalidating all leaf nodes should invalidate everything.
+    let to_drop = test_source_path.join("incpath/local_helper_type.slint");
+    loader.drop_document(&to_drop).unwrap();
+    let to_invalidate = test_source_path.join("library/dependency_from_library.slint");
+    loader.invalidate_document(&to_invalidate);
+
+    // Check that the dropped file has indeed been fully dropped.
+    assert!(!loader.all_files().contains(&to_drop));
+    // But that the invalidated file is still there (even if get_document won't return it anymore)
+    assert!(loader.all_files().contains(&to_invalidate));
+
+    for file in imported_files {
+        assert!(loader.get_document(&file).is_none(), "{} is still loaded", file.display());
+    }
 }
 
 #[test]
