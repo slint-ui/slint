@@ -17,18 +17,19 @@ export component LineEditBase implements LineEditInterface {
 }
 
 export component MyLineEdit uses { LineEditInterface from base } {
-    base := LineEditBase {}
+    base := LineEditBase { }
 }
 
-export component Foo implements Bar {}
+export component Foo implements Bar { }
 //                              >  <error{Unknown element 'Bar'}
 
-export component MyRectangle implements Rectangle {}
+export component MyRectangle implements Rectangle { }
 //                                      >        <error{Cannot implement Rectangle. It is not an interface}
 
-export component LineEdit implements LineEditBase {}
+export component LineEdit implements LineEditBase { }
 //                                   >           <error{Cannot implement LineEditBase. It is not an interface}
 
-global MyGlobal {}
-export component MyGlobalG implements MyGlobal {}
+global MyGlobal { }
+
+export component MyGlobalG implements MyGlobal { }
 //                                    >       <error{Cannot create an instance of a global component}

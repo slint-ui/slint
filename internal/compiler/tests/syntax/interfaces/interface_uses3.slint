@@ -3,10 +3,11 @@
 
 
 interface InterfaceI {
-    out property<bool> test;
+    out property <bool> test;
 }
 
-component Base implements InterfaceI {}
+component Base implements InterfaceI { }
 
-export component InvalidUses uses { InterfaceI from, } {}
-//                                                 ^error{Syntax error: expected Identifier}
+export component InvalidUses uses { InterfaceI from
+, } { }
+//^<<error{Syntax error: expected Identifier}
