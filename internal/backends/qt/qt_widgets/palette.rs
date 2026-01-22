@@ -92,7 +92,7 @@ impl NativePalette {
         self.background.set(Brush::from(background));
 
         let alternate_background = cpp!(unsafe[] -> u32 as "QRgb" {
-            return qApp->palette().color(QPalette::Base).rgba();
+            return qApp->palette().color(QPalette::AlternateBase).rgba();
         });
         let alternate_background = Color::from_argb_encoded(alternate_background);
         self.alternate_background.set(Brush::from(alternate_background));
