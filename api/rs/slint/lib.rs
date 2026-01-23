@@ -714,7 +714,7 @@ pub mod winit_030 {
 }
 
 #[cfg(feature = "unstable-fontique-07")]
-pub mod fontique {
+pub mod fontique_07 {
     //! Fontique 0.7 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
@@ -743,13 +743,13 @@ pub mod fontique {
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique::fontique;
+    /// use slint::fontique_07::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique::shared_collection();
+    ///     let mut collection = slint::fontique_07::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new("Hira", None), fonts.iter().map(|x| x.0));
