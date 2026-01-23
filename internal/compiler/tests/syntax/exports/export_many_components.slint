@@ -1,0 +1,119 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Stress test for export sorting with 100+ exports.
+// Components are defined in non-alphabetical order to exercise the sort.
+// This verifies the O(n log n) sorting optimization handles large inputs correctly.
+
+export component Export099 {}
+export component Export050 {}
+export component Export025 {}
+export component Export075 {}
+export component Export012 {}
+export component Export087 {}
+export component Export037 {}
+export component Export062 {}
+export component Export006 {}
+export component Export093 {}
+export component Export031 {}
+export component Export068 {}
+export component Export018 {}
+export component Export081 {}
+export component Export043 {}
+export component Export056 {}
+export component Export003 {}
+export component Export096 {}
+export component Export028 {}
+export component Export071 {}
+export component Export015 {}
+export component Export084 {}
+export component Export040 {}
+export component Export059 {}
+export component Export009 {}
+export component Export090 {}
+export component Export034 {}
+export component Export065 {}
+export component Export021 {}
+export component Export078 {}
+export component Export046 {}
+export component Export053 {}
+export component Export000 {}
+export component Export100 {}
+export component Export026 {}
+export component Export073 {}
+export component Export013 {}
+export component Export086 {}
+export component Export039 {}
+export component Export060 {}
+export component Export007 {}
+export component Export092 {}
+export component Export033 {}
+export component Export066 {}
+export component Export019 {}
+export component Export080 {}
+export component Export045 {}
+export component Export054 {}
+export component Export002 {}
+export component Export097 {}
+export component Export027 {}
+export component Export072 {}
+export component Export014 {}
+export component Export085 {}
+export component Export041 {}
+export component Export058 {}
+export component Export008 {}
+export component Export091 {}
+export component Export035 {}
+export component Export064 {}
+export component Export020 {}
+export component Export079 {}
+export component Export047 {}
+export component Export052 {}
+export component Export001 {}
+export component Export098 {}
+export component Export024 {}
+export component Export074 {}
+export component Export011 {}
+export component Export088 {}
+export component Export036 {}
+export component Export063 {}
+export component Export005 {}
+export component Export094 {}
+export component Export030 {}
+export component Export069 {}
+export component Export017 {}
+export component Export082 {}
+export component Export042 {}
+export component Export057 {}
+export component Export004 {}
+export component Export095 {}
+export component Export029 {}
+export component Export070 {}
+export component Export016 {}
+export component Export083 {}
+export component Export044 {}
+export component Export055 {}
+export component Export010 {}
+export component Export089 {}
+export component Export032 {}
+export component Export067 {}
+export component Export022 {}
+export component Export077 {}
+export component Export048 {}
+export component Export051 {}
+export component Export023 {}
+export component Export076 {}
+export component Export038 {}
+export component Export061 {}
+export component Export049 {}
+
+// Also include some exported structs and enums to test mixed source types
+export struct ExportedStruct001 { value: int }
+export struct ExportedStruct002 { value: int }
+export struct ExportedStruct003 { value: int }
+export struct ExportedStruct004 { value: int }
+export struct ExportedStruct005 { value: int }
+
+export enum ExportedEnum001 { A, B, C }
+export enum ExportedEnum002 { X, Y, Z }
+export enum ExportedEnum003 { One, Two, Three }
