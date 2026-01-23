@@ -114,7 +114,7 @@ jobs:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              run: cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python _qt -- --test-threads=1
               shell: bash
             - name: live-preview for rust test
               env:
