@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test empty exports edge case.
+// Verifies the export sorting handles the case where no explicit exports exist.
+// The last component should be implicitly exported with a deprecation warning.
+
+component InternalOnly inherits Rectangle {
+    width: 100px;
+    height: 100px;
+}
+
+  component MainComponent inherits Window {
+//>warning{Component is implicitly marked for export. This is deprecated and it should be explicitly exported}
+    width: 200px;
+    height: 200px;
+    InternalOnly {}
+}
+//<<<warning{Component is implicitly marked for export. This is deprecated and it should be explicitly exported}
