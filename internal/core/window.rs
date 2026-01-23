@@ -552,12 +552,7 @@ impl WindowInner {
             .internal(crate::InternalToken)
             .map(|internal| internal.safe_area_inset())
             .unwrap_or_default();
-        self.set_window_item_safe_area(
-            inset.top_to_logical(scale_factor),
-            inset.bottom_to_logical(scale_factor),
-            inset.left_to_logical(scale_factor),
-            inset.right_to_logical(scale_factor),
-        );
+        self.set_window_item_safe_area(inset.to_logical(scale_factor));
         window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
         crate::timers::Timer::single_shot(Default::default(), move || {
@@ -1156,12 +1151,7 @@ impl WindowInner {
             .internal(crate::InternalToken)
             .map(|internal| internal.safe_area_inset())
             .unwrap_or_default();
-        self.set_window_item_safe_area(
-            inset.top_to_logical(scale_factor),
-            inset.bottom_to_logical(scale_factor),
-            inset.left_to_logical(scale_factor),
-            inset.right_to_logical(scale_factor),
-        );
+        self.set_window_item_safe_area(inset.to_logical(scale_factor));
         self.window_adapter().renderer().resize(size).unwrap();
         if let Some(hook) = self.ctx.0.window_shown_hook.borrow_mut().as_mut() {
             hook(&self.window_adapter());
@@ -1490,22 +1480,17 @@ impl WindowInner {
         }
     }
 
-    pub(crate) fn set_window_item_safe_area(
-        &self,
-        top: crate::lengths::LogicalLength,
-        bottom: crate::lengths::LogicalLength,
-        left: crate::lengths::LogicalLength,
-        right: crate::lengths::LogicalLength,
-    ) {
+    /// The safe area of the window has changed.
+    pub fn set_window_item_safe_area(&self, inset: crate::lengths::LogicalInset) {
         if let Some(component_rc) = self.try_component() {
             let component = ItemTreeRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.safe_area_inset_top.set(top);
-                window_item.safe_area_inset_bottom.set(bottom);
-                window_item.safe_area_inset_left.set(left);
-                window_item.safe_area_inset_right.set(right);
+                window_item.safe_area_inset_top.set(inset.top());
+                window_item.safe_area_inset_bottom.set(inset.bottom());
+                window_item.safe_area_inset_left.set(inset.left());
+                window_item.safe_area_inset_right.set(inset.right());
             }
         }
     }
