@@ -1,6 +1,10 @@
 # Custom Renderer Implementation Guide
 
-This document covers how to implement a custom renderer for Slint. This is intended for developers extending Slint's rendering capabilities.
+> **When to load this document:** Working on `internal/renderers/`, adding
+> rendering backends, fixing drawing bugs, or implementing custom graphics output.
+> For general build commands and project structure, see `/AGENTS.md`.
+
+This document covers how to implement a custom renderer for Slint. This is intended for developers extending Slint's rendering capabilities or debugging existing renderers.
 
 ## Overview
 
@@ -13,7 +17,7 @@ Slint includes three built-in renderers:
 
 ### RendererSealed (`internal/core/renderer.rs`)
 
-The fundamental trait all renderers must implement. Uses the sealed trait pattern to prevent external implementations while exposing a public `Renderer` trait.
+The fundamental trait all renderers must implement. Uses the sealed trait pattern—`RendererSealed` is internal, while `Renderer` is the public re-export that external code uses.
 
 **Key methods:**
 
@@ -154,6 +158,95 @@ To implement a custom renderer:
 5. **Support `RenderingNotifier`** - For BeforeRendering/AfterRendering hooks
 6. **Implement partial rendering** (optional) - Dirty region tracking for performance
 7. **Implement caching** - Texture/image caching via `ItemCache`
+
+## Renderer Registration & Selection
+
+### Feature Flags
+
+Renderers are enabled via Cargo features in `api/rs/slint/Cargo.toml`:
+
+```toml
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia"]
+renderer-software = ["i-slint-backend-selector/renderer-software"]
+```
+
+### Backend Selector
+
+The selector (`internal/backends/selector/lib.rs`) chooses renderer at runtime:
+
+1. Check `SLINT_BACKEND` environment variable (e.g., `winit-skia`, `winit-femtovg`)
+2. Fall back to compile-time feature priority
+
+To add a new renderer:
+1. Add feature flag to `internal/backends/selector/Cargo.toml`
+2. Update `try_create_renderer()` in `internal/backends/selector/lib.rs`
+3. Wire up in the appropriate backend (e.g., `internal/backends/winit/`)
+
+### Runtime Selection
+
+```sh
+SLINT_BACKEND=winit-software cargo run    # Force software renderer
+SLINT_BACKEND=winit-skia cargo run        # Force Skia renderer
+```
+
+## Window & Event Loop Integration
+
+Renderers integrate with the platform through `WindowAdapter`:
+
+```
+Platform (winit/qt/linuxkms)
+    └── WindowAdapter
+            ├── window() -> Window (Slint window abstraction)
+            └── renderer() -> &dyn Renderer
+                    └── render() called by event loop on redraw
+```
+
+**Render lifecycle:**
+1. Event loop receives redraw request
+2. Backend calls `WindowAdapter::renderer().render()`
+3. Renderer traverses item tree via `ItemRenderer` methods
+4. Renderer presents to screen/surface
+
+**Key integration points:**
+- `internal/backends/winit/winitwindowadapter.rs` - Winit integration
+- `internal/core/window.rs` - Platform-agnostic window logic
+- `internal/core/api.rs` - Public `Window` API
+
+## Testing Renderer Changes
+
+### Screenshot Tests
+
+```sh
+# Run screenshot comparison tests
+cargo test -p test-driver-screenshots
+
+# Generate new reference screenshots (run when intentionally changing rendering)
+SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots
+```
+
+### Testing Backend
+
+Use the headless testing backend for automated tests:
+
+```sh
+SLINT_BACKEND=testing cargo test
+```
+
+The testing backend (`internal/backends/testing/`) provides:
+- Headless rendering without display
+- Simulated input events
+- Screenshot capture for comparison
+
+### Visual Verification
+
+```sh
+# Run gallery to visually inspect rendering
+cargo run -p gallery
+
+# View specific .slint file with hot reload
+cargo run --bin slint-viewer -- path/to/file.slint
+```
 
 ## Directory Structure
 
