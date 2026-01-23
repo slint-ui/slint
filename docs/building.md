@@ -17,7 +17,7 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 - **FFMPEG**
 
-- **Skia** (only few available binaries):
+- **Skia** (binaries limited to few platforms):
 
 <center>
 

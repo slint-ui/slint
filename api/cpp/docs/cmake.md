@@ -161,7 +161,7 @@ This ensures that the Slint library is built for the correct architecture.
 For example if you are building against an embedded Linux Yocto SDK targeting
 an ARM64 board, the following commands show how to compile:
 
-Install the Rust targe toolchain once:
+Install the Rust target toolchain once:
 
 <!-- cSpell:disable -->
 ```sh

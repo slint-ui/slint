@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-/*! This crate just expose the function used by the C++ integration */
+/*! This crate just exposes the function used by the C++ integration */
 
 #![no_std]
 extern crate alloc;
@@ -29,7 +29,7 @@ pub fn with_platform<R>(
     i_slint_core::with_platform(|| Err(i_slint_core::platform::PlatformError::NoPlatform), f)
 }
 
-// One need to make sure something from the crate is exported,
+// We need to make sure something from the crate is exported,
 // otherwise its symbols are not going to be in the final binary
 #[cfg(feature = "testing")]
 pub use i_slint_backend_testing;
