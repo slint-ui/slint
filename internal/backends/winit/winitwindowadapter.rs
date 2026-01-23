@@ -28,7 +28,7 @@ use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
-use corelib::item_tree::ItemTreeRef;
+use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
 use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
@@ -1495,7 +1495,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(enable_accesskit)]
-    fn register_item_tree(&self) {
+    fn register_item_tree(&self, _: ItemTreeRefPin) {
         let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
         // If the accesskit_adapter is already borrowed, this means the new items were created when the tree was built and there is no need to re-visit them
         if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {

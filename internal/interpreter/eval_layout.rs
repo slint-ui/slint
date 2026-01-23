@@ -216,13 +216,14 @@ fn repeater_instances(
     generativity::make_guard!(guard);
     let rep =
         crate::dynamic_item_tree::get_repeater_by_name(component, elem.borrow().id.as_str(), guard);
+    let extra_data = component.description.extra_data_offset.apply(component.as_ref());
     rep.0.as_ref().ensure_updated(|| {
         crate::dynamic_item_tree::instantiate(
             rep.1.clone(),
             component.self_weak().get().cloned(),
             None,
             None,
-            Default::default(),
+            extra_data.globals.get().unwrap().clone(),
         )
     });
     rep.0.as_ref().instances_vec()

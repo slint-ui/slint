@@ -849,6 +849,10 @@ fn call_builtin_function(
 
             generativity::make_guard!(guard);
             let compiled = enclosing_component.description.popup_menu_description.unerase(guard);
+            let extra_data = enclosing_component
+                .description
+                .extra_data_offset
+                .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
                 Some(enclosing_component.self_weak().get().unwrap().clone()),
@@ -856,7 +860,7 @@ fn call_builtin_function(
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
                 )),
-                Default::default(),
+                extra_data.globals.get().unwrap().clone(),
             );
 
             generativity::make_guard!(guard);
@@ -2039,11 +2043,11 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     match component_instance {
         ComponentInstance::InstanceRef(component) => {
             if enclosing.is_global() && !Rc::ptr_eq(enclosing, &component.description.original) {
-                let root = component.toplevel_instance(guard);
                 ComponentInstance::GlobalComponent(
-                    root.description
+                    component
+                        .description
                         .extra_data_offset
-                        .apply(root.instance.get_ref())
+                        .apply(component.instance.get_ref())
                         .globals
                         .get()
                         .unwrap()
