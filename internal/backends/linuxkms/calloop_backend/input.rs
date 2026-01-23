@@ -18,13 +18,14 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::input::MouseEvent;
+use i_slint_core::lengths::logical_point_from_api;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
-use i_slint_core::window::WindowAdapter;
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
-
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
-use input::event::touch::{TouchEventPosition, TouchEventSlot};
+use input::event::touch::TouchEventPosition;
 use xkbcommon::*;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
@@ -238,39 +239,39 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         _ => {}
                     }
                 }
-                input::Event::Touch(touch_event) => {
-                    if let Some(event) = match touch_event {
-                        input::event::TouchEvent::Down(touch_down_event) => {
-                            self.last_touch_pos = LogicalPosition::new(
-                                touch_down_event.x_transformed(screen_size.width as u32) as _,
-                                touch_down_event.y_transformed(screen_size.height as u32) as _,
-                            );
-                            Some(WindowEvent::TouchPressed {
-                                position: self.last_touch_pos,
-                                touch_id: touch_down_event.slot().unwrap_or(0) as _,
-                            })
-                        }
-                        input::event::TouchEvent::Up(touch_up_event) => {
-                            Some(WindowEvent::TouchReleased {
-                                position: self.last_touch_pos,
-                                touch_id: touch_up_event.slot().unwrap_or(0) as _,
-                            })
-                        }
-                        input::event::TouchEvent::Motion(touch_motion_event) => {
-                            self.last_touch_pos = LogicalPosition::new(
-                                touch_motion_event.x_transformed(screen_size.width as u32) as _,
-                                touch_motion_event.y_transformed(screen_size.height as u32) as _,
-                            );
-                            Some(WindowEvent::TouchMoved {
-                                position: self.last_touch_pos,
-                                touch_id: touch_motion_event.slot().unwrap_or(0) as _,
-                            })
-                        }
-                        _ => None,
-                    } {
-                        window.try_dispatch_event(event).map_err(Self::Error::other)?;
+                input::Event::Touch(touch_event) => match touch_event {
+                    input::event::TouchEvent::Down(touch_down_event) => {
+                        self.last_touch_pos = LogicalPosition::new(
+                            touch_down_event.x_transformed(screen_size.width as u32) as _,
+                            touch_down_event.y_transformed(screen_size.height as u32) as _,
+                        );
+                        WindowInner::from_pub(window).process_mouse_input(MouseEvent::Pressed {
+                            position: logical_point_from_api(self.last_touch_pos),
+                            button: i_slint_core::input::PointerEventButton::Left,
+                            click_count: 0,
+                            is_touch: true,
+                        });
                     }
-                }
+                    input::event::TouchEvent::Up(_touch_up_event) => {
+                        WindowInner::from_pub(window).process_mouse_input(MouseEvent::Released {
+                            position: logical_point_from_api(self.last_touch_pos),
+                            button: i_slint_core::input::PointerEventButton::Left,
+                            click_count: 0,
+                            is_touch: true,
+                        });
+                    }
+                    input::event::TouchEvent::Motion(touch_motion_event) => {
+                        self.last_touch_pos = LogicalPosition::new(
+                            touch_motion_event.x_transformed(screen_size.width as u32) as _,
+                            touch_motion_event.y_transformed(screen_size.height as u32) as _,
+                        );
+                        WindowInner::from_pub(window).process_mouse_input(MouseEvent::Moved {
+                            position: logical_point_from_api(self.last_touch_pos),
+                            is_touch: true,
+                        });
+                    }
+                    _ => {}
+                },
                 input::Event::Keyboard(input::event::KeyboardEvent::Key(key_event)) => {
                     // On Linux key codes have a fixed offset of 8: https://docs.rs/xkbcommon/0.6.0/xkbcommon/xkb/struct.Keycode.html
                     let key_code = xkb::Keycode::new(key_event.key() + 8);
