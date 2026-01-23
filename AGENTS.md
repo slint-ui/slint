@@ -157,3 +157,9 @@ brew install pkg-config ffmpeg
 - Enable symlinks: `git clone -c core.symlinks=true https://github.com/slint-ui/slint`
 - Install MSVC Build Tools
 - FFMPEG via vcpkg or manual installation
+
+## Deep Dive Documentation
+
+For tasks requiring deeper architectural understanding, see:
+
+- **`docs/agents/compiler-internals.md`** - Compiler pipeline, passes, property system, LLR, code generation. Load when working on `internal/compiler/` or `internal/core/properties.rs`.
