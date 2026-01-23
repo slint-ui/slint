@@ -3,10 +3,16 @@
 
 import { Palette, ScrollView, ListView, Switch } from "std-widgets.slint";
 import { Api, LogMessage, LogMessageLevel } from "../api.slint";
-import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
+import {
+    RecentColorPicker,
+} from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
-import { ConsoleStyles, EditorSizeSettings, Icons,  } from "styling.slint";
-import {WindowGlobal } from "../windowglobal.slint";
+import {
+    ConsoleStyles,
+    EditorSizeSettings,
+    Icons,
+} from "styling.slint";
+import { WindowGlobal } from "../windowglobal.slint";
 
 
 export component ConsolePanel inherits SimpleColumn {
@@ -252,24 +258,24 @@ export component ConsolePanel inherits SimpleColumn {
 
         HorizontalLayout {
             alignment: end;
+            padding-right: 10px;
+            spacing: 6px;
             Text {
                 text: @tr("Auto clear logs");
                 font-family: "Inter";
                 font-size: 12px;
                 color: ConsoleStyles.text-color;
                 vertical-alignment: center;
-            }
 
-            Rectangle {
-                width: 6px;
+                TouchArea {
+                    clicked => {
+                        Api.auto-clear-console = !Api.auto-clear-console;
+                    }
+                }
             }
 
             Switch {
                 checked <=> Api.auto-clear-console;
-            }
-
-            Rectangle {
-                width: 10px;
             }
         }
 
@@ -344,6 +350,8 @@ export component ConsolePanel inherits SimpleColumn {
             }
 
             lv := ListView {
+                horizontal-stretch: 1;
+
                 for lm[index] in Api.log-output: Rectangle {
                     height: helper-message.height + 6px;
                     // helper-message is used to calculate the height of the message
@@ -409,6 +417,5 @@ export component ConsolePanel inherits SimpleColumn {
                 }
             }
         }
-
     }
 }
