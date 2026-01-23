@@ -136,7 +136,7 @@ Struct A can convert to Struct B if:
 1. All fields in B exist in A with convertible types
 2. If B has extra fields, A must not have any fields missing from B
 
-```slint
+```slint,ignore
 // This works:
 struct Small { x: int }
 struct Large { x: int, y: int }
@@ -316,7 +316,7 @@ pub struct Enumeration {
 
 ### Accessing Enumeration Values
 
-```slint
+```slint,ignore
 // In Slint code:
 property<TextHorizontalAlignment> align: TextHorizontalAlignment.center;
 
@@ -331,7 +331,7 @@ property<TextHorizontalAlignment> align: TextHorizontalAlignment.center;
 
 When a two-way binding is created without explicit type:
 
-```slint
+```slint,ignore
 property foo <=> other.bar;  // Type inferred from other.bar
 ```
 
@@ -341,7 +341,7 @@ The type starts as `Type::InferredProperty` and is resolved during the `infer_al
 
 Similarly for callback aliases:
 
-```slint
+```slint,ignore
 callback my-callback <=> parent.some-callback;
 ```
 

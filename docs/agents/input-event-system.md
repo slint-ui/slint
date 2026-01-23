@@ -444,7 +444,7 @@ fn default_previous_in_local_focus_chain(index: u32, item_tree: &ItemTreeNodeArr
 
 Items can delegate focus via `forward-focus` property:
 
-```slint
+```slint,ignore
 component MyInput {
     forward-focus: input;
     input := TextInput { }
