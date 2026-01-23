@@ -822,12 +822,18 @@ impl Layout {
             .map(|info| info.max_physical_width)
             .unwrap_or(PhysicalLength::new(f32::MAX));
 
+        let run_start = PhysicalLength::new(glyph_run.offset());
         let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
-        let needs_elision = run_end > max_width;
+
+        // Run starts after where the elipsis would go - skip entirely
+        let run_beyond_elision = run_start > max_width;
+        // Run extends beyond max width and needs truncation + elipsis
+        let needs_elision = !run_beyond_elision && run_end > max_width;
 
         let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
-            !needs_elision
-                || PhysicalLength::new(glyph.x + glyph.advance + elipsis_advance) <= max_width
+            !run_beyond_elision
+                && (!needs_elision
+                    || PhysicalLength::new(glyph.x + glyph.advance + elipsis_advance) <= max_width)
         });
 
         let elipsis = if needs_elision {
