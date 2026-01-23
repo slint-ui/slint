@@ -18,7 +18,6 @@ pub use crate::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use crate::sharedvector::SharedVector;
-pub use crate::styled_text::StyledText;
 pub use crate::{format, string::SharedString, string::ToSharedString};
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
