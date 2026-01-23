@@ -270,13 +270,11 @@ impl AndroidWindowAdapter {
                     self.window.try_dispatch_event(WindowEvent::Resized {
                         size: self.size().to_logical(scale_factor),
                     })?;
-                    self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
-                        inset: self
-                            .internal(i_slint_core::InternalToken)
+                    WindowInner::from_pub(&self.window).set_window_item_safe_area(
+                        self.internal(i_slint_core::InternalToken)
                             .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
                             .unwrap_or_default(),
-                        token: i_slint_core::InternalToken,
-                    })?;
+                    );
                 }
             }
             PollEvent::Main(MainEvent::Destroy) => {
@@ -487,13 +485,11 @@ impl AndroidWindowAdapter {
         let scale_factor = self.window.scale_factor();
         self.window
             .try_dispatch_event(WindowEvent::Resized { size: size.to_logical(scale_factor) })?;
-        self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
-            inset: self
-                .internal(i_slint_core::InternalToken)
+        WindowInner::from_pub(&self.window).set_window_item_safe_area(
+            self.internal(i_slint_core::InternalToken)
                 .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
                 .unwrap_or_default(),
-            token: i_slint_core::InternalToken,
-        })?;
+        );
         self.offset.set(offset);
         Ok(())
     }
@@ -526,10 +522,8 @@ impl AndroidWindowAdapter {
         keyboard: PhysicalInset,
     ) {
         let scale_factor = self.window.scale_factor();
-        self.window.dispatch_event(WindowEvent::SafeAreaChanged {
-            inset: safe_area.to_logical(scale_factor),
-            token: i_slint_core::InternalToken,
-        });
+        WindowInner::from_pub(&self.window)
+            .set_window_item_safe_area(safe_area.to_logical(scale_factor));
 
         let window_origin = window_origin.to_logical(scale_factor);
         let window_size = window_size.to_logical(scale_factor);

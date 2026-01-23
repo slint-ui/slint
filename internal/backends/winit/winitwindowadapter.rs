@@ -776,10 +776,8 @@ impl WinitWindowAdapter {
             let size = physical_size.to_logical(scale_factor);
             self.window().try_dispatch_event(WindowEvent::Resized { size })?;
 
-            self.window().try_dispatch_event(WindowEvent::SafeAreaChanged {
-                inset: self.safe_area_inset().to_logical(scale_factor),
-                token: corelib::InternalToken,
-            })?;
+            WindowInner::from_pub(self.window())
+                .set_window_item_safe_area(self.safe_area_inset().to_logical(scale_factor));
 
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
             // with the width/height attribute (the size of the viewport/GL surface)
@@ -1233,17 +1231,12 @@ impl WindowAdapter for WinitWindowAdapter {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();
-            self.window()
-                .try_dispatch_event(WindowEvent::SafeAreaChanged {
-                    inset: LogicalInset::new(
-                        window_item.safe_area_inset_top().get(),
-                        window_item.safe_area_inset_bottom().get(),
-                        window_item.safe_area_inset_left().get(),
-                        window_item.safe_area_inset_right().get(),
-                    ),
-                    token: corelib::InternalToken,
-                })
-                .unwrap();
+            WindowInner::from_pub(self.window()).set_window_item_safe_area(LogicalInset::new(
+                window_item.safe_area_inset_top().get(),
+                window_item.safe_area_inset_bottom().get(),
+                window_item.safe_area_inset_left().get(),
+                window_item.safe_area_inset_right().get(),
+            ));
         }
 
         let m = properties.is_fullscreen();
