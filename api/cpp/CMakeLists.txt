@@ -19,7 +19,7 @@ if (NOT Corrosion_FOUND)
     )
 
     FetchContent_MakeAvailable(Corrosion)
-endif (NOT Corrosion_FOUND)
+endif ()
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.88 REQUIRED MODULE)
