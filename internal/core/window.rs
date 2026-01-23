@@ -15,7 +15,7 @@ use crate::input::{
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, key_codes,
 };
 use crate::item_tree::{
-    ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
+    ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
@@ -165,7 +165,7 @@ pub trait WindowAdapter {
 #[doc(hidden)]
 pub trait WindowAdapterInternal: core::any::Any {
     /// This function is called by the generated code when a component and therefore its tree of items are created.
-    fn register_item_tree(&self) {}
+    fn register_item_tree(&self, _: ItemTreeRefPin) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources.

@@ -179,7 +179,7 @@ pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<Wind
         }
     });
     if let Some(adapter) = window_adapter.as_ref().and_then(|a| a.internal(crate::InternalToken)) {
-        adapter.register_item_tree();
+        adapter.register_item_tree(ItemTreeRc::borrow_pin(item_tree_rc));
     }
 }
 

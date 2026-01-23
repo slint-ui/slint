@@ -13,6 +13,7 @@ use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::{Component, Document, PropertyDeclaration};
 use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::{Property, rtti};
+use once_cell::unsync::OnceCell;
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -58,18 +59,33 @@ impl CompiledGlobalCollection {
     }
 }
 
+#[derive(Default)]
+pub struct GlobalStorageInner {
+    pub globals: RefCell<HashMap<String, Pin<Rc<dyn GlobalComponent>>>>,
+    window_adapter: OnceCell<i_slint_core::window::WindowAdapterRc>,
+}
+
 #[derive(Clone)]
 pub enum GlobalStorage {
-    Strong(Rc<RefCell<HashMap<String, Pin<Rc<dyn GlobalComponent>>>>>),
+    Strong(Rc<GlobalStorageInner>),
     /// When the storage is held by another global
-    Weak(std::rc::Weak<RefCell<HashMap<String, Pin<Rc<dyn GlobalComponent>>>>>),
+    Weak(std::rc::Weak<GlobalStorageInner>),
 }
 
 impl GlobalStorage {
     pub fn get(&self, name: &str) -> Option<Pin<Rc<dyn GlobalComponent>>> {
         match self {
-            GlobalStorage::Strong(storage) => storage.borrow().get(name).cloned(),
-            GlobalStorage::Weak(storage) => storage.upgrade().unwrap().borrow().get(name).cloned(),
+            GlobalStorage::Strong(storage) => storage.globals.borrow().get(name).cloned(),
+            GlobalStorage::Weak(storage) => {
+                storage.upgrade().unwrap().globals.borrow().get(name).cloned()
+            }
+        }
+    }
+
+    pub fn window_adapter(&self) -> Option<&OnceCell<i_slint_core::window::WindowAdapterRc>> {
+        match self {
+            GlobalStorage::Strong(storage) => Some(&storage.window_adapter),
+            GlobalStorage::Weak(_) => None,
         }
     }
 }
@@ -171,7 +187,7 @@ pub trait GlobalComponent {
 /// Instantiate the global singleton and store it in `globals`
 pub fn instantiate(
     description: &CompiledGlobal,
-    globals: &mut GlobalStorage,
+    globals: &GlobalStorage,
     root: vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
 ) {
     let GlobalStorage::Strong(globals) = globals else { panic!("Global storage is not strong") };
@@ -208,7 +224,7 @@ pub fn instantiate(
         }
     };
 
-    globals.borrow_mut().extend(
+    globals.globals.borrow_mut().extend(
         description
             .names()
             .iter()

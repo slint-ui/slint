@@ -17,8 +17,9 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
 };
-use i_slint_core::item_tree::ParentItemTraversalMode;
-use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
+use i_slint_core::item_tree::{
+    ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
+};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin,
     MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
@@ -1952,7 +1953,7 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 }
 
 impl WindowAdapterInternal for QtWindow {
-    fn register_item_tree(&self) {
+    fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }
 

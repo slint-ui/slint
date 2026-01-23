@@ -9,8 +9,10 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
 use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 
+use i_slint_core::SharedString;
 use i_slint_core::items::TextWrap;
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -46,6 +48,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             size: Default::default(),
             ime_requests: Default::default(),
             mouse_cursor: Default::default(),
+            all_item_trees: Default::default(),
         }))
     }
 
@@ -104,11 +107,27 @@ impl i_slint_core::platform::Platform for TestingBackend {
     }
 }
 
+#[derive(Default)]
+struct CheckAllItemTreesUnregistered(RefCell<HashMap<*const u8, SharedString>>);
+
+impl Drop for CheckAllItemTreesUnregistered {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            assert!(
+                self.0.borrow().is_empty(),
+                "Some item trees were not unregistered: {:?}",
+                self.0.borrow().values()
+            );
+        }
+    }
+}
+
 pub struct TestingWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
     mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    all_item_trees: CheckAllItemTreesUnregistered,
 }
 
 impl TestingWindow {
@@ -125,6 +144,24 @@ impl WindowAdapterInternal for TestingWindow {
 
     fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
         self.mouse_cursor.set(cursor);
+    }
+
+    fn register_item_tree(&self, item_tree: i_slint_core::item_tree::ItemTreeRefPin) {
+        let mut debug = SharedString::new();
+        item_tree.as_ref().item_element_infos(0, &mut debug);
+        assert_eq!(
+            self.all_item_trees.0.borrow_mut().insert(item_tree.as_ptr(), debug.clone()),
+            None,
+            "Item tree already registered {debug:?}"
+        );
+    }
+
+    fn unregister_item_tree(
+        &self,
+        item_tree: i_slint_core::item_tree::ItemTreeRef,
+        _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) {
+        self.all_item_trees.0.borrow_mut().remove(&item_tree.as_ptr());
     }
 }
 
