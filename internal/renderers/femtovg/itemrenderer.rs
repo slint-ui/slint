@@ -1135,14 +1135,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
-        let current_clip = self.get_current_clip();
         if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
             // We don't need to include the size of the opacity item itself, since it has no content.
             i_slint_core::properties::evaluate_no_tracking(|| {
                 i_slint_core::item_rendering::item_children_bounding_rect(
                     item_rc.item_tree(),
                     item_rc.index() as isize,
-                    &current_clip,
                 )
             })
         }) && let Some(layer_size) = layer_image.size()
