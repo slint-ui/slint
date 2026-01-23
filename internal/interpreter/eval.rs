@@ -2027,7 +2027,9 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
         // (it assumes that the 'id must outlive 'a , which is not true)
         let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
 
-        let parent_instance = component.parent_instance(static_guard).unwrap();
+        let parent_instance = component
+            .parent_instance(static_guard)
+            .expect("accessing deleted parent (issue #6426)");
         enclosing_component_for_element(element, parent_instance, _guard)
     }
 }
