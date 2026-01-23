@@ -317,7 +317,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    let (to_show, to_show_receiver) = tokio::sync::watch::channel(None);
+    let to_show = std::sync::Arc::new(common::watcher::Watcher::new());
 
     #[cfg(not(feature = "preview-engine"))]
     let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
@@ -330,12 +330,9 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         );
         let embedded_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
-        let remote_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::RemoteLspToPreview::new(
-                to_show_receiver,
-                preview_to_lsp_sender,
-                sn,
-            ));
+        let remote_preview: Box<dyn common::LspToPreview> = Box::new(
+            preview::connector::RemoteLspToPreview::new(to_show.clone(), preview_to_lsp_sender, sn),
+        );
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 HashMap::from([

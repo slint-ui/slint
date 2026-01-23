@@ -17,7 +17,7 @@ use crate::common::{self, ComponentInformation};
 use crate::preview::{self, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 mod brushes;
 pub mod log_messages;
