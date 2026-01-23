@@ -2,15 +2,22 @@ import {
     ServiceBrowser,
     ServiceListAdapter,
 } from "views/service_browser.slint";
-import { VerticalBox, Button } from "std-widgets.slint";
-export { ServiceListAdapter }
+import { Api, ComponentItem } from "api.slint";
+import { VerticalBox, Button, HorizontalBox } from "std-widgets.slint";
+export { ServiceListAdapter, Api }
+
+export enum ConnectionState { Browser, Connecting, Connected }
 
 export component MainWindow inherits Window {
     preferred-width: 400px;
     preferred-height: 600px;
     title: "Slint Remote Viewer";
 
-    VerticalBox {
+    in property <ConnectionState> connection-state;
+    in property <ComponentItem> visible-component;
+    property <component-factory> preview-area <=> Api.preview-area;
+
+    if connection-state == ConnectionState.Browser: VerticalBox {
         Rectangle {
             width: 100%;
             x: 0;
@@ -29,5 +36,44 @@ export component MainWindow inherits Window {
         }
 
         ServiceBrowser { }
+    }
+
+    if connection-state == ConnectionState.Connecting: HorizontalLayout {
+        alignment: center;
+        Text {
+            text: @tr("Connecting...");
+        }
+    }
+
+    if connection-state == ConnectionState.Connected: ComponentContainer {
+        property <bool> is-resizable: (self.min-width != self.max-width || self.min-height != self.max-height) && self.has-component;
+
+        component-factory: root.preview-area;
+
+        // The width and the height can't depend on the layout info of the inner item otherwise this would
+        // cause a recursion if this happens (#3989)
+        // Instead, we use a init function to initialize
+        width: 0px;
+        height: 0px;
+
+        init => {
+            self.width = max(self.preferred-width, self.min-width);
+            self.height = max(self.preferred-height, self.min-height);
+        }
+        // changed min-width => {
+        //     main-resizer.resize-to-preview-constraints(self.width, self.height);
+        // }
+
+        // changed max-width => {
+        //     main-resizer.resize-to-preview-constraints(self.width, self.height);
+        // }
+
+        // changed width => {
+        //     Api.reselect();
+        // }
+
+        // changed height => {
+        //     Api.reselect();
+        // }
     }
 }

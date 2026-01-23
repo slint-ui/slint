@@ -15,7 +15,7 @@ pub struct ServiceModelController {
 impl ServiceModelController {
     pub fn insert(&self, service: ResolvedService) {
         let mut services = self.services.borrow_mut();
-        if !services.contains(&service) {
+        if !services.iter().any(|s| Self::compare_service(s, &service)) {
             services.push(service);
             self.notify.row_added(services.len(), 1);
         }
@@ -46,6 +46,21 @@ impl ServiceModelController {
                 self.notify.row_removed(index, 1);
                 return;
             }
+        }
+    }
+
+    fn compare_service(one: &ResolvedService, two: &ResolvedService) -> bool {
+        #[cfg(target_vendor = "apple")]
+        {
+            let one_type = one.service_type();
+            let other_type = two.service_type();
+            one_type.name() == other_type.name()
+                && one_type.protocol() == other_type.protocol()
+                && one.domain() == two.domain()
+        }
+        #[cfg(not(target_vendor = "apple"))]
+        {
+            one.get_fullname() == two.get_fullname()
         }
     }
 }

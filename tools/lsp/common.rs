@@ -3,17 +3,15 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
+use std::collections::HashMap;
 use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
 
 pub mod component_catalog;
-pub mod document_cache;
-pub use document_cache::{DocumentCache, SourceFileVersion};
 pub use i_slint_compiler::diagnostics::ByteFormat;
+pub use lsp_protocol::document_cache::{self, DocumentCache, SourceFileVersion};
 pub mod rename_component;
 pub mod rename_element_id;
 #[cfg(test)]
@@ -25,24 +23,16 @@ pub mod token_info;
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum PreviewTarget {
-    #[allow(dead_code)]
-    ChildProcess,
-    #[allow(dead_code)]
-    EmbeddedWasm,
-    #[allow(dead_code)]
-    Remote,
-    #[allow(dead_code)]
-    Dummy,
-}
+pub use lsp_protocol::{
+    ElementRcNode, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewTarget,
+    PreviewToLspMessage, VersionedUrl, file_to_uri, uri_to_file,
+};
 
 #[allow(dead_code)]
 pub trait LspToPreview {
@@ -120,24 +110,6 @@ pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
     })
 }
 
-pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
-    if ["builtin", "vscode-remote"].contains(&uri.scheme()) {
-        Some(PathBuf::from(uri.to_string()))
-    } else {
-        let path = uri.to_file_path().ok()?;
-        let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
-        Some(cleaned_path)
-    }
-}
-
-pub fn file_to_uri(path: &Path) -> Option<Url> {
-    if ["builtin:/", "vscode-remote:/"].iter().any(|prefix| path.starts_with(prefix)) {
-        Url::parse(path.to_str()?).ok()
-    } else {
-        Url::from_file_path(path).ok()
-    }
-}
-
 pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
     match node.kind() {
         SyntaxKind::Element => Some(node.into()),
@@ -146,226 +118,6 @@ pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
             extract_element(node.child_node(SyntaxKind::SubElement)?)
         }
         _ => None,
-    }
-}
-
-fn find_element_with_decoration(element: &syntax_nodes::Element) -> SyntaxNode {
-    let this_node: SyntaxNode = element.clone().into();
-    element
-        .parent()
-        .and_then(|p| match p.kind() {
-            SyntaxKind::SubElement => p.parent().map(|gp| {
-                if gp.kind() == SyntaxKind::ConditionalElement
-                    || gp.kind() == SyntaxKind::RepeatedElement
-                {
-                    gp
-                } else {
-                    p
-                }
-            }),
-            _ => Some(this_node.clone()),
-        })
-        .unwrap_or(this_node)
-}
-
-fn find_parent_component(node: &SyntaxNode) -> Option<SyntaxNode> {
-    let mut current = Some(node.clone());
-    while let Some(p) = current {
-        if matches!(p.kind(), SyntaxKind::Component) {
-            return Some(p);
-        }
-        current = p.parent();
-    }
-    None
-}
-
-#[derive(Clone)]
-pub struct ElementRcNode {
-    pub element: ElementRc,
-    pub debug_index: usize,
-}
-
-impl std::cmp::PartialEq for ElementRcNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.path_and_offset() == other.path_and_offset() && self.debug_index == other.debug_index
-    }
-}
-
-impl std::fmt::Debug for ElementRcNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (path, offset) = self.path_and_offset();
-        write!(f, "ElementNode {{ {path:?}:{offset:?} }}")
-    }
-}
-
-impl ElementRcNode {
-    pub fn new(element: ElementRc, debug_index: usize) -> Option<Self> {
-        let _ = element.borrow().debug.get(debug_index)?;
-
-        Some(Self { element, debug_index })
-    }
-
-    pub fn in_document_cache(&self, document_cache: &DocumentCache) -> Option<Self> {
-        self.with_element_node(|en| {
-            let element_start = en.text_range().start();
-            let path = en.source_file.path();
-
-            let doc = document_cache.get_document_by_path(path)?;
-            let component = doc.inner_components.iter().find(|c| {
-                let Some(c_node) = &c.node else {
-                    return false;
-                };
-                c_node.text_range().contains(element_start)
-            })?;
-            ElementRcNode::find_in_or_below(
-                component.root_element.clone(),
-                path,
-                u32::from(element_start),
-            )
-        })
-    }
-
-    /// Some nodes get merged into the same ElementRc with no real connections between them...
-    pub fn next_element_rc_node(&self) -> Option<Self> {
-        Self::new(self.element.clone(), self.debug_index + 1)
-    }
-
-    pub fn find_in(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|d| {
-            u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
-        })?;
-
-        Some(Self { element, debug_index })
-    }
-
-    pub fn find_in_or_below(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|d| {
-            u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
-        });
-        if let Some(debug_index) = debug_index {
-            Some(Self { element, debug_index })
-        } else {
-            for c in &element.borrow().children {
-                let result = Self::find_in_or_below(c.clone(), path, offset);
-                if result.is_some() {
-                    return result;
-                }
-            }
-            None
-        }
-    }
-
-    /// Run with all the debug information on the node
-    pub fn with_element_debug<R>(
-        &self,
-        func: impl FnOnce(&i_slint_compiler::object_tree::ElementDebugInfo) -> R,
-    ) -> R {
-        let elem = self.element.borrow();
-        let d = elem.debug.get(self.debug_index).unwrap();
-        func(d)
-    }
-
-    /// Run with the `Element` node
-    pub fn with_element_node<R>(
-        &self,
-        func: impl FnOnce(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
-    ) -> R {
-        let elem = self.element.borrow();
-        func(&elem.debug.get(self.debug_index).unwrap().node)
-    }
-
-    /// Run with the SyntaxNode incl. any id, condition, etc.
-    pub fn with_decorated_node<R>(&self, func: impl FnOnce(SyntaxNode) -> R) -> R {
-        let elem = self.element.borrow();
-        func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().node))
-    }
-
-    pub fn path_and_offset(&self) -> (PathBuf, TextSize) {
-        self.with_element_node(|n| (n.source_file.path().to_owned(), n.text_range().start()))
-    }
-
-    pub fn as_element(&self) -> &ElementRc {
-        &self.element
-    }
-
-    pub fn parent(&self) -> Option<ElementRcNode> {
-        let mut ancestor = self.with_element_node(|node| node.parent());
-
-        while let Some(parent) = ancestor {
-            if parent.kind() != SyntaxKind::Element {
-                ancestor = parent.parent();
-                continue;
-            }
-
-            let (parent_path, parent_offset) =
-                (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
-
-            ancestor = parent.parent();
-
-            let component = self.element.borrow().enclosing_component.upgrade().unwrap();
-            let current_root = component.root_element.clone();
-            let root_element = if std::rc::Rc::ptr_eq(&current_root, &self.element) {
-                component.parent_element.upgrade().map_or(current_root, |parent| {
-                    parent.borrow().enclosing_component.upgrade().unwrap().root_element.clone()
-                })
-            } else {
-                current_root
-            };
-
-            let result = Self::find_in_or_below(root_element, &parent_path, parent_offset);
-
-            if result.is_some() {
-                return result;
-            }
-        }
-
-        None
-    }
-
-    pub fn children(&self) -> Vec<ElementRcNode> {
-        self.with_element_node(|node| {
-            let mut children = Vec::new();
-            for c in node.children() {
-                if let Some(element) = extract_element(c.clone()) {
-                    let e_path = element.source_file.path().to_path_buf();
-                    let e_offset = u32::from(element.text_range().start());
-
-                    let Some(child_node) = ElementRcNode::find_in_or_below(
-                        self.as_element().clone(),
-                        &e_path,
-                        e_offset,
-                    ) else {
-                        continue;
-                    };
-                    children.push(child_node);
-                }
-            }
-
-            children
-        })
-    }
-
-    pub fn component_type(&self) -> String {
-        self.with_element_node(|node| {
-            node.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default()
-        })
-    }
-
-    pub fn is_same_component_as(&self, other: &Self) -> bool {
-        let Some(s) = self.with_element_node(|n| find_parent_component(n)) else {
-            return false;
-        };
-        let Some(o) = other.with_element_node(|n| find_parent_component(n)) else {
-            return false;
-        };
-
-        std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
-    }
-
-    pub fn contains_offset(&self, offset: TextSize) -> bool {
-        self.with_element_node(|node| {
-            node.parent().is_some_and(|n| n.text_range().contains(offset))
-        })
     }
 }
 
@@ -454,36 +206,6 @@ pub fn create_workspace_edit_from_single_text_edits(
 }
 
 /// A versioned file
-#[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub struct VersionedUrl {
-    /// The file url
-    url: Url,
-    // The file version
-    version: SourceFileVersion,
-}
-
-impl VersionedUrl {
-    pub fn new(url: Url, version: SourceFileVersion) -> Self {
-        VersionedUrl { url, version }
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn version(&self) -> &SourceFileVersion {
-        &self.version
-    }
-}
-
-impl std::fmt::Debug for VersionedUrl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let version = self.version.map(|v| format!("v{v}")).unwrap_or_else(|| "none".to_string());
-        write!(f, "{}@{}", self.url, version)
-    }
-}
-
-/// A versioned file
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Position {
     /// The file url
@@ -535,43 +257,6 @@ impl VersionedPosition {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
-pub struct PreviewConfig {
-    pub hide_ui: Option<bool>,
-    pub style: String,
-    pub include_paths: Vec<PathBuf>,
-    pub library_paths: HashMap<String, PathBuf>,
-    pub format_utf8: bool,
-    pub enable_experimental: bool,
-}
-
-/// The Component to preview
-#[allow(unused)]
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct PreviewComponent {
-    /// The file name to preview
-    pub url: Url,
-    /// The name of the component within that file.
-    /// If None, then the last component is going to be shown.
-    pub component: Option<String>,
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum LspToPreviewMessage {
-    InvalidateContents { url: lsp_types::Url },
-    ForgetFile { url: lsp_types::Url },
-    SetContents { url: VersionedUrl, contents: String },
-    SetConfiguration { config: PreviewConfig },
-    ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
-}
-
-impl lsp_types::notification::Notification for LspToPreviewMessage {
-    type Params = Self;
-    const METHOD: &'static str = "slint/lsp_to_preview";
-}
-
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Diagnostic {
@@ -594,26 +279,6 @@ impl PropertyChange {
     pub fn new(name: &str, value: String) -> Self {
         PropertyChange { name: name.to_string(), value }
     }
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum PreviewToLspMessage {
-    /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
-    /// Show a document in the editor.
-    ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
-    /// Switch between native, WASM, and remote preview (if supported)
-    PreviewTypeChanged { target: PreviewTarget },
-    /// Request all documents and configuration to be sent from the LSP to the
-    /// Preview.
-    RequestState { unused: bool },
-    /// Pass a `WorkspaceEdit` on to the editor
-    SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
-    /// Pass a `ShowMessage` notification on to the editor
-    SendShowMessage { message: lsp_types::ShowMessageParams },
-    /// Send a telemetry event
-    TelemetryEvent(serde_json::Map<String, serde_json::Value>),
 }
 
 /// Information on the Element types available
@@ -770,6 +435,7 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_uri_conversion_of_builtins() {

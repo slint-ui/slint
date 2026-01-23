@@ -4,7 +4,9 @@ import {
 } from "focus_touch_area.slint";
 
 export struct ServiceListViewItem {
+    filename: string,
     host: string,
+    port: int,
 }
 
 export component ServiceListViewItemDelegate {

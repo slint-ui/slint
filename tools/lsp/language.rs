@@ -15,13 +15,13 @@ pub mod test;
 use crate::common::uri_to_file;
 use crate::{common, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+#[cfg(target_arch = "wasm32")]
+use lsp_protocol::wasm_prelude::*;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
