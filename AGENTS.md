@@ -165,3 +165,4 @@ For tasks requiring deeper architectural understanding, see:
 - **`docs/agents/compiler-internals.md`** - Compiler pipeline, passes, property system, LLR, code generation. Load when working on `internal/compiler/` or `internal/core/properties.rs`.
 - **`docs/agents/custom-renderer.md`** - Renderer traits, drawing API, backend integration, testing. Load when working on `internal/renderers/` or fixing drawing bugs.
 - **`docs/agents/animation-internals.md`** - Animation timing, easing curves, performance, debugging. Load when working on `internal/core/animations.rs` or animation-related issues.
+- **`docs/agents/layout-system.md`** - Layout solving, constraints, GridLayout/BoxLayout, compile-time lowering. Load when working on `internal/core/layout.rs` or sizing/positioning bugs.
