@@ -1482,7 +1482,6 @@ impl QtItemRenderer<'_> {
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, self_rc: &ItemRc) -> RenderingResult {
-        let current_clip = self.get_current_clip();
         let mut layer_image = self.render_layer(self_rc, &|| {
             // We don't need to include the size of the opacity item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
@@ -1490,7 +1489,6 @@ impl QtItemRenderer<'_> {
                     &i_slint_core::item_rendering::item_children_bounding_rect(
                         &self_rc.item_tree(),
                         self_rc.index() as isize,
-                        &current_clip,
                     ),
                 )
             });

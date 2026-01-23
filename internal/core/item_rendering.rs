@@ -209,18 +209,13 @@ pub fn render_component_items(
 
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
-pub fn item_children_bounding_rect(
-    component: &ItemTreeRc,
-    index: isize,
-    clip_rect: &LogicalRect,
-) -> LogicalRect {
-    item_children_bounding_rect_inner(component, index, clip_rect, Default::default())
+pub fn item_children_bounding_rect(component: &ItemTreeRc, index: isize) -> LogicalRect {
+    item_children_bounding_rect_inner(component, index, Default::default())
 }
 
 fn item_children_bounding_rect_inner(
     component: &ItemTreeRc,
     index: isize,
-    clip_rect: &LogicalRect,
     transform: crate::lengths::ItemTransform,
 ) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
@@ -235,18 +230,12 @@ fn item_children_bounding_rect_inner(
                 .unwrap_or_default()
                 .then_translate(item_geometry.origin.to_vector());
 
-            let offset: LogicalPoint = item_geometry.origin.cast();
-            let local_clip_rect = clip_rect.translate(-offset.to_vector());
-
-            if let Some(clipped_item_geometry) = item_geometry.intersection(&clip_rect.cast()) {
-                bounding_rect = bounding_rect.union(&clipped_item_geometry.cast());
-            }
+            bounding_rect = bounding_rect.union(&item_geometry.cast());
 
             if !item.as_ref().clips_children() {
                 bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
                     component,
                     index as isize,
-                    &local_clip_rect,
                     transform.then(&children_transform),
                 ));
             }
