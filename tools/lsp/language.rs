@@ -726,6 +726,8 @@ pub(crate) async fn load_document_impl(
         InvalidateFile,
     }
 
+    tracing::trace!("Loading document: {url} (version: {version:?})");
+
     let Some(path) = common::uri_to_file(&url) else { return Default::default() };
     // Normalize the URL
     let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
@@ -789,12 +791,14 @@ pub async fn open_document(
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
 ) -> common::Result<()> {
+    tracing::debug!("Opening document: {url}");
     ctx.open_urls.borrow_mut().insert(url.clone());
 
     load_document(ctx, content, url, version, document_cache).await
 }
 
 pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    tracing::debug!("Closing document: {url}");
     ctx.open_urls.borrow_mut().remove(&url);
     drop_document(ctx, url).await
 }
@@ -809,12 +813,16 @@ pub async fn load_document(
     let (extra_files, diag) =
         load_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
+    tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
+
     send_diagnostics(&ctx.server_notifier, document_cache, &extra_files, diag);
 
     Ok(())
 }
 
 pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    tracing::debug!("Reloading document: {url}");
+
     let mut document_cache = ctx.document_cache.borrow_mut();
 
     let mut diagnostics = BuildDiagnostics::default();
@@ -860,6 +868,8 @@ fn send_diagnostics(
     diag: BuildDiagnostics,
 ) {
     let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
+    tracing::trace!("Sending {} diagnostics to editor", lsp_diags.values().flatten().count());
+
     for (uri, _diagnostics) in lsp_diags {
         let _version = document_cache.document_version(&uri);
 
@@ -883,6 +893,7 @@ fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<
 }
 
 pub async fn drop_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    tracing::debug!("Dropping document: {url}");
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() });
 
@@ -890,6 +901,7 @@ pub async fn drop_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Re
 }
 
 pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    tracing::debug!("Deleting document: {url}");
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
@@ -902,11 +914,14 @@ pub async fn trigger_file_watcher(
     typ: lsp_types::FileChangeType,
 ) -> common::Result<()> {
     if !ctx.open_urls.borrow().contains(&url) {
+        tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
         if typ == lsp_types::FileChangeType::DELETED {
             delete_document(ctx, url).await?;
         } else {
             drop_document(ctx, url).await?;
         }
+    } else {
+        tracing::trace!("Ignoring file watcher event for open document: {url}");
     }
     Ok(())
 }

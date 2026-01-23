@@ -93,6 +93,8 @@ by_address = { workspace = true }
 clru = { workspace = true }
 dissimilar = "1.0.7"
 itertools = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
 lsp-types = { version = "0.95.0" }
 serde = { workspace = true }
