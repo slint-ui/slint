@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test duplicates across different export sources:
+// Source 1: ExportSpecifiers (export { X })
+// Source 3: Exported structs/enums (export struct X {})
+//
+// The stable sort ensures errors appear in source-type order:
+// ExportSpecifier errors appear before Struct errors, regardless of
+// their position in the file.
+
+component InternalComp inherits Rectangle {}
+
+// Duplicate 'Alpha' across ExportSpecifier and Struct
+// ExportSpecifier comes first in source order, so its error is first
+export { InternalComp as Alpha }
+//                       >   <error{Duplicated export 'Alpha'}
+export struct Alpha { value: int }
+//            >   <error{Duplicated export 'Alpha'}
+
+// Duplicate 'Beta' - same pattern
+export { InternalComp as Beta }
+//                       >  <error{Duplicated export 'Beta'}
+export struct Beta { value: int }
+//            >  <error{Duplicated export 'Beta'}
+
+// Duplicate 'Gamma' - struct appears FIRST in file, but ExportSpecifier
+// still gets the first error because of source-type ordering
+export struct Gamma { name: string }
+//            >   <error{Duplicated export 'Gamma'}
+export { InternalComp as Gamma }
+//                       >   <error{Duplicated export 'Gamma'}
