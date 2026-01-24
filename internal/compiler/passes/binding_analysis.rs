@@ -557,7 +557,7 @@ fn process_property(
 fn recurse_expression(
     elem: &ElementRc,
     expr: &Expression,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut (impl FnMut(&PropertyPath, ReadType) + ?Sized),
 ) {
     const P: ReadType = ReadType::PropertyRead;
     expr.visit(|sub| recurse_expression(elem, sub, vis));
@@ -681,7 +681,7 @@ fn recurse_expression(
 fn visit_layout_items_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     orientation: Orientation,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut (impl FnMut(&PropertyPath, ReadType) + ?Sized),
 ) {
     for it in items {
         let mut element = it.element.clone();
@@ -698,7 +698,9 @@ fn visit_layout_items_dependencies<'a>(
             // that depend on layout, causing potential recursion issues.
             // See: https://github.com/slint-ui/slint/issues/7402
             let component = it.element.borrow().base_type.as_component().clone();
-            visit_component_init_and_changed_callbacks(&component, vis);
+            visit_component_init_and_changed_callbacks(&component, &mut |p, _| {
+                vis(p, ReadType::InitCallbackRead)
+            });
 
             element = component.root_element.clone();
         }
@@ -737,7 +739,7 @@ fn visit_layout_items_dependencies<'a>(
 /// See: https://github.com/slint-ui/slint/issues/7402 and #7849
 fn visit_component_init_and_changed_callbacks(
     component: &Rc<crate::object_tree::Component>,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut dyn FnMut(&PropertyPath, ReadType),
 ) {
     // Visit init code (constructor_code contains collected init callbacks)
     // Init callbacks may read properties that depend on layout
@@ -766,9 +768,9 @@ fn visit_component_init_and_changed_callbacks(
 
 /// The builtin function can call native code, and we need to visit the properties that are accessed by it
 fn visit_implicit_layout_info_dependencies(
-    orientation: crate::layout::Orientation,
+    orientation: Orientation,
     item: &ElementRc,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut (impl FnMut(&PropertyPath, ReadType) + ?Sized),
 ) {
     let base_type = item.borrow().base_type.to_smolstr();
     const N: ReadType = ReadType::NativeRead;
