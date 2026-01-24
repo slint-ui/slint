@@ -201,6 +201,15 @@ fn analyze_element(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
+    for prop_name in elem.borrow().change_callbacks.keys() {
+        process_property(
+            &PropertyPath::from(NamedReference::new(elem, prop_name.clone())),
+            ReadType::InitCallbackRead,
+            context,
+            reverse_aliases,
+            diag,
+        );
+    }
     for (name, binding) in &elem.borrow().bindings {
         if binding.borrow().analysis.is_some() {
             continue;
@@ -390,11 +399,17 @@ fn analyze_binding(
     context.currently_analyzing.insert(current.clone());
 
     let b = binding.borrow();
+    let recurse_read_type = if context.init_callback_properties.contains(current) {
+        ReadType::InitCallbackRead
+    } else {
+        ReadType::PropertyRead
+    };
+
     for twb in &b.two_way_bindings {
         if twb.property != current.prop {
             depends_on_external |= process_property(
                 &current.relative(&twb.property.clone().into()),
-                ReadType::PropertyRead,
+                recurse_read_type,
                 context,
                 reverse_aliases,
                 diag,
@@ -403,13 +418,14 @@ fn analyze_binding(
     }
 
     let mut process_prop = |prop: &PropertyPath, r, context: &mut AnalysisContext| {
+        let r = if r == ReadType::PropertyRead { recurse_read_type } else { r };
         depends_on_external |=
             process_property(&current.relative(prop), r, context, reverse_aliases, diag);
         for x in reverse_aliases.get(&prop.prop).unwrap_or(&Default::default()) {
             if x != &current.prop && x != &prop.prop {
                 depends_on_external |= process_property(
                     &current.relative(&x.clone().into()),
-                    ReadType::PropertyRead,
+                    recurse_read_type,
                     context,
                     reverse_aliases,
                     diag,
@@ -457,7 +473,7 @@ fn analyze_binding(
     depends_on_external
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum ReadType {
     // Read from the native code
     NativeRead,
