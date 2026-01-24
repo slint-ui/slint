@@ -8,7 +8,7 @@ on:
     workflow_call:
 
 jobs:
-    wasm_build:
+    material_wasm_build:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
@@ -47,7 +47,7 @@ jobs:
             - name: "Upload Artifacts"
               uses: actions/upload-artifact@v6
               with:
-                  name: wasm_gallery
+                  name: material_wasm_gallery
                   path: |
                       ui-libraries/material/examples/gallery/index.html
                       ui-libraries/material/examples/gallery/frame-tablet.webp

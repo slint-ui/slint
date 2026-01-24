@@ -13,7 +13,7 @@ on:
         required: true
 
 jobs:
-  build:
+  material_gallery_android:
     env:
       CARGO_PROFILE_RELEASE_OPT_LEVEL: s
       CARGO_INCREMENTAL: false
