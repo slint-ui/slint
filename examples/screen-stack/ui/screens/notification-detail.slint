@@ -1,0 +1,138 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+export component Notification-detailScreen inherits ScreenWithHeader {
+    title: "Notification";
+    background: #f5f5f5;
+
+    // Notification data - set from Rust
+    in property <string> notification-id;
+    in property <string> notification-icon: "🔔";
+    in property <string> notification-title: "New Message";
+    in property <string> notification-body: "You have received a new message from Alice. Tap to view the full conversation and reply.";
+    in property <string> notification-time: "2 hours ago";
+
+    callback mark-as-read();
+    callback dismiss();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 16px;
+
+        // Icon and title
+        Rectangle {
+            background: white;
+            border-radius: 12px;
+            height: 160px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 16px;
+
+                Rectangle {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 32px;
+                    background: #e3f2fd;
+
+                    Text {
+                        text: notification-icon;
+                        font-size: 32px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Text {
+                    text: notification-title;
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: #333333;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: notification-time;
+                    font-size: 13px;
+                    color: #888888;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        // Body
+        Rectangle {
+            background: white;
+            border-radius: 12px;
+
+            VerticalLayout {
+                padding: 16px;
+
+                Text {
+                    text: notification-body;
+                    font-size: 15px;
+                    color: #333333;
+                    wrap: word-wrap;
+                    horizontal-alignment: left;
+                }
+            }
+        }
+
+        // Spacer
+        Rectangle {
+            vertical-stretch: 1;
+        }
+
+        // Actions
+        VerticalLayout {
+            spacing: 12px;
+
+            Rectangle {
+                height: 48px;
+                background: #2196F3;
+                border-radius: 8px;
+
+                Text {
+                    text: "Mark as Read";
+                    color: white;
+                    font-size: 16px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => {
+                        root.mark-as-read();
+                        root.go-back();
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 48px;
+                background: #f5f5f5;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: #dddddd;
+
+                Text {
+                    text: "Dismiss";
+                    color: #666666;
+                    font-size: 16px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => {
+                        root.dismiss();
+                        root.go-back();
+                    }
+                }
+            }
+        }
+    }
+}

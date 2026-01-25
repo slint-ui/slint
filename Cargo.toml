@@ -28,6 +28,7 @@ members = [
   'examples/speedometer/rust',
   'examples/todo/rust',
   'examples/todo-mvc/rust',
+  'examples/screen-stack',
   'examples/virtual_keyboard/rust',
   'examples/carousel/rust',
   'demos/energy-monitor',

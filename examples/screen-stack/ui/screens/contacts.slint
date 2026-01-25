@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListScreen, ListItem } from "../components/list-screen.slint";
+
+export component ContactsScreen inherits ListScreen {
+    title: "Contacts";
+    empty-text: "No contacts yet";
+
+    // Expose for Rust access (inherited properties not settable via interpreter)
+    in-out property <[ListItem]> contacts: [
+        { id: "1", icon: "👤", title: "Alice Smith", subtitle: "alice@example.com", has-arrow: true },
+        { id: "2", icon: "👤", title: "Bob Johnson", subtitle: "bob@example.com", has-arrow: true },
+        { id: "3", icon: "👤", title: "Carol White", subtitle: "carol@example.com", has-arrow: true },
+    ];
+
+    model: contacts;
+}

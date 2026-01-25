@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Base screen component - provides common structure for all screens.
+export component AbstractScreen {
+    in property <string> title: "Screen";
+    in property <brush> background: #f5f5f5;
+
+    Rectangle {
+        background: root.background;
+        @children
+    }
+}

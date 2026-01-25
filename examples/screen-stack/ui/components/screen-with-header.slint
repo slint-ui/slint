@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AbstractScreen } from "abstract-screen.slint";
+
+// Screen with a header bar containing back button and title.
+export component ScreenWithHeader inherits AbstractScreen {
+    in property <bool> can-go-back: true;
+    callback go-back();
+    callback navigate(string);
+
+    VerticalLayout {
+        // Header bar
+        Rectangle {
+            height: 56px;
+            background: #2196F3;
+
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 16px;
+
+                // Back button
+                Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: root.can-go-back ? #1976D2 : transparent;
+                    visible: root.can-go-back;
+
+                    Text {
+                        text: "←";
+                        font-size: 24px;
+                        color: white;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.go-back(); }
+                    }
+                }
+
+                // Title
+                Text {
+                    text: root.title;
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: white;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+
+        // Content area
+        Rectangle {
+            vertical-stretch: 1;
+            @children
+        }
+    }
+}

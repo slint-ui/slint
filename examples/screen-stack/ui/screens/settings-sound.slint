@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Slider, CheckBox } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component SettingRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value-text;
+    min-height: 56px;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            Text {
+                text: root.label;
+                font-size: 16px;
+                color: #333333;
+                horizontal-stretch: 1;
+            }
+
+            if root.value-text != "": Text {
+                text: root.value-text;
+                font-size: 14px;
+                color: #888888;
+            }
+        }
+
+        @children
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: #eeeeee;
+}
+
+export component Settings-soundScreen inherits ScreenWithHeader {
+    title: "Sound";
+    background: #f5f5f5;
+
+    in-out property <float> volume: 0.7;
+    in-out property <bool> effects: true;
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    SettingRow {
+                        label: "Master Volume";
+                        value-text: "\{round(volume * 100)}%";
+
+                        Slider {
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> volume;
+                        }
+                    }
+                    Divider {}
+                    SettingRow {
+                        label: "Sound Effects";
+
+                        HorizontalLayout {
+                            horizontal-stretch: 1;
+                            alignment: end;
+                            CheckBox {
+                                checked <=> effects;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

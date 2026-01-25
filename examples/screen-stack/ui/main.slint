@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// This example demonstrates dynamic screen loading with a navigation stack,
+// similar to QtQuick's StackView. It requires SLINT_ENABLE_EXPERIMENTAL_FEATURES=1
+// or enable_experimental = true in the compiler configuration.
+
+export enum TransitionType {
+    slide,
+    fade,
+    slide-fade,
+}
+
+export global Navigation {
+    // Dual-buffer for transitions: Rust alternates between screen-a and screen-b
+    in-out property <component-factory> screen-a;
+    in-out property <component-factory> screen-b;
+    in-out property <bool> show-b: false;  // which screen to show
+
+    // Stack depth for UI feedback
+    in-out property <int> stack-depth: 0;
+
+    // Animation control
+    in-out property <bool> is-pushing: true;
+
+    // User-configurable transition type
+    in-out property <TransitionType> transition-type: TransitionType.fade;
+
+    // Navigation callbacks (implemented in Rust)
+    callback push(string);
+    callback pop();
+    callback replace(string);
+    callback clear(string);      // Clear stack, set new root
+    callback pop-to-root();      // Pop all, return to root
+}
+
+// Main application shell
+export component App inherits Window {
+    title: "Screen Stack Example";
+    width: 400px;
+    height: 700px;
+
+    // Background
+    Rectangle {
+        background: #f5f5f5;
+    }
+
+    // Shorthand for transition type
+    property <TransitionType> ttype: Navigation.transition-type;
+
+    // Screen A - active when show-b is false
+    screen-a := Rectangle {
+        // For fade mode: stay at x:0, use visible to prevent touch on hidden screen
+        // For slide modes: move off-screen
+        x: (ttype == TransitionType.fade) ? 0px :
+           (Navigation.show-b ? (Navigation.is-pushing ? -root.width : root.width) : 0px);
+        width: root.width;
+        height: root.height;
+        opacity: (ttype == TransitionType.slide) ? 1.0 : (Navigation.show-b ? 0.0 : 1.0);
+        clip: true;
+        // visible: true while animating (opacity > 0), false when fully hidden
+        // This prevents touch events on the hidden screen
+        visible: !Navigation.show-b || self.opacity > 0.01;
+
+        animate x { duration: 300ms; easing: ease-out; }
+        animate opacity { duration: 250ms; easing: ease-out; }
+
+        ComponentContainer {
+            width: 100%;
+            height: 100%;
+            component-factory: Navigation.screen-a;
+        }
+    }
+
+    // Screen B - active when show-b is true
+    screen-b := Rectangle {
+        x: (ttype == TransitionType.fade) ? 0px :
+           (Navigation.show-b ? 0px : (Navigation.is-pushing ? root.width : -root.width));
+        width: root.width;
+        height: root.height;
+        opacity: (ttype == TransitionType.slide) ? 1.0 : (Navigation.show-b ? 1.0 : 0.0);
+        clip: true;
+        // visible: true while animating (opacity > 0), false when fully hidden
+        visible: Navigation.show-b || self.opacity > 0.01;
+
+        animate x { duration: 300ms; easing: ease-out; }
+        animate opacity { duration: 250ms; easing: ease-out; }
+
+        ComponentContainer {
+            width: 100%;
+            height: 100%;
+            component-factory: Navigation.screen-b;
+        }
+    }
+}

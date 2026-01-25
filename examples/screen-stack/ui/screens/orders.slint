@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListScreen, ListItem } from "../components/list-screen.slint";
+
+export component OrdersScreen inherits ListScreen {
+    title: "Orders";
+    empty-text: "No orders";
+
+    in-out property <[ListItem]> orders: [
+        { id: "ord-001", icon: "📦", title: "Order #001", subtitle: "Delivered - Jan 15", has-arrow: true },
+        { id: "ord-002", icon: "🚚", title: "Order #002", subtitle: "In Transit - Jan 18", has-arrow: true },
+        { id: "ord-003", icon: "⏳", title: "Order #003", subtitle: "Processing - Jan 20", has-arrow: true },
+        { id: "ord-004", icon: "📦", title: "Order #004", subtitle: "Delivered - Jan 10", has-arrow: true },
+    ];
+
+    model: orders;
+}

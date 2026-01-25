@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox, GroupBox, LineEdit } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+export component ProfileScreen inherits ScreenWithHeader {
+    title: "Profile";
+
+    in-out property <string> user-name: "John Doe";
+    in-out property <string> email: "john@example.com";
+
+    callback save-profile();
+
+    VerticalBox {
+        alignment: start;
+        padding: 20px;
+        spacing: 20px;
+
+        // Avatar placeholder
+        Rectangle {
+            width: 80px;
+            height: 80px;
+            border-radius: 40px;
+            background: #3498db;
+
+            Text {
+                text: "JD";
+                font-size: 30px;
+                color: white;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        GroupBox {
+            title: "User Information";
+
+            VerticalBox {
+                spacing: 15px;
+
+                VerticalBox {
+                    spacing: 5px;
+                    Text { text: "Name"; color: #7f8c8d; font-size: 12px; }
+                    LineEdit {
+                        text <=> user-name;
+                        placeholder-text: "Enter your name";
+                    }
+                }
+
+                VerticalBox {
+                    spacing: 5px;
+                    Text { text: "Email"; color: #7f8c8d; font-size: 12px; }
+                    LineEdit {
+                        text <=> email;
+                        placeholder-text: "Enter your email";
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 10px;
+
+            Button {
+                text: "Save Profile";
+                clicked => { root.save-profile(); }
+            }
+
+            Button {
+                text: "Advanced Settings";
+                clicked => { root.navigate("advanced"); }
+            }
+        }
+    }
+}

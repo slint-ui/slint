@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox, GroupBox, CheckBox } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+export component AdvancedScreen inherits ScreenWithHeader {
+    title: "Advanced Settings";
+
+    in-out property <bool> debug-mode: false;
+    in-out property <bool> experimental-features: false;
+
+    VerticalBox {
+        alignment: start;
+        padding: 20px;
+        spacing: 20px;
+
+        Rectangle {
+            background: #fff3cd;
+            border-radius: 8px;
+            padding: 10px;
+
+            HorizontalLayout {
+                spacing: 10px;
+                Text { text: "⚠"; font-weight: 700; color: #856404; }
+                Text {
+                    text: "These settings are for advanced users only.";
+                    color: #856404;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        GroupBox {
+            title: "Developer Options";
+
+            VerticalBox {
+                spacing: 10px;
+
+                CheckBox {
+                    text: "Debug Mode";
+                    checked <=> debug-mode;
+                }
+
+                CheckBox {
+                    text: "Experimental Features";
+                    checked <=> experimental-features;
+                }
+            }
+        }
+
+        Button {
+            text: "Reset to Defaults";
+            clicked => {
+                debug-mode = false;
+                experimental-features = false;
+            }
+        }
+    }
+}

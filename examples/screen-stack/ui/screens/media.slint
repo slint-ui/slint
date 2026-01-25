@@ -1,0 +1,290 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { TabView } from "../components/tab-view.slint";
+
+component MediaCard inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <color> accent: #e3f2fd;
+    in property <string> icon;
+    callback clicked();
+
+    background: white;
+    border-radius: 12px;
+    height: 80px;
+
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+
+        Rectangle {
+            width: 56px;
+            height: 56px;
+            border-radius: 8px;
+            background: root.accent;
+
+            Text {
+                text: root.icon;
+                font-size: 28px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            horizontal-stretch: 1;
+
+            Text {
+                text: root.title;
+                font-size: 15px;
+                font-weight: 500;
+                color: #333333;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.subtitle;
+                font-size: 13px;
+                color: #888888;
+                overflow: elide;
+            }
+        }
+
+        Text {
+            text: "›";
+            font-size: 24px;
+            color: #cccccc;
+            vertical-alignment: center;
+        }
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+component GridItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <color> bg: #e3f2fd;
+
+    background: root.bg;
+    border-radius: 12px;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 8px;
+
+        Text {
+            text: root.icon;
+            font-size: 32px;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            font-size: 12px;
+            color: #666666;
+            horizontal-alignment: center;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            // Handle click
+        }
+    }
+}
+
+export component MediaScreen inherits TabView {
+    title: "Media";
+    tabs: ["Photos", "Videos", "Music"];
+
+    // Photos tab
+    if root.current-tab == 0: Rectangle {
+        Flickable {
+            viewport-height: photos-content.preferred-height;
+
+            photos-content := VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                Text {
+                    text: "Recent Photos";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #333333;
+                }
+
+                // Photo grid
+                GridLayout {
+                    spacing: 8px;
+
+                    Row {
+                        GridItem { icon: "🌅"; label: "Sunset"; bg: #ffecb3; }
+                        GridItem { icon: "🏔️"; label: "Mountains"; bg: #c8e6c9; }
+                        GridItem { icon: "🌊"; label: "Beach"; bg: #b3e5fc; }
+                    }
+                    Row {
+                        GridItem { icon: "🌸"; label: "Flowers"; bg: #f8bbd0; }
+                        GridItem { icon: "🏙️"; label: "City"; bg: #d1c4e9; }
+                        GridItem { icon: "🌳"; label: "Forest"; bg: #c8e6c9; }
+                    }
+                }
+
+                Text {
+                    text: "Albums";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #333333;
+                }
+
+                MediaCard {
+                    icon: "📷";
+                    title: "Camera Roll";
+                    subtitle: "234 photos";
+                    accent: #e3f2fd;
+                }
+
+                MediaCard {
+                    icon: "⭐";
+                    title: "Favorites";
+                    subtitle: "45 photos";
+                    accent: #fff9c4;
+                }
+
+                MediaCard {
+                    icon: "📸";
+                    title: "Screenshots";
+                    subtitle: "89 photos";
+                    accent: #f3e5f5;
+                }
+            }
+        }
+    }
+
+    // Videos tab
+    if root.current-tab == 1: Rectangle {
+        Flickable {
+            viewport-height: videos-content.preferred-height;
+
+            videos-content := VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                Text {
+                    text: "Your Videos";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #333333;
+                }
+
+                MediaCard {
+                    icon: "🎬";
+                    title: "Vacation 2024";
+                    subtitle: "15:32 • Jan 15";
+                    accent: #ffcdd2;
+                }
+
+                MediaCard {
+                    icon: "🎂";
+                    title: "Birthday Party";
+                    subtitle: "8:45 • Dec 20";
+                    accent: #f8bbd0;
+                }
+
+                MediaCard {
+                    icon: "🎓";
+                    title: "Graduation";
+                    subtitle: "23:10 • Jun 1";
+                    accent: #c5cae9;
+                }
+
+                MediaCard {
+                    icon: "🏃";
+                    title: "Morning Run";
+                    subtitle: "5:20 • Today";
+                    accent: #c8e6c9;
+                }
+
+                MediaCard {
+                    icon: "🍳";
+                    title: "Cooking Tutorial";
+                    subtitle: "12:45 • Yesterday";
+                    accent: #ffe0b2;
+                }
+            }
+        }
+    }
+
+    // Music tab
+    if root.current-tab == 2: Rectangle {
+        Flickable {
+            viewport-height: music-content.preferred-height;
+
+            music-content := VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                Text {
+                    text: "Playlists";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #333333;
+                }
+
+                MediaCard {
+                    icon: "🎵";
+                    title: "My Favorites";
+                    subtitle: "42 songs";
+                    accent: #b3e5fc;
+                }
+
+                MediaCard {
+                    icon: "🏃";
+                    title: "Workout Mix";
+                    subtitle: "28 songs";
+                    accent: #c8e6c9;
+                }
+
+                MediaCard {
+                    icon: "😴";
+                    title: "Chill Vibes";
+                    subtitle: "35 songs";
+                    accent: #d1c4e9;
+                }
+
+                Text {
+                    text: "Recently Played";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #333333;
+                }
+
+                MediaCard {
+                    icon: "🎸";
+                    title: "Rock Classics";
+                    subtitle: "Various Artists";
+                    accent: #ffcdd2;
+                }
+
+                MediaCard {
+                    icon: "🎹";
+                    title: "Piano Covers";
+                    subtitle: "Relaxing Piano";
+                    accent: #e1bee7;
+                }
+
+                MediaCard {
+                    icon: "🎤";
+                    title: "Top Hits 2024";
+                    subtitle: "Pop Collection";
+                    accent: #ffe0b2;
+                }
+            }
+        }
+    }
+}

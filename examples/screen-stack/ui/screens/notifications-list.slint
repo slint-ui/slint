@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListScreen, ListItem } from "../components/list-screen.slint";
+
+export component Notifications-listScreen inherits ListScreen {
+    title: "Notifications";
+    empty-text: "No notifications";
+
+    in-out property <[ListItem]> notifications: [
+        { id: "n1", icon: "🔔", title: "New message", subtitle: "You have a new message from Alice", has-arrow: true },
+        { id: "n2", icon: "📢", title: "System update", subtitle: "A new version is available", has-arrow: true },
+        { id: "n3", icon: "🎉", title: "Welcome!", subtitle: "Thanks for using Screen Stack Demo", has-arrow: false },
+    ];
+
+    model: notifications;
+}

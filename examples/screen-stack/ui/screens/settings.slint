@@ -1,0 +1,132 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component CategoryItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <string> description;
+    callback clicked;
+
+    height: 64px;
+    background: touch.pressed ? #f0f0f0 : white;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 16px;
+
+        // Icon circle
+        Rectangle {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: #e3f2fd;
+
+            Text {
+                text: root.icon;
+                font-size: 18px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+
+            Text {
+                text: root.label;
+                font-size: 16px;
+                color: #333333;
+            }
+
+            if root.description != "": Text {
+                text: root.description;
+                font-size: 13px;
+                color: #888888;
+            }
+        }
+
+        Text {
+            text: "›";
+            font-size: 24px;
+            color: #cccccc;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: #eeeeee;
+}
+
+export component SettingsScreen inherits ScreenWithHeader {
+    title: "Settings";
+    background: #f5f5f5;
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // General settings group
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    CategoryItem {
+                        icon: "🎨";
+                        label: "Appearance";
+                        description: "Theme, colors, display";
+                        clicked => { root.navigate("settings-appearance"); }
+                    }
+                    Divider {}
+                    CategoryItem {
+                        icon: "🔔";
+                        label: "Notifications";
+                        description: "Alerts, sounds, badges";
+                        clicked => { root.navigate("settings-notifications"); }
+                    }
+                    Divider {}
+                    CategoryItem {
+                        icon: "🔊";
+                        label: "Sound";
+                        description: "Volume, effects";
+                        clicked => { root.navigate("settings-sound"); }
+                    }
+                }
+            }
+
+            // Advanced group
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    CategoryItem {
+                        icon: "⚙";
+                        label: "Advanced";
+                        description: "Developer options";
+                        clicked => { root.navigate("advanced"); }
+                    }
+                    Divider {}
+                    CategoryItem {
+                        icon: "ℹ";
+                        label: "About";
+                        description: "Version, licenses";
+                        clicked => { root.navigate("settings-about"); }
+                    }
+                }
+            }
+        }
+    }
+}
