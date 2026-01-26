@@ -487,6 +487,172 @@ pub fn char_count_to_byte_offset(text: &str, char_count: usize) -> usize {
     text.char_indices().nth(char_count).map(|(idx, _)| idx).unwrap_or(text.len())
 }
 
+// ===== UTF-16 Offset Conversion Functions =====
+//
+// Android (Java) and iOS (NSString) use UTF-16 code unit offsets, while Rust
+// strings are UTF-8. These functions convert between the two encodings.
+//
+// Key differences:
+// - ASCII (U+0000-U+007F): 1 UTF-8 byte, 1 UTF-16 code unit
+// - BMP (U+0080-U+FFFF): 2-3 UTF-8 bytes, 1 UTF-16 code unit (includes most CJK)
+// - Supplementary (U+10000+): 4 UTF-8 bytes, 2 UTF-16 code units (surrogate pair)
+//
+// Example: "a😀b"
+// - 'a': UTF-8 offset 0, UTF-16 offset 0
+// - '😀': UTF-8 offset 1 (4 bytes), UTF-16 offset 1 (2 code units)
+// - 'b': UTF-8 offset 5, UTF-16 offset 3
+
+/// Converts a UTF-16 code unit offset to a UTF-8 byte offset.
+///
+/// This is essential for Android and iOS integration, as those platforms use
+/// UTF-16 code unit offsets for text positions.
+///
+/// # Arguments
+/// * `text` - The UTF-8 string
+/// * `utf16_offset` - The UTF-16 code unit offset to convert
+///
+/// # Returns
+/// * `Some(byte_offset)` - The corresponding UTF-8 byte offset
+/// * `None` - If the UTF-16 offset is invalid:
+///   - Beyond the end of the string
+///   - In the middle of a surrogate pair (e.g., offset 2 when char at offset 1 is an emoji)
+///
+/// # Examples
+/// ```ignore
+/// // ASCII: 1:1 mapping
+/// assert_eq!(utf16_offset_to_byte_offset("hello", 3), Some(3));
+///
+/// // CJK: "日" is 3 UTF-8 bytes, 1 UTF-16 code unit
+/// assert_eq!(utf16_offset_to_byte_offset("日本", 1), Some(3));
+///
+/// // Emoji: "😀" is 4 UTF-8 bytes, 2 UTF-16 code units (surrogate pair)
+/// assert_eq!(utf16_offset_to_byte_offset("a😀b", 1), Some(1));  // after 'a'
+/// assert_eq!(utf16_offset_to_byte_offset("a😀b", 2), None);     // inside surrogate pair!
+/// assert_eq!(utf16_offset_to_byte_offset("a😀b", 3), Some(5));  // after emoji
+/// ```
+pub fn utf16_offset_to_byte_offset(text: &str, utf16_offset: usize) -> Option<usize> {
+    if utf16_offset == 0 {
+        return Some(0);
+    }
+
+    let mut utf16_count = 0usize;
+    for (byte_idx, ch) in text.char_indices() {
+        if utf16_count == utf16_offset {
+            return Some(byte_idx);
+        }
+        let ch_utf16_len = ch.len_utf16();
+        utf16_count += ch_utf16_len;
+
+        // Check if the target offset falls inside a surrogate pair
+        if ch_utf16_len == 2 && utf16_count > utf16_offset {
+            // The offset is in the middle of a surrogate pair (invalid)
+            return None;
+        }
+    }
+
+    // Check if offset is exactly at the end
+    if utf16_count == utf16_offset {
+        return Some(text.len());
+    }
+
+    // Offset is beyond the string
+    None
+}
+
+/// Converts a UTF-8 byte offset to a UTF-16 code unit offset.
+///
+/// This is essential for Android and iOS integration, as those platforms use
+/// UTF-16 code unit offsets for text positions.
+///
+/// # Arguments
+/// * `text` - The UTF-8 string
+/// * `byte_offset` - The UTF-8 byte offset to convert (must be on a character boundary)
+///
+/// # Returns
+/// The corresponding UTF-16 code unit offset.
+///
+/// # Panics
+/// Panics if `byte_offset` is not on a valid UTF-8 character boundary or is
+/// beyond the string length.
+///
+/// # Examples
+/// ```ignore
+/// // ASCII: 1:1 mapping
+/// assert_eq!(byte_offset_to_utf16_offset("hello", 3), 3);
+///
+/// // CJK: "日" is 3 UTF-8 bytes, 1 UTF-16 code unit
+/// assert_eq!(byte_offset_to_utf16_offset("日本", 3), 1);
+/// assert_eq!(byte_offset_to_utf16_offset("日本", 6), 2);
+///
+/// // Emoji: "😀" is 4 UTF-8 bytes, 2 UTF-16 code units
+/// assert_eq!(byte_offset_to_utf16_offset("a😀b", 1), 1);  // after 'a'
+/// assert_eq!(byte_offset_to_utf16_offset("a😀b", 5), 3);  // after emoji
+/// ```
+pub fn byte_offset_to_utf16_offset(text: &str, byte_offset: usize) -> usize {
+    assert!(
+        is_valid_byte_offset(text, byte_offset),
+        "byte_offset {} is not a valid UTF-8 boundary in string of length {}",
+        byte_offset,
+        text.len()
+    );
+
+    text[..byte_offset].chars().map(|ch| ch.len_utf16()).sum()
+}
+
+/// Converts a UTF-16 code unit offset to a UTF-8 byte offset, clamping to valid boundaries.
+///
+/// Unlike [`utf16_offset_to_byte_offset`], this function never returns `None`.
+/// If the offset is invalid (inside a surrogate pair or beyond the string),
+/// it returns the nearest valid byte offset.
+///
+/// # Arguments
+/// * `text` - The UTF-8 string
+/// * `utf16_offset` - The UTF-16 code unit offset to convert
+///
+/// # Returns
+/// The corresponding UTF-8 byte offset, or the nearest valid offset if the
+/// input is invalid.
+///
+/// # Examples
+/// ```ignore
+/// // Valid offset
+/// assert_eq!(utf16_offset_to_byte_offset_clamped("a😀b", 3), 5);
+///
+/// // Inside surrogate pair - clamps to start of the character
+/// assert_eq!(utf16_offset_to_byte_offset_clamped("a😀b", 2), 1);
+///
+/// // Beyond string - clamps to end
+/// assert_eq!(utf16_offset_to_byte_offset_clamped("hello", 100), 5);
+/// ```
+pub fn utf16_offset_to_byte_offset_clamped(text: &str, utf16_offset: usize) -> usize {
+    if utf16_offset == 0 {
+        return 0;
+    }
+
+    let mut utf16_count = 0usize;
+
+    for (byte_idx, ch) in text.char_indices() {
+        let ch_utf16_len = ch.len_utf16();
+
+        // Check if target falls within or at the end of this character
+        if utf16_count + ch_utf16_len >= utf16_offset {
+            if utf16_count + ch_utf16_len == utf16_offset {
+                // Target is exactly at the end of this character
+                return byte_idx + ch.len_utf8();
+            } else {
+                // Target is inside this character (surrogate pair case)
+                // Clamp to the start of this character
+                return byte_idx;
+            }
+        }
+
+        utf16_count += ch_utf16_len;
+    }
+
+    // Beyond the string, clamp to end
+    text.len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -627,6 +793,212 @@ mod tests {
         let char_count = byte_offset_to_char_count(text, text.len());
         let back_to_byte = char_count_to_byte_offset(text, char_count);
         assert_eq!(back_to_byte, text.len());
+    }
+
+    // ===== UTF-16 Offset Conversion Tests =====
+
+    #[test]
+    fn test_utf16_to_byte_offset_ascii() {
+        // ASCII: 1 UTF-8 byte = 1 UTF-16 code unit
+        let text = "hello";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0));
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), Some(1));
+        assert_eq!(utf16_offset_to_byte_offset(text, 3), Some(3));
+        assert_eq!(utf16_offset_to_byte_offset(text, 5), Some(5)); // end
+        assert_eq!(utf16_offset_to_byte_offset(text, 6), None); // beyond
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_empty() {
+        let text = "";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0));
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), None);
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_bmp() {
+        // BMP characters (U+0080 to U+FFFF): 2-3 UTF-8 bytes, 1 UTF-16 code unit
+        // "日本語" - each kanji is 3 UTF-8 bytes, 1 UTF-16 code unit
+        let text = "日本語";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0)); // start
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), Some(3)); // after 日
+        assert_eq!(utf16_offset_to_byte_offset(text, 2), Some(6)); // after 本
+        assert_eq!(utf16_offset_to_byte_offset(text, 3), Some(9)); // end
+        assert_eq!(utf16_offset_to_byte_offset(text, 4), None); // beyond
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_accented() {
+        // "héllo" - 'é' is 2 UTF-8 bytes, 1 UTF-16 code unit
+        let text = "héllo";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0)); // start
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), Some(1)); // after 'h'
+        assert_eq!(utf16_offset_to_byte_offset(text, 2), Some(3)); // after 'é'
+        assert_eq!(utf16_offset_to_byte_offset(text, 3), Some(4)); // after 'l'
+        assert_eq!(utf16_offset_to_byte_offset(text, 5), Some(6)); // end
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_emoji() {
+        // Emoji (U+10000+): 4 UTF-8 bytes, 2 UTF-16 code units (surrogate pair)
+        // "a😀b" - 'a' = 1, '😀' = 4, 'b' = 1 (UTF-8 bytes)
+        //        - 'a' = 1, '😀' = 2, 'b' = 1 (UTF-16 code units)
+        let text = "a😀b";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0)); // start
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), Some(1)); // after 'a'
+        assert_eq!(utf16_offset_to_byte_offset(text, 2), None); // INSIDE surrogate pair!
+        assert_eq!(utf16_offset_to_byte_offset(text, 3), Some(5)); // after emoji
+        assert_eq!(utf16_offset_to_byte_offset(text, 4), Some(6)); // end
+        assert_eq!(utf16_offset_to_byte_offset(text, 5), None); // beyond
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_multiple_emoji() {
+        // "😀😀" - two emoji, each is 4 UTF-8 bytes, 2 UTF-16 code units
+        let text = "😀😀";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0)); // start
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), None); // inside first surrogate pair
+        assert_eq!(utf16_offset_to_byte_offset(text, 2), Some(4)); // after first emoji
+        assert_eq!(utf16_offset_to_byte_offset(text, 3), None); // inside second surrogate pair
+        assert_eq!(utf16_offset_to_byte_offset(text, 4), Some(8)); // end
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_mixed() {
+        // "a日😀z" - ASCII, CJK, emoji, ASCII
+        // UTF-8 bytes: 1 + 3 + 4 + 1 = 9
+        // UTF-16 units: 1 + 1 + 2 + 1 = 5
+        let text = "a日😀z";
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0)); // start
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), Some(1)); // after 'a'
+        assert_eq!(utf16_offset_to_byte_offset(text, 2), Some(4)); // after '日'
+        assert_eq!(utf16_offset_to_byte_offset(text, 3), None); // inside emoji surrogate
+        assert_eq!(utf16_offset_to_byte_offset(text, 4), Some(8)); // after emoji
+        assert_eq!(utf16_offset_to_byte_offset(text, 5), Some(9)); // end
+    }
+
+    #[test]
+    fn test_byte_to_utf16_offset_ascii() {
+        let text = "hello";
+        assert_eq!(byte_offset_to_utf16_offset(text, 0), 0);
+        assert_eq!(byte_offset_to_utf16_offset(text, 1), 1);
+        assert_eq!(byte_offset_to_utf16_offset(text, 3), 3);
+        assert_eq!(byte_offset_to_utf16_offset(text, 5), 5); // end
+    }
+
+    #[test]
+    fn test_byte_to_utf16_offset_empty() {
+        let text = "";
+        assert_eq!(byte_offset_to_utf16_offset(text, 0), 0);
+    }
+
+    #[test]
+    fn test_byte_to_utf16_offset_bmp() {
+        // "日本語" - each kanji is 3 UTF-8 bytes, 1 UTF-16 code unit
+        let text = "日本語";
+        assert_eq!(byte_offset_to_utf16_offset(text, 0), 0);
+        assert_eq!(byte_offset_to_utf16_offset(text, 3), 1); // after 日
+        assert_eq!(byte_offset_to_utf16_offset(text, 6), 2); // after 本
+        assert_eq!(byte_offset_to_utf16_offset(text, 9), 3); // end
+    }
+
+    #[test]
+    fn test_byte_to_utf16_offset_emoji() {
+        // "a😀b" - emoji is 4 UTF-8 bytes, 2 UTF-16 code units
+        let text = "a😀b";
+        assert_eq!(byte_offset_to_utf16_offset(text, 0), 0);
+        assert_eq!(byte_offset_to_utf16_offset(text, 1), 1); // after 'a'
+        assert_eq!(byte_offset_to_utf16_offset(text, 5), 3); // after emoji
+        assert_eq!(byte_offset_to_utf16_offset(text, 6), 4); // end
+    }
+
+    #[test]
+    #[should_panic(expected = "is not a valid UTF-8 boundary")]
+    fn test_byte_to_utf16_offset_invalid_boundary() {
+        let text = "日本";
+        byte_offset_to_utf16_offset(text, 1); // middle of 日 - should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "is not a valid UTF-8 boundary")]
+    fn test_byte_to_utf16_offset_beyond_string() {
+        let text = "hello";
+        byte_offset_to_utf16_offset(text, 10); // beyond string - should panic
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_clamped_valid() {
+        // Valid offsets should work the same as the non-clamped version
+        let text = "a😀b";
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 0), 0);
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 1), 1);
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 3), 5);
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 4), 6);
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_clamped_surrogate() {
+        // Inside surrogate pair - should clamp to start of the character
+        let text = "a😀b";
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 2), 1); // inside emoji → at 'a' end
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_clamped_beyond() {
+        // Beyond string - should clamp to end
+        let text = "hello";
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 100), 5);
+
+        let text2 = "a😀";
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text2, 10), 5);
+    }
+
+    #[test]
+    fn test_utf16_to_byte_offset_clamped_empty() {
+        let text = "";
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 0), 0);
+        assert_eq!(utf16_offset_to_byte_offset_clamped(text, 5), 0);
+    }
+
+    #[test]
+    fn test_roundtrip_utf16_byte_conversion() {
+        // Test that byte → utf16 → byte roundtrips correctly for valid byte offsets
+        let text = "héllo 日本語 😀 world";
+        for (idx, _) in text.char_indices() {
+            let utf16_offset = byte_offset_to_utf16_offset(text, idx);
+            let back_to_byte = utf16_offset_to_byte_offset(text, utf16_offset);
+            assert_eq!(
+                back_to_byte,
+                Some(idx),
+                "Roundtrip failed for byte offset {} (utf16 offset {})",
+                idx,
+                utf16_offset
+            );
+        }
+        // Also test end of string
+        let utf16_offset = byte_offset_to_utf16_offset(text, text.len());
+        let back_to_byte = utf16_offset_to_byte_offset(text, utf16_offset);
+        assert_eq!(back_to_byte, Some(text.len()));
+    }
+
+    #[test]
+    fn test_utf16_offset_with_combining_characters() {
+        // "é" can be represented as:
+        // 1. Single code point U+00E9 (é) - 2 UTF-8 bytes, 1 UTF-16 unit
+        // 2. Two code points: U+0065 (e) + U+0301 (combining acute) - 3 UTF-8 bytes, 2 UTF-16 units
+        // This test uses the combined form (option 2)
+        let text = "e\u{0301}"; // e + combining acute accent
+        assert_eq!(text.chars().count(), 2); // Two characters
+        assert_eq!(text.len(), 3); // 3 UTF-8 bytes (1 + 2)
+
+        // UTF-16: 'e' = 1 unit, combining accent = 1 unit
+        assert_eq!(utf16_offset_to_byte_offset(text, 0), Some(0));
+        assert_eq!(utf16_offset_to_byte_offset(text, 1), Some(1)); // after 'e'
+        assert_eq!(utf16_offset_to_byte_offset(text, 2), Some(3)); // after combining accent
+
+        assert_eq!(byte_offset_to_utf16_offset(text, 0), 0);
+        assert_eq!(byte_offset_to_utf16_offset(text, 1), 1);
+        assert_eq!(byte_offset_to_utf16_offset(text, 3), 2);
     }
 
     // ===== CoreTextInputController Tests =====

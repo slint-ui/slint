@@ -35,7 +35,9 @@
 //! 4. InputConnection methods call through JNI to the stored controller
 //! 5. When TextInput loses focus, `text_input_unfocused()` clears the controller
 
-use i_slint_core::text_input_controller::TextInputController;
+use i_slint_core::text_input_controller::{
+    byte_offset_to_utf16_offset, utf16_offset_to_byte_offset, TextInputController,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -196,16 +198,37 @@ impl AndroidTextInputHandler {
     /// Deletes text around the cursor. Called by InputConnection.deleteSurroundingText().
     ///
     /// # Arguments
-    /// * `before_length` - Characters to delete before cursor
-    /// * `after_length` - Characters to delete after cursor
+    /// * `before_length` - UTF-16 code units to delete before cursor
+    /// * `after_length` - UTF-16 code units to delete after cursor
     ///
     /// # Returns
     /// true if successful
     pub fn delete_surrounding_text(&self, before_length: usize, after_length: usize) -> bool {
         if let Some(controller) = self.controller() {
-            // Convert character counts to byte counts (approximate)
-            // The controller will handle boundary validation
-            controller.delete_surrounding(before_length, after_length)
+            let text = controller.text();
+            let cursor_bytes = controller.cursor_position();
+            let cursor_utf16 = byte_offset_to_utf16_offset(&text, cursor_bytes);
+
+            // Calculate the byte range to delete before cursor
+            let before_bytes = if before_length > 0 {
+                let target_utf16 = cursor_utf16.saturating_sub(before_length);
+                let target_bytes = utf16_offset_to_byte_offset(&text, target_utf16).unwrap_or(0);
+                cursor_bytes - target_bytes
+            } else {
+                0
+            };
+
+            // Calculate the byte range to delete after cursor
+            let after_bytes = if after_length > 0 {
+                let target_utf16 = cursor_utf16 + after_length;
+                let target_bytes =
+                    utf16_offset_to_byte_offset(&text, target_utf16).unwrap_or(text.len());
+                target_bytes - cursor_bytes
+            } else {
+                0
+            };
+
+            controller.delete_surrounding(before_bytes, after_bytes)
         } else {
             log::warn!("delete_surrounding_text called with no focused text input");
             false
@@ -215,14 +238,30 @@ impl AndroidTextInputHandler {
     /// Sets the selection range. Called by InputConnection.setSelection().
     ///
     /// # Arguments
-    /// * `start` - Selection start (character offset)
-    /// * `end` - Selection end (character offset)
+    /// * `start` - Selection start (UTF-16 code unit offset)
+    /// * `end` - Selection end (UTF-16 code unit offset)
     ///
     /// # Returns
     /// true if successful
     pub fn set_selection(&self, start: usize, end: usize) -> bool {
         if let Some(controller) = self.controller() {
-            controller.set_selection(start, end)
+            let text = controller.text();
+            // Convert UTF-16 offsets to byte offsets
+            let start_bytes = match utf16_offset_to_byte_offset(&text, start) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("set_selection: invalid start offset {} (inside surrogate pair)", start);
+                    return false;
+                }
+            };
+            let end_bytes = match utf16_offset_to_byte_offset(&text, end) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("set_selection: invalid end offset {} (inside surrogate pair)", end);
+                    return false;
+                }
+            };
+            controller.set_selection(start_bytes, end_bytes)
         } else {
             log::warn!("set_selection called with no focused text input");
             false
@@ -232,14 +271,30 @@ impl AndroidTextInputHandler {
     /// Sets the composing region on existing text. Called by InputConnection.setComposingRegion().
     ///
     /// # Arguments
-    /// * `start` - Region start (character offset)
-    /// * `end` - Region end (character offset)
+    /// * `start` - Region start (UTF-16 code unit offset)
+    /// * `end` - Region end (UTF-16 code unit offset)
     ///
     /// # Returns
     /// true if successful
     pub fn set_composing_region(&self, start: usize, end: usize) -> bool {
         if let Some(controller) = self.controller() {
-            controller.set_composing_region(Some((start, end)))
+            let text = controller.text();
+            // Convert UTF-16 offsets to byte offsets
+            let start_bytes = match utf16_offset_to_byte_offset(&text, start) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("set_composing_region: invalid start offset {}", start);
+                    return false;
+                }
+            };
+            let end_bytes = match utf16_offset_to_byte_offset(&text, end) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("set_composing_region: invalid end offset {}", end);
+                    return false;
+                }
+            };
+            controller.set_composing_region(Some((start_bytes, end_bytes)))
         } else {
             log::warn!("set_composing_region called with no focused text input");
             false
@@ -249,11 +304,19 @@ impl AndroidTextInputHandler {
     /// Gets the cursor position. Called by InputConnection.getExtractedText().
     ///
     /// # Returns
-    /// (cursor_position, selection_start, selection_end) or None if no focus
+    /// (cursor_position, selection_start, selection_end) as UTF-16 code unit offsets,
+    /// or None if no focus
     pub fn get_cursor_and_selection(&self) -> Option<(usize, usize, usize)> {
         let controller = self.controller()?;
-        let cursor = controller.cursor_position();
-        let (sel_start, sel_end) = controller.selection();
+        let text = controller.text();
+        let cursor_bytes = controller.cursor_position();
+        let (sel_start_bytes, sel_end_bytes) = controller.selection();
+
+        // Convert byte offsets to UTF-16 offsets for Android
+        let cursor = byte_offset_to_utf16_offset(&text, cursor_bytes);
+        let sel_start = byte_offset_to_utf16_offset(&text, sel_start_bytes);
+        let sel_end = byte_offset_to_utf16_offset(&text, sel_end_bytes);
+
         Some((cursor, sel_start, sel_end))
     }
 }

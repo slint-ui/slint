@@ -12,8 +12,10 @@ pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 pub use crate::text_input_controller::{
-    CoreTextInputController, TextInputController, byte_offset_to_char_count, ceil_byte_offset,
+    byte_offset_to_char_count, byte_offset_to_utf16_offset, ceil_byte_offset,
     char_count_to_byte_offset, floor_byte_offset, is_valid_byte_offset,
+    utf16_offset_to_byte_offset, utf16_offset_to_byte_offset_clamped, CoreTextInputController,
+    TextInputController,
 };
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;

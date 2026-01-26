@@ -45,7 +45,9 @@
 //! - `comparePosition:toPosition:` - Position comparison
 //! - `textRangeFromPosition:toPosition:` - Range creation
 
-use i_slint_core::text_input_controller::TextInputController;
+use i_slint_core::text_input_controller::{
+    byte_offset_to_utf16_offset, utf16_offset_to_byte_offset, TextInputController,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -109,8 +111,8 @@ impl IOSTextInputHandler {
     /// Gets text in the specified range. Called by UITextInput textInRange:.
     ///
     /// # Arguments
-    /// * `start` - Start position (UTF-16 offset in iOS)
-    /// * `end` - End position (UTF-16 offset in iOS)
+    /// * `start` - Start position (UTF-16 code unit offset)
+    /// * `end` - End position (UTF-16 code unit offset)
     ///
     /// # Returns
     /// The text in the range, or empty string if no focus
@@ -118,9 +120,20 @@ impl IOSTextInputHandler {
         if let Some(controller) = self.controller() {
             let text = controller.text();
             // Convert UTF-16 offsets to byte offsets
-            // For now, assume 1:1 mapping (ASCII). Full implementation needs proper conversion.
-            let byte_start = start.min(text.len());
-            let byte_end = end.min(text.len());
+            let byte_start = match utf16_offset_to_byte_offset(&text, start) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("text_in_range: invalid start offset {}", start);
+                    return String::new();
+                }
+            };
+            let byte_end = match utf16_offset_to_byte_offset(&text, end) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("text_in_range: invalid end offset {}", end);
+                    return String::new();
+                }
+            };
             if byte_start <= byte_end {
                 text[byte_start..byte_end].to_string()
             } else {
@@ -135,16 +148,32 @@ impl IOSTextInputHandler {
     /// Replaces text in the specified range. Called by UITextInput replaceRange:withText:.
     ///
     /// # Arguments
-    /// * `start` - Start position
-    /// * `end` - End position
+    /// * `start` - Start position (UTF-16 code unit offset)
+    /// * `end` - End position (UTF-16 code unit offset)
     /// * `text` - Replacement text
     ///
     /// # Returns
     /// true if successful
     pub fn replace_range(&self, start: usize, end: usize, text: &str) -> bool {
         if let Some(controller) = self.controller() {
+            let current_text = controller.text();
+            // Convert UTF-16 offsets to byte offsets
+            let byte_start = match utf16_offset_to_byte_offset(&current_text, start) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("replace_range: invalid start offset {}", start);
+                    return false;
+                }
+            };
+            let byte_end = match utf16_offset_to_byte_offset(&current_text, end) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("replace_range: invalid end offset {}", end);
+                    return false;
+                }
+            };
             // Set selection to the range, then commit the new text
-            controller.set_selection(start, end);
+            controller.set_selection(byte_start, byte_end);
             controller.commit_text(text, 0)
         } else {
             log::warn!("replace_range called with no focused text input");
@@ -155,23 +184,44 @@ impl IOSTextInputHandler {
     /// Gets the selected text range. Called by UITextInput selectedTextRange.
     ///
     /// # Returns
-    /// (start, end) of selection, or None if no focus
+    /// (start, end) of selection as UTF-16 code unit offsets, or None if no focus
     pub fn selected_text_range(&self) -> Option<(usize, usize)> {
         let controller = self.controller()?;
-        Some(controller.selection())
+        let text = controller.text();
+        let (start_bytes, end_bytes) = controller.selection();
+        // Convert byte offsets to UTF-16 offsets for iOS
+        let start = byte_offset_to_utf16_offset(&text, start_bytes);
+        let end = byte_offset_to_utf16_offset(&text, end_bytes);
+        Some((start, end))
     }
 
     /// Sets the selected text range. Called by UITextInput setSelectedTextRange:.
     ///
     /// # Arguments
-    /// * `start` - Selection start
-    /// * `end` - Selection end
+    /// * `start` - Selection start (UTF-16 code unit offset)
+    /// * `end` - Selection end (UTF-16 code unit offset)
     ///
     /// # Returns
     /// true if successful
     pub fn set_selected_text_range(&self, start: usize, end: usize) -> bool {
         if let Some(controller) = self.controller() {
-            controller.set_selection(start, end)
+            let text = controller.text();
+            // Convert UTF-16 offsets to byte offsets
+            let start_bytes = match utf16_offset_to_byte_offset(&text, start) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("set_selected_text_range: invalid start offset {}", start);
+                    return false;
+                }
+            };
+            let end_bytes = match utf16_offset_to_byte_offset(&text, end) {
+                Some(offset) => offset,
+                None => {
+                    log::warn!("set_selected_text_range: invalid end offset {}", end);
+                    return false;
+                }
+            };
+            controller.set_selection(start_bytes, end_bytes)
         } else {
             log::warn!("set_selected_text_range called with no focused text input");
             false
@@ -181,15 +231,20 @@ impl IOSTextInputHandler {
     /// Gets the marked (composition/preedit) text range. Called by UITextInput markedTextRange.
     ///
     /// # Returns
-    /// (start, end) of marked text, or None if no marked text
+    /// (start, end) of marked text as UTF-16 code unit offsets, or None if no marked text
     pub fn marked_text_range(&self) -> Option<(usize, usize)> {
         let controller = self.controller()?;
         let preedit = controller.preedit_text();
         if preedit.is_empty() {
             None
         } else {
-            let cursor = controller.cursor_position();
-            Some((cursor, cursor + preedit.len()))
+            // The preedit is displayed at the cursor position in the main text
+            let text = controller.text();
+            let cursor_bytes = controller.cursor_position();
+            let cursor_utf16 = byte_offset_to_utf16_offset(&text, cursor_bytes);
+            // Calculate preedit length in UTF-16 code units
+            let preedit_utf16_len: usize = preedit.chars().map(|c| c.len_utf16()).sum();
+            Some((cursor_utf16, cursor_utf16 + preedit_utf16_len))
         }
     }
 
@@ -197,20 +252,21 @@ impl IOSTextInputHandler {
     ///
     /// # Arguments
     /// * `text` - The marked text
-    /// * `selected_start` - Selection start within marked text
-    /// * `selected_end` - Selection end within marked text
+    /// * `selected_start` - Selection start within marked text (UTF-16 code unit offset)
+    /// * `selected_end` - Selection end within marked text (UTF-16 code unit offset)
     ///
     /// # Returns
     /// true if successful
     pub fn set_marked_text(&self, text: &str, selected_start: usize, selected_end: usize) -> bool {
         if let Some(controller) = self.controller() {
             // The selected range within the marked text indicates the cursor position
-            let cursor = if selected_start == selected_end {
-                Some(selected_start)
+            // Convert UTF-16 offset to byte offset within the marked text
+            let cursor_bytes = if selected_start == selected_end {
+                utf16_offset_to_byte_offset(text, selected_start)
             } else {
-                Some(selected_end)
+                utf16_offset_to_byte_offset(text, selected_end)
             };
-            controller.set_preedit(text, cursor)
+            controller.set_preedit(text, cursor_bytes)
         } else {
             log::warn!("set_marked_text called with no focused text input");
             false
@@ -241,9 +297,14 @@ impl IOSTextInputHandler {
     /// Gets the end of the document. Called by UITextInput endOfDocument.
     ///
     /// # Returns
-    /// The text length, or 0 if no focus
+    /// The text length in UTF-16 code units, or 0 if no focus
     pub fn end_of_document(&self) -> usize {
-        self.controller().map(|c| c.text().len()).unwrap_or(0)
+        self.controller()
+            .map(|c| {
+                let text = c.text();
+                byte_offset_to_utf16_offset(&text, text.len())
+            })
+            .unwrap_or(0)
     }
 
     /// Inserts text at the insertion point. Called by UITextInput insertText:.
