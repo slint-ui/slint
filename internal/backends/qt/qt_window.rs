@@ -675,7 +675,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
+        self.save_state();
+        self.pixel_align_origin();
         self.draw_image_impl(item_rc, size, image);
+        self.restore_state();
     }
 
     fn draw_text(
@@ -685,7 +688,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
+        self.save_state();
+        self.pixel_align_origin();
         sharedparley::draw_text(self, text, Some(self_rc), size);
+        self.restore_state();
     }
 
     fn draw_text_input(
@@ -694,7 +700,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
+        self.save_state();
+        self.pixel_align_origin();
         sharedparley::draw_text_input(self, text_input, self_rc, size, Some(qt_password_character));
+        self.restore_state();
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
@@ -939,6 +948,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
+        // Don't add any additinoal calls here without adjusting `save_state_and_pixel_align_origin()`.
         self.painter.save()
     }
 
@@ -1495,6 +1505,7 @@ impl QtItemRenderer<'_> {
             children_rect.size
         });
         self.save_state();
+        self.pixel_align_origin();
         self.apply_opacity(alpha_tint);
         {
             let painter: &mut QPainterPtr = &mut self.painter;
@@ -1508,6 +1519,25 @@ impl QtItemRenderer<'_> {
         }
         self.restore_state();
         RenderingResult::ContinueRenderingWithoutChildren
+    }
+
+    fn pixel_align_origin(&mut self) {
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "const QPainterPtr*" ] {
+            QTransform t = (*painter)->transform();
+
+            // Check for no rotation / shear / scale
+            if (qFuzzyIsNull(t.m12()) && qFuzzyIsNull(t.m21()) && qFuzzyCompare(t.m11(), 1.0) && qFuzzyCompare(t.m22(), 1.0)) {
+                QPointF deviceOrigin = t.map(QPointF(0, 0));
+
+                QPointF delta(
+                    std::round(deviceOrigin.x()) - deviceOrigin.x(),
+                    std::round(deviceOrigin.y()) - deviceOrigin.y()
+                );
+
+                (*painter)->translate(delta);
+            }
+        }}
     }
 }
 
