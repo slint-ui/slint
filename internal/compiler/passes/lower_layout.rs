@@ -228,7 +228,7 @@ fn lower_grid_layout(
             for row_child in row_children {
                 if let Some(binding) = row_child.borrow_mut().bindings.get("row") {
                     diag.push_warning(
-                        "The 'row' property cannot be used for elements inside a Row. (This was accepted by previous versions of Slint, but may become an error in the future.)".to_string(),
+                        "The 'row' property cannot be used for elements inside a Row. This was accepted by previous versions of Slint, but may become an error in the future".to_string(),
                         &*binding.borrow(),
                     );
                 }
