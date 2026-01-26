@@ -189,6 +189,38 @@ pub trait WindowAdapter {
     /// }
     /// ```
     fn handle_input_method_request(&self, _request: InputMethodRequest) {}
+
+    /// Called when a TextInput gains focus and IME should be activated.
+    ///
+    /// Platform backends should:
+    /// 1. Store the controller reference for IME protocol handling
+    /// 2. Show the soft keyboard (on mobile)
+    /// 3. Configure IME based on input type
+    ///
+    /// The controller provides methods for the platform to query and modify text state
+    /// synchronously, which is required by mobile IME protocols (Android InputConnection,
+    /// iOS UITextInput).
+    ///
+    /// The controller is valid until [`text_input_unfocused()`](Self::text_input_unfocused)
+    /// is called. After that, controller methods return errors/defaults.
+    ///
+    /// The default implementation does nothing, which is appropriate for desktop platforms
+    /// that use `handle_input_method_request()` for IME integration.
+    fn text_input_focused(&self, _controller: Rc<dyn crate::text_input_controller::TextInputController>) {
+        // Default: ignore (backwards compatible for desktop)
+    }
+
+    /// Called when TextInput loses focus or is destroyed.
+    ///
+    /// Platform backends should:
+    /// 1. Clear stored controller reference
+    /// 2. Hide soft keyboard (on mobile)
+    /// 3. Commit or cancel any pending IME composition
+    ///
+    /// The default implementation does nothing.
+    fn text_input_unfocused(&self) {
+        // Default: ignore
+    }
 }
 
 /// Implementation details behind [`WindowAdapter`], but since this

@@ -26,6 +26,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::text_input_controller::CoreTextInputController;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::rc::Rc;
@@ -668,10 +669,10 @@ fn text_layout_info(
 /// Similar as `Option<core::ops::Range<i32>>` but `repr(C)`
 ///
 /// This is the selection within a preedit
-struct PreEditSelection {
-    valid: bool,
-    start: i32,
-    end: i32,
+pub(crate) struct PreEditSelection {
+    pub(crate) valid: bool,
+    pub(crate) start: i32,
+    pub(crate) end: i32,
 }
 
 impl From<Option<core::ops::Range<i32>>> for PreEditSelection {
@@ -681,7 +682,7 @@ impl From<Option<core::ops::Range<i32>>> for PreEditSelection {
 }
 
 impl PreEditSelection {
-    fn as_option(self) -> Option<core::ops::Range<i32>> {
+    pub(crate) fn as_option(self) -> Option<core::ops::Range<i32>> {
         self.valid.then_some(self.start..self.end)
     }
 }
@@ -739,11 +740,11 @@ pub struct TextInput {
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
     /// A selection within the preedit (cursor and anchor)
-    preedit_selection: Property<PreEditSelection>,
+    pub(crate) preedit_selection: Property<PreEditSelection>,
     /// The composing region marks a range of existing committed text as "being edited".
     /// This is used by IME systems (e.g., Android autocorrect) to highlight text that
     /// may be modified. Stored as (start, end) byte offsets.
-    composing_region: Cell<Option<(usize, usize)>>,
+    pub(crate) composing_region: Cell<Option<(usize, usize)>>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -1166,6 +1167,13 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
+                    // Create and provide a TextInputController for platform IME integration
+                    let controller = alloc::rc::Rc::new(CoreTextInputController::new(
+                        self_rc,
+                        window_adapter,
+                    ));
+                    window_adapter.text_input_focused(controller);
+
                     window_adapter.handle_input_method_request(InputMethodRequest::Enable(
                         self.input_method_properties(window_adapter, self_rc),
                     ));
@@ -1186,6 +1194,8 @@ impl Item for TextInput {
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
+                    // Notify platform that TextInput lost focus
+                    window_adapter.text_input_unfocused();
                     window_adapter.handle_input_method_request(InputMethodRequest::Disable);
                     // commit the preedit text on android
                     #[cfg(target_os = "android")]

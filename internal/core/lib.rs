@@ -57,6 +57,7 @@ pub mod slice;
 pub mod string;
 pub mod styled_text;
 pub mod tests;
+pub mod text_input_controller;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;

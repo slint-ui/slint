@@ -17,6 +17,10 @@ pub use crate::window::{
     InputMethodProperties, InputMethodRequest, LayoutConstraints, TextInputError, WindowAdapter,
     WindowProperties,
 };
+pub use crate::text_input_controller::{
+    byte_offset_to_char_count, ceil_byte_offset, char_count_to_byte_offset, floor_byte_offset,
+    is_valid_byte_offset, CoreTextInputController, TextInputController,
+};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
