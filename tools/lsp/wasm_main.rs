@@ -193,7 +193,7 @@ pub fn create(
         Rc::new(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
 
     let to_preview_clone = to_preview.clone();
-    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let load_file = Function::from(load_file.clone());
         let to_preview = to_preview_clone.clone();
         Box::pin(async move {

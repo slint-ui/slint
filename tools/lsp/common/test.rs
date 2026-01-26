@@ -34,7 +34,7 @@ async fn parse_source(
         }
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
-        tmp.open_import_fallback = Some(Rc::new(move |path| {
+        tmp.open_import_callback = Some(Rc::new(move |path| {
             let path = PathBuf::from(&path);
             file_loader_fallback(&path)
         }));

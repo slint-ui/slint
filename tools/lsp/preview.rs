@@ -1392,7 +1392,7 @@ async fn parse_source(
 ) -> (
     Vec<diagnostics::Diagnostic>,
     Option<ComponentDefinition>,
-    Option<common::document_cache::OpenImportFallback>,
+    Option<common::document_cache::OpenImportCallback>,
     Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
@@ -1453,7 +1453,7 @@ async fn reload_preview_impl(
     let format =
         if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
 
-    let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
+    let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
         path,
         version,
@@ -1489,7 +1489,7 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    update_preview_area(compiled, behavior, open_import_fallback, source_file_versions, format)?;
+    update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
 
     finish_parsing(&component.url, loaded_component_name, success);
     Ok(())
@@ -1858,7 +1858,7 @@ fn set_status_text(text: &str) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
-    open_import_fallback: Option<common::document_cache::OpenImportFallback>,
+    open_import_callback: Option<common::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
     format: common::ByteFormat,
 ) -> Result<(), PlatformError> {
@@ -1882,7 +1882,7 @@ fn update_preview_area(
                         shared_document_cache.replace(Some(Rc::new(
                             common::DocumentCache::new_from_raw_parts(
                                 rtl,
-                                open_import_fallback.clone(),
+                                open_import_callback.clone(),
                                 source_file_versions.clone(),
                                 format,
                             ),

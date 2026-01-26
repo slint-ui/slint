@@ -340,7 +340,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             .iter()
             .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
             .collect(),
-        open_import_fallback: Some(Rc::new(move |path| {
+        open_import_callback: Some(Rc::new(move |path| {
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
