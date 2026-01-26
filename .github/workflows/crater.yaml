@@ -76,13 +76,12 @@ jobs:
                     #- "https://github.com/osp-project/RizPackageTools" 404
                     - "https://github.com/xenein/CountMeDown-rs"
                     - "https://github.com/JeremiasMeister/rust-heightmap-generator"
-                    - "https://github.com/leonardosalsi/rustop"
                     - "https://github.com/joaofl/any-serve"
                     - "https://github.com/Heng30/rssbox"
                     - "https://github.com/Heng30/rssbox-android"
                     - "https://github.com/Heng30/uibox"
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
-                    - "https://github.com/Heng30/solana-wallet-sollet"
+                    #- "https://github.com/Heng30/solana-wallet-sollet" # error in dependency (pyth-sdk-solana)
                     - "https://github.com/nzhenev/vtbox"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
@@ -101,7 +100,6 @@ jobs:
                     - "https://github.com/planet0104/slint-noframe-window"
                     - "https://github.com/Dusk-Labs/kira"
                     # - "https://github.com/TuEmb/can-viewer"   # depends on a deleted repo
-                    - "https://github.com/sloganking/quick-assistant"
                     # - "https://github.com/qhua948/anubis" # uses nightly rust
                     - "https://github.com/Surrealism-All/slimk"
                     - "https://github.com/BounceU/car_thang"
@@ -115,7 +113,6 @@ jobs:
                     # - "https://github.com/foxboxpdx/melonstt" # repo gone?
                     - "https://github.com/sanyexieai/me_chat"
                     #- "https://github.com/oreo3494/rockpaper.git" # error because of `rand`
-                    - "https://github.com/laycookie/record"
                     - "https://github.com/padangpanda/password-generator-desktop"
                     - "https://github.com/RealAdarsh/slint-guess-game"
                     - "https://github.com/DASPRiD/vrc-osc-manager"
@@ -130,10 +127,8 @@ jobs:
                     - "https://github.com/home-cooked-firmware/hcui"
                     - "https://github.com/EinsPhoenix/MineSweeper-Rust"
                     - "https://github.com/themkoi/Cosmic-Wanderer"
-                    - "https://github.com/Danila-Bain/wav-wav"
                     - "https://github.com/xcrong/slint_data_processer"
                     - "https://github.com/Newlifer/peditor"
-                    - "https://github.com/mackler/Lodge-Musician"
                     - "https://github.com/spineda2019/tRust"
                     - "https://github.com/franckKyete/tools-desktop"
                     - "https://github.com/zys60233/secret-box"
@@ -145,7 +140,7 @@ jobs:
                     - "https://github.com/konmenel/tzimpouki"
                     - "https://github.com/TAlgorhythmic/dystellar-launcher-rs"
                     - "https://github.com/trappitsch/calculon"
-                    - "https://github.com/Jaysmito101/mattermost-slint"
+                    - "https://github.com/Jaysmito101/slint-nav"
                     - "https://github.com/mq1/TinyWiiBackupManager"
 
                     # Missing images
@@ -226,6 +221,7 @@ jobs:
                     #  os: windows-latest
                     - git_url: "https://github.com/ivabus/lonelyradio"
                       sub_path: "monoclient-s"
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/ahqsoftwares/tauri-ahq-store"
                       sub_path: "src-setup"
                     - git_url: "https://github.com/qarmin/czkawka"
@@ -256,6 +252,7 @@ jobs:
                     #   sub_path: "apps/native-node"
                     - git_url: "https://github.com/larus-breeze/sw_frontend_rs"
                       sub_path: "device/sim"
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     # - git_url: "https://github.com/gramistella/cornerstone"  # depends indirectly on old versions of crates (deno_ast/swc) that do not compile
                     #  sub_path: "frontend_slint"
                     - git_url: "https://github.com/dilo145/password_generator"
@@ -266,17 +263,16 @@ jobs:
                       sub_path: "snake_bin_std"
                     - git_url: "https://github.com/Heng30/flymoon"
                       sub_path: "flymoon"
-                      extra_args: "--features=desktop"
                     - git_url: "https://github.com/gopher64/gopher64"
                       sub_path: "."
-                      extra_packages: libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libjack-dev libsndio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev
+                      extra_packages: libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libsndio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev
                     - git_url: "https://github.com/PonasKovas/salix"
                       sub_path: "client-gui"
                     - git_url: "https://github.com/chrishengler/terraingen"
                       sub_path: "gui-slint"
                     - git_url: "https://github.com/Vinegret43/dispute"
                       sub_path: "."
-                      extra_packages: libdbus-1-dev
+                      extra_packages: libdbus-1-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev
                     - git_url: "https://github.com/Heng30/chatbox"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev
@@ -288,6 +284,7 @@ jobs:
                       extra_packages: libarchive-dev
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
+                      sub_path: "n_music"
                     - git_url: "https://github.com/BiliRumble/Cloubit"
                       sub_path: "."
                       extra_packages:  build-essential perl nasm libasound2-dev pkg-config
@@ -297,6 +294,18 @@ jobs:
                     - git_url: "https://github.com/jturcotte/beskope"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                    - git_url: "https://github.com/sloganking/quick-assistant"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: "https://github.com/laycookie/record"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: "https://github.com/Danila-Bain/wav-wav"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: "https://github.com/mackler/Lodge-Musician"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
 
 
         runs-on: "ubuntu-latest"
