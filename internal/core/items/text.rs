@@ -739,6 +739,18 @@ pub struct TextInput {
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
+    /// Color for preedit/composition text (defaults to regular text color)
+    pub preedit_color: Property<Brush>,
+    /// Color for preedit underline (defaults to regular text color)
+    pub preedit_underline_color: Property<Brush>,
+    /// Width of preedit underline
+    pub preedit_underline_width: Property<LogicalLength>,
+    /// Background color for preedit text (defaults to transparent)
+    pub preedit_background: Property<Brush>,
+    /// Color for composing region underline (defaults to regular text color)
+    pub composing_underline_color: Property<Brush>,
+    /// Width of composing region underline
+    pub composing_underline_width: Property<LogicalLength>,
     /// A selection within the preedit (cursor and anchor)
     pub(crate) preedit_selection: Property<PreEditSelection>,
     /// The composing region marks a range of existing committed text as "being edited".
@@ -1377,6 +1389,9 @@ pub struct TextInputVisualRepresentation {
     /// is in progress. Renderers typically provide visual feedback for the currently composed text, such as
     /// by using underlines.
     pub preedit_range: core::ops::Range<usize>,
+    /// If set, specifies the range as byte offsets within the text for the composing region.
+    /// The composing region marks existing committed text as "being edited" by the IME (e.g., for autocorrect).
+    pub composing_range: core::ops::Range<usize>,
     /// If set, specifies the range as byte offsets within the text where to draw the selection.
     pub selection_range: core::ops::Range<usize>,
     /// The position where to draw the cursor, as byte offset within the text.
@@ -1385,6 +1400,18 @@ pub struct TextInputVisualRepresentation {
     pub text_color: Brush,
     /// The color of the blinking cursor
     pub cursor_color: Color,
+    /// The color for preedit text (defaults to text_color if not set)
+    pub preedit_color: Option<Brush>,
+    /// The color for preedit underline
+    pub preedit_underline_color: Option<Brush>,
+    /// The width of preedit underline
+    pub preedit_underline_width: LogicalLength,
+    /// The background color for preedit text
+    pub preedit_background: Option<Brush>,
+    /// The color for composing region underline
+    pub composing_underline_color: Option<Brush>,
+    /// The width of composing region underline
+    pub composing_underline_width: LogicalLength,
     text_without_password: Option<String>,
     password_character: char,
 }
@@ -1412,6 +1439,7 @@ impl TextInputVisualRepresentation {
             }
         };
         fixup_range(&mut self.preedit_range);
+        fixup_range(&mut self.composing_range);
         fixup_range(&mut self.selection_range);
         if let Some(cursor_pos) = self.cursor_position.as_mut() {
             *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len_utf8();
@@ -2179,15 +2207,66 @@ impl TextInput {
             text_color.color()
         };
 
+        // Get composing region, adjusting for any preedit text insertion
+        let composing_range = if let Some((start, end)) = self.composing_region.get() {
+            // If preedit was inserted, composing region offsets need adjustment
+            let original_cursor = self.cursor_position(&self.text());
+            let preedit_len = self.preedit_text().len();
+            if preedit_len > 0 && start >= original_cursor {
+                // Composing region is after preedit insertion point
+                (start + preedit_len)..(end + preedit_len)
+            } else {
+                start..end
+            }
+        } else {
+            Default::default()
+        };
+
+        // Get preedit styling properties, using None to indicate default (text_color)
+        let preedit_color_prop = self.preedit_color();
+        let preedit_color = if preedit_color_prop == Brush::default() {
+            None
+        } else {
+            Some(preedit_color_prop)
+        };
+
+        let preedit_underline_color_prop = self.preedit_underline_color();
+        let preedit_underline_color = if preedit_underline_color_prop == Brush::default() {
+            None
+        } else {
+            Some(preedit_underline_color_prop)
+        };
+
+        let preedit_background_prop = self.preedit_background();
+        let preedit_background = if preedit_background_prop == Brush::default() {
+            None
+        } else {
+            Some(preedit_background_prop)
+        };
+
+        let composing_underline_color_prop = self.composing_underline_color();
+        let composing_underline_color = if composing_underline_color_prop == Brush::default() {
+            None
+        } else {
+            Some(composing_underline_color_prop)
+        };
+
         let mut repr = TextInputVisualRepresentation {
             text,
             preedit_range,
+            composing_range,
             selection_range,
             cursor_position,
             text_without_password: None,
             password_character: Default::default(),
             text_color,
             cursor_color,
+            preedit_color,
+            preedit_underline_color,
+            preedit_underline_width: self.preedit_underline_width(),
+            preedit_background,
+            composing_underline_color,
+            composing_underline_width: self.composing_underline_width(),
         };
         repr.apply_password_character_substitution(self, password_character_fn);
         repr
