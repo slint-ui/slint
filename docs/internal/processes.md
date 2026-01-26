@@ -83,7 +83,51 @@ Users are reporting bugs and feature requests on the [Github issue tracker](http
 
 The process to triage and assign label is documented in the <./triage.md> file.
 
+## Long-Term Planning
 
+For long-term planning, we primarily use two processes: Initiatives and Project Boards.
 
+### Initiatives
 
+Initiatives describe long-term goals that we as a team want to work towards.
 
+Writing these goals down as an initiative benefits us in several ways:
+
+- We can apply for funding to get paid for implementing them!
+- Allows us to prioritize issues based on current initiatives
+- Lets us discuss priorities and bring in fresh ideas from everyone
+
+All Slint Members can propose Initiatives in Outline.
+Ideally, a proposal should address:
+
+- **Ownership & Resources:** Who owns the initiative? Who works on it?
+- **Strategic Alignment Check:** Does the initiative fit our vision?
+- **Clarity & Scope:** Clearly define the initiatives scope.
+- **Impact & Effort:** Is the target outcome worth it in terms of cost (work time and materials)
+- **Success Criteria:** When is the initiative considered "done"?
+- **Milestones:** Outline the high-level steps needed to achieve the success criteria
+- **Process:** Any specific process to follow
+    - Template:
+        ```
+        - Approved Initiative is added to the roadmap with info owner/timeline/key results
+          - Priority is based on urgency, impact, and capacity.
+        - Owner tracks progress towards key results. Updates shared weekly.
+        ```
+
+Initiatives are discussed by the team, reworked if necessary, and finally accepted or rejected.
+
+Once an initiative has been accepted, the owner should migrate it to a Github issue using the ["Tracking Issue"](https://github.com/slint-ui/slint/issues/new?template=3-tracking-issue.md) template, and corresponding sub-issues if needed.
+
+The issue will then be automatically added to the "Team Planning" Board.
+
+### Project Boards
+
+We encourage the use of Github Project Boards to organize tasks.
+
+To track long-running tasks, we use a private "Team Planning" Github Project board.
+When Members of the Slint organization work on long-term goals, they should make sure that they are assigned to a corresponding issue on this board.
+Maintaining this board allows us to get an overview of who is working on which topics at any given time and to better plan long-term.
+We check this board during our weekly meeting to see if it is still up-to-date.
+
+Larger initiatives and tasks may also benefit from their own project boards.
+We leave it up to each individual project owner to decide whether they want to organize their tasks using additional Project boards.
