@@ -24,7 +24,7 @@
     "@figma/plugin-typings": "1.122.0",
     "@types/jszip": "3.4.1",
     "@types/node": "catalog:",
-    "@types/react": "19.2.8",
+    "@types/react": "19.2.9",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
     "cross-env": "10.1.0",
@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.22",
-    "html-react-parser": "5.2.11",
+    "html-react-parser": "5.2.12",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-rnd": "10.5.2",
