@@ -341,6 +341,9 @@ pub struct WinitWindowAdapter {
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
+    #[cfg(target_os = "ios")]
+    text_input_handler: super::ios::IOSTextInputHandler,
+
     #[cfg(any(enable_accesskit, muda))]
     event_loop_proxy: EventLoopProxy<SlintEvent>,
 
@@ -400,6 +403,8 @@ impl WinitWindowAdapter {
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
+            #[cfg(target_os = "ios")]
+            text_input_handler: super::ios::IOSTextInputHandler::new(),
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
@@ -1362,6 +1367,19 @@ impl WindowAdapter for WinitWindowAdapter {
             }
             _ => {}
         };
+    }
+
+    #[cfg(target_os = "ios")]
+    fn text_input_focused(
+        &self,
+        controller: Rc<dyn i_slint_core::text_input_controller::TextInputController>,
+    ) {
+        self.text_input_handler.on_text_input_focused(controller);
+    }
+
+    #[cfg(target_os = "ios")]
+    fn text_input_unfocused(&self) {
+        self.text_input_handler.on_text_input_unfocused();
     }
 }
 
