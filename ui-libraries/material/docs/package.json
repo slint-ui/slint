@@ -52,14 +52,14 @@
         "@types/lodash.merge": "4.6.9",
         "@types/mdx": "2.0.13",
         "astro-compress": "2.3.9",
-        "globals": "17.0.0",
+        "globals": "17.1.0",
         "js-yaml": "4.1.1",
         "mdast-util-to-string": "4.0.0",
         "reading-time": "1.5.0",
         "tailwind-merge": "3.4.0",
         "tailwindcss": "3.4.17",
         "typescript": "catalog:",
-        "unist-util-visit": "5.0.0",
+        "unist-util-visit": "5.1.0",
         "@slint/common-files": "workspace:*"
     }
 }
