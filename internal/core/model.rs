@@ -802,7 +802,7 @@ pub trait RepeatedItemTree:
     crate::item_tree::ItemTree + vtable::HasStaticVTable<ItemTreeVTable> + 'static
 {
     /// The data corresponding to the model
-    type Data: 'static;
+    type Data: Default + 'static;
 
     /// Update this ItemTree at the given index and the given data
     fn update(&self, index: usize, data: Self::Data);
@@ -906,9 +906,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
-                    if let Some(data) = model.row_data(row) {
-                        comp.update(row, data);
-                    }
+                    comp.update(row, model.row_data(row).unwrap_or_default());
                     c.0 = RepeatedInstanceState::Clean;
                 }
             } else {
@@ -1044,9 +1042,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     c.1 = Some(init());
                     indices_to_init.push(i);
                 };
-                if let Some(data) = model.row_data(i + offset) {
-                    c.1.as_ref().unwrap().update(i + offset, data);
-                }
+                c.1.as_ref()
+                    .unwrap()
+                    .update(i + offset, model.row_data(i + offset).unwrap_or_default());
                 c.0 = RepeatedInstanceState::Clean;
             }
         }
@@ -1159,9 +1157,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                         c.1 = Some(init());
                         indices_to_init.push(i);
                     }
-                    if let Some(data) = model.row_data(new_offset) {
-                        c.1.as_ref().unwrap().update(new_offset, data);
-                    }
+                    c.1.as_ref()
+                        .unwrap()
+                        .update(new_offset, model.row_data(new_offset).unwrap_or_default());
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 let h = c.1.as_ref().unwrap().as_pin_ref().item_geometry(0).height_length();
@@ -1197,9 +1195,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             while new_offset > 0 && new_offset_y > zero {
                 new_offset -= 1;
                 let new_instance = init();
-                if let Some(data) = model.row_data(new_offset) {
-                    new_instance.update(new_offset, data);
-                }
+                new_instance.update(new_offset, model.row_data(new_offset).unwrap_or_default());
                 new_offset_y -= new_instance.as_pin_ref().item_geometry(0).height_length();
                 new_instances.push(new_instance);
             }
@@ -1234,9 +1230,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                         c.1 = Some(init());
                         indices_to_init.push(instances_begin + idx - new_offset)
                     }
-                    if let Some(data) = model.row_data(idx) {
-                        c.1.as_ref().unwrap().update(idx, data);
-                    }
+                    c.1.as_ref().unwrap().update(idx, model.row_data(idx).unwrap_or_default());
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 if let Some(x) = c.1.as_ref() {
@@ -1251,9 +1245,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             // create more items until there is no more room.
             while y < listview_height && idx < row_count {
                 let new_instance = init();
-                if let Some(data) = model.row_data(idx) {
-                    new_instance.update(idx, data);
-                }
+                new_instance.update(idx, model.row_data(idx).unwrap_or_default());
                 vp_width = vp_width.max(new_instance.as_pin_ref().listview_layout(&mut y));
                 indices_to_init.push(inner.instances.len());
                 inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
