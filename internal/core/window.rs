@@ -414,6 +414,30 @@ pub enum TextInputError {
     InvalidByteOffset(usize),
 }
 
+/// Soft keyboard visibility and geometry.
+///
+/// This struct is used by platform backends to report soft keyboard state to Slint,
+/// allowing layouts to adjust when the keyboard appears on mobile devices.
+///
+/// All dimensions are in logical pixels.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SoftKeyboardState {
+    /// Whether keyboard is currently visible or animating to visible.
+    pub visible: bool,
+    /// Height of keyboard in logical pixels (0 if not visible).
+    pub height: f32,
+    /// Keyboard animation duration in milliseconds, if platform provides it.
+    ///
+    /// Platforms that support keyboard animation (iOS, Android) can provide this
+    /// so Slint can animate layout changes smoothly.
+    pub animation_duration_ms: Option<u32>,
+    /// Current animation progress (0.0 = hidden, 1.0 = fully visible).
+    ///
+    /// Useful for smooth layout transitions during keyboard animation.
+    /// If not provided, Slint assumes instant transitions.
+    pub animation_progress: Option<f32>,
+}
+
 /// This struct describes layout constraints of a resizable element, such as a window.
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -588,6 +612,8 @@ pub struct WindowInner {
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     pub(crate) ctx: once_cell::unsync::Lazy<crate::SlintContext>,
+    /// Current soft keyboard state
+    soft_keyboard_state: Cell<SoftKeyboardState>,
 }
 
 impl Drop for WindowInner {
@@ -646,6 +672,7 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
+            soft_keyboard_state: Default::default(),
             // The ctx is lazy so that a Window can be initialized before the backend.
             // (for example in test_empty_window)
             ctx: once_cell::unsync::Lazy::new(|| {
@@ -1657,6 +1684,34 @@ impl WindowInner {
                 window_item.virtual_keyboard_height(),
             ),
         ))
+    }
+
+    /// Returns the current soft keyboard state.
+    pub fn soft_keyboard_state(&self) -> SoftKeyboardState {
+        self.soft_keyboard_state.get()
+    }
+
+    /// Sets the soft keyboard state and updates the window item's virtual keyboard properties.
+    pub fn set_soft_keyboard_state(&self, state: SoftKeyboardState) {
+        self.soft_keyboard_state.set(state);
+
+        // Update the virtual keyboard properties on the window item
+        let scale_factor = self.scale_factor();
+        let window_size = self.window_adapter().size().to_logical(scale_factor);
+
+        if state.visible {
+            // Keyboard is visible - set virtual keyboard rect at bottom of window
+            let height = state.height;
+            let origin = crate::lengths::LogicalPoint::new(0.0, window_size.height - height);
+            let size = crate::lengths::LogicalSize::new(window_size.width, height);
+            self.set_window_item_virtual_keyboard(origin, size);
+        } else {
+            // Keyboard is hidden - clear virtual keyboard rect
+            self.set_window_item_virtual_keyboard(
+                crate::lengths::LogicalPoint::default(),
+                crate::lengths::LogicalSize::default(),
+            );
+        }
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.

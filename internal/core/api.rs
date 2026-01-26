@@ -882,6 +882,63 @@ impl Window {
     ) -> Result<(), crate::window::TextInputError> {
         self.0.ime_set_selection(start, end)
     }
+
+    // ===== Soft Keyboard APIs =====
+
+    /// Returns the current soft keyboard state.
+    ///
+    /// This returns the last state set by [`set_soft_keyboard_state()`](Self::set_soft_keyboard_state).
+    /// On desktop platforms without a soft keyboard, this returns a default state with
+    /// `visible: false` and `height: 0`.
+    pub fn soft_keyboard_state(&self) -> crate::window::SoftKeyboardState {
+        self.0.soft_keyboard_state()
+    }
+
+    /// Called by platform backends when soft keyboard visibility or size changes.
+    ///
+    /// This updates the internal keyboard state and triggers layout recalculation.
+    /// If a TextInput is focused and would be occluded by the keyboard, Slint will
+    /// attempt to scroll it into view.
+    ///
+    /// # Arguments
+    /// * `state` - The new keyboard state
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Keyboard appearing with 300px height
+    /// window.set_soft_keyboard_state(SoftKeyboardState {
+    ///     visible: true,
+    ///     height: 300.0,
+    ///     animation_duration_ms: Some(250),
+    ///     animation_progress: Some(0.0),
+    /// });
+    ///
+    /// // During animation, update progress
+    /// window.set_soft_keyboard_state(SoftKeyboardState {
+    ///     visible: true,
+    ///     height: 300.0,
+    ///     animation_duration_ms: Some(250),
+    ///     animation_progress: Some(0.5),
+    /// });
+    ///
+    /// // Keyboard fully visible
+    /// window.set_soft_keyboard_state(SoftKeyboardState {
+    ///     visible: true,
+    ///     height: 300.0,
+    ///     animation_duration_ms: None,
+    ///     animation_progress: Some(1.0),
+    /// });
+    ///
+    /// // Keyboard hiding
+    /// window.set_soft_keyboard_state(SoftKeyboardState {
+    ///     visible: false,
+    ///     height: 0.0,
+    ///     ..Default::default()
+    /// });
+    /// ```
+    pub fn set_soft_keyboard_state(&self, state: crate::window::SoftKeyboardState) {
+        self.0.set_soft_keyboard_state(state);
+    }
 }
 
 #[i_slint_core_macros::slint_doc]

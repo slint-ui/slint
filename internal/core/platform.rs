@@ -14,8 +14,8 @@ pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{
-    InputMethodProperties, InputMethodRequest, LayoutConstraints, TextInputError, WindowAdapter,
-    WindowProperties,
+    InputMethodProperties, InputMethodRequest, LayoutConstraints, SoftKeyboardState,
+    TextInputError, WindowAdapter, WindowProperties,
 };
 pub use crate::text_input_controller::{
     byte_offset_to_char_count, ceil_byte_offset, char_count_to_byte_offset, floor_byte_offset,
