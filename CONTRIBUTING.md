@@ -14,7 +14,7 @@ https://github.com/slint-ui/slint/labels/good%20first%20issue.
  - [Development guide](docs/development.md)
  - [Building Slint from sources in this repository](docs/building.md)
  - [Testing](docs/testing.md)
- - [GitHub issues triage and labels](docs/triage.md)
+ - [GitHub issues triage and labels](docs/internal/triage.md)
 
 ## License
 

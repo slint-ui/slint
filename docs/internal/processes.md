@@ -82,7 +82,7 @@ The ChangeLog is manually updated by looking at the commit history.
 
 Users are reporting bugs and feature requests on the [Github issue tracker](https://github.com/slint-ui/slint/issues).
 
-The process to triage and assign label is documented in the <../triage.md> file.
+The process to triage and assign label is documented in the <./triage.md> file.
 
 
 
