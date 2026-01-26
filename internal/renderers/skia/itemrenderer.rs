@@ -260,6 +260,7 @@ impl<'a> SkiaItemRenderer<'a> {
             )]
         };
 
+        let _saved_canvas = self.pixel_align_origin_auto_restore();
         for fit in fits {
             self.canvas.save();
 
@@ -333,7 +334,7 @@ impl<'a> SkiaItemRenderer<'a> {
             })
         }) {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
-            let _saved_canvas = self.pixel_align_origin();
+            let _saved_canvas = self.pixel_align_origin_auto_restore();
             self.canvas.draw_image_with_sampling_options(
                 layer_image,
                 skia_safe::Point::default(),
@@ -386,7 +387,26 @@ impl<'a> SkiaItemRenderer<'a> {
         })
     }
 
-    fn pixel_align_origin(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'_>> {
+    // Same as pixel_align_origin_auto_restore() but can be used across function calls where
+    // `&self` is needed. Returns true if the caller must call `restore()` on `self.canvas`.
+    fn save_canvas_and_pixel_align_origin(&self) -> bool {
+        let local_to_device = self.canvas.local_to_device_as_3x3();
+        let Some(device_to_local) = local_to_device.invert() else {
+            return false;
+        };
+        let mut target_point = local_to_device.map_point(skia_safe::Point::default());
+
+        target_point.x = target_point.x.round();
+        target_point.y = target_point.y.round();
+
+        self.canvas.save();
+
+        self.canvas.translate(device_to_local.map_point(target_point));
+
+        true
+    }
+
+    fn pixel_align_origin_auto_restore(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'_>> {
         let local_to_device = self.canvas.local_to_device_as_3x3();
         let Some(device_to_local) = local_to_device.invert() else {
             return None;
@@ -536,7 +556,11 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
+        let restore = self.save_canvas_and_pixel_align_origin();
         sharedparley::draw_text(self, text, Some(self_rc), size);
+        if restore {
+            self.canvas.restore();
+        }
     }
 
     fn draw_text_input(
@@ -545,7 +569,11 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
+        let restore = self.save_canvas_and_pixel_align_origin();
         sharedparley::draw_text_input(self, text_input, self_rc, size, None);
+        if restore {
+            self.canvas.restore();
+        }
     }
 
     fn draw_path(
@@ -822,7 +850,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             Some(img) => img,
             None => return,
         };
-        let _saved_canvas = self.pixel_align_origin();
+        let _saved_canvas = self.pixel_align_origin_auto_restore();
         self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
     }
 
