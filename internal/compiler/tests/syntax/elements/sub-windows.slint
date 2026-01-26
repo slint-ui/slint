@@ -3,10 +3,10 @@ component MyComponent inherits Window {
 
 export component Test inherits Window {
     MyComponent { }
-//  >          <warning{Windows as child elements are not fully supported yet↵Consider using a PopupWindow or Dialog instead↵(Note: MyComponent inherits Window)}
+//  >          <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead↵(Note: MyComponent inherits Window)}
 
     Window { }
-//  >     <warning{Windows as child elements are not fully supported yet↵Consider using a PopupWindow or Dialog instead}
+//  >     <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead}
 
     // Note: PopupWindow should not receive a warning
     PopupWindow { }

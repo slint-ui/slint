@@ -173,8 +173,8 @@ pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut B
                         };
                     diag.push_warning(
                         format!(
-                            "Windows as child elements are not fully supported yet\n\
-                            Consider using a PopupWindow or Dialog instead\
+                            "Window elements as children do not create separate windows (this may change in the future)\n\
+                            Consider using a PopupWindow instead\
                             {inheritance_hint}"
                         ),
                         &*elem,
