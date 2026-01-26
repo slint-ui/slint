@@ -52,7 +52,7 @@ The submitter can edit the commit message to make it nicer and removed the artif
 ## CI
 
 The CI is driven by Github Actions.
-The CI is triggered for any PR to the `master` branch, or to a branch that starts with `feature/`.
+The CI is triggered for any (draft) PR to the `master` branch, or to a branch that starts with `feature/`.
 The CI is also triggered for every push to the `master` branch.
 A new commit on a branch will cancel the previous CI run on that branch if it is still running.
 
@@ -62,17 +62,16 @@ There is a nightly build that runs every night.
 It will build release artifacts and upload them to the `nightly` Github release.
 And will also generate the docs, wasm build of examples, and publish them on snapshots.slint.dev/master
 
-It will also run a few extra tests.
+It will also run a few extra tests (like running `cargo update` to check for broken dependencies).
 
 ## Release
 
 New minor releases of Slint are done every couple of months.
 
-About a week before the expected release, we issue a "call for testing" as a GitHub discussion.
+About a week before the expected release, we create a `release/<major.minor>` branch, based on the latest `master` branch.
+We then issue a "call for testing" as a GitHub discussion.
 
-During the release process, we ask people not to merge to the `master` branch.
-
-The release is done from the `master` branch.
+Once testing is done and feedback is incorporated, the release is done from the corresponding `release/<major.minor>` branch.
 
 The process of releasing is done by following the steps in the release_checklist.md file. (currently on our internal wiki)
 
