@@ -81,11 +81,9 @@ impl WindowAdapter for AndroidWindowAdapter {
     ) -> Option<&dyn i_slint_core::window::WindowAdapterInternal> {
         Some(self)
     }
-}
 
-impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     #[cfg(feature = "native-activity")]
-    fn input_method_request(&self, request: InputMethodRequest) {
+    fn handle_input_method_request(&self, request: InputMethodRequest) {
         match request {
             InputMethodRequest::Enable(props) => {
                 self.java_helper
@@ -131,7 +129,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     }
 
     #[cfg(not(feature = "native-activity"))]
-    fn input_method_request(&self, request: InputMethodRequest) {
+    fn handle_input_method_request(&self, request: InputMethodRequest) {
         use android_activity::input::{TextInputState, TextSpan};
 
         let props = match request {
@@ -162,7 +160,9 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
             }),
         });
     }
+}
 
+impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn color_scheme(&self) -> ColorScheme {
         self.color_scheme.as_ref().get()
     }

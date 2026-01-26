@@ -1313,49 +1313,8 @@ impl WindowAdapter for WinitWindowAdapter {
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
-}
 
-impl WindowAdapterInternal for WinitWindowAdapter {
-    fn set_mouse_cursor(&self, cursor: MouseCursor) {
-        let winit_cursor = match cursor {
-            MouseCursor::Default => winit::window::CursorIcon::Default,
-            MouseCursor::None => winit::window::CursorIcon::Default,
-            MouseCursor::Help => winit::window::CursorIcon::Help,
-            MouseCursor::Pointer => winit::window::CursorIcon::Pointer,
-            MouseCursor::Progress => winit::window::CursorIcon::Progress,
-            MouseCursor::Wait => winit::window::CursorIcon::Wait,
-            MouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
-            MouseCursor::Text => winit::window::CursorIcon::Text,
-            MouseCursor::Alias => winit::window::CursorIcon::Alias,
-            MouseCursor::Copy => winit::window::CursorIcon::Copy,
-            MouseCursor::Move => winit::window::CursorIcon::Move,
-            MouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
-            MouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
-            MouseCursor::Grab => winit::window::CursorIcon::Grab,
-            MouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
-            MouseCursor::ColResize => winit::window::CursorIcon::ColResize,
-            MouseCursor::RowResize => winit::window::CursorIcon::RowResize,
-            MouseCursor::NResize => winit::window::CursorIcon::NResize,
-            MouseCursor::EResize => winit::window::CursorIcon::EResize,
-            MouseCursor::SResize => winit::window::CursorIcon::SResize,
-            MouseCursor::WResize => winit::window::CursorIcon::WResize,
-            MouseCursor::NeResize => winit::window::CursorIcon::NeResize,
-            MouseCursor::NwResize => winit::window::CursorIcon::NwResize,
-            MouseCursor::SeResize => winit::window::CursorIcon::SeResize,
-            MouseCursor::SwResize => winit::window::CursorIcon::SwResize,
-            MouseCursor::EwResize => winit::window::CursorIcon::EwResize,
-            MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
-            MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
-            MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
-            _ => winit::window::CursorIcon::Default,
-        };
-        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
-            winit_window.set_cursor_visible(cursor != MouseCursor::None);
-            winit_window.set_cursor(winit_cursor);
-        }
-    }
-
-    fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
+    fn handle_input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             let props = match &request {
@@ -1403,6 +1362,47 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
             _ => {}
         };
+    }
+}
+
+impl WindowAdapterInternal for WinitWindowAdapter {
+    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        let winit_cursor = match cursor {
+            MouseCursor::Default => winit::window::CursorIcon::Default,
+            MouseCursor::None => winit::window::CursorIcon::Default,
+            MouseCursor::Help => winit::window::CursorIcon::Help,
+            MouseCursor::Pointer => winit::window::CursorIcon::Pointer,
+            MouseCursor::Progress => winit::window::CursorIcon::Progress,
+            MouseCursor::Wait => winit::window::CursorIcon::Wait,
+            MouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
+            MouseCursor::Text => winit::window::CursorIcon::Text,
+            MouseCursor::Alias => winit::window::CursorIcon::Alias,
+            MouseCursor::Copy => winit::window::CursorIcon::Copy,
+            MouseCursor::Move => winit::window::CursorIcon::Move,
+            MouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
+            MouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
+            MouseCursor::Grab => winit::window::CursorIcon::Grab,
+            MouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
+            MouseCursor::ColResize => winit::window::CursorIcon::ColResize,
+            MouseCursor::RowResize => winit::window::CursorIcon::RowResize,
+            MouseCursor::NResize => winit::window::CursorIcon::NResize,
+            MouseCursor::EResize => winit::window::CursorIcon::EResize,
+            MouseCursor::SResize => winit::window::CursorIcon::SResize,
+            MouseCursor::WResize => winit::window::CursorIcon::WResize,
+            MouseCursor::NeResize => winit::window::CursorIcon::NeResize,
+            MouseCursor::NwResize => winit::window::CursorIcon::NwResize,
+            MouseCursor::SeResize => winit::window::CursorIcon::SeResize,
+            MouseCursor::SwResize => winit::window::CursorIcon::SwResize,
+            MouseCursor::EwResize => winit::window::CursorIcon::EwResize,
+            MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
+            MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
+            MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
+            _ => winit::window::CursorIcon::Default,
+        };
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            winit_window.set_cursor_visible(cursor != MouseCursor::None);
+            winit_window.set_cursor(winit_cursor);
+        }
     }
 
     fn color_scheme(&self) -> ColorScheme {

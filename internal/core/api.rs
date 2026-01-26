@@ -765,6 +765,123 @@ impl Window {
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
     }
+
+    // ===== Input Method (IME) APIs =====
+    //
+    // These methods allow platform backends to interact with text input fields.
+    // They are primarily designed for mobile platforms (Android, iOS) where the
+    // platform IME needs synchronous access to query and modify text state.
+
+    /// Returns the current input method properties if a TextInput has focus.
+    ///
+    /// This allows platforms to query the current state of the text input field,
+    /// which is the inverse of receiving `InputMethodRequest::Update` notifications.
+    ///
+    /// Returns `None` if no TextInput element is currently focused.
+    pub fn input_method_properties(
+        &self,
+    ) -> Option<crate::window::InputMethodProperties> {
+        self.0.input_method_properties()
+    }
+
+    /// Commits text at the cursor position, replacing any active preedit.
+    ///
+    /// This is called by platform IME when the user confirms text input
+    /// (e.g., tapping a word suggestion or pressing space).
+    ///
+    /// # Arguments
+    /// * `text` - The text to commit
+    /// * `cursor_offset` - Where to place cursor relative to inserted text end
+    ///   (0 = at end, negative = before, positive = after)
+    ///
+    /// # Errors
+    /// Returns `Err` if no TextInput is focused.
+    pub fn ime_commit_text(
+        &self,
+        text: &str,
+        cursor_offset: i32,
+    ) -> Result<(), crate::window::TextInputError> {
+        self.0.ime_commit_text(text, cursor_offset)
+    }
+
+    /// Sets preedit/composition text without committing.
+    ///
+    /// Preedit text is displayed at the cursor position but is not yet part of the
+    /// committed text. It's typically shown with special styling (underline).
+    ///
+    /// # Arguments
+    /// * `text` - The preedit text to display
+    /// * `cursor` - Cursor position within the preedit (byte offset), or None for end
+    ///
+    /// # Errors
+    /// Returns `Err` if no TextInput is focused or if `cursor` is not on a valid
+    /// UTF-8 character boundary.
+    pub fn ime_set_preedit(
+        &self,
+        text: &str,
+        cursor: Option<usize>,
+    ) -> Result<(), crate::window::TextInputError> {
+        self.0.ime_set_preedit(text, cursor)
+    }
+
+    /// Clears preedit text without committing.
+    ///
+    /// This is called when the user cancels composition (e.g., pressing Escape).
+    ///
+    /// # Errors
+    /// Returns `Err` if no TextInput is focused.
+    pub fn ime_clear_preedit(&self) -> Result<(), crate::window::TextInputError> {
+        self.0.ime_clear_preedit()
+    }
+
+    /// Sets the composing region on existing committed text.
+    ///
+    /// The composing region marks a range of existing text as "being edited" by the IME.
+    /// This is used by autocorrect features to highlight suggested corrections.
+    ///
+    /// # Arguments
+    /// * `region` - The (start, end) byte offsets, or None to clear the region
+    ///
+    /// # Errors
+    /// Returns `Err` if no TextInput is focused or if the byte offsets are invalid.
+    pub fn ime_set_composing_region(
+        &self,
+        region: Option<(usize, usize)>,
+    ) -> Result<(), crate::window::TextInputError> {
+        self.0.ime_set_composing_region(region)
+    }
+
+    /// Deletes text around the cursor.
+    ///
+    /// # Arguments
+    /// * `before` - Number of bytes to delete before the cursor
+    /// * `after` - Number of bytes to delete after the cursor
+    ///
+    /// # Errors
+    /// Returns `Err` if no TextInput is focused or if deletion would split a UTF-8 character.
+    pub fn ime_delete_surrounding(
+        &self,
+        before: usize,
+        after: usize,
+    ) -> Result<(), crate::window::TextInputError> {
+        self.0.ime_delete_surrounding(before, after)
+    }
+
+    /// Sets the selection range.
+    ///
+    /// # Arguments
+    /// * `start` - Start byte offset
+    /// * `end` - End byte offset. If start == end, this just moves the cursor.
+    ///
+    /// # Errors
+    /// Returns `Err` if no TextInput is focused or if the byte offsets are invalid.
+    pub fn ime_set_selection(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<(), crate::window::TextInputError> {
+        self.0.ime_set_selection(start, end)
+    }
 }
 
 #[i_slint_core_macros::slint_doc]

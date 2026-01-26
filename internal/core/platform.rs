@@ -13,7 +13,10 @@ use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
-pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
+pub use crate::window::{
+    InputMethodProperties, InputMethodRequest, LayoutConstraints, TextInputError, WindowAdapter,
+    WindowProperties,
+};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
