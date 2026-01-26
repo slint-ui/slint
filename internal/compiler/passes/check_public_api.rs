@@ -37,7 +37,7 @@ pub fn check_public_api(
         ComponentSelection::ExportedWindows => doc.exports.retain(|export| {
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1
-                && !c.is_global() && !super::ensure_window::inherits_window(c) {
+                && !c.is_global() && !super::windows::inherits_window(c) {
                     let is_last = last.as_ref().is_some_and(|last| !Rc::ptr_eq(last, c));
                     if is_last {
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. No code will be generated for it", export.0.name), &export.0.name_ident);
