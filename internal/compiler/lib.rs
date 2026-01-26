@@ -108,7 +108,16 @@ pub type FontCache = Rc<
     >,
 >;
 
-pub type OpenImportFallback =
+/// Type alias for the callback to open files mentioned in `import` statements
+///
+/// This is a dyn-compatible version of:
+///
+/// ```ignore
+/// async fn(String) -> Option<std::io::Result<String>>
+/// ```
+///
+/// Unfortunately AsyncFn is not dyn-compatible yet.
+pub type OpenImportCallback =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
 pub type ResourceUrlMapper = Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>;
 
@@ -128,11 +137,11 @@ pub struct CompilerConfiguration {
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
-    /// Callback to load import files which is called if the file could not be found
+    /// Callback to load import files
     ///
     /// The callback should open the file specified by the given file name and
-    /// return an future that provides the text content of the file as output.
-    pub open_import_fallback: Option<OpenImportFallback>,
+    /// return a future that provides the text content of the file as output.
+    pub open_import_callback: Option<OpenImportCallback>,
     /// Callback to map URLs for resources
     ///
     /// The function takes the url and returns the mapped URL (or None if not mapped)
@@ -254,7 +263,7 @@ impl CompilerConfiguration {
             include_paths: Default::default(),
             library_paths: Default::default(),
             style: Default::default(),
-            open_import_fallback: None,
+            open_import_callback: None,
             resource_url_mapper: None,
             inline_all_elements,
             const_scale_factor,

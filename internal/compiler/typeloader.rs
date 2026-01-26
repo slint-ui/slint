@@ -1253,7 +1253,7 @@ impl TypeLoader {
                     }
                     (import_path, None)
                 } else {
-                    // We will load using the `open_import_fallback`
+                    // We will load using the `open_import_callback`
                     // Simplify the path to remove the ".."
                     let base_path = import_token
                         .as_ref()
@@ -1323,9 +1323,9 @@ impl TypeLoader {
                         .expect("internal error: embedded file is not UTF-8 source code"),
                 ))
             } else {
-                let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
-                if let Some(fallback) = fallback {
-                    let result = fallback(path_canon.to_string_lossy().into()).await;
+                let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
+                if let Some(callback) = callback {
+                    let result = callback(path_canon.to_string_lossy().into()).await;
                     result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
                 } else {
                     std::fs::read_to_string(&path_canon)
@@ -1908,7 +1908,7 @@ fn test_load_from_callback_ok() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
-    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
             assert_eq!(path.replace('\\', "/"), "../FooBar.slint");

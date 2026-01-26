@@ -655,7 +655,7 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_fallback =
+        self.config.open_import_callback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
     }
 
@@ -831,7 +831,7 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_fallback =
+        self.config.open_import_callback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
     }
 
