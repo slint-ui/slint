@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
+use crate::text_input::AndroidTextInputHandler;
 use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };
@@ -48,6 +49,8 @@ pub struct AndroidWindowAdapter {
 
     long_press: RefCell<Option<LongPressDetection>>,
     last_pressed_state: Cell<ButtonState>,
+    /// Handler for text input / IME integration
+    text_input_handler: AndroidTextInputHandler,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -160,6 +163,17 @@ impl WindowAdapter for AndroidWindowAdapter {
             }),
         });
     }
+
+    fn text_input_focused(
+        &self,
+        controller: Rc<dyn i_slint_core::text_input_controller::TextInputController>,
+    ) {
+        self.text_input_handler.on_text_input_focused(controller);
+    }
+
+    fn text_input_unfocused(&self) {
+        self.text_input_handler.on_text_input_unfocused();
+    }
 }
 
 impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
@@ -206,6 +220,7 @@ impl AndroidWindowAdapter {
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
+            text_input_handler: AndroidTextInputHandler::new(),
         })
     }
 
