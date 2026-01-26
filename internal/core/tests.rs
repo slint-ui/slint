@@ -89,6 +89,93 @@ pub extern "C" fn send_keyboard_string_sequence(
     }
 }
 
+/// Simulate IME preedit (composition) text input.
+///
+/// This simulates the behavior of an IME setting preedit text on the focused TextInput.
+/// The preedit text is displayed but not yet committed to the text field.
+///
+/// # Arguments
+/// * `preedit` - The preedit/composition text to display (empty string clears preedit)
+/// * `cursor` - Cursor position within the preedit text (byte offset), or None for end
+#[cfg(feature = "std")]
+pub fn simulate_ime_preedit(
+    preedit: &str,
+    cursor: Option<usize>,
+    window_adapter: &crate::window::WindowAdapterRc,
+) {
+    use crate::items::TextInput;
+    use crate::window::WindowInner;
+
+    let window_inner = WindowInner::from_pub(window_adapter.window());
+
+    // Get the focused item
+    if let Some(focus_item) = window_inner.focus_item.borrow().upgrade() {
+        // Check if it's a TextInput
+        if let Some(text_input) = focus_item.downcast::<TextInput>() {
+            if preedit.is_empty() {
+                text_input.as_pin_ref().ime_clear_preedit(window_adapter, &focus_item);
+            } else {
+                text_input.as_pin_ref().ime_set_preedit(preedit, cursor, window_adapter, &focus_item);
+            }
+        }
+    }
+}
+
+/// Simulate IME commit (finalize composition).
+///
+/// This simulates the behavior of an IME committing text, replacing any active preedit
+/// with the final text.
+///
+/// # Arguments
+/// * `text` - The text to commit
+/// * `cursor_offset` - Where to place cursor relative to inserted text end
+///   (0 = at end, negative = before, positive = after)
+#[cfg(feature = "std")]
+pub fn simulate_ime_commit(
+    text: &str,
+    cursor_offset: i32,
+    window_adapter: &crate::window::WindowAdapterRc,
+) {
+    use crate::items::TextInput;
+    use crate::window::WindowInner;
+
+    let window_inner = WindowInner::from_pub(window_adapter.window());
+
+    // Get the focused item
+    if let Some(focus_item) = window_inner.focus_item.borrow().upgrade() {
+        // Check if it's a TextInput
+        if let Some(text_input) = focus_item.downcast::<TextInput>() {
+            text_input.as_pin_ref().ime_commit_text(text, cursor_offset, window_adapter, &focus_item);
+        }
+    }
+}
+
+/// Simulate setting a composing region on existing text.
+///
+/// The composing region marks a range of existing committed text as "being edited" by the IME.
+/// This is used by autocorrect features.
+///
+/// # Arguments
+/// * `region` - The (start, end) byte offsets, or None to clear the region
+#[cfg(feature = "std")]
+pub fn simulate_ime_set_composing_region(
+    region: Option<(usize, usize)>,
+    window_adapter: &crate::window::WindowAdapterRc,
+) {
+    use crate::items::TextInput;
+    use crate::window::WindowInner;
+
+    let window_inner = WindowInner::from_pub(window_adapter.window());
+
+    // Get the focused item
+    if let Some(focus_item) = window_inner.focus_item.borrow().upgrade() {
+        // Check if it's a TextInput
+        if let Some(text_input) = focus_item.downcast::<TextInput>() {
+            text_input.as_pin_ref().ime_set_composing_region(region, window_adapter, &focus_item);
+        }
+    }
+}
+
 /// implementation details for debug_log()
 #[doc(hidden)]
 pub fn debug_log_impl(args: core::fmt::Arguments) {

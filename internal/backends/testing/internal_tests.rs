@@ -69,6 +69,76 @@ pub fn set_window_scale_factor<
     component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
 }
 
+/// Simulate IME preedit (composition) text input.
+///
+/// This simulates the behavior of an IME setting preedit text on the focused TextInput.
+/// The preedit text is displayed but not yet committed to the text field.
+///
+/// # Arguments
+/// * `component` - The component containing the focused TextInput
+/// * `preedit` - The preedit/composition text to display (empty string clears preedit)
+/// * `cursor` - Cursor position within the preedit text (byte offset), or None for end
+pub fn simulate_ime_preedit<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    preedit: &str,
+    cursor: Option<usize>,
+) {
+    i_slint_core::tests::simulate_ime_preedit(
+        preedit,
+        cursor,
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    );
+}
+
+/// Simulate IME commit (finalize composition).
+///
+/// This simulates the behavior of an IME committing text, replacing any active preedit
+/// with the final text.
+///
+/// # Arguments
+/// * `component` - The component containing the focused TextInput
+/// * `text` - The text to commit
+/// * `cursor_offset` - Where to place cursor relative to inserted text end
+///   (0 = at end, negative = before, positive = after)
+pub fn simulate_ime_commit<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    text: &str,
+    cursor_offset: i32,
+) {
+    i_slint_core::tests::simulate_ime_commit(
+        text,
+        cursor_offset,
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    );
+}
+
+/// Simulate setting a composing region on existing text.
+///
+/// The composing region marks a range of existing committed text as "being edited" by the IME.
+/// This is used by autocorrect features.
+///
+/// # Arguments
+/// * `component` - The component containing the focused TextInput
+/// * `region` - The (start, end) byte offsets, or None to clear the region
+pub fn simulate_ime_set_composing_region<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    region: Option<(usize, usize)>,
+) {
+    i_slint_core::tests::simulate_ime_set_composing_region(
+        region,
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    );
+}
+
 pub fn access_testing_window<R>(
     window: &i_slint_core::api::Window,
     callback: impl FnOnce(&TestingWindow) -> R,
