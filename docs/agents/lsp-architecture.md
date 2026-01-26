@@ -38,31 +38,31 @@ The Slint LSP (Language Server Protocol) server provides IDE features for `.slin
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         IDE / Editor                             │
+│                         IDE / Editor                            │
 │                  (VS Code, vim, etc.)                           │
 └───────────────────────────┬─────────────────────────────────────┘
                             │ LSP Protocol (JSON-RPC)
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      ServerNotifier                              │
-│              (sends notifications/requests to client)            │
+│                      ServerNotifier                             │
+│              (sends notifications/requests to client)           │
 ├─────────────────────────────────────────────────────────────────┤
-│                        Context                                   │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
+│                        Context                                  │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────────┐ │
 │  │ DocumentCache   │  │ PreviewConfig   │  │ InitializeParams │ │
 │  │ (TypeLoader)    │  │                 │  │ (client caps)    │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│  └─────────────────┘  └─────────────────┘  └──────────────────┘ │
 ├─────────────────────────────────────────────────────────────────┤
-│                    RequestHandler                                │
-│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐       │
-│  │Completion │ │ Hover     │ │ GotoDef   │ │ Rename    │ ...   │
-│  └───────────┘ └───────────┘ └───────────┘ └───────────┘       │
+│                    RequestHandler                               │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐        │
+│  │Completion │ │ Hover     │ │ GotoDef   │ │ Rename    │ ...    │
+│  └───────────┘ └───────────┘ └───────────┘ └───────────┘        │
 ├─────────────────────────────────────────────────────────────────┤
-│                    Live Preview                                  │
-│  ┌─────────────────┐  ┌─────────────────┐                      │
-│  │ PreviewState    │  │ ComponentInst   │                      │
-│  │ (UI, selection) │  │ (interpreter)   │                      │
-│  └─────────────────┘  └─────────────────┘                      │
+│                    Live Preview                                 │
+│  ┌─────────────────┐  ┌─────────────────┐                       │
+│  │ PreviewState    │  │ ComponentInst   │                       │
+│  │ (UI, selection) │  │ (interpreter)   │                       │
+│  └─────────────────┘  └─────────────────┘                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -91,6 +91,10 @@ pub struct Context {
 
     /// Channel to preview process
     pub to_preview: Rc<dyn LspToPreview>,
+
+    /// Files to recompile after all other operations are done
+    /// (recompilations triggered by updates to unopened files)
+    pub pending_recompile: RefCell<HashSet<Url>>,
 }
 ```
 
@@ -101,7 +105,7 @@ Manages compiled documents using the compiler's TypeLoader:
 ```rust
 pub struct DocumentCache {
     type_loader: TypeLoader,
-    open_import_fallback: Option<OpenImportFallback>,
+    open_import_callback: Option<OpenImportCallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     pub format: ByteFormat,  // UTF-8 or UTF-16
 }
@@ -130,6 +134,12 @@ impl DocumentCache {
 
     /// Create snapshot for preview
     pub fn snapshot(&self) -> Option<Self>;
+
+    /// Drop document and reload from disk. Returns invalidated dependencies.
+    pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>>;
+
+    /// Invalidate document but keep CST in cache (only re-analyze).
+    pub fn invalidate_url(&mut self, url: &Url) -> HashSet<Url>;
 }
 ```
 
@@ -365,7 +375,8 @@ Editor                    LSP Server
    │◄──publishDiagnostics─────│
    │                          │
    │──didClose(uri)──────────►│ Remove from open set
-   │                          │ (keep in cache)
+   │                          │ Drop document, queue
+   │                          │ dependent recompilations
 ```
 
 ### File Watching
@@ -380,6 +391,12 @@ let fs_watcher = DidChangeWatchedFilesRegistrationOptions {
     }],
 };
 ```
+
+When a file changes on disk:
+1. If the file is not open in the editor, drop it from the cache
+2. Queue any open dependent documents for recompilation via `pending_recompile`
+3. After a 50ms debounce delay, recompile all pending documents
+4. If a resource file changes, the live preview is reloaded
 
 ## Commands
 
@@ -500,20 +517,26 @@ fn test_element_completion() {
 
 ### Logging
 
-```rust
-// Enable logging
+The LSP server uses the `tracing` crate for structured logging:
+
+```sh
+# Enable debug logging
 RUST_LOG=slint_lsp=debug slint-lsp
 
-// Log specific requests
-eprintln!("Completion at {:?}", position);
+# Enable trace logging for more detail
+RUST_LOG=slint_lsp=trace slint-lsp
 ```
+
+Key events are logged at appropriate levels:
+- `trace`: Document loading, diagnostics sending, file imports
+- `debug`: Document open/close/change, file watcher events, preview diagnostics
 
 ### Inspecting Document State
 
 ```rust
 // List all cached documents
 for (url, doc) in document_cache.all_url_documents() {
-    eprintln!("Cached: {}", url);
+    tracing::trace!("Cached: {}", url);
 }
 
 // Check document version
