@@ -1,0 +1,20 @@
+component MyComponent inherits Window {
+}
+
+export component Test inherits Window {
+    MyComponent { }
+//  >          <warning{Windows as child elements are not fully supported yet↵Consider using a PopupWindow or Dialog instead↵(Note: MyComponent inherits Window)}
+
+    Window { }
+//  >     <warning{Windows as child elements are not fully supported yet↵Consider using a PopupWindow or Dialog instead}
+
+    // Note: PopupWindow should not receive a warning
+    PopupWindow { }
+
+    // Dialog should not get a warning either:
+    Dialog {
+        Text {
+            text: "Hello World";
+        }
+    }
+}

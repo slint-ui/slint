@@ -321,5 +321,6 @@ pub fn run_import_passes(
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
+    ensure_window::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }
