@@ -139,6 +139,44 @@ pub fn simulate_ime_set_composing_region<
     );
 }
 
+/// Simulate setting the soft keyboard state.
+///
+/// This simulates the behavior of a platform reporting soft keyboard visibility changes.
+/// It updates the window's virtual keyboard properties which can affect layout.
+///
+/// # Arguments
+/// * `component` - The component whose window to update
+/// * `visible` - Whether the keyboard is visible
+/// * `height` - Height of the keyboard in logical pixels
+pub fn simulate_set_soft_keyboard_state<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    visible: bool,
+    height: f32,
+) {
+    i_slint_core::tests::simulate_set_soft_keyboard_state(
+        visible,
+        height,
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    );
+}
+
+/// Get the current soft keyboard state.
+///
+/// Returns (visible, height) tuple.
+pub fn get_soft_keyboard_state<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+) -> (bool, f32) {
+    i_slint_core::tests::get_soft_keyboard_state(
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    )
+}
+
 pub fn access_testing_window<R>(
     window: &i_slint_core::api::Window,
     callback: impl FnOnce(&TestingWindow) -> R,

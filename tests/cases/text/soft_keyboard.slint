@@ -1,0 +1,206 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tests for SoftKeyboardState functionality used on mobile platforms.
+//
+// SoftKeyboardState allows platform backends to report soft keyboard visibility
+// and geometry. When the keyboard appears, Slint updates virtual keyboard
+// properties that layouts can use to adjust.
+
+export component TestCase inherits Window {
+    width: 400phx;
+    height: 600phx;
+
+    // Content area that should resize when keyboard appears
+    content := Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height - parent.virtual-keyboard-height;
+        background: lightgray;
+
+        ti := TextInput {
+            width: 100%;
+            height: 40phx;
+            y: parent.height - 50phx;
+            text: "Input field";
+        }
+    }
+
+    // Expose virtual keyboard properties for testing
+    out property <length> vk_x: self.virtual-keyboard-x;
+    out property <length> vk_y: self.virtual-keyboard-y;
+    out property <length> vk_width: self.virtual-keyboard-width;
+    out property <length> vk_height: self.virtual-keyboard-height;
+    out property <length> content_height: content.height;
+
+    // Focus helper
+    callback focus_input();
+    focus_input => {
+        ti.focus();
+    }
+}
+
+/*
+```rust
+// Test: Default state - keyboard not visible
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(50);
+
+// Initially, virtual keyboard should have zero dimensions
+assert_eq!(instance.get_vk_height(), 0.0);
+assert_eq!(instance.get_vk_width(), 0.0);
+assert_eq!(instance.get_vk_x(), 0.0);
+assert_eq!(instance.get_vk_y(), 0.0);
+
+// Content should fill the full height
+assert_eq!(instance.get_content_height(), 600.0);
+
+// Test: Check soft keyboard state getter
+let (visible, height) = slint_testing::get_soft_keyboard_state(&instance);
+assert!(!visible);
+assert_eq!(height, 0.0);
+
+// Test: Set keyboard visible with height
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 300.0);
+slint_testing::mock_elapsed_time(16);
+
+// Virtual keyboard properties should be updated
+assert_eq!(instance.get_vk_height(), 300.0);
+assert_eq!(instance.get_vk_width(), 400.0); // Full window width
+assert_eq!(instance.get_vk_x(), 0.0);
+assert_eq!(instance.get_vk_y(), 300.0); // 600 - 300 = 300
+
+// Content should resize to avoid keyboard
+assert_eq!(instance.get_content_height(), 300.0); // 600 - 300
+
+// Verify state getter
+let (visible, height) = slint_testing::get_soft_keyboard_state(&instance);
+assert!(visible);
+assert_eq!(height, 300.0);
+
+// Test: Change keyboard height (e.g., switching keyboard layouts)
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 250.0);
+slint_testing::mock_elapsed_time(16);
+
+assert_eq!(instance.get_vk_height(), 250.0);
+assert_eq!(instance.get_vk_y(), 350.0); // 600 - 250
+assert_eq!(instance.get_content_height(), 350.0);
+
+// Test: Hide keyboard
+slint_testing::simulate_set_soft_keyboard_state(&instance, false, 0.0);
+slint_testing::mock_elapsed_time(16);
+
+// Virtual keyboard should be cleared
+assert_eq!(instance.get_vk_height(), 0.0);
+assert_eq!(instance.get_vk_width(), 0.0);
+assert_eq!(instance.get_vk_x(), 0.0);
+assert_eq!(instance.get_vk_y(), 0.0);
+
+// Content should fill full height again
+assert_eq!(instance.get_content_height(), 600.0);
+
+let (visible, _) = slint_testing::get_soft_keyboard_state(&instance);
+assert!(!visible);
+
+// Test: Keyboard with different heights
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 200.0);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_vk_height(), 200.0);
+assert_eq!(instance.get_content_height(), 400.0);
+
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 350.0);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_vk_height(), 350.0);
+assert_eq!(instance.get_content_height(), 250.0);
+
+// Test: Very small keyboard
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 50.0);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_vk_height(), 50.0);
+assert_eq!(instance.get_content_height(), 550.0);
+
+// Test: Keyboard height equal to window height (edge case)
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 600.0);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_vk_height(), 600.0);
+assert_eq!(instance.get_vk_y(), 0.0);
+assert_eq!(instance.get_content_height(), 0.0);
+
+// Clean up
+slint_testing::simulate_set_soft_keyboard_state(&instance, false, 0.0);
+slint_testing::mock_elapsed_time(16);
+
+// Test: Focus text input then show keyboard (typical mobile flow)
+instance.invoke_focus_input();
+slint_testing::mock_elapsed_time(50);
+
+// Keyboard appears
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 280.0);
+slint_testing::mock_elapsed_time(16);
+
+assert_eq!(instance.get_vk_height(), 280.0);
+assert_eq!(instance.get_content_height(), 320.0);
+```
+*/
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(50);
+
+// Initially, virtual keyboard should have zero dimensions
+assert_eq(instance.get_vk_height(), 0.0f);
+assert_eq(instance.get_vk_width(), 0.0f);
+assert_eq(instance.get_vk_x(), 0.0f);
+assert_eq(instance.get_vk_y(), 0.0f);
+
+// Content should fill the full height
+assert_eq(instance.get_content_height(), 600.0f);
+
+// Test: Check soft keyboard state getter
+auto [visible, height] = slint_testing::get_soft_keyboard_state(&instance);
+assert(!visible);
+assert_eq(height, 0.0f);
+
+// Test: Set keyboard visible with height
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 300.0f);
+slint_testing::mock_elapsed_time(16);
+
+// Virtual keyboard properties should be updated
+assert_eq(instance.get_vk_height(), 300.0f);
+assert_eq(instance.get_vk_width(), 400.0f);
+assert_eq(instance.get_vk_x(), 0.0f);
+assert_eq(instance.get_vk_y(), 300.0f);
+
+// Content should resize to avoid keyboard
+assert_eq(instance.get_content_height(), 300.0f);
+
+// Verify state getter
+auto [visible2, height2] = slint_testing::get_soft_keyboard_state(&instance);
+assert(visible2);
+assert_eq(height2, 300.0f);
+
+// Test: Hide keyboard
+slint_testing::simulate_set_soft_keyboard_state(&instance, false, 0.0f);
+slint_testing::mock_elapsed_time(16);
+
+// Virtual keyboard should be cleared
+assert_eq(instance.get_vk_height(), 0.0f);
+assert_eq(instance.get_vk_width(), 0.0f);
+
+// Content should fill full height again
+assert_eq(instance.get_content_height(), 600.0f);
+
+// Test: Focus text input then show keyboard
+instance.invoke_focus_input();
+slint_testing::mock_elapsed_time(50);
+
+slint_testing::simulate_set_soft_keyboard_state(&instance, true, 280.0f);
+slint_testing::mock_elapsed_time(16);
+
+assert_eq(instance.get_vk_height(), 280.0f);
+assert_eq(instance.get_content_height(), 320.0f);
+```
+*/

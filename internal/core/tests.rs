@@ -176,6 +176,47 @@ pub fn simulate_ime_set_composing_region(
     }
 }
 
+/// Simulate setting the soft keyboard state.
+///
+/// This simulates the behavior of a platform reporting soft keyboard visibility changes.
+/// It updates the window's virtual keyboard properties which can affect layout.
+///
+/// # Arguments
+/// * `visible` - Whether the keyboard is visible
+/// * `height` - Height of the keyboard in logical pixels
+#[cfg(feature = "std")]
+pub fn simulate_set_soft_keyboard_state(
+    visible: bool,
+    height: f32,
+    window_adapter: &crate::window::WindowAdapterRc,
+) {
+    use crate::window::{SoftKeyboardState, WindowInner};
+
+    let state = SoftKeyboardState {
+        visible,
+        height,
+        animation_duration_ms: None,
+        animation_progress: None,
+    };
+
+    let window_inner = WindowInner::from_pub(window_adapter.window());
+    window_inner.set_soft_keyboard_state(state);
+}
+
+/// Get the current soft keyboard state.
+///
+/// Returns (visible, height) tuple.
+#[cfg(feature = "std")]
+pub fn get_soft_keyboard_state(
+    window_adapter: &crate::window::WindowAdapterRc,
+) -> (bool, f32) {
+    use crate::window::WindowInner;
+
+    let window_inner = WindowInner::from_pub(window_adapter.window());
+    let state = window_inner.soft_keyboard_state();
+    (state.visible, state.height)
+}
+
 /// implementation details for debug_log()
 #[doc(hidden)]
 pub fn debug_log_impl(args: core::fmt::Arguments) {
