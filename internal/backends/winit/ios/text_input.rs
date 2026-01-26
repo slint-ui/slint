@@ -46,7 +46,7 @@
 //! - `textRangeFromPosition:toPosition:` - Range creation
 
 use i_slint_core::text_input_controller::{
-    byte_offset_to_utf16_offset, utf16_offset_to_byte_offset, TextInputController,
+    TextInputController, byte_offset_to_utf16_offset, utf16_offset_to_byte_offset,
 };
 use std::cell::RefCell;
 use std::rc::Rc;

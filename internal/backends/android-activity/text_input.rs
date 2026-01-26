@@ -36,7 +36,7 @@
 //! 5. When TextInput loses focus, `text_input_unfocused()` clears the controller
 
 use i_slint_core::text_input_controller::{
-    byte_offset_to_utf16_offset, utf16_offset_to_byte_offset, TextInputController,
+    TextInputController, byte_offset_to_utf16_offset, utf16_offset_to_byte_offset,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -250,7 +250,10 @@ impl AndroidTextInputHandler {
             let start_bytes = match utf16_offset_to_byte_offset(&text, start) {
                 Some(offset) => offset,
                 None => {
-                    log::warn!("set_selection: invalid start offset {} (inside surrogate pair)", start);
+                    log::warn!(
+                        "set_selection: invalid start offset {} (inside surrogate pair)",
+                        start
+                    );
                     return false;
                 }
             };
