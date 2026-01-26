@@ -81,13 +81,7 @@ impl AndroidTextInputHandler {
     /// Returns None if no TextInput is focused or if the controller has been invalidated.
     pub fn controller(&self) -> Option<Rc<dyn TextInputController>> {
         let controller = self.controller.borrow();
-        controller.as_ref().and_then(|c| {
-            if c.is_valid() {
-                Some(c.clone())
-            } else {
-                None
-            }
-        })
+        controller.as_ref().and_then(|c| if c.is_valid() { Some(c.clone()) } else { None })
     }
 
     /// Checks if there is a valid focused text input.
@@ -267,8 +261,8 @@ impl AndroidTextInputHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use i_slint_core::lengths::LogicalRect;
     use i_slint_core::SharedString;
+    use i_slint_core::lengths::LogicalRect;
     use std::cell::Cell;
 
     /// Mock TextInputController for testing the handler.
@@ -294,7 +288,7 @@ mod tests {
             Self {
                 valid: Cell::new(true),
                 text: RefCell::new(String::from("Hello World")),
-                cursor: Cell::new(5), // After "Hello"
+                cursor: Cell::new(5),         // After "Hello"
                 selection: Cell::new((5, 5)), // No selection, cursor at 5
                 preedit: RefCell::new(String::new()),
                 preedit_cursor: Cell::new(None),

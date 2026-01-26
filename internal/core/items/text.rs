@@ -1180,10 +1180,8 @@ impl Item for TextInput {
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
                     // Create and provide a TextInputController for platform IME integration
-                    let controller = alloc::rc::Rc::new(CoreTextInputController::new(
-                        self_rc,
-                        window_adapter,
-                    ));
+                    let controller =
+                        alloc::rc::Rc::new(CoreTextInputController::new(self_rc, window_adapter));
                     window_adapter.text_input_focused(controller);
 
                     window_adapter.handle_input_method_request(InputMethodRequest::Enable(
@@ -2224,11 +2222,8 @@ impl TextInput {
 
         // Get preedit styling properties, using None to indicate default (text_color)
         let preedit_color_prop = self.preedit_color();
-        let preedit_color = if preedit_color_prop == Brush::default() {
-            None
-        } else {
-            Some(preedit_color_prop)
-        };
+        let preedit_color =
+            if preedit_color_prop == Brush::default() { None } else { Some(preedit_color_prop) };
 
         let preedit_underline_color_prop = self.preedit_underline_color();
         let preedit_underline_color = if preedit_underline_color_prop == Brush::default() {

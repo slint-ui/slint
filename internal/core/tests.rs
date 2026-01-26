@@ -115,7 +115,12 @@ pub fn simulate_ime_preedit(
             if preedit.is_empty() {
                 text_input.as_pin_ref().ime_clear_preedit(window_adapter, &focus_item);
             } else {
-                text_input.as_pin_ref().ime_set_preedit(preedit, cursor, window_adapter, &focus_item);
+                text_input.as_pin_ref().ime_set_preedit(
+                    preedit,
+                    cursor,
+                    window_adapter,
+                    &focus_item,
+                );
             }
         }
     }
@@ -145,7 +150,12 @@ pub fn simulate_ime_commit(
     if let Some(focus_item) = window_inner.focus_item.borrow().upgrade() {
         // Check if it's a TextInput
         if let Some(text_input) = focus_item.downcast::<TextInput>() {
-            text_input.as_pin_ref().ime_commit_text(text, cursor_offset, window_adapter, &focus_item);
+            text_input.as_pin_ref().ime_commit_text(
+                text,
+                cursor_offset,
+                window_adapter,
+                &focus_item,
+            );
         }
     }
 }
@@ -207,9 +217,7 @@ pub fn simulate_set_soft_keyboard_state(
 ///
 /// Returns (visible, height) tuple.
 #[cfg(feature = "std")]
-pub fn get_soft_keyboard_state(
-    window_adapter: &crate::window::WindowAdapterRc,
-) -> (bool, f32) {
+pub fn get_soft_keyboard_state(window_adapter: &crate::window::WindowAdapterRc) -> (bool, f32) {
     use crate::window::WindowInner;
 
     let window_inner = WindowInner::from_pub(window_adapter.window());

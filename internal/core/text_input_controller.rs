@@ -6,11 +6,11 @@
 //! This module provides the [`TextInputController`] trait that abstracts text input
 //! handling for mobile platforms (Android InputConnection, iOS UITextInput).
 
+use crate::SharedString;
 use crate::item_tree::{ItemRc, ItemWeak};
 use crate::items::TextInput;
 use crate::lengths::LogicalRect;
 use crate::window::WindowAdapter;
-use crate::SharedString;
 use alloc::rc::{Rc, Weak};
 use core::cell::Cell;
 
@@ -190,7 +190,10 @@ impl CoreTextInputController {
     }
 
     /// Helper to get the TextInput if still valid.
-    fn with_text_input<R>(&self, f: impl FnOnce(core::pin::Pin<&TextInput>, &ItemRc, &Rc<dyn WindowAdapter>) -> R) -> Option<R> {
+    fn with_text_input<R>(
+        &self,
+        f: impl FnOnce(core::pin::Pin<&TextInput>, &ItemRc, &Rc<dyn WindowAdapter>) -> R,
+    ) -> Option<R> {
         let item_rc = self.text_input.upgrade()?;
         let window_adapter = self.window_adapter.upgrade()?;
         let text_input = item_rc.downcast::<TextInput>()?;
@@ -216,7 +219,8 @@ impl TextInputController for CoreTextInputController {
             // Adjust to valid UTF-8 boundary
             let start = floor_byte_offset(&text, start);
             text[start..cursor].into()
-        }).unwrap_or_default()
+        })
+        .unwrap_or_default()
     }
 
     fn text_after_cursor(&self, max_bytes: usize) -> SharedString {
@@ -227,7 +231,8 @@ impl TextInputController for CoreTextInputController {
             // Adjust to valid UTF-8 boundary
             let end = ceil_byte_offset(&text, end);
             text[cursor..end].into()
-        }).unwrap_or_default()
+        })
+        .unwrap_or_default()
     }
 
     fn selected_text(&self) -> Option<SharedString> {
@@ -239,7 +244,8 @@ impl TextInputController for CoreTextInputController {
                 let text = ti.text();
                 Some(text[start..end].into())
             }
-        }).flatten()
+        })
+        .flatten()
     }
 
     fn text(&self) -> SharedString {
@@ -250,7 +256,8 @@ impl TextInputController for CoreTextInputController {
         self.with_text_input(|ti, _, _| {
             let text = ti.text();
             ti.cursor_position(&text)
-        }).unwrap_or(0)
+        })
+        .unwrap_or(0)
     }
 
     fn selection(&self) -> (usize, usize) {
@@ -268,23 +275,28 @@ impl TextInputController for CoreTextInputController {
     fn preedit_cursor(&self) -> Option<usize> {
         self.with_text_input(|ti, _, _| {
             ti.preedit_selection().as_option().map(|sel| sel.end as usize)
-        }).flatten()
+        })
+        .flatten()
     }
 
     fn cursor_rect(&self) -> LogicalRect {
         self.with_text_input(|ti, item_rc, window_adapter| {
             let text = ti.text();
             let cursor_pos = ti.cursor_position(&text);
-            let rect = window_adapter.renderer().text_input_cursor_rect_for_byte_offset(ti, item_rc, cursor_pos);
+            let rect = window_adapter
+                .renderer()
+                .text_input_cursor_rect_for_byte_offset(ti, item_rc, cursor_pos);
             let origin = item_rc.map_to_window(rect.origin);
             LogicalRect::new(origin, rect.size)
-        }).unwrap_or_default()
+        })
+        .unwrap_or_default()
     }
 
     fn commit_text(&self, text: &str, cursor_offset: i32) -> bool {
         self.with_text_input(|ti, item_rc, window_adapter| {
             ti.ime_commit_text(text, cursor_offset, window_adapter, item_rc);
-        }).is_some()
+        })
+        .is_some()
     }
 
     fn set_preedit(&self, text: &str, cursor: Option<usize>) -> bool {
@@ -296,13 +308,15 @@ impl TextInputController for CoreTextInputController {
         }
         self.with_text_input(|ti, item_rc, window_adapter| {
             ti.ime_set_preedit(text, cursor, window_adapter, item_rc);
-        }).is_some()
+        })
+        .is_some()
     }
 
     fn clear_preedit(&self) -> bool {
         self.with_text_input(|ti, item_rc, window_adapter| {
             ti.ime_clear_preedit(window_adapter, item_rc);
-        }).is_some()
+        })
+        .is_some()
     }
 
     fn set_composing_region(&self, region: Option<(usize, usize)>) -> bool {
@@ -316,7 +330,8 @@ impl TextInputController for CoreTextInputController {
             }
             ti.ime_set_composing_region(region, window_adapter, item_rc);
             true
-        }).unwrap_or(false)
+        })
+        .unwrap_or(false)
     }
 
     fn finish_composing(&self) -> bool {
@@ -328,7 +343,8 @@ impl TextInputController for CoreTextInputController {
             }
             // Clear composing region
             ti.ime_set_composing_region(None, window_adapter, item_rc);
-        }).is_some()
+        })
+        .is_some()
     }
 
     fn delete_surrounding(&self, before: usize, after: usize) -> bool {
@@ -345,7 +361,8 @@ impl TextInputController for CoreTextInputController {
 
             ti.ime_delete_surrounding(before, after, window_adapter, item_rc);
             true
-        }).unwrap_or(false)
+        })
+        .unwrap_or(false)
     }
 
     fn set_cursor(&self, position: usize) -> bool {
@@ -356,7 +373,8 @@ impl TextInputController for CoreTextInputController {
             }
             ti.ime_set_selection(position, position, window_adapter, item_rc);
             true
-        }).unwrap_or(false)
+        })
+        .unwrap_or(false)
     }
 
     fn set_selection(&self, start: usize, end: usize) -> bool {
@@ -367,7 +385,8 @@ impl TextInputController for CoreTextInputController {
             }
             ti.ime_set_selection(start, end, window_adapter, item_rc);
             true
-        }).unwrap_or(false)
+        })
+        .unwrap_or(false)
     }
 
     fn begin_batch_edit(&self) -> bool {
@@ -465,10 +484,7 @@ pub fn byte_offset_to_char_count(text: &str, byte_offset: usize) -> usize {
 /// The byte offset after `char_count` characters, or the string length if
 /// `char_count` exceeds the number of characters in the string.
 pub fn char_count_to_byte_offset(text: &str, char_count: usize) -> usize {
-    text.char_indices()
-        .nth(char_count)
-        .map(|(idx, _)| idx)
-        .unwrap_or(text.len())
+    text.char_indices().nth(char_count).map(|(idx, _)| idx).unwrap_or(text.len())
 }
 
 #[cfg(test)]
@@ -479,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_is_valid_byte_offset() {
-        let text = "héllo";  // é is 2 bytes
+        let text = "héllo"; // é is 2 bytes
         assert!(is_valid_byte_offset(text, 0));
         assert!(is_valid_byte_offset(text, 1));
         assert!(!is_valid_byte_offset(text, 2)); // middle of é
@@ -643,7 +659,9 @@ mod tests {
     fn create_invalid_window_adapter_weak() -> Weak<dyn crate::window::WindowAdapter> {
         let adapter: Rc<dyn crate::window::WindowAdapter> =
             Rc::<MockWindowAdapter>::new_cyclic(|weak| MockWindowAdapter {
-                window: crate::api::Window::new(weak.clone() as Weak<dyn crate::window::WindowAdapter>),
+                window: crate::api::Window::new(
+                    weak.clone() as Weak<dyn crate::window::WindowAdapter>
+                ),
             });
         let weak = Rc::downgrade(&adapter);
         drop(adapter); // Now the weak reference is invalid

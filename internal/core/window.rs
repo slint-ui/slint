@@ -206,7 +206,10 @@ pub trait WindowAdapter {
     ///
     /// The default implementation does nothing, which is appropriate for desktop platforms
     /// that use `handle_input_method_request()` for IME integration.
-    fn text_input_focused(&self, _controller: Rc<dyn crate::text_input_controller::TextInputController>) {
+    fn text_input_focused(
+        &self,
+        _controller: Rc<dyn crate::text_input_controller::TextInputController>,
+    ) {
         // Default: ignore (backwards compatible for desktop)
     }
 
@@ -1802,11 +1805,12 @@ impl WindowInner {
     /// Returns a reference to the currently focused TextInput, if any.
     ///
     /// This is a helper function for the IME methods.
-    fn focused_text_input(&self) -> Result<VRcMapped<crate::item_tree::ItemTreeVTable, TextInput>, TextInputError> {
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
-        focus_item.downcast::<TextInput>()
-            .ok_or(TextInputError::NoFocusedTextInput)
+    fn focused_text_input(
+        &self,
+    ) -> Result<VRcMapped<crate::item_tree::ItemTreeVTable, TextInput>, TextInputError> {
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        focus_item.downcast::<TextInput>().ok_or(TextInputError::NoFocusedTextInput)
     }
 
     /// Validates that a byte offset is on a UTF-8 character boundary.
@@ -1828,8 +1832,8 @@ impl WindowInner {
     ///   (0 = at end, negative = before, positive = after)
     pub fn ime_commit_text(&self, text: &str, cursor_offset: i32) -> Result<(), TextInputError> {
         let text_input = self.focused_text_input()?;
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
         let window_adapter = self.window_adapter();
 
         text_input.as_pin_ref().ime_commit_text(text, cursor_offset, &window_adapter, &focus_item);
@@ -1850,8 +1854,8 @@ impl WindowInner {
         }
 
         let text_input = self.focused_text_input()?;
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
         let window_adapter = self.window_adapter();
 
         text_input.as_pin_ref().ime_set_preedit(text, cursor, &window_adapter, &focus_item);
@@ -1863,8 +1867,8 @@ impl WindowInner {
     /// This is called when the user cancels composition (e.g., pressing Escape).
     pub fn ime_clear_preedit(&self) -> Result<(), TextInputError> {
         let text_input = self.focused_text_input()?;
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
         let window_adapter = self.window_adapter();
 
         text_input.as_pin_ref().ime_clear_preedit(&window_adapter, &focus_item);
@@ -1878,10 +1882,13 @@ impl WindowInner {
     ///
     /// # Arguments
     /// * `region` - The (start, end) byte offsets, or None to clear the region
-    pub fn ime_set_composing_region(&self, region: Option<(usize, usize)>) -> Result<(), TextInputError> {
+    pub fn ime_set_composing_region(
+        &self,
+        region: Option<(usize, usize)>,
+    ) -> Result<(), TextInputError> {
         let text_input = self.focused_text_input()?;
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
         let window_adapter = self.window_adapter();
 
         // Validate byte offsets if region is provided
@@ -1900,10 +1907,14 @@ impl WindowInner {
     /// # Arguments
     /// * `before` - Number of bytes to delete before the cursor
     /// * `after` - Number of bytes to delete after the cursor
-    pub fn ime_delete_surrounding(&self, before: usize, after: usize) -> Result<(), TextInputError> {
+    pub fn ime_delete_surrounding(
+        &self,
+        before: usize,
+        after: usize,
+    ) -> Result<(), TextInputError> {
         let text_input = self.focused_text_input()?;
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
         let window_adapter = self.window_adapter();
 
         // Validate that deletion won't split UTF-8 characters
@@ -1926,8 +1937,8 @@ impl WindowInner {
     /// * `end` - End byte offset. If start == end, this just moves the cursor.
     pub fn ime_set_selection(&self, start: usize, end: usize) -> Result<(), TextInputError> {
         let text_input = self.focused_text_input()?;
-        let focus_item = self.focus_item.borrow().upgrade()
-            .ok_or(TextInputError::NoFocusedTextInput)?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
         let window_adapter = self.window_adapter();
 
         let text = text_input.as_pin_ref().text();

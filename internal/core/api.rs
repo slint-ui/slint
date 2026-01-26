@@ -778,9 +778,7 @@ impl Window {
     /// which is the inverse of receiving `InputMethodRequest::Update` notifications.
     ///
     /// Returns `None` if no TextInput element is currently focused.
-    pub fn input_method_properties(
-        &self,
-    ) -> Option<crate::window::InputMethodProperties> {
+    pub fn input_method_properties(&self) -> Option<crate::window::InputMethodProperties> {
         self.0.input_method_properties()
     }
 

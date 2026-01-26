@@ -11,15 +11,15 @@ use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
+pub use crate::text_input_controller::{
+    CoreTextInputController, TextInputController, byte_offset_to_char_count, ceil_byte_offset,
+    char_count_to_byte_offset, floor_byte_offset, is_valid_byte_offset,
+};
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{
     InputMethodProperties, InputMethodRequest, LayoutConstraints, SoftKeyboardState,
     TextInputError, WindowAdapter, WindowProperties,
-};
-pub use crate::text_input_controller::{
-    byte_offset_to_char_count, ceil_byte_offset, char_count_to_byte_offset, floor_byte_offset,
-    is_valid_byte_offset, CoreTextInputController, TextInputController,
 };
 use alloc::boxed::Box;
 use alloc::rc::Rc;
