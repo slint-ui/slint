@@ -34,6 +34,7 @@ export component Test inherits Window {
 //                     >          <error{The binding for the property 'default-font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
 
     dialog1 := Window {
+//             >     <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead}
         default-font-size: 2rem;
     }
 }

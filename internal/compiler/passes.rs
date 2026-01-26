@@ -21,7 +21,6 @@ mod deprecated_rotation_origin;
 #[cfg(feature = "software-renderer")]
 mod embed_glyphs;
 mod embed_images;
-mod ensure_window;
 mod flickable;
 mod focus_handling;
 pub mod generate_item_indices;
@@ -54,6 +53,7 @@ pub mod resolve_native_classes;
 pub mod resolving;
 mod unique_id;
 mod visible;
+mod windows;
 mod z_order;
 
 use crate::expression_tree::Expression;
@@ -140,7 +140,7 @@ pub async fn run_passes(
 
     for root_component in doc.exported_roots() {
         focus_handling::call_focus_on_init(&root_component);
-        ensure_window::ensure_window(&root_component, &doc.local_registry, &style_metrics, diag);
+        windows::ensure_window(&root_component, &doc.local_registry, &style_metrics, diag);
     }
     if let Some(popup_menu_impl) = &doc.popup_menu_impl {
         focus_handling::call_focus_on_init(popup_menu_impl);
@@ -321,5 +321,6 @@ pub fn run_import_passes(
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
+    windows::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }

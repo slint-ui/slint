@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
@@ -145,4 +145,42 @@ pub fn inherits_window(component: &Rc<Component>) -> bool {
     component.root_element.borrow().builtin_type().is_none_or(|b| {
         matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
     })
+}
+
+// Note: This pass must run before lower_popups, as that introduces additional Window elements.
+pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
+    for component in &doc.inner_components {
+        crate::object_tree::recurse_elem_including_sub_components(
+            component,
+            &(),
+            &mut |elem, _| {
+                // The root element of a component can be a window, but sub-elements should not be!
+                if Rc::ptr_eq(&component.root_element, elem) {
+                    return;
+                }
+
+                let elem = elem.borrow();
+
+                let Some(builtin) = elem.builtin_type() else {
+                    return;
+                };
+                if matches!(builtin.name.as_str(), "Window" | "WindowItem") {
+                    let inheritance_hint =
+                        if let ElementType::Component(component) = &elem.base_type {
+                            format!("\n(Note: {} inherits Window)", component.id)
+                        } else {
+                            "".to_owned()
+                        };
+                    diag.push_warning(
+                        format!(
+                            "Window elements as children do not create separate windows (this may change in the future)\n\
+                            Consider using a PopupWindow instead\
+                            {inheritance_hint}"
+                        ),
+                        &*elem,
+                    );
+                }
+            },
+        );
+    }
 }
