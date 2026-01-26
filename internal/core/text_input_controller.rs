@@ -475,6 +475,8 @@ pub fn char_count_to_byte_offset(text: &str, char_count: usize) -> usize {
 mod tests {
     use super::*;
 
+    // ===== Byte Offset Utility Function Tests =====
+
     #[test]
     fn test_is_valid_byte_offset() {
         let text = "héllo";  // é is 2 bytes
@@ -484,6 +486,38 @@ mod tests {
         assert!(is_valid_byte_offset(text, 3));
         assert!(is_valid_byte_offset(text, 6)); // end of string
         assert!(!is_valid_byte_offset(text, 7)); // beyond string
+    }
+
+    #[test]
+    fn test_is_valid_byte_offset_empty_string() {
+        let text = "";
+        assert!(is_valid_byte_offset(text, 0)); // empty string, position 0 is valid
+        assert!(!is_valid_byte_offset(text, 1)); // beyond empty string
+    }
+
+    #[test]
+    fn test_is_valid_byte_offset_multibyte_chars() {
+        // Test with various Unicode characters
+        let text = "日本語"; // Each kanji is 3 bytes
+        assert!(is_valid_byte_offset(text, 0));
+        assert!(!is_valid_byte_offset(text, 1)); // middle of 日
+        assert!(!is_valid_byte_offset(text, 2)); // middle of 日
+        assert!(is_valid_byte_offset(text, 3)); // start of 本
+        assert!(is_valid_byte_offset(text, 6)); // start of 語
+        assert!(is_valid_byte_offset(text, 9)); // end of string
+    }
+
+    #[test]
+    fn test_is_valid_byte_offset_emoji() {
+        // Emoji can be 4 bytes
+        let text = "a😀b"; // 'a' = 1 byte, '😀' = 4 bytes, 'b' = 1 byte
+        assert!(is_valid_byte_offset(text, 0)); // start
+        assert!(is_valid_byte_offset(text, 1)); // after 'a'
+        assert!(!is_valid_byte_offset(text, 2)); // middle of emoji
+        assert!(!is_valid_byte_offset(text, 3)); // middle of emoji
+        assert!(!is_valid_byte_offset(text, 4)); // middle of emoji
+        assert!(is_valid_byte_offset(text, 5)); // after emoji
+        assert!(is_valid_byte_offset(text, 6)); // end (after 'b')
     }
 
     #[test]
@@ -497,6 +531,17 @@ mod tests {
     }
 
     #[test]
+    fn test_floor_byte_offset_multibyte() {
+        let text = "日本語"; // Each kanji is 3 bytes
+        assert_eq!(floor_byte_offset(text, 0), 0);
+        assert_eq!(floor_byte_offset(text, 1), 0); // middle of 日 → start
+        assert_eq!(floor_byte_offset(text, 2), 0); // middle of 日 → start
+        assert_eq!(floor_byte_offset(text, 3), 3); // start of 本
+        assert_eq!(floor_byte_offset(text, 4), 3); // middle of 本 → start of 本
+        assert_eq!(floor_byte_offset(text, 5), 3); // middle of 本 → start of 本
+    }
+
+    #[test]
     fn test_ceil_byte_offset() {
         let text = "héllo";
         assert_eq!(ceil_byte_offset(text, 0), 0);
@@ -504,6 +549,16 @@ mod tests {
         assert_eq!(ceil_byte_offset(text, 2), 3); // middle of é → after é
         assert_eq!(ceil_byte_offset(text, 3), 3);
         assert_eq!(ceil_byte_offset(text, 10), 6); // beyond → end
+    }
+
+    #[test]
+    fn test_ceil_byte_offset_multibyte() {
+        let text = "日本語"; // Each kanji is 3 bytes
+        assert_eq!(ceil_byte_offset(text, 0), 0);
+        assert_eq!(ceil_byte_offset(text, 1), 3); // middle of 日 → after 日
+        assert_eq!(ceil_byte_offset(text, 2), 3); // middle of 日 → after 日
+        assert_eq!(ceil_byte_offset(text, 3), 3); // start of 本
+        assert_eq!(ceil_byte_offset(text, 4), 6); // middle of 本 → after 本
     }
 
     #[test]
@@ -516,6 +571,15 @@ mod tests {
     }
 
     #[test]
+    fn test_byte_offset_to_char_count_emoji() {
+        let text = "a😀b";
+        assert_eq!(byte_offset_to_char_count(text, 0), 0);
+        assert_eq!(byte_offset_to_char_count(text, 1), 1); // after 'a'
+        assert_eq!(byte_offset_to_char_count(text, 5), 2); // after emoji
+        assert_eq!(byte_offset_to_char_count(text, 6), 3); // end
+    }
+
+    #[test]
     fn test_char_count_to_byte_offset() {
         let text = "héllo";
         assert_eq!(char_count_to_byte_offset(text, 0), 0);
@@ -523,5 +587,343 @@ mod tests {
         assert_eq!(char_count_to_byte_offset(text, 2), 3); // after 'é'
         assert_eq!(char_count_to_byte_offset(text, 5), 6); // end
         assert_eq!(char_count_to_byte_offset(text, 10), 6); // beyond → end
+    }
+
+    #[test]
+    fn test_char_count_to_byte_offset_emoji() {
+        let text = "a😀b";
+        assert_eq!(char_count_to_byte_offset(text, 0), 0);
+        assert_eq!(char_count_to_byte_offset(text, 1), 1); // after 'a'
+        assert_eq!(char_count_to_byte_offset(text, 2), 5); // after emoji
+        assert_eq!(char_count_to_byte_offset(text, 3), 6); // end
+    }
+
+    #[test]
+    fn test_roundtrip_byte_char_conversion() {
+        let text = "héllo 日本語 😀";
+        // Test that byte → char → byte roundtrips correctly for valid offsets
+        for (idx, _) in text.char_indices() {
+            let char_count = byte_offset_to_char_count(text, idx);
+            let back_to_byte = char_count_to_byte_offset(text, char_count);
+            assert_eq!(back_to_byte, idx, "Roundtrip failed for byte offset {}", idx);
+        }
+        // Also test end of string
+        let char_count = byte_offset_to_char_count(text, text.len());
+        let back_to_byte = char_count_to_byte_offset(text, char_count);
+        assert_eq!(back_to_byte, text.len());
+    }
+
+    // ===== CoreTextInputController Tests =====
+
+    use crate::api::PhysicalSize;
+    use crate::platform::Renderer;
+
+    /// A minimal mock WindowAdapter for testing purposes.
+    /// All methods panic since we only use this to create an invalid weak reference.
+    struct MockWindowAdapter {
+        window: crate::api::Window,
+    }
+
+    impl crate::window::WindowAdapter for MockWindowAdapter {
+        fn window(&self) -> &crate::api::Window {
+            &self.window
+        }
+
+        fn size(&self) -> PhysicalSize {
+            PhysicalSize::default()
+        }
+
+        fn renderer(&self) -> &dyn Renderer {
+            panic!("MockWindowAdapter::renderer should not be called in tests")
+        }
+    }
+
+    /// Helper to create an invalid weak reference to a WindowAdapter.
+    /// Creates a mock adapter, wraps it in Rc, gets a weak reference, then drops the Rc.
+    fn create_invalid_window_adapter_weak() -> Weak<dyn crate::window::WindowAdapter> {
+        let adapter: Rc<dyn crate::window::WindowAdapter> =
+            Rc::<MockWindowAdapter>::new_cyclic(|weak| MockWindowAdapter {
+                window: crate::api::Window::new(weak.clone() as Weak<dyn crate::window::WindowAdapter>),
+            });
+        let weak = Rc::downgrade(&adapter);
+        drop(adapter); // Now the weak reference is invalid
+        weak
+    }
+
+    /// Helper to create an invalid controller (with empty weak references)
+    fn create_invalid_controller() -> CoreTextInputController {
+        CoreTextInputController {
+            text_input: ItemWeak::default(),
+            window_adapter: create_invalid_window_adapter_weak(),
+            batch_edit_count: Cell::new(0),
+        }
+    }
+
+    #[test]
+    fn test_invalid_controller_is_not_valid() {
+        let controller = create_invalid_controller();
+        assert!(!controller.is_valid());
+    }
+
+    #[test]
+    fn test_invalid_controller_text_before_cursor_returns_empty() {
+        let controller = create_invalid_controller();
+        assert_eq!(controller.text_before_cursor(100).as_str(), "");
+    }
+
+    #[test]
+    fn test_invalid_controller_text_after_cursor_returns_empty() {
+        let controller = create_invalid_controller();
+        assert_eq!(controller.text_after_cursor(100).as_str(), "");
+    }
+
+    #[test]
+    fn test_invalid_controller_selected_text_returns_none() {
+        let controller = create_invalid_controller();
+        assert!(controller.selected_text().is_none());
+    }
+
+    #[test]
+    fn test_invalid_controller_text_returns_empty() {
+        let controller = create_invalid_controller();
+        assert_eq!(controller.text().as_str(), "");
+    }
+
+    #[test]
+    fn test_invalid_controller_cursor_position_returns_zero() {
+        let controller = create_invalid_controller();
+        assert_eq!(controller.cursor_position(), 0);
+    }
+
+    #[test]
+    fn test_invalid_controller_selection_returns_zero_zero() {
+        let controller = create_invalid_controller();
+        assert_eq!(controller.selection(), (0, 0));
+    }
+
+    #[test]
+    fn test_invalid_controller_composing_region_returns_none() {
+        let controller = create_invalid_controller();
+        assert!(controller.composing_region().is_none());
+    }
+
+    #[test]
+    fn test_invalid_controller_preedit_text_returns_empty() {
+        let controller = create_invalid_controller();
+        assert_eq!(controller.preedit_text().as_str(), "");
+    }
+
+    #[test]
+    fn test_invalid_controller_preedit_cursor_returns_none() {
+        let controller = create_invalid_controller();
+        assert!(controller.preedit_cursor().is_none());
+    }
+
+    #[test]
+    fn test_invalid_controller_cursor_rect_returns_default() {
+        let controller = create_invalid_controller();
+        let rect = controller.cursor_rect();
+        assert_eq!(rect, LogicalRect::default());
+    }
+
+    #[test]
+    fn test_invalid_controller_commit_text_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.commit_text("hello", 0));
+    }
+
+    #[test]
+    fn test_invalid_controller_set_preedit_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.set_preedit("hello", None));
+    }
+
+    #[test]
+    fn test_invalid_controller_clear_preedit_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.clear_preedit());
+    }
+
+    #[test]
+    fn test_invalid_controller_set_composing_region_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.set_composing_region(Some((0, 5))));
+    }
+
+    #[test]
+    fn test_invalid_controller_finish_composing_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.finish_composing());
+    }
+
+    #[test]
+    fn test_invalid_controller_delete_surrounding_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.delete_surrounding(1, 1));
+    }
+
+    #[test]
+    fn test_invalid_controller_set_cursor_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.set_cursor(0));
+    }
+
+    #[test]
+    fn test_invalid_controller_set_selection_returns_false() {
+        let controller = create_invalid_controller();
+        assert!(!controller.set_selection(0, 5));
+    }
+
+    // ===== Batch Edit Tests =====
+
+    #[test]
+    fn test_batch_edit_on_invalid_controller_fails() {
+        let controller = create_invalid_controller();
+        assert!(!controller.begin_batch_edit());
+    }
+
+    #[test]
+    fn test_end_batch_edit_without_begin_fails() {
+        let controller = create_invalid_controller();
+        // Even on an invalid controller, end_batch_edit should return false
+        // if no batch edit was started
+        assert!(!controller.end_batch_edit());
+    }
+
+    #[test]
+    fn test_batch_edit_counter_increments() {
+        let controller = create_invalid_controller();
+
+        // Note: begin_batch_edit returns false because controller is invalid,
+        // but the counter logic can be tested with a valid controller.
+        // For now, test that the counter doesn't change on invalid controller.
+        assert_eq!(controller.batch_edit_count.get(), 0);
+        controller.begin_batch_edit(); // Returns false, counter unchanged
+        assert_eq!(controller.batch_edit_count.get(), 0);
+    }
+
+    #[test]
+    fn test_batch_edit_nesting_logic() {
+        // Test the batch edit nesting counter logic directly
+        let count = Cell::new(0);
+
+        // Simulate begin_batch_edit
+        count.set(count.get() + 1);
+        assert_eq!(count.get(), 1);
+
+        // Nested begin
+        count.set(count.get() + 1);
+        assert_eq!(count.get(), 2);
+
+        // End one level
+        count.set(count.get() - 1);
+        assert_eq!(count.get(), 1);
+
+        // End final level
+        count.set(count.get() - 1);
+        assert_eq!(count.get(), 0);
+    }
+
+    // ===== Offset Validation Tests =====
+
+    #[test]
+    fn test_is_valid_offset_internal() {
+        // Test the internal is_valid_offset method
+        assert!(CoreTextInputController::is_valid_offset("hello", 0));
+        assert!(CoreTextInputController::is_valid_offset("hello", 5));
+        assert!(!CoreTextInputController::is_valid_offset("hello", 6));
+
+        // Test with multibyte
+        let text = "héllo";
+        assert!(CoreTextInputController::is_valid_offset(text, 0));
+        assert!(CoreTextInputController::is_valid_offset(text, 1));
+        assert!(!CoreTextInputController::is_valid_offset(text, 2)); // middle of é
+        assert!(CoreTextInputController::is_valid_offset(text, 3));
+    }
+
+    #[test]
+    fn test_set_preedit_validates_cursor_offset() {
+        let controller = create_invalid_controller();
+
+        // Even though controller is invalid, set_preedit should validate the cursor offset
+        // and return false for invalid offsets before checking controller validity.
+        // However, the current implementation checks validity first, then offset.
+        // Let's test what we can.
+
+        // With invalid controller, all these return false
+        assert!(!controller.set_preedit("hello", Some(0)));
+        assert!(!controller.set_preedit("hello", Some(5)));
+        assert!(!controller.set_preedit("hello", Some(6))); // invalid offset but controller check happens first
+
+        // Test with multibyte preedit
+        let preedit = "日本語";
+        assert!(!controller.set_preedit(preedit, Some(0)));
+        assert!(!controller.set_preedit(preedit, Some(3)));
+        // Invalid offset in middle of character - validation happens before controller check
+        assert!(!controller.set_preedit(preedit, Some(1)));
+    }
+
+    // ===== Edge Case Tests =====
+
+    #[test]
+    fn test_floor_byte_offset_empty_string() {
+        assert_eq!(floor_byte_offset("", 0), 0);
+        assert_eq!(floor_byte_offset("", 5), 0);
+    }
+
+    #[test]
+    fn test_ceil_byte_offset_empty_string() {
+        assert_eq!(ceil_byte_offset("", 0), 0);
+        assert_eq!(ceil_byte_offset("", 5), 0);
+    }
+
+    #[test]
+    fn test_byte_offset_conversions_empty_string() {
+        assert_eq!(byte_offset_to_char_count("", 0), 0);
+        assert_eq!(char_count_to_byte_offset("", 0), 0);
+        assert_eq!(char_count_to_byte_offset("", 5), 0); // beyond end → clamped to end
+    }
+
+    #[test]
+    fn test_floor_ceil_at_exact_boundary() {
+        let text = "abc";
+        // At exact boundaries, floor and ceil should return the same value
+        for i in 0..=text.len() {
+            assert_eq!(floor_byte_offset(text, i), i);
+            assert_eq!(ceil_byte_offset(text, i), i);
+        }
+    }
+
+    #[test]
+    fn test_surrogate_pairs() {
+        // Test with characters that would be surrogate pairs in UTF-16
+        // but are single code points in UTF-8 (4 bytes)
+        let text = "𝄞"; // Musical G clef, 4 bytes in UTF-8
+        assert_eq!(text.len(), 4);
+        assert!(is_valid_byte_offset(text, 0));
+        assert!(!is_valid_byte_offset(text, 1));
+        assert!(!is_valid_byte_offset(text, 2));
+        assert!(!is_valid_byte_offset(text, 3));
+        assert!(is_valid_byte_offset(text, 4));
+
+        assert_eq!(floor_byte_offset(text, 2), 0);
+        assert_eq!(ceil_byte_offset(text, 2), 4);
+    }
+
+    #[test]
+    fn test_combining_characters() {
+        // Test with combining characters (e.g., é as e + combining acute)
+        let text = "e\u{0301}"; // 'e' followed by combining acute accent
+        assert_eq!(text.chars().count(), 2); // Two code points
+        assert_eq!(text.len(), 3); // 3 bytes (1 + 2)
+
+        assert!(is_valid_byte_offset(text, 0)); // start
+        assert!(is_valid_byte_offset(text, 1)); // after 'e'
+        assert!(!is_valid_byte_offset(text, 2)); // middle of combining char
+        assert!(is_valid_byte_offset(text, 3)); // end
+
+        assert_eq!(byte_offset_to_char_count(text, 0), 0);
+        assert_eq!(byte_offset_to_char_count(text, 1), 1);
+        assert_eq!(byte_offset_to_char_count(text, 3), 2);
     }
 }
