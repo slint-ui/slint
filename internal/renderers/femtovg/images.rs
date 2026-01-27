@@ -203,6 +203,10 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     )
                     .unwrap()
             }
+            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-27"))]
+            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU27Texture(..)) => {
+                return None;
+            }
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
                 let (image_source, flags) = image_buffer_to_image_source(&buffer);
