@@ -57,8 +57,6 @@ accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
-  "renderer-femtovg-wgpu",
-  "i-slint-renderer-femtovg/unstable-wgpu-27",
   "i-slint-renderer-skia?/unstable-wgpu-27",
 ]
 unstable-wgpu-28 = [

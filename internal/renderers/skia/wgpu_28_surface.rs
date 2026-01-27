@@ -60,7 +60,9 @@ impl super::Surface for WGPUSurface {
         let swapchain_format = swapchain_capabilities
             .formats
             .iter()
-            .find(|f| !f.is_srgb())
+            .find(|f| {
+                matches!(f, wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Bgra8Unorm)
+            })
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
