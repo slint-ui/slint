@@ -1119,6 +1119,44 @@ mod tests {
         completion_at(&mut dc, token, offset, Some(&caps))
     }
 
+    fn assert_completions_found(
+        expected: impl IntoIterator<Item = CompletionItem>,
+        results: &[CompletionItem],
+    ) {
+        for item in expected {
+            assert_completion_found(&item, results);
+        }
+    }
+
+    fn assert_completion_found(expected: &CompletionItem, results: &[CompletionItem]) {
+        let Some(found) = results.iter().find(|actual| actual.label == expected.label) else {
+            let labels = results
+                .iter()
+                .map(|ci| format!("\t'{}'", &ci.label))
+                .collect::<Vec<_>>()
+                .join("\n");
+            panic!("missing completion for {}\nLabels:\n{labels}", expected.label,);
+        };
+
+        if let Some(insert_text) = &expected.insert_text {
+            assert_eq!(
+                found.insert_text.as_ref(),
+                Some(insert_text),
+                "Unexpected insert_text for '{}'",
+                expected.label,
+            );
+        }
+
+        if let Some(insert_text_format) = expected.insert_text_format {
+            assert_eq!(
+                found.insert_text_format,
+                Some(insert_text_format),
+                "Unexpected insert_text_format for '{}'",
+                expected.label,
+            );
+        }
+    }
+
     #[test]
     fn in_expression() {
         let with_semi = r#"
@@ -1147,18 +1185,23 @@ mod tests {
         "#;
         for source in [with_semi, without_semi] {
             let res = get_completions(source).unwrap();
-            res.iter().find(|ci| ci.label == "alpha").unwrap();
-            res.iter().find(|ci| ci.label == "beta").unwrap();
-            res.iter().find(|ci| ci.label == "funi").unwrap();
-            res.iter().find(|ci| ci.label == "The_Glib").unwrap();
-            res.iter().find(|ci| ci.label == "Colors").unwrap();
-            res.iter().find(|ci| ci.label == "Math").unwrap();
-            res.iter().find(|ci| ci.label == "animation-tick").unwrap();
-            res.iter().find(|ci| ci.label == "the_bo-bo").unwrap();
-            res.iter().find(|ci| ci.label == "true").unwrap();
-            res.iter().find(|ci| ci.label == "self").unwrap();
-            res.iter().find(|ci| ci.label == "root").unwrap();
-            res.iter().find(|ci| ci.label == "TextInputInterface").unwrap();
+            let expected = [
+                "alpha",
+                "beta",
+                "funi()",
+                "The_Glib",
+                "Colors",
+                "Math",
+                "animation-tick()",
+                "the_bo-bo",
+                "true",
+                "self",
+                "root",
+                "TextInputInterface",
+            ]
+            .map(|label| CompletionItem { label: label.to_string(), ..Default::default() });
+            assert_completions_found(expected, &res);
+
             let palette = res
                 .iter()
                 .find(|ci| ci.insert_text.as_ref().is_some_and(|t| t == "Palette"))
@@ -1366,6 +1409,8 @@ mod tests {
                 }
             }
         "#;
+        let expected_in_element = ["with_underscores-and_dash", "super_property-1", "hello_world"];
+
         let in_expr1 = r#"
         component Bar { property <string> nope; }
         component Foo {
@@ -1377,6 +1422,8 @@ mod tests {
             }
         }
         "#;
+        let expected_expr1 = ["with_underscores-and_dash()", "super_property-1", "hello_world()"];
+
         let in_expr2 = r#"
         component Bar { in property <string> super_property-1; property <string> nope; }
         component Foo {
@@ -1388,12 +1435,18 @@ mod tests {
             }
         }
         "#;
-        for source in [in_element, in_expr1, in_expr2] {
+        let expected_expr2 = ["with_underscores-and_dash()", "super_property-1", "hello_world()"];
+
+        for (source, expected) in [
+            (in_element, expected_in_element),
+            (in_expr1, expected_expr1),
+            (in_expr2, expected_expr2),
+        ] {
             let res = get_completions(source).unwrap();
-            assert!(!res.iter().any(|ci| ci.label == "nope"));
-            res.iter().find(|ci| ci.label == "with_underscores-and_dash").unwrap();
-            res.iter().find(|ci| ci.label == "super_property-1").unwrap();
-            res.iter().find(|ci| ci.label == "hello_world").unwrap();
+            assert!(!res.iter().any(|ci| ci.label.contains("nope")));
+            let expected = expected
+                .map(|label| CompletionItem { label: label.to_string(), ..Default::default() });
+            assert_completions_found(expected, &res);
         }
     }
 
@@ -1674,36 +1727,46 @@ mod tests {
             }
         "#;
         let res = get_completions(source).unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quad").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quad").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quad").unwrap();
-        res.iter().find(|ci| ci.label == "ease").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quart").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quart").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quart").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quint").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quint").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quint").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-expo").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-expo").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-expo").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-sine").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-sine").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-sine").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-back").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-back").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-back").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-elastic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-elastic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-elastic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-bounce").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-bounce").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-bounce").unwrap();
-        res.iter().find(|ci| ci.label == "linear").unwrap();
-        res.iter().find(|ci| ci.label == "cubic-bezier").unwrap();
+        let expected = [
+            "ease-in-quad",
+            "ease-out-quad",
+            "ease-in-out-quad",
+            "ease",
+            "ease-in",
+            "ease-out",
+            "ease-in-out",
+            "ease-in-quart",
+            "ease-out-quart",
+            "ease-in-out-quart",
+            "ease-in-quint",
+            "ease-out-quint",
+            "ease-in-out-quint",
+            "ease-in-expo",
+            "ease-out-expo",
+            "ease-in-out-expo",
+            "ease-in-sine",
+            "ease-out-sine",
+            "ease-in-out-sine",
+            "ease-in-back",
+            "ease-out-back",
+            "ease-in-out-back",
+            "ease-in-elastic",
+            "ease-out-elastic",
+            "ease-in-out-elastic",
+            "ease-in-bounce",
+            "ease-out-bounce",
+            "ease-in-out-bounce",
+            "linear",
+        ]
+        .iter()
+        .map(|label| CompletionItem { label: label.to_string(), ..Default::default() })
+        .chain([CompletionItem {
+            label: "cubic-bezier(..)".to_string(),
+            insert_text: Some("cubic-bezier($1)".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            ..Default::default()
+        }]);
+        assert_completions_found(expected, &res);
     }
 
     #[test]
