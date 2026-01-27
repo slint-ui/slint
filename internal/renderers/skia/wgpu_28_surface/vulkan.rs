@@ -6,7 +6,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use ash::vk::Handle;
 use skia_safe::gpu::vk;
 
-use wgpu_26 as wgpu;
+use wgpu_28 as wgpu;
 
 pub unsafe fn make_vulkan_surface(
     size: PhysicalWindowSize,
@@ -155,7 +155,7 @@ pub unsafe fn make_vulkan_context(
             &get_proc,
         );
 
-        // WGPU 26 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the physical device is chosen,
+        // WGPU 28 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the physical device is chosen,
         // causing it to ask for unsupported features/functions
         backend.set_max_api_version(vk::Version::new(1, 3, 0));
 

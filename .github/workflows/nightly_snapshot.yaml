@@ -705,8 +705,8 @@ jobs:
             matrix:
                 include:
                     - os: ubuntu-22.04
-                      name: "Ubuntu 22.04 1.88"
-                      rust_version: "1.88"
+                      name: "Ubuntu 22.04 1.92"
+                      rust_version: "1.92"
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly"

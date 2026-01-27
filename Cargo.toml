@@ -177,8 +177,8 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-26 = { package = "wgpu", version = "26", default-features = false }
 wgpu-27 = { package = "wgpu", version = "27", default-features = false }
+wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.7.0" }

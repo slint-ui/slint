@@ -64,8 +64,8 @@ jobs:
                       save_if: ${{ github.ref == 'refs/heads/master' }}
                       extra_args: "--exclude plotter"
                     - os: windows-2022
-                      name: "Windows 2022 1.88"
-                      rust_version: "1.88"
+                      name: "Windows 2022 1.92"
+                      rust_version: "1.92"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: macos-14

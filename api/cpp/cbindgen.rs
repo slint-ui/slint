@@ -246,8 +246,8 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-26".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-27".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-28".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()

@@ -345,7 +345,7 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
-            #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
+            #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
             ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
@@ -377,28 +377,28 @@ impl OpaqueImage for NineSliceImage {
 }
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
-#[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
+#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
 #[derive(Clone, Debug)]
 pub enum WGPUTexture {
-    /// A texture for WGPU version 26.
-    #[cfg(feature = "unstable-wgpu-26")]
-    WGPU26Texture(wgpu_26::Texture),
     /// A texture for WGPU version 27.
     #[cfg(feature = "unstable-wgpu-27")]
     WGPU27Texture(wgpu_27::Texture),
+    /// A texture for WGPU version 28.
+    #[cfg(feature = "unstable-wgpu-28")]
+    WGPU28Texture(wgpu_28::Texture),
 }
 
-#[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
+#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
         match self {
-            #[cfg(feature = "unstable-wgpu-26")]
-            Self::WGPU26Texture(texture) => {
+            #[cfg(feature = "unstable-wgpu-27")]
+            Self::WGPU27Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
-            #[cfg(feature = "unstable-wgpu-27")]
-            Self::WGPU27Texture(texture) => {
+            #[cfg(feature = "unstable-wgpu-28")]
+            Self::WGPU28Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
@@ -433,7 +433,7 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
-    #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
     WGPUTexture(WGPUTexture) = 8,
 }
 
@@ -552,7 +552,7 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
-            #[cfg(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27"))]
+            #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }
@@ -820,19 +820,6 @@ impl Image {
         }
     }
 
-    /// Returns the [WGPU](http://wgpu.rs) 26.x texture that this image wraps; returns None if the image does not
-    /// hold such a previously wrapped texture.
-    ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major WGPU releases become available.
-    #[cfg(feature = "unstable-wgpu-26")]
-    pub fn to_wgpu_26_texture(&self) -> Option<wgpu_26::Texture> {
-        match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU26Texture(texture)) => Some(texture.clone()),
-            _ => None,
-        }
-    }
-
     /// Returns the [WGPU](http://wgpu.rs) 27.x texture that this image wraps; returns None if the image does not
     /// hold such a previously wrapped texture.
     ///
@@ -842,6 +829,19 @@ impl Image {
     pub fn to_wgpu_27_texture(&self) -> Option<wgpu_27::Texture> {
         match &self.0 {
             ImageInner::WGPUTexture(WGPUTexture::WGPU27Texture(texture)) => Some(texture.clone()),
+            _ => None,
+        }
+    }
+
+    /// Returns the [WGPU](http://wgpu.rs) 28.x texture that this image wraps; returns None if the image does not
+    /// hold such a previously wrapped texture.
+    ///
+    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
+    ///         as new major WGPU releases become available.
+    #[cfg(feature = "unstable-wgpu-28")]
+    pub fn to_wgpu_28_texture(&self) -> Option<wgpu_28::Texture> {
+        match &self.0 {
+            ImageInner::WGPUTexture(WGPUTexture::WGPU28Texture(texture)) => Some(texture.clone()),
             _ => None,
         }
     }

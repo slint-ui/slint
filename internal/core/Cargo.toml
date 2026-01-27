@@ -66,8 +66,8 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental-rich-text = []
 
-unstable-wgpu-26 = ["dep:wgpu-26"]
 unstable-wgpu-27 = ["dep:wgpu-27"]
+unstable-wgpu-28 = ["dep:wgpu-28"]
 
 tr = ["dep:tr"]
 
@@ -122,8 +122,8 @@ bitflags = { version = "2.4.2" }
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
 
-wgpu-26 = { workspace = true, optional = true }
 wgpu-27 = { workspace = true, optional = true }
+wgpu-28 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 

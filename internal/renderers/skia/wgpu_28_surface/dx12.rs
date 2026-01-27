@@ -9,7 +9,7 @@ use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
 };
 
-use wgpu_26 as wgpu;
+use wgpu_28 as wgpu;
 
 pub unsafe fn make_dx12_surface(
     size: PhysicalWindowSize,
@@ -20,7 +20,7 @@ pub unsafe fn make_dx12_surface(
         let dx12_texture = frame.texture.as_hal::<wgpu::wgc::api::Dx12>();
 
         let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
-            resource: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(
+            resource: windows_core::Interface::from_raw(windows_core::Interface::into_raw(
                 dx12_texture.unwrap().raw_resource().clone(),
             )),
             alloc: None,
@@ -57,7 +57,7 @@ pub unsafe fn import_dx12_texture(
         let dx12_texture = texture.as_hal::<wgpu::wgc::api::Dx12>();
 
         let resource: ID3D12Resource = windows_core::Interface::from_raw(
-            windows_core_58::Interface::into_raw(dx12_texture.unwrap().raw_resource().clone()),
+            windows_core::Interface::into_raw(dx12_texture.unwrap().raw_resource().clone()),
         );
 
         let dxgi_texture_format = resource.GetDesc().Format;
@@ -110,23 +110,23 @@ pub unsafe fn make_dx12_context(
 
         maybe_dx12_queue.map(|dx12_queue| {
             let dx12_queue_raw = dx12_queue.as_raw();
-            let mut dx12_device_old: Option<windows_58::Win32::Graphics::Direct3D12::ID3D12Device> =
+            let mut dx12_device_old: Option<windows::Win32::Graphics::Direct3D12::ID3D12Device> =
                 None;
             dx12_queue_raw.GetDevice(&mut dx12_device_old as _).unwrap();
             let dx12_device_old = dx12_device_old.unwrap();
-            let dx12_device = windows_core::Interface::from_raw(
-                windows_core_58::Interface::into_raw(dx12_device_old),
-            );
+            let dx12_device = windows_core::Interface::from_raw(windows_core::Interface::into_raw(
+                dx12_device_old,
+            ));
 
-            let idxgiadapter_1: windows_58::Win32::Graphics::Dxgi::IDXGIAdapter1 =
+            let idxgiadapter_3: windows::Win32::Graphics::Dxgi::IDXGIAdapter3 =
                 dx12_adapter.as_raw().clone().into();
 
             skia_safe::gpu::d3d::BackendContext {
-                adapter: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(
-                    idxgiadapter_1,
+                adapter: windows_core::Interface::from_raw(windows_core::Interface::into_raw(
+                    idxgiadapter_3,
                 )),
                 device: dx12_device,
-                queue: windows_core::Interface::from_raw(windows_core_58::Interface::into_raw(
+                queue: windows_core::Interface::from_raw(windows_core::Interface::into_raw(
                     dx12_queue_raw.clone(),
                 )),
                 memory_allocator: None,

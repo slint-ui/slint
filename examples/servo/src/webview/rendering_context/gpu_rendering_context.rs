@@ -14,7 +14,7 @@ use surfman::{
     chains::{PreserveBuffer, SwapChain},
 };
 
-use slint::wgpu_27::wgpu;
+use slint::wgpu_28::wgpu;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
@@ -291,6 +291,7 @@ impl GPURenderingContext {
                         // Free the memory
                         vulkan_device.free_memory(memory, None);
                     })),
+                    wgpu_hal::vulkan::TextureMemory::External,
                 ),
                 &wgpu::TextureDescriptor {
                     label: None,

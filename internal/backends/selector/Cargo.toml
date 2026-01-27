@@ -47,16 +47,16 @@ raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-wi
 
 system-testing = ["i-slint-backend-testing/system-testing"]
 
-unstable-wgpu-26 = [
-  "i-slint-core/unstable-wgpu-26",
-  "i-slint-renderer-skia?/unstable-wgpu-26",
-  "i-slint-backend-winit?/unstable-wgpu-26",
-]
-
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
   "i-slint-renderer-skia?/unstable-wgpu-27",
   "i-slint-backend-winit?/unstable-wgpu-27",
+]
+
+unstable-wgpu-28 = [
+  "i-slint-core/unstable-wgpu-28",
+  "i-slint-renderer-skia?/unstable-wgpu-28",
+  "i-slint-backend-winit?/unstable-wgpu-28",
 ]
 
 unstable-winit-030 = ["i-slint-backend-winit"]

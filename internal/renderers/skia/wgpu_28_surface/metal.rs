@@ -6,7 +6,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 
 use skia_safe::gpu::mtl;
 
-use wgpu_26 as wgpu;
+use wgpu_28 as wgpu;
 
 pub unsafe fn make_metal_surface(
     size: PhysicalWindowSize,
@@ -79,7 +79,7 @@ pub fn make_metal_context(
         let maybe_metal_queue = queue.as_hal::<wgpu::wgc::api::Metal>();
 
         maybe_metal_device.and_then(|metal_device| {
-            let metal_device_raw = &*metal_device.raw_device().lock();
+            let metal_device_raw = &*metal_device.raw_device();
 
             maybe_metal_queue.map(|metal_queue| {
                 let metal_queue_raw = &*metal_queue.as_raw().lock();
