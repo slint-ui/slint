@@ -131,6 +131,10 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
 - C++ headers generated via `cargo xtask cbindgen`
 - Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`) and backends (`backend-winit`, `backend-qt`)
 
+## Version Control (Git)
+
+- The default git branch is `master`
+
 ## Code Style
 
 - Rust: `rustfmt` enforced in CI
