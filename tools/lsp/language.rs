@@ -1440,7 +1440,64 @@ pub async fn startup_lsp(ctx: &Context) -> common::Result<()> {
     load_configuration(ctx).await
 }
 
+struct WorkspaceConfig {
+    hide_ui: Option<bool>,
+    include_paths: Option<Vec<PathBuf>>,
+    library_paths: Option<HashMap<String, PathBuf>>,
+    style: Option<String>,
+    experimental: bool,
+}
+
+fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceConfig {
+    let mut hide_ui = None;
+    let mut include_paths = None;
+    let mut library_paths = None;
+    let mut style = None;
+    let mut experimental = false;
+
+    for config_value in workspace_config {
+        if let Some(config_object) = config_value.as_object() {
+            if let Some(ip) = config_object.get("includePaths").and_then(|v| v.as_array()) {
+                if !ip.is_empty() {
+                    include_paths = Some(
+                        ip.iter()
+                            .filter_map(serde_json::Value::as_str)
+                            .map(PathBuf::from)
+                            .collect(),
+                    );
+                }
+            }
+            if let Some(lp) = config_object.get("libraryPaths").and_then(|v| v.as_object()) {
+                if !lp.is_empty() {
+                    library_paths = Some(
+                        lp.iter()
+                            .filter_map(|(key, value)| {
+                                value.as_str().map(|v| (key.to_string(), PathBuf::from(v)))
+                            })
+                            .collect(),
+                    );
+                }
+            }
+            if let Some(s) =
+                config_object.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
+            {
+                if !s.is_empty() {
+                    style = Some(s.to_string());
+                }
+            }
+            hide_ui =
+                config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
+            if config_object.get("experimental").and_then(|v| v.as_bool()) == Some(true) {
+                experimental = true;
+            }
+        }
+    }
+    WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
+}
+
 pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
+    tracing::debug!("Loading configuration from client");
+
     if !ctx
         .init_param
         .capabilities
@@ -1452,7 +1509,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         return Ok(());
     }
 
-    let r = ctx
+    let workspace_config = ctx
         .server_notifier
         .send_request::<lsp_types::request::WorkspaceConfiguration>(
             lsp_types::ConfigurationParams {
@@ -1464,47 +1521,8 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         )?
         .await?;
 
-    let (hide_ui, include_paths, library_paths, style, experimental) = {
-        let mut hide_ui = None;
-        let mut include_paths = None;
-        let mut library_paths = None;
-        let mut style = None;
-        let mut experimental = false;
-
-        for v in r {
-            if let Some(o) = v.as_object() {
-                if let Some(ip) = o.get("includePaths").and_then(|v| v.as_array()) {
-                    if !ip.is_empty() {
-                        include_paths =
-                            Some(ip.iter().filter_map(|x| x.as_str()).map(PathBuf::from).collect());
-                    }
-                }
-                if let Some(lp) = o.get("libraryPaths").and_then(|v| v.as_object()) {
-                    if !lp.is_empty() {
-                        library_paths = Some(
-                            lp.iter()
-                                .filter_map(|(k, v)| {
-                                    v.as_str().map(|v| (k.to_string(), PathBuf::from(v)))
-                                })
-                                .collect(),
-                        );
-                    }
-                }
-                if let Some(s) =
-                    o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
-                {
-                    if !s.is_empty() {
-                        style = Some(s.to_string());
-                    }
-                }
-                hide_ui = o.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
-                if o.get("experimental").and_then(|v| v.as_bool()) == Some(true) {
-                    experimental = true;
-                }
-            }
-        }
-        (hide_ui, include_paths, library_paths, style, experimental)
-    };
+    let WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental } =
+        parse_configuration(workspace_config);
 
     let document_cache = &mut ctx.document_cache.borrow_mut();
     let cc = document_cache.reconfigure(style, include_paths, library_paths, experimental).await?;
