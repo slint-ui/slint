@@ -17,7 +17,15 @@ struct ModeColors {
     destructive: color,
 }
 
+enum StyleVariant {
+    gradient,
+    minimalist,
+    vibrant,
+    glass
+}
+
 export global DemoPalette  {
+    in property <StyleVariant> style-variant: StyleVariant.gradient;
     in property <bool> dark-mode: Palette.color-scheme == ColorScheme.dark;
 
     property <ModeColors> light-mode-colors: {
