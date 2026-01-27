@@ -16,6 +16,7 @@ use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResu
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
 use i_slint_compiler::typeregister::TypeRegister;
+use itertools::Itertools;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -292,7 +293,7 @@ pub(crate) fn completion_at(
                     has_dot.then(|| {
                         let mut r = Vec::new();
                         expr_it.for_each_entry(ctx, &mut |str, expr| -> Option<()> {
-                            r.push(completion_item_from_expression(str, expr));
+                            r.push(completion_item_from_expression(str, expr, snippet_support));
                             None
                         });
                         r
@@ -643,7 +644,7 @@ fn resolve_expression_scope(
     let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
-        r.push(completion_item_from_expression(str, expr));
+        r.push(completion_item_from_expression(str, expr, snippet_support));
         None
     });
     if snippet_support {
@@ -681,7 +682,11 @@ fn resolve_expression_scope(
     Some(r)
 }
 
-fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> CompletionItem {
+fn completion_item_from_expression(
+    str: &str,
+    lookup_result: LookupResult,
+    snippet_support: bool,
+) -> CompletionItem {
     match lookup_result {
         LookupResult::Expression { expression, .. } => {
             let label = match &expression {
@@ -730,7 +735,7 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             ..CompletionItem::default()
         },
         LookupResult::Callable(callable) => {
-            let label = if let LookupResultCallable::Callable(
+            let name = if let LookupResultCallable::Callable(
                 Callable::Callback(nr) | Callable::Function(nr),
             ) = &callable
             {
@@ -747,9 +752,82 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             } else {
                 CompletionItemKind::FUNCTION
             };
-            CompletionItem { label, kind: Some(kind), ..CompletionItem::default() }
+
+            let argument_list = argument_list_for_callable(&callable);
+            let insert_text = snippet_support
+                .then(|| snippet_for_callable(&name, &argument_list))
+                .unwrap_or_else(|| name.clone());
+            let insert_text_format = snippet_support.then_some(InsertTextFormat::SNIPPET);
+            let label = match &argument_list {
+                // Only show that we have no arguments if we know for sure there are none
+                // For unknown arguments, the snippet will place the cursor in the parentheses,
+                // which indicates that there may be arguments.
+                Some(args) if args.is_empty() => format!("{name}()"),
+                _ => format!("{name}(..)"),
+            };
+
+            CompletionItem {
+                label,
+                kind: Some(kind),
+                insert_text: Some(insert_text),
+                insert_text_format,
+                ..CompletionItem::default()
+            }
         }
     }
+}
+
+/// The argument list of the callable for the purposes of completion (omits the self argument
+/// and falls back to type names if arg names are not available).
+fn argument_list_for_callable(callable: &LookupResultCallable) -> Option<Vec<String>> {
+    let function_type = match callable {
+        LookupResultCallable::Callable(callable) => Some((callable.ty(), false)),
+        LookupResultCallable::Macro(_) => None,
+        LookupResultCallable::MemberFunction { member, .. } => match &**member {
+            LookupResultCallable::Callable(callable) => Some((callable.ty(), true)),
+            LookupResultCallable::Macro(_) => None,
+            LookupResultCallable::MemberFunction { .. } => None,
+        },
+    };
+    match function_type {
+        Some((Type::Function(function), is_member))
+        | Some((Type::Callback(function), is_member)) => {
+            // Note: Some functions have more args than arg_names (those without names)
+            // In that case, just use the type name
+            Some(
+                function
+                    .arg_names
+                    .iter()
+                    .zip_longest(function.args.iter())
+                    // the first argument to a member function is the "self" argument, which we
+                    // do not need to autocomplete.
+                    .skip(if is_member { 1 } else { 0 })
+                    .map(|arg| {
+                        use itertools::EitherOrBoth::*;
+                        match arg {
+                            Left(name) | Both(name, _) => name.to_string(),
+                            Right(ty) => ty.to_string(),
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        }
+        _ => None,
+    }
+}
+
+fn snippet_for_callable(label: &str, arguments: &Option<Vec<String>>) -> String {
+    let args = match arguments {
+        Some(args) => args
+            .iter()
+            .enumerate()
+            .map(|(index, arg_name)| format!("${{{}:{arg_name}}}", index + 1))
+            .collect::<Vec<_>>()
+            .join(", "),
+        // Unknown number of arguments, just place the cursor in the parentheses
+        _ => "$1".to_string(),
+    };
+    format!("{label}({args})")
 }
 
 fn resolve_type_scope(
