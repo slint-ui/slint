@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, PushButton } from "./common.slint";
+import { DemoPalette, Page, PushButton, Theme } from "./common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
@@ -27,7 +27,7 @@ component ActionButton inherits Rectangle {
             border-radius: 25px;
             border-width: 5px;
             border-color: DemoPalette.secondary;
-            background: DemoPalette.dark-mode ? DemoPalette.primary : DemoPalette.background;
+            background: DemoPalette.theme != Theme.Gradient ? DemoPalette.primary : DemoPalette.background;
             width: DemoPalette.button-width;
             height: self.width;
 
