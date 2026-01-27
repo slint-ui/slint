@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page } from "common.slint";
+import { DemoPalette, Page, Theme } from "common.slint";
 import { HomePage } from "./home_page.slint";
 import { InkLevel, InkPage } from "./ink_page.slint";
 import { SettingsPage, PrinterSettings } from "./settings_page.slint";
@@ -50,7 +50,6 @@ export component MainWindow inherits Window {
         {color: #000, level: 30%},
     ];
     in-out property <int> active-page: 0;
-    in-out property <bool> dark-mode <=> DemoPalette.dark-mode;
 
     callback quit();
 
@@ -175,11 +174,19 @@ export component MainWindow inherits Window {
 
         SideBarIcon {
             activate => {
-                DemoPalette.dark-mode = !DemoPalette.dark-mode;
+                if DemoPalette.theme == Theme.Gradient {
+                    DemoPalette.theme = Theme.Minimalist;
+                } else if DemoPalette.theme == Theme.Minimalist {
+                    DemoPalette.theme = Theme.Vibrant;
+                } else if DemoPalette.theme == Theme.Vibrant {
+                    DemoPalette.theme = Theme.Glass;
+                } else {
+                    DemoPalette.theme = Theme.Gradient;
+                }
             }
 
-            icon: DemoPalette.dark-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
-            icon-colorize: DemoPalette.dark-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
+            icon: DemoPalette.theme != Theme.Gradient ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
+            icon-colorize: DemoPalette.theme != Theme.Gradient ? #F1FF98 : DemoPalette.inactive-page-icon-color;
 
             y: sidebar.icon-y(4) - 17px;
         }

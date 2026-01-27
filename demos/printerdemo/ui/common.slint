@@ -1,6 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { Palette } from "std-widgets.slint";
 
 struct ButtonColors  {
     base: color,
@@ -17,27 +16,38 @@ struct ModeColors {
     destructive: color,
 }
 
-enum StyleVariant {
-    gradient,
-    minimalist,
-    vibrant,
-    glass
+export enum Theme {
+    Gradient,
+    Minimalist,
+    Vibrant,
+    Glass
 }
 
 export global DemoPalette  {
-    in property <StyleVariant> style-variant: StyleVariant.gradient;
-    in property <bool> dark-mode: Palette.color-scheme == ColorScheme.dark;
+    in-out property <Theme> theme: Theme.Gradient;
 
-    property <ModeColors> light-mode-colors: {
+    property <ModeColors> current-theme: {
+        if theme == Theme.Gradient {
+            return gradient;
+        } else if theme == Theme.Minimalist {
+            return minimalist;
+        } else if theme == Theme.Vibrant {
+            return vibrant;
+        } else {
+            return glass;
+        }
+    }
+
+    property <ModeColors> gradient: {
         background: #FFFFFF,
         primary: #0E133F,
         secondary: #FFBF63,
-        text-primary: #000,
+        text-primary: #000000,
         text-secondary: #6284FF,
         destructive: #FF3B30,
     };
 
-    property <ModeColors> dark-mode-colors: {
+    property <ModeColors> minimalist: {
         background: #122F7B,
         primary: #0E133F,
         secondary: #FFBF63,
@@ -46,27 +56,52 @@ export global DemoPalette  {
         destructive: #FF3B30,
     };
 
-    out property <color> background: dark-mode ? dark-mode-colors.background : light-mode-colors.background;
-    out property <color> primary: dark-mode ? dark-mode-colors.primary : light-mode-colors.primary;
-    out property <color> secondary: dark-mode ? dark-mode-colors.secondary : light-mode-colors.secondary;
-    out property <color> text-primary: dark-mode ? dark-mode-colors.text-primary : light-mode-colors.text-primary;
-    out property <color> text-secondary: dark-mode ? dark-mode-colors.text-secondary : light-mode-colors.text-secondary;
-    out property <color> destructive: dark-mode ? dark-mode-colors.destructive : light-mode-colors.destructive;
+    property <ModeColors> vibrant: {
+        background: #1A1A2E,
+        primary: #E94560,
+        secondary: #533483,
+        text-primary: #F5F5F5,
+        text-secondary: #FFD166,
+        destructive: #FF3B30,
+    };
+
+    property <ModeColors> glass: {
+        background: #FFFFFFAA,
+        primary: #0E133F88,
+        secondary: #FFBF6388,
+        text-primary: #000000,
+        text-secondary: #555555,
+        destructive: #FF3B30,
+    };
+
+    property <[ModeColors]> themes: [
+        gradient,
+        minimalist,
+        vibrant,
+        glass
+    ];
+
+    out property <color> background: current-theme.background;
+    out property <color> primary: current-theme.primary;
+    out property <color> secondary: current-theme.secondary;
+    out property <color> text-primary: current-theme.text-primary;
+    out property <color> text-secondary: current-theme.text-secondary;
+    out property <color> destructive: current-theme.destructive;
 
     // Fixed (non-themeable) colors
     out property <color> push-button-text-color: white;
 
     // Color of the home/settings/ink buttons on the left side bar
-    out property <color> active-page-icon-color: root.dark-mode ? #6284FF : #122F7B;
+    out property <color> active-page-icon-color: root.theme == Theme.Gradient ? #6284FF : #122F7B;
     out property <color> inactive-page-icon-color: #BDC0D1;
     out property <color> neutral-box: #BDC0D1;
-    out property <color> secondary-foreground-color: root.dark-mode ? #C1C3CA : #6C6E7A;
+    out property <color> secondary-foreground-color: root.theme == Theme.Gradient ? #C1C3CA : #6C6E7A;
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
     out property <color> control-secondary: #6284FF;
-    out property <color> control-foreground: root.dark-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> control-foreground: root.theme == Theme.Gradient ? white : #122F7B;  // FIXME: the night mode color was not part of the design
     out property <color> primary-push-button-base: #6284FF;
     out property <ButtonColors> primary-push-button-colors: {
         base: root.primary-push-button-base,
@@ -270,7 +305,7 @@ export component ComboBox inherits Rectangle {
             spacing: 6px;
             padding: 3px;
             function textColor(hashover: bool) -> color {
-                if DemoPalette.dark-mode {
+                if DemoPalette.theme == Theme.Gradient {
                     return DemoPalette.text-primary;
                 }
                 // if hashover {
