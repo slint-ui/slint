@@ -156,13 +156,21 @@ impl ImageCache {
 }
 
 fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
+    use rgb::AsPixels;
+
     if dynamic_image.color().has_alpha() {
         let rgba8image = dynamic_image.to_rgba8();
-        SharedImageBuffer::RGBA8(SharedPixelBuffer::clone_from_slice(
-            rgba8image.as_raw(),
-            rgba8image.width(),
-            rgba8image.height(),
-        ))
+        // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
+        // in the renderers.
+        SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer {
+            width: rgba8image.width(),
+            height: rgba8image.height(),
+            data: rgba8image
+                .as_pixels()
+                .into_iter()
+                .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
+                .collect(),
+        })
     } else {
         let rgb8image = dynamic_image.to_rgb8();
         SharedImageBuffer::RGB8(SharedPixelBuffer::clone_from_slice(
