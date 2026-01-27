@@ -245,7 +245,10 @@ fn extract_code_from_text(text: &str, size: Option<(usize, usize)>) -> Result<St
         return Err("text in CodeSnippetMD tag is not a slint code block".into());
     };
 
-    if !without_leading.starts_with(' ') && !without_leading.starts_with('\n') {
+    if !without_leading.starts_with(' ')
+        && !without_leading.starts_with('\n')
+        && !without_leading.starts_with('\r')
+    {
         return Err("text in CodeSnippetMD tag is not a slint code block".into());
     }
 
