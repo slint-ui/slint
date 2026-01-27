@@ -1158,7 +1158,8 @@ impl QRawFont {
     pub fn load_from_data(&mut self, data: &[u8], pixel_size: f32) {
         let font_data = qttypes::QByteArray::from(data);
         cpp! { unsafe [ self as "QRawFont*", font_data as "QByteArray", pixel_size as "float"] {
-            self->loadFromData(font_data, pixel_size, QFont::PreferDefaultHinting);
+            // https://github.com/slint-ui/slint/issues/9831: Disable hinting, as it can cause bad positioned glyphs
+            self->loadFromData(font_data, pixel_size, QFont::PreferNoHinting);
         }}
     }
 
