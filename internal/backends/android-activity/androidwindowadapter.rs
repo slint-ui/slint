@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
+use crate::text_input::AndroidTextInputHandler;
 use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };
@@ -48,6 +49,8 @@ pub struct AndroidWindowAdapter {
 
     long_press: RefCell<Option<LongPressDetection>>,
     last_pressed_state: Cell<ButtonState>,
+    /// Handler for text input / IME integration
+    text_input_handler: AndroidTextInputHandler,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -81,11 +84,9 @@ impl WindowAdapter for AndroidWindowAdapter {
     ) -> Option<&dyn i_slint_core::window::WindowAdapterInternal> {
         Some(self)
     }
-}
 
-impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     #[cfg(feature = "native-activity")]
-    fn input_method_request(&self, request: InputMethodRequest) {
+    fn handle_input_method_request(&self, request: InputMethodRequest) {
         match request {
             InputMethodRequest::Enable(props) => {
                 self.java_helper
@@ -131,7 +132,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     }
 
     #[cfg(not(feature = "native-activity"))]
-    fn input_method_request(&self, request: InputMethodRequest) {
+    fn handle_input_method_request(&self, request: InputMethodRequest) {
         use android_activity::input::{TextInputState, TextSpan};
 
         let props = match request {
@@ -163,6 +164,19 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
+    fn text_input_focused(
+        &self,
+        controller: Rc<dyn i_slint_core::text_input_controller::TextInputController>,
+    ) {
+        self.text_input_handler.on_text_input_focused(controller);
+    }
+
+    fn text_input_unfocused(&self) {
+        self.text_input_handler.on_text_input_unfocused();
+    }
+}
+
+impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn color_scheme(&self) -> ColorScheme {
         self.color_scheme.as_ref().get()
     }
@@ -206,6 +220,7 @@ impl AndroidWindowAdapter {
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
+            text_input_handler: AndroidTextInputHandler::new(),
         })
     }
 
