@@ -805,7 +805,14 @@ fn argument_list_for_callable(callable: &LookupResultCallable) -> Option<Vec<Str
                     .map(|arg| {
                         use itertools::EitherOrBoth::*;
                         match arg {
-                            Left(name) | Both(name, _) => name.to_string(),
+                            Left(name) => name.to_string(),
+                            Both(name, ty) => {
+                                if name.is_empty() {
+                                    ty.to_string()
+                                } else {
+                                    name.to_string()
+                                }
+                            }
                             Right(ty) => ty.to_string(),
                         }
                     })
@@ -1621,6 +1628,40 @@ mod tests {
         res.iter().find(|ci| ci.label == "beta-gamma").unwrap();
         res.iter().find(|ci| ci.label == "red").unwrap();
         assert!(!res.iter().any(|ci| ci.label == "width"));
+    }
+
+    #[test]
+    fn function_calls() {
+        let source = r#"
+            component Foo {
+                input := TextInput {
+                    function add(a: int, b: int) -> int { a + b }
+                    function caller() -> int { 5 }
+                    callback my-callback(hello: string, world: string);
+                }
+                function test() -> int {
+                    input.🔺
+                }
+            }
+        "#;
+
+        let res = get_completions(source).unwrap();
+        let expected = [
+            ("add(..)", "add(${1:a}, ${2:b})"),
+            ("caller()", "caller()"),
+            ("clear-focus()", "clear-focus()"),
+            ("set-selection-offsets(..)", "set-selection-offsets(${1:int}, ${2:int})"),
+            ("my-callback(..)", "my-callback(${1:hello}, ${2:world})"),
+        ]
+        .map(|(label, insert_text)| CompletionItem {
+            label: label.to_string(),
+            insert_text: Some(insert_text.to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            ..Default::default()
+        });
+        assert_completions_found(expected, &res);
+
+        assert!(!res.iter().any(|item| item.label.contains("test")));
     }
 
     #[test]
