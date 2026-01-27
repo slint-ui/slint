@@ -1440,6 +1440,7 @@ pub async fn startup_lsp(ctx: &Context) -> common::Result<()> {
     load_configuration(ctx).await
 }
 
+#[derive(Debug)]
 struct WorkspaceConfig {
     hide_ui: Option<bool>,
     include_paths: Option<Vec<PathBuf>>,
@@ -1521,11 +1522,23 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         )?
         .await?;
 
+    let workspace_config = parse_configuration(workspace_config);
+    tracing::debug!("Loaded configuration: {workspace_config:?}");
     let WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental } =
-        parse_configuration(workspace_config);
+        workspace_config;
 
     let document_cache = &mut ctx.document_cache.borrow_mut();
-    let cc = document_cache.reconfigure(style, include_paths, library_paths, experimental).await?;
+    let mut diag = BuildDiagnostics::default();
+    let (cc, all_files) = document_cache
+        .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
+        .await;
+
+    send_diagnostics(
+        &ctx.server_notifier,
+        document_cache,
+        &all_files.iter().filter_map(common::uri_to_file).collect(),
+        diag,
+    );
 
     let config = common::PreviewConfig {
         hide_ui,
@@ -1536,20 +1549,9 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         enable_experimental: cc.enable_experimental,
     };
     *ctx.preview_config.borrow_mut() = config.clone();
-    let mut diag = BuildDiagnostics::default();
-    let all_urls = document_cache.all_urls().collect::<Vec<_>>();
-    for url in &all_urls {
-        document_cache.reload_cached_file(url, &mut diag).await;
-    }
-
     ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
 
-    send_diagnostics(
-        &ctx.server_notifier,
-        document_cache,
-        &all_urls.iter().filter_map(common::uri_to_file).collect(),
-        diag,
-    );
+    tracing::debug!("Loaded configuration from client");
 
     Ok(())
 }

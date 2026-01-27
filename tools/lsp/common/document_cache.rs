@@ -281,21 +281,19 @@ impl DocumentCache {
         }
     }
 
+    /// Apply a new configuration to the document cache
+    ///
+    /// This will invalidate and reload all loaded documents.
+    ///
+    /// Returns the new compiler configuration and the set of paths that were reloaded.
     pub async fn reconfigure(
         &mut self,
         style: Option<String>,
         include_paths: Option<Vec<PathBuf>>,
         library_paths: Option<HashMap<String, PathBuf>>,
         enable_experimental: bool,
-    ) -> Result<CompilerConfiguration> {
-        if style.is_none()
-            && include_paths.is_none()
-            && library_paths.is_none()
-            && !enable_experimental
-        {
-            return Ok(self.compiler_configuration());
-        }
-
+        diag: &mut BuildDiagnostics,
+    ) -> (CompilerConfiguration, HashSet<lsp_types::Url>) {
         if let Some(s) = style {
             if s.is_empty() {
                 self.type_loader.compiler_config.style = None;
@@ -322,7 +320,12 @@ impl DocumentCache {
 
         self.preload_builtins().await;
 
-        Ok(self.compiler_configuration())
+        let all_urls = self.all_urls().collect::<HashSet<_>>();
+        for url in &all_urls {
+            self.reload_cached_file(url, diag).await;
+        }
+
+        (self.compiler_configuration(), all_urls)
     }
 
     pub async fn preload_builtins(&mut self) {
