@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     name: servo ${{ matrix.os }}
     steps:
@@ -29,6 +29,7 @@ jobs:
       - name: Build
         working-directory: examples/servo
         run: cargo build --release
+
   android_build:
     name: servo android
     runs-on: ubuntu-latest

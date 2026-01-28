@@ -9,6 +9,7 @@ use smol::channel::{Receiver, Sender};
 
 use slint::ComponentHandle;
 
+#[cfg(not(target_os = "windows"))]
 use slint::wgpu_28::wgpu;
 
 use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
@@ -60,7 +61,9 @@ pub struct SlintServoAdapterInner {
     servo: Option<Servo>,
     webview: Option<WebView>,
     rendering_adapter: Option<Rc<Box<dyn ServoRenderingAdapter>>>,
+    #[cfg(not(target_os = "windows"))]
     device: wgpu::Device,
+    #[cfg(not(target_os = "windows"))]
     queue: wgpu::Queue,
 }
 
@@ -68,8 +71,8 @@ impl SlintServoAdapter {
     pub fn new(
         waker_sender: Sender<()>,
         waker_receiver: Receiver<()>,
-        device: wgpu::Device,
-        queue: wgpu::Queue,
+        #[cfg(not(target_os = "windows"))] device: wgpu::Device,
+        #[cfg(not(target_os = "windows"))] queue: wgpu::Queue,
     ) -> Self {
         Self {
             waker_sender,
@@ -78,7 +81,9 @@ impl SlintServoAdapter {
                 servo: None,
                 webview: None,
                 rendering_adapter: None,
+                #[cfg(not(target_os = "windows"))]
                 device: device,
+                #[cfg(not(target_os = "windows"))]
                 queue: queue,
             }),
         }
@@ -100,10 +105,12 @@ impl SlintServoAdapter {
         self.waker_receiver.clone()
     }
 
+    #[cfg(not(target_os = "windows"))]
     pub fn wgpu_device(&self) -> wgpu::Device {
         self.inner().device.clone()
     }
 
+    #[cfg(not(target_os = "windows"))]
     pub fn wgpu_queue(&self) -> wgpu::Queue {
         self.inner().queue.clone()
     }
