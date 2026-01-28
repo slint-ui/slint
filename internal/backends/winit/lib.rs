@@ -489,7 +489,7 @@ impl BackendBuilder {
                     }
                 }
             }
-            #[cfg(feature = "unstable-wgpu-27")]
+            #[cfg(all(enable_skia_renderer, feature = "unstable-wgpu-27"))]
             (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
                 renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
             }
