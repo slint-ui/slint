@@ -13,13 +13,13 @@ struct ModeColors {
     secondary: color,
     text-primary: color,
     text-secondary: color,
-    text-secondary-printing: color,
+    text-secondary-header: color,
     destructive: color,
     color-button-gradient: brush,
     grayscale-button-gradient: brush,
     spinbox-button-gradient: brush,
-    queue-background: brush,
-    queue-separator: color,
+    header-background: brush,
+    header-separator: color,
 }
 
 struct SideBarTheme {
@@ -62,7 +62,7 @@ export global ComponentTheme {
         active-background: #1D293D,
         active-icon-color: Colors.white,
         inactive-icon-color: #90A1B9,
-        queue-background: #F8FAFC
+        header-background: #F8FAFC
     };
     property <SideBarTheme> minimalist: {
         icon-size: 40px,
@@ -114,13 +114,13 @@ export global DemoPalette {
         secondary: #FFBF63,
         text-primary: #1D293D,
         text-secondary: #155DFC,
-        text-secondary-printing: #62748E,
+        text-secondary-header: #62748E,
         destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
-        queue-background: #F8FAFC,
-        queue-separator: #E2E8F0,
+        header-background: #F8FAFC,
+        header-separator: #CAD5E2,
     };
 
     property <ModeColors> minimalist: {
@@ -166,13 +166,13 @@ export global DemoPalette {
     out property <color> secondary: current-theme.secondary;
     out property <color> text-primary: current-theme.text-primary;
     out property <color> text-secondary: current-theme.text-secondary;
-    out property <color> text-secondary-printing: current-theme.text-secondary-printing;
+    out property <color> text-secondary-header: current-theme.text-secondary-header;
     out property <color> destructive: current-theme.destructive;
     out property <brush> color-button-gradient: current-theme.color-button-gradient;
     out property <brush> grayscale-button-gradient: current-theme.grayscale-button-gradient;
     out property <brush> spinbox-button-gradient: current-theme.spinbox-button-gradient;
-    out property <brush> queue-background: current-theme.queue-background;
-    out property <color> queue-separator: current-theme.queue-separator;
+    out property <brush> header-background: current-theme.header-background;
+    out property <color> header-separator: current-theme.header-separator;
 
     // Fixed (non-themeable) colors
     out property <color> push-button-text-color: white;
