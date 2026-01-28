@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 import { DemoPalette, Theme, PrinterState } from "common.slint";
-import { HomePage, InkLevel, InkPage, SettingsPage, PrinterSettings } from "./pages/pages.slint";
+import {
+    HomePage,
+    InkLevel,
+    InkPage,
+    SettingsPage,
+    PrinterSettings,
+} from "./pages/pages.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
 // re-export for the native code
@@ -17,10 +23,10 @@ export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     in property <[InkLevel]> ink-levels: [
-        {color: #0ff, level: 60%},
-        {color: #ff0, level: 80%},
-        {color: #f0f, level: 70%},
-        {color: #000, level: 30%},
+        { color: #0ff, level: 60% },
+        { color: #ff0, level: 80% },
+        { color: #f0f, level: 70% },
+        { color: #000, level: 30% },
     ];
 
     callback quit();
@@ -33,76 +39,24 @@ export component MainWindow inherits Window {
     default-font-size: DemoPalette.base-font-size;
 
     HorizontalLayout {
-        padding: 10px;
-        padding-left: 67px;
+
+        Sidebar { }
 
         main-view := Rectangle {
-            height: 100%;
-            border-radius: 30px;
-            background: DemoPalette.background;
 
-            Rectangle {
-                clip: true;
-                x: main-view.border-radius / 2;
-                y: main-view.border-radius / 2;
-                width: main-view.width - main-view.border-radius;
-                height: main-view.height - main-view.border-radius;
+            if PrinterState.active-page == 0:home-page := HomePage {
+                property <int> pageNumber: 0;
+            }
 
-                function calcPageY(pageNumber: int) -> length {
-                    if (PrinterState.active-page == pageNumber) {
-                        return 0;
-                    }
-                    return PrinterState.active-page < pageNumber ? - self.height / 2 : parent.height / 2;
-                }
+            if PrinterState.active-page == 1:settings-page := SettingsPage {
+                property <int> pageNumber: 1;
+            }
 
-                property <duration> page-animation-duration: 250ms;
-
-                home-page := HomePage {
-                    property <int> pageNumber: 0;
-                    y: calcPageY(0);
-                    opacity: PrinterState.active-page == 0 ? 1 : 0;
-                    animate y {
-                        duration: page-animation-duration;
-                        easing: ease-out-quad;
-                    }
-                    animate opacity {
-                        duration: page-animation-duration;
-                        easing: ease-out-quad;
-                    }
-                }
-
-                SettingsPage {
-                    property <int> pageNumber: 1;
-                    y: calcPageY(1);
-                    opacity: PrinterState.active-page == pageNumber ? 1 : 0;
-                    animate y {
-                        duration: page-animation-duration;
-                        easing: ease-out-quad;
-                    }
-                    animate opacity {
-                        duration: page-animation-duration;
-                        easing: ease-out-quad;
-                    }
-                }
-
-                InkPage {
-                    property <int> pageNumber: 2;
-                    y: calcPageY(pageNumber);
-                    opacity: PrinterState.active-page == pageNumber ? 1 : 0;
-                    ink-levels <=> root.ink-levels;
-                    page-visible: PrinterState.active-page == pageNumber;
-                    animate y {
-                        duration: page-animation-duration;
-                        easing: ease-out-quad;
-                    }
-                    animate opacity {
-                        duration: page-animation-duration;
-                        easing: ease-out-quad;
-                    }
-                }
+            ink-page := InkPage {
+                property <int> pageNumber: 2;
+                ink-levels <=> root.ink-levels;
+                visible: PrinterState.active-page == 2;
             }
         }
     }
-
-    Sidebar { }
 }
