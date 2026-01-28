@@ -1,4 +1,4 @@
-import { DemoPalette, Theme } from "../common.slint";
+import { DemoPalette, Theme, ComponentTheme } from "../common.slint";
 import { PrinterState } from "../common.slint";
 
 component SideBarIcon inherits Rectangle {
@@ -31,13 +31,14 @@ component SideBarIcon inherits Rectangle {
 }
 
 export component Sidebar inherits Rectangle {
+    background: ComponentTheme.side-bar.background;
+    x: 0px;
+    width: DemoPalette.side-bar-width;
 
     function icon-y(index: int) -> length {
         return 100px // top padding
             + index * 72px;
     }
-    x: 0px;
-    width: DemoPalette.side-bar-width;
 
     Image {
         x: parent.width - self.width + 1px; // workaround pixel gap
@@ -87,5 +88,11 @@ export component Sidebar inherits Rectangle {
         icon-colorize: DemoPalette.theme != Theme.Gradient ? #F1FF98 : DemoPalette.inactive-page-icon-color;
 
         y: root.icon-y(4) - 17px;
+    }
+    Rectangle {
+        x: root.width - self.width;
+        width: 1phx;
+        background: ComponentTheme.side-bar.separator;
+        height: 100%;
     }
 }

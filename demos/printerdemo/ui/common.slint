@@ -16,11 +16,47 @@ struct ModeColors {
     destructive: color,
 }
 
+struct SideBarTheme {
+    background: color,
+    separator: color,
+}
+
 export enum Theme {
     Gradient,
     Minimalist,
     Vibrant,
     Glass
+}
+
+export global ComponentTheme {
+    out property <SideBarTheme> side-bar: {
+        if DemoPalette.theme == Theme.Gradient {
+            gradient;
+        } else if DemoPalette.theme == Theme.Minimalist {
+            minimalist;
+        } else if DemoPalette.theme == Theme.Vibrant {
+            vibrant
+        } else {
+            glass
+        }
+    }
+
+    property <SideBarTheme> gradient: {
+        background: #0e172b,
+        separator: Colors.transparent,
+    };
+    property <SideBarTheme> minimalist: {
+        background: #ffffff,
+        separator: #E2E8F0,
+    };
+    property <SideBarTheme> vibrant: {
+        background: #f4f4ff,
+        separator: Colors.transparent,
+    };
+    property <SideBarTheme> glass: {
+        background: #f4f8ff,
+        separator: Colors.transparent,
+    };
 }
 
 export global DemoPalette  {
@@ -118,7 +154,7 @@ export global DemoPalette  {
     out property <length> base-font-size: 16px;
     out property <length> button-width: 130px;
     out property <length> button-height: button-width + 30px;
-    out property <length> side-bar-width: 67px;
+    out property <length> side-bar-width: 64px;
     out property <length> side-bar-margin: 10px;
 
 }
