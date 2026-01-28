@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label } from "../common.slint";
+import { SpinBox, ComboBox, CheckBox, Label, DemoPalette } from "../common.slint";
+import { Page } from "./page.slint";
 
 export global PrinterSettings {
     callback change-language(int);
@@ -9,6 +10,7 @@ export global PrinterSettings {
 
 export component SettingsPage inherits Page {
     header: @tr("Settings");
+    subtitle: @tr("General");
 
     GridLayout {
         padding-top: 46px /* header line height in design */

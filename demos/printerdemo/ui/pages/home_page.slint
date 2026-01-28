@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, Theme } from "../common.slint";
+import { DemoPalette, Theme } from "../common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
 import { PrinterQueueView } from "../printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
+import { Page } from "./page.slint";
 
 enum SubPage { None, Print, Scan, Copy, Usb }
 
@@ -51,6 +52,7 @@ export component HomePage inherits Page {
     in-out property <SubPage> current-subpage: SubPage.None;
 
     header: @tr("Slint Printer Demo");
+    has-header: false;
 
     for action[idx] in [
         { name: @tr("Print"), id: SubPage.Print, icon: @image-url("../images/print.svg") },

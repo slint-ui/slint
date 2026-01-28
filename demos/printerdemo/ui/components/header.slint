@@ -4,24 +4,33 @@
 import { DemoPalette } from "../common.slint";
 import { IconButton } from "./icon_button.slint";
 
-export component Header  {
+export component Header inherits Rectangle {
     in property <string> title <=> title-text.text;
     in property <string> subtitle <=> subtitle-text.text;
-    in property <bool> has-back-button: false;
 
     callback back <=> back-button.clicked;
 
-    if (root.has-back-button) : back-button := IconButton {
-        icon: @image-url("images/arrow_left.svg");
+    back-button := IconButton {
+        x: 10px;
+        y: 10px;
+        icon: @image-url("../images/back.svg");
+        colorize: DemoPalette.text-secondary;
     }
 
-    VerticalLayout {
-        spacing: 0px;
+    height:  layout.preferred-height;
+    background: white;
+
+    layout := VerticalLayout {
+        x: back-button.x + back-button.width;
+        padding: 10px;
+        spacing: 5px;
+
         title-text := Text {
             font-size: DemoPalette.base-font-size * 2.0;
             font-weight: 800;
             color: DemoPalette.text-primary;
         }
+        
         subtitle-text := Text {
             font-size: DemoPalette.base-font-size * 1.25;
             color: DemoPalette.text-secondary;

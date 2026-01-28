@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page } from "../common.slint";
+import { DemoPalette } from "../common.slint";
+import { Page } from "./page.slint";
 
 export struct InkLevel  {
     color: color,
@@ -13,7 +14,7 @@ export component InkPage inherits Page {
     in property <bool> page-visible;
 
     header: @tr("Ink Level");
-
+    subtitle: @tr("Current ink levels");
 
     Rectangle {
         height: 75%;
