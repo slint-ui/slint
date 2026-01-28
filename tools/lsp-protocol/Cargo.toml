@@ -1,0 +1,21 @@
+[package]
+name = "lsp-protocol"
+description.workspace = true
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+preview-engine = []
+
+[dependencies]
+serde.workspace = true
+lsp-types = { version = "0.95.0" }
+serde_json.workspace = true
+i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }

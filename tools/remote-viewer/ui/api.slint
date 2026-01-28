@@ -1,0 +1,330 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+/// Basic information on a known component
+export struct ComponentItem {
+    name: string,
+    index: int,
+    defined-at: string,
+    pretty-location: string,
+    is-user-defined: bool,
+    is-currently-shown: bool,
+    is-exported: bool,
+}
+
+/// A `category` with a lost of `ComponentItem`s that belong into it.
+///
+/// File url is either an empty string or a URL to some document
+export struct ComponentListItem {
+    category: string,
+    file_url: string,
+    components: [ComponentItem]
+}
+
+/// Some `Diagnostics` as raised by the compiler
+export enum DiagnosticSummary {
+    NothingDetected,
+    Warnings,
+    Errors,
+}
+
+/// What kind of layout we are working with
+export enum LayoutKind {
+    None,
+    Horizontal,
+    Vertical,
+    Grid,
+}
+
+/// A rectangular region that is selected
+export struct SelectionRectangle {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+    angle: angle,
+}
+
+/// A `Selection`
+export struct Selection {
+    highlight-index: int,
+    layout-data: LayoutKind,
+    is-interactive: bool,
+    is-moveable: bool,
+    is-resizable: bool,
+}
+
+/// A mark showing where an element will show up when dropped into the current location
+export struct DropMark {
+    x1: length,
+    y1: length,
+    x2: length,
+    y2: length,
+}
+
+export struct SelectionStackFrame {
+    width: percent,
+    height: percent,
+    x: percent,
+    y: percent,
+    is-in-root-component: bool,
+    is-layout: bool,
+    is-interactive: bool,
+    is-selected: bool,
+    type-name: string,
+    file-name: string,
+    element-path: string,
+    element-offset: int,
+    id: string,
+}
+
+export enum SelectionStackFilter {
+    Nothing,
+    Layouts,
+    Interactive,
+    Others,
+    LayoutsAndInteractive,
+    LayoutsAndOthers,
+    InteractiveAndOthers,
+    Everything,
+}
+
+/// A Range in a source
+export struct Range {
+    start: int,
+    end: int,
+}
+
+export struct ColorData {
+    r: int,
+    g: int,
+    b: int,
+    a: int,
+    text: string,
+    short-text: string,
+}
+
+export enum PropertyValueKind {
+    boolean,
+    brush,
+    code,
+    color,
+    enum,
+    float,
+    integer,
+    string,
+}
+
+export enum BrushKind {
+    solid,
+    linear,
+    radial,
+    conic,
+}
+
+export struct GradientStop {
+    position: float, // between 0 and 1!
+    color: color,
+}
+
+/// Data about the property value for use in "simple" mode
+export struct PropertyValue {
+    display-string: string, // ALLWAYS, its a string description of what is there
+    value-bool: bool, // boolean
+    is-translatable: bool, // string
+    kind: PropertyValueKind, // Defines what to display this as
+    value-kind: PropertyValueKind, // If kind == code, then this is the real kind of data
+    brush-kind: BrushKind, // brush
+    gradient-stops: [GradientStop], // brush
+    value-brush: brush, // brush, color
+    value-float: float, // float, brush (angle)
+    value-int: int, // integer, enum/float (current index into visual_items)
+    default-selection: int, // enum/float (default index into visual_items)
+    value-string: string, // enum (name), string, brush (palette name or empty)
+    visual-items: [string], // enum (enum members), float (units)
+    tr-context: string, // string
+    tr-plural: string, // string
+    tr-plural-expression: string, // string
+    code: string, // ALWAYS, empty if property is not explicitly defined
+    accessor-path: string, // set for struct members and such
+    was-edited: bool, // Used by preview dataonly!
+    edited-value: string, // Used in preview dataonly!
+}
+
+export struct PropertyValueTable {
+    is-array: bool,
+    headers: [string],
+    values: [[PropertyValue]],
+}
+
+/// Important Ranges in the property definition
+///
+/// The URL and version is the same as in the Element it belongs to
+export struct PropertyDefinition {
+    definition-range: Range,
+    selection-range: Range,
+    expression-range: Range,
+    expression-value: string,
+}
+
+/// The Property Declaration
+export struct PropertyDeclaration {
+    defined-at: PropertyDefinition,
+
+    source-path: string,
+    source-version: int,
+    range: Range,
+}
+
+/// Information on one Property
+export struct PropertyInformation {
+    name: string,
+    type-name: string,
+    value: PropertyValue,
+    display-priority: int,
+}
+
+/// Grouping for properties
+export struct PropertyGroup {
+    group-name: string,
+    properties: [PropertyInformation],
+}
+
+export enum PreviewDataKind {
+    Value,
+    Json,
+    Table,
+}
+
+export struct PreviewData {
+    name: string,
+    has-getter: bool,
+    has-setter: bool,
+    kind: PreviewDataKind,
+}
+
+/// Information on exported components and their properties
+export struct PropertyContainer {
+    container-name: string,
+    container-id: string,
+    properties: [PreviewData],
+}
+
+/// Information on an Element a Property belongs to
+export struct ElementInformation {
+    id: string,
+    component-name: string,
+    type-name: string,
+    source-uri: string,
+    source-version: int,
+    /// The offset within source-uri
+    offset: int,
+}
+
+export struct PaletteEntry {
+    name: string,
+    value: PropertyValue,
+}
+
+export enum LogMessageLevel {
+    Debug,
+    Warning,
+    Error,
+}
+
+export struct LogMessage {
+    file: string,
+    line: int,
+    column: int,
+    message: string,
+    level: LogMessageLevel,
+}
+
+/// A node in the outline tree
+export struct OutlineTreeNode {
+    indent-level: int,
+    has-children: bool,
+    is-expanded: bool,
+    is-last-child: bool,
+    element-type: string,
+    element-id: string,
+    uri: string,
+    offset: int,
+
+}
+
+export enum DropLocation {
+    onto,
+    before,
+    after,
+}
+
+export global Api {
+    // # Properties
+    // ## General preview state:
+    // enable editing mode
+    in property <bool> show-preview-ui: true;
+    // std-widgets are used (=> show style dropdown)
+    in-out property <bool> uses-widgets;
+    in-out property <bool> always-on-top;
+    in property <bool> focus-previewed-element;
+
+    // ## Component Data for ComponentList:
+    // All the components
+    in property <[ComponentListItem]> known-components;
+    callback library-search(string);
+    // The component currently viewed
+    out property <ComponentItem> visible-component;
+
+    // ## Kinds of diagnostics seen in the last compiler run
+    in property <DiagnosticSummary> diagnostic-summary;
+    // status message text
+    in property <string> status-text;
+
+    // ## Style:
+    // All the known styles
+    in property <[string]> known-styles;
+    // The current style
+    in-out property <string> current-style;
+    // control, but command on macOS
+    in-out property <string> control-key-name: "control";
+
+    // ## Log Output
+    in-out property <[LogMessage]> log-output;
+    in-out property <bool> auto-clear-console: true;
+
+    // ## Drawing Area
+    // Borders around things
+    pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
+    in-out property <Selection> selection;
+    in-out property <DropMark> drop-mark;
+    // The actual preview
+    in-out property <component-factory> preview-area;
+
+    // set to true to resize
+    in property <bool> resize-to-preferred-size: false;
+
+    // ## preview data
+
+    in-out property <[PropertyContainer]> preview-data;
+
+    // # Callbacks
+
+    // ## Change Editor:
+
+    // Show a component in the editor
+    callback show-component(name: string, url: string);
+    // Show a position consisting of `line` and `column` in a `file` in the editor
+    callback show-document(file: string, line: int, column: int);
+    // Show a position consisting of `line` and `column` in a `file` in the editor
+    callback show-document-offset-range(url: string, start_offset: int, end_offset: int, take-focus: bool);
+
+    // ## Drawing Area
+    // Preview some other component
+    callback show-preview-for(name: string, url: string);
+    callback reload-preview();
+
+    // ## Console / LogMessages
+    pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
+    callback clear-log-messages();
+}
