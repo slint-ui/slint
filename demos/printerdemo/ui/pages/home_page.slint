@@ -65,7 +65,10 @@ export component HomePage inherits Page {
         font-weight: 600;
     }
 
-    GridLayout {
+
+
+    
+    gl := GridLayout {
         x: DemoPalette.default-margin;
         y: parent.height - DemoPalette.default-margin - self.preferred-height;
         width: self.preferred-width;
@@ -115,7 +118,7 @@ export component HomePage inherits Page {
         }
 
         x: parent.width - self.width;
-        width: 313px;
+        width: root.width - (DemoPalette.default-margin * 2) - gl.width;
     }
 
     PrintPage {
