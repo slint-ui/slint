@@ -10,23 +10,44 @@ export struct PrinterQueueItem  {
     owner: string,
     pages: int,
     size: string, // number instead and format in .slint?
-    submission-date: string
-}
+    submission-date: string}
 
-export global PrinterQueue  {
+export global PrinterQueue {
     in property <[PrinterQueueItem]> printer-queue: [
-        { status: "printing", progress: 63, title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "waiting", title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "waiting", title: "Salaries.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        {
+            status: "printing",
+            progress: 63,
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "Adressliste.docx",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "Salaries.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
     ];
 
     public pure function statusString(status: string) -> string {
         if (status == "printing") {
-            @tr("PRINTING")
+            @tr("PRINTING").to-uppercase()
         } else if (status == "waiting") {
-            @tr("WAITING...")
+            @tr("WAITING...").to-uppercase();
         } else {
-            @tr("Unknown job status")
+            @tr("Unknown job status").to-uppercase()
         }
     }
 
@@ -34,7 +55,6 @@ export global PrinterQueue  {
     callback cancel-job(int);
     callback pause-job(int);
 }
-
 
 component PrintQueueDetailsLabel inherits Text {
     font-weight: 500;
@@ -68,6 +88,7 @@ component PrintDetails inherits GridLayout {
             font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
+
     Row {
         PrintQueueSeparator {
             colspan: 2;
@@ -129,7 +150,7 @@ component PrintDetails inherits GridLayout {
     }
 }
 
-component NarrowPrintQueueElement inherits Rectangle {
+component NarrowPrintQueueElement {
     in property <PrinterQueueItem> queue-item;
     in-out property <bool> expanded;
 
@@ -137,96 +158,111 @@ component NarrowPrintQueueElement inherits Rectangle {
 
     private property <float> expanded-opacity: 0;
 
-    border-color: DemoPalette.secondary;
-    border-radius: 14px;
-    border-width: 2px;
-    background: DemoPalette.background;
-    clip: true;
-    height: always-visible.min-height + layout.padding * 2;
+    height: Math.max(80px, content.height);
+
+    Rectangle {
+        width: parent.width - DemoPalette.default-margin * 2;
+
+        fake-shadow := Rectangle {
+            y: 1px;
+            width: 100%;
+            height: 100%;
+            background: #dfdfdf;
+            border-radius: 10px;
+        }
+
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: #E2E8F0;
+        }
+
+        content := Rectangle {
+            height: self.preferred-height;
+            layout := VerticalLayout {
+                padding: 16px;
+                //root.border-radius;
+                spacing: 4px;
+                alignment: start;
+                always-visible := VerticalLayout {
+                    spacing: parent.spacing;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            y: (parent.height - self.height) / 2;
+                            width: 8px;
+                            height: self.width;
+                            border-radius: self.width / 2;
+                            background: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-printing;
+                        }
+
+                        Text {
+                            text: {
+                                if (root.queue-item.progress > 0) {
+                                    @tr("{}% - {}",root.queue-item.progress, PrinterQueue.statusString(root.queue-item.status))
+                                } else {
+                                    PrinterQueue.statusString(root.queue-item.status)
+                                }
+                            }
+                            color: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-printing;
+                            font-size: 14px;
+                            font-weight: 500;
+                            letter-spacing: 1.56px;
+                        }
+                    }
+
+
+                    Text {
+                        text: root.queue-item.title;
+                        overflow: elide;
+                        color: DemoPalette.text-primary;
+                        font-weight: 500;
+                        font-size: 16px;
+                    }
+                }
+
+                if (root.expanded || root.expanded-opacity > 0): PrintDetails {
+                    padding: 0px;
+                    padding-bottom: 10px;
+                    queue-item: root.queue-item;
+                    opacity: root.expanded-opacity;
+                }
+                if (root.expanded || root.expanded-opacity > 0): HorizontalLayout {
+                    Rectangle {
+                        horizontal-stretch: 0;
+                        width: 10%;
+                    }
+
+                    PushButton {
+                        clicked => {
+                            root.show-job-details();
+                        }
+                        opacity: root.expanded-opacity;
+                        text: @tr("More   ");
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 0;
+                        width: 10%;
+                    }
+                }
+            }
+        }
+    }
 
     states [
-        expanded when root.expanded : {
+        expanded when root.expanded: {
             height: layout.min-height;
             expanded-opacity: 1;
-
-            in {
-                animate height { duration: 200ms; easing: ease; }
-                animate expanded-opacity { duration: 200ms; }
-            }
-            out {
-                animate height { duration: 200ms; easing: ease; }
-                animate expanded-opacity { duration: 200ms; }
-            }
         }
     ]
 
     TouchArea {
         clicked => {
             root.expanded = !root.expanded;
-        }
-    }
-
-    Rectangle {
-        height: 100%;
-        layout := VerticalLayout {
-            padding: root.border-radius;
-            spacing: 4px;
-            alignment: start;
-
-            always-visible := VerticalLayout {
-                padding: 0;
-                spacing: parent.spacing;
-
-                Text {
-                    // TODO: text-transform: uppercase
-                    text: {
-                        if (root.queue-item.progress > 0) {
-                            @tr("{}% - {}",root.queue-item.progress, PrinterQueue.statusString(root.queue-item.status))
-                        } else {
-                            PrinterQueue.statusString(root.queue-item.status)
-                        }
-                    }
-                    color: DemoPalette.text-secondary;
-                    font-size: DemoPalette.base-font-size * 0.75;
-                    font-weight: 800;
-                    letter-spacing: 1.56px;
-                }
-
-                Text {
-                    text: root.queue-item.title;
-                    overflow: elide;
-                    color: DemoPalette.text-primary;
-                    font-weight: 800;
-                    font-size: DemoPalette.base-font-size * 1.125;
-                }
-            }
-
-            if (root.expanded || root.expanded-opacity > 0) : PrintDetails {
-                padding: 0px;
-                padding-bottom: root.border-radius / 2;
-                queue-item: root.queue-item;
-                opacity: root.expanded-opacity;
-            }
-
-            if (root.expanded || root.expanded-opacity > 0) : HorizontalLayout {
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-
-                PushButton {
-                    clicked => {
-                        root.show-job-details();
-                    }
-                    opacity: root.expanded-opacity;
-                    text: @tr("More   ");
-                }
-
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-            }
         }
     }
 }
@@ -236,8 +272,9 @@ component NarrowPrinterQueueList inherits Flickable {
 
     VerticalLayout {
         alignment: start;
-        padding: 0px;
-        spacing: 13.5px;
+        padding-top: DemoPalette.default-margin;
+        padding-bottom: DemoPalette.default-margin;
+        spacing: 12px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
             show-job-details => {
@@ -265,7 +302,7 @@ component ProgressBar inherits Rectangle {
         background: DemoPalette.neutral-box;
 
         Rectangle {
-            x:0;
+            x: 0;
             width: max(6px, root.progress * parent.width / 100);
             border-radius: parent.border-radius;
             background: DemoPalette.control-foreground;
@@ -334,14 +371,18 @@ component WidePrintQueueElement inherits Rectangle {
             vertical-stretch: 0;
 
             PushButton {
-                clicked => { root.pause-job(); }
+                clicked => {
+                    root.pause-job();
+                }
 
                 text: @tr("Pause");
                 icon: @image-url("images/pause.svg");
             }
 
             PushButton {
-                clicked => { root.cancel-job(); }
+                clicked => {
+                    root.cancel-job();
+                }
                 primary: false;
                 text: @tr("Delete");
                 icon: @image-url("images/delete.svg");
@@ -361,7 +402,6 @@ component WidePrintQueueElement inherits Rectangle {
     }
 }
 
-
 export component WidePrinterQueueList inherits Flickable {
     VerticalLayout {
         alignment: start;
@@ -369,8 +409,12 @@ export component WidePrinterQueueList inherits Flickable {
         spacing: 13.5px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: WidePrintQueueElement {
-            cancel-job => { PrinterQueue.cancel-job(idx) }
-            pause-job => { PrinterQueue.pause-job(idx) }
+            cancel-job => {
+                PrinterQueue.cancel-job(idx)
+            }
+            pause-job => {
+                PrinterQueue.pause-job(idx)
+            }
 
             queue-item: queue-item;
         }
@@ -380,18 +424,33 @@ export component WidePrinterQueueList inherits Flickable {
 export component PrinterQueueView inherits Rectangle {
     callback show-job-details(int);
 
-    border-radius: 27px;
-    background: DemoPalette.background.darker(20%);
+    background: DemoPalette.queue-background;
+
+    Rectangle {
+        width: 1phx;
+        height: 100%;
+        x: 0px;
+        background: DemoPalette.queue-separator;
+    }
+
+    Text {
+        x: DemoPalette.default-margin;
+        y: DemoPalette.default-margin;
+        text: @tr("Printing Queue");
+        color: DemoPalette.text-primary;
+        font-size: DemoPalette.title-font-size;
+        font-weight: 600;
+    }
 
     VerticalLayout {
-        padding: 16px;
-        spacing: 16px;
-
-        Text {
-            text: @tr("Printing Queue");
-            color: DemoPalette.text-primary;
-            font-size: DemoPalette.base-font-size * 1.5;
-            font-weight: 700;
+        Rectangle {
+            height: 70px;
+            Rectangle {
+                y: parent.height - self.height;
+                width: 100%;
+                height: 1phx;
+                background: DemoPalette.queue-separator;
+            }
         }
 
         queue-list := NarrowPrinterQueueList {
@@ -399,7 +458,7 @@ export component PrinterQueueView inherits Rectangle {
                 root.show-job-details(idx)
             }
 
-            width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
+            width: root.width - 2 * parent.padding; // FIXME why do we need this? bug in layout?
         }
     }
 }
