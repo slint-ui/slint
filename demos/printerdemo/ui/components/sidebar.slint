@@ -59,9 +59,9 @@ export component Sidebar inherits Rectangle {
     VerticalLayout {
         y: 82px;
         for page-icon[idx] in [
-            @image-url("../images/home.svg"),
-            @image-url("../images/settings.svg"),
-            @image-url("../images/ink.svg"),
+            @image-url("../images/sidebar/home.svg"),
+            @image-url("../images/sidebar/settings.svg"),
+            @image-url("../images/sidebar/ink.svg"),
         ]: SideBarIcon {
             activate => {
                 PrinterState.active-page = idx;
@@ -84,7 +84,7 @@ export component Sidebar inherits Rectangle {
             }
         }
 
-        icon: DemoPalette.theme != Theme.Gradient ? @image-url("../images/moon_full.svg") : @image-url("../images/moon.svg");
+        icon: DemoPalette.theme != Theme.Gradient ? @image-url("../images/sidebar/moon_full.svg") : @image-url("../images/sidebar/moon.svg");
         icon-colorize: DemoPalette.theme != Theme.Gradient ? #F1FF98 : DemoPalette.inactive-page-icon-color;
 
         y: root.icon-y(4) - 17px;
