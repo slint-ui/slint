@@ -14,7 +14,6 @@ component SideBarIcon inherits Rectangle {
 
     i := Image {
         colorize: root.active ? ComponentTheme.side-bar.active-icon-color : ComponentTheme.side-bar.inactive-icon-color;
-        animate colorize { duration: 125ms; }
     }
 
     TouchArea {
