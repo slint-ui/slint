@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette } from "../common.slint";
+import { Button } from "./button.slint";
+
+export component IconButton inherits Button {
+    in property <image> icon <=> img.source;
+
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+
+    background: root.hovered ? DemoPalette.primary.darker(5%) : transparent;
+
+    HorizontalLayout {
+        padding: 0;
+        alignment: center;
+
+        img := Image {
+            width: 20px;
+            height: 20px;
+            image-fit: contain;
+
+            colorize: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
+        }
+    }
+}
