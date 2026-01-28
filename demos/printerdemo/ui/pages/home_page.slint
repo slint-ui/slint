@@ -8,13 +8,19 @@ import { PrintPage } from "./print_page.slint";
 import { PrinterQueueView } from "../printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
 import { Page } from "./page.slint";
-component ActionButton inherits Rectangle {
+component ActionButton  {
     in property <image> icon <=> img.source;
     in property <string> text <=> label.text;
+    in property <brush> background <=> img-back.colorize;
 
     width: DemoPalette.button-width;
     height: DemoPalette.button-height;
-    border-radius: 25px;
+    img-back := Image {
+        width: 100%;
+        height: 100%;
+        source: @image-url("../images/action-button-frame.png");
+        colorize: white;
+    }
 
     callback clicked;
 
@@ -44,6 +50,7 @@ component ActionButton inherits Rectangle {
     }
 
     TouchArea {
+        width: 249px;
         clicked => {
             root.clicked()
         }
@@ -80,25 +87,25 @@ export component HomePage inherits Page {
                 name: @tr("Print"),
                 id: SubPage.print,
                 icon: @image-url("../images/print.svg"),
-                background:  @linear-gradient(-45deg, #2B7FFF 0%, #155DFC 100%)
+                background:  @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%)
             },
             {
                 name: @tr("Scan"),
                 id: SubPage.scan,
                 icon: @image-url("../images/scan.svg"),
-                background:  @linear-gradient(-45deg, #00BC7D 0%, #009966 100%)
+                background:  @linear-gradient(135deg, #00BC7D 0%, #009966 100%)
             },
             {
                 name: @tr("Copy"),
                 id: SubPage.copy,
                 icon: @image-url("../images/copy.svg"),
-                background:  @linear-gradient(-45deg, #FF2056 0%, #fd3d6d 100%)
+                background:  @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%)
             },
             {
                 name: @tr("USB"),
                 id: SubPage.usb,
                 icon: @image-url("../images/usb.svg"),
-                background:  @linear-gradient(-45deg, #FF6900 0%, #F54900 100%)
+                background:  @linear-gradient(135deg, #FF6900 0%, #F54900 100%)
             },
         ]: ActionButton {
             col: index.mod(2);
