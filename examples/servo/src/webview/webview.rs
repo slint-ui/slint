@@ -63,10 +63,8 @@ impl WebView {
     pub fn new(
         app: MyApp,
         initial_url: SharedString,
-        #[cfg(not(target_os = "windows"))]
-        device: slint::wgpu_28::wgpu::Device,
-        #[cfg(not(target_os = "windows"))]
-        queue: slint::wgpu_28::wgpu::Queue,
+        #[cfg(not(target_os = "windows"))] device: slint::wgpu_28::wgpu::Device,
+        #[cfg(not(target_os = "windows"))] queue: slint::wgpu_28::wgpu::Queue,
     ) {
         let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 

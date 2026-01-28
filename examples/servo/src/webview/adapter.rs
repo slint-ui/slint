@@ -71,10 +71,8 @@ impl SlintServoAdapter {
     pub fn new(
         waker_sender: Sender<()>,
         waker_receiver: Receiver<()>,
-        #[cfg(not(target_os = "windows"))]
-        device: wgpu::Device,
-        #[cfg(not(target_os = "windows"))]
-        queue: wgpu::Queue,
+        #[cfg(not(target_os = "windows"))] device: wgpu::Device,
+        #[cfg(not(target_os = "windows"))] queue: wgpu::Queue,
     ) -> Self {
         Self {
             waker_sender,
