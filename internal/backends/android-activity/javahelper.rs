@@ -6,7 +6,7 @@ use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::items::{ColorScheme, InputType};
-use i_slint_core::lengths::PhysicalInset;
+use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JString, JValue};
@@ -261,7 +261,7 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_safe_area(&self) -> Result<PhysicalInset, jni::errors::Error> {
+    pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let rect =
                 env.call_method(helper, "get_safe_area", "()Landroid/graphics/Rect;", &[])?.l()?;
@@ -270,7 +270,7 @@ impl JavaHelper {
             let top = env.get_field(&rect, "top", "I")?.i()?;
             let right = env.get_field(&rect, "right", "I")?.i()?;
             let bottom = env.get_field(&rect, "bottom", "I")?.i()?;
-            Ok(PhysicalInset::new(top, bottom, left, right))
+            Ok(PhysicalEdges::new(top, bottom, left, right))
         })
     }
 
@@ -556,13 +556,13 @@ extern "system" fn Java_SlintAndroidJavaHelper_setInsets(
                     (window_right - window_left) as _,
                     (window_bottom - window_top) as _,
                 ),
-                PhysicalInset::new(
+                PhysicalEdges::new(
                     safe_area_top as _,
                     safe_area_bottom as _,
                     safe_area_left as _,
                     safe_area_right as _,
                 ),
-                PhysicalInset::new(
+                PhysicalEdges::new(
                     keyboard_top as _,
                     keyboard_bottom as _,
                     keyboard_left as _,

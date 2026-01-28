@@ -12,7 +12,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::input::MouseEvent;
 use i_slint_core::items::ColorScheme;
-use i_slint_core::lengths::PhysicalInset;
+use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
@@ -167,7 +167,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         self.color_scheme.as_ref().get()
     }
 
-    fn safe_area_inset(&self) -> PhysicalInset {
+    fn safe_area_inset(&self) -> PhysicalEdges {
         if self.fullscreen.get() {
             Default::default()
         } else {
@@ -518,8 +518,8 @@ impl AndroidWindowAdapter {
         &self,
         window_origin: PhysicalPosition,
         window_size: PhysicalSize,
-        safe_area: PhysicalInset,
-        keyboard: PhysicalInset,
+        safe_area: PhysicalEdges,
+        keyboard: PhysicalEdges,
     ) {
         let scale_factor = self.window.scale_factor();
         WindowInner::from_pub(&self.window)
