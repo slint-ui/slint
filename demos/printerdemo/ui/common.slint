@@ -17,8 +17,13 @@ struct ModeColors {
 }
 
 struct SideBarTheme {
+    icon-border-radius: length,
     background: color,
     separator: color,
+    active-background: color,
+    active-icon-color: color,
+    inactive-icon-color: color,
+    icon-size: length,
 }
 
 export enum Theme {
@@ -42,19 +47,39 @@ export global ComponentTheme {
     }
 
     property <SideBarTheme> gradient: {
+        icon-size: 40px,
+        icon-border-radius: 16px,
         background: #0e172b,
         separator: Colors.transparent,
+        active-background: #1D293D,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #90A1B9,
     };
     property <SideBarTheme> minimalist: {
+        icon-size: 40px,
+        icon-border-radius: 40px / 2,
         background: #ffffff,
+        active-background: #0F172B,
         separator: #E2E8F0,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #90A1B9,
     };
     property <SideBarTheme> vibrant: {
+        icon-size: 40px,
+        icon-border-radius: 40px / 2,
         background: #f4f4ff,
+        active-background: #0F172B,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #90A1B9,
         separator: Colors.transparent,
     };
     property <SideBarTheme> glass: {
+        icon-size: 40px,
+        icon-border-radius: 40px / 2,
         background: #f4f8ff,
+        active-background: #0F172B,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #90A1B9,
         separator: Colors.transparent,
     };
 }
@@ -128,7 +153,6 @@ export global DemoPalette  {
     out property <color> push-button-text-color: white;
 
     // Color of the home/settings/ink buttons on the left side bar
-    out property <color> active-page-icon-color: root.theme == Theme.Gradient ? #6284FF : #122F7B;
     out property <color> inactive-page-icon-color: #BDC0D1;
     out property <color> neutral-box: #BDC0D1;
     out property <color> secondary-foreground-color: root.theme == Theme.Gradient ? #C1C3CA : #6C6E7A;
