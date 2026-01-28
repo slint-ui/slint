@@ -408,3 +408,7 @@ export component PushButton inherits Rectangle {
 
     touch-area := TouchArea { clicked => { root.clicked() } }
 }
+
+export global PrinterState {
+    in property <int> active-page: 0;
+}

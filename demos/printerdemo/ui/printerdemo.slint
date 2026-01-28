@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, Theme } from "common.slint";
+import { DemoPalette, Page, Theme, PrinterState } from "common.slint";
 import { HomePage } from "./home_page.slint";
 import { InkLevel, InkPage } from "./ink_page.slint";
 import { SettingsPage, PrinterSettings } from "./settings_page.slint";
@@ -12,33 +12,8 @@ export { PrinterQueue, PrinterSettings }
 
 import "./fonts/NotoSans-Regular.ttf";
 import "./fonts/NotoSans-Bold.ttf";
+import { Sidebar } from "components/sidebar.slint";
 
-component SideBarIcon inherits Rectangle {
-    in-out property <bool> active;
-    in-out property <image> icon <=> i.source;
-    in-out property <brush> icon-colorize <=> i.colorize;
-
-    callback activate;
-    width: DemoPalette.side-bar-width;
-    height: 72px;
-
-    Rectangle {
-        x: DemoPalette.side-bar-margin;
-        GridLayout {
-            padding: 0px;
-            @children
-        }
-
-        i := Image {
-            colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-            animate colorize { duration: 125ms; }
-        }
-    }
-
-    TouchArea {
-        clicked => { root.activate(); }
-    }
-}
 
 export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
@@ -49,7 +24,6 @@ export component MainWindow inherits Window {
         {color: #f0f, level: 70%},
         {color: #000, level: 30%},
     ];
-    in-out property <int> active-page: 0;
 
     callback quit();
 
@@ -77,7 +51,7 @@ export component MainWindow inherits Window {
                 height: main-view.height - main-view.border-radius;
 
                 function calcPageY(pageNumber: int) -> length {
-                    if (root.active-page == pageNumber) {
+                    if (PrinterState.active-page == pageNumber) {
                         return 0;
                     }
                     return root.active-page < pageNumber ? - self.height / 2 : parent.height / 2;
@@ -132,63 +106,5 @@ export component MainWindow inherits Window {
         }
     }
 
-    sidebar := Rectangle {
-        function icon-y(index: int) -> length {
-            return 100px // top padding
-                + index * 72px;
-        }
-        x: 0px;
-        width: DemoPalette.side-bar-width;
-
-        Image {
-            x: parent.width - self.width + 1px; // workaround pixel gap
-            y: sidebar.icon-y(root.active-page) - self.width / 2;
-            source: @image-url("images/page_selection.svg");
-            colorize: DemoPalette.background;
-            animate y { duration: 125ms; }
-        }
-
-        VerticalLayout {
-            y: 82px;
-
-            for page-icon[idx] in [
-                @image-url("images/home.svg"),
-                @image-url("images/settings.svg"),
-                @image-url("images/ink.svg"),
-            ]: SideBarIcon {
-                activate => {
-                    root.active-page = idx;
-                }
-                icon: page-icon;
-                active: root.active-page == idx;
-            }
-        }
-
-        Rectangle {
-            y: sidebar.icon-y(3) + 17px;
-            x: DemoPalette.side-bar-margin + 8px;
-            background: DemoPalette.background;
-            height: 2px;
-            width: 37px;
-        }
-
-        SideBarIcon {
-            activate => {
-                if DemoPalette.theme == Theme.Gradient {
-                    DemoPalette.theme = Theme.Minimalist;
-                } else if DemoPalette.theme == Theme.Minimalist {
-                    DemoPalette.theme = Theme.Vibrant;
-                } else if DemoPalette.theme == Theme.Vibrant {
-                    DemoPalette.theme = Theme.Glass;
-                } else {
-                    DemoPalette.theme = Theme.Gradient;
-                }
-            }
-
-            icon: DemoPalette.theme != Theme.Gradient ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
-            icon-colorize: DemoPalette.theme != Theme.Gradient ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-
-            y: sidebar.icon-y(4) - 17px;
-        }
-    }
+    Sidebar { }
 }
