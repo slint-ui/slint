@@ -197,29 +197,14 @@
     "Window": {
         "href": "reference/window/window/"
     },
-    "Window.safe-area-inset-top": {
-        "href": "reference/window/window/#safe-area-inset-top"
+    "Window.safe-area-insets": {
+        "href": "reference/window/window/#safe-area-insets"
     },
-    "Window.safe-area-inset-bottom": {
-        "href": "reference/window/window/#safe-area-inset-bottom"
+    "Window.virtual-keyboard-position": {
+        "href": "reference/window/window/#virtual-keyboard-position"
     },
-    "Window.safe-area-inset-left": {
-        "href": "reference/window/window/#safe-area-inset-left"
-    },
-    "Window.safe-area-inset-right": {
-        "href": "reference/window/window/#safe-area-inset-right"
-    },
-    "Window.virtual-keyboard-x": {
-        "href": "reference/window/window/#virtual-keyboard-x"
-    },
-    "Window.virtual-keyboard-y": {
-        "href": "reference/window/window/#virtual-keyboard-y"
-    },
-    "Window.virtual-keyboard-width": {
-        "href": "reference/window/window/#virtual-keyboard-width"
-    },
-    "Window.virtual-keyboard-height": {
-        "href": "reference/window/window/#virtual-keyboard-height"
+    "Window.virtual-keyboard-size": {
+        "href": "reference/window/window/#virtual-keyboard-size"
     },
     "WinitBackend": {
         "href": "guide/backends-and-renderers/backend_winit/"

@@ -3,13 +3,22 @@
 
 import { Palette } from "std-widgets.slint";
 
-import { MainView, MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter } from "views.slint";
+import {
+    MainView,
+    MainViewAdapter,
+    MailViewAdapter,
+    MailBoxViewAdapter,
+    DashboardViewAdapter,
+} from "views.slint";
 export { MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter }
 
 import { CardListViewItem, DialogGlobal, UsecasesPalette } from "widgets.slint";
 export { CardListViewItem }
 
-import { VirtualKeyboardHandler, VirtualKeyboard } from "virtual_keyboard.slint";
+import {
+    VirtualKeyboardHandler,
+    VirtualKeyboard,
+} from "virtual_keyboard.slint";
 
 export { VirtualKeyboardHandler }
 
@@ -22,15 +31,15 @@ export component App inherits Window {
     background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.background;
 
     main-view := MainView {
-        x: root.safe-area-inset-left;
-        y: root.safe-area-inset-top;
-        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
-        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.right - root.safe-area-insets.left;
+        height: root.height - root.safe-area-insets.bottom - root.safe-area-insets.top;
 
         break-layout: root.width < 480px;
     }
 
-    if VirtualKeyboardHandler.enabled : VirtualKeyboard {
+    if VirtualKeyboardHandler.enabled: VirtualKeyboard {
         y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
 
         close => {

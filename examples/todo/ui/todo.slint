@@ -1,8 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView,
-    HorizontalBox, VerticalBox, GridBox, StandardButton, Palette } from "std-widgets.slint";
+import {
+    SpinBox,
+    Button,
+    CheckBox,
+    Slider,
+    LineEdit,
+    ScrollView,
+    ListView,
+    HorizontalBox,
+    VerticalBox,
+    GridBox,
+    StandardButton,
+    Palette,
+} from "std-widgets.slint";
 
 @rust-attr(derive(serde::Serialize, serde::Deserialize))
 export struct TodoItem  {
@@ -32,7 +44,9 @@ export component MainWindow inherits Window {
     callback show_confirm_popup;
     callback apply_sorting_and_filtering();
 
-    show_confirm_popup => { confirm_popup.show(); }
+    show_confirm_popup => {
+        confirm_popup.show();
+    }
 
     preferred-width: 400px;
     preferred-height: 600px;
@@ -49,7 +63,8 @@ export component MainWindow inherits Window {
         }
 
         confirm_popup_layout := Dialog {
-            height:100%; width: 100%;
+            height: 100%;
+            width: 100%;
             background: transparent;
 
             confirm_popup_text := Text {
@@ -57,16 +72,24 @@ export component MainWindow inherits Window {
                 wrap: word-wrap;
             }
 
-            StandardButton { kind: yes; clicked => { root.popup_confirmed(); } }
-            StandardButton { kind: no; }
+            StandardButton {
+                kind: yes;
+                clicked => {
+                    root.popup_confirmed();
+                }
+            }
+
+            StandardButton {
+                kind: no;
+            }
         }
     }
 
     VerticalBox {
-        x: root.safe-area-inset-left;
-        y: root.safe-area-inset-top;
-        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
-        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.right - root.safe-area-insets.left;
+        height: root.height - root.safe-area-insets.bottom - root.safe-area-insets.top;
 
         HorizontalBox {
             padding: 0px;
@@ -90,7 +113,7 @@ export component MainWindow inherits Window {
             }
         }
 
-        if (root.show-header) : HorizontalBox {
+        if (root.show-header): HorizontalBox {
             padding: 0px;
             alignment: start;
 
@@ -114,7 +137,7 @@ export component MainWindow inherits Window {
         }
 
         list-view := ListView {
-            for todo in root.todo-model:  HorizontalLayout {
+            for todo in root.todo-model: HorizontalLayout {
                 CheckBox {
                     toggled => {
                         todo.checked = self.checked;
@@ -125,12 +148,15 @@ export component MainWindow inherits Window {
                 }
             }
         }
+
         HorizontalBox {
             padding: 0px;
             alignment: end;
 
             Button {
-                clicked => { root.remove-done(); }
+                clicked => {
+                    root.remove-done();
+                }
 
                 text: "Remove Done Items";
             }

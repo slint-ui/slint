@@ -15,7 +15,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::lengths::{LogicalInset, PhysicalPx, ScaleFactor};
+use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -1231,12 +1231,8 @@ impl WindowAdapter for WinitWindowAdapter {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();
-            WindowInner::from_pub(self.window()).set_window_item_safe_area(LogicalInset::new(
-                window_item.safe_area_inset_top().get(),
-                window_item.safe_area_inset_bottom().get(),
-                window_item.safe_area_inset_left().get(),
-                window_item.safe_area_inset_right().get(),
-            ));
+            WindowInner::from_pub(self.window())
+                .set_window_item_safe_area(window_item.safe_area_insets());
         }
 
         let m = properties.is_fullscreen();
@@ -1537,7 +1533,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(target_os = "ios")]
-    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalInset {
+    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalEdges {
         self.winit_window_or_none
             .borrow()
             .as_window()
@@ -1546,7 +1542,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 let inner_position = window.inner_position().ok()?;
                 let outer_size = window.outer_size();
                 let inner_size = window.inner_size();
-                Some(i_slint_core::lengths::PhysicalInset::new(
+                Some(i_slint_core::lengths::PhysicalEdges::new(
                     inner_position.y - outer_position.y,
                     outer_size.height as i32
                         - (inner_size.height as i32)

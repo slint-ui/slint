@@ -698,6 +698,8 @@ impl BuiltinPrivateStruct {
 pub enum BuiltinPublicStruct {
     Color,
     LogicalPosition,
+    LogicalSize,
+    LogicalEdges,
     StandardListViewItem,
 }
 
@@ -706,6 +708,8 @@ impl BuiltinPublicStruct {
         match self {
             Self::Color => Some(SmolStr::new_static("color")),
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
+            Self::LogicalSize => Some(SmolStr::new_static("Size")),
+            Self::LogicalEdges => Some(SmolStr::new_static("Edges")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
         }
     }

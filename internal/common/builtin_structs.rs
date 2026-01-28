@@ -224,6 +224,34 @@ macro_rules! for_each_builtin_structs {
                 }
                 private {}
             }
+
+            /// A 2D size with width and height components
+            struct Size {
+                @name = BuiltinPublicStruct::LogicalSize,
+                export {
+                    /// The width component of the size
+                    width: Coord,
+                    /// The height component of the size
+                    height: Coord,
+                }
+                private {}
+            }
+
+            /// A structure representing the four edges of an axis-aligned rectangle
+            struct Edges {
+                @name = BuiltinPublicStruct::LogicalEdges,
+                export {
+                    /// The left edge value
+                    left: Coord,
+                    /// The top edge value
+                    top: Coord,
+                    /// The right edge value
+                    right: Coord,
+                    /// The bottom edge value
+                    bottom: Coord,
+                }
+                private {}
+            }
         ];
     };
 }
