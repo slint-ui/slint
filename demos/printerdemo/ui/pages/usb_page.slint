@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Page, SpinBox, Label, ComboBox, PushButton } from "../common.slint";
+import { SpinBox, Label, ComboBox, PushButton } from "../common.slint";
 import { StandardListView } from "std-widgets.slint";
 import { PrinterQueue } from "../printer_queue.slint";
+import { Page } from "./page.slint";
 
 struct File  { name: string, preview: image }
 
@@ -16,8 +17,8 @@ export component UsbPage inherits Page {
         { name: "snake.jpg", preview: @image-url("../images/snake.jpg") },
     ];
 
-    has-back-button: true;
     header: @tr("USB");
+    subtitle: @tr("Choose Settings");
 
     GridLayout {
         padding-top: 46px /* header line height in design */

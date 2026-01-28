@@ -159,51 +159,6 @@ export global DemoPalette  {
 
 }
 
-export component Page inherits Rectangle {
-    in property <string> header <=> h.text;
-    in property <bool> has-back-button: false;
-
-    callback back;
-
-    background: DemoPalette.background;
-    // Stop accidentally getting clicks dur to animation only moving page half way offscreen
-    visible: self.opacity > 0;
-
-    TouchArea { } // protect underneath controls
-
-
-
-    if (root.has-back-button) : Image {
-        x:0;
-        source: @image-url("images/back.svg");
-        image-fit: contain;
-        colorize: DemoPalette.control-secondary;
-        y: h.y + (h.height - self.height) / 2;
-        width: 14px;
-        height: 24px;
-
-        TouchArea {
-            clicked => { root.back() }
-
-            x: -14px;
-            height: 200%;
-            width: self.height;
-        }
-    }
-
-    h := Text {
-        font-weight: 900;
-        font-size: DemoPalette.base-font-size * 2;
-        color: DemoPalette.text-primary;
-        y: 46px - self.font-size;
-        x: root.has-back-button ? 24px + 16px : 0px;
-        // Allow clicking on the title as well to get back easier when just
-        // using fingers on a small screen.
-        if (root.has-back-button) : TouchArea {
-            clicked => { root.back() }
-        }
-    }
-}
 export component Label inherits Text {
     color: DemoPalette.text-primary;
     vertical-alignment: center;

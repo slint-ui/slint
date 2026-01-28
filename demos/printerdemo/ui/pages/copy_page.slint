@@ -1,26 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "../common.slint";
+import { SpinBox, Label, ComboBox, PushButton, CheckBox } from "../common.slint";
 import { PrinterQueue } from "../printer_queue.slint";
+import { Page } from "./page.slint";
 
 
 export component CopyPage inherits Page {
-    has-back-button: true;
     header: @tr("Copy");
+    subtitle: @tr("Choose Settings");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
-        Row {
-            Text {
-                text: @tr("Choose Settings");
-                color: DemoPalette.secondary-foreground-color;
-                font-size: DemoPalette.base-font-size * 1.125;
-                font-weight: 800;
-            }
-        }
         Row {
             Label { text: @tr("Copies"); }
             SpinBox {
