@@ -54,7 +54,7 @@ export component MainWindow inherits Window {
                     if (PrinterState.active-page == pageNumber) {
                         return 0;
                     }
-                    return root.active-page < pageNumber ? - self.height / 2 : parent.height / 2;
+                    return PrinterState.active-page < pageNumber ? - self.height / 2 : parent.height / 2;
                 }
 
                 property <duration> page-animation-duration: 250ms;
@@ -62,7 +62,7 @@ export component MainWindow inherits Window {
                 home-page := HomePage {
                     property <int> pageNumber: 0;
                     y: calcPageY(0);
-                    opacity: root.active-page == 0 ? 1 : 0;
+                    opacity: PrinterState.active-page == 0 ? 1 : 0;
                     animate y {
                         duration: page-animation-duration;
                         easing: ease-out-quad;
@@ -76,7 +76,7 @@ export component MainWindow inherits Window {
                 SettingsPage {
                     property <int> pageNumber: 1;
                     y: calcPageY(1);
-                    opacity: root.active-page == pageNumber ? 1 : 0;
+                    opacity: PrinterState.active-page == pageNumber ? 1 : 0;
                     animate y {
                         duration: page-animation-duration;
                         easing: ease-out-quad;
@@ -90,9 +90,9 @@ export component MainWindow inherits Window {
                 InkPage {
                     property <int> pageNumber: 2;
                     y: calcPageY(pageNumber);
-                    opacity: root.active-page == pageNumber ? 1 : 0;
+                    opacity: PrinterState.active-page == pageNumber ? 1 : 0;
                     ink-levels <=> root.ink-levels;
-                    page-visible: root.active-page == pageNumber;
+                    page-visible: PrinterState.active-page == pageNumber;
                     animate y {
                         duration: page-animation-duration;
                         easing: ease-out-quad;
