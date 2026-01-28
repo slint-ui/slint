@@ -22,6 +22,7 @@ use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+use itertools::Itertools;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
@@ -823,15 +824,30 @@ pub async fn load_document(
 pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Reloading document: {url}");
 
-    let mut document_cache = ctx.document_cache.borrow_mut();
+    // Check if document is in cache (can use reload_cached_file)
+    let in_cache = ctx.document_cache.borrow().all_urls().contains(&url);
 
-    let mut diagnostics = BuildDiagnostics::default();
+    if in_cache {
+        tracing::trace!("Document is in cache, reloading: {url}");
 
-    document_cache.reload_cached_file(&url, &mut diagnostics).await;
-    let mut extra_files = HashSet::new();
-    extra_files.extend(uri_to_file(&url));
+        let mut document_cache = ctx.document_cache.borrow_mut();
+        let mut diagnostics = BuildDiagnostics::default();
 
-    send_diagnostics(&ctx.server_notifier, &mut *document_cache, &extra_files, diagnostics);
+        document_cache.reload_cached_file(&url, &mut diagnostics).await;
+        let mut extra_files = HashSet::new();
+        extra_files.extend(uri_to_file(&url));
+
+        send_diagnostics(&ctx.server_notifier, &mut *document_cache, &extra_files, diagnostics);
+    } else {
+        tracing::trace!("Document not in cache, loading from disk: {url}");
+
+        let Some(path) = common::uri_to_file(&url) else {
+            return Err(format!("Failed to locate file: {url}").into());
+        };
+        let content = std::fs::read_to_string(&path)?;
+
+        load_document(ctx, content, url, None, &mut ctx.document_cache.borrow_mut()).await?;
+    }
 
     Ok(())
 }
@@ -889,6 +905,17 @@ fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<
     let open_urls = ctx.open_urls.borrow();
     let open_dependencies = open_urls.intersection(&dependencies).cloned();
     ctx.pending_recompile.borrow_mut().extend(open_dependencies);
+
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    if let Some(preview_url) = ctx.to_show.borrow().as_ref().map(|c| c.url.clone()) {
+        // The external preview only has access to the files the LSP recompiles, so we need to
+        // ensure the preview file is recompiled if anything it depends on changes, even if it's
+        // not in the open_urls.
+        if preview_url == url || dependencies.contains(&preview_url) {
+            ctx.pending_recompile.borrow_mut().insert(preview_url);
+        }
+    }
+
     Ok(())
 }
 

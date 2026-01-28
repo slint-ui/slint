@@ -274,3 +274,56 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     // But reexport_url still have the same syntax error as before
     assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
 }
+
+/// Test for issue #10521: Preview file should be recompiled when dependency changes,
+/// even if the preview file is not open in the editor.
+#[test]
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+fn preview_file_recompiled_when_dependency_changes() {
+    let mut cache = empty_document_cache();
+
+    let (dep_url, _diag) = load(
+        None,
+        &mut cache,
+        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+        r#" export component Bar { property <int> hi; } "#,
+    );
+
+    let (main_url, _diag) = load(
+        None,
+        &mut cache,
+        &std::env::current_dir().unwrap().join("xxx/main.slint"),
+        r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
+    );
+
+    // Create context with:
+    // - main.slint set as the preview file (to_show)
+    // - main.slint NOT in open_urls (simulating it was closed in the editor)
+    let ctx = std::rc::Rc::new(crate::language::Context {
+        document_cache: cache.into(),
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        to_show: RefCell::new(Some(common::PreviewComponent {
+            url: main_url.clone(),
+            component: None,
+        })),
+        open_urls: RefCell::new(HashSet::new()),
+        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
+    });
+
+    spin_on::spin_on(crate::language::trigger_file_watcher(
+        &ctx,
+        dep_url.clone(),
+        lsp_types::FileChangeType::CHANGED,
+    ))
+    .unwrap();
+
+    // The preview file (main.slint) should be scheduled for recompilation
+    // even though it's not in open_urls
+    assert!(
+        ctx.pending_recompile.borrow().contains(&main_url),
+        "Preview file should be in pending_recompile when its dependency changes"
+    );
+}
