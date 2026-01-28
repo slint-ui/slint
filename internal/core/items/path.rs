@@ -18,6 +18,7 @@ use crate::input::{
 };
 use crate::item_rendering::CachedRenderingData;
 
+use crate::items::PathFitStyle;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, RectLengths,
@@ -48,6 +49,7 @@ pub struct Path {
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,
     pub viewbox_height: Property<f32>,
+    pub fit_style: Property<PathFitStyle>,
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -175,7 +177,12 @@ impl Path {
             None
         };
 
-        elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox);
+        elements_iter.fit(
+            bounds_width.get() as _,
+            bounds_height.get() as _,
+            maybe_viewbox,
+            self.fit_style(),
+        );
         (offset, elements_iter).into()
     }
 }
