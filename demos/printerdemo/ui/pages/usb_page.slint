@@ -6,7 +6,7 @@ import { StandardListView } from "std-widgets.slint";
 import { PrinterQueue } from "../printer_queue.slint";
 import { Page } from "./page.slint";
 import { SpinBox } from "../components/spinbox.slint";
-import { ComboBox } from "../components/combobox.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
 import { Label } from "../../../printerdemo_mcu/ui/common.slint";
 
 struct File  { name: string, preview: image }
@@ -76,9 +76,10 @@ export component UsbPage inherits Page {
         }
 
         Row {
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Grayscale");
                 label: @tr("Color");
+                items: [@tr("Grayscale"), @tr("Color")];
             }
         }
 
