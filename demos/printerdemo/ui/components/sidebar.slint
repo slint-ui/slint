@@ -1,0 +1,91 @@
+import { DemoPalette, Theme } from "../common.slint";
+import { PrinterState } from "../common.slint";
+
+component SideBarIcon inherits Rectangle {
+    in-out property <bool> active;
+    in-out property <image> icon <=> i.source;
+    in-out property <brush> icon-colorize <=> i.colorize;
+
+    callback activate;
+    width: DemoPalette.side-bar-width;
+    height: 72px;
+
+    Rectangle {
+        x: DemoPalette.side-bar-margin;
+        GridLayout {
+            padding: 0px;
+            @children
+        }
+
+        i := Image {
+            colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
+            animate colorize { duration: 125ms; }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root.activate();
+        }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+
+    function icon-y(index: int) -> length {
+        return 100px // top padding
+            + index * 72px;
+    }
+    x: 0px;
+    width: DemoPalette.side-bar-width;
+
+    Image {
+        x: parent.width - self.width + 1px; // workaround pixel gap
+            y: root.icon-y(PrinterState.active-page) - self.width / 2;
+        source: @image-url("../images/page_selection.svg");
+        colorize: DemoPalette.background;
+        animate y { duration: 125ms; }
+    }
+
+    Rectangle {
+        y: root.icon-y(3) + 17px;
+        x: DemoPalette.side-bar-margin + 8px;
+        background: DemoPalette.background;
+        height: 2px;
+        width: 37px;
+    }
+
+    VerticalLayout {
+        y: 82px;
+        for page-icon[idx] in [
+            @image-url("../images/home.svg"),
+            @image-url("../images/settings.svg"),
+            @image-url("../images/ink.svg"),
+        ]: SideBarIcon {
+            activate => {
+                PrinterState.active-page = idx;
+            }
+            icon: page-icon;
+            active: PrinterState.active-page == idx;
+        }
+    }
+
+    SideBarIcon {
+        activate => {
+            if DemoPalette.theme == Theme.Gradient {
+                DemoPalette.theme = Theme.Minimalist;
+            } else if DemoPalette.theme == Theme.Minimalist {
+                DemoPalette.theme = Theme.Vibrant;
+            } else if DemoPalette.theme == Theme.Vibrant {
+                DemoPalette.theme = Theme.Glass;
+            } else {
+                DemoPalette.theme = Theme.Gradient;
+            }
+        }
+
+        icon: DemoPalette.theme != Theme.Gradient ? @image-url("../images/moon_full.svg") : @image-url("../images/moon.svg");
+        icon-colorize: DemoPalette.theme != Theme.Gradient ? #F1FF98 : DemoPalette.inactive-page-icon-color;
+
+        y: root.icon-y(4) - 17px;
+    }
+}
