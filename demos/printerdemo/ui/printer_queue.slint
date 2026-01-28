@@ -196,7 +196,7 @@ component NarrowPrintQueueElement {
                             width: 8px;
                             height: self.width;
                             border-radius: self.width / 2;
-                            background: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-printing;
+                            background: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-header;
                         }
 
                         Text {
@@ -207,7 +207,7 @@ component NarrowPrintQueueElement {
                                     PrinterQueue.statusString(root.queue-item.status)
                                 }
                             }
-                            color: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-printing;
+                            color: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-header;
                             font-size: 14px;
                             font-weight: 500;
                             letter-spacing: 1.56px;
@@ -424,13 +424,13 @@ export component WidePrinterQueueList inherits Flickable {
 export component PrinterQueueView inherits Rectangle {
     callback show-job-details(int);
 
-    background: DemoPalette.queue-background;
+    background: DemoPalette.header-background;
 
     Rectangle {
-        width: 1phx;
+        width: 1px;
         height: 100%;
         x: 0px;
-        background: DemoPalette.queue-separator;
+        background: DemoPalette.header-separator;
     }
 
     Text {
@@ -448,8 +448,8 @@ export component PrinterQueueView inherits Rectangle {
             Rectangle {
                 y: parent.height - self.height;
                 width: 100%;
-                height: 1phx;
-                background: DemoPalette.queue-separator;
+                height: 1px;
+                background: DemoPalette.header-separator;
             }
         }
 
