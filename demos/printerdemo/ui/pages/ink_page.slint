@@ -11,19 +11,37 @@ export struct InkLevel  {
 
 export component InkPage inherits Page {
     in property <[InkLevel]> ink-levels;
-    in property <bool> page-visible;
 
     header: @tr("Ink Level");
     subtitle: @tr("Current ink levels");
+
+    property <bool> page-visible: false;
+
+    changed visible => {
+        if !root.visible {
+            page-visible = false;
+        } else {
+            animationTimer.start();
+        }
+    }
+
+    animationTimer := Timer {
+        interval: 30ms;
+        running: false;
+        triggered => {
+            self.stop();
+            page-visible = true;
+        }
+    }
 
     Rectangle {
         height: 75%;
         width: 50%;
 
         HorizontalLayout {
-            spacing: root.width * 5%;
+            spacing: 50px;
 
-            for color-info in root.ink-levels : Rectangle {
+            for color-info in root.ink-levels: Rectangle {
                 ink := Rectangle {
                     width: parent.width;
                     height: parent.height * color-info.level;
@@ -31,13 +49,19 @@ export component InkPage inherits Page {
                     clip: true;
 
                     states [
-                        inactive when !root.page-visible : {
+                        inactive when !root.page-visible: {
                             height: 0;
                             out {
-                                animate height { duration: 750ms; easing: ease-in-out; }
+                                animate height {
+                                    duration: 750ms;
+                                    easing: ease-in-out;
+                                }
                             }
                             in {
-                                animate height { duration: 200ms; easing: ease-in; }
+                                animate height {
+                                    duration: 200ms;
+                                    easing: ease-in;
+                                }
                             }
                         }
                     ]
@@ -57,7 +81,7 @@ export component InkPage inherits Page {
                     y: max(ink.y - self.height, 0phx);
                     height: 2px;
                     // w = 2*sqrt(r² - (max(0, min(r-y , y-h+r)))²)
-                    width: 2*sqrt((self.r*self.r - self.y2*self.y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
+                    width: 2 * sqrt((self.r * self.r - self.y2 * self.y2) / (1phx * 1phx)) * 1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
                     x: (parent.width - self.width) / 2;
                     background: DemoPalette.neutral-box;
                 }
