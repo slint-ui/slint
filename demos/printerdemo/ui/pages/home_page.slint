@@ -1,16 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Theme } from "../common.slint";
+import { DemoPalette, Theme, SubPage, PrinterState } from "../common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
 import { PrinterQueueView } from "../printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
 import { Page } from "./page.slint";
-
-enum SubPage { None, Print, Scan, Copy, Usb }
-
 component ActionButton inherits Rectangle {
     in property <image> icon <=> img.source;
     in property <string> text <=> label.text;
@@ -57,7 +54,6 @@ component ActionButton inherits Rectangle {
 export component HomePage inherits Page {
     in-out property <length> header-row-height: 40px;
     in-out property <length> button-spacing: 35px;
-    in-out property <SubPage> current-subpage: SubPage.None;
 
     header: @tr("Slint Printer Demo");
     has-header: false;
@@ -72,25 +68,25 @@ export component HomePage inherits Page {
         for action[index] in [
             {
                 name: @tr("Print"),
-                id: SubPage.Print,
+                id: SubPage.print,
                 icon: @image-url("../images/print.svg"),
                 background:  @linear-gradient(-45deg, #2B7FFF 0%, #155DFC 100%)
             },
             {
                 name: @tr("Scan"),
-                id: SubPage.Scan,
+                id: SubPage.scan,
                 icon: @image-url("../images/scan.svg"),
                 background:  @linear-gradient(-45deg, #00BC7D 0%, #009966 100%)
             },
             {
                 name: @tr("Copy"),
-                id: SubPage.Copy,
+                id: SubPage.copy,
                 icon: @image-url("../images/copy.svg"),
                 background:  @linear-gradient(-45deg, #FF2056 0%, #fd3d6d 100%)
             },
             {
                 name: @tr("USB"),
-                id: SubPage.Usb,
+                id: SubPage.usb,
                 icon: @image-url("../images/usb.svg"),
                 background:  @linear-gradient(-45deg, #FF6900 0%, #F54900 100%)
             },
@@ -101,14 +97,14 @@ export component HomePage inherits Page {
             text: action.name;
             background: action.background;
             clicked => {
-                root.current-subpage = action.id;
+                PrinterState.current-subpage = action.id;
             }
         }
     }
 
     queue-view := PrinterQueueView {
         show-job-details(idx) => {
-            root.current-subpage = SubPage.Print;
+            PrinterState.current-subpage = SubPage.print;
         }
 
         x: parent.width - self.width;
@@ -117,9 +113,9 @@ export component HomePage inherits Page {
 
     PrintPage {
         back => {
-            root.current-subpage = SubPage.None;
+            PrinterState.current-subpage = SubPage.none;
         }
-        x: root.current-subpage == SubPage.Print ? 0 : parent.width + parent.x + 2px;
+        x: PrinterState.current-subpage == SubPage.print ? 0 : parent.width + parent.x + 2px;
         animate x {
             duration: 125ms;
             easing: ease;
@@ -128,34 +124,23 @@ export component HomePage inherits Page {
 
     ScanPage {
         back => {
-            root.current-subpage = SubPage.None;
+            PrinterState.current-subpage = SubPage.none;
         }
-        x: root.current-subpage == SubPage.Scan ? 0 : parent.width + parent.x + 2px;
-        animate x {
-            duration: 125ms;
-            easing: ease;
-        }
+        x: PrinterState.current-subpage == SubPage.scan ? 0 : parent.width + parent.x + 2px;
+
     }
 
     CopyPage {
         back => {
-            root.current-subpage = SubPage.None;
+            PrinterState.current-subpage = SubPage.none;
         }
-        x: root.current-subpage == SubPage.Copy ? 0 : parent.width + parent.x + 2px;
-        animate x {
-            duration: 125ms;
-            easing: ease;
-        }
+        x: PrinterState.current-subpage == SubPage.copy ? 0 : parent.width + parent.x + 2px;
     }
 
     UsbPage {
         back => {
-            root.current-subpage = SubPage.None;
+            PrinterState.current-subpage = SubPage.none;
         }
-        x: root.current-subpage == SubPage.Usb ? 0 : parent.width + parent.x + 2px;
-        animate x {
-            duration: 125ms;
-            easing: ease;
-        }
+        x: PrinterState.current-subpage == SubPage.usb ? 0 : parent.width + parent.x + 2px;
     }
 }

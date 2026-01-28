@@ -1,4 +1,4 @@
-import { DemoPalette, Theme, ComponentTheme } from "../common.slint";
+import { DemoPalette, Theme, ComponentTheme, SubPage } from "../common.slint";
 import { PrinterState } from "../common.slint";
 
 component SideBarIcon inherits Rectangle {
@@ -37,6 +37,7 @@ export component Sidebar inherits Rectangle {
         SideBarIcon {
             activate => {
                 PrinterState.active-page = 0;
+                PrinterState.current-subpage = SubPage.none;
             }
             icon: @image-url("../images/sidebar/home.svg");
             active: PrinterState.active-page == 0;
@@ -45,6 +46,7 @@ export component Sidebar inherits Rectangle {
         SideBarIcon {
             activate => {
                 PrinterState.active-page = 1;
+                PrinterState.current-subpage = SubPage.none;
             }
             icon: @image-url("../images/sidebar/settings.svg");
             active: PrinterState.active-page == 1;
@@ -60,6 +62,7 @@ export component Sidebar inherits Rectangle {
         SideBarIcon {
             activate => {
                 PrinterState.active-page = 2;
+                PrinterState.current-subpage = SubPage.none;
             }
             icon: @image-url("../images/sidebar/ink.svg");
             active: PrinterState.active-page == 2;

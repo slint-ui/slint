@@ -33,6 +33,8 @@ export enum Theme {
     Glass
 }
 
+export enum SubPage { none, print, scan, copy, usb }
+
 export global ComponentTheme {
     out property <SideBarTheme> side-bar: {
         if DemoPalette.theme == Theme.Gradient {
@@ -427,4 +429,5 @@ export component PushButton inherits Rectangle {
 
 export global PrinterState {
     in property <int> active-page: 0;
+    in-out property <SubPage> current-subpage: SubPage.none;
 }
