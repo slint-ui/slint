@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, Label, PushButton } from "../common.slint";
+import { SpinBox, Label, PushButton, DemoPalette } from "../common.slint";
 import { WidePrinterQueueList } from "../printer_queue.slint";
+import { Page } from "./page.slint";
 
 
 export component PrintPage inherits Page {
-    has-back-button: true;
     header: @tr("Print");
+    subtitle: @tr("Printing-Queue");
 
     GridLayout {
         padding-top: 46px /* header line height in design */

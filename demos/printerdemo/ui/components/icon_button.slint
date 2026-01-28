@@ -6,23 +6,18 @@ import { Button } from "./button.slint";
 
 export component IconButton inherits Button {
     in property <image> icon <=> img.source;
+    in property <brush> colorize <=> img.colorize;
 
     width: 40px;
     height: 40px;
     border-radius: 14px;
 
-    background: root.hovered ? DemoPalette.primary.darker(5%) : transparent;
+    background: root.hovered ? DemoPalette.text-secondary.transparentize(0.8) : transparent;
 
-    HorizontalLayout {
-        padding: 0;
-        alignment: center;
+    img := Image {
+        width: 10px;
+        image-fit: contain;
 
-        img := Image {
-            width: 20px;
-            height: 20px;
-            image-fit: contain;
-
-            colorize: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
-        }
+        colorize: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
     }
 }
