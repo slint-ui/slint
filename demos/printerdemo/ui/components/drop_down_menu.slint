@@ -1,0 +1,80 @@
+import { DemoPalette, Label, PrinterState } from "../common.slint";
+
+export component DropDownMenu inherits VerticalLayout {
+    in property <string> label <=> label-layout.text;
+    in-out property <string> value;
+    in property <[string]> items;
+    in-out property <int> current_index: 0;
+
+    callback selected(int);
+
+    label-layout := Label { }
+
+    Rectangle {
+        border-radius: 14px;
+        border-width: 2px;
+        border-color: #e2e8f0;
+        height: 60px;
+
+        HorizontalLayout {
+            alignment: space-between;
+            spacing: 10px;
+            padding: 20px;
+            height: parent.height;
+
+            default-option := Label { text: root.value; }
+
+            i := Image {
+                source: @image-url("../images/back.svg");
+                transform-rotation: -90deg;
+                colorize: DemoPalette.text-primary;
+                width: 8px;
+                image-fit: contain;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        touch_area := TouchArea {
+            clicked => {
+                popup.show();
+            }
+        }
+
+        popup := PopupWindow {
+            x:0;
+            y: parent.height;
+            width: root.width;
+
+            Rectangle {
+                background: DemoPalette.background;
+                border-radius: 14px;
+                border-width: 2px;
+                border-color: DemoPalette.secondary;
+                clip: true;
+
+                VerticalLayout {
+                    for value[idx] in root.items: Rectangle {
+                        background: idx == root.current_index ? DemoPalette.secondary.transparentize(0.6) : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
+                        height: 60px;
+
+                        HorizontalLayout {
+                            padding: 20px;
+                            Label {
+                                text: value;
+                                color: idx == root.current_index ? #f54d07 : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
+                            }
+                        }
+
+                        item-area := TouchArea {
+                            clicked => {
+                                root.value = value;
+                                root.current_index = idx;
+                                root.selected(idx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -3,7 +3,7 @@
 
 import { CheckBox, Label, DemoPalette } from "../common.slint";
 import { Page } from "./page.slint";
-import { ComboBox } from "../components/combobox.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
 
 export global PrinterSettings {
     callback change-language(int);
@@ -50,34 +50,39 @@ export component SettingsPage inherits Page {
         }
         Row {
             Label { text: @tr("Layout"); }
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Portrait");
+                items: [@tr("Portrait"), @tr("Landscape")];
             }
 
             Rectangle {}
 
             Label { text: @tr("Paper Tray"); }
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Special Tray");
+                items: [@tr("Special Tray"), @tr("Tray 1"), @tr("Tray 2")];
             }
         }
         Row {
             Label { text: @tr("Quality"); }
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Best");
+                items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
             Rectangle {}
 
             Label { text: @tr("Language"); }
-            ComboBox {
+            DropDownMenu {
                 value: @tr("English");
+                items: [@tr("English"), @tr("German"), @tr("French")];
             }
         }
         Row {
             Label { text: @tr("Color Mode"); }
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Grayscale");
+                items: [@tr("Grayscale"), @tr("Color")];
             }
 
             Rectangle {}

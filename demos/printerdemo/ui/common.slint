@@ -324,4 +324,5 @@ export component PushButton inherits Rectangle {
 export global PrinterState {
     in property <int> active-page: 0;
     in-out property <SubPage> current-subpage: SubPage.none;
+    in-out property <[string]> combobox-choices: [];
 }
