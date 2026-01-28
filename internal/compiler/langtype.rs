@@ -669,6 +669,7 @@ pub enum BuiltinPrivateStruct {
     DropEvent,
     TableColumn,
     MenuEntry,
+    Edges,
 }
 
 impl BuiltinPrivateStruct {
@@ -685,7 +686,8 @@ impl BuiltinPrivateStruct {
             | Self::KeyEvent
             | Self::KeyboardModifiers
             | Self::PointerEvent
-            | Self::PointerScrollEvent => {
+            | Self::PointerScrollEvent
+            | Self::Edges => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
             }
@@ -699,7 +701,6 @@ pub enum BuiltinPublicStruct {
     Color,
     LogicalPosition,
     LogicalSize,
-    LogicalEdges,
     StandardListViewItem,
 }
 
@@ -709,7 +710,6 @@ impl BuiltinPublicStruct {
             Self::Color => Some(SmolStr::new_static("color")),
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
-            Self::LogicalEdges => Some(SmolStr::new_static("Edges")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
         }
     }
