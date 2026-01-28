@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, PushButton, Theme } from "./common.slint";
+import { DemoPalette, Page, Theme } from "../common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
-import { PrinterQueueView } from "./printer_queue.slint";
+import { PrinterQueueView } from "../printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
 
 
@@ -55,10 +55,10 @@ export component HomePage inherits Page {
     header: @tr("Slint Printer Demo");
 
     for action[idx] in [
-        { name: @tr("Print"), id: SubPage.Print, icon: @image-url("images/print.svg") },
-        { name: @tr("Scan"), id: SubPage.Scan, icon: @image-url("images/scan.svg") },
-        { name: @tr("Copy"), id: SubPage.Copy, icon: @image-url("images/copy.svg") },
-        { name: @tr("USB"), id: SubPage.Usb, icon: @image-url("images/usb.svg") },
+        { name: @tr("Print"), id: SubPage.Print, icon: @image-url("../images/print.svg") },
+        { name: @tr("Scan"), id: SubPage.Scan, icon: @image-url("../images/scan.svg") },
+        { name: @tr("Copy"), id: SubPage.Copy, icon: @image-url("../images/copy.svg") },
+        { name: @tr("USB"), id: SubPage.Usb, icon: @image-url("../images/usb.svg") },
     ]: ActionButton {
         x: mod(idx, 2) * (DemoPalette.button-width + root.button-spacing);
         y: floor(idx / 2) * (DemoPalette.button-height + root.button-spacing)

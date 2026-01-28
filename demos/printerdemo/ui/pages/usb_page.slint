@@ -1,19 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.slint";
+import { Page, SpinBox, Label, ComboBox, PushButton } from "../common.slint";
 import { StandardListView } from "std-widgets.slint";
-import { PrinterQueue } from "./printer_queue.slint";
+import { PrinterQueue } from "../printer_queue.slint";
 
 struct File  { name: string, preview: image }
 
 export component UsbPage inherits Page {
     in property <[File]> files: [
         { name: ".." },
-        { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
-        { name: "dog.jpg", preview: @image-url("images/dog.jpg") },
-        { name: "elephant.jpg",preview: @image-url("images/elephant.jpg") },
-        { name: "snake.jpg", preview: @image-url("images/snake.jpg") },
+        { name: "cat.jpg", preview: @image-url("../images/cat.jpg") },
+        { name: "dog.jpg", preview: @image-url("../images/dog.jpg") },
+        { name: "elephant.jpg",preview: @image-url("../images/elephant.jpg") },
+        { name: "snake.jpg", preview: @image-url("../images/snake.jpg") },
     ];
 
     has-back-button: true;
@@ -89,7 +89,7 @@ export component UsbPage inherits Page {
                 width: 10%;
             }
             PushButton {
-                icon: @image-url("images/print.svg");
+                icon: @image-url("../images/print.svg");
                 text: @tr("Start printing");
                 clicked => {
                     PrinterQueue.start-job(root.files[list-view.current-item].name);

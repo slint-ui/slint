@@ -1,13 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.slint";
-import { PrinterQueue } from "./printer_queue.slint";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "../common.slint";
+import { PrinterQueue } from "../printer_queue.slint";
 
-
-export component CopyPage inherits Page {
+export component ScanPage inherits Page {
     has-back-button: true;
-    header: @tr("Copy");
+    header: @tr("Scan");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -32,23 +31,8 @@ export component CopyPage inherits Page {
 
             Label { text: @tr("Size"); }
             ComboBox {
-                value: @tr("DIN A4");
-                choices: [@tr("DIN A4"), @tr("DIN A3"), @tr("Letter")];
-            }
-        }
-        Row {
-            Label { text: @tr("Layout"); }
-            ComboBox {
-                value: @tr("Portrait");
-                choices: [@tr("Portrait"), @tr("Landscape")];
-            }
-
-            Rectangle {}
-
-            Label { text: @tr("Paper Tray"); }
-            ComboBox {
-                value: @tr("Special Tray");
-                choices: [@tr("Special Tray"), @tr("Normal Tray")];
+                value: @tr("Original");
+                choices: [@tr("Original"), @tr("A4")];
             }
         }
         Row {
@@ -60,28 +44,31 @@ export component CopyPage inherits Page {
 
             Rectangle {}
 
-            Label { text: @tr("Paper Type"); }
+            Label { text: @tr("Format"); }
             ComboBox {
-                value: @tr("Standard");
-                choices: [@tr("Standard"), @tr("Non-standard")];
+                value: @tr("PDF");
+                choices: [@tr("PDF"), @tr("JPEG"), @tr("PNG")];
             }
         }
         Row {
             Label { text: @tr("Color"); }
             ComboBox {
                 value: @tr("Grayscale");
-                choices: [@tr("Grayscale"), @tr("Color")];
+                choices: [@tr("Grayscale"), @tr("RGB"), @tr("YCMB")];
             }
 
             Rectangle {}
 
-            Label { text: @tr("Paper Handling"); }
-            CheckBox {
-                checked: true;
-                text: @tr("Sort Pages");
+            Label { text: @tr("Save to"); }
+            ComboBox {
+                value: @tr("Desktop");
+                choices: [@tr("Desktop")];
             }
         }
-        Row {
+         Row {
+            Rectangle {
+                colspan: 3;
+            }
             HorizontalLayout {
                 col: 3;
                 colspan: 2;
@@ -91,10 +78,10 @@ export component CopyPage inherits Page {
                     width: 10%;
                 }
                 PushButton {
-                    icon: @image-url("images/copy.svg");
-                    text: @tr("Start copying");
+                    icon: @image-url("../images/scan.svg");
+                    text: @tr("Start scanning");
                     clicked => {
-                        PrinterQueue.start-job(@tr("Copy"));
+                        PrinterQueue.start-job(@tr("Scan"));
                     }
                 }
                 Rectangle {
