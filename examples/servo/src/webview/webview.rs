@@ -127,7 +127,7 @@ impl WebView {
         .unwrap();
 
         #[cfg(target_os = "windows")]
-        let rendering_adapter = super::rendering_context::create_software_context();
+        let rendering_adapter = super::rendering_context::create_software_context(physical_size);
 
         let rendering_adapter_rc = Rc::new(rendering_adapter);
 
