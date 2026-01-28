@@ -34,28 +34,29 @@ export component MainWindow inherits Window {
     min-width: 772px;
     min-height: 504px;
     title: @tr("Slint printer demo");
-    background: DemoPalette.primary;
     default-font-family: "Noto Sans";
     default-font-size: DemoPalette.base-font-size;
 
-    HorizontalLayout {
+    Rectangle {
+        border-radius: 24px;
+        clip: true;
+        background: green;
+        HorizontalLayout {
 
-        Sidebar { }
+            Sidebar { }
 
-        main-view := Rectangle {
-
-            if PrinterState.active-page == 0:home-page := HomePage {
-                property <int> pageNumber: 0;
-            }
-
-            if PrinterState.active-page == 1:settings-page := SettingsPage {
-                property <int> pageNumber: 1;
-            }
-
-            ink-page := InkPage {
-                property <int> pageNumber: 2;
-                ink-levels <=> root.ink-levels;
-                visible: PrinterState.active-page == 2;
+            main-view := Rectangle {
+                if PrinterState.active-page == 0:home-page := HomePage {
+                    property <int> pageNumber: 0;
+                }
+                if PrinterState.active-page == 1:settings-page := SettingsPage {
+                    property <int> pageNumber: 1;
+                }
+                ink-page := InkPage {
+                    property <int> pageNumber: 2;
+                    ink-levels <=> root.ink-levels;
+                    visible: PrinterState.active-page == 2;
+                }
             }
         }
     }

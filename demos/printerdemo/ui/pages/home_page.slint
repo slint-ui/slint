@@ -15,7 +15,6 @@ component ActionButton inherits Rectangle {
     width: DemoPalette.button-width;
     height: DemoPalette.button-height;
     border-radius: 25px;
-    background: DemoPalette.theme != Theme.Gradient ? DemoPalette.primary : DemoPalette.background;
 
     callback clicked;
 
@@ -55,8 +54,16 @@ export component HomePage inherits Page {
     in-out property <length> header-row-height: 40px;
     in-out property <length> button-spacing: 35px;
 
-    header: @tr("Slint Printer Demo");
     has-header: false;
+
+    Text {
+        x: DemoPalette.default-margin;
+        y: DemoPalette.default-margin;
+        text: @tr("Slint Printer Demo");
+        color: DemoPalette.text-primary;
+        font-size: DemoPalette.title-font-size;
+        font-weight: 600;
+    }
 
     GridLayout {
         x: DemoPalette.default-margin;
@@ -127,7 +134,6 @@ export component HomePage inherits Page {
             PrinterState.current-subpage = SubPage.none;
         }
         x: PrinterState.current-subpage == SubPage.scan ? 0 : parent.width + parent.x + 2px;
-
     }
 
     CopyPage {

@@ -89,7 +89,7 @@ export global ComponentTheme {
     };
 }
 
-export global DemoPalette  {
+export global DemoPalette {
     in-out property <Theme> theme: Theme.Gradient;
 
     property <ModeColors> current-theme: {
@@ -112,7 +112,7 @@ export global DemoPalette  {
         text-secondary: #6284FF,
         destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
-        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
@@ -124,7 +124,7 @@ export global DemoPalette  {
         text-secondary: #F4F6FF,
         destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
-        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
@@ -136,7 +136,7 @@ export global DemoPalette  {
         text-secondary: #FFD166,
         destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
-        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
@@ -148,16 +148,11 @@ export global DemoPalette  {
         text-secondary: #555555,
         destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
-        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
-    property <[ModeColors]> themes: [
-        gradient,
-        minimalist,
-        vibrant,
-        glass
-    ];
+    property <[ModeColors]> themes: [gradient, minimalist, vibrant, glass];
 
     out property <color> background: current-theme.background;
     out property <color> primary: current-theme.primary;
@@ -196,12 +191,12 @@ export global DemoPalette  {
     };
 
     out property <length> base-font-size: 16px;
+    out property <length> title-font-size: 24px;
     out property <length> button-width: 162px;
     out property <length> button-height: 192px;
     out property <length> side-bar-width: 64px;
     out property <length> side-bar-margin: 10px;
     out property <length> default-margin: 24px;
-
 }
 
 export component Label inherits Text {
@@ -230,8 +225,8 @@ component SquareButton inherits Rectangle {
     Image {
         height: 40%;
         width: 40%;
-        x: (parent.width - self.width)/2;
-        y: (parent.height - self.height)/2;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
         source <=> root.img;
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
@@ -248,7 +243,9 @@ export component CheckBox inherits Rectangle {
         spacing: 12px;
         padding: 0;
         SquareButton {
-            clicked => { root.checked = !root.checked; }
+            clicked => {
+                root.checked = !root.checked;
+            }
 
             width: root.height - parent.padding * 2;
             img: root.checked ? @image-url("images/check.svg") : @image-url("");
@@ -307,7 +304,11 @@ export component PushButton inherits Rectangle {
         }
     }
 
-    touch-area := TouchArea { clicked => { root.clicked() } }
+    touch-area := TouchArea {
+        clicked => {
+            root.clicked()
+        }
+    }
 }
 
 export global PrinterState {
