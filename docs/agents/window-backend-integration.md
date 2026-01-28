@@ -118,7 +118,7 @@ pub trait WindowAdapterInternal {
     fn color_scheme(&self) -> ColorScheme;
 
     /// Returns safe area insets (for notches, system bars)
-    fn safe_area_inset(&self) -> PhysicalInset;
+    fn safe_area_inset(&self) -> PhysicalEdges;
 }
 ```
 

@@ -83,6 +83,7 @@ pub struct BuiltinTypes {
     pub noarg_callback_type: Type,
     pub strarg_callback_type: Type,
     pub logical_point_type: Rc<Struct>,
+    pub logical_size_type: Rc<Struct>,
     pub font_metrics_type: Type,
     pub layout_info_type: Rc<Struct>,
     pub gridlayout_input_data_type: Type,
@@ -113,6 +114,14 @@ impl BuiltinTypes {
                 ])
                 .collect(),
                 name: BuiltinPublicStruct::LogicalPosition.into(),
+            }),
+            logical_size_type: Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("width"), Type::LogicalLength),
+                    (SmolStr::new_static("height"), Type::LogicalLength),
+                ])
+                .collect(),
+                name: BuiltinPublicStruct::LogicalSize.into(),
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -406,6 +415,7 @@ impl TypeRegister {
         register.insert_type(Type::Rem);
         register.insert_type(Type::StyledText);
         register.types.insert("Point".into(), logical_point_type().into());
+        register.types.insert("Size".into(), logical_size_type().into());
 
         BUILTIN.with(|e| e.enums.fill_register(&mut register));
 
@@ -426,6 +436,7 @@ impl TypeRegister {
             ($pub_type:ident, Image) => { Type::Image };
             ($pub_type:ident, Coord) => { Type::LogicalLength };
             ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
+            ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
                 BUILTIN.with(|e| Type::Enumeration(e.enums.$pub_type.clone()))
@@ -743,6 +754,10 @@ impl TypeRegister {
 
 pub fn logical_point_type() -> Rc<Struct> {
     BUILTIN.with(|types| types.logical_point_type.clone())
+}
+
+pub fn logical_size_type() -> Rc<Struct> {
+    BUILTIN.with(|types| types.logical_size_type.clone())
 }
 
 pub fn font_metrics_type() -> Type {

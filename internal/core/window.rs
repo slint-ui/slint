@@ -246,7 +246,7 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     /// Return the inset of the safe area of the Window in physical pixels.
     /// This is necessary to avoid overlapping system UI such as notches or system bars.
-    fn safe_area_inset(&self) -> crate::lengths::PhysicalInset {
+    fn safe_area_inset(&self) -> crate::lengths::PhysicalEdges {
         Default::default()
     }
 }
@@ -1481,16 +1481,13 @@ impl WindowInner {
     }
 
     /// The safe area of the window has changed.
-    pub fn set_window_item_safe_area(&self, inset: crate::lengths::LogicalInset) {
+    pub fn set_window_item_safe_area(&self, inset: crate::lengths::LogicalEdges) {
         if let Some(component_rc) = self.try_component() {
             let component = ItemTreeRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.safe_area_inset_top.set(inset.top());
-                window_item.safe_area_inset_bottom.set(inset.bottom());
-                window_item.safe_area_inset_left.set(inset.left());
-                window_item.safe_area_inset_right.set(inset.right());
+                window_item.safe_area_insets.set(inset);
             }
         }
     }
@@ -1508,14 +1505,8 @@ impl WindowInner {
         let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item) else {
             return;
         };
-        for (property, value) in [
-            (&window_item.virtual_keyboard_x, origin.x),
-            (&window_item.virtual_keyboard_y, origin.y),
-            (&window_item.virtual_keyboard_width, size.width),
-            (&window_item.virtual_keyboard_height, size.height),
-        ] {
-            property.set(LogicalLength::new(value));
-        }
+        window_item.virtual_keyboard_position.set(origin);
+        window_item.virtual_keyboard_size.set(size);
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
             focus_item.try_scroll_into_visible();
         }
@@ -1528,16 +1519,7 @@ impl WindowInner {
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
-        Some((
-            crate::lengths::LogicalPoint::from_lengths(
-                window_item.virtual_keyboard_x(),
-                window_item.virtual_keyboard_y(),
-            ),
-            crate::lengths::LogicalSize::from_lengths(
-                window_item.virtual_keyboard_width(),
-                window_item.virtual_keyboard_height(),
-            ),
-        ))
+        Some((window_item.virtual_keyboard_position(), window_item.virtual_keyboard_size()))
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.

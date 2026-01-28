@@ -68,44 +68,19 @@ Whether the window should be borderless/frameless or not.
 The window title that is shown in the title bar.
 </SlintProperty>
 
-### safe-area-inset-top
-<SlintProperty propName="safe-area-inset-top" typeName="length" propertyVisibility="out">
-Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the top of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0.
+### safe-area-insets
+<SlintProperty propName="safe-area-insets" typeName="Edges" propertyVisibility="out">
+Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the edges of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0 for all sides.
 </SlintProperty>
 
-### safe-area-inset-bottom
-<SlintProperty propName="safe-area-inset-bottom" typeName="length" propertyVisibility="out">
-Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the bottom of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0.
+### virtual-keyboard-position
+<SlintProperty propName="virtual-keyboard-position" typeName="Point" propertyVisibility="out">
+On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the position of the top left boundary of the rectangle covered by it in window coordinates.
 </SlintProperty>
 
-### safe-area-inset-left
-<SlintProperty propName="safe-area-inset-left" typeName="length" propertyVisibility="out">
-Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the left of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0.
-</SlintProperty>
-
-### safe-area-inset-right
-<SlintProperty propName="safe-area-inset-right" typeName="length" propertyVisibility="out">
-Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the right of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0.
-</SlintProperty>
-
-### virtual-keyboard-x
-<SlintProperty propName="virtual-keyboard-x" typeName="length" propertyVisibility="out">
-On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the horizontal position of the left boundary of the rectangle covered by it in window coordinates.
-</SlintProperty>
-
-### virtual-keyboard-y
-<SlintProperty propName="virtual-keyboard-y" typeName="length" propertyVisibility="out">
-On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the vertical position of the top boundary of the rectangle covered by it in window coordinates.
-</SlintProperty>
-
-### virtual-keyboard-width
-<SlintProperty propName="virtual-keyboard-width" typeName="length" propertyVisibility="out">
-On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width of the rectangle covered by it in window coordinates or 0 otherwise.
-</SlintProperty>
-
-### virtual-keyboard-height
-<SlintProperty propName="virtual-keyboard-height" typeName="length" propertyVisibility="out">
-On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the height of the rectangle covered by it in window coordinates or 0 otherwise.
+### virtual-keyboard-size
+<SlintProperty propName="virtual-keyboard-size" typeName="Size" propertyVisibility="out">
+On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
 </SlintProperty>
 
 ## Functions

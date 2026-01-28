@@ -56,12 +56,7 @@ border inside the application's window which should only contain background elem
 color). This safe area can also change in size at runtime, for example on Android when the navigation buttons at the
 bottom are shown and hidden.
 
-In Slint, this area is exposed with four properties on the <Link type="Window"/> element:
-
-* <Link type="Window.safe-area-inset-top"/>
-* <Link type="Window.safe-area-inset-bottom"/>
-* <Link type="Window.safe-area-inset-left"/>
-* <Link type="Window.safe-area-inset-right"/>
+In Slint, this area is exposed with the <Link type="Window.safe-area-insets"/> property on the <Link type="Window"/> element.
 
 If you want to place a rectangle to visualize the safe area, for example for debugging, you can do it like this:
 
@@ -69,10 +64,10 @@ If you want to place a rectangle to visualize the safe area, for example for deb
 export component MainWindow inherits Window {
     Rectangle {
         background: yellow;
-        x: root.safe-area-inset-left;
-        y: root.safe-area-inset-top;
-        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
-        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.right - root.safe-area-insets.left;
+        height: root.height - root.safe-area-insets.bottom - root.safe-area-insets.top;
     }
 }
 ```
@@ -91,12 +86,10 @@ The virtual keyboard is placed on top of the application that requires text inpu
 space even further. While there are split keyboards, floating keyboards, and more, operating systems always treat the
 virtual keyboard as a single rectangle overlaying the application window.
 
-The way Slint exposes this is by these four properties defining a rectangle on the <Link type="Window"/> element:
+The way Slint exposes this is by these two properties defining a rectangle on the <Link type="Window"/> element:
 
-* <Link type="Window.virtual-keyboard-x"/>
-* <Link type="Window.virtual-keyboard-y"/>
-* <Link type="Window.virtual-keyboard-width"/>
-* <Link type="Window.virtual-keyboard-height"/>
+* <Link type="Window.virtual-keyboard-position"/>
+* <Link type="Window.virtual-keyboard-size"/>
 
 Slint calls on the operating system to open and hide the virtual keyboard transparently when focusing a text input element.
 The operating system decides whether to actually show it, which depends on system settings and whether a hardware keyboard

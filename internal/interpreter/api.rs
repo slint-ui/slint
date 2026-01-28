@@ -441,6 +441,114 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     }
 }
 
+impl From<i_slint_core::lengths::LogicalPoint> for Value {
+    #[inline]
+    fn from(pt: i_slint_core::lengths::LogicalPoint) -> Self {
+        Value::Struct(Struct::from_iter([
+            ("x".to_owned(), Value::Number(pt.x as _)),
+            ("y".to_owned(), Value::Number(pt.y as _)),
+        ]))
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalPoint {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalPoint, Self::Error> {
+        match v {
+            Value::Struct(s) => {
+                let x = s
+                    .get_field("x")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let y = s
+                    .get_field("y")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                Ok(i_slint_core::lengths::LogicalPoint::new(x, y))
+            }
+            _ => Err(v),
+        }
+    }
+}
+
+impl From<i_slint_core::lengths::LogicalSize> for Value {
+    #[inline]
+    fn from(s: i_slint_core::lengths::LogicalSize) -> Self {
+        Value::Struct(Struct::from_iter([
+            ("width".to_owned(), Value::Number(s.width as _)),
+            ("height".to_owned(), Value::Number(s.height as _)),
+        ]))
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalSize {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalSize, Self::Error> {
+        match v {
+            Value::Struct(s) => {
+                let width = s
+                    .get_field("width")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let height = s
+                    .get_field("height")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                Ok(i_slint_core::lengths::LogicalSize::new(width, height))
+            }
+            _ => Err(v),
+        }
+    }
+}
+
+impl From<i_slint_core::lengths::LogicalEdges> for Value {
+    #[inline]
+    fn from(s: i_slint_core::lengths::LogicalEdges) -> Self {
+        Value::Struct(Struct::from_iter([
+            ("left".to_owned(), Value::Number(s.left as _)),
+            ("right".to_owned(), Value::Number(s.right as _)),
+            ("top".to_owned(), Value::Number(s.top as _)),
+            ("bottom".to_owned(), Value::Number(s.bottom as _)),
+        ]))
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalEdges {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalEdges, Self::Error> {
+        match v {
+            Value::Struct(s) => {
+                let left = s
+                    .get_field("left")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let right = s
+                    .get_field("right")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let top = s
+                    .get_field("top")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let bottom = s
+                    .get_field("bottom")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                Ok(i_slint_core::lengths::LogicalEdges::new(left, right, top, bottom))
+            }
+            _ => Err(v),
+        }
+    }
+}
+
 impl<T: Into<Value> + TryFrom<Value> + 'static> From<ModelRc<T>> for Value {
     fn from(m: ModelRc<T>) -> Self {
         if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<Value>>(&m) {
