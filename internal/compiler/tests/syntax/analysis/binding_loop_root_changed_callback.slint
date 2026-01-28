@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test binding loop detection for changed callbacks in root components.
+// When a root component has a changed callback that tracks a property involved in a binding loop,
+// the loop should be detected at compile time.
+
+export component TestRootChangedCallbackLoop inherits Window {
+    property <int> a: b + 1;
+//                    >    <warning{The binding for the property 'a' is part of a binding loop (root.b -> root.a).↵This could cause unexpected behavior at runtime}
+    property <int> b: a + 1;
+//                    >    <warning{The binding for the property 'b' is part of a binding loop (root.b -> root.a).↵This could cause unexpected behavior at runtime}
+
+    // The changed callback on 'a' means 'a' is tracked.
+    // Since a <-> b form a binding loop, this should be detected.
+    changed a => {
+        debug(a);
+    }
+}

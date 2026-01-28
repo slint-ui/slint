@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test binding loop detection for init callbacks in repeated components.
+// When a repeated component's init callback reads a property that depends on layout,
+// and the layout depends on the repeater, a binding loop is detected.
+
+component RepeatedItem {
+    in property <length> item-width;
+    property <length> computed: item-width * 2;
+
+    init => {
+        // Reading item-width during init creates a dependency
+        debug(self.item-width);
+    }
+
+    Rectangle {
+        width: computed;
+        height: 20px;
+    }
+}
+
+export component TestInitCallbackLoop inherits Window {
+//                                             >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+    property <[int]> model: [1, 2, 3];
+
+    HorizontalLayout {
+//  >               <warning{The binding for the property 'width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+//  >               <^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+        for item in model: RepeatedItem {
+            // This creates a loop: layout computes width -> repeater instantiates ->
+            // init callback reads item-width -> which may depend on layout
+            item-width: parent.width / 3;
+//                      >               <warning{The binding for the property 'item-width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+        }
+    }
+}

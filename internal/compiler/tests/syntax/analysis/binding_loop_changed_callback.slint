@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test binding loop detection for changed callbacks in repeated components.
+// When a repeated component has a changed callback that tracks a property depending on layout,
+// and the layout depends on the repeater, a binding loop is detected.
+
+component RepeatedItemWithChanged {
+    in property <length> item-width;
+    property <length> computed: item-width * 2;
+
+    changed item-width => {
+        // The ChangeTracker evaluates item-width during init, creating a dependency
+        debug(self.item-width);
+    }
+
+    Rectangle {
+        width: computed;
+        height: 20px;
+    }
+}
+
+export component TestChangedCallbackLoop inherits Window {
+//                                                >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+    property <[int]> model: [1, 2, 3];
+
+    HorizontalLayout {
+//  >               <warning{The binding for the property 'width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+//  >               <^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+        for item in model: RepeatedItemWithChanged {
+            // This creates a loop: layout computes width -> repeater instantiates ->
+            // ChangeTracker.init() evaluates item-width -> which depends on layout
+            item-width: parent.width / 3;
+//                      >               <warning{The binding for the property 'item-width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+        }
+    }
+}
