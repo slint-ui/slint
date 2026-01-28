@@ -1,0 +1,39 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# We have a different workflow to schedule the nightly snapshot because we want to be able to run
+# it from a different branch
+name: Schedule Nightly snapshot
+
+on:
+  schedule:
+    - cron: "18 2 * * *"
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch:
+          - master
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ matrix.branch }}
+
+      - name: Check for recent commits
+        id: recent
+        run: |
+          if git log origin/${{ matrix.branch }} --since="24 hours ago" --oneline | grep .; then
+            echo "has_commits=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger nightly workflow
+        if: steps.recent.outputs.has_commits == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run "Nightly snapshot" --ref ${{ matrix.branch }} --repo ${{ github.repository }} -f private=false
