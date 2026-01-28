@@ -10,30 +10,51 @@ export component Header inherits Rectangle {
 
     callback back <=> back-button.clicked;
 
-    back-button := IconButton {
-        x: 10px;
-        y: 10px;
-        icon: @image-url("../images/back.svg");
-        colorize: DemoPalette.text-secondary;
-    }
-
-    height:  layout.preferred-height;
+    height: 102px;
     background: white;
 
     layout := VerticalLayout {
-        x: back-button.x + back-button.width;
-        padding: 10px;
-        spacing: 5px;
+        height: self.preferred-height;
+        spacing: 2px;
+        HorizontalLayout {
+            alignment: start;
+            height: self.preferred-height;
+            padding-left: DemoPalette.default-margin;
+            spacing: 12px;
+            back-button := IconButton {
+                width: 36px;
+                height: 36px;
+                icon: @image-url("../images/back.svg");
+                icon-size: 5px;
+                colorize: DemoPalette.text-secondary;
+            }
 
-        title-text := Text {
-            font-size: DemoPalette.base-font-size * 2.0;
-            font-weight: 800;
-            color: DemoPalette.text-primary;
+            title-text := Text {
+                font-size: 24px;
+                font-weight: 300;
+                color: DemoPalette.text-primary;
+            }
         }
-        
-        subtitle-text := Text {
-            font-size: DemoPalette.base-font-size * 1.25;
-            color: DemoPalette.text-secondary;
+
+        HorizontalLayout {
+            height: self.preferred-height;
+            padding-left: DemoPalette.default-margin;
+            spacing: 12px;
+            Rectangle {
+                width: 36px;
+            }
+
+            subtitle-text := Text {
+                font-size: 16px;
+                color: DemoPalette.text-secondary-header;
+            }
         }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1px;
+        background: DemoPalette.header-separator;
     }
 }
