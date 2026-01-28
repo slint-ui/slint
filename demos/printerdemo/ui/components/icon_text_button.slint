@@ -7,6 +7,8 @@ import { Button } from "./button.slint";
 export component IconTextButton inherits Button {
     in property <image> icon <=> img.source;
     in property <string> text <=> label.text;
+    in property <brush> icon-color <=> img.colorize;
+    in property <brush> text-color <=> label.color;
 
     height: 40px;
     border-radius: 14px;
@@ -26,7 +28,7 @@ export component IconTextButton inherits Button {
             width: 18px;
             height: 18px;
             image-fit: contain;
-
+            y: (parent.height - self.height) / 2;
             colorize: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
         }
 

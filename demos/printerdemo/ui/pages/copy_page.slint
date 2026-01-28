@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { SpinBox, Label, ComboBox, PushButton, CheckBox } from "../common.slint";
+import { PushButton, CheckBox, Label } from "../common.slint";
 import { PrinterQueue } from "../printer_queue.slint";
 import { Page } from "./page.slint";
+import { SpinBox } from "../components/spinbox.slint";
+import { ComboBox } from "../components/combobox.slint";
 
 
 export component CopyPage inherits Page {
@@ -15,55 +17,49 @@ export component CopyPage inherits Page {
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
         Row {
-            Label { text: @tr("Copies"); }
             SpinBox {
                 value: 1;
                 minimum: 1;
+                label: @tr("Copies");
             }
 
             Rectangle {}
 
-            Label { text: @tr("Size"); }
             ComboBox {
                 value: @tr("DIN A4");
-                choices: [@tr("DIN A4"), @tr("DIN A3"), @tr("Letter")];
+                label: @tr("Size");
             }
         }
         Row {
-            Label { text: @tr("Layout"); }
             ComboBox {
                 value: @tr("Portrait");
-                choices: [@tr("Portrait"), @tr("Landscape")];
+                label: @tr("Layout");
             }
 
             Rectangle {}
 
-            Label { text: @tr("Paper Tray"); }
             ComboBox {
                 value: @tr("Special Tray");
-                choices: [@tr("Special Tray"), @tr("Normal Tray")];
+                label: @tr("Paper Tray");
             }
         }
         Row {
-            Label { text: @tr("Quality"); }
             ComboBox {
                 value: @tr("Best");
-                choices: [@tr("Best"), @tr("Medium"), @tr("Draft")];
+                label: @tr("Quality");
             }
 
             Rectangle {}
 
-            Label { text: @tr("Paper Type"); }
             ComboBox {
                 value: @tr("Standard");
-                choices: [@tr("Standard"), @tr("Non-standard")];
+                label: @tr("Paper Type");
             }
         }
         Row {
-            Label { text: @tr("Color"); }
             ComboBox {
                 value: @tr("Grayscale");
-                choices: [@tr("Grayscale"), @tr("Color")];
+                label: @tr("Color");
             }
 
             Rectangle {}
