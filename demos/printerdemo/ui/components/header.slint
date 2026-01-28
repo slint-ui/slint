@@ -11,21 +11,18 @@ export component Header  {
 
     callback back <=> back-button.clicked;
 
-    if (root.has-back-button) : IconButton {
-        id: back-button;
+    if (root.has-back-button) : back-button := IconButton {
         icon: @image-url("images/arrow_left.svg");
     }
 
     VerticalLayout {
         spacing: 0px;
-        Text {
-            id: title-text;
+        title-text := Text {
             font-size: DemoPalette.base-font-size * 2.0;
             font-weight: 800;
             color: DemoPalette.text-primary;
         }
-        Text {
-            id: subtitle-text;
+        subtitle-text := Text {
             font-size: DemoPalette.base-font-size * 1.25;
             color: DemoPalette.text-secondary;
         }
