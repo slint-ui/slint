@@ -7,20 +7,14 @@ component SideBarIcon inherits Rectangle {
     in-out property <brush> icon-colorize <=> i.colorize;
 
     callback activate;
-    width: DemoPalette.side-bar-width;
-    height: 72px;
+    width: ComponentTheme.side-bar.icon-size;
+    height: self.width;
+    background: active ? ComponentTheme.side-bar.active-background : Colors.transparent;
+    border-radius: ComponentTheme.side-bar.icon-border-radius;
 
-    Rectangle {
-        x: DemoPalette.side-bar-margin;
-        GridLayout {
-            padding: 0px;
-            @children
-        }
-
-        i := Image {
-            colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-            animate colorize { duration: 125ms; }
-        }
+    i := Image {
+        colorize: root.active ? ComponentTheme.side-bar.active-icon-color : ComponentTheme.side-bar.inactive-icon-color;
+        animate colorize { duration: 125ms; }
     }
 
     TouchArea {
@@ -35,61 +29,61 @@ export component Sidebar inherits Rectangle {
     x: 0px;
     width: DemoPalette.side-bar-width;
 
-    function icon-y(index: int) -> length {
-        return 100px // top padding
-            + index * 72px;
-    }
+    VerticalLayout {
+        width: self.preferred-width;
+        padding-top: 24px;
+        spacing: 24px;
+        alignment: start;
 
-    Image {
-        x: parent.width - self.width + 1px; // workaround pixel gap
-            y: root.icon-y(PrinterState.active-page) - self.width / 2;
-        source: @image-url("../images/page_selection.svg");
-        colorize: DemoPalette.background;
-        animate y { duration: 125ms; }
-    }
+        SideBarIcon {
+            activate => {
+                PrinterState.active-page = 0;
+            }
+            icon: @image-url("../images/sidebar/home.svg");
+            active: PrinterState.active-page == 0;
+        }
 
-    Rectangle {
-        y: root.icon-y(3) + 17px;
-        x: DemoPalette.side-bar-margin + 8px;
-        background: DemoPalette.background;
-        height: 2px;
-        width: 37px;
+        SideBarIcon {
+            activate => {
+                PrinterState.active-page = 1;
+            }
+            icon: @image-url("../images/sidebar/settings.svg");
+            active: PrinterState.active-page == 1;
+        }
     }
 
     VerticalLayout {
-        y: 82px;
-        for page-icon[idx] in [
-            @image-url("../images/sidebar/home.svg"),
-            @image-url("../images/sidebar/settings.svg"),
-            @image-url("../images/sidebar/ink.svg"),
-        ]: SideBarIcon {
+        width: self.preferred-width;
+        padding-bottom: 24px;
+        spacing: 24px;
+        alignment: end;
+
+        SideBarIcon {
             activate => {
-                PrinterState.active-page = idx;
+                PrinterState.active-page = 2;
             }
-            icon: page-icon;
-            active: PrinterState.active-page == idx;
+            icon: @image-url("../images/sidebar/ink.svg");
+            active: PrinterState.active-page == 2;
+        }
+
+        SideBarIcon {
+            activate => {
+                if DemoPalette.theme == Theme.Gradient {
+                    DemoPalette.theme = Theme.Minimalist;
+                } else if DemoPalette.theme == Theme.Minimalist {
+                    DemoPalette.theme = Theme.Vibrant;
+                } else if DemoPalette.theme == Theme.Vibrant {
+                    DemoPalette.theme = Theme.Glass;
+                } else {
+                    DemoPalette.theme = Theme.Gradient;
+                }
+            }
+            icon: @image-url("../images/sidebar/theme.svg");
+            icon-colorize: white;
         }
     }
 
-    SideBarIcon {
-        activate => {
-            if DemoPalette.theme == Theme.Gradient {
-                DemoPalette.theme = Theme.Minimalist;
-            } else if DemoPalette.theme == Theme.Minimalist {
-                DemoPalette.theme = Theme.Vibrant;
-            } else if DemoPalette.theme == Theme.Vibrant {
-                DemoPalette.theme = Theme.Glass;
-            } else {
-                DemoPalette.theme = Theme.Gradient;
-            }
-        }
-
-        icon: DemoPalette.theme != Theme.Gradient ? @image-url("../images/sidebar/moon_full.svg") : @image-url("../images/sidebar/moon.svg");
-        icon-colorize: DemoPalette.theme != Theme.Gradient ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-
-        y: root.icon-y(4) - 17px;
-    }
-    Rectangle {
+    side-separator := Rectangle {
         x: root.width - self.width;
         width: 1phx;
         background: ComponentTheme.side-bar.separator;
