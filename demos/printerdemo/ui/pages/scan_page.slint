@@ -4,7 +4,7 @@
 import { PrinterQueue } from "../printer_queue.slint";
 import { Page } from "./page.slint";
 import { SpinBox } from "../components/spinbox.slint";
-import { ComboBox } from "../components/combobox.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
 import { TextButton } from "../components/text_button.slint";
 import { IconTextButton } from "../components/icon_text_button.slint";
 import { DemoPalette } from "../common.slint";
@@ -40,29 +40,33 @@ export component ScanPage inherits Page {
             }
         }
         Row {
-            ComboBox {
+            DropDownMenu {
                 width: item-width;
                 value: @tr("Best");
                 label: @tr("Quality");
+                items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
-            ComboBox {
+            DropDownMenu {
                 width: item-width;
                 value: @tr("PDF");
                 label: @tr("Format");
+                items: [@tr("PDF"), @tr("JPEG"), @tr("PNG")];
             }
         }
         Row {
-            ComboBox {
+            DropDownMenu {
                 width: item-width;
-                value: @tr("A4");
+                value: @tr("Original");
                 label: @tr("Paper Size");
+                items: [@tr("Original"), @tr("A4")];
             }
 
-            ComboBox {
+            DropDownMenu {
                 width: item-width;
                 value: @tr("Portrait");
                 label: @tr("Layout");
+                items: [@tr("Portrait"), @tr("Landscape")];
             }
         }
         Row {

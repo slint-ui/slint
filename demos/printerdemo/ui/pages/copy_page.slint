@@ -5,7 +5,7 @@ import { PushButton, CheckBox, Label } from "../common.slint";
 import { PrinterQueue } from "../printer_queue.slint";
 import { Page } from "./page.slint";
 import { SpinBox } from "../components/spinbox.slint";
-import { ComboBox } from "../components/combobox.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
 
 
 export component CopyPage inherits Page {
@@ -25,41 +25,47 @@ export component CopyPage inherits Page {
 
             Rectangle {}
 
-            ComboBox {
+            DropDownMenu {
                 value: @tr("DIN A4");
                 label: @tr("Size");
+                items: [@tr("DIN A4"), @tr("Letter"), @tr("Legal")];
             }
         }
         Row {
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Portrait");
                 label: @tr("Layout");
+                items: [@tr("Portrait"), @tr("Landscape")];
             }
 
             Rectangle {}
 
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Special Tray");
                 label: @tr("Paper Tray");
+                items: [@tr("Special Tray"), @tr("Tray 1"), @tr("Tray 2")];
             }
         }
         Row {
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Best");
                 label: @tr("Quality");
+                items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
             Rectangle {}
 
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Standard");
                 label: @tr("Paper Type");
+                items: [@tr("Standard"), @tr("Photo"), @tr("Glossy")];
             }
         }
         Row {
-            ComboBox {
+            DropDownMenu {
                 value: @tr("Grayscale");
                 label: @tr("Color");
+                items: [@tr("Grayscale"), @tr("Color")];
             }
 
             Rectangle {}
