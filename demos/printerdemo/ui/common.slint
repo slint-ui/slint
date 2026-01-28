@@ -14,6 +14,9 @@ struct ModeColors {
     text-primary: color,
     text-secondary: color,
     destructive: color,
+    color-button-gradient: brush,
+    grayscale-button-gradient: brush,
+    spinbox-button-gradient: brush,
 }
 
 struct SideBarTheme {
@@ -108,6 +111,9 @@ export global DemoPalette  {
         text-primary: #000000,
         text-secondary: #6284FF,
         destructive: #FF3B30,
+        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
     property <ModeColors> minimalist: {
@@ -117,6 +123,9 @@ export global DemoPalette  {
         text-primary: #F4F6FF,
         text-secondary: #F4F6FF,
         destructive: #FF3B30,
+        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
     property <ModeColors> vibrant: {
@@ -126,6 +135,9 @@ export global DemoPalette  {
         text-primary: #F5F5F5,
         text-secondary: #FFD166,
         destructive: #FF3B30,
+        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
     property <ModeColors> glass: {
@@ -135,6 +147,9 @@ export global DemoPalette  {
         text-primary: #000000,
         text-secondary: #555555,
         destructive: #FF3B30,
+        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        grayscale-button-gradient: @linear-gradient( 90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
     };
 
     property <[ModeColors]> themes: [
@@ -150,6 +165,9 @@ export global DemoPalette  {
     out property <color> text-primary: current-theme.text-primary;
     out property <color> text-secondary: current-theme.text-secondary;
     out property <color> destructive: current-theme.destructive;
+    out property <brush> color-button-gradient: current-theme.color-button-gradient;
+    out property <brush> grayscale-button-gradient: current-theme.grayscale-button-gradient;
+    out property <brush> spinbox-button-gradient: current-theme.spinbox-button-gradient;
 
     // Fixed (non-themeable) colors
     out property <color> push-button-text-color: white;
@@ -189,8 +207,9 @@ export global DemoPalette  {
 export component Label inherits Text {
     color: DemoPalette.text-primary;
     vertical-alignment: center;
-    font-weight: 700;
+    font-weight: 500;
     vertical-stretch: 0;
+    font-size: DemoPalette.base-font-size * 1.25;
 }
 
 component SquareButton inherits Rectangle {
@@ -216,142 +235,6 @@ component SquareButton inherits Rectangle {
         source <=> root.img;
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
-    }
-}
-
-export component SpinBox inherits Rectangle {
-    in property <int> minimum;
-    in property <int> maximum: 100;
-    in-out property <int> value;
-
-    height: 32px;
-
-    HorizontalLayout {
-        spacing: 12px;
-        padding: 0;
-
-        SquareButton {
-            clicked => {
-                if (root.value > root.minimum) {
-                    root.value -= 1;
-                }
-            }
-
-            width: root.height - parent.padding * 2;
-            img: @image-url("images/minus.svg");
-        }
-
-        Rectangle {
-            border-radius: 3px;
-            border-width: 2px;
-            border-color: DemoPalette.secondary;
-
-            Text {
-                width: 100%;
-                height: 100%;
-                vertical-alignment: center;
-                horizontal-alignment: center;
-                text: root.value;
-                color: DemoPalette.control-foreground;
-            }
-        }
-
-        SquareButton {
-            clicked => {
-                if (root.value < root.maximum) {
-                    root.value += 1;
-                }
-            }
-
-            width: root.height - parent.padding * 2;
-            img: @image-url("images/plus.svg");
-        }
-    }
-}
-
-export component ComboBox inherits Rectangle {
-    in-out property <string> value;
-    in property <[string]> choices;
-    callback selected(int);
-
-    border-radius: 3px;
-    border-width: 2px;
-    border-color: DemoPalette.secondary;
-    height: 32px;
-    min-width: label.x + label.width + i.width;
-    horizontal-stretch: 1; // Work around #2284
-
-    label := Text {
-        vertical-alignment: center;
-        horizontal-alignment: left;
-        text <=> root.value;
-        color: DemoPalette.control-foreground;
-        height: 100%;
-        x: 12px;
-    }
-
-    i := Image {
-        source: @image-url("images/down.svg");
-        colorize: DemoPalette.control-secondary;
-        height: 40%;
-        width: self.height;
-        image-fit: contain;
-        x: parent.width - self.width - self.y;
-        y: (parent.height - self.height)/2;
-    }
-
-    TouchArea {
-        clicked => { popup.show(); }
-
-        width: 100%;
-        height: 100%;
-    }
-
-    popup := PopupWindow {
-        x:0;
-        y: root.height;
-        width: root.width;
-
-        Rectangle {
-            background: DemoPalette.background;
-            border-radius: 3px;
-            border-width: 2px;
-            border-color: DemoPalette.secondary;
-        }
-
-        VerticalLayout {
-            spacing: 6px;
-            padding: 3px;
-            function textColor(hashover: bool) -> color {
-                if DemoPalette.theme == Theme.Gradient {
-                    return DemoPalette.text-primary;
-                }
-                // if hashover {
-                    return DemoPalette.text-primary;
-                // }
-
-            }
-
-            for value[idx] in root.choices: Rectangle {
-                border-radius: 3px;
-                background: item-area.has-hover ? DemoPalette.primary-push-button-colors.hovered : #0000;
-
-                HorizontalLayout {
-                    Text {
-                        text: value;
-                        color: item-area.has-hover ? DemoPalette.push-button-text-color : DemoPalette.text-primary;
-                        font-size: DemoPalette.base-font-size;
-                    }
-                }
-
-                item-area := TouchArea {
-                    clicked => {
-                        root.value = value;
-                        root.selected(idx);
-                    }
-                }
-            }
-        }
     }
 }
 

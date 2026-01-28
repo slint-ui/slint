@@ -14,10 +14,15 @@ export component Page inherits Rectangle {
 
     TouchArea { } // protect underneath controls
 
-    if (root.has-header) : header := Header {
-        y: 0;
-        title: root.header;
-        subtitle: root.subtitle;
-        back => { root.back(); }
+    VerticalLayout {
+        if (root.has-header) : header := Header {
+            title: root.header;
+            subtitle: root.subtitle;
+            back => { root.back(); }
+        }
+
+        rec := Rectangle {
+            @children
+        }
     }
 }

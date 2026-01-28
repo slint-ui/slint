@@ -1,88 +1,83 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { SpinBox, Label, ComboBox, PushButton } from "../common.slint";
 import { PrinterQueue } from "../printer_queue.slint";
 import { Page } from "./page.slint";
+import { SpinBox } from "../components/spinbox.slint";
+import { ComboBox } from "../components/combobox.slint";
+import { TextButton } from "../components/text_button.slint";
+import { IconTextButton } from "../components/icon_text_button.slint";
+import { DemoPalette } from "../common.slint";
 
 export component ScanPage inherits Page {
     header: @tr("Scan");
     subtitle: @tr("Choose Settings");
 
     GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
+        padding: 20px;
+        spacing: 20px;
+        width: parent.width;
+
+        property <length> item-width: (parent.width - self.spacing - self.padding * 2) / 2;
+
         Row {
-            Label { text: @tr("Copies"); }
             SpinBox {
+                width: self.preferred-width;
                 value: 1;
                 minimum: 1;
+                label: @tr("Copies");
             }
 
-            Rectangle {}
+            TextButton {
+                property <bool> is-color: true;
+                width: item-width;
+                text: is-color ? @tr("Color") : @tr("Grayscale");
+                background: is-color ? DemoPalette.color-button-gradient : DemoPalette.grayscale-button-gradient;
 
-            Label { text: @tr("Size"); }
-            ComboBox {
-                value: @tr("Original");
-                choices: [@tr("Original"), @tr("A4")];
+                clicked => {
+                    is-color = !is-color;
+                }
             }
         }
         Row {
-            Label { text: @tr("Quality"); }
             ComboBox {
+                width: item-width;
                 value: @tr("Best");
-                choices: [@tr("Best"), @tr("Medium"), @tr("Draft")];
+                label: @tr("Quality");
             }
 
-            Rectangle {}
-
-            Label { text: @tr("Format"); }
             ComboBox {
+                width: item-width;
                 value: @tr("PDF");
-                choices: [@tr("PDF"), @tr("JPEG"), @tr("PNG")];
+                label: @tr("Format");
             }
         }
         Row {
-            Label { text: @tr("Color"); }
             ComboBox {
-                value: @tr("Grayscale");
-                choices: [@tr("Grayscale"), @tr("RGB"), @tr("YCMB")];
+                width: item-width;
+                value: @tr("A4");
+                label: @tr("Paper Size");
             }
 
-            Rectangle {}
-
-            Label { text: @tr("Save to"); }
             ComboBox {
-                value: @tr("Desktop");
-                choices: [@tr("Desktop")];
+                width: item-width;
+                value: @tr("Portrait");
+                label: @tr("Layout");
             }
         }
-         Row {
-            Rectangle {
-                colspan: 3;
-            }
-            HorizontalLayout {
-                col: 3;
+        Row {
+            IconTextButton {
                 colspan: 2;
-
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-                PushButton {
-                    icon: @image-url("../images/scan.svg");
-                    text: @tr("Start scanning");
-                    clicked => {
-                        PrinterQueue.start-job(@tr("Scan"));
-                    }
-                }
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
+                icon: @image-url("../images/scan.svg");
+                text: @tr("Start scanning");
+                background: green;
+                height: 70px;
+                icon-color: white;
+                text-color: white;
+                clicked => {
+                    PrinterQueue.start-job(@tr("Scan"));
                 }
             }
         }
-        Row { Rectangle {} }
     }
 }

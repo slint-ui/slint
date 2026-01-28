@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { SpinBox, ComboBox, CheckBox, Label, DemoPalette } from "../common.slint";
+import { CheckBox, Label, DemoPalette } from "../common.slint";
 import { Page } from "./page.slint";
+import { ComboBox } from "../components/combobox.slint";
 
 export global PrinterSettings {
     callback change-language(int);
@@ -51,7 +52,6 @@ export component SettingsPage inherits Page {
             Label { text: @tr("Layout"); }
             ComboBox {
                 value: @tr("Portrait");
-                choices: [@tr("Portrait"), @tr("Landscape")];
             }
 
             Rectangle {}
@@ -59,14 +59,12 @@ export component SettingsPage inherits Page {
             Label { text: @tr("Paper Tray"); }
             ComboBox {
                 value: @tr("Special Tray");
-                choices: [@tr("Special Tray"), @tr("Normal Tray")];
             }
         }
         Row {
             Label { text: @tr("Quality"); }
             ComboBox {
                 value: @tr("Best");
-                choices: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
             Rectangle {}
@@ -74,15 +72,12 @@ export component SettingsPage inherits Page {
             Label { text: @tr("Language"); }
             ComboBox {
                 value: @tr("English");
-                choices: [@tr("English"), @tr("French")];
-                selected(x) => { PrinterSettings.change-language(x); }
             }
         }
         Row {
             Label { text: @tr("Color Mode"); }
             ComboBox {
                 value: @tr("Grayscale");
-                choices: [@tr("Grayscale"), @tr("RGB"), @tr("YCMB")];
             }
 
             Rectangle {}
