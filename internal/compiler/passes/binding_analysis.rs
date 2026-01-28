@@ -163,10 +163,10 @@ struct AnalysisContext<'a> {
     /// When set, one of the property in the `currently_analyzing` stack is the window layout property
     /// And we should issue a warning if that's part of a loop instead of an error
     window_layout_property: Option<PropertyPath>,
-    /// Properties that were visited from init or changed callbacks of repeated components.
+    /// Properties that were visited from delayed callbacks (init or changed callbacks) of repeated components.
     /// Binding loops involving these should be warnings because the runtime handles them
     /// gracefully via init_delayed() and InitializationScope.
-    init_callback_properties: HashSet<PropertyPath>,
+    delayed_callback_properties: HashSet<PropertyPath>,
     error_on_binding_loop_with_window_layout: bool,
     global_analysis: &'a mut GlobalAnalysis,
 }
@@ -183,7 +183,7 @@ fn perform_binding_analysis(
         visited: HashSet::new(),
         currently_analyzing: Default::default(),
         window_layout_property: None,
-        init_callback_properties: HashSet::new(),
+        delayed_callback_properties: HashSet::new(),
         global_analysis,
     };
     doc.visit_all_used_components(|component| {
@@ -204,7 +204,7 @@ fn analyze_element(
     for prop_name in elem.borrow().change_callbacks.keys() {
         process_property(
             &PropertyPath::from(NamedReference::new(elem, prop_name.clone())),
-            ReadType::InitCallbackRead,
+            ReadType::DelayedCallbackRead,
             context,
             reverse_aliases,
             diag,
@@ -331,13 +331,13 @@ fn analyze_binding(
     if context.currently_analyzing.contains(current) {
         let mut loop_description = String::new();
         let mut has_window_layout = false;
-        let mut has_init_callback = false;
+        let mut has_delayed_callback = false;
         for it in context.currently_analyzing.iter().rev() {
             if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
                 has_window_layout = true;
             }
-            if context.init_callback_properties.contains(it) {
-                has_init_callback = true;
+            if context.delayed_callback_properties.contains(it) {
+                has_delayed_callback = true;
             }
             if !loop_description.is_empty() {
                 loop_description.push_str(" -> ");
@@ -358,7 +358,7 @@ fn analyze_binding(
         // Binding loops involving init/changed callbacks are warnings because
         // the runtime handles them gracefully via init_delayed() and InitializationScope
         let is_warning = (!context.error_on_binding_loop_with_window_layout && has_window_layout)
-            || has_init_callback;
+            || has_delayed_callback;
 
         for it in context.currently_analyzing.iter().rev() {
             let p = &it.prop;
@@ -370,7 +370,7 @@ fn analyze_binding(
             }
 
             let span = binding.span.clone().unwrap_or_else(|| elem.to_source_location());
-            if has_init_callback {
+            if has_delayed_callback {
                 // Init callback binding loops are handled gracefully by the runtime,
                 // but the pattern is still problematic and may cause unexpected behavior
                 diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis could cause unexpected behavior at runtime", p.name()), &span);
@@ -399,8 +399,8 @@ fn analyze_binding(
     context.currently_analyzing.insert(current.clone());
 
     let b = binding.borrow();
-    let recurse_read_type = if context.init_callback_properties.contains(current) {
-        ReadType::InitCallbackRead
+    let recurse_read_type = if context.delayed_callback_properties.contains(current) {
+        ReadType::DelayedCallbackRead
     } else {
         ReadType::PropertyRead
     };
@@ -479,10 +479,10 @@ enum ReadType {
     NativeRead,
     // Read from another property binding in Slint
     PropertyRead,
-    // Read from init or changed callbacks of a repeated component.
+    // Read from delayed callbacks (init or changed callbacks) of a repeated component.
     // Binding loops involving these should be warnings, not errors,
-    // because the runtime handles them gracefully via init_delayed().
-    InitCallbackRead,
+    // because the runtime handles them gracefully via init_delayed() and InitializationScope.
+    DelayedCallbackRead,
 }
 
 /// Process the property `prop`
@@ -495,10 +495,10 @@ fn process_property(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) -> DependsOnExternal {
-    // Track properties visited from init/changed callbacks so binding loops
-    // involving them can be treated as warnings instead of errors
-    if read_type == ReadType::InitCallbackRead {
-        context.init_callback_properties.insert(prop.clone());
+    // Track properties visited from delayed callbacks (init or changed callbacks)
+    // so binding loops involving them can be treated as warnings instead of errors
+    if read_type == ReadType::DelayedCallbackRead {
+        context.delayed_callback_properties.insert(prop.clone());
     }
 
     let depends_on_external = match prop
@@ -511,7 +511,7 @@ fn process_property(
         .or_default()
     {
         a => {
-            if read_type == ReadType::PropertyRead || read_type == ReadType::InitCallbackRead {
+            if read_type == ReadType::PropertyRead || read_type == ReadType::DelayedCallbackRead {
                 a.is_read = true;
             }
             DependsOnExternal(prop.elements.is_empty() && a.is_set_externally)
@@ -699,7 +699,7 @@ fn visit_layout_items_dependencies<'a>(
             // See: https://github.com/slint-ui/slint/issues/7402
             let component = it.element.borrow().base_type.as_component().clone();
             visit_component_init_and_changed_callbacks(&component, &mut |p, _| {
-                vis(p, ReadType::InitCallbackRead)
+                vis(p, ReadType::DelayedCallbackRead)
             });
 
             element = component.root_element.clone();
@@ -755,13 +755,13 @@ fn visit_component_init_and_changed_callbacks(
     // For changed callbacks, visit the PROPERTY being tracked (not the callback body).
     // The ChangeTracker evaluates the property during initialization, so if the property
     // depends on layout, it will trigger layout computation.
-    // We use InitCallbackRead so that binding loops involving these are warnings, not errors,
+    // We use DelayedCallbackRead so that binding loops involving these are warnings, not errors,
     // because the runtime handles them gracefully via init_delayed() and InitializationScope.
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         for prop_name in elem.borrow().change_callbacks.keys() {
             // The property being tracked is evaluated during ChangeTracker::init()
             let nr = NamedReference::new(elem, prop_name.clone());
-            vis(&nr.into(), ReadType::InitCallbackRead);
+            vis(&nr.into(), ReadType::DelayedCallbackRead);
         }
     });
 }
