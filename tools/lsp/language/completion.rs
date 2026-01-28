@@ -16,6 +16,7 @@ use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResu
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
 use i_slint_compiler::typeregister::TypeRegister;
+use itertools::Itertools;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -292,7 +293,7 @@ pub(crate) fn completion_at(
                     has_dot.then(|| {
                         let mut r = Vec::new();
                         expr_it.for_each_entry(ctx, &mut |str, expr| -> Option<()> {
-                            r.push(completion_item_from_expression(str, expr));
+                            r.push(completion_item_from_expression(str, expr, snippet_support));
                             None
                         });
                         r
@@ -643,7 +644,7 @@ fn resolve_expression_scope(
     let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
-        r.push(completion_item_from_expression(str, expr));
+        r.push(completion_item_from_expression(str, expr, snippet_support));
         None
     });
     if snippet_support {
@@ -681,7 +682,11 @@ fn resolve_expression_scope(
     Some(r)
 }
 
-fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> CompletionItem {
+fn completion_item_from_expression(
+    str: &str,
+    lookup_result: LookupResult,
+    snippet_support: bool,
+) -> CompletionItem {
     match lookup_result {
         LookupResult::Expression { expression, .. } => {
             let label = match &expression {
@@ -730,7 +735,7 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             ..CompletionItem::default()
         },
         LookupResult::Callable(callable) => {
-            let label = if let LookupResultCallable::Callable(
+            let name = if let LookupResultCallable::Callable(
                 Callable::Callback(nr) | Callable::Function(nr),
             ) = &callable
             {
@@ -747,9 +752,89 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             } else {
                 CompletionItemKind::FUNCTION
             };
-            CompletionItem { label, kind: Some(kind), ..CompletionItem::default() }
+
+            let argument_list = argument_list_for_callable(&callable);
+            let insert_text = snippet_support
+                .then(|| snippet_for_callable(&name, &argument_list))
+                .unwrap_or_else(|| name.clone());
+            let insert_text_format = snippet_support.then_some(InsertTextFormat::SNIPPET);
+            let label = match &argument_list {
+                // Only show that we have no arguments if we know for sure there are none
+                // For unknown arguments, the snippet will place the cursor in the parentheses,
+                // which indicates that there may be arguments.
+                Some(args) if args.is_empty() => format!("{name}()"),
+                _ => format!("{name}(..)"),
+            };
+
+            CompletionItem {
+                label,
+                kind: Some(kind),
+                insert_text: Some(insert_text),
+                insert_text_format,
+                ..CompletionItem::default()
+            }
         }
     }
+}
+
+/// The argument list of the callable for the purposes of completion (omits the self argument
+/// and falls back to type names if arg names are not available).
+fn argument_list_for_callable(callable: &LookupResultCallable) -> Option<Vec<String>> {
+    let function_type = match callable {
+        LookupResultCallable::Callable(callable) => Some((callable.ty(), false)),
+        LookupResultCallable::Macro(_) => None,
+        LookupResultCallable::MemberFunction { member, .. } => match &**member {
+            LookupResultCallable::Callable(callable) => Some((callable.ty(), true)),
+            LookupResultCallable::Macro(_) => None,
+            LookupResultCallable::MemberFunction { .. } => None,
+        },
+    };
+    match function_type {
+        Some((Type::Function(function), is_member))
+        | Some((Type::Callback(function), is_member)) => {
+            // Note: Some functions have more args than arg_names (those without names)
+            // In that case, just use the type name
+            Some(
+                function
+                    .arg_names
+                    .iter()
+                    .zip_longest(function.args.iter())
+                    // the first argument to a member function is the "self" argument, which we
+                    // do not need to autocomplete.
+                    .skip(if is_member { 1 } else { 0 })
+                    .map(|arg| {
+                        use itertools::EitherOrBoth::*;
+                        match arg {
+                            Left(name) => name.to_string(),
+                            Both(name, ty) => {
+                                if name.is_empty() {
+                                    ty.to_string()
+                                } else {
+                                    name.to_string()
+                                }
+                            }
+                            Right(ty) => ty.to_string(),
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        }
+        _ => None,
+    }
+}
+
+fn snippet_for_callable(label: &str, arguments: &Option<Vec<String>>) -> String {
+    let args = match arguments {
+        Some(args) => args
+            .iter()
+            .enumerate()
+            .map(|(index, arg_name)| format!("${{{}:{arg_name}}}", index + 1))
+            .collect::<Vec<_>>()
+            .join(", "),
+        // Unknown number of arguments, just place the cursor in the parentheses
+        _ => "$1".to_string(),
+    };
+    format!("{label}({args})")
 }
 
 fn resolve_type_scope(
@@ -1041,6 +1126,44 @@ mod tests {
         completion_at(&mut dc, token, offset, Some(&caps))
     }
 
+    fn assert_completions_found(
+        expected: impl IntoIterator<Item = CompletionItem>,
+        results: &[CompletionItem],
+    ) {
+        for item in expected {
+            assert_completion_found(&item, results);
+        }
+    }
+
+    fn assert_completion_found(expected: &CompletionItem, results: &[CompletionItem]) {
+        let Some(found) = results.iter().find(|actual| actual.label == expected.label) else {
+            let labels = results
+                .iter()
+                .map(|ci| format!("\t'{}'", &ci.label))
+                .collect::<Vec<_>>()
+                .join("\n");
+            panic!("missing completion for {}\nLabels:\n{labels}", expected.label,);
+        };
+
+        if let Some(insert_text) = &expected.insert_text {
+            assert_eq!(
+                found.insert_text.as_ref(),
+                Some(insert_text),
+                "Unexpected insert_text for '{}'",
+                expected.label,
+            );
+        }
+
+        if let Some(insert_text_format) = expected.insert_text_format {
+            assert_eq!(
+                found.insert_text_format,
+                Some(insert_text_format),
+                "Unexpected insert_text_format for '{}'",
+                expected.label,
+            );
+        }
+    }
+
     #[test]
     fn in_expression() {
         let with_semi = r#"
@@ -1069,18 +1192,23 @@ mod tests {
         "#;
         for source in [with_semi, without_semi] {
             let res = get_completions(source).unwrap();
-            res.iter().find(|ci| ci.label == "alpha").unwrap();
-            res.iter().find(|ci| ci.label == "beta").unwrap();
-            res.iter().find(|ci| ci.label == "funi").unwrap();
-            res.iter().find(|ci| ci.label == "The_Glib").unwrap();
-            res.iter().find(|ci| ci.label == "Colors").unwrap();
-            res.iter().find(|ci| ci.label == "Math").unwrap();
-            res.iter().find(|ci| ci.label == "animation-tick").unwrap();
-            res.iter().find(|ci| ci.label == "the_bo-bo").unwrap();
-            res.iter().find(|ci| ci.label == "true").unwrap();
-            res.iter().find(|ci| ci.label == "self").unwrap();
-            res.iter().find(|ci| ci.label == "root").unwrap();
-            res.iter().find(|ci| ci.label == "TextInputInterface").unwrap();
+            let expected = [
+                "alpha",
+                "beta",
+                "funi()",
+                "The_Glib",
+                "Colors",
+                "Math",
+                "animation-tick()",
+                "the_bo-bo",
+                "true",
+                "self",
+                "root",
+                "TextInputInterface",
+            ]
+            .map(|label| CompletionItem { label: label.to_string(), ..Default::default() });
+            assert_completions_found(expected, &res);
+
             let palette = res
                 .iter()
                 .find(|ci| ci.insert_text.as_ref().is_some_and(|t| t == "Palette"))
@@ -1288,6 +1416,8 @@ mod tests {
                 }
             }
         "#;
+        let expected_in_element = ["with_underscores-and_dash", "super_property-1", "hello_world"];
+
         let in_expr1 = r#"
         component Bar { property <string> nope; }
         component Foo {
@@ -1299,6 +1429,8 @@ mod tests {
             }
         }
         "#;
+        let expected_expr1 = ["with_underscores-and_dash()", "super_property-1", "hello_world()"];
+
         let in_expr2 = r#"
         component Bar { in property <string> super_property-1; property <string> nope; }
         component Foo {
@@ -1310,12 +1442,18 @@ mod tests {
             }
         }
         "#;
-        for source in [in_element, in_expr1, in_expr2] {
+        let expected_expr2 = ["with_underscores-and_dash()", "super_property-1", "hello_world()"];
+
+        for (source, expected) in [
+            (in_element, expected_in_element),
+            (in_expr1, expected_expr1),
+            (in_expr2, expected_expr2),
+        ] {
             let res = get_completions(source).unwrap();
-            assert!(!res.iter().any(|ci| ci.label == "nope"));
-            res.iter().find(|ci| ci.label == "with_underscores-and_dash").unwrap();
-            res.iter().find(|ci| ci.label == "super_property-1").unwrap();
-            res.iter().find(|ci| ci.label == "hello_world").unwrap();
+            assert!(!res.iter().any(|ci| ci.label.contains("nope")));
+            let expected = expected
+                .map(|label| CompletionItem { label: label.to_string(), ..Default::default() });
+            assert_completions_found(expected, &res);
         }
     }
 
@@ -1493,6 +1631,40 @@ mod tests {
     }
 
     #[test]
+    fn function_calls() {
+        let source = r#"
+            component Foo {
+                input := TextInput {
+                    function add(a: int, b: int) -> int { a + b }
+                    function caller() -> int { 5 }
+                    callback my-callback(hello: string, world: string);
+                }
+                function test() -> int {
+                    input.🔺
+                }
+            }
+        "#;
+
+        let res = get_completions(source).unwrap();
+        let expected = [
+            ("add(..)", "add(${1:a}, ${2:b})"),
+            ("caller()", "caller()"),
+            ("clear-focus()", "clear-focus()"),
+            ("set-selection-offsets(..)", "set-selection-offsets(${1:int}, ${2:int})"),
+            ("my-callback(..)", "my-callback(${1:hello}, ${2:world})"),
+        ]
+        .map(|(label, insert_text)| CompletionItem {
+            label: label.to_string(),
+            insert_text: Some(insert_text.to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            ..Default::default()
+        });
+        assert_completions_found(expected, &res);
+
+        assert!(!res.iter().any(|item| item.label.contains("test")));
+    }
+
+    #[test]
     fn function_no_when_in_empty_state() {
         let source = r#"
             component Foo {
@@ -1596,36 +1768,46 @@ mod tests {
             }
         "#;
         let res = get_completions(source).unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quad").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quad").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quad").unwrap();
-        res.iter().find(|ci| ci.label == "ease").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quart").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quart").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quart").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quint").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quint").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quint").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-expo").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-expo").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-expo").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-sine").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-sine").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-sine").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-back").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-back").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-back").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-elastic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-elastic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-elastic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-bounce").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-bounce").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-bounce").unwrap();
-        res.iter().find(|ci| ci.label == "linear").unwrap();
-        res.iter().find(|ci| ci.label == "cubic-bezier").unwrap();
+        let expected = [
+            "ease-in-quad",
+            "ease-out-quad",
+            "ease-in-out-quad",
+            "ease",
+            "ease-in",
+            "ease-out",
+            "ease-in-out",
+            "ease-in-quart",
+            "ease-out-quart",
+            "ease-in-out-quart",
+            "ease-in-quint",
+            "ease-out-quint",
+            "ease-in-out-quint",
+            "ease-in-expo",
+            "ease-out-expo",
+            "ease-in-out-expo",
+            "ease-in-sine",
+            "ease-out-sine",
+            "ease-in-out-sine",
+            "ease-in-back",
+            "ease-out-back",
+            "ease-in-out-back",
+            "ease-in-elastic",
+            "ease-out-elastic",
+            "ease-in-out-elastic",
+            "ease-in-bounce",
+            "ease-out-bounce",
+            "ease-in-out-bounce",
+            "linear",
+        ]
+        .iter()
+        .map(|label| CompletionItem { label: label.to_string(), ..Default::default() })
+        .chain([CompletionItem {
+            label: "cubic-bezier(..)".to_string(),
+            insert_text: Some("cubic-bezier($1)".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            ..Default::default()
+        }]);
+        assert_completions_found(expected, &res);
     }
 
     #[test]

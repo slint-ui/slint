@@ -520,7 +520,21 @@ fn expression_from_reference(
     match ty {
         Type::Callback { .. } => Callable::Callback(n).into(),
         Type::InferredCallback => Callable::Callback(n).into(),
-        Type::Function { .. } => Callable::Function(n).into(),
+        Type::Function(function) => {
+            let base_expr = Rc::downgrade(&n.element());
+            let callable = Callable::Function(n);
+            // If the function has a ElementReference type as the first argument, that usually means it is
+            // a member function
+            if matches!(function.args.first(), Some(Type::ElementReference)) {
+                LookupResult::Callable(LookupResultCallable::MemberFunction {
+                    base: Expression::ElementReference(base_expr),
+                    base_node: None,
+                    member: Box::new(LookupResultCallable::Callable(callable)),
+                })
+            } else {
+                callable.into()
+            }
+        }
         _ => LookupResult::Expression { expression: Expression::PropertyReference(n), deprecated },
     }
 }
