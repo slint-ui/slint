@@ -14,36 +14,44 @@ enum SubPage { None, Print, Scan, Copy, Usb }
 component ActionButton inherits Rectangle {
     in property <image> icon <=> img.source;
     in property <string> text <=> label.text;
+
     width: DemoPalette.button-width;
     height: DemoPalette.button-height;
+    border-radius: 25px;
+    background: DemoPalette.theme != Theme.Gradient ? DemoPalette.primary : DemoPalette.background;
 
     callback clicked;
 
     VerticalLayout {
         spacing: 10px;
+        width: self.preferred-width;
+        height: self.preferred-height;
 
         Rectangle {
-            border-radius: 25px;
-            border-width: 5px;
-            border-color: DemoPalette.secondary;
-            background: DemoPalette.theme != Theme.Gradient ? DemoPalette.primary : DemoPalette.background;
-            width: DemoPalette.button-width;
+            width: 64px;
             height: self.width;
+            background: white.with-alpha(0.2);
+            border-radius: 16px;
 
             img := Image {
-                colorize: DemoPalette.text-primary;
+                width: 32px;
+                colorize: white;
             }
         }
 
         label := Text {
-            font-size: DemoPalette.base-font-size * 1.375;
-            font-weight: 800;
+            font-size: 18px;
+            font-weight: 300;
             horizontal-alignment: center;
-            color: DemoPalette.text-primary;
+            color: white;
         }
     }
 
-    TouchArea { clicked => { root.clicked() } }
+    TouchArea {
+        clicked => {
+            root.clicked()
+        }
+    }
 }
 
 export component HomePage inherits Page {
@@ -54,20 +62,48 @@ export component HomePage inherits Page {
     header: @tr("Slint Printer Demo");
     has-header: false;
 
-    for action[idx] in [
-        { name: @tr("Print"), id: SubPage.Print, icon: @image-url("../images/print.svg") },
-        { name: @tr("Scan"), id: SubPage.Scan, icon: @image-url("../images/scan.svg") },
-        { name: @tr("Copy"), id: SubPage.Copy, icon: @image-url("../images/copy.svg") },
-        { name: @tr("USB"), id: SubPage.Usb, icon: @image-url("../images/usb.svg") },
-    ]: ActionButton {
-        x: mod(idx, 2) * (DemoPalette.button-width + root.button-spacing);
-        y: floor(idx / 2) * (DemoPalette.button-height + root.button-spacing)
-            + /* header row height */ 46px
-            + /* top-padding of printer queue */ 27px;
-        icon: action.icon;
-        text: action.name;
+    GridLayout {
+        x: DemoPalette.default-margin;
+        y: parent.height - DemoPalette.default-margin - self.preferred-height;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        spacing: 16px;
 
-        clicked => { root.current-subpage = action.id; }
+        for action[index] in [
+            {
+                name: @tr("Print"),
+                id: SubPage.Print,
+                icon: @image-url("../images/print.svg"),
+                background:  @linear-gradient(-45deg, #2B7FFF 0%, #155DFC 100%)
+            },
+            {
+                name: @tr("Scan"),
+                id: SubPage.Scan,
+                icon: @image-url("../images/scan.svg"),
+                background:  @linear-gradient(-45deg, #00BC7D 0%, #009966 100%)
+            },
+            {
+                name: @tr("Copy"),
+                id: SubPage.Copy,
+                icon: @image-url("../images/copy.svg"),
+                background:  @linear-gradient(-45deg, #FF2056 0%, #fd3d6d 100%)
+            },
+            {
+                name: @tr("USB"),
+                id: SubPage.Usb,
+                icon: @image-url("../images/usb.svg"),
+                background:  @linear-gradient(-45deg, #FF6900 0%, #F54900 100%)
+            },
+        ]: ActionButton {
+            col: index.mod(2);
+            row: index / 2;
+            icon: action.icon;
+            text: action.name;
+            background: action.background;
+            clicked => {
+                root.current-subpage = action.id;
+            }
+        }
     }
 
     queue-view := PrinterQueueView {
@@ -80,26 +116,46 @@ export component HomePage inherits Page {
     }
 
     PrintPage {
-        back => { root.current-subpage = SubPage.None; }
+        back => {
+            root.current-subpage = SubPage.None;
+        }
         x: root.current-subpage == SubPage.Print ? 0 : parent.width + parent.x + 2px;
-        animate x { duration: 125ms; easing: ease; }
+        animate x {
+            duration: 125ms;
+            easing: ease;
+        }
     }
 
     ScanPage {
-        back => { root.current-subpage = SubPage.None; }
+        back => {
+            root.current-subpage = SubPage.None;
+        }
         x: root.current-subpage == SubPage.Scan ? 0 : parent.width + parent.x + 2px;
-        animate x { duration: 125ms; easing: ease; }
+        animate x {
+            duration: 125ms;
+            easing: ease;
+        }
     }
 
     CopyPage {
-        back => { root.current-subpage = SubPage.None; }
+        back => {
+            root.current-subpage = SubPage.None;
+        }
         x: root.current-subpage == SubPage.Copy ? 0 : parent.width + parent.x + 2px;
-        animate x { duration: 125ms; easing: ease; }
+        animate x {
+            duration: 125ms;
+            easing: ease;
+        }
     }
 
     UsbPage {
-        back => { root.current-subpage = SubPage.None; }
+        back => {
+            root.current-subpage = SubPage.None;
+        }
         x: root.current-subpage == SubPage.Usb ? 0 : parent.width + parent.x + 2px;
-        animate x { duration: 125ms; easing: ease; }
+        animate x {
+            duration: 125ms;
+            easing: ease;
+        }
     }
 }
