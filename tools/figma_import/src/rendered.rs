@@ -120,7 +120,7 @@ pub fn render(
     };
 
     let mut ctx = Ctx::default();
-    writeln!(ctx, "App := Window {{")?;
+    writeln!(ctx, "export component App inherits Window {{")?;
     ctx.indent += 1;
     writeln!(ctx, "background: {background};")?;
     writeln!(ctx, "width: {}px;", frame.absoluteBoundingBox.width)?;
