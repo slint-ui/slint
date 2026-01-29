@@ -14,12 +14,18 @@ struct ModeColors {
     text-primary: color,
     text-secondary: color,
     text-tertiary: color,
-    destructive: color,
     color-button-gradient: brush,
     grayscale-button-gradient: brush,
     spinbox-button-gradient: brush,
     header-background: brush,
     header-separator: color,
+    print-button-bg: brush,
+    scan-button-bg: brush,
+    copy-button-bg: brush,
+    usb-button-bg: brush,
+    home-button-border: color,
+    home-button-inner-bg: brush,
+    home-button-text-color: color,
 }
 
 struct SideBarTheme {
@@ -68,10 +74,10 @@ export global ComponentTheme {
         icon-size: 40px,
         icon-border-radius: 40px / 2,
         background: #ffffff,
-        active-background: #0F172B,
+        active-background: #0f172b,
         separator: #E2E8F0,
         active-icon-color: Colors.white,
-        inactive-icon-color: #90A1B9,
+        inactive-icon-color: #45556c,
     };
     property <SideBarTheme> vibrant: {
         icon-size: 40px,
@@ -115,12 +121,18 @@ export global DemoPalette {
         text-primary: #1D293D,
         text-secondary: #155DFC,
         text-tertiary: #62748e,
-        destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
         header-background: #F8FAFC,
         header-separator: #CAD5E2,
+        print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
+        scan-button-bg: @linear-gradient(135deg, #00BC7D 0%, #009966 100%),
+        copy-button-bg: @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%),
+        usb-button-bg: @linear-gradient(135deg, #FF6900 0%, #F54900 100%),
+        home-button-border: #00000000,
+        home-button-inner-bg: #FFFFFF.with-alpha(0.2),
+        home-button-text-color: #FFFFFF,
     };
 
     property <ModeColors> minimalist: {
@@ -130,10 +142,16 @@ export global DemoPalette {
         text-primary: #0f172b,
         text-secondary: #45556c,
         text-tertiary: #45556c,
-        destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
-        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        print-button-bg: #FFFFFF,
+        scan-button-bg: #FFFFFF,
+        copy-button-bg: #FFFFFF,
+        usb-button-bg: #FFFFFF,
+        home-button-border: #cad5e2,
+        home-button-inner-bg: #f1f5f9,
+        home-button-text-color: #0f172b,
     };
 
     property <ModeColors> vibrant: {
@@ -143,10 +161,16 @@ export global DemoPalette {
         text-primary: #F5F5F5,
         text-secondary: #FFD166,
         text-tertiary: #62748e,
-        destructive: #FF3B30,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
-        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
+        scan-button-bg: @linear-gradient(135deg, #00BC7D 0%, #009966 100%),
+        copy-button-bg: @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%),
+        usb-button-bg: @linear-gradient(135deg, #FF6900 0%, #F54900 100%),
+        home-button-border: #00000000,
+        home-button-inner-bg: #00000000,
+        home-button-text-color: #FFFFFF,
     };
 
     property <ModeColors> glass: {
@@ -158,7 +182,14 @@ export global DemoPalette {
         text-tertiary: #62748e,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
-        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%)
+        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        print-button-bg: #FFFFFF,
+        scan-button-bg: #FFFFFF,
+        copy-button-bg: #FFFFFF,
+        usb-button-bg: #FFFFFF,
+        home-button-border: #00000000,
+        home-button-inner-bg: #00000000,
+        home-button-text-color: #FFFFFF,
     };
 
     property <[ModeColors]> themes: [gradient, minimalist, vibrant, glass];
@@ -174,6 +205,13 @@ export global DemoPalette {
     out property <brush> spinbox-button-gradient: current-theme.spinbox-button-gradient;
     out property <brush> header-background: current-theme.header-background;
     out property <color> header-separator: current-theme.header-separator;
+    out property <brush> print-button-bg: current-theme.print-button-bg;
+    out property <brush> scan-button-bg: current-theme.scan-button-bg;
+    out property <brush> copy-button-bg: current-theme.copy-button-bg;
+    out property <brush> usb-button-bg: current-theme.usb-button-bg;
+    out property <color> home-button-border: current-theme.home-button-border;
+    out property <brush> home-button-inner-bg: current-theme.home-button-inner-bg;
+    out property <color> home-button-text-color: current-theme.home-button-text-color;
 
     // Fixed (non-themeable) colors
     out property <color> push-button-text-color: white;
