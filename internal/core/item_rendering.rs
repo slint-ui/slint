@@ -12,11 +12,10 @@ use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
 };
 pub use crate::partial_renderer::CachedRenderingData;
-use crate::window::WindowAdapter;
+use crate::window::WindowAdapterRc;
 use crate::{Brush, SharedString};
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
-use alloc::rc::Rc;
 #[cfg(feature = "std")]
 use core::cell::RefCell;
 use core::pin::Pin;
@@ -145,7 +144,7 @@ pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
     component: &ItemTreeRc,
     index: isize,
-    window_adapter: &Rc<dyn WindowAdapter>,
+    window_adapter: &WindowAdapterRc,
 ) {
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
@@ -197,7 +196,7 @@ pub fn render_component_items(
     component: &ItemTreeRc,
     renderer: &mut dyn ItemRenderer,
     origin: LogicalPoint,
-    window_adapter: &Rc<dyn WindowAdapter>,
+    window_adapter: &WindowAdapterRc,
 ) {
     renderer.save_state();
     renderer.translate(origin.to_vector());
@@ -209,41 +208,58 @@ pub fn render_component_items(
 
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
-pub fn item_children_bounding_rect(component: &ItemTreeRc, index: isize) -> LogicalRect {
-    item_children_bounding_rect_inner(component, index, Default::default())
+pub fn item_children_bounding_rect(
+    item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
+) -> LogicalRect {
+    item_children_bounding_rect_inner(item_rc, window_adapter, Default::default())
 }
 
 fn item_children_bounding_rect_inner(
-    component: &ItemTreeRc,
-    index: isize,
+    item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
     transform: crate::lengths::ItemTransform,
 ) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
 
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
-            let item_geometry = transform.outer_transformed_rect(
-                &ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index).cast(),
-            );
-            let children_transform = ItemRc::new(component.clone(), index)
+            let item_rc = ItemRc::new(component.clone(), index);
+            let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
+            let bounding = item_rc.bounding_rect(&geom, window_adapter);
+            let bounding = transform.outer_transformed_rect(&bounding.cast());
+            let children_transform = item_rc
                 .children_transform()
                 .unwrap_or_default()
-                .then_translate(item_geometry.origin.to_vector());
+                .then_translate(bounding.origin.to_vector());
 
-            bounding_rect = bounding_rect.union(&item_geometry.cast());
+            bounding_rect = bounding_rect.union(&bounding.cast());
 
-            if !item.as_ref().clips_children() {
+            if item.as_ref().clips_children() {
+                let clip = transform.outer_transformed_rect(&geom.cast()).cast();
+                if !bounding_rect.contains_rect(&clip) {
+                    bounding_rect = bounding_rect.union(
+                        &item_children_bounding_rect_inner(
+                            &item_rc,
+                            window_adapter,
+                            transform.then(&children_transform),
+                        )
+                        .intersection(&clip)
+                        .unwrap_or_default(),
+                    );
+                }
+            } else {
                 bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
-                    component,
-                    index as isize,
+                    &item_rc,
+                    window_adapter,
                     transform.then(&children_transform),
                 ));
             }
             VisitChildrenResult::CONTINUE
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    VRc::borrow_pin(component).as_ref().visit_children_item(
-        index,
+    VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
+        item_rc.index() as isize,
         crate::item_tree::TraversalOrder::BackToFront,
         actual_visitor,
     );
@@ -516,7 +532,7 @@ pub trait ItemRenderer {
     fn filter_item(
         &mut self,
         item: &ItemRc,
-        window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &WindowAdapterRc,
     ) -> (bool, LogicalRect) {
         let item_geometry = item.geometry();
         // Query bounding rect untracked, as properties that affect the bounding rect are already tracked

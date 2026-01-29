@@ -469,6 +469,8 @@ impl ItemRc {
         comp_ref_pin.as_ref().item_geometry(self.index)
     }
 
+    /// Returns the rendering bounding rect for that particular item in the parent's item coordinate
+    /// (same coordinate system as the geometry)
     pub fn bounding_rect(
         &self,
         geometry: &LogicalRect,
