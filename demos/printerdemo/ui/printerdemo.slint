@@ -17,8 +17,6 @@ export { PrinterQueue, PrinterSettings }
 
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
-import "./fonts/Inter-24pt-SemiBold.ttf";
-import "./fonts/Inter-24pt-Bold.ttf";
 import { MenuPopup } from "components/popup_menu.slint";
 
 export component MainWindow inherits Window {
@@ -69,7 +67,7 @@ export component MainWindow inherits Window {
         property <int> current_theme_index: 0;
 
         popup := MenuPopup {
-            x: side-bar.width + 10px;
+            x: side-bar.width - 10px;
             y: root.height - self.preferred-height - 10px;
             width: 200px;
             property <[Theme]> themes: [Theme.Gradient, Theme.Minimalist, Theme.Vibrant, Theme.Glass];
