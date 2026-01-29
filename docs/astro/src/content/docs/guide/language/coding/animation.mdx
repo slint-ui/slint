@@ -70,3 +70,55 @@ Can be any of the following. See [`easings.net`](https://easings.net/) for a vis
 Use this to set or change the direction of the animation.
 </SlintProperty>
 
+### interpolation
+<SlintProperty propName="interpolation" typeName="enum" enumName="Interpolation">
+Specifies how values are interpolated during the animation.
+
+- `linear` (default): Standard linear interpolation between the start and end values. This is the default for all property types.
+
+The `angle-*` modes are specifically designed for angle properties where the interpolation path matters:
+- `angle-shorter`: Interpolates via the shorter arc
+- `angle-longer`: Interpolates via the longer arc
+- `angle-clockwise`: Always rotates clockwise
+- `angle-counterclockwise`: Always rotates counterclockwise
+
+For example, when animating an angle from 10° to 350°:
+- `linear`: Rotates 340° clockwise (numeric interpolation through 180°)
+- `angle-shorter`: Rotates 20° counterclockwise (the shorter path)
+- `angle-longer`: Rotates 340° clockwise (the longer path)
+- `angle-clockwise`: Rotates 340° clockwise
+- `angle-counterclockwise`: Rotates 20° counterclockwise
+</SlintProperty>
+
+**Example:**
+
+```slint
+export component Example inherits Window {
+    preferred-width: 200px;
+    preferred-height: 200px;
+
+    in-out property <angle> rotation: 10deg;
+
+    Rectangle {
+        width: 100px;
+        height: 20px;
+        x: 50px;
+        y: 90px;
+        background: blue;
+        transform-rotation: rotation;
+        transform-origin: { x: 0px, y: 10px };
+
+        animate transform-rotation {
+            duration: 1000ms;
+            interpolation: angle-shorter;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            rotation = rotation == 10deg ? 350deg : 10deg;
+        }
+    }
+}
+```
+
