@@ -21,7 +21,7 @@ export component MenuPopup inherits PopupWindow {
                 border-bottom-right-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
 
                 Label {
-                    x: 12px;
+                    x: DemoPalette.default-margin;
                     text: value;
                     font-size: 16px;
                     color: idx == root.current_index ? DemoPalette.popup-active-text-color : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
