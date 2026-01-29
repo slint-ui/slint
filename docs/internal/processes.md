@@ -52,7 +52,7 @@ The submitter can edit the commit message to make it nicer and removed the artif
 ## CI
 
 The CI is driven by Github Actions.
-The CI is triggered for any (draft) PR to the `master` branch, or to a branch that starts with `feature/`.
+The CI is triggered for any PR (including drafts) to the `master` branch, or to a branch that starts with `feature/`.
 The CI is also triggered for every push to the `master` branch.
 A new commit on a branch will cancel the previous CI run on that branch if it is still running.
 
@@ -68,10 +68,9 @@ It will also run a few extra tests (like running `cargo update` to check for bro
 
 New minor releases of Slint are done every couple of months.
 
-About a week before the expected release, we create a `release/<major.minor>` branch, based on the latest `master` branch.
-We then issue a "call for testing" as a GitHub discussion.
+About a week before the expected release, create a temporary `pre-release/<major.minor>` branch based on the latest `master`. Use this branch to collect fixes and run testing (apply cherry-picks here).
 
-Once testing is done and feedback is incorporated, the release is done from the corresponding `release/<major.minor>` branch.
+Once testing is complete and issues are addressed, cut the release from the `pre-release/<major.minor>` branch. Then update or create the `release/<major.minor>` branch that will represent the published release (this branch can be kept for LTS or cherry-picks). Finally, delete the `pre-release/<major.minor>` branch if it is no longer needed.
 
 The process of releasing is done by following the steps in the release_checklist.md file. (currently on our internal wiki)
 
@@ -93,7 +92,7 @@ Initiatives describe long-term goals that we as a team want to work towards.
 
 Writing these goals down as an initiative benefits us in several ways:
 
-- We can apply for funding to get paid for implementing them!
+
 - Allows us to prioritize issues based on current initiatives
 - Lets us discuss priorities and bring in fresh ideas from everyone
 
@@ -116,9 +115,9 @@ Ideally, a proposal should address:
 
 Initiatives are discussed by the team, reworked if necessary, and finally accepted or rejected.
 
-Once an initiative has been accepted, the owner should migrate it to a Github issue using the ["Tracking Issue"](https://github.com/slint-ui/slint/issues/new?template=3-tracking-issue.md) template, and corresponding sub-issues if needed.
+Once an initiative has been accepted, the owner should migrate it to a Github issue. For this, use either the ["Tracking Issue"](https://github.com/slint-ui/slint/issues/new?template=3-tracking-issue.md) template, or assign the "roadmap" label to an existing issue. Add any corresponding sub-issues if needed.
 
-The issue will then be automatically added to the "Team Planning" Board.
+The issue will be automatically added to the "Team Planning" Board when it receives the "roadmap" label.
 
 ### Project Boards
 
