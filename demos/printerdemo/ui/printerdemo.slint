@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Theme, PrinterState } from "common.slint";
+import { DemoPalette, Theme, PrinterState, Label } from "common.slint";
 import {
     HomePage,
     InkLevel,
@@ -44,7 +44,11 @@ export component MainWindow inherits Window {
         background: green;
         HorizontalLayout {
 
-            Sidebar { }
+            side-bar := Sidebar {
+                select-theme => {
+                    popup.show();
+                }
+            }
 
             main-view := Rectangle {
                 if PrinterState.active-page == 0:home-page := HomePage {
@@ -57,6 +61,43 @@ export component MainWindow inherits Window {
                     property <int> pageNumber: 2;
                     ink-levels <=> root.ink-levels;
                     visible: PrinterState.active-page == 2;
+                }
+            }
+        }
+
+        popup := PopupWindow {
+            x: side-bar.width + 10px;
+            y: root.height - self.preferred-height - 10px;
+            width: 200px;
+            property <[Theme]> items: [Theme.Gradient, Theme.Minimalist, Theme.Vibrant, Theme.Glass];
+
+            Rectangle {
+                background: DemoPalette.background;
+                border-radius: 14px;
+                border-width: 2px;
+                border-color: DemoPalette.secondary;
+                clip: true;
+
+                content := VerticalLayout {
+                    for value[idx] in items: Rectangle {
+                        property <int> current_index: DemoPalette.theme == value ? idx : -1;
+                        background: idx == current_index ? DemoPalette.secondary.transparentize(0.6) : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
+                        height: 60px;
+
+                        HorizontalLayout {
+                            padding: 20px;
+                            Label {
+                                text: DemoPalette.theme-label(value);
+                                color: idx == current_index ? #f54d07 : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
+                            }
+                        }
+
+                        item-area := TouchArea {
+                            clicked => {
+                                DemoPalette.theme = value;
+                            }
+                        }
+                    }
                 }
             }
         }

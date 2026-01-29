@@ -28,6 +28,8 @@ export component Sidebar inherits Rectangle {
     x: 0px;
     width: DemoPalette.side-bar-width;
 
+    callback select-theme;
+
     VerticalLayout {
         width: self.preferred-width;
         padding-top: 24px;
@@ -69,17 +71,7 @@ export component Sidebar inherits Rectangle {
         }
 
         SideBarIcon {
-            activate => {
-                if DemoPalette.theme == Theme.Gradient {
-                    DemoPalette.theme = Theme.Minimalist;
-                } else if DemoPalette.theme == Theme.Minimalist {
-                    DemoPalette.theme = Theme.Vibrant;
-                } else if DemoPalette.theme == Theme.Vibrant {
-                    DemoPalette.theme = Theme.Glass;
-                } else {
-                    DemoPalette.theme = Theme.Gradient;
-                }
-            }
+            activate => { root.select-theme(); }
             icon: @image-url("../images/sidebar/theme.svg");
             icon-colorize: ComponentTheme.side-bar.inactive-icon-color;
         }
