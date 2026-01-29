@@ -68,7 +68,6 @@ export global PrinterQueue {
 }
 
 component PrintQueueDetailsLabel inherits Text {
-    font-weight: 500;
     color: DemoPalette.control-foreground;
     horizontal-stretch: 0;
     font-size: DemoPalette.base-font-size * 0.9375;
@@ -351,7 +350,6 @@ component WidePrintQueueElement inherits Rectangle {
                 }
                 color: DemoPalette.text-secondary;
                 font-size: DemoPalette.base-font-size * 0.75;
-                font-weight: 700;
                 letter-spacing: 1.56px;
                 horizontal-stretch: 1;
             }
@@ -371,7 +369,6 @@ component WidePrintQueueElement inherits Rectangle {
             text: root.queue-item.title;
             color: DemoPalette.text-primary;
             overflow: elide;
-            font-weight: 700;
             font-size: DemoPalette.base-font-size * 1.125;
             horizontal-stretch: 1;
         }

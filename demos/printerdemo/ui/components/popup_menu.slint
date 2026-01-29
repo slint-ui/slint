@@ -10,25 +10,21 @@ export component MenuPopup inherits PopupWindow {
     frame := Rectangle {
         background: DemoPalette.background;
         border-radius: 14px;
-        border-width: 2px;
-        border-color: DemoPalette.secondary;
-        clip: true;
 
         VerticalLayout {
             for value[idx] in root.items: Rectangle {
-                background: idx == root.current_index ? DemoPalette.secondary : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
-                height: 60px;
+                background: item-area.has-hover ? DemoPalette.popup-hover-background : idx == root.current_index ? DemoPalette.popup-active-background : white;
+                height: 48px;
                 border-top-left-radius: idx == 0 ? frame.border-radius : 0;
                 border-top-right-radius: idx == 0 ? frame.border-radius : 0;
                 border-bottom-left-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
                 border-bottom-right-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
 
-                HorizontalLayout {
-                    padding: 20px;
-                    Label {
-                        text: value;
-                        color: idx == root.current_index ? white : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
-                    }
+                Label {
+                    x: 12px;
+                    text: value;
+                    font-size: 16px;
+                    color: idx == root.current_index ? DemoPalette.popup-active-text-color : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
                 }
 
                 item-area := TouchArea {
@@ -37,6 +33,12 @@ export component MenuPopup inherits PopupWindow {
                     }
                 }
             }
+        }
+
+        Rectangle {
+            border-radius: 14px;
+            border-width: 2px;
+            border-color: DemoPalette.popup-border;
         }
     }
 }
