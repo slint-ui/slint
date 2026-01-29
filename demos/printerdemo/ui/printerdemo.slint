@@ -24,10 +24,10 @@ export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     in property <[InkLevel]> ink-levels: [
-        { color: #0ff, level: 60% },
-        { color: #ff0, level: 80% },
-        { color: #f0f, level: 70% },
-        { color: #000, level: 30% },
+        { color: #00c1e2, level: 60% },
+        { color: #f9bf00, level: 80% },
+        { color: #d40bec, level: 70% },
+        { color: #131c30, level: 30% },
     ];
 
     callback quit();
@@ -41,7 +41,7 @@ export component MainWindow inherits Window {
     Rectangle {
         border-radius: 24px;
         clip: true;
-        background: green;
+        background: white;
         HorizontalLayout {
 
             side-bar := Sidebar {
