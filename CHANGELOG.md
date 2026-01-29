@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
  - Fixed debug performance overlay not working (#10198)
  - Qt backend: worked around leak in Plasma when setting a window icon.
  - Fixed flicking animation in ListView (#7043)
+ - Properly pixel align ilage and text rendering
 
 ### Slint Language
 
@@ -32,11 +33,11 @@ All notable changes to this project are documented in this file.
  - Added `from <angle>` syntax to `@conic-gradient`
  - `row`, `col`, `colspan`, and `rowspan` properties can now be changed at runtime
  - Support for `if` and `for` in `GridLayout`
- - New `StyledText` element for displaying rich text, as well as `styled-text` type
  - Fixed missing dependency detection on `Image.source-clip`
  - Accessing properties within Menu from the outside is now a compiler error instead of a panic (#9443)
  - Added `Colors.oklch()` and `.to-oklch()` functions
  - Fixed reactivity of animated bindings (#348)
+ - Add warning about non-top-level `Window`
 
 ### Widgets
 
@@ -57,6 +58,7 @@ All notable changes to this project are documented in this file.
  - In live preview mode, fixed panic when custom Model access the component's property (#10278)
  - Relaxed bounds on assitiated function in `slint::SortModel`
  - Don't generate full code for `slint!` macro when ran under rust-analyzer
+ - Update to WGPU 28 and drop WGPU 26
 
 ### C++
 
@@ -76,6 +78,8 @@ All notable changes to this project are documented in this file.
  - LSP: Fixed column position of non-acii for UTF16-based editor (#5669)
  - LSP: Fixed `vscode-remote://` url
  - LSP: Added support for `@conic-gradient` completion (#10444)
+ - LSP: Fixed reloading dependencies when file changes on disk
+ - LSP: add function argument name when auto-complete function call (#10560)
  - tr-extractor: Make the paths argument required (#10156)
  - Added gdb pretty printer for `SharedVector` and `Slice`
 
