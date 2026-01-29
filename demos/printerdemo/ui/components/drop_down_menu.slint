@@ -48,10 +48,10 @@ export component DropDownMenu inherits VerticalLayout {
 
         popup := PopupWindow {
             x:0;
-            y: parent.height + 8px;
+            y: parent.height + 4px;
             width: root.width;
 
-            Rectangle {
+            frame := Rectangle {
                 background: DemoPalette.background;
                 border-radius: 14px;
                 border-width: 2px;
@@ -62,6 +62,10 @@ export component DropDownMenu inherits VerticalLayout {
                     for value[idx] in root.items: Rectangle {
                         background: idx == root.current_index ? DemoPalette.secondary.transparentize(0.6) : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
                         height: 60px;
+                        border-top-left-radius: idx == 0 ? frame.border-radius : 0;
+                        border-top-right-radius: idx == 0 ? frame.border-radius : 0;
+                        border-bottom-left-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
+                        border-bottom-right-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
 
                         HorizontalLayout {
                             padding: 20px;

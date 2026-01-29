@@ -71,7 +71,7 @@ export component MainWindow inherits Window {
             width: 200px;
             property <[Theme]> items: [Theme.Gradient, Theme.Minimalist, Theme.Vibrant, Theme.Glass];
 
-            Rectangle {
+            frame := Rectangle {
                 background: DemoPalette.background;
                 border-radius: 14px;
                 border-width: 2px;
@@ -83,6 +83,10 @@ export component MainWindow inherits Window {
                         property <int> current_index: DemoPalette.theme == value ? idx : -1;
                         background: idx == current_index ? DemoPalette.secondary.transparentize(0.6) : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
                         height: 60px;
+                        border-top-left-radius: idx == 0 ? frame.border-radius : 0;
+                        border-top-right-radius: idx == 0 ? frame.border-radius : 0;
+                        border-bottom-left-radius: idx == items.length - 1 ? frame.border-radius : 0;
+                        border-bottom-right-radius: idx == items.length - 1 ? frame.border-radius : 0;
 
                         HorizontalLayout {
                             padding: 20px;
