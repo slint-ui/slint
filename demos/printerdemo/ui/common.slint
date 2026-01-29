@@ -212,6 +212,18 @@ export global DemoPalette {
     out property <string> medium-weight: "Inter 24pt Regular";
     out property <string> semi-bold-weight: "Inter 24pt SemiBold";
     out property <string> bold-weight: "Inter 24pt Bold";
+
+    public pure function theme-label(theme: Theme) -> string {
+        if theme == Theme.Gradient {
+            @tr("Gradient")
+        } else if theme == Theme.Minimalist {
+            @tr("Minimalist")
+        } else if theme == Theme.Vibrant {
+            @tr("Vibrant")
+        } else {
+            @tr("Glass")
+        }
+    }
 }
 
 export component Label inherits Text {
