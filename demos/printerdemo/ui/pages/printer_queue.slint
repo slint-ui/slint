@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, PushButton } from "./common.slint";
+import { DemoPalette, PushButton } from "../common.slint";
 
 export struct PrinterQueueItem  {
     status: string,
@@ -21,7 +21,7 @@ export global PrinterQueue {
             owner: "info@slint.dev",
             pages: 6,
             size: "143kb",
-            submission-date: "11:41 25/01/21"
+            submission-date: "11:41 25/01/26"
         },
         {
             status: "waiting",
@@ -29,7 +29,7 @@ export global PrinterQueue {
             owner: "info@slint.dev",
             pages: 6,
             size: "143kb",
-            submission-date: "11:41 25/01/21"
+            submission-date: "11:41 25/01/26"
         },
         {
             status: "waiting",
@@ -37,7 +37,15 @@ export global PrinterQueue {
             owner: "info@slint.dev",
             pages: 6,
             size: "143kb",
-            submission-date: "11:41 25/01/21"
+            submission-date: "11:41 25/01/26"
+        },
+        {
+            status: "waiting",
+            title: "EW 2026 Slides",
+            owner: "info@slint.dev",
+            pages: 300,
+            size: "2.5MB",
+            submission-date: "11:41 10/03/26"
         },
     ];
 
@@ -378,7 +386,7 @@ component WidePrintQueueElement inherits Rectangle {
                 }
 
                 text: @tr("Pause");
-                icon: @image-url("images/pause.svg");
+                icon: @image-url("../images/pause.svg");
             }
 
             PushButton {
@@ -387,7 +395,7 @@ component WidePrintQueueElement inherits Rectangle {
                 }
                 primary: false;
                 text: @tr("Delete");
-                icon: @image-url("images/delete.svg");
+                icon: @image-url("../images/delete.svg");
             }
         }
 
@@ -407,8 +415,8 @@ component WidePrintQueueElement inherits Rectangle {
 export component WidePrinterQueueList inherits Flickable {
     VerticalLayout {
         alignment: start;
-        padding: 0px;
-        spacing: 13.5px;
+        padding: DemoPalette.default-margin;
+        spacing: 16px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: WidePrintQueueElement {
             cancel-job => {

@@ -5,7 +5,7 @@ import { DemoPalette, Theme, SubPage, PrinterState } from "../common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
-import { PrinterQueueView } from "../printer_queue.slint";
+import { PrinterQueueView } from "./printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
 import { Page } from "./page.slint";
 component ActionButton  {
@@ -74,8 +74,6 @@ export component HomePage inherits Page {
     }
 
 
-
-    
     gl := GridLayout {
         x: DemoPalette.default-margin;
         y: parent.height - DemoPalette.default-margin - self.preferred-height;

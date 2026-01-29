@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Label, PushButton, DemoPalette } from "../common.slint";
-import { WidePrinterQueueList } from "../printer_queue.slint";
+import { WidePrinterQueueList } from "./printer_queue.slint";
 import { Page } from "./page.slint";
 
 
@@ -10,23 +10,7 @@ export component PrintPage inherits Page {
     header: @tr("Print");
     subtitle: @tr("Printing-Queue");
 
-    GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
-        Row {
-            Text {
-                text: @tr("Printing-Queue");
-                color: DemoPalette.secondary-foreground-color;
-                font-size: DemoPalette.base-font-size * 1.125;
-                font-weight: 800;
-            }
-        }
-
-        Row {
-            queue := WidePrinterQueueList {
-                viewport-width: self.width;
-            }
-        }
+    queue := WidePrinterQueueList {
+        viewport-width: self.width;
     }
 }
