@@ -43,7 +43,7 @@ component ActionButton  {
 
         label := Text {
             font-size: 18px;
-            font-weight: DemoPalette.medium-weight;
+            font-family: DemoPalette.medium-weight;
             horizontal-alignment: center;
             color: white;
         }
@@ -66,10 +66,11 @@ export component HomePage inherits Page {
     Text {
         x: DemoPalette.default-margin;
         y: DemoPalette.default-margin;
-        text: @tr("Slint Printer Demo");
+        text: @tr("Slint Printer");
         color: DemoPalette.text-primary;
         font-size: DemoPalette.title-font-size;
-        font-weight: DemoPalette.medium-weight;
+        font-family: DemoPalette.medium-weight;
+        letter-spacing: 0.7px;
     }
 
 
