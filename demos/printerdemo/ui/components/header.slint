@@ -15,7 +15,6 @@ export component Header inherits Rectangle {
 
     layout := VerticalLayout {
         height: self.preferred-height;
-        spacing: 2px;
         HorizontalLayout {
             alignment: start;
             height: self.preferred-height;
@@ -54,7 +53,7 @@ export component Header inherits Rectangle {
     Rectangle {
         y: parent.height - self.height;
         width: 100%;
-        height: 1px;
+        height: 2px;
         background: DemoPalette.header-separator;
     }
 }
