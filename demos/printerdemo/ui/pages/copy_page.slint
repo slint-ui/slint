@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { CheckBox, Label } from "../common.slint";
+import { CheckBox, Label, DemoPalette } from "../common.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 import { Page } from "./page.slint";
 import { SpinBox } from "../components/spinbox.slint";
@@ -14,9 +14,10 @@ export component CopyPage inherits Page {
     subtitle: @tr("Choose Settings");
 
     GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
+        padding: DemoPalette.default-margin;
+        spacing: 16px;
+        width: parent.width;
+        height: self.preferred-height;
         Row {
             SpinBox {
                 value: 1;
