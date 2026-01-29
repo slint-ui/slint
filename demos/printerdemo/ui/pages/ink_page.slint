@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 import { DemoPalette } from "../common.slint";
-import { Page } from "./page.slint";
+import { Page, Header } from "./page.slint";
 
 export struct InkLevel  {
     color: color,
     level: float,
 }
 
-export component InkPage inherits Rectangle {
+export component InkPage inherits Page {
     in property <[InkLevel]> ink-levels;
+
+    header: @tr("Ink Level");
+    header-type: Header.plain;
 
     property <bool> page-visible: false;
 
@@ -29,15 +32,6 @@ export component InkPage inherits Rectangle {
             self.stop();
             page-visible = true;
         }
-    }
-
-    header := Text {
-        x: 25px;
-        y: 25px;
-        text: @tr("Ink Level");
-        font-size: 24px;
-        font-family: DemoPalette.medium-weight;
-        color: DemoPalette.text-primary;
     }
 
     HorizontalLayout {
@@ -102,7 +96,6 @@ export component InkPage inherits Rectangle {
                 y: parent.height - self.height - 30px;
                 border-radius: self.height / 2;
                 background: DemoPalette.background.with-alpha(0.9);
-                
                 Text {
                     text: color-info.level * 100 + "%";
                     overflow: elide;
