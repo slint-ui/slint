@@ -14,21 +14,22 @@ export component SettingsPage inherits Page {
     header-type: Header.plain;
 
     GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
+        padding: DemoPalette.default-margin;
+        spacing: 16px;
+        width: parent.width;
+        height: self.preferred-height;
         Row {
             Text {
                 colspan: 4;
                 text: @tr("General");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
-                font-weight: 800;
             }
         }
 
         Row {
             Label {
+                font-size: 18px;
                 text: @tr("TURBO mode");
             }
 
@@ -54,7 +55,6 @@ export component SettingsPage inherits Page {
                 text: @tr("Defaults");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
-                font-weight: 800;
             }
         }
 
