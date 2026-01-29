@@ -24,7 +24,6 @@ pub fn convert_slint_key_event_to_servo_input_event(
 }
 
 fn key_from_text(text: &str) -> Key {
-
     // Helper macro to check against a Slint Key
     macro_rules! check_key {
         ($slint_k:expr, $servo_k:expr) => {
