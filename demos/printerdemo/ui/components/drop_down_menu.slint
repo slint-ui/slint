@@ -8,7 +8,8 @@ export component DropDownMenu inherits VerticalLayout {
 
     callback selected(int);
 
-    label-layout := Label {}
+    label-layout := Label { }
+
     alignment: start;
     spacing: 4px;
 
@@ -47,7 +48,7 @@ export component DropDownMenu inherits VerticalLayout {
         }
 
         popup := MenuPopup {
-            x:0;
+            x: 0;
             y: parent.height + 4px;
             width: root.width;
 
