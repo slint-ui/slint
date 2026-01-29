@@ -1,10 +1,15 @@
-import { Header } from "../components/header.slint";
+import { BackHeader, PlainHeader } from "../components/headers.slint";
 import { DemoPalette } from "../common.slint";
 
+export enum Header {
+    none,
+    back,
+    plain
+}
 export component Page inherits Rectangle {
     in property <string> header;
     in property <string> subtitle;
-    in property <bool> has-header: true;
+    in property <Header> header-type: Header.back;
 
     callback back;
 
@@ -15,10 +20,14 @@ export component Page inherits Rectangle {
     TouchArea { } // protect underneath controls
 
     VerticalLayout {
-        if (root.has-header) : header := Header {
+        if header-type == Header.back : BackHeader {
             title: root.header;
             subtitle: root.subtitle;
             back => { root.back(); }
+        }
+
+        if header-type == Header.plain : PlainHeader {
+            title: root.header;
         }
 
         rec := Rectangle {

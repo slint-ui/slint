@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { CheckBox, Label, DemoPalette } from "../common.slint";
-import { Page } from "./page.slint";
+import { Page, Header } from "./page.slint";
 import { DropDownMenu } from "../components/drop_down_menu.slint";
 
 export global PrinterSettings {
@@ -11,7 +11,7 @@ export global PrinterSettings {
 
 export component SettingsPage inherits Page {
     header: @tr("Settings");
-    subtitle: @tr("General");
+    header-type: Header.plain;
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -26,13 +26,22 @@ export component SettingsPage inherits Page {
                 font-weight: 800;
             }
         }
+
         Row {
-            Label { text: @tr("TURBO mode"); }
-            CheckBox { checked: true; }
+            Label {
+                text: @tr("TURBO mode");
+            }
 
-            Rectangle {}
+            CheckBox {
+                checked: true;
+            }
 
-            Label { text: @tr("Power Management"); }
+            Rectangle { }
+
+            Label {
+                text: @tr("Power Management");
+            }
+
             CheckBox {
                 checked: false;
                 text: @tr("Eco Mode");
@@ -48,52 +57,75 @@ export component SettingsPage inherits Page {
                 font-weight: 800;
             }
         }
+
         Row {
-            Label { text: @tr("Layout"); }
+            Label {
+                text: @tr("Layout");
+            }
+
             DropDownMenu {
                 value: @tr("Portrait");
                 items: [@tr("Portrait"), @tr("Landscape")];
             }
 
-            Rectangle {}
+            Rectangle { }
 
-            Label { text: @tr("Paper Tray"); }
+            Label {
+                text: @tr("Paper Tray");
+            }
+
             DropDownMenu {
                 value: @tr("Special Tray");
                 items: [@tr("Special Tray"), @tr("Tray 1"), @tr("Tray 2")];
             }
         }
+
         Row {
-            Label { text: @tr("Quality"); }
+            Label {
+                text: @tr("Quality");
+            }
+
             DropDownMenu {
                 value: @tr("Best");
                 items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
-            Rectangle {}
+            Rectangle { }
 
-            Label { text: @tr("Language"); }
+            Label {
+                text: @tr("Language");
+            }
+
             DropDownMenu {
                 value: @tr("English");
                 items: [@tr("English"), @tr("German"), @tr("French")];
             }
         }
+
         Row {
-            Label { text: @tr("Color Mode"); }
+            Label {
+                text: @tr("Color Mode");
+            }
+
             DropDownMenu {
                 value: @tr("Grayscale");
                 items: [@tr("Grayscale"), @tr("Color")];
             }
 
-            Rectangle {}
+            Rectangle { }
 
-            Label { text: @tr("Paper Handling"); }
+            Label {
+                text: @tr("Paper Handling");
+            }
+
             CheckBox {
                 checked: true;
                 text: @tr("Sort Pages");
             }
         }
-        Row { Rectangle {} }
-    }
 
+        Row {
+            Rectangle { }
+        }
+    }
 }
