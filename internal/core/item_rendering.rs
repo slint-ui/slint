@@ -225,17 +225,30 @@ fn item_children_bounding_rect_inner(
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             let item_rc = ItemRc::new(component.clone(), index);
-            let g = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
-            let b = item_rc.bounding_rect(&g, window_adapter);
-            let item_geometry = transform.outer_transformed_rect(&b.cast());
+            let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
+            let bounding = item_rc.bounding_rect(&geom, window_adapter);
+            let bounding = transform.outer_transformed_rect(&bounding.cast());
             let children_transform = item_rc
                 .children_transform()
                 .unwrap_or_default()
-                .then_translate(item_geometry.origin.to_vector());
+                .then_translate(bounding.origin.to_vector());
 
-            bounding_rect = bounding_rect.union(&item_geometry.cast());
+            bounding_rect = bounding_rect.union(&bounding.cast());
 
-            if !item.as_ref().clips_children() {
+            if item.as_ref().clips_children() {
+                let clip = transform.outer_transformed_rect(&geom.cast());
+                if !bounding_rect.contains_rect(&clip) {
+                    bounding_rect = bounding_rect.union(
+                        &item_children_bounding_rect_inner(
+                            &item_rc,
+                            window_adapter,
+                            transform.then(&children_transform),
+                        )
+                        .intersection(&clip)
+                        .unwrap_or_default(),
+                    );
+                }
+            } else {
                 bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
                     &item_rc,
                     window_adapter,
