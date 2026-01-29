@@ -60,7 +60,7 @@ export component DropDownMenu inherits VerticalLayout {
 
                 VerticalLayout {
                     for value[idx] in root.items: Rectangle {
-                        background: idx == root.current_index ? DemoPalette.secondary.transparentize(0.6) : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
+                        background: idx == root.current_index ? DemoPalette.secondary : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
                         height: 60px;
                         border-top-left-radius: idx == 0 ? frame.border-radius : 0;
                         border-top-right-radius: idx == 0 ? frame.border-radius : 0;
@@ -71,7 +71,7 @@ export component DropDownMenu inherits VerticalLayout {
                             padding: 20px;
                             Label {
                                 text: value;
-                                color: idx == root.current_index ? #f54d07 : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
+                                color: idx == root.current_index ? white : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
                             }
                         }
 

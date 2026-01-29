@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Theme, SubPage, PrinterState } from "../common.slint";
+import { DemoPalette, SubPage, PrinterState } from "../common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
@@ -32,12 +32,12 @@ component ActionButton  {
         Rectangle {
             width: 64px;
             height: self.width;
-            background: white.with-alpha(0.2);
+            background:  DemoPalette.home-button-inner-bg;
             border-radius: 16px;
 
             img := Image {
                 width: 32px;
-                colorize: white;
+                colorize: DemoPalette.home-button-text-color;
             }
         }
 
@@ -45,8 +45,14 @@ component ActionButton  {
             font-size: 18px;
             font-family: DemoPalette.medium-weight;
             horizontal-alignment: center;
-            color: white;
+            color: DemoPalette.home-button-text-color;
         }
+    }
+
+    Rectangle {
+        border-radius: 24px;
+        border-width:  2px;
+        border-color: DemoPalette.home-button-border;
     }
 
     TouchArea {
@@ -86,25 +92,25 @@ export component HomePage inherits Page {
                 name: @tr("Print"),
                 id: SubPage.print,
                 icon: @image-url("../images/print.svg"),
-                background:  @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%)
+                background:  DemoPalette.print-button-bg
             },
             {
                 name: @tr("Scan"),
                 id: SubPage.scan,
                 icon: @image-url("../images/scan.svg"),
-                background:  @linear-gradient(135deg, #00BC7D 0%, #009966 100%)
+                background:  DemoPalette.scan-button-bg
             },
             {
                 name: @tr("Copy"),
                 id: SubPage.copy,
                 icon: @image-url("../images/copy.svg"),
-                background:  @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%)
+                background:  DemoPalette.copy-button-bg
             },
             {
                 name: @tr("USB"),
                 id: SubPage.usb,
                 icon: @image-url("../images/usb.svg"),
-                background:  @linear-gradient(135deg, #FF6900 0%, #F54900 100%)
+                background:  DemoPalette.usb-button-bg
             },
         ]: ActionButton {
             col: index.mod(2);

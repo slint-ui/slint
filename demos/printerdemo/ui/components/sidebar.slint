@@ -9,14 +9,14 @@ component SideBarIcon inherits Rectangle {
     callback activate;
     width: ComponentTheme.side-bar.icon-size;
     height: self.width;
-    background: active ? ComponentTheme.side-bar.active-background : Colors.transparent;
+    background: active || ta.has-hover ? ComponentTheme.side-bar.active-background : Colors.transparent;
     border-radius: ComponentTheme.side-bar.icon-border-radius;
 
     i := Image {
-        colorize: root.active ? ComponentTheme.side-bar.active-icon-color : ComponentTheme.side-bar.inactive-icon-color;
+        colorize: root.active || ta.has-hover ? ComponentTheme.side-bar.active-icon-color : ComponentTheme.side-bar.inactive-icon-color;
     }
 
-    TouchArea {
+    ta := TouchArea {
         clicked => {
             root.activate();
         }
