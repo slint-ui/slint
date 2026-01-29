@@ -640,6 +640,10 @@ jobs:
                   fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
                   cat $notes_file slint-src/docs/release-artifacts.md > release-notes.md
+                  branch="${GITHUB_REF#refs/heads/}"
+                  feature="${GITHUB_REF##*/}"
+                  sed -i -e "s,{branch},$branch,g" release-notes.md
+                  sed -i -e "s,{feature},$feature,g" release-notes.md
                   sed -i -e "s,{version},$version,g" release-notes.md
                   sed -i -e "s,{download_version},$download_version,g" release-notes.md
                   sed -i -e "s,{major_version},$major_version,g" release-notes.md
@@ -680,7 +684,7 @@ jobs:
                   bodyFile: release-notes.md
                   name: nightly
                   tag: nightly
-                  commit: 7742f833803020023364c0ec801648fb93f4793b
+                  commit: ${{ github.sha }}
             - name: trigger stm32 build
               run: |
                 curl -L \

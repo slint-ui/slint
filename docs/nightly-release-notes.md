@@ -1,7 +1,7 @@
 
 This GitHub release is a nightly snapshot of Slint development. It serves to provide access to pre-release binaries.
 
-The attached binaries are updated once a day by a GitHub action building from the  `master` branch.
+The attached binaries are updated once a day by a GitHub action building from the  `{branch}` branch.
 
 ## How To Try Out This Development Release
 
@@ -23,13 +23,13 @@ Make sure the log shows you are building the right version of Slint.
 
 For C++ users with a binary package, download the binary from the "Assets" section below.
 
-If you're building from source with CMake's `FetchContent`, change the `GIT_TAG` to `master`:
+If you're building from source with CMake's `FetchContent`, change the `GIT_TAG` to `{branch}`:
 
 ```cmake
 FetchContent_Declare(
     Slint
     GIT_REPOSITORY https://github.com/slint-ui/slint.git
-    GIT_TAG master  # Change this to master
+    GIT_TAG {branch}  # Change this to {branch}
     SOURCE_SUBDIR api/cpp
 )
 ```
@@ -64,6 +64,6 @@ Alternatively, download the binary from "Assets" section below.
 
 ### Online Demos and Documentation
 
- - Documentation: https://slint.dev/snapshots/master/docs
- - SlintPad: https://slint.dev/snapshots/master/editor
+ - Documentation: https://slint.dev/snapshots/{feature}/docs
+ - SlintPad: https://slint.dev/snapshots/{feature}/editor
  - Demos: links from https://github.com/slint-ui/slint/tree/master/examples
