@@ -32,46 +32,34 @@ export component Sidebar inherits Rectangle {
 
     VerticalLayout {
         width: self.preferred-width;
-        padding-top: 24px;
-        spacing: 24px;
+        padding-top: DemoPalette.default-margin;
+        spacing: DemoPalette.default-margin;
         alignment: start;
 
-        SideBarIcon {
+        for page-icon[index] in [
+            @image-url("../images/sidebar/home.svg"),
+            @image-url("../images/sidebar/settings.svg"),
+            @image-url("../images/sidebar/ink.svg"),
+        ]: SideBarIcon {
             activate => {
-                PrinterState.active-page = 0;
                 PrinterState.current-subpage = SubPage.none;
+                PrinterState.active-page = index;
             }
-            icon: @image-url("../images/sidebar/home.svg");
-            active: PrinterState.active-page == 0;
-        }
-
-        SideBarIcon {
-            activate => {
-                PrinterState.active-page = 1;
-                PrinterState.current-subpage = SubPage.none;
-            }
-            icon: @image-url("../images/sidebar/settings.svg");
-            active: PrinterState.active-page == 1;
+            icon: page-icon;
+            active: PrinterState.active-page == index;
         }
     }
 
     VerticalLayout {
         width: self.preferred-width;
-        padding-bottom: 24px;
-        spacing: 24px;
+        padding-bottom: DemoPalette.default-margin;
+        spacing: DemoPalette.default-margin;
         alignment: end;
 
         SideBarIcon {
             activate => {
-                PrinterState.active-page = 2;
-                PrinterState.current-subpage = SubPage.none;
+                root.select-theme();
             }
-            icon: @image-url("../images/sidebar/ink.svg");
-            active: PrinterState.active-page == 2;
-        }
-
-        SideBarIcon {
-            activate => { root.select-theme(); }
             icon: @image-url("../images/sidebar/theme.svg");
             icon-colorize: ComponentTheme.side-bar.inactive-icon-color;
         }
