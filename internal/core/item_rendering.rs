@@ -236,7 +236,7 @@ fn item_children_bounding_rect_inner(
             bounding_rect = bounding_rect.union(&bounding.cast());
 
             if item.as_ref().clips_children() {
-                let clip = transform.outer_transformed_rect(&geom.cast());
+                let clip = transform.outer_transformed_rect(&geom.cast()).cast();
                 if !bounding_rect.contains_rect(&clip) {
                     bounding_rect = bounding_rect.union(
                         &item_children_bounding_rect_inner(
@@ -244,7 +244,7 @@ fn item_children_bounding_rect_inner(
                             window_adapter,
                             transform.then(&children_transform),
                         )
-                        .intersection(&clip.cast())
+                        .intersection(&clip)
                         .unwrap_or_default(),
                     );
                 }
