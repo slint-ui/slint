@@ -553,7 +553,9 @@ jobs:
               id: www-releases
               working-directory: ./www-releases
               run: |
-                git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
+                git add .
+                git add -u .
+                git diff-index --cached --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
 
             - name: commit and push
               if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
@@ -561,8 +563,6 @@ jobs:
               run: |
                 git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
                 git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
-                git add .
-                git add -u .
                 git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
                 git push
 
