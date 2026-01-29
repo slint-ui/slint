@@ -14,8 +14,10 @@ import { PrinterQueue } from "./printer_queue.slint";
 // re-export for the native code
 export { PrinterQueue, PrinterSettings }
 
-import "./fonts/NotoSans-Regular.ttf";
-import "./fonts/NotoSans-Bold.ttf";
+import "./fonts/Inter-24pt-Regular.ttf";
+import "./fonts/Inter-24pt-Medium.ttf";
+import "./fonts/Inter-24pt-SemiBold.ttf";
+import "./fonts/Inter-24pt-Bold.ttf";
 import { Sidebar } from "components/sidebar.slint";
 
 
@@ -34,7 +36,7 @@ export component MainWindow inherits Window {
     min-width: 772px;
     min-height: 504px;
     title: @tr("Slint printer demo");
-    default-font-family: "Noto Sans";
+    default-font-family: "Inter 24pt";
     default-font-size: DemoPalette.base-font-size;
 
     Rectangle {
