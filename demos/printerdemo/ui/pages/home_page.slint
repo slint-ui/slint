@@ -7,7 +7,7 @@ import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
 import { PrinterQueueView } from "./printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
-import { Page } from "./page.slint";
+import { Page, Header } from "./page.slint";
 component ActionButton  {
     in property <image> icon <=> img.source;
     in property <string> text <=> label.text;
@@ -61,7 +61,7 @@ export component HomePage inherits Page {
     in-out property <length> header-row-height: 40px;
     in-out property <length> button-spacing: 35px;
 
-    has-header: false;
+    header-type: Header.none;
 
     Text {
         x: DemoPalette.default-margin;
