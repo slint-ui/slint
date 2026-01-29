@@ -10,6 +10,7 @@ import {
     PrinterSettings,
 } from "./pages/pages.slint";
 import { PrinterQueue } from "./printer_queue.slint";
+import { Sidebar } from "components/sidebar.slint";
 
 // re-export for the native code
 export { PrinterQueue, PrinterSettings }
@@ -18,8 +19,6 @@ import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
 import "./fonts/Inter-24pt-SemiBold.ttf";
 import "./fonts/Inter-24pt-Bold.ttf";
-import { Sidebar } from "components/sidebar.slint";
-
 
 export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
@@ -36,7 +35,7 @@ export component MainWindow inherits Window {
     min-width: 772px;
     min-height: 504px;
     title: @tr("Slint printer demo");
-    default-font-family: "Inter 24pt";
+    default-font-family: DemoPalette.medium-weight;
     default-font-size: DemoPalette.base-font-size;
 
     Rectangle {
