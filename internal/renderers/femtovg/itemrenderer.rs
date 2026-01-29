@@ -1135,13 +1135,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
+        let window_adapter = self.window().window_adapter();
+        let current_clip = self.get_current_clip();
         if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
-            // We don't need to include the size of the opacity item itself, since it has no content.
+            // We don't need to include the size of the "layer" item itself, since it has no content.
+            // But intersect with the union of the clip with the geometry to make sure we don't
+            // render insanely large surface.
             i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_children_bounding_rect(
-                    item_rc.item_tree(),
-                    item_rc.index() as isize,
-                )
+                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
+                    .intersection(&current_clip.union(&item_rc.geometry()))
+                    .unwrap_or_default()
             })
         }) && let Some(layer_size) = layer_image.size()
         {

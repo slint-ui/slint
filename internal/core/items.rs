@@ -189,6 +189,8 @@ pub struct ItemVTable {
         size: LogicalSize,
     ) -> RenderingResult,
 
+    /// Returns the rendering bounding rect for that particular item in the parent's item coordinate
+    /// (same coordinate system as the geometry)
     pub bounding_rect: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         window_adapter: &WindowAdapterRc,

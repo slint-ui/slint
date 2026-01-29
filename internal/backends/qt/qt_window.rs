@@ -1492,15 +1492,19 @@ impl QtItemRenderer<'_> {
         })
     }
 
-    fn render_and_blend_layer(&mut self, alpha_tint: f32, self_rc: &ItemRc) -> RenderingResult {
-        let mut layer_image = self.render_layer(self_rc, &|| {
-            // We don't need to include the size of the opacity item itself, since it has no content.
+    fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
+        let window_adapter = self.window().window_adapter();
+        let current_clip = self.get_current_clip();
+        let mut layer_image = self.render_layer(item_rc, &|| {
+            // FIXME: We don't need to include the size of the opacity item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                self_rc.geometry().union(
+                item_rc.geometry().union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
-                        &self_rc.item_tree(),
-                        self_rc.index() as isize,
-                    ),
+                        item_rc,
+                        &window_adapter,
+                    )
+                    .intersection(&current_clip)
+                    .unwrap_or_default(),
                 )
             });
             children_rect.size
