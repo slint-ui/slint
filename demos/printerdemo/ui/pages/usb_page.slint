@@ -1,107 +1,98 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { PushButton } from "../common.slint";
-import { StandardListView } from "std-widgets.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 import { Page } from "./page.slint";
 import { SpinBox } from "../components/spinbox.slint";
 import { DropDownMenu } from "../components/drop_down_menu.slint";
-import { Label } from "../../../printerdemo_mcu/ui/common.slint";
+import { IconTextButton } from "../components/icon_text_button.slint";
+import { TextButton } from "../components/text_button.slint";
+import { DemoPalette, Label } from "../common.slint";
+import { VerticalBox } from "std-widgets.slint";
 
 struct File  { name: string, preview: image }
 
 export component UsbPage inherits Page {
     in property <[File]> files: [
-        { name: ".." },
         { name: "cat.jpg", preview: @image-url("../images/cat.jpg") },
         { name: "dog.jpg", preview: @image-url("../images/dog.jpg") },
         { name: "elephant.jpg",preview: @image-url("../images/elephant.jpg") },
         { name: "snake.jpg", preview: @image-url("../images/snake.jpg") },
     ];
 
+    in property <[string]> file-names: ["cat.jpg", "dog.jpg", "elephant.jpg", "snake.jpg"];
+
     header: @tr("USB");
     subtitle: @tr("Choose Settings");
 
-    GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
+    HorizontalLayout {
+
+        HorizontalLayout {
+            width: 50%;
+            padding: 20px;
+            Rectangle {
+                border-radius: 16px;
+                clip: true;
+                Image {
+                    height: 100%;
+                    width: 100%;
+                    source: root.files[image-selector.current-index].preview;
+                    image-fit: cover;
+                }
+            }
+        }
 
         Rectangle {
             width: 50%;
-            rowspan: 5;
-            border-radius: 30px;
-            clip: true;
-            Image {
-                height: 100%;
-                width: 100%;
-                source: root.files[list-view.current-item].preview;
-                image-fit: cover;
-            }
 
-        }
+            VerticalLayout {
+                padding: 20px;
+                spacing: 20px;
 
-        Label {
-            col: 1;
-            row: 0;
-            text: @tr("Select File:");
-            vertical-stretch: 0;
-            max-height: 32px;
-        }
+                Rectangle {}
 
-        list-view := StandardListView {
-            current-item: 1;
-            col: 1;
-            row: 1;
-            colspan: 2;
-            horizontal-stretch: 1;
-            vertical-stretch: 1;
-            // TODO: maybe we want something like `model: files.map(item => { text: item.preview })`
-            model: [
-                { text: ".." },
-                { text: "cat.jpg" },
-                { text: "dog.jpg" },
-                { text: "elephant.jpg" },
-                { text: "snake.jpg" },
-            ];
-        }
-
-        Row {
-            SpinBox {
-                value: 1;
-                minimum: 1;
-                label: @tr("Copies");
-            }
-        }
-
-        Row {
-            DropDownMenu {
-                value: @tr("Grayscale");
-                label: @tr("Color");
-                items: [@tr("Grayscale"), @tr("Color")];
-            }
-        }
-
-        HorizontalLayout {
-            row: 4;
-            col: 1;
-            colspan: 2;
-
-            Rectangle {
-                horizontal-stretch: 0;
-                width: 10%;
-            }
-            PushButton {
-                icon: @image-url("../images/print.svg");
-                text: @tr("Start printing");
-                clicked => {
-                    PrinterQueue.start-job(root.files[list-view.current-item].name);
+                image-selector := DropDownMenu {
+                    label: @tr("Select File:");
+                    value: file-names[0];
+                    items: root.file-names;
                 }
-            }
-            Rectangle {
-                horizontal-stretch: 0;
-                width: 10%;
+
+                SpinBox {
+                    value: 1;
+                    minimum: 1;
+                    label: @tr("Copies");
+                }
+
+                VerticalLayout {
+                    Label {
+                        text: @tr("Color");
+                        color: DemoPalette.text-primary;
+                    }
+                    TextButton {
+                        property <bool> is-color: true;
+                        text: is-color ? @tr("Color") : @tr("Grayscale");
+                        background: is-color ? DemoPalette.color-button-gradient : DemoPalette.grayscale-button-gradient;
+                        height: 50px;
+
+                        clicked => {
+                            is-color = !is-color;
+                        }
+                    }
+                }
+
+                IconTextButton {
+                    icon: @image-url("../images/print.svg");
+                    text: @tr("Start printing");
+                    height: 60px;
+                    icon-color: white;
+                    text-color: white;
+                    background: self.hovered ? #287bff.darker(5%) : #287bff;
+                    clicked => {
+                        PrinterQueue.start-job(root.files[image-selector.current-index].name);
+                    }
+                }
+
+                Rectangle {}
             }
         }
     }
