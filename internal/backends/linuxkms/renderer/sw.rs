@@ -95,10 +95,10 @@ impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     fn from(pixel: DumbBufferPixelBgra8888) -> Self {
         let v = pixel.0;
         PremultipliedRgbaColor {
-            red: (v >> 0) as u8,
-            green: (v >> 8) as u8,
-            blue: (v >> 16) as u8,
-            alpha: (v >> 24) as u8,
+            red: (v >> 8) as u8,
+            green: (v >> 16) as u8,
+            blue: (v >> 24) as u8,
+            alpha: (v >> 0) as u8,
         }
     }
 }
@@ -107,10 +107,10 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelBgra8888 {
     #[inline]
     fn from(pixel: PremultipliedRgbaColor) -> Self {
         Self(
-            (pixel.alpha as u32) << 24
-                | ((pixel.blue as u32) << 16) // B and R swapped
-                | ((pixel.green as u32) << 8)
-                | (pixel.red as u32),
+            pixel.alpha as u32
+                | ((pixel.red as u32) << 8)
+                | ((pixel.green as u32) << 16)
+                | ((pixel.blue as u32) << 24),
         )
     }
 }
@@ -138,7 +138,7 @@ impl TargetPixel for DumbBufferPixelBgra8888 {
         *self = x.into();
     }
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32))
+        Self(0x000000ff | ((r as u32) << 8) | ((g as u32) << 16) | ((b as u32) << 24))
     }
     fn background() -> Self {
         Self(0)
