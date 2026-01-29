@@ -188,11 +188,12 @@ component NarrowPrintQueueElement {
                 spacing: 4px;
                 alignment: start;
                 always-visible := VerticalLayout {
-                    spacing: parent.spacing;
+                    spacing: 8px;
                     HorizontalLayout {
                         spacing: 8px;
+                        height: self.preferred-height;
                         Rectangle {
-                            y: (parent.height - self.height) / 2;
+                            y: 1px;
                             width: 8px;
                             height: self.width;
                             border-radius: self.width / 2;
@@ -211,6 +212,7 @@ component NarrowPrintQueueElement {
                             font-size: 12px;
                             font-family: DemoPalette.regular-weight;
                             letter-spacing: 1.56px;
+                            // vertical-alignment: center;
                         }
                     }
 
@@ -446,12 +448,6 @@ export component PrinterQueueView inherits Rectangle {
     VerticalLayout {
         Rectangle {
             height: 70px;
-            Rectangle {
-                y: parent.height - self.height;
-                width: 100%;
-                height: 1px;
-                background: DemoPalette.header-separator;
-            }
         }
 
         queue-list := NarrowPrinterQueueList {
