@@ -8,21 +8,27 @@ export component DropDownMenu inherits VerticalLayout {
 
     callback selected(int);
 
-    label-layout := Label { }
+    label-layout := Label {}
+    alignment: start;
+    spacing: 4px;
 
     Rectangle {
         border-radius: 14px;
         border-width: 2px;
         border-color: #e2e8f0;
-        height: 60px;
+        height: 52px;
 
         HorizontalLayout {
             alignment: space-between;
             spacing: 10px;
             padding: 20px;
-            height: parent.height;
+            height: self.preferred-height;
 
-            default-option := Label { text: root.value; }
+            default-option := Label {
+                vertical-alignment: center;
+                text: root.value;
+                font-size: 16px;
+            }
 
             i := Image {
                 source: @image-url("../images/back.svg");
@@ -42,7 +48,7 @@ export component DropDownMenu inherits VerticalLayout {
 
         popup := PopupWindow {
             x:0;
-            y: parent.height;
+            y: parent.height + 8px;
             width: root.width;
 
             Rectangle {
