@@ -244,7 +244,7 @@ fn item_children_bounding_rect_inner(
                             window_adapter,
                             transform.then(&children_transform),
                         )
-                        .intersection(&clip)
+                        .intersection(&clip.cast())
                         .unwrap_or_default(),
                     );
                 }
