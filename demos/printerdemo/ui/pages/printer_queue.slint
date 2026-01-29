@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, PushButton } from "../common.slint";
+import { DemoPalette } from "../common.slint";
+import { IconTextButton } from "../components/icon_text_button.slint";
+import { TextButton } from "../components/text_button.slint";
+
 
 export struct PrinterQueueItem  {
     status: string,
@@ -205,7 +208,7 @@ component NarrowPrintQueueElement {
                             width: 8px;
                             height: self.width;
                             border-radius: self.width / 2;
-                            background: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-header;
+                            background: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-tertiary;
                         }
 
                         Text {
@@ -216,7 +219,7 @@ component NarrowPrintQueueElement {
                                     PrinterQueue.statusString(root.queue-item.status)
                                 }
                             }
-                            color: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-header;
+                            color: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-tertiary;
                             font-size: 12px;
                             font-family: DemoPalette.regular-weight;
                             letter-spacing: 1.56px;
@@ -246,7 +249,7 @@ component NarrowPrintQueueElement {
                         width: 10%;
                     }
 
-                    PushButton {
+                    TextButton {
                         clicked => {
                             root.show-job-details();
                         }
@@ -380,7 +383,7 @@ component WidePrintQueueElement inherits Rectangle {
             horizontal-stretch: 1;
             vertical-stretch: 0;
 
-            PushButton {
+            IconTextButton {
                 clicked => {
                     root.pause-job();
                 }
@@ -389,11 +392,10 @@ component WidePrintQueueElement inherits Rectangle {
                 icon: @image-url("../images/pause.svg");
             }
 
-            PushButton {
+            IconTextButton {
                 clicked => {
                     root.cancel-job();
                 }
-                primary: false;
                 text: @tr("Delete");
                 icon: @image-url("../images/delete.svg");
             }
