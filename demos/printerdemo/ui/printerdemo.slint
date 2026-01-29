@@ -19,6 +19,7 @@ import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
 import "./fonts/Inter-24pt-SemiBold.ttf";
 import "./fonts/Inter-24pt-Bold.ttf";
+import { MenuPopup } from "components/popup_menu.slint";
 
 export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
@@ -65,44 +66,19 @@ export component MainWindow inherits Window {
             }
         }
 
-        popup := PopupWindow {
+        property <int> current_theme_index: 0;
+
+        popup := MenuPopup {
             x: side-bar.width + 10px;
             y: root.height - self.preferred-height - 10px;
             width: 200px;
-            property <[Theme]> items: [Theme.Gradient, Theme.Minimalist, Theme.Vibrant, Theme.Glass];
+            property <[Theme]> themes: [Theme.Gradient, Theme.Minimalist, Theme.Vibrant, Theme.Glass];
+            items: ["Gradient", "Minimalist", "Vibrant", "Glass"];
+            current_index: current_theme_index;
 
-            frame := Rectangle {
-                background: DemoPalette.background;
-                border-radius: 14px;
-                border-width: 2px;
-                border-color: DemoPalette.secondary;
-                clip: true;
-
-                content := VerticalLayout {
-                    for value[idx] in items: Rectangle {
-                        property <int> current_index: DemoPalette.theme == value ? idx : -1;
-                        background: idx == current_index ? DemoPalette.secondary : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
-                        height: 60px;
-                        border-top-left-radius: idx == 0 ? frame.border-radius : 0;
-                        border-top-right-radius: idx == 0 ? frame.border-radius : 0;
-                        border-bottom-left-radius: idx == items.length - 1 ? frame.border-radius : 0;
-                        border-bottom-right-radius: idx == items.length - 1 ? frame.border-radius : 0;
-
-                        HorizontalLayout {
-                            padding: 20px;
-                            Label {
-                                text: DemoPalette.theme-label(value);
-                                color: idx == current_index ? white : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
-                            }
-                        }
-
-                        item-area := TouchArea {
-                            clicked => {
-                                DemoPalette.theme = value;
-                            }
-                        }
-                    }
-                }
+            selected(index) => {
+                current_theme_index = index;
+                DemoPalette.theme = themes[index];
             }
         }
     }
