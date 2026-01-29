@@ -1,8 +1,8 @@
 import { DemoPalette, Label, PrinterState } from "../common.slint";
+import { MenuPopup } from "popup_menu.slint";
 
 export component DropDownMenu inherits VerticalLayout {
     in property <string> label <=> label-layout.text;
-    in-out property <string> value;
     in property <[string]> items;
     in-out property <int> current_index: 0;
 
@@ -26,7 +26,7 @@ export component DropDownMenu inherits VerticalLayout {
 
             default-option := Label {
                 vertical-alignment: center;
-                text: root.value;
+                text: root.items[root.current_index];
                 font-size: 16px;
             }
 
@@ -46,44 +46,17 @@ export component DropDownMenu inherits VerticalLayout {
             }
         }
 
-        popup := PopupWindow {
+        popup := MenuPopup {
             x:0;
             y: parent.height + 4px;
             width: root.width;
 
-            frame := Rectangle {
-                background: DemoPalette.background;
-                border-radius: 14px;
-                border-width: 2px;
-                border-color: DemoPalette.secondary;
-                clip: true;
+            items: root.items;
+            current_index: root.current_index;
 
-                VerticalLayout {
-                    for value[idx] in root.items: Rectangle {
-                        background: idx == root.current_index ? DemoPalette.secondary : item-area.has-hover ? DemoPalette.secondary.transparentize(0.8) : #0000;
-                        height: 60px;
-                        border-top-left-radius: idx == 0 ? frame.border-radius : 0;
-                        border-top-right-radius: idx == 0 ? frame.border-radius : 0;
-                        border-bottom-left-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
-                        border-bottom-right-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
-
-                        HorizontalLayout {
-                            padding: 20px;
-                            Label {
-                                text: value;
-                                color: idx == root.current_index ? white : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
-                            }
-                        }
-
-                        item-area := TouchArea {
-                            clicked => {
-                                root.value = value;
-                                root.current_index = idx;
-                                root.selected(idx);
-                            }
-                        }
-                    }
-                }
+            selected(index) => {
+                root.current_index = index;
+                root.selected(index);
             }
         }
     }
