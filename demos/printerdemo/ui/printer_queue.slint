@@ -208,8 +208,8 @@ component NarrowPrintQueueElement {
                                 }
                             }
                             color: root.queue-item.status == "printing" ? DemoPalette.text-secondary : DemoPalette.text-secondary-header;
-                            font-size: 14px;
-                            font-weight: 500;
+                            font-size: 12px;
+                            font-family: DemoPalette.regular-weight;
                             letter-spacing: 1.56px;
                         }
                     }
@@ -219,8 +219,8 @@ component NarrowPrintQueueElement {
                         text: root.queue-item.title;
                         overflow: elide;
                         color: DemoPalette.text-primary;
-                        font-weight: 500;
-                        font-size: 16px;
+                        font-family: DemoPalette.regular-weight;
+                        font-size: 14px;
                     }
                 }
 
@@ -438,8 +438,9 @@ export component PrinterQueueView inherits Rectangle {
         y: DemoPalette.default-margin;
         text: @tr("Printing Queue");
         color: DemoPalette.text-primary;
-        font-size: DemoPalette.title-font-size;
-        font-weight: DemoPalette.medium-weight;
+        font-size: 20px;
+        font-family: DemoPalette.medium-weight;
+        letter-spacing: 0.045px;
     }
 
     VerticalLayout {
