@@ -407,13 +407,17 @@ fn layout(
             _ => return None,
         }?;
         let glyph = run.positioned_glyphs().next()?;
-        Some(glyph)
+        Some((glyph, run.run().font().clone()))
     };
 
     let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
         (options.text_overflow, max_physical_width)
     {
-        get_elipsis_glyph().map(|elipsis_glyph| ElisionInfo { elipsis_glyph, max_physical_width })
+        get_elipsis_glyph().map(|(elipsis_glyph, font_for_elipsis_glyph)| ElisionInfo {
+            elipsis_glyph,
+            font_for_elipsis_glyph,
+            max_physical_width,
+        })
     } else {
         None
     };
@@ -464,6 +468,7 @@ fn layout(
 
 struct ElisionInfo {
     elipsis_glyph: parley::layout::Glyph,
+    font_for_elipsis_glyph: parley::FontData,
     max_physical_width: PhysicalLength,
 }
 
@@ -515,144 +520,171 @@ impl TextParagraph {
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let run = glyph_run.run();
+                        let elipsis = if last_line {
+                            let (truncated_glyphs, elipsis) =
+                                layout.glyphs_with_elision(&glyph_run);
 
-                        let brush = &glyph_run.style().brush;
-
-                        let mut elided_glyphs_it;
-                        let mut unelided_glyphs_it;
-                        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>;
-
-                        if last_line {
-                            elided_glyphs_it = layout.glyphs_with_elision(&glyph_run);
-                            glyphs_it = &mut elided_glyphs_it;
+                            Self::draw_glyph_run(
+                                &glyph_run,
+                                item_renderer,
+                                default_fill_brush,
+                                default_stroke_brush,
+                                para_y,
+                                &mut truncated_glyphs.into_iter(),
+                                draw_glyphs,
+                            );
+                            elipsis
                         } else {
-                            unelided_glyphs_it = glyph_run.positioned_glyphs();
-                            glyphs_it = &mut unelided_glyphs_it;
+                            Self::draw_glyph_run(
+                                &glyph_run,
+                                item_renderer,
+                                default_fill_brush,
+                                default_stroke_brush,
+                                para_y,
+                                &mut glyph_run.positioned_glyphs(),
+                                draw_glyphs,
+                            );
+                            None
                         };
 
-                        let (fill_brush, stroke_style) =
-                            match (brush.override_fill_color, brush.link_color) {
-                                (Some(color), _) => {
-                                    let Some(selection_brush) =
-                                        item_renderer.platform_brush_for_color(&color)
-                                    else {
-                                        // Weird, a transparent selection color, but ok...
-                                        continue;
-                                    };
-                                    (selection_brush.clone(), &None)
-                                }
-                                (None, Some(color)) => {
-                                    let Some(link_brush) =
-                                        item_renderer.platform_brush_for_color(&color)
-                                    else {
-                                        // Weird, a transparent selection color, but ok...
-                                        continue;
-                                    };
-                                    (link_brush.clone(), &None)
-                                }
-                                (None, None) => (default_fill_brush.clone(), &brush.stroke),
-                            };
-
-                        match stroke_style {
-                            Some(TextStrokeStyle::Outside) => {
-                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
-
-                                if let Some(stroke_brush) = default_stroke_brush.clone() {
-                                    draw_glyphs(
-                                        item_renderer,
-                                        run.font(),
-                                        PhysicalLength::new(run.font_size()),
-                                        stroke_brush,
-                                        para_y,
-                                        &mut glyphs.iter().cloned(),
-                                    );
-                                }
-
-                                draw_glyphs(
-                                    item_renderer,
-                                    run.font(),
-                                    PhysicalLength::new(run.font_size()),
-                                    fill_brush.clone(),
-                                    para_y,
-                                    &mut glyphs.into_iter(),
-                                );
-                            }
-                            Some(TextStrokeStyle::Center) => {
-                                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
-
-                                draw_glyphs(
-                                    item_renderer,
-                                    run.font(),
-                                    PhysicalLength::new(run.font_size()),
-                                    fill_brush.clone(),
-                                    para_y,
-                                    &mut glyphs.iter().cloned(),
-                                );
-
-                                if let Some(stroke_brush) = default_stroke_brush.clone() {
-                                    draw_glyphs(
-                                        item_renderer,
-                                        run.font(),
-                                        PhysicalLength::new(run.font_size()),
-                                        stroke_brush,
-                                        para_y,
-                                        &mut glyphs.into_iter(),
-                                    );
-                                }
-                            }
-                            None => {
-                                draw_glyphs(
-                                    item_renderer,
-                                    run.font(),
-                                    PhysicalLength::new(run.font_size()),
-                                    fill_brush.clone(),
-                                    para_y,
-                                    glyphs_it,
-                                );
-                            }
-                        }
-
-                        let metrics = run.metrics();
-
-                        if glyph_run.style().underline.is_some() {
-                            item_renderer.fill_rectangle(
-                                PhysicalRect::new(
-                                    PhysicalPoint::from_lengths(
-                                        PhysicalLength::new(glyph_run.offset()),
-                                        para_y
-                                            + PhysicalLength::new(
-                                                run.font_size() - metrics.underline_offset,
-                                            ),
-                                    ),
-                                    PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
-                                ),
-                                fill_brush.clone(),
-                            );
-                        }
-
-                        if glyph_run.style().strikethrough.is_some() {
-                            item_renderer.fill_rectangle(
-                                PhysicalRect::new(
-                                    PhysicalPoint::from_lengths(
-                                        PhysicalLength::new(glyph_run.offset()),
-                                        para_y
-                                            + PhysicalLength::new(
-                                                run.font_size() - metrics.strikethrough_offset,
-                                            ),
-                                    ),
-                                    PhysicalSize::new(
-                                        glyph_run.advance(),
-                                        metrics.strikethrough_size,
-                                    ),
-                                ),
-                                fill_brush,
+                        if let Some((elipsis_glyph, elipsis_font, font_size)) = elipsis {
+                            draw_glyphs(
+                                item_renderer,
+                                &elipsis_font,
+                                font_size,
+                                default_fill_brush.clone(),
+                                para_y,
+                                &mut core::iter::once(elipsis_glyph),
                             );
                         }
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
             }
+        }
+    }
+
+    fn draw_glyph_run<R: GlyphRenderer>(
+        glyph_run: &parley::layout::GlyphRun<Brush>,
+        item_renderer: &mut R,
+        default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
+        default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
+        para_y: PhysicalLength,
+        glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
+        draw_glyphs: &mut dyn FnMut(
+            &mut R,
+            &parley::FontData,
+            PhysicalLength,
+            <R as GlyphRenderer>::PlatformBrush,
+            PhysicalLength,
+            &mut dyn Iterator<Item = parley::layout::Glyph>,
+        ),
+    ) {
+        let run = glyph_run.run();
+        let brush = &glyph_run.style().brush;
+
+        let (fill_brush, stroke_style) = match (brush.override_fill_color, brush.link_color) {
+            (Some(color), _) => {
+                let Some(selection_brush) = item_renderer.platform_brush_for_color(&color) else {
+                    return;
+                };
+                (selection_brush.clone(), &None)
+            }
+            (None, Some(color)) => {
+                let Some(link_brush) = item_renderer.platform_brush_for_color(&color) else {
+                    return;
+                };
+                (link_brush.clone(), &None)
+            }
+            (None, None) => (default_fill_brush.clone(), &brush.stroke),
+        };
+
+        match stroke_style {
+            Some(TextStrokeStyle::Outside) => {
+                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
+
+                if let Some(stroke_brush) = default_stroke_brush.clone() {
+                    draw_glyphs(
+                        item_renderer,
+                        run.font(),
+                        PhysicalLength::new(run.font_size()),
+                        stroke_brush,
+                        para_y,
+                        &mut glyphs.iter().cloned(),
+                    );
+                }
+
+                draw_glyphs(
+                    item_renderer,
+                    run.font(),
+                    PhysicalLength::new(run.font_size()),
+                    fill_brush.clone(),
+                    para_y,
+                    &mut glyphs.into_iter(),
+                );
+            }
+            Some(TextStrokeStyle::Center) => {
+                let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
+
+                draw_glyphs(
+                    item_renderer,
+                    run.font(),
+                    PhysicalLength::new(run.font_size()),
+                    fill_brush.clone(),
+                    para_y,
+                    &mut glyphs.iter().cloned(),
+                );
+
+                if let Some(stroke_brush) = default_stroke_brush.clone() {
+                    draw_glyphs(
+                        item_renderer,
+                        run.font(),
+                        PhysicalLength::new(run.font_size()),
+                        stroke_brush,
+                        para_y,
+                        &mut glyphs.into_iter(),
+                    );
+                }
+            }
+            None => {
+                draw_glyphs(
+                    item_renderer,
+                    run.font(),
+                    PhysicalLength::new(run.font_size()),
+                    fill_brush.clone(),
+                    para_y,
+                    glyphs_it,
+                );
+            }
+        }
+
+        let metrics = run.metrics();
+
+        if glyph_run.style().underline.is_some() {
+            item_renderer.fill_rectangle(
+                PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        PhysicalLength::new(glyph_run.offset()),
+                        para_y + PhysicalLength::new(run.font_size() - metrics.underline_offset),
+                    ),
+                    PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
+                ),
+                fill_brush.clone(),
+            );
+        }
+
+        if glyph_run.style().strikethrough.is_some() {
+            item_renderer.fill_rectangle(
+                PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        PhysicalLength::new(glyph_run.offset()),
+                        para_y
+                            + PhysicalLength::new(run.font_size() - metrics.strikethrough_offset),
+                    ),
+                    PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
+                ),
+                fill_brush,
+            );
         }
     }
 }
@@ -772,43 +804,60 @@ impl Layout {
         )
     }
 
-    /// Returns an iterator over the run's glyphs but with an optional elision
-    /// glyph replacing the last line's last glyph that's exceeding the max width - if applicable.
+    /// Returns an iterator over the run's glyphs, truncated if necessary to fit within the max width,
+    /// plus an optional elipsis glyph with its font and size to be drawn separately.
     /// Call this function only for the last line of the layout.
     fn glyphs_with_elision<'a>(
         &'a self,
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
-    ) -> impl Iterator<Item = parley::layout::Glyph> + Clone + 'a {
-        let run_beyond_max_width = self.elision_info.as_ref().map_or(false, |info| {
-            let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
+    ) -> (
+        impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
+        Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
+    ) {
+        let elipsis_advance =
+            self.elision_info.as_ref().map(|info| info.elipsis_glyph.advance).unwrap_or(0.0);
+        let max_width = self
+            .elision_info
+            .as_ref()
+            .map(|info| info.max_physical_width)
+            .unwrap_or(PhysicalLength::new(f32::MAX));
 
-            run_end > info.max_physical_width
+        let run_start = PhysicalLength::new(glyph_run.offset());
+        let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
+
+        // Run starts after where the elipsis would go - skip entirely
+        let run_beyond_elision = run_start > max_width;
+        // Run extends beyond max width and needs truncation + elipsis
+        let needs_elision = !run_beyond_elision && run_end > max_width;
+
+        let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
+            !run_beyond_elision
+                && (!needs_elision
+                    || PhysicalLength::new(glyph.x + glyph.advance + elipsis_advance) <= max_width)
         });
 
-        let mut elipsis_emitted = false;
-        glyph_run.positioned_glyphs().filter_map(move |mut glyph| {
-            if !run_beyond_max_width {
-                return Some(glyph);
-            }
-            let Some(elision_info) = &self.elision_info else {
-                return Some(glyph);
-            };
+        let elipsis = if needs_elision {
+            self.elision_info.as_ref().map(|info| {
+                let elipsis_x = glyph_run
+                    .positioned_glyphs()
+                    .find(|glyph| {
+                        PhysicalLength::new(glyph.x + glyph.advance + info.elipsis_glyph.advance)
+                            > info.max_physical_width
+                    })
+                    .map(|g| g.x)
+                    .unwrap_or(0.0);
 
-            if PhysicalLength::new(glyph.x + glyph.advance + elision_info.elipsis_glyph.advance)
-                > elision_info.max_physical_width
-            {
-                if elipsis_emitted {
-                    None
-                } else {
-                    elipsis_emitted = true;
-                    glyph.advance = elision_info.elipsis_glyph.advance;
-                    glyph.id = elision_info.elipsis_glyph.id;
-                    Some(glyph)
-                }
-            } else {
-                Some(glyph)
-            }
-        })
+                let mut elipsis_glyph = info.elipsis_glyph.clone();
+                elipsis_glyph.x = elipsis_x;
+
+                let font_size = PhysicalLength::new(glyph_run.run().font_size());
+                (elipsis_glyph, info.font_for_elipsis_glyph.clone(), font_size)
+            })
+        } else {
+            None
+        };
+
+        (truncated_glyphs, elipsis)
     }
 
     fn draw<R: GlyphRenderer>(
