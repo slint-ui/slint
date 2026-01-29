@@ -25,11 +25,6 @@ pub fn convert_slint_key_event_to_servo_input_event(
 
 fn key_from_text(text: &str) -> Key {
 
-    // Special handling for Space
-    if text == " " {
-        return Key::Character(text.to_string());
-    }
-
     // Helper macro to check against a Slint Key
     macro_rules! check_key {
         ($slint_k:expr, $servo_k:expr) => {
