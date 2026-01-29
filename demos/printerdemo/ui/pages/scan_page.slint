@@ -14,9 +14,10 @@ export component ScanPage inherits Page {
     subtitle: @tr("Choose Settings");
 
     GridLayout {
-        padding: 20px;
-        spacing: 20px;
+        padding: DemoPalette.default-margin;
+        spacing: 16px;
         width: parent.width;
+        height: self.preferred-height;
 
         property <length> item-width: (parent.width - self.spacing - self.padding * 2) / 2;
 
@@ -73,9 +74,10 @@ export component ScanPage inherits Page {
             IconTextButton {
                 colspan: 2;
                 icon: @image-url("../images/scan.svg");
+                font-size: 18px;
                 text: @tr("Start scanning");
-                background: green;
-                height: 70px;
+                background: @linear-gradient(90deg, #00BC7D 0%, #009966 100%);
+                height: 60px;
                 icon-color: white;
                 text-color: white;
                 clicked => {

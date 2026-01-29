@@ -9,6 +9,7 @@ export component IconTextButton inherits Button {
     in property <string> text <=> label.text;
     in property <brush> icon-color <=> img.colorize;
     in property <brush> text-color <=> label.color;
+    in property font-size <=> label.font-size;
 
     height: 40px;
     border-radius: 14px;
@@ -25,8 +26,8 @@ export component IconTextButton inherits Button {
         alignment: center;
 
         img := Image {
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: self.width;
             image-fit: contain;
             y: (parent.height - self.height) / 2;
             colorize: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
