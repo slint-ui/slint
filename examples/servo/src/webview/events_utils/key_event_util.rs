@@ -24,16 +24,6 @@ pub fn convert_slint_key_event_to_servo_input_event(
 }
 
 fn key_from_text(text: &str) -> Key {
-    // If single character, return it
-    if text.chars().count() == 1 {
-        return Key::Character(text.to_string());
-    }
-
-    // Special handling for Space
-    if text == " " {
-        return Key::Character(text.to_string());
-    }
-
     // Helper macro to check against a Slint Key
     macro_rules! check_key {
         ($slint_k:expr, $servo_k:expr) => {
@@ -88,6 +78,11 @@ fn key_from_text(text: &str) -> Key {
 
     check_key!(SlintKey::Pause, NamedKey::Pause);
     check_key!(SlintKey::ScrollLock, NamedKey::ScrollLock);
+
+    // If single character, return it
+    if text.chars().count() == 1 {
+        return Key::Character(text.to_string());
+    }
 
     Key::Named(NamedKey::Unidentified)
 }
