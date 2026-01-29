@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { CheckBox, ComboBox } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component SettingRow inherits Rectangle {
+    in property <string> label;
+    height: 56px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Text {
+            text: root.label;
+            font-size: 16px;
+            color: #333333;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        @children
+    }
+}
+
+export component Settings-appearanceScreen inherits ScreenWithHeader {
+    title: "Appearance";
+    background: #f5f5f5;
+
+    in-out property <bool> dark-mode: false;
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    SettingRow {
+                        label: "Dark Mode";
+                        CheckBox {
+                            checked <=> dark-mode;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

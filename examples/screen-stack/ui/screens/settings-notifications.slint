@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { CheckBox } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component SettingRow inherits Rectangle {
+    in property <string> label;
+    in property <string> description;
+    height: description != "" ? 72px : 56px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+
+            Text {
+                text: root.label;
+                font-size: 16px;
+                color: #333333;
+            }
+
+            if root.description != "": Text {
+                text: root.description;
+                font-size: 13px;
+                color: #888888;
+            }
+        }
+
+        @children
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: #eeeeee;
+}
+
+export component Settings-notificationsScreen inherits ScreenWithHeader {
+    title: "Notifications";
+    background: #f5f5f5;
+
+    in-out property <bool> notifications: true;
+    in-out property <bool> sound-enabled: true;
+    in-out property <bool> vibration: true;
+    in-out property <bool> badges: true;
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    SettingRow {
+                        label: "Enable Notifications";
+                        description: "Receive alerts and updates";
+                        CheckBox {
+                            checked <=> notifications;
+                        }
+                    }
+                    Divider {}
+                    SettingRow {
+                        label: "Sound";
+                        CheckBox {
+                            checked <=> sound-enabled;
+                        }
+                    }
+                    Divider {}
+                    SettingRow {
+                        label: "Vibration";
+                        CheckBox {
+                            checked <=> vibration;
+                        }
+                    }
+                    Divider {}
+                    SettingRow {
+                        label: "Badge Count";
+                        CheckBox {
+                            checked <=> badges;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,141 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AbstractScreen } from "../components/abstract-screen.slint";
+
+component SquareButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    callback clicked;
+
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    background: touch.pressed ? #e8e8e8 : #ffffff;
+    drop-shadow-blur: 8px;
+    drop-shadow-color: #00000020;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 4px;
+
+        Text {
+            text: root.icon;
+            font-size: 28px;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            font-size: 11px;
+            color: #333333;
+            horizontal-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+export component HomeScreen inherits AbstractScreen {
+    background: #f5f5f5;
+
+    callback navigate(string);
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 30px;
+
+        // Slint Logo
+        HorizontalLayout {
+            alignment: center;
+            Image {
+                source: @image-url("../../../../logo/slint-logo-simple-light.svg");
+                width: 120px;
+            }
+        }
+
+        Text {
+            text: "Screen Stack Demo";
+            font-size: 18px;
+            font-weight: 600;
+            color: #333333;
+            horizontal-alignment: center;
+        }
+
+        // Main buttons
+        HorizontalLayout {
+            alignment: center;
+            spacing: 16px;
+
+            SquareButton {
+                icon: "⚙";
+                label: "Settings";
+                clicked => { root.navigate("settings"); }
+            }
+
+            SquareButton {
+                icon: "👤";
+                label: "Profile";
+                clicked => { root.navigate("profile"); }
+            }
+        }
+
+        // List screen examples
+        Text {
+            text: "List Examples";
+            font-size: 14px;
+            color: #888888;
+            horizontal-alignment: center;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 16px;
+
+            SquareButton {
+                icon: "📇";
+                label: "Contacts";
+                clicked => { root.navigate("contacts"); }
+            }
+
+            SquareButton {
+                icon: "📦";
+                label: "Orders";
+                clicked => { root.navigate("orders"); }
+            }
+
+            SquareButton {
+                icon: "🔔";
+                label: "Alerts";
+                clicked => { root.navigate("notifications-list"); }
+            }
+        }
+
+        // Tab screen examples
+        Text {
+            text: "Tab Examples";
+            font-size: 14px;
+            color: #888888;
+            horizontal-alignment: center;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 16px;
+
+            SquareButton {
+                icon: "📊";
+                label: "Dashboard";
+                clicked => { root.navigate("dashboard"); }
+            }
+
+            SquareButton {
+                icon: "🎵";
+                label: "Media";
+                clicked => { root.navigate("media"); }
+            }
+        }
+    }
+}

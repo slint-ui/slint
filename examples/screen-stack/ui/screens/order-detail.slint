@@ -1,0 +1,224 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component InfoRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    height: 48px;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+
+        Text {
+            text: root.label;
+            font-size: 14px;
+            color: #888888;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: root.value;
+            font-size: 14px;
+            color: #333333;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: #eeeeee;
+}
+
+component OrderItem inherits Rectangle {
+    in property <string> name;
+    in property <int> quantity;
+    in property <string> price;
+    height: 56px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #f0f0f0;
+
+            Text {
+                text: "📱";
+                font-size: 20px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+
+            Text {
+                text: root.name;
+                font-size: 14px;
+                color: #333333;
+            }
+
+            Text {
+                text: "Qty: " + root.quantity;
+                font-size: 12px;
+                color: #888888;
+            }
+        }
+
+        Text {
+            text: root.price;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333333;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component Order-detailScreen inherits ScreenWithHeader {
+    title: "Order Details";
+    background: #f5f5f5;
+
+    // Order data - set from Rust
+    in property <string> order-id: "ORD-001";
+    in property <string> order-status: "Delivered";
+    in property <string> order-date: "January 15, 2024";
+    in property <string> order-total: "$299.99";
+    in property <string> shipping-address: "123 Main St, City, 12345";
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // Status card
+            Rectangle {
+                height: 100px;
+                background: order-status == "Delivered" ? #4CAF50 : #2196F3;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 8px;
+
+                    Text {
+                        text: order-status == "Delivered" ? "✓" : "🚚";
+                        font-size: 32px;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: order-status;
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: white;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            // Order info
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    InfoRow {
+                        label: "Order ID";
+                        value: order-id;
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Date";
+                        value: order-date;
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Total";
+                        value: order-total;
+                    }
+                }
+            }
+
+            // Items
+            Text {
+                text: "Items";
+                font-size: 14px;
+                font-weight: 600;
+                color: #888888;
+                horizontal-alignment: left;
+            }
+
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    OrderItem {
+                        name: "Wireless Earbuds";
+                        quantity: 1;
+                        price: "$149.99";
+                    }
+                    Divider {}
+                    OrderItem {
+                        name: "Phone Case";
+                        quantity: 2;
+                        price: "$49.99";
+                    }
+                    Divider {}
+                    OrderItem {
+                        name: "Screen Protector";
+                        quantity: 1;
+                        price: "$19.99";
+                    }
+                }
+            }
+
+            // Shipping
+            Text {
+                text: "Shipping Address";
+                font-size: 14px;
+                font-weight: 600;
+                color: #888888;
+                horizontal-alignment: left;
+            }
+
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+                height: 60px;
+
+                HorizontalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    Text {
+                        text: "📍";
+                        font-size: 20px;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: shipping-address;
+                        font-size: 14px;
+                        color: #333333;
+                        vertical-alignment: center;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+    }
+}

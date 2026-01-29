@@ -1,0 +1,131 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component InfoRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    height: 48px;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+
+        Text {
+            text: root.label;
+            font-size: 16px;
+            color: #333333;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: root.value;
+            font-size: 16px;
+            color: #888888;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: #eeeeee;
+}
+
+export component Settings-aboutScreen inherits ScreenWithHeader {
+    title: "About";
+    background: #f5f5f5;
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // App logo
+            Rectangle {
+                height: 120px;
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 8px;
+
+                    Rectangle {
+                        width: 60px;
+                        height: 60px;
+                        border-radius: 12px;
+                        background: #667eea;
+
+                        Text {
+                            text: "S";
+                            font-size: 32px;
+                            font-weight: 700;
+                            color: white;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "Screen Stack Demo";
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: #333333;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            // Version info
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    InfoRow {
+                        label: "Version";
+                        value: "1.0.0";
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Build";
+                        value: "2024.01";
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Slint Version";
+                        value: "1.15.0";
+                    }
+                }
+            }
+
+            // Links
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    InfoRow {
+                        label: "Documentation";
+                        value: "›";
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Source Code";
+                        value: "›";
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Licenses";
+                        value: "›";
+                    }
+                }
+            }
+        }
+    }
+}

@@ -470,6 +470,24 @@ macro_rules! for_each_enums {
                 AlternateReverse,
             }
 
+            /// This enum describes the interpolation method for property values during animation.
+            /// The `angle-*` variants are particularly useful for angle values where the interpolation path matters.
+            /// Similar to [Qt's RotationAnimation.direction](https://doc.qt.io/qt-6/qml-qtquick-rotationanimation.html#direction-prop)
+            /// and [CSS hue-interpolation-method](https://developer.mozilla.org/en-US/docs/Web/CSS/hue-interpolation-method).
+            #[non_exhaustive]
+            enum Interpolation {
+                /// Standard linear interpolation between start and end values. This is the default for all property types.
+                Linear,
+                /// For angles: interpolate via the shorter arc. Rotating from 10° to 350° will traverse only 20 degrees counterclockwise.
+                AngleShorter,
+                /// For angles: interpolate via the longer arc. Rotating from 10° to 350° will traverse 340 degrees clockwise.
+                AngleLonger,
+                /// For angles: always rotate clockwise.
+                AngleClockwise,
+                /// For angles: always rotate counterclockwise.
+                AngleCounterclockwise,
+            }
+
             /// This enum describes the scrollbar visibility
             #[non_exhaustive]
             enum ScrollBarPolicy {

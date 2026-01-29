@@ -1,0 +1,125 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScreenWithHeader } from "screen-with-header.slint";
+import { ListView } from "std-widgets.slint";
+
+// Generic list item data structure
+export struct ListItem {
+    id: string,
+    icon: string,
+    title: string,
+    subtitle: string,
+    has-arrow: bool,
+}
+
+// Reusable list item component
+export component ListItemView inherits Rectangle {
+    in property <ListItem> item;
+    in property <bool> show-divider: true;
+    callback clicked(string);  // passes item.id
+
+    height: 64px;
+    background: touch.pressed ? #f0f0f0 : transparent;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 16px;
+
+        // Icon
+        if item.icon != "": Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #e3f2fd;
+
+            Text {
+                text: item.icon;
+                font-size: 20px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        // Text content
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 2px;
+
+            Text {
+                text: item.title;
+                font-size: 16px;
+                color: #333333;
+                overflow: elide;
+            }
+
+            if item.subtitle != "": Text {
+                text: item.subtitle;
+                font-size: 13px;
+                color: #888888;
+                overflow: elide;
+            }
+        }
+
+        // Arrow
+        if item.has-arrow: Text {
+            text: "›";
+            font-size: 24px;
+            color: #cccccc;
+            vertical-alignment: center;
+        }
+    }
+
+    // Divider
+    if show-divider: Rectangle {
+        y: parent.height - 1px;
+        x: 72px;
+        width: parent.width - 72px;
+        height: 1px;
+        background: #eeeeee;
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(item.id); }
+    }
+}
+
+// Reusable list screen template
+export component ListScreen inherits ScreenWithHeader {
+    in-out property <[ListItem]> model;
+    in-out property <string> empty-text: "No items";
+    callback item-clicked(string);
+
+    background: #f5f5f5;
+
+    if model.length == 0: Rectangle {
+        VerticalLayout {
+            alignment: center;
+
+            Text {
+                text: root.empty-text;
+                font-size: 16px;
+                color: #888888;
+                horizontal-alignment: center;
+            }
+        }
+    }
+
+    if model.length > 0: Rectangle {
+        background: white;
+        y: 8px;
+        x: 0px;
+        width: 100%;
+        height: parent.height - 16px;
+
+        ListView {
+            for item[index] in root.model: ListItemView {
+                item: item;
+                show-divider: index < root.model.length - 1;
+                clicked(id) => { root.item-clicked(id); }
+            }
+        }
+    }
+}

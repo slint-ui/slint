@@ -10,4 +10,23 @@ export TestCase := Rectangle {
         x: 0phx;
 //      ^error{Unknown property x in PropertyAnimation}
     }
+
+    // Test: interpolation property is rejected for non-angle properties
+    animate width {
+        interpolation: angle-shorter;
+//      >           <error{The 'interpolation' property is only allowed when animating angle properties}
+    }
+    animate height {
+        interpolation: linear;
+//      >           <error{The 'interpolation' property is only allowed when animating angle properties}
+    }
+
+    // Valid: interpolation with angle properties
+    property <angle> my-angle;
+    animate my-angle {
+        interpolation: angle-shorter;
+    }
+    animate transform-rotation {
+        interpolation: angle-counterclockwise;
+    }
 }

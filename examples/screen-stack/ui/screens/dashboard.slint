@@ -1,0 +1,261 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { TabView } from "../components/tab-view.slint";
+
+component StatCard inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <string> icon;
+    in property <color> accent: #2196F3;
+
+    background: white;
+    border-radius: 12px;
+    height: 100px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 16px;
+
+        Rectangle {
+            width: 48px;
+            height: 48px;
+            border-radius: 24px;
+            background: root.accent.with-alpha(0.15);
+
+            Text {
+                text: root.icon;
+                font-size: 24px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+
+            Text {
+                text: root.value;
+                font-size: 24px;
+                font-weight: 700;
+                color: #333333;
+            }
+
+            Text {
+                text: root.label;
+                font-size: 13px;
+                color: #888888;
+            }
+        }
+    }
+}
+
+component ActivityItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> text;
+    in property <string> time;
+
+    height: 56px;
+    background: white;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+
+        Text {
+            text: root.icon;
+            font-size: 20px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.text;
+            font-size: 14px;
+            color: #333333;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: root.time;
+            font-size: 12px;
+            color: #888888;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component DashboardScreen inherits TabView {
+    title: "Dashboard";
+    tabs: ["Overview", "Stats", "Activity"];
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // Overview tab
+            if root.current-tab == 0: Text {
+                text: "Welcome back!";
+                font-size: 24px;
+                font-weight: 600;
+                color: #333333;
+            }
+
+            if root.current-tab == 0: Text {
+                text: "Here's your overview for today.";
+                font-size: 14px;
+                color: #666666;
+            }
+
+            if root.current-tab == 0: StatCard {
+                icon: "👥";
+                label: "Total Users";
+                value: "1,234";
+                accent: #2196F3;
+            }
+
+            if root.current-tab == 0: StatCard {
+                icon: "📈";
+                label: "Revenue";
+                value: "$5,678";
+                accent: #4CAF50;
+            }
+
+            if root.current-tab == 0: StatCard {
+                icon: "🛒";
+                label: "Orders";
+                value: "89";
+                accent: #FF9800;
+            }
+
+            // Stats tab
+            if root.current-tab == 1: Text {
+                text: "Statistics";
+                font-size: 20px;
+                font-weight: 600;
+                color: #333333;
+            }
+
+            if root.current-tab == 1: Rectangle {
+                height: 48px;
+                background: white;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 12px;
+
+                    Text { text: "Mon"; font-size: 14px; color: #666666; width: 40px; vertical-alignment: center; }
+                    Rectangle {
+                        horizontal-stretch: 1; height: 24px; background: #e0e0e0; border-radius: 4px;
+                        Rectangle { width: parent.width * 0.65; height: 100%; background: #2196F3; border-radius: 4px; }
+                    }
+                    Text { text: "65%"; font-size: 14px; font-weight: 600; color: #333333; width: 40px; vertical-alignment: center; }
+                }
+            }
+
+            if root.current-tab == 1: Rectangle {
+                height: 48px;
+                background: white;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 12px;
+
+                    Text { text: "Tue"; font-size: 14px; color: #666666; width: 40px; vertical-alignment: center; }
+                    Rectangle {
+                        horizontal-stretch: 1; height: 24px; background: #e0e0e0; border-radius: 4px;
+                        Rectangle { width: parent.width * 0.80; height: 100%; background: #2196F3; border-radius: 4px; }
+                    }
+                    Text { text: "80%"; font-size: 14px; font-weight: 600; color: #333333; width: 40px; vertical-alignment: center; }
+                }
+            }
+
+            if root.current-tab == 1: Rectangle {
+                height: 48px;
+                background: white;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 12px;
+
+                    Text { text: "Wed"; font-size: 14px; color: #666666; width: 40px; vertical-alignment: center; }
+                    Rectangle {
+                        horizontal-stretch: 1; height: 24px; background: #e0e0e0; border-radius: 4px;
+                        Rectangle { width: parent.width * 0.45; height: 100%; background: #2196F3; border-radius: 4px; }
+                    }
+                    Text { text: "45%"; font-size: 14px; font-weight: 600; color: #333333; width: 40px; vertical-alignment: center; }
+                }
+            }
+
+            if root.current-tab == 1: Rectangle {
+                height: 48px;
+                background: white;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 12px;
+
+                    Text { text: "Thu"; font-size: 14px; color: #666666; width: 40px; vertical-alignment: center; }
+                    Rectangle {
+                        horizontal-stretch: 1; height: 24px; background: #e0e0e0; border-radius: 4px;
+                        Rectangle { width: parent.width * 0.90; height: 100%; background: #2196F3; border-radius: 4px; }
+                    }
+                    Text { text: "90%"; font-size: 14px; font-weight: 600; color: #333333; width: 40px; vertical-alignment: center; }
+                }
+            }
+
+            if root.current-tab == 1: Rectangle {
+                height: 48px;
+                background: white;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 12px;
+
+                    Text { text: "Fri"; font-size: 14px; color: #666666; width: 40px; vertical-alignment: center; }
+                    Rectangle {
+                        horizontal-stretch: 1; height: 24px; background: #e0e0e0; border-radius: 4px;
+                        Rectangle { width: parent.width * 0.70; height: 100%; background: #2196F3; border-radius: 4px; }
+                    }
+                    Text { text: "70%"; font-size: 14px; font-weight: 600; color: #333333; width: 40px; vertical-alignment: center; }
+                }
+            }
+
+            // Activity tab
+            if root.current-tab == 2: Text {
+                text: "Recent Activity";
+                font-size: 20px;
+                font-weight: 600;
+                color: #333333;
+            }
+
+            if root.current-tab == 2: Rectangle {
+                background: white;
+                border-radius: 12px;
+                height: activity-list.preferred-height;
+
+                activity-list := VerticalLayout {
+                    ActivityItem { icon: "🛒"; text: "New order #1234"; time: "2m ago"; }
+                    Rectangle { height: 1px; background: #eeeeee; }
+                    ActivityItem { icon: "👤"; text: "New user registered"; time: "15m ago"; }
+                    Rectangle { height: 1px; background: #eeeeee; }
+                    ActivityItem { icon: "💬"; text: "New comment on post"; time: "1h ago"; }
+                    Rectangle { height: 1px; background: #eeeeee; }
+                    ActivityItem { icon: "⭐"; text: "5-star review received"; time: "2h ago"; }
+                    Rectangle { height: 1px; background: #eeeeee; }
+                    ActivityItem { icon: "📧"; text: "Support ticket resolved"; time: "3h ago"; }
+                }
+            }
+        }
+    }
+}

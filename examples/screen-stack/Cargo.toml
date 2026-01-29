@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "screen-stack"
+version = "1.15.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+build = "build.rs"
+publish = false
+license = "MIT"
+description = "Example demonstrating dynamic screen loading with a navigation stack (similar to QtQuick StackView)"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "main.rs"
+name = "screen-stack"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+slint-interpreter = { path = "../../internal/interpreter", features = ["internal"] }
+i-slint-core = { path = "../../internal/core", features = ["default"] }
+futures = "0.3"
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

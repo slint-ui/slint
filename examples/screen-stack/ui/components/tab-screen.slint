@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScreenWithHeader } from "screen-with-header.slint";
+
+// Tab definition for TabScreen
+export struct TabDef {
+    label: string,
+    icon: string,
+}
+
+// Screen with header and tab bar at bottom.
+export component TabScreen inherits ScreenWithHeader {
+    in property <[TabDef]> tabs;
+    in-out property <int> current-tab: 0;
+    callback tab-changed(int);
+
+    // Override content area to add tab bar
+    VerticalLayout {
+        // Main content
+        Rectangle {
+            vertical-stretch: 1;
+            @children
+        }
+
+        // Tab bar
+        Rectangle {
+            height: 56px;
+            background: white;
+
+            Rectangle {
+                height: 1px;
+                background: #e0e0e0;
+                y: 0;
+            }
+
+            HorizontalLayout {
+                padding: 4px;
+
+                for tab[index] in root.tabs: Rectangle {
+                    horizontal-stretch: 1;
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+
+                        Text {
+                            text: tab.icon;
+                            font-size: 20px;
+                            horizontal-alignment: center;
+                            color: index == root.current-tab ? #2196F3 : #757575;
+                        }
+
+                        Text {
+                            text: tab.label;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            color: index == root.current-tab ? #2196F3 : #757575;
+                        }
+                    }
+
+                    TouchArea {
+                        clicked => {
+                            root.current-tab = index;
+                            root.tab-changed(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

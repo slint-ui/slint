@@ -1,0 +1,162 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button } from "std-widgets.slint";
+import { ScreenWithHeader } from "../components/screen-with-header.slint";
+
+component InfoRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    height: 56px;
+
+    HorizontalLayout {
+        padding: 16px;
+
+        Text {
+            text: root.label;
+            font-size: 14px;
+            color: #888888;
+            width: 100px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.value;
+            font-size: 16px;
+            color: #333333;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: #eeeeee;
+}
+
+export component Contact-detailScreen inherits ScreenWithHeader {
+    title: "Contact";
+    background: #f5f5f5;
+
+    // Contact data - set from Rust
+    in property <string> contact-id;
+    in property <string> contact-name: "Alice Smith";
+    in property <string> contact-initials: "A";
+    in property <string> contact-email: "alice@example.com";
+    in property <string> contact-phone: "+1 234 567 8900";
+    in property <string> contact-company: "Acme Corp";
+
+    callback call-contact();
+    callback email-contact();
+
+    Flickable {
+        viewport-height: content.preferred-height;
+
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // Avatar and name
+            Rectangle {
+                height: 140px;
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 12px;
+
+                    Rectangle {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 36px;
+                        background: #3498db;
+
+                        Text {
+                            text: contact-initials;
+                            font-size: 32px;
+                            color: white;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: contact-name;
+                        font-size: 20px;
+                        font-weight: 600;
+                        color: #333333;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            // Action buttons
+            HorizontalLayout {
+                spacing: 12px;
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 44px;
+                    background: #2196F3;
+                    border-radius: 8px;
+
+                    Text {
+                        text: "📞 Call";
+                        color: white;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.call-contact(); }
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 44px;
+                    background: #4CAF50;
+                    border-radius: 8px;
+
+                    Text {
+                        text: "✉ Email";
+                        color: white;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.email-contact(); }
+                    }
+                }
+            }
+
+            // Details
+            Rectangle {
+                background: white;
+                border-radius: 12px;
+
+                VerticalLayout {
+                    InfoRow {
+                        label: "Email";
+                        value: contact-email;
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Phone";
+                        value: contact-phone;
+                    }
+                    Divider {}
+                    InfoRow {
+                        label: "Company";
+                        value: contact-company;
+                    }
+                }
+            }
+        }
+    }
+}
