@@ -61,7 +61,7 @@ use bevy::{
         Render, RenderApp,
     },
 };
-use wgpu_27 as wgpu;
+use wgpu_28 as wgpu;
 use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
 use slint::{LogicalPosition, PhysicalSize, platform::WindowEvent};
 use std::{
@@ -380,7 +380,7 @@ fn setup(
         PointLight {
             intensity: 2_000_000.0,
             range: 100.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(8.0, 16.0, 8.0),
