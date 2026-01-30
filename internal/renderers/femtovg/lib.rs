@@ -42,7 +42,7 @@ mod itemrenderer;
 pub mod opengl;
 #[cfg(feature = "wgpu-28")]
 pub mod wgpu;
-#[cfg(feature = "wgpu-27")]
+#[cfg(feature = "wgpu-28")]
 pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
@@ -93,7 +93,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
-    #[cfg(feature = "wgpu-27")]
+    #[cfg(feature = "wgpu-28")]
     pub(crate) fn new_internal(graphics_backend: B) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
@@ -289,7 +289,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         })
     }
 
-    #[cfg(any(feature = "wgpu-27", feature = "opengl"))]
+    #[cfg(any(feature = "wgpu-28", feature = "opengl"))]
     pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
         self.rendering_first_time.set(true);
