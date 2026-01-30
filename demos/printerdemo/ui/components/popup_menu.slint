@@ -8,12 +8,12 @@ export component MenuPopup inherits PopupWindow {
     callback selected(int);
 
     frame := Rectangle {
-        background: DemoPalette.background;
+        background: DemoPalette.popup-bg;
         border-radius: 14px;
 
         VerticalLayout {
             for value[idx] in root.items: Rectangle {
-                background: item-area.has-hover ? DemoPalette.popup-hover-background : idx == root.current_index ? DemoPalette.popup-active-background : white;
+                background: idx == root.current_index ? DemoPalette.popup-active-background : item-area.has-hover ? DemoPalette.popup-hover-background :white;
                 height: 48px;
                 border-top-left-radius: idx == 0 ? frame.border-radius : 0;
                 border-top-right-radius: idx == 0 ? frame.border-radius : 0;

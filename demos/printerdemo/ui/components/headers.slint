@@ -11,7 +11,7 @@ export component BackHeader inherits Rectangle {
     callback back <=> back-button.clicked;
 
     height: 102px;
-    background: #f9fafc;
+    background: DemoPalette.header-background;
 
     layout := VerticalLayout {
         height: self.preferred-height;
@@ -63,7 +63,7 @@ export component PlainHeader inherits Rectangle {
     in property <string> title <=> title-text.text;
 
     height: 86px;
-    background: #f9fafc;
+    background: DemoPalette.header-background;
 
     layout := VerticalLayout {
         height: self.preferred-height;
