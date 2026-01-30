@@ -9,8 +9,8 @@ struct ButtonColors  {
 
 export global DemoPalette  {
     // Color of the home/settings/ink buttons on the left side bar
-    out property <color> active-page-icon-color: root.night-mode ? #6284FF : #122F7B;
-    out property <color> inactive-page-icon-color: #BDC0D1;
+    out property <color> active-page-icon-color: Colors.black;
+    out property <color> inactive-page-icon-color: #a7add1;
     out property <color> main-background: #0E133F;
     out property <color> neutral-box: #BDC0D1;
     out property <color> page-background-color: root.night-mode ? #122F7B : white;
@@ -40,6 +40,8 @@ export global DemoPalette  {
     };
     out property <color> push-button-text-color: white;
     out property <length> base-font-size: 12px;
+    out property <string> medium-font-family: "Inter 24pt Medium";
+    out property <string> regular-font-family: "Inter 24pt Regular";
     in-out property <bool> night-mode: false;
 }
 
@@ -76,7 +78,6 @@ export component Page inherits Rectangle {
     }
 
     h := Text {
-        font-weight: 900;
         font-size: DemoPalette.base-font-size * 1.75;
         color: DemoPalette.text-foreground-color;
         y: 23px - self.font-size;
@@ -96,7 +97,7 @@ export component Page inherits Rectangle {
 export component Label inherits Text {
     color: DemoPalette.text-foreground-color;
     vertical-alignment: center;
-    font-weight: 700;
+    font-family: DemoPalette.regular-font-family;
     vertical-stretch: 0;
 }
 
@@ -325,7 +326,6 @@ export component PushButton inherits Rectangle {
         }
 
         label := Text {
-            font-weight: 900;
             font-size: DemoPalette.base-font-size * 0.975;
             color: DemoPalette.push-button-text-color;
             horizontal-alignment: center;
