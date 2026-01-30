@@ -8,7 +8,7 @@ struct ButtonColors  {
 }
 
 struct ModeColors {
-    background: color,
+    background: brush,
     primary: color,
     secondary: color,
     text-primary: color,
@@ -22,6 +22,8 @@ struct ModeColors {
     spinbox-text-color: color,
     header-background: brush,
     header-separator: color,
+    print-queue-background: brush,
+    print-queue-separator: color,
     print-button-bg: brush,
     scan-button-bg: brush,
     copy-button-bg: brush,
@@ -29,8 +31,9 @@ struct ModeColors {
     home-button-border: color,
     home-button-inner-bg: brush,
     home-button-text-color: color,
+    popup-bg: brush,
     popup-border: color,
-    popup-active-background: color,
+    popup-active-background: brush,
     popup-hover-background: color,
     popup-active-text-color: color,
     popup-hover-text-color: color,
@@ -40,7 +43,7 @@ struct SideBarTheme {
     icon-border-radius: length,
     background: color,
     separator: color,
-    active-background: color,
+    active-background: brush,
     active-icon-color: color,
     inactive-icon-color: color,
     icon-size: length,
@@ -91,9 +94,9 @@ export global ComponentTheme {
         icon-size: 40px,
         icon-border-radius: 40px / 2,
         background: #f4f4ff,
-        active-background: #0F172B,
+        active-background: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
         active-icon-color: Colors.white,
-        inactive-icon-color: #90A1B9,
+        inactive-icon-color: #6036f8,
         separator: Colors.transparent,
     };
     property <SideBarTheme> glass: {
@@ -137,6 +140,8 @@ export global DemoPalette {
         spinbox-text-color: #FFFFFF,
         header-background: #F8FAFC,
         header-separator: #CAD5E2,
+        print-queue-background: #f8f4ff,
+        print-queue-separator: #CAD5E2,
         print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
         scan-button-bg: @linear-gradient(135deg, #00BC7D 0%, #009966 100%),
         copy-button-bg: @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%),
@@ -144,6 +149,7 @@ export global DemoPalette {
         home-button-border: #00000000,
         home-button-inner-bg: #FFFFFF.with-alpha(0.2),
         home-button-text-color: #FFFFFF,
+        popup-bg: #FFFFFF,
         popup-border: #FFB86A,
         popup-active-background: #FFEDD4,
         popup-active-text-color: #F54900,
@@ -158,11 +164,15 @@ export global DemoPalette {
         text-secondary: #45556c,
         text-tertiary: #45556c,
         primary-button: #0f172b,
-        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        color-button-gradient: @linear-gradient(90deg, #ff6567 0%, #fec500 50%, #c787f3 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: #00000000,
         spinbox-button-border: #0f172b,
         spinbox-text-color: #0f172b,
+        header-background: #F8FAFC,
+        header-separator: #0f172b,
+        print-queue-background: #f8fafc,
+        print-queue-separator: #e2e8f0,
         print-button-bg: #FFFFFF,
         scan-button-bg: #FFFFFF,
         copy-button-bg: #FFFFFF,
@@ -170,6 +180,7 @@ export global DemoPalette {
         home-button-border: #cad5e2,
         home-button-inner-bg: #f1f5f9,
         home-button-text-color: #0f172b,
+        popup-bg: #FFFFFF,
         popup-border: #0f172b,
         popup-active-background: #0f172b,
         popup-active-text-color: Colors.white,
@@ -177,25 +188,34 @@ export global DemoPalette {
     };
 
     property <ModeColors> vibrant: {
-        background: #1A1A2E,
-        primary: #E94560,
-        secondary: #533483,
-        text-primary: #F5F5F5,
-        text-secondary: #FFD166,
-        text-tertiary: #62748e,
-        primary-button: @linear-gradient(90deg, #2B7FFF 0%, #155DFC 100%),
-        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        background: #f5f4ff,
+        primary: #6036f8,
+        secondary: #e9d4ff,
+        text-primary: #6036f8,
+        text-secondary: #aa48ff,
+        text-tertiary: #bd37fa,
+        primary-button: @linear-gradient(90deg, #00bba6 0%, #00bc80 50%, #00b8da 100%),
+        color-button-gradient: @linear-gradient(90deg, #ff6567 0%, #fec500 50%, #c787f3 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
-        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        spinbox-button-gradient: @linear-gradient(135deg,  #655eff 0%, #aa48ff 100%),
         spinbox-button-border: #00000000,
         spinbox-text-color: #FFFFFF,
-        print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
-        scan-button-bg: @linear-gradient(135deg, #00BC7D 0%, #009966 100%),
-        copy-button-bg: @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%),
-        usb-button-bg: @linear-gradient(135deg, #FF6900 0%, #F54900 100%),
+        header-background: #f5f4ff,
+        header-separator: #dab2ff,
+        print-queue-background: #eff3ff,
+        print-queue-separator: #00000000,
+        print-button-bg: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
+        scan-button-bg: @linear-gradient(135deg, #2adaca 0%, #08bbdb 100%),
+        copy-button-bg: @linear-gradient(135deg, #f73397 0%, #ff225a 100%),
+        usb-button-bg: @linear-gradient(135deg, #ffb600 0%, #ff6d00 100%),
         home-button-border: #00000000,
         home-button-inner-bg: #00000000,
         home-button-text-color: #FFFFFF,
+        popup-bg: #f5f4ff,
+        popup-border: #bd37fa,
+        popup-active-background: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
+        popup-active-text-color: #FFFFFF,
+        popup-hover-background: #f5f4ff,
     };
 
     property <ModeColors> glass: {
@@ -236,6 +256,8 @@ export global DemoPalette {
     out property <color> spinbox-text-color: current-theme.spinbox-text-color;
     out property <brush> header-background: current-theme.header-background;
     out property <color> header-separator: current-theme.header-separator;
+    out property <brush> print-queue-background: current-theme.print-queue-background;
+    out property <color> print-queue-separator: current-theme.print-queue-separator;
     out property <brush> print-button-bg: current-theme.print-button-bg;
     out property <brush> scan-button-bg: current-theme.scan-button-bg;
     out property <brush> copy-button-bg: current-theme.copy-button-bg;
@@ -243,8 +265,9 @@ export global DemoPalette {
     out property <color> home-button-border: current-theme.home-button-border;
     out property <brush> home-button-inner-bg: current-theme.home-button-inner-bg;
     out property <color> home-button-text-color: current-theme.home-button-text-color;
+    out property <brush> popup-bg: current-theme.popup-bg;
     out property <color> popup-border: current-theme.popup-border;
-    out property <color> popup-active-background: current-theme.popup-active-background;
+    out property <brush> popup-active-background: current-theme.popup-active-background;
     out property <color> popup-active-text-color: current-theme.popup-active-text-color;
     out property <color> popup-hover-background: current-theme.popup-hover-background;
     out property <color> popup-hover-text-color: current-theme.popup-hover-text-color;
