@@ -1,5 +1,6 @@
 import { DemoPalette, Theme, ComponentTheme, SubPage } from "../common.slint";
 import { PrinterState } from "../common.slint";
+import { MenuPopup } from "./popup_menu.slint";
 
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
@@ -27,8 +28,6 @@ export component Sidebar inherits Rectangle {
     background: ComponentTheme.side-bar.background;
     x: 0px;
     width: DemoPalette.side-bar-width;
-
-    callback select-theme;
 
     VerticalLayout {
         width: self.preferred-width;
@@ -58,7 +57,7 @@ export component Sidebar inherits Rectangle {
 
         SideBarIcon {
             activate => {
-                root.select-theme();
+                popup.show();
             }
             icon: @image-url("../images/sidebar/theme.svg");
             icon-colorize: ComponentTheme.side-bar.inactive-icon-color;
@@ -70,5 +69,21 @@ export component Sidebar inherits Rectangle {
         width: 1px;
         background: ComponentTheme.side-bar.separator;
         height: 100%;
+    }
+
+    property <int> current_theme_index: 0;
+
+    popup := MenuPopup {
+        x: root.width - 10px;
+        y: root.height - self.preferred-height - 10px;
+        width: 200px;
+        property <[Theme]> themes: [Theme.Gradient, Theme.Minimalist, Theme.Vibrant, Theme.Glass];
+        items: ["Gradient", "Minimalist", "Vibrant", "Glass"];
+        current_index: current_theme_index;
+
+        selected(index) => {
+            current_theme_index = index;
+            DemoPalette.theme = themes[index];
+        }
     }
 }
