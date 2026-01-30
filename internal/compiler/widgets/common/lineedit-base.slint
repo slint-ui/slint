@@ -21,11 +21,6 @@ export component LineEditBase implements LineEditInterface inherits Rectangle {
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <length> margin;
 
-    callback accepted(text: string);
-    callback edited(text: string);
-    callback key-pressed(event: KeyEvent) -> EventResult;
-    callback key-released(event: KeyEvent) -> EventResult;
-
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
     }
