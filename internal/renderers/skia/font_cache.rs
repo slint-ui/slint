@@ -4,21 +4,35 @@
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::textlayout::sharedparley::parley;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use lru::LruCache;
+use std::num::NonZeroUsize;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+
+const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
 
 pub struct FontCache {
     font_mgr: skia_safe::FontMgr,
+<<<<<<< HEAD
     fonts: HashMap<(HashedBlob, u32), Option<skia_safe::Typeface>>,
+=======
+    fonts: LruCache<(u64, u32), Option<skia_safe::Typeface>>,
+>>>>>>> 2963efeb9 (fix: FontCache HashMap -> LruCache)
 }
 
 impl Default for FontCache {
     fn default() -> Self {
-        Self { font_mgr: skia_safe::FontMgr::new(), fonts: Default::default() }
+        Self { 
+            font_mgr: skia_safe::FontMgr::new(), 
+            fonts: LruCache::new(FONT_CACHE_CAPACITY) 
+        }
     }
 }
 
 impl FontCache {
     pub fn font(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
+<<<<<<< HEAD
         self.fonts
             .entry((font.data.clone().into(), font.index))
             .or_insert_with(|| {
@@ -26,30 +40,51 @@ impl FontCache {
                     font.data.as_ref(),
                     if font.index > 0 { Some(font.index as _) } else { None },
                 );
+=======
+        let mut hasher = DefaultHasher::new();
+        font.data.as_ref().hash(&mut hasher);
+        let data_hash = hasher.finish();
+>>>>>>> 2963efeb9 (fix: FontCache HashMap -> LruCache)
 
-                // Due to  https://issues.skia.org/issues/310510989, fonts from true type collections
-                // with an index > 0 fail to load on macOS. As a workaround, we manually extract the font from the
-                // collection and load it as a single font.
-                #[cfg(target_vendor = "apple")]
-                if font.index > 0 && typeface.is_none() {
-                    {
-                        if let Some(typeface) = read_fonts::CollectionRef::new(font.data.as_ref())
-                            .ok()
-                            .and_then(|ttc| ttc.get(font.index).ok())
-                            .map(|ttf| {
-                                write_fonts::FontBuilder::new().copy_missing_tables(ttf).build()
-                            })
-                            .and_then(|new_ttf| self.font_mgr.new_from_data(&new_ttf, None))
-                        {
-                            return Some(typeface);
-                        }
-                    }
-                }
+        let key = (data_hash, font.index);
 
-                typeface
-            })
-            .clone()
+        if let Some(cached_option) = self.fonts.get(&key) {
+            return cached_option.clone();
+        }
+
+        let typeface = self.load_typeface_internal(font);
+
+        self.fonts.put(key, typeface.clone());
+
+        typeface
     }
+
+    fn load_typeface_internal(&self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
+        let typeface = self.font_mgr.new_from_data(
+            font.data.as_ref(),
+            if font.index > 0 { Some(font.index as _) } else { None },
+        );
+
+        // Due to  https://issues.skia.org/issues/310510989, fonts from true type collections
+        // with an index > 0 fail to load on macOS. As a workaround, we manually extract the font from the
+        // collection and load it as a single font.
+        #[cfg(target_vendor = "apple")]
+        if font.index > 0 && typeface.is_none() {
+            if let Some(typeface) = read_fonts::CollectionRef::new(font.data.as_ref())
+                .ok()
+                .and_then(|ttc| ttc.get(font.index).ok())
+                .map(|ttf| {
+                    write_fonts::FontBuilder::new().copy_missing_tables(ttf).build()
+                })
+                .and_then(|new_ttf| self.font_mgr.new_from_data(&new_ttf, None))
+            {
+                return Some(typeface);
+            }
+        }
+
+        typeface
+    }
+
 }
 
 thread_local! {
