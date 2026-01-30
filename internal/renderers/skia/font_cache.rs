@@ -3,12 +3,11 @@
 
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::textlayout::sharedparley::parley;
-use std::cell::RefCell;
 use lru::LruCache;
-use std::num::NonZeroUsize;
+use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-
+use std::num::NonZeroUsize;
 
 const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
 
@@ -19,10 +18,7 @@ pub struct FontCache {
 
 impl Default for FontCache {
     fn default() -> Self {
-        Self { 
-            font_mgr: skia_safe::FontMgr::new(), 
-            fonts: LruCache::new(FONT_CACHE_CAPACITY) 
-        }
+        Self { font_mgr: skia_safe::FontMgr::new(), fonts: LruCache::new(FONT_CACHE_CAPACITY) }
     }
 }
 
@@ -59,9 +55,7 @@ impl FontCache {
             if let Some(typeface) = read_fonts::CollectionRef::new(font.data.as_ref())
                 .ok()
                 .and_then(|ttc| ttc.get(font.index).ok())
-                .map(|ttf| {
-                    write_fonts::FontBuilder::new().copy_missing_tables(ttf).build()
-                })
+                .map(|ttf| write_fonts::FontBuilder::new().copy_missing_tables(ttf).build())
                 .and_then(|new_ttf| self.font_mgr.new_from_data(&new_ttf, None))
             {
                 return Some(typeface);
@@ -70,7 +64,6 @@ impl FontCache {
 
         typeface
     }
-
 }
 
 thread_local! {
