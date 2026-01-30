@@ -94,7 +94,10 @@ export component SettingsPage inherits Page {
             }
 
             DropDownMenu {
-                items: [@tr("English"), @tr("German"), @tr("French")];
+                items: [@tr("English"), @tr("French")];
+                selected(index) => {
+                    PrinterSettings.change_language(index);
+                }
             }
         }
 
