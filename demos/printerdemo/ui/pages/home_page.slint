@@ -12,6 +12,8 @@ component ActionButton  {
     in property <image> icon <=> img.source;
     in property <string> text <=> label.text;
     in property <brush> background <=> img-back.colorize;
+    in property <brush> inner-background <=> inner.background;
+    in property <brush> text-color <=> label.color;
 
     width: DemoPalette.button-width;
     height: DemoPalette.button-height;
@@ -29,11 +31,11 @@ component ActionButton  {
         width: self.preferred-width;
         height: self.preferred-height;
 
-        Rectangle {
+        inner := Rectangle {
             width: 64px;
             height: self.width;
-            background:  DemoPalette.home-button-inner-bg;
             border-radius: 16px;
+            background: DemoPalette.print-button-bg-inner;
 
             img := Image {
                 width: 32px;
@@ -92,25 +94,33 @@ export component HomePage inherits Page {
                 name: @tr("Print"),
                 id: SubPage.print,
                 icon: @image-url("../images/print.svg"),
-                background:  DemoPalette.print-button-bg
+                background:  DemoPalette.print-button-bg,
+                inner-background: DemoPalette.print-button-bg-inner,
+                text-color: DemoPalette.print-button-text-color,
             },
             {
                 name: @tr("Scan"),
                 id: SubPage.scan,
                 icon: @image-url("../images/scan.svg"),
-                background:  DemoPalette.scan-button-bg
+                background:  DemoPalette.scan-button-bg,
+                inner-background: DemoPalette.scan-button-bg-inner,
+                text-color: DemoPalette.scan-button-text-color,
             },
             {
                 name: @tr("Copy"),
                 id: SubPage.copy,
                 icon: @image-url("../images/copy.svg"),
-                background:  DemoPalette.copy-button-bg
+                background:  DemoPalette.copy-button-bg,
+                inner-background: DemoPalette.copy-button-bg-inner,
+                text-color: DemoPalette.copy-button-text-color,
             },
             {
                 name: @tr("USB"),
                 id: SubPage.usb,
                 icon: @image-url("../images/usb.svg"),
-                background:  DemoPalette.usb-button-bg
+                background:  DemoPalette.usb-button-bg,
+                inner-background: DemoPalette.usb-button-bg-inner,
+                text-color: DemoPalette.usb-button-text-color,
             },
         ]: ActionButton {
             col: index.mod(2);
@@ -118,6 +128,8 @@ export component HomePage inherits Page {
             icon: action.icon;
             text: action.name;
             background: action.background;
+            inner-background: action.inner-background;
+            text-color: action.text-color;
             clicked => {
                 PrinterState.current-subpage = action.id;
             }
