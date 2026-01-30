@@ -77,7 +77,10 @@ const SCALE_FACTOR: f32 = 2.0; // HiDPI scale factor (2.0 for Retina displays)
 slint::slint! {
     import { VerticalBox, Button, Slider, AboutSlint } from "std-widgets.slint";
     export component Demo inherits Window {
-        background: #00000000; // Transparent background
+        // Fully transparent background (#RRGGBBAA with alpha=00) so the 3D scene
+        // behind the UI quad shows through. This works together with the material's
+        // alpha_mode: AlphaMode::Blend setting in the Bevy setup code.
+        background: #00000000;
         in-out property <int> click-count: 0;
         in-out property <float> slider-value: 0;
 
@@ -342,6 +345,12 @@ fn setup(
     let image_handle = images.add(image);
     commands.insert_resource(SlintImageHandle(image_handle.clone()));
 
+    // Create a material for the Slint UI with special properties for transparency:
+    // - unlit: true -> No lighting calculations, UI appears flat and consistent
+    // - alpha_mode: Blend -> Enables transparency so the Slint UI's transparent background
+    //   (set via `background: #00000000` in the Slint component) shows through, allowing
+    //   the 3D scene behind the UI quad to be visible
+    // - cull_mode: None -> Visible from both sides (useful as the quad rotates with the cube)
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle.clone()),
         unlit: true,
