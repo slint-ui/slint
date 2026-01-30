@@ -11,8 +11,8 @@ For Rust users, include the following in your Cargo.toml (or .cargo/config.toml)
 
 ```toml
 [patch.crates-io]
-slint = { git = "https://github.com/slint-ui/slint" }
-slint-build = { git = "https://github.com/slint-ui/slint" }
+slint = { git = "https://github.com/slint-ui/slint", branch = "{branch}" }
+slint-build = { git = "https://github.com/slint-ui/slint", branch = "{branch}" }
 ```
 
 Please note: All Slint dependencies need to be on the same revision. To update and run, use `cargo update` and `cargo run`.
@@ -57,7 +57,7 @@ Note that you need to disable or uninstall an existing version of the Slint  VS 
 For other editors, you compile the latest version of the Slint Language Server with:
 
 ```sh
-cargo install --git https://github.com/slint-ui/slint slint-lsp
+cargo install --git https://github.com/slint-ui/slint slint-lsp --branch {branch}
 ```
 
 Alternatively, download the binary from "Assets" section below.
