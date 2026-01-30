@@ -410,7 +410,7 @@ pub mod platform {
     pub mod femtovg_renderer {
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
         /// Use this type to render to a WGPU texture using FemtoVG.
-        #[cfg(feature = "unstable-wgpu-27")]
+        #[cfg(feature = "unstable-wgpu-28")]
         pub use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
