@@ -14,9 +14,12 @@ struct ModeColors {
     text-primary: color,
     text-secondary: color,
     text-tertiary: color,
+    primary-button: brush,
     color-button-gradient: brush,
     grayscale-button-gradient: brush,
     spinbox-button-gradient: brush,
+    spinbox-button-border: color,
+    spinbox-text-color: color,
     header-background: brush,
     header-separator: color,
     print-button-bg: brush,
@@ -126,9 +129,12 @@ export global DemoPalette {
         text-primary: #1D293D,
         text-secondary: #155DFC,
         text-tertiary: #62748e,
+        primary-button: @linear-gradient(90deg, #2B7FFF 0%, #155DFC 100%),
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        spinbox-button-border: #00000000,
+        spinbox-text-color: #FFFFFF,
         header-background: #F8FAFC,
         header-separator: #CAD5E2,
         print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
@@ -151,9 +157,12 @@ export global DemoPalette {
         text-primary: #0f172b,
         text-secondary: #45556c,
         text-tertiary: #45556c,
+        primary-button: #0f172b,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
-        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        spinbox-button-gradient: #00000000,
+        spinbox-button-border: #0f172b,
+        spinbox-text-color: #0f172b,
         print-button-bg: #FFFFFF,
         scan-button-bg: #FFFFFF,
         copy-button-bg: #FFFFFF,
@@ -174,9 +183,12 @@ export global DemoPalette {
         text-primary: #F5F5F5,
         text-secondary: #FFD166,
         text-tertiary: #62748e,
+        primary-button: @linear-gradient(90deg, #2B7FFF 0%, #155DFC 100%),
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        spinbox-button-border: #00000000,
+        spinbox-text-color: #FFFFFF,
         print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
         scan-button-bg: @linear-gradient(135deg, #00BC7D 0%, #009966 100%),
         copy-button-bg: @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%),
@@ -193,9 +205,12 @@ export global DemoPalette {
         text-primary: #000000,
         text-secondary: #555555,
         text-tertiary: #62748e,
+        primary-button: @linear-gradient(90deg, #2B7FFF 0%, #155DFC 100%),
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #f2f2f2 0%, #999999 50%, #1c1c1e 100%),
         spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        spinbox-button-border: #00000000,
+        spinbox-text-color: #FFFFFF,
         print-button-bg: #FFFFFF,
         scan-button-bg: #FFFFFF,
         copy-button-bg: #FFFFFF,
@@ -213,9 +228,12 @@ export global DemoPalette {
     out property <color> text-primary: current-theme.text-primary;
     out property <color> text-secondary: current-theme.text-secondary;
     out property <color> text-tertiary: current-theme.text-tertiary;
+    out property <brush> primary-button: current-theme.primary-button;
     out property <brush> color-button-gradient: current-theme.color-button-gradient;
     out property <brush> grayscale-button-gradient: current-theme.grayscale-button-gradient;
     out property <brush> spinbox-button-gradient: current-theme.spinbox-button-gradient;
+    out property <color> spinbox-button-border: current-theme.spinbox-button-border;
+    out property <color> spinbox-text-color: current-theme.spinbox-text-color;
     out property <brush> header-background: current-theme.header-background;
     out property <color> header-separator: current-theme.header-separator;
     out property <brush> print-button-bg: current-theme.print-button-bg;

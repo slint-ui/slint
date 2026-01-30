@@ -14,10 +14,7 @@ export component IconTextButton inherits Button {
     height: 40px;
     border-radius: 14px;
 
-    background:
-        root.pressed ? DemoPalette.primary.darker(20%) :
-        root.hovered ? DemoPalette.primary.darker(5%) :
-        DemoPalette.primary;
+    background: self.hovered ? DemoPalette.primary-button.darker(0.2) : DemoPalette.primary-button;
 
     HorizontalLayout {
         spacing: 10px;
