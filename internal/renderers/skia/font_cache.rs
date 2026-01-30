@@ -7,7 +7,7 @@ use lru::LruCache;
 use std::cell::RefCell;
 use std::num::NonZeroUsize;
 
-const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
+const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(64).unwrap();
 
 pub struct FontCache {
     font_mgr: skia_safe::FontMgr,
