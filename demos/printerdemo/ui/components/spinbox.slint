@@ -26,7 +26,8 @@ export component SpinBox inherits Rectangle {
             background: DemoPalette.spinbox-button-gradient;
             width: root.height;
             icon: @image-url("../images/minus.svg");
-            colorize: white;
+            colorize: DemoPalette.spinbox-text-color;
+            border-color: DemoPalette.spinbox-button-border;
         }
 
         Rectangle {
@@ -47,7 +48,8 @@ export component SpinBox inherits Rectangle {
             background: DemoPalette.spinbox-button-gradient;
             width: root.height;
             icon: @image-url("../images/plus.svg");
-            colorize: white;
+            colorize: DemoPalette.spinbox-text-color;
+            border-color: DemoPalette.spinbox-button-border;
         }
     }
 }
