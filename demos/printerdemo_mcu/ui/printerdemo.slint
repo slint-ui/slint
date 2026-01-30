@@ -12,8 +12,8 @@ import { PrinterQueue } from "./printer_queue.slint";
 // re-export for the native code
 export { PrinterQueue }
 
-import "./fonts/NotoSans-Regular.ttf";
-import "./fonts/NotoSans-Bold.ttf";
+import "./fonts/Inter-24pt-Regular.ttf";
+import "./fonts/Inter-24pt-Medium.ttf";
 
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
@@ -39,7 +39,7 @@ export component MainWindow inherits Window {
     preferred-height: self.min-height;
     title: "Slint printer demo";
     background: DemoPalette.main-background;
-    default-font-family: "Noto Sans";
+    default-font-family: "Inter 24pt Regular";
     default-font-size: DemoPalette.base-font-size;
 
     /// Note that this property is overwritten in the .cpp and .rs code.
@@ -116,9 +116,9 @@ export component MainWindow inherits Window {
         }
 
         for page-icon[idx] in [
-            @image-url("images/home.svg"),
-            @image-url("images/settings.svg"),
-            @image-url("images/ink.svg"),
+            @image-url("images/sidebar/home.svg"),
+            @image-url("images/sidebar/settings.svg"),
+            @image-url("images/sidebar/ink.svg"),
         ] : SideBarIcon {
             activate => {
                 home-page.current-subpage = 0;
