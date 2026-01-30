@@ -14,7 +14,7 @@ use super::{
     MemberReference, PropertyIdx,
 };
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
-use crate::langtype::{self, BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
+use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
 use crate::layout::{GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;

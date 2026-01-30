@@ -56,7 +56,7 @@ macro_rules! for_each_builtin_structs {
 
             /// A `KeyboardShortcut` for use in `MenuItem` and other places
             struct KeyboardShortcut {
-                @name = "slint::private_api::KeyboardShortcut"
+                @name = BuiltinPublicStruct::KeyboardShortcut,
                 export {
                     /// The `key` used to trigger the shortcut
                     key: SharedString,

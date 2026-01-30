@@ -707,6 +707,7 @@ pub enum BuiltinPublicStruct {
     LogicalPosition,
     LogicalSize,
     StandardListViewItem,
+    KeyboardShortcut,
 }
 
 impl BuiltinPublicStruct {
@@ -716,6 +717,7 @@ impl BuiltinPublicStruct {
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
+            Self::KeyboardShortcut => Some(SmolStr::new_static("KeyboardShortcut")),
         }
     }
 }
