@@ -14,6 +14,10 @@ we ship. Afterwards `mise install` makes all the necessary tooling available.
 Even if you do not want to use mise: `.mise/config.toml` contains a handy list of tools
 to make available.
 
+### Git Hooks
+
+We recommend setting up a git pre-commit hook to automatically run autofix tasks (formatting, linting) before committing. See [Git Hooks Setup](git_hooks.md) for details.
+
 ## Repository structures
 
 ### `helper_crates`
