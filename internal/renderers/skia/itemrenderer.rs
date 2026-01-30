@@ -394,6 +394,9 @@ impl<'a> SkiaItemRenderer<'a> {
     // `&self` is needed. Returns true if the caller must call `restore()` on `self.canvas`.
     fn save_canvas_and_pixel_align_origin(&self) -> bool {
         let local_to_device = self.canvas.local_to_device_as_3x3();
+        if !local_to_device.is_translate() || local_to_device.is_identity() {
+            return false;
+        }
         let Some(device_to_local) = local_to_device.invert() else {
             return false;
         };
@@ -411,6 +414,9 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn pixel_align_origin_auto_restore(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'_>> {
         let local_to_device = self.canvas.local_to_device_as_3x3();
+        if !local_to_device.is_translate() || local_to_device.is_identity() {
+            return None;
+        }
         let Some(device_to_local) = local_to_device.invert() else {
             return None;
         };
