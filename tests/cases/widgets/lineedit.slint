@@ -24,6 +24,8 @@ export component TestCase inherits Window {
     public function cut() {
         edit1.cut();
     }
+
+    callback edited <=> edit1.edited;
 }
 
 
@@ -93,6 +95,19 @@ assert_eq!(instance.get_font_family(), "sans-sherif");
 assert_eq!(instance.get_font_italic(), false);
 instance.set_font_italic(true);
 assert_eq!(instance.get_font_italic(), true);
+
+// Invoking accessible-action-set-value should update the value and invoke edited
+let edited_emitted = std::rc::Rc::new(std::cell::Cell::new(0));
+instance.on_edited({
+    let edited_emitted = edited_emitted.clone();
+    move |_| {
+        edited_emitted.set(edited_emitted.get() + 1);
+    }
+});
+assert_eq!(edited_emitted.get(), 0);
+edit1.set_accessible_value("Hello👋");
+assert_eq!(instance.get_text(), "Hello👋");
+assert_eq!(edited_emitted.get(), 1);
 
 
 ```
