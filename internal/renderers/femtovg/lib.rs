@@ -42,6 +42,8 @@ mod itemrenderer;
 pub mod opengl;
 #[cfg(feature = "wgpu-28")]
 pub mod wgpu;
+#[cfg(feature = "wgpu-28")]
+pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_surface(&self) -> &R::Surface;
@@ -91,6 +93,20 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
+    #[cfg(feature = "wgpu-28")]
+    pub(crate) fn new_internal(graphics_backend: B) -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            canvas: RefCell::new(None),
+            graphics_cache: Default::default(),
+            texture_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
+            graphics_backend,
+        }
+    }
+
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(
@@ -273,7 +289,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         })
     }
 
-    fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
+    #[cfg(any(feature = "wgpu-28", feature = "opengl"))]
+    pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
         self.rendering_first_time.set(true);
     }

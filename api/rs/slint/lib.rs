@@ -406,9 +406,15 @@ pub mod platform {
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
-    #[cfg(all(feature = "renderer-femtovg", not(target_os = "android")))]
+    #[cfg(all(
+        not(target_os = "android"),
+        any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu")
+    ))]
     pub mod femtovg_renderer {
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
+        /// Use this type to render to a WGPU texture using FemtoVG.
+        #[cfg(feature = "unstable-wgpu-28")]
+        pub use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
 
