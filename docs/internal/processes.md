@@ -52,7 +52,7 @@ The submitter can edit the commit message to make it nicer and removed the artif
 ## CI
 
 The CI is driven by Github Actions.
-The CI is triggered for any PR to the `master` branch, or to a branch that starts with `feature/`.
+The CI is triggered for any PR (including drafts) to the `master` branch, or to a branch that starts with `feature/`.
 The CI is also triggered for every push to the `master` branch.
 A new commit on a branch will cancel the previous CI run on that branch if it is still running.
 
@@ -62,17 +62,15 @@ There is a nightly build that runs every night.
 It will build release artifacts and upload them to the `nightly` Github release.
 And will also generate the docs, wasm build of examples, and publish them on snapshots.slint.dev/master
 
-It will also run a few extra tests.
+It will also run a few extra tests (like running `cargo update` to check for broken dependencies).
 
 ## Release
 
 New minor releases of Slint are done every couple of months.
 
-About a week before the expected release, we issue a "call for testing" as a GitHub discussion.
+About a week before the expected release, create a temporary `pre-release/<major.minor>` branch based on the latest `master`. Use this branch to collect fixes and run testing (apply cherry-picks here).
 
-During the release process, we ask people not to merge to the `master` branch.
-
-The release is done from the `master` branch.
+Once testing is complete and issues are addressed, cut the release from the `pre-release/<major.minor>` branch. Then update or create the `release/<major.minor>` branch that will represent the published release (this branch can be kept for LTS or cherry-picks). Finally, delete the `pre-release/<major.minor>` branch if it is no longer needed.
 
 The process of releasing is done by following the steps in the release_checklist.md file. (currently on our internal wiki)
 
@@ -82,9 +80,53 @@ The ChangeLog is manually updated by looking at the commit history.
 
 Users are reporting bugs and feature requests on the [Github issue tracker](https://github.com/slint-ui/slint/issues).
 
-The process to triage and assign label is documented in the <../triage.md> file.
+The process to triage and assign label is documented in the <./triage.md> file.
+
+## Long-Term Planning
+
+For long-term planning, we primarily use two processes: Initiatives and Project Boards.
+
+### Initiatives
+
+Initiatives describe long-term goals that we as a team want to work towards.
+
+Writing these goals down as an initiative benefits us in several ways:
 
 
+- Allows us to prioritize issues based on current initiatives
+- Lets us discuss priorities and bring in fresh ideas from everyone
 
+All Slint Members can propose Initiatives in Outline.
+Ideally, a proposal should address:
 
+- **Ownership & Resources:** Who owns the initiative? Who works on it?
+- **Strategic Alignment Check:** Does the initiative fit our vision?
+- **Clarity & Scope:** Clearly define the initiatives scope.
+- **Impact & Effort:** Is the target outcome worth it in terms of cost (work time and materials)
+- **Success Criteria:** When is the initiative considered "done"?
+- **Milestones:** Outline the high-level steps needed to achieve the success criteria
+- **Process:** Any specific process to follow
+    - Template:
+        ```
+        - Approved Initiative is added to the roadmap with info owner/timeline/key results
+          - Priority is based on urgency, impact, and capacity.
+        - Owner tracks progress towards key results. Updates shared weekly.
+        ```
 
+Initiatives are discussed by the team, reworked if necessary, and finally accepted or rejected.
+
+Once an initiative has been accepted, the owner should migrate it to a Github issue. For this, use either the ["Tracking Issue"](https://github.com/slint-ui/slint/issues/new?template=3-tracking-issue.md) template, or assign the "roadmap" label to an existing issue. Add any corresponding sub-issues if needed.
+
+The issue will be automatically added to the "Team Planning" Board when it receives the "roadmap" label.
+
+### Project Boards
+
+We encourage the use of Github Project Boards to organize tasks.
+
+To track long-running tasks, we use a private "Team Planning" Github Project board.
+When Members of the Slint organization work on long-term goals, they should make sure that they are assigned to a corresponding issue on this board.
+Maintaining this board allows us to get an overview of who is working on which topics at any given time and to better plan long-term.
+We check this board during our weekly meeting to see if it is still up-to-date.
+
+Larger initiatives and tasks may also benefit from their own project boards.
+We leave it up to each individual project owner to decide whether they want to organize their tasks using additional Project boards.
