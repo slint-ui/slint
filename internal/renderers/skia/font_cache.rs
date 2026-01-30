@@ -1,18 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::textlayout::sharedparley::parley;
 use lru::LruCache;
 use std::cell::RefCell;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
 const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
 
 pub struct FontCache {
     font_mgr: skia_safe::FontMgr,
-    fonts: LruCache<(u64, u32), Option<skia_safe::Typeface>>,
+    // Use HashedBlob in key to keep strong reference to font data blob,
+    // preventing eviction from fontique's shared cache (see commit 30a03cf)
+    fonts: LruCache<(HashedBlob, u32), Option<skia_safe::Typeface>>,
 }
 
 impl Default for FontCache {
@@ -23,11 +24,7 @@ impl Default for FontCache {
 
 impl FontCache {
     pub fn font(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
-        let mut hasher = DefaultHasher::new();
-        font.data.as_ref().hash(&mut hasher);
-        let data_hash = hasher.finish();
-
-        let key = (data_hash, font.index);
+        let key = (font.data.clone().into(), font.index);
 
         if let Some(cached_option) = self.fonts.get(&key) {
             return cached_option.clone();
