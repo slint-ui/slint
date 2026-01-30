@@ -85,7 +85,6 @@ export component UsbPage inherits Page {
                     height: 60px;
                     icon-color: white;
                     text-color: white;
-                    background: self.hovered ? #287bff.darker(5%) : #287bff;
                     clicked => {
                         PrinterQueue.start-job(root.files[image-selector.current-index].name);
                     }
