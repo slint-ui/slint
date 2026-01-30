@@ -433,13 +433,13 @@ export component WidePrinterQueueList inherits Flickable {
 export component PrinterQueueView inherits Rectangle {
     callback show-job-details(int);
 
-    background: DemoPalette.header-background;
+    background: DemoPalette.print-queue-background;
 
     Rectangle {
         width: 1px;
         height: 100%;
         x: 0px;
-        background: DemoPalette.header-separator;
+        background: DemoPalette.print-queue-separator;
     }
 
     Text {
