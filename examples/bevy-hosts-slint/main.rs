@@ -74,6 +74,9 @@ slint::slint! {
 import { VerticalBox, Button, Slider } from "std-widgets.slint";
 
 export component Demo inherits Window {
+    // Semi-transparent magenta background (#RRGGBBAA format, alpha=3f ~25% opacity)
+    // so the 3D scene behind the UI quad partially shows through. This works together
+    // with the material's alpha_mode: AlphaMode::Blend setting in the Bevy setup code.
     background: #ff00ff3f;
     in-out property <int> click-count: 0;
     in-out property <float> slider-value: 0;
