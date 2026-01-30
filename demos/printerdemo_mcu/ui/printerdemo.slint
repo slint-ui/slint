@@ -17,8 +17,27 @@ import "./fonts/Inter-24pt-Medium.ttf";
 
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
+    in-out property icon <=> icon.source;
+    in-out property <color> icon-colorize: active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
 
     callback activate;
+    width: 30px;
+    height: self.width;
+
+    Rectangle {
+        width: 120%;
+        height: self.width;
+        border-radius: self.width / 3;
+        visible: active;
+        background: white;
+    }
+
+    icon := Image {
+        colorize: icon-colorize;
+        image-fit: contain;
+        width: 24px;
+        height: self.width;
+    }
 
     TouchArea {
         pointer-event(event) => {
@@ -39,7 +58,7 @@ export component MainWindow inherits Window {
     preferred-height: self.min-height;
     title: "Slint printer demo";
     background: DemoPalette.main-background;
-    default-font-family: "Inter 24pt Regular";
+    default-font-family: DemoPalette.medium-font-family;
     default-font-size: DemoPalette.base-font-size;
 
     /// Note that this property is overwritten in the .cpp and .rs code.
@@ -73,18 +92,15 @@ export component MainWindow inherits Window {
             height: main-view.height - main-view.border-radius;
 
             home-page := HomePage {
-                y: root.active-page == 0 ? 0 : root.active-page > 0 ? - self.height - 1px : parent.height + 1px;
-                //animate y { duration: 125ms; easing: ease; }
+                visible: root.active-page == 0;
             }
 
             SettingsPage {
-                y: root.active-page == 1 ? 0 : root.active-page > 1 ? - self.height - 1px : parent.height + 1px;
-                //animate y { duration: 125ms; easing: ease; }
+                visible: root.active-page == 1;
             }
 
             InkPage {
-                y: root.active-page == 2 ? 0 : root.active-page > 2 ? - self.height - 1px : parent.height + 1px;
-                //animate y { duration: 125ms; easing: ease; }
+                visible: root.active-page == 2;
                 ink-levels <=> root.ink-levels;
                 page-visible: root.active-page == 2;
             }
@@ -94,81 +110,43 @@ export component MainWindow inherits Window {
 
     sidebar := Rectangle {
         function icon-y(index: int) -> length {
-            return 34px // top padding
-                + index * 50px;
+            return index * 50px;
         }
 
 
-        width: 48px;
+        width: 49px;
         x: 5px;
 
-        Image {
-            x:0;
-            source: @image-url("images/page_selection.svg");
-            y: sidebar.icon-y(root.active-page) - 23px;
-            width: 49px;
-            height: 86px;
-            colorize: DemoPalette.page-background-color;
+        VerticalLayout {
+            width: self.preferred-width;
+            padding-top: main-view.margin * 2;
+            spacing: 16px;
+            for page-icon[idx] in [
+                @image-url("images/mcu/home.svg"),
+                @image-url("images/mcu/settings.svg"),
+                @image-url("images/mcu/ink.svg"),
+            ] : SideBarIcon {
 
-            animate y {
-                duration: 125ms;
-            }
-        }
-
-        for page-icon[idx] in [
-            @image-url("images/sidebar/home.svg"),
-            @image-url("images/sidebar/settings.svg"),
-            @image-url("images/sidebar/ink.svg"),
-        ] : SideBarIcon {
-            activate => {
-                home-page.current-subpage = 0;
-                root.active-page = idx;
-            }
-
-            y: sidebar.icon-y(idx)+3px;
-            x: (parent.width - self.width) / 2;
-            height: 30px;
-            width: 30px;
-
-            icon := Image {
-                colorize: (root.active-page == idx) ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-                source: page-icon;
-                image-fit: contain;
-                width: 100%;
-                height: 100%;
-
-                animate colorize {
-                    duration: 125ms;
+                activate => {
+                    home-page.current-subpage = 0;
+                    root.active-page = idx;
                 }
+                icon: page-icon;
+                active: root.active-page == idx;
             }
         }
 
-        Rectangle {
-            y: sidebar.icon-y(3) ;
-            x: (parent.width - self.width) / 2;
-            background: #6284FF;
-            height: 2px;
-            width: 37px;
-        }
 
         SideBarIcon {
             activate => {
                 DemoPalette.night-mode = !DemoPalette.night-mode;
             }
 
-            //y: sidebar.icon-y(3) + 10px;
             y: parent.height - self.height - main-view.margin * 2;
             x: (parent.width - self.width) / 2;
-            height: 27px;
-            width: 27px;
+            icon: @image-url("images/mcu/theme.svg");
+            icon-colorize: DemoPalette.night-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
 
-            Image {
-                colorize: DemoPalette.night-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-                source: DemoPalette.night-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
-                image-fit: contain;
-                width: 100%;
-                height: 100%;
-            }
         }
     }
 }
