@@ -14,4 +14,9 @@ export interface LineEditInterface {
     out property <bool> has-focus: false;
 
     in-out property <string> text: "";
+
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 }
