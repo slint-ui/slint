@@ -191,6 +191,8 @@ impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
 }
 
 struct WgpuTextureBackend {
+    instance: wgpu::Instance,
+    device: wgpu::Device,
     queue: wgpu::Queue,
     current_texture: RefCell<Option<wgpu::Texture>>,
 }
@@ -228,11 +230,23 @@ impl GraphicsBackend for WgpuTextureBackend {
         Ok(())
     }
 
+    #[cfg(feature = "unstable-wgpu-28")]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
-        // Users of FemtoVGWGPURenderer already have direct access to the device/queue
+        Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_28(
+            self.instance.clone(),
+            self.device.clone(),
+            self.queue.clone(),
+        ))))
+    }
+
+    #[cfg(not(feature = "unstable-wgpu-28"))]
+    fn with_graphics_api<R>(
+        &self,
+        callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
+    ) -> Result<R, i_slint_core::platform::PlatformError> {
         Ok(callback(None))
     }
 
@@ -253,10 +267,19 @@ pub struct FemtoVGWGPURenderer(FemtoVGRenderer<WgpuTextureBackend>);
 impl FemtoVGWGPURenderer {
     /// Creates a new FemtoVGWGPURenderer.
     ///
-    /// The `device` and `queue` are the WGPU device and queue that will be used for rendering.
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, PlatformError> {
-        let backend =
-            WgpuTextureBackend { queue: queue.clone(), current_texture: RefCell::new(None) };
+    /// The `instance`, `device` and `queue` are the WGPU resources used for rendering.
+    /// These are also provided to `RenderingNotifier` callbacks via `GraphicsAPI::WGPU28`.
+    pub fn new(
+        instance: wgpu::Instance,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+    ) -> Result<Self, PlatformError> {
+        let backend = WgpuTextureBackend {
+            instance,
+            device: device.clone(),
+            queue: queue.clone(),
+            current_texture: RefCell::new(None),
+        };
         let renderer = FemtoVGRenderer::new_internal(backend);
 
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
