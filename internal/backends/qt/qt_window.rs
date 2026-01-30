@@ -1107,6 +1107,27 @@ impl GlyphRenderer for QtItemRenderer<'_> {
             GlyphBrush::Fill(qt_brush) => {
                 cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", raw_font as "QRawFont", qt_brush as "QBrush"] {
                     // drawGlyphRun uses QPen to fill glyphs
+
+                    #ifndef QT_MAX_CACHED_GLYPH_SIZE
+                    constexpr int QT_MAX_CACHED_GLYPH_SIZE = 64;
+                    #endif
+                    auto pixelSize = raw_font.pixelSize();
+                    // Same formula as in https://github.com/qt/qtbase/blob/cd94dd0424aff272dc1fdc061fe605d32897298e/src/gui/text/freetype/qfontengine_ft.cpp#L2261
+                    if (pixelSize * pixelSize * (*painter)->deviceTransform().determinant() >= QT_MAX_CACHED_GLYPH_SIZE * QT_MAX_CACHED_GLYPH_SIZE) {
+                        // Workaround a Qt bug to resolve https://github.com/slint-ui/slint/issues/10568
+                        // There is a bug in Qt in which drawGlyphRun is not drawing correctly bigger fonts
+
+                        (*painter)->setBrush(qt_brush);
+                        QPainterPath path;
+                        for (int i = 0; i < size; i++) {
+                            QPainterPath glyphPath = raw_font.pathForGlyph(glyph_indices_ptr[i]);
+                            glyphPath.translate(glyph_positions_ptr[i]);
+                            path.addPath(glyphPath);
+                        }
+                        (*painter)->drawPath(path);
+                        return;
+                    }
+
                     (*painter)->setPen(QPen(qt_brush, 1));
                     (*painter)->setBrush(Qt::NoBrush);
 
