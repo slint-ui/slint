@@ -191,8 +191,6 @@ impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
 }
 
 struct WgpuTextureBackend {
-    /// The device is kept alive for the duration of the backend's existence.
-    _device: wgpu::Device,
     queue: wgpu::Queue,
     current_texture: RefCell<Option<wgpu::Texture>>,
 }
@@ -257,11 +255,7 @@ impl FemtoVGWGPURenderer {
     ///
     /// The `device` and `queue` are the WGPU device and queue that will be used for rendering.
     pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, PlatformError> {
-        let backend = WgpuTextureBackend {
-            _device: device.clone(),
-            queue: queue.clone(),
-            current_texture: RefCell::new(None),
-        };
+        let backend = WgpuTextureBackend { queue: queue.clone(), current_texture: RefCell::new(None) };
         let renderer = FemtoVGRenderer::new_internal(backend);
 
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
