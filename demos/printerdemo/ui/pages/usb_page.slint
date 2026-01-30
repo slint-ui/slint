@@ -48,8 +48,7 @@ export component UsbPage inherits Page {
             VerticalLayout {
                 padding: 20px;
                 spacing: 20px;
-
-                Rectangle {}
+                height: self.preferred-height;
 
                 image-selector := DropDownMenu {
                     label: @tr("Select File:");
@@ -89,8 +88,6 @@ export component UsbPage inherits Page {
                         PrinterQueue.start-job(root.files[image-selector.current-index].name);
                     }
                 }
-
-                Rectangle {}
             }
         }
     }

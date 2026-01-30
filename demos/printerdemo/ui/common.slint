@@ -139,10 +139,10 @@ export global DemoPalette {
         text-primary: #1D293D,
         text-secondary: #155DFC,
         text-tertiary: #62748e,
-        primary-button: @linear-gradient(90deg, #2B7FFF 0%, #155DFC 100%),
+        primary-button: #277aff,
         color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #99a1af 0%, #4a5565 100%),
-        spinbox-button-gradient: @linear-gradient(135deg, #af52de 0%, #ff2d55 100%),
+        spinbox-button-gradient: #277aff,
         spinbox-button-border: #00000000,
         spinbox-text-color: #FFFFFF,
         header-background: #F8FAFC,
@@ -215,10 +215,10 @@ export global DemoPalette {
         text-primary: #6036f8,
         text-secondary: #aa48ff,
         text-tertiary: #bd37fa,
-        primary-button: @linear-gradient(90deg, #00bba6 0%, #00bc80 50%, #00b8da 100%),
+        primary-button: #8753ff,
         color-button-gradient: @linear-gradient(90deg, #ff6567 0%, #fec500 50%, #c787f3 100%),
         grayscale-button-gradient: @linear-gradient(90deg, #99a1af 0%, #4a5565 100%),
-        spinbox-button-gradient: @linear-gradient(135deg,  #655eff 0%, #aa48ff 100%),
+        spinbox-button-gradient: #8753ff,
         spinbox-button-border: #00000000,
         spinbox-text-color: #FFFFFF,
         header-background: #f5f4ff,
@@ -241,7 +241,7 @@ export global DemoPalette {
         home-button-text-color: #FFFFFF,
         popup-bg: #FFFFFF,
         popup-border: #bd37fa,
-        popup-active-background: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
+        popup-active-background: #8753ff,
         popup-active-text-color: #FFFFFF,
         popup-hover-background: #f5f4ff,
     };
@@ -284,7 +284,7 @@ export global DemoPalette {
         popup-hover-background: #f0f4ff,
     };
 
-    property <[ModeColors]> themes: [gradient, minimalist, vibrant, glass];
+    out property <[Theme]> themes: [Theme.Gradient, Theme.Vibrant, Theme.Minimalist, Theme.Glass];
 
     out property <color> background: current-theme.background;
     out property <color> primary: current-theme.primary;
