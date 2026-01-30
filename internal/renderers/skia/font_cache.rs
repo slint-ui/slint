@@ -14,11 +14,7 @@ const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
 
 pub struct FontCache {
     font_mgr: skia_safe::FontMgr,
-<<<<<<< HEAD
-    fonts: HashMap<(HashedBlob, u32), Option<skia_safe::Typeface>>,
-=======
     fonts: LruCache<(u64, u32), Option<skia_safe::Typeface>>,
->>>>>>> 2963efeb9 (fix: FontCache HashMap -> LruCache)
 }
 
 impl Default for FontCache {
@@ -32,19 +28,9 @@ impl Default for FontCache {
 
 impl FontCache {
     pub fn font(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
-<<<<<<< HEAD
-        self.fonts
-            .entry((font.data.clone().into(), font.index))
-            .or_insert_with(|| {
-                let typeface = self.font_mgr.new_from_data(
-                    font.data.as_ref(),
-                    if font.index > 0 { Some(font.index as _) } else { None },
-                );
-=======
         let mut hasher = DefaultHasher::new();
         font.data.as_ref().hash(&mut hasher);
         let data_hash = hasher.finish();
->>>>>>> 2963efeb9 (fix: FontCache HashMap -> LruCache)
 
         let key = (data_hash, font.index);
 
