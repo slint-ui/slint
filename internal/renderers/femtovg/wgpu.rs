@@ -255,7 +255,8 @@ impl FemtoVGWGPURenderer {
     ///
     /// The `device` and `queue` are the WGPU device and queue that will be used for rendering.
     pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, PlatformError> {
-        let backend = WgpuTextureBackend { queue: queue.clone(), current_texture: RefCell::new(None) };
+        let backend =
+            WgpuTextureBackend { queue: queue.clone(), current_texture: RefCell::new(None) };
         let renderer = FemtoVGRenderer::new_internal(backend);
 
         let wgpu_renderer = femtovg::renderer::WGPURenderer::new(device, queue);
