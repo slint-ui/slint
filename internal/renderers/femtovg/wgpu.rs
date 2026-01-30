@@ -226,6 +226,7 @@ impl GraphicsBackend for WgpuTextureBackend {
         &self,
         _surface: Self::WindowSurface,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // No presentation needed - the caller owns the texture and handles presenting it
         Ok(())
     }
 
@@ -233,6 +234,7 @@ impl GraphicsBackend for WgpuTextureBackend {
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
+        // Users of FemtoVGWGPURenderer already have direct access to the device/queue
         Ok(callback(None))
     }
 
@@ -241,6 +243,7 @@ impl GraphicsBackend for WgpuTextureBackend {
         _width: std::num::NonZeroU32,
         _height: std::num::NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // No resize needed - texture size is determined by the texture passed to render_to_texture
         Ok(())
     }
 }
