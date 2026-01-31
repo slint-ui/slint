@@ -21,21 +21,15 @@ component SideBarIcon inherits Rectangle {
     in-out property <color> icon-colorize: active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
 
     callback activate;
-    width: 30px;
+    width: 36px;
     height: self.width;
-
-    Rectangle {
-        width: 120%;
-        height: self.width;
-        border-radius: self.width / 3;
-        visible: active;
-        background: white;
-    }
+    border-radius: 10px;
+    background: active ? #273752 : transparent;
 
     icon := Image {
         colorize: icon-colorize;
         image-fit: contain;
-        width: 24px;
+        width: 16px;
         height: self.width;
     }
 
@@ -46,9 +40,15 @@ component SideBarIcon inherits Rectangle {
             }
         }
 
-        width: 170%;
+        width: 150%;
         height: 150%;
     }
+}
+
+enum Pages {
+    home,
+    ink,
+    settings
 }
 
 export component MainWindow inherits Window {
@@ -70,83 +70,62 @@ export component MainWindow inherits Window {
                 {color: #000, level: 30%},
             ];
 
-    in-out property <int> active-page: 0;
+    in-out property <Pages> active-page: Pages.home;
 
     callback quit();
 
-    main-view := Rectangle {
-        property <length> margin: 5px;
+    HorizontalLayout {
+        sidebar := Rectangle {
+            function icon-y(index: int) -> length {
+                return index * 50px;
+            }
+            width: 36px;
 
-        x: sidebar.x + sidebar.width;
-        y: self.margin;
-        height: parent.height - self.margin * 2;
-        width: parent.width - self.x - self.margin;
-        border-radius: 15px;
-        background: DemoPalette.page-background-color;
+            VerticalLayout {
+                width: self.preferred-width;
+                padding-top: 12px;
+                spacing: 12px;
+                for page-data[idx] in [
+                    {enum: Pages.home, icon: @image-url("images/mcu/home.svg")},
+                    {enum: Pages.ink, icon: @image-url("images/mcu/ink.svg")},
+                ] : SideBarIcon {
 
-        Rectangle {
-            clip: true;
-            x: main-view.border-radius / 2;
-            y: main-view.border-radius / 2;
-            width: main-view.width - main-view.border-radius;
-            height: main-view.height - main-view.border-radius;
-
-            home-page := HomePage {
-                visible: root.active-page == 0;
+                    activate => {
+                        home-page.current-subpage = 0;
+                        root.active-page = page-data.enum;
+                    }
+                    icon: page-data.icon;
+                    active: root.active-page == page-data.enum;
+                }
             }
 
-            SettingsPage {
-                visible: root.active-page == 1;
+            SideBarIcon {
+                activate => {
+                    root.active-page = Pages.settings;
+                }
+
+                y: parent.height - self.height - 12px;
+                x: 0px;
+                icon: @image-url("images/mcu/settings.svg");
+                active: root.active-page == Pages.settings;
+            }
+        }
+
+        main-view := Rectangle {
+
+            home-page := HomePage {
+                visible: root.active-page == Pages.home;
             }
 
             InkPage {
-                visible: root.active-page == 2;
+                visible: root.active-page == Pages.ink;
                 ink-levels <=> root.ink-levels;
-                page-visible: root.active-page == 2;
-            }
-        }
-    }
-
-
-    sidebar := Rectangle {
-        function icon-y(index: int) -> length {
-            return index * 50px;
-        }
-
-
-        width: 49px;
-        x: 5px;
-
-        VerticalLayout {
-            width: self.preferred-width;
-            padding-top: main-view.margin * 2;
-            spacing: 16px;
-            for page-icon[idx] in [
-                @image-url("images/mcu/home.svg"),
-                @image-url("images/mcu/settings.svg"),
-                @image-url("images/mcu/ink.svg"),
-            ] : SideBarIcon {
-
-                activate => {
-                    home-page.current-subpage = 0;
-                    root.active-page = idx;
-                }
-                icon: page-icon;
-                active: root.active-page == idx;
-            }
-        }
-
-
-        SideBarIcon {
-            activate => {
-                DemoPalette.night-mode = !DemoPalette.night-mode;
+                page-visible: root.active-page == Pages.ink;
             }
 
-            y: parent.height - self.height - main-view.margin * 2;
-            x: (parent.width - self.width) / 2;
-            icon: @image-url("images/mcu/theme.svg");
-            icon-colorize: DemoPalette.night-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-
+            SettingsPage {
+                visible: root.active-page == Pages.settings;
+            }
         }
     }
 }

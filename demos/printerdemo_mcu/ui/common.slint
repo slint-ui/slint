@@ -9,8 +9,8 @@ struct ButtonColors  {
 
 export global DemoPalette  {
     // Color of the home/settings/ink buttons on the left side bar
-    out property <color> active-page-icon-color: Colors.black;
-    out property <color> inactive-page-icon-color: #a7add1;
+    out property <color> active-page-icon-color: Colors.white;
+    out property <color> inactive-page-icon-color: #90A1B9;
     out property <color> main-background: #0E133F;
     out property <color> neutral-box: #BDC0D1;
     out property <color> page-background-color: root.night-mode ? #122F7B : white;
@@ -49,50 +49,71 @@ export component Page inherits Rectangle {
     in property <string> header <=> h.text;
     in property <bool> has-back-button: false;
 
+    out property <length> header-height: 45px;
+
     callback back;
 
     background: DemoPalette.page-background-color;
 
     TouchArea {} // protect underneath controls
 
-    if (root.has-back-button) : Image {
-        source: @image-url("images/back.svg");
-        image-fit: contain;
-        colorize: DemoPalette.control-secondary;
-        y: h.y + (h.height - self.height) / 2;
-        x: 5px;
-        width: 14px;
-        height: 24px;
+    VerticalLayout {
+        page-header := Rectangle {
+            width: 100%;
+            height: root.header-height;
 
-        TouchArea {
-            pointer-event(ev) => {
-                if (ev.kind == PointerEventKind.up) {
-                    root.back()
+            if (root.has-back-button) : Image {
+                source: @image-url("images/back.svg");
+                image-fit: contain;
+                colorize: DemoPalette.control-secondary;
+                y: h.y + (h.height - self.height) / 2;
+                x: 5px;
+                width: 14px;
+                height: 24px;
+
+                TouchArea {
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.up) {
+                            root.back()
+                        }
+                    }
+                    width: 400%;
+                    height: 200%;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
                 }
             }
-            width: 400%;
-            height: 200%;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
+
+            h := Text {
+                font-size: 20px;
+                color: DemoPalette.text-foreground-color;
+                x: root.has-back-button ? 30px + 16px : 12px;
+
+                // Allow clicking on the title as well to get back easier when just
+                // using fingers on a small screen.
+                if (root.has-back-button) : TouchArea {
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.up) {
+                            root.back()
+                        }
+                    }
+                }
+            }
+
+            separator := Rectangle {
+                y: parent.height - self.height;
+                width: 100%;
+                height: 1px;
+                background: #E2E8F0;
+            }
+        }
+
+        page-content := Rectangle {
+            background: #F8FAFC;
+            @children
         }
     }
 
-    h := Text {
-        font-size: DemoPalette.base-font-size * 1.75;
-        color: DemoPalette.text-foreground-color;
-        y: 23px - self.font-size;
-        x: root.has-back-button ? 30px + 16px : 0px;
-
-        // Allow clicking on the title as well to get back easier when just
-        // using fingers on a small screen.
-        if (root.has-back-button) : TouchArea {
-            pointer-event(ev) => {
-                if (ev.kind == PointerEventKind.up) {
-                    root.back()
-                }
-            }
-        }
-    }
 }
 export component Label inherits Text {
     color: DemoPalette.text-foreground-color;
