@@ -193,6 +193,24 @@ box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> 
     return cbindgen_private::slint_box_layout_info_ortho(cells, &padding);
 }
 
+inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxLayoutData &data,
+                                             cbindgen_private::Slice<int> repeater_indices)
+{
+    SharedVector<float> result;
+    cbindgen_private::Slice<uint32_t> ri =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
+    cbindgen_private::slint_solve_flexbox_layout(&data, ri, &result);
+    return result;
+}
+
+inline cbindgen_private::LayoutInfo
+flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells, float spacing,
+                 const cbindgen_private::Padding &padding,
+                 cbindgen_private::Orientation orientation)
+{
+    return cbindgen_private::slint_flexbox_layout_info(cells, spacing, &padding, orientation);
+}
+
 /// Access the layout cache of an item within a repeater
 template<typename T>
 inline T layout_cache_access(const SharedVector<T> &cache, int offset, int repeater_index,

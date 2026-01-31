@@ -12,9 +12,10 @@ Slint's layout system has two phases:
 2. **Runtime**: Constraints are evaluated and positions/sizes are calculated
 
 Layout types:
-- **GridLayout** - 2D grid with row/column positioning, spans
 - **HorizontalLayout / VerticalLayout** - Linear box layouts
+- **GridLayout** - 2D grid with row/column positioning, spans
 - **Dialog** - Special grid with platform-specific button ordering
+- **FlexBoxLayout** - CSS Flexbox layout
 
 ## Key Files
 
@@ -24,7 +25,7 @@ Layout types:
 | `internal/compiler/layout.rs` | Compiler-side layout data structures |
 | `internal/compiler/passes/lower_layout.rs` | Lowers layout elements to expressions |
 | `internal/compiler/passes/default_geometry.rs` | Sets default width/height (runs after layout lowering) |
-| `internal/compiler/llr/lower_expression.rs` | Converts layout expressions to LLR (lines 674-897) |
+| `internal/compiler/llr/lower_expression.rs` | Converts layout expressions to LLR (`compute_*_layout_info` and `solve_*_layout` functions) |
 
 ## Constraint System
 
@@ -98,6 +99,11 @@ Grid layouts solve independently for each axis:
 
 Cells with `colspan`/`rowspan` > 1 require iterative constraint distribution.
 
+### FlexBox layout
+
+FlexBox layout is solved in both axes simultaneously.
+The layouting algorithm is provided by the `taffy` crate, which implements the CSS flexbox algorithm.
+
 ## Compile-Time Lowering
 
 The `lower_layout.rs` pass transforms layout elements:
@@ -121,10 +127,11 @@ Child x/y/width/height bound to cache access expressions
 | Expression | Purpose |
 |------------|---------|
 | `OrganizeGridLayout` | Compute cell row/column assignments |
-| `SolveBoxLayout`    | Compute positions and sizes for items in a box layout |
-| `SolveGridLayout`   | Compute positions and sizes for items in a grid layout |
-| `ComputeLayoutInfo` | Calculate combined constraints |
-| `LayoutCacheAccess` | Read position/size from cache |
+| `SolveBoxLayout`     | Compute positions and sizes for items in a box layout |
+| `SolveGridLayout`    | Compute positions and sizes for items in a grid layout |
+| `SolveFlexBoxLayout` | Compute positions and sizes for items in a flexbox layout |
+| `ComputeLayoutInfo`  | Calculate combined constraints |
+| `LayoutCacheAccess`  | Read position/size from cache |
 
 ## Key Data Structures
 
@@ -206,7 +213,7 @@ Repeaters (dynamic item lists) in layouts use indirection:
 ## Key Concepts for Agents
 
 1. **Two-phase architecture**: Compile-time creates structure, runtime evaluates values
-2. **Independent axis solving**: Horizontal and vertical are solved separately
+2. **Independent axis solving**: Horizontal and vertical are solved separately (for horizontal, vertical and grid layouts)
 3. **Constraint tightening**: Merging takes the most restrictive bounds
 4. **Stretch factors**: Control how extra space is distributed (0 = don't grow)
 5. **Cache indirection**: Enables repeaters without runtime structure changes
@@ -215,12 +222,18 @@ Repeaters (dynamic item lists) in layouts use indirection:
 ## Testing Layout Changes
 
 ```sh
-# Run layout-specific tests
-tests/run_tests.sh rust layout
+# Run all layout-specific tests
+cargo test -p test-driver-rust --test layout
+cargo test -p test-driver-interpreter layout
+
+# Run a specific test case (filtered by substring)
+tests/run_tests.sh rust grid_conditional_row
+tests/run_tests.sh interpreter grid_conditional_row
+tests/run_tests.sh cpp grid_conditional_row
 
 # Run all interpreter tests (fast)
 cargo test -p test-driver-interpreter
 
-# Visual verification
+# Visual verification (for humans)
 cargo run -p gallery
 ```

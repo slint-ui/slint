@@ -551,6 +551,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout organized data cache")
             }
         }
+        Expression::SolveFlexBoxLayout(layout) => {
+            crate::eval_layout::solve_flexbox_layout(layout, local_context)
+        }
+        Expression::ComputeFlexBoxLayoutInfo(layout, orientation) => {
+            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
+        }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
                 return local_context

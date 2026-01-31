@@ -1,0 +1,36 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with basic wrapping and spacing
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    // Test basic wrapping with spacing
+    FlexBoxLayout {
+        spacing: 5px;
+        padding: 0px;
+
+        r1 := Rectangle { width: 60px; height: 30px; background: red; }
+        r2 := Rectangle { width: 60px; height: 30px; background: green; }
+        r3 := Rectangle { width: 80px; height: 30px; background: blue; }
+    }
+
+    // r1 and r2 fit (60+5+60=125 < 200), r3 wraps
+    out property <bool> test: r1.x == 0px && r1.y == 0px &&
+                              r2.x == 65px && r2.y == 0px &&
+                              r3.x == 0px && r3.y == 35px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

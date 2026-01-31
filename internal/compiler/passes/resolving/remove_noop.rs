@@ -108,6 +108,8 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::OrganizeGridLayout(_) => false,
         Expression::SolveBoxLayout(_, _) => false,
         Expression::SolveGridLayout { .. } => false,
+        Expression::SolveFlexBoxLayout(..) => false,
+        Expression::ComputeFlexBoxLayoutInfo(..) => false,
         Expression::MinMax { ty: _, op: _, lhs, rhs } => {
             without_side_effects(lhs) && without_side_effects(rhs)
         }

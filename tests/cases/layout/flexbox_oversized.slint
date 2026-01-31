@@ -1,0 +1,35 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with wide items
+
+export component TestCase inherits Window {
+    width: 150px;
+    height: 200px;
+
+    // Test with wide items (one per row)
+    FlexBoxLayout {
+        spacing: 5px;
+
+        w1 := Rectangle { width: 100px; height: 30px; background: red; }
+        w2 := Rectangle { width: 100px; height: 30px; background: green; }
+        w3 := Rectangle { width: 80px; height: 30px; background: blue; }
+    }
+
+    // Each item goes on its own row since 100 > 50 (remaining space after first item)
+    out property <bool> test: w1.x == 0px && w1.y == 0px &&
+                              w2.x == 0px && w2.y == 35px &&
+                              w3.x == 0px && w3.y == 70px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

@@ -2988,11 +2988,13 @@ pub fn visit_named_references_in_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
         Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeFlexBoxLayoutInfo(l, _) => l.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
         }
         Expression::SolveBoxLayout(l, _) => l.visit_named_references(vis),
+        Expression::SolveFlexBoxLayout(l) => l.visit_named_references(vis),
         Expression::SolveGridLayout { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);

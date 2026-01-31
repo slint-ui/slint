@@ -1,0 +1,44 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with varying item heights (row height should be max of items in row)
+
+export component TestCase inherits Window {
+    width: 250px;
+    height: 200px;
+
+    FlexBoxLayout {
+        spacing: 10px;
+
+        // Row 1: items with different heights, row height = max(30, 50, 40) = 50
+        r1 := Rectangle { width: 60px; height: 30px; background: red; }
+        r2 := Rectangle { width: 60px; height: 50px; background: green; }
+        r3 := Rectangle { width: 60px; height: 40px; background: blue; }
+        // 60 + 10 + 60 + 10 + 60 = 200 < 250, all fit on row 1
+
+        // Row 2: single item
+        r4 := Rectangle { width: 200px; height: 25px; background: yellow; }
+    }
+
+    // Row 1: y=0, row_height=50
+    // Row 2: y=60 (50 + 10)
+
+    out property <bool> test_r1: r1.x == 0px && r1.y == 0px && r1.height == 30px;
+    out property <bool> test_r2: r2.x == 70px && r2.y == 0px && r2.height == 50px;
+    out property <bool> test_r3: r3.x == 140px && r3.y == 0px && r3.height == 40px;
+    out property <bool> test_r4: r4.x == 0px && r4.y == 60px && r4.height == 25px;
+
+    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

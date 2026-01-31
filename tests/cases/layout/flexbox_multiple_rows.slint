@@ -1,0 +1,49 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with multiple rows (more than 2)
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 300px;
+
+    FlexBoxLayout {
+        spacing: 5px;
+
+        // Items sized to force specific row breaks:
+        // Row 1: r1(60) + r2(60) + r3(60) = 60+5+60+5+60 = 190 < 200, but r4 won't fit (190+5+60=255)
+        // Row 2: r4(60) + r5(80) = 60+5+80 = 145 < 200, but r6 won't fit (145+5+90=240)
+        // Row 3: r6(90) alone
+        r1 := Rectangle { width: 60px; height: 30px; background: red; }
+        r2 := Rectangle { width: 60px; height: 30px; background: green; }
+        r3 := Rectangle { width: 60px; height: 40px; background: blue; }
+        r4 := Rectangle { width: 60px; height: 40px; background: yellow; }
+        r5 := Rectangle { width: 80px; height: 25px; background: cyan; }
+        r6 := Rectangle { width: 90px; height: 35px; background: magenta; }
+    }
+
+    // Row 1: y=0, height=max(30,30,40)=40
+    // Row 2: y=45 (40+5), height=max(40,25)=40
+    // Row 3: y=90 (45+40+5), height=35
+
+    out property <bool> test_r1: r1.x == 0px && r1.y == 0px;
+    out property <bool> test_r2: r2.x == 65px && r2.y == 0px;
+    out property <bool> test_r3: r3.x == 130px && r3.y == 0px;
+    out property <bool> test_r4: r4.x == 0px && r4.y == 45px;
+    out property <bool> test_r5: r5.x == 65px && r5.y == 45px;
+    out property <bool> test_r6: r6.x == 0px && r6.y == 90px;
+
+    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4 && test_r5 && test_r6;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
