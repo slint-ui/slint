@@ -102,10 +102,10 @@ fn without_side_effects(expression: &Expression) -> bool {
         // the current function stops at this point.
         Expression::ReturnStatement(_) => false,
         Expression::LayoutCacheAccess { .. } => false,
-        Expression::ComputeLayoutInfo(_, _) => false,
+        Expression::ComputeBoxLayoutInfo(_, _) => false,
         Expression::ComputeGridLayoutInfo { .. } => false,
         Expression::OrganizeGridLayout(_) => false,
-        Expression::SolveLayout(_, _) => false,
+        Expression::SolveBoxLayout(_, _) => false,
         Expression::SolveGridLayout { .. } => false,
         Expression::MinMax { ty: _, op: _, lhs, rhs } => {
             without_side_effects(lhs) && without_side_effects(rhs)

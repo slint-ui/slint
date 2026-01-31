@@ -520,23 +520,16 @@ fn recurse_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }
-        Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
+        Expression::SolveBoxLayout(l, o) | Expression::ComputeBoxLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
-            if matches!(expr, Expression::SolveLayout(..))
-                && let Some(nr) = l.geometry().rect.size_reference(*o)
+            if matches!(expr, Expression::SolveBoxLayout(..))
+                && let Some(nr) = l.geometry.rect.size_reference(*o)
             {
                 vis(&nr.clone().into(), P);
             }
-            match l {
-                crate::layout::Layout::GridLayout(_) => {
-                    panic!("GridLayout should use SolveGridLayout/ComputeGridLayoutInfo")
-                }
-                crate::layout::Layout::BoxLayout(l) => {
-                    visit_layout_items_dependencies(l.elems.iter(), *o, vis)
-                }
-            }
+            visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
-            let mut g = l.geometry().clone();
+            let mut g = l.geometry.clone();
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }

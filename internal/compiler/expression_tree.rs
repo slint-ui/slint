@@ -783,15 +783,15 @@ pub enum Expression {
     /// Organize a grid layout, i.e. decide what goes where
     OrganizeGridLayout(crate::layout::GridLayout),
 
-    /// Compute the LayoutInfo for the given layout.
+    /// Compute the LayoutInfo for the given box layout.
     /// The orientation is the orientation of the cache, not the orientation of the layout
-    ComputeLayoutInfo(crate::layout::Layout, crate::layout::Orientation),
+    ComputeBoxLayoutInfo(crate::layout::BoxLayout, crate::layout::Orientation),
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
     },
-    SolveLayout(crate::layout::Layout, crate::layout::Orientation),
+    SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
@@ -925,9 +925,9 @@ impl Expression {
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
             Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
-            Expression::ComputeLayoutInfo(..) => typeregister::layout_info_type().into(),
+            Expression::ComputeBoxLayoutInfo(..) => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
-            Expression::SolveLayout(..) => Type::LayoutCache,
+            Expression::SolveBoxLayout(..) => Type::LayoutCache,
             Expression::SolveGridLayout { .. } => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
@@ -1027,9 +1027,9 @@ impl Expression {
                 repeater_index.as_deref().map(visitor);
             }
             Expression::OrganizeGridLayout(..) => {}
-            Expression::ComputeLayoutInfo(..) => {}
+            Expression::ComputeBoxLayoutInfo(..) => {}
             Expression::ComputeGridLayoutInfo { .. } => {}
-            Expression::SolveLayout(..) => {}
+            Expression::SolveBoxLayout(..) => {}
             Expression::SolveGridLayout { .. } => {}
             Expression::MinMax { lhs, rhs, .. } => {
                 visitor(lhs);
@@ -1134,9 +1134,9 @@ impl Expression {
                 repeater_index.as_deref_mut().map(visitor);
             }
             Expression::OrganizeGridLayout(..) => {}
-            Expression::ComputeLayoutInfo(..) => {}
+            Expression::ComputeBoxLayoutInfo(..) => {}
             Expression::ComputeGridLayoutInfo { .. } => {}
-            Expression::SolveLayout(..) => {}
+            Expression::SolveBoxLayout(..) => {}
             Expression::SolveGridLayout { .. } => {}
             Expression::MinMax { lhs, rhs, .. } => {
                 visitor(lhs);
@@ -1231,9 +1231,9 @@ impl Expression {
             // TODO:  detect constant property within layouts
             Expression::LayoutCacheAccess { .. } => false,
             Expression::OrganizeGridLayout { .. } => false,
-            Expression::ComputeLayoutInfo(..) => false,
+            Expression::ComputeBoxLayoutInfo(..) => false,
             Expression::ComputeGridLayoutInfo { .. } => false,
-            Expression::SolveLayout(..) => false,
+            Expression::SolveBoxLayout(..) => false,
             Expression::SolveGridLayout { .. } => false,
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant(ga) && rhs.is_constant(ga),
             Expression::EmptyComponentFactory => true,
@@ -1919,9 +1919,9 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
         }
         Expression::OrganizeGridLayout(..) => write!(f, "organize_grid_layout(..)"),
-        Expression::ComputeLayoutInfo(..) => write!(f, "layout_info(..)"),
+        Expression::ComputeBoxLayoutInfo(..) => write!(f, "layout_info(..)"),
         Expression::ComputeGridLayoutInfo { .. } => write!(f, "grid_layout_info(..)"),
-        Expression::SolveLayout(..) => write!(f, "solve_layout(..)"),
+        Expression::SolveBoxLayout(..) => write!(f, "solve_box_layout(..)"),
         Expression::SolveGridLayout { .. } => write!(f, "solve_grid_layout(..)"),
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             match op {

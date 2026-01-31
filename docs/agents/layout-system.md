@@ -121,8 +121,8 @@ Child x/y/width/height bound to cache access expressions
 | Expression | Purpose |
 |------------|---------|
 | `OrganizeGridLayout` | Compute cell row/column assignments |
-| `SolveGridLayout` | Compute positions and sizes |
-| `SolveLayout` | Box layout solving |
+| `SolveBoxLayout`    | Compute positions and sizes for items in a box layout |
+| `SolveGridLayout`   | Compute positions and sizes for items in a grid layout |
 | `ComputeLayoutInfo` | Calculate combined constraints |
 | `LayoutCacheAccess` | Read position/size from cache |
 
