@@ -290,6 +290,9 @@ jobs:
             - name: Build bevy-hosts-slint Example
               run: cargo build
               working-directory: examples/bevy-hosts-slint
+            - name: Build bevy-hosts-slint-gpu Example
+              run: cargo build
+              working-directory: examples/bevy-hosts-slint-gpu
 
     android_wgpu:
         runs-on: ubuntu-latest
