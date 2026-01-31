@@ -14,7 +14,7 @@ export global DemoPalette  {
     out property <color> main-background: #0E133F;
     out property <color> neutral-box: #BDC0D1;
     out property <color> page-background-color: root.night-mode ? #122F7B : white;
-    out property <color> text-foreground-color: root.night-mode ? #F4F6FF : black;
+    out property <color> text-foreground-color: root.night-mode ? #F4F6FF : #0A0A0A;
     out property <color> secondary-foreground-color: root.night-mode ? #C1C3CA : #6C6E7A;
     out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
     out property <color> printer-queue-item-background-color: root.page-background-color;
@@ -85,9 +85,10 @@ export component Page inherits Rectangle {
             }
 
             h := Text {
-                font-size: 20px;
+                font-size: 22px;
                 color: DemoPalette.text-foreground-color;
                 x: root.has-back-button ? 30px + 16px : 12px;
+                // font-family: DemoPalette.regular-font-family;
 
                 // Allow clicking on the title as well to get back easier when just
                 // using fingers on a small screen.
