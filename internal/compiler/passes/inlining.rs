@@ -588,18 +588,11 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     };
     match expr {
         Expression::ElementReference(element) => fx(element),
-        Expression::SolveLayout(l, _) | Expression::ComputeLayoutInfo(l, _) => match l {
-            crate::layout::Layout::GridLayout(l) => {
-                for e in &mut l.elems {
-                    fxe(&mut e.item.element);
-                }
+        Expression::SolveBoxLayout(l, _) | Expression::ComputeBoxLayoutInfo(l, _) => {
+            for e in &mut l.elems {
+                fxe(&mut e.element);
             }
-            crate::layout::Layout::BoxLayout(l) => {
-                for e in &mut l.elems {
-                    fxe(&mut e.element);
-                }
-            }
-        },
+        }
         Expression::SolveGridLayout { layout, .. }
         | Expression::OrganizeGridLayout(layout)
         | Expression::ComputeGridLayoutInfo { layout, .. } => {

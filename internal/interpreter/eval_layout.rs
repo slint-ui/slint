@@ -7,7 +7,7 @@ use crate::eval::{self, EvalLocalContext};
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::layout::{
-    GridLayout, Layout, LayoutConstraints, LayoutGeometry, Orientation, RowColExpr,
+    BoxLayout, GridLayout, LayoutConstraints, LayoutGeometry, Orientation, RowColExpr,
 };
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
@@ -59,8 +59,8 @@ pub(crate) fn compute_grid_layout_info(
     .into()
 }
 
-pub(crate) fn compute_layout_info(
-    lay: &Layout,
+pub(crate) fn compute_box_layout_info(
+    box_layout: &BoxLayout,
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
 ) -> Value {
@@ -68,28 +68,14 @@ pub(crate) fn compute_layout_info(
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
-    match lay {
-        Layout::GridLayout(_) => {
-            panic!("only BoxLayout is supported");
-        }
-        Layout::BoxLayout(box_layout) => {
-            let (cells, alignment) =
-                box_layout_data(box_layout, orientation, component, &expr_eval, None);
-            let (padding, spacing) =
-                padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
-            if orientation == box_layout.orientation {
-                core_layout::box_layout_info(
-                    Slice::from(cells.as_slice()),
-                    spacing,
-                    &padding,
-                    alignment,
-                )
-            } else {
-                core_layout::box_layout_info_ortho(Slice::from(cells.as_slice()), &padding)
-            }
-            .into()
-        }
+    let (cells, alignment) = box_layout_data(box_layout, orientation, component, &expr_eval, None);
+    let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
+    if orientation == box_layout.orientation {
+        core_layout::box_layout_info(Slice::from(cells.as_slice()), spacing, &padding, alignment)
+    } else {
+        core_layout::box_layout_info_ortho(Slice::from(cells.as_slice()), &padding)
     }
+    .into()
 }
 
 pub(crate) fn organize_grid_layout(
@@ -153,8 +139,8 @@ pub(crate) fn solve_grid_layout(
     .into()
 }
 
-pub(crate) fn solve_layout(
-    lay: &Layout,
+pub(crate) fn solve_box_layout(
+    box_layout: &BoxLayout,
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
 ) -> Value {
@@ -163,38 +149,30 @@ pub(crate) fn solve_layout(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
 
-    match lay {
-        Layout::GridLayout(_) => {
-            panic!("solve_layout called on GridLayout; use solve_grid_layout instead");
-        }
-        Layout::BoxLayout(box_layout) => {
-            let mut repeated_indices = Vec::new();
-            let (cells, alignment) = box_layout_data(
-                box_layout,
-                orientation,
-                component,
-                &expr_eval,
-                Some(&mut repeated_indices),
-            );
-            let (padding, spacing) =
-                padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
-            let size_ref = match orientation {
-                Orientation::Horizontal => &box_layout.geometry.rect.width_reference,
-                Orientation::Vertical => &box_layout.geometry.rect.height_reference,
-            };
-            core_layout::solve_box_layout(
-                &core_layout::BoxLayoutData {
-                    size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
-                    spacing,
-                    padding,
-                    alignment,
-                    cells: Slice::from(cells.as_slice()),
-                },
-                Slice::from(repeated_indices.as_slice()),
-            )
-            .into()
-        }
-    }
+    let mut repeated_indices = Vec::new();
+    let (cells, alignment) = box_layout_data(
+        box_layout,
+        orientation,
+        component,
+        &expr_eval,
+        Some(&mut repeated_indices),
+    );
+    let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
+    let size_ref = match orientation {
+        Orientation::Horizontal => &box_layout.geometry.rect.width_reference,
+        Orientation::Vertical => &box_layout.geometry.rect.height_reference,
+    };
+    core_layout::solve_box_layout(
+        &core_layout::BoxLayoutData {
+            size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
+            spacing,
+            padding,
+            alignment,
+            cells: Slice::from(cells.as_slice()),
+        },
+        Slice::from(repeated_indices.as_slice()),
+    )
+    .into()
 }
 
 fn padding_and_spacing(

@@ -26,27 +26,6 @@ pub enum Layout {
 }
 
 impl Layout {
-    pub fn rect(&self) -> &LayoutRect {
-        match self {
-            Layout::GridLayout(g) => &g.geometry.rect,
-            Layout::BoxLayout(g) => &g.geometry.rect,
-        }
-    }
-    pub fn rect_mut(&mut self) -> &mut LayoutRect {
-        match self {
-            Layout::GridLayout(g) => &mut g.geometry.rect,
-            Layout::BoxLayout(g) => &mut g.geometry.rect,
-        }
-    }
-    pub fn geometry(&self) -> &LayoutGeometry {
-        match self {
-            Layout::GridLayout(l) => &l.geometry,
-            Layout::BoxLayout(l) => &l.geometry,
-        }
-    }
-}
-
-impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         match self {
@@ -546,7 +525,7 @@ pub struct BoxLayout {
 }
 
 impl BoxLayout {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
         }

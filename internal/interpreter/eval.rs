@@ -492,8 +492,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_layout_info(lay, *o, local_context)
+        Expression::ComputeBoxLayoutInfo(lay, o) => {
+            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
         }
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
             let cache = load_property_helper(
@@ -516,7 +516,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::OrganizeGridLayout(lay) => {
             crate::eval_layout::organize_grid_layout(lay, local_context)
         }
-        Expression::SolveLayout(lay, o) => crate::eval_layout::solve_layout(lay, *o, local_context),
+        Expression::SolveBoxLayout(lay, o) => {
+            crate::eval_layout::solve_box_layout(lay, *o, local_context)
+        }
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),

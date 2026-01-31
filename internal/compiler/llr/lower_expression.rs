@@ -262,13 +262,13 @@ pub fn lower_expression(
             entries_per_item: *entries_per_item,
         },
         tree_Expression::OrganizeGridLayout(l) => organize_grid_layout(l, ctx),
-        tree_Expression::ComputeLayoutInfo(l, o) => compute_layout_info(l, *o, ctx),
+        tree_Expression::ComputeBoxLayoutInfo(l, o) => compute_box_layout_info(l, *o, ctx),
         tree_Expression::ComputeGridLayoutInfo {
             layout_organized_data_prop,
             layout,
             orientation,
         } => compute_grid_layout_info(layout_organized_data_prop, layout, *orientation, ctx),
-        tree_Expression::SolveLayout(l, o) => solve_layout(l, *o, ctx),
+        tree_Expression::SolveBoxLayout(l, o) => solve_box_layout(l, *o, ctx),
         tree_Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             solve_grid_layout(layout_organized_data_prop, layout, *orientation, ctx)
         }
@@ -671,43 +671,36 @@ fn compute_grid_layout_info(
     }
 }
 
-fn compute_layout_info(
-    l: &crate::layout::Layout,
+fn compute_box_layout_info(
+    layout: &crate::layout::BoxLayout,
     o: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
-    match l {
-        crate::layout::Layout::GridLayout(_) => {
-            panic!("compute_layout_info called on GridLayout, use compute_grid_layout_info");
+    let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
+    let bld = box_layout_data(layout, o, ctx);
+    let sub_expression = if o == layout.orientation {
+        llr_Expression::ExtraBuiltinFunctionCall {
+            function: "box_layout_info".into(),
+            arguments: vec![bld.cells, spacing, padding, bld.alignment],
+            return_ty: crate::typeregister::layout_info_type().into(),
         }
-        crate::layout::Layout::BoxLayout(layout) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
-            let bld = box_layout_data(layout, o, ctx);
-            let sub_expression = if o == layout.orientation {
-                llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "box_layout_info".into(),
-                    arguments: vec![bld.cells, spacing, padding, bld.alignment],
-                    return_ty: crate::typeregister::layout_info_type().into(),
-                }
-            } else {
-                llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "box_layout_info_ortho".into(),
-                    arguments: vec![bld.cells, padding],
-                    return_ty: crate::typeregister::layout_info_type().into(),
-                }
-            };
-            match bld.compute_cells {
-                Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
-                    cells_variable,
-                    repeater_indices_var_name: None,
-                    repeater_steps_var_name: None,
-                    elements,
-                    orientation: o,
-                    sub_expression: Box::new(sub_expression),
-                },
-                None => sub_expression,
-            }
+    } else {
+        llr_Expression::ExtraBuiltinFunctionCall {
+            function: "box_layout_info_ortho".into(),
+            arguments: vec![bld.cells, padding],
+            return_ty: crate::typeregister::layout_info_type().into(),
         }
+    };
+    match bld.compute_cells {
+        Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
+            cells_variable,
+            repeater_indices_var_name: None,
+            repeater_steps_var_name: None,
+            elements,
+            orientation: o,
+            sub_expression: Box::new(sub_expression),
+        },
+        None => sub_expression,
     }
 }
 
@@ -842,58 +835,53 @@ fn solve_grid_layout(
     }
 }
 
-fn solve_layout(
-    l: &crate::layout::Layout,
+fn solve_box_layout(
+    layout: &crate::layout::BoxLayout,
     o: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
-    match l {
-        crate::layout::Layout::BoxLayout(layout) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
-            let bld = box_layout_data(layout, o, ctx);
-            let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
-            let data = make_struct(
-                BuiltinPrivateStruct::BoxLayoutData,
-                [
-                    ("size", Type::Float32, size),
-                    ("spacing", Type::Float32, spacing),
-                    ("padding", padding.ty(ctx), padding),
-                    (
-                        "alignment",
-                        crate::typeregister::BUILTIN
-                            .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
-                        bld.alignment,
-                    ),
-                    ("cells", bld.cells.ty(ctx), bld.cells),
+    let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
+    let bld = box_layout_data(layout, o, ctx);
+    let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
+    let data = make_struct(
+        BuiltinPrivateStruct::BoxLayoutData,
+        [
+            ("size", Type::Float32, size),
+            ("spacing", Type::Float32, spacing),
+            ("padding", padding.ty(ctx), padding),
+            (
+                "alignment",
+                crate::typeregister::BUILTIN
+                    .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
+                bld.alignment,
+            ),
+            ("cells", bld.cells.ty(ctx), bld.cells),
+        ],
+    );
+    match bld.compute_cells {
+        Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
+            cells_variable,
+            repeater_indices_var_name: Some("repeated_indices".into()),
+            repeater_steps_var_name: None,
+            elements,
+            orientation: o,
+            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                function: "solve_box_layout".into(),
+                arguments: vec![
+                    data,
+                    llr_Expression::ReadLocalVariable {
+                        name: "repeated_indices".into(),
+                        ty: Type::Array(Type::Int32.into()),
+                    },
                 ],
-            );
-            match bld.compute_cells {
-                Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
-                    cells_variable,
-                    repeater_indices_var_name: Some("repeated_indices".into()),
-                    repeater_steps_var_name: None,
-                    elements,
-                    orientation: o,
-                    sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "solve_box_layout".into(),
-                        arguments: vec![
-                            data,
-                            llr_Expression::ReadLocalVariable {
-                                name: "repeated_indices".into(),
-                                ty: Type::Array(Type::Int32.into()),
-                            },
-                        ],
-                        return_ty: Type::LayoutCache,
-                    }),
-                },
-                None => llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "solve_box_layout".into(),
-                    arguments: vec![data, empty_int32_slice()],
-                    return_ty: Type::LayoutCache,
-                },
-            }
-        }
-        _ => panic!("solve_layout is only supported for BoxLayout"),
+                return_ty: Type::LayoutCache,
+            }),
+        },
+        None => llr_Expression::ExtraBuiltinFunctionCall {
+            function: "solve_box_layout".into(),
+            arguments: vec![data, empty_int32_slice()],
+            return_ty: Type::LayoutCache,
+        },
     }
 }
 
