@@ -10,14 +10,51 @@ export struct PrinterQueueItem  {
     owner: string,
     pages: int,
     size: string, // number instead and format in .slint?
-    submission-date: string
-}
+    submission-date: string}
 
-export global PrinterQueue  {
+export global PrinterQueue {
     in property <[PrinterQueueItem]> printer-queue: [
-        { status: "printing", progress: 63, title: "Slint-Demo.jpeg", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "waiting", title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "waiting", title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        {
+            status: "printing",
+            progress: 63,
+            title: "Slint-Demo.jpeg",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "Adressliste.docx",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
     ];
 
     callback start-job(string);
@@ -26,9 +63,9 @@ export global PrinterQueue  {
 
     public pure function statusString(status: string) -> string {
         if (status == "printing") {
-            "PRINTING"
+            status.to-uppercase()
         } else if (status == "waiting") {
-            "WAITING..."
+            status.to-uppercase()
         } else {
             "Unknown job status"
         }
@@ -129,7 +166,7 @@ component PrintDetails inherits GridLayout {
     }
 }
 
-component NarrowPrintQueueElement inherits Rectangle {
+component NarrowPrintQueueElement {
     in property <PrinterQueueItem> queue-item;
     in-out property <bool> expanded;
 
@@ -137,27 +174,44 @@ component NarrowPrintQueueElement inherits Rectangle {
 
     callback cancel-job();
 
-    border-color: DemoPalette.control-outline-color;
-    border-radius: 6px;
-    border-width: 1px;
-    background: DemoPalette.printer-queue-item-background-color;
-    clip: true;
-    height: always-visible.min-height + layout.padding * 2;
+    width: 190px;
+    height: layout.height + 16px;
+    //always-visible.min-height + layout.padding * 2;
 
-    states [
-        expanded when root.expanded : {
-            height: layout.min-height;
-            expanded-opacity: 1;
-            in {
-                animate height { duration: 200ms; easing: ease; }
-                animate expanded-opacity { duration: 200ms; }
-            }
-            out {
-                animate height { duration: 200ms; easing: ease; }
-                animate expanded-opacity { duration: 200ms; }
-            }
-        }
-    ]
+
+    fake-shadow := Rectangle {
+        y: 2px;
+        width: 100%;
+        height: 100%;
+        background: #eeeeee;
+        border-radius: 14px;
+    }
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: white;
+        border-radius: 14px;
+        border-width: 1px;
+        border-color: #d4dae1;
+    }
+
+    // clip: true;
+    
+    // states [
+    //     expanded when root.expanded : {
+    //         height: layout.min-height;
+    //         expanded-opacity: 1;
+    //         in {
+    //             animate height { duration: 200ms; easing: ease; }
+    //             animate expanded-opacity { duration: 200ms; }
+    //         }
+    //         out {
+    //             animate height { duration: 200ms; easing: ease; }
+    //             animate expanded-opacity { duration: 200ms; }
+    //         }
+    //     }
+    // ]
 
     TouchArea {
         pointer-event(ev) => {
@@ -167,73 +221,74 @@ component NarrowPrintQueueElement inherits Rectangle {
         }
     }
 
-    Rectangle {
-        height: 100%;
-        layout := VerticalLayout {
-            padding: root.border-radius;
-            spacing: 4px;
-            alignment: start;
+    layout := VerticalLayout {
+        height: layout.preferred-height;
+            spacing: 8px;
 
             always-visible := VerticalLayout {
-                padding: 0;
-                spacing: parent.spacing;
+            padding: 12px;
+            spacing: parent.spacing;
 
-                Text {
-                    // TODO: text-transform: uppercase
+            Text {
                     text: {
-                        if (root.queue-item.status == "printing") {
+                    if (root.queue-item.status == "printing") {
                         "\{root.queue-item.progress}% - \{PrinterQueue.statusString(root.queue-item.status)}"
-                        } else {
-                            PrinterQueue.statusString(root.queue-item.status)
-                        }
+                    } else {
+                        PrinterQueue.statusString(root.queue-item.status)
                     }
-                    color: DemoPalette.status-label-text-color;
-                    font-size: DemoPalette.base-font-size * 0.75;
-                    letter-spacing: 1.26px;
+                }
+                color: DemoPalette.status-label-text-color;
+                font-size: 12px;
+                font-family: DemoPalette.regular-font-family;
+                    // letter-spacing: 1.26px;
                 }
 
-                Text {
-                    text: root.queue-item.title;
-                    overflow: elide;
-                    color: DemoPalette.text-foreground-color;
-                    font-size: DemoPalette.base-font-size * 1.125;
-                }
-            }
-
-            if (root.expanded || root.expanded-opacity > 0) : PrintDetails {
-                padding: 0px;
-                padding-bottom: root.border-radius / 2;
-                queue-item: root.queue-item;
-                opacity: root.expanded-opacity;
-            }
-
-            if (root.expanded || root.expanded-opacity > 0) : HorizontalLayout {
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-
-                PushButton {
-                    clicked => { root.cancel-job(); }
-
-                    opacity: root.expanded-opacity;
-                    text: "Delete";
-                    icon: @image-url("images/delete.svg");
-                }
-
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
+            Text {
+                text: root.queue-item.title;
+                overflow: elide;
+                color: DemoPalette.text-foreground-color;
+                font-size: 16px;
+                font-family: DemoPalette.regular-font-family;
             }
         }
+
+        // if (root.expanded || root.expanded-opacity > 0): PrintDetails {
+        //     padding: 0px;
+        //         // padding-bottom: root.border-radius / 2;
+        //         queue-item: root.queue-item;
+        //     opacity: root.expanded-opacity;
+        // }
+
+        // if (root.expanded || root.expanded-opacity > 0): HorizontalLayout {
+        //     Rectangle {
+        //         horizontal-stretch: 0;
+        //         width: 10%;
+        //     }
+
+        //     PushButton {
+        //         clicked => {
+        //             root.cancel-job();
+        //         }
+
+        //         opacity: root.expanded-opacity;
+        //         text: "Delete";
+        //         icon: @image-url("images/delete.svg");
+        //     }
+
+        //     Rectangle {
+        //         horizontal-stretch: 0;
+        //         width: 10%;
+        //     }
+        // }
     }
 }
 
-component NarrowPrinterQueueList inherits Flickable {
+export component NarrowPrinterQueueList inherits Flickable {
+    viewport-width: self.width;
     VerticalLayout {
         alignment: start;
-        padding: 0px;
+        padding-top: 8px;
+        padding-bottom: 8px;
         spacing: 6px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
@@ -241,20 +296,7 @@ component NarrowPrinterQueueList inherits Flickable {
                 PrinterQueue.cancel-job(idx)
             }
 
-            width: root.width;
             queue-item: queue-item;
         }
-    }
-}
-
-export component PrinterQueueView inherits Rectangle {
-    border-radius: 18px;
-    background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
-
-    VerticalLayout {
-        padding: 6px;
-        spacing: 6px;
-
-        queue-list := NarrowPrinterQueueList { }
     }
 }

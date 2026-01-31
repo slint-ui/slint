@@ -4,40 +4,28 @@
 import { DemoPalette, Page, PushButton } from "./common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
-import { PrinterQueueView } from "./printer_queue.slint";
+import { NarrowPrinterQueueList } from "./printer_queue.slint";
 
-component ActionButton inherits Rectangle {
-    in property <image> icon <=> img.source;
+component ActionButton inherits Image {
     in property <string> text <=> label.text;
 
     callback clicked;
+    width: 104px;
 
-    VerticalLayout {
-        spacing: 4px;
-
-        Rectangle {
-            border-radius: 12px;
-            border-width: 3px;
-            border-color: DemoPalette.control-outline-color;
-            background: DemoPalette.printer-action-background-color;
-
-            img := Image {
-                x: (parent.width / 2) - (self.width / 2);
-                y: (parent.height / 2) - (self.height / 2);
-                width: self.source.width * 1px / 2;
-                height: self.source.height * 1px / 2;
-                colorize: DemoPalette.text-foreground-color;
-            }
-        }
-
-        label := Text {
-            font-size: DemoPalette.base-font-size * 1.2;
-            horizontal-alignment: center;
-            color: DemoPalette.text-foreground-color;
-        }
+    label := Text {
+        y: 50px;
+        font-size: DemoPalette.base-font-size * 1.2;
+        horizontal-alignment: center;
+        color: white;
     }
 
-    TouchArea { clicked => { root.clicked() } }
+    ta := TouchArea {
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                root.clicked();
+            }
+        }
+    }
 }
 
 export component HomePage inherits Page {
@@ -49,36 +37,36 @@ export component HomePage inherits Page {
 
     header: "Printer";
 
-    for action[idx] in [
-        { name: "Copy", icon: @image-url("images/copy.svg") },
-        { name: "Scan", icon: @image-url("images/scan.svg") },
-
-    ]: ActionButton {
-        clicked => { root.current-subpage = idx + 1; }
-        x: mod(idx, 1) * (root.button-width + root.button-spacing) + root.button-spacing;
-        y: floor(idx / 1) * (root.button-height + root.button-spacing)
-           + root.header-row-height
-           + /* top-padding of printer queue */ 18px; // align with the first item of the printer queue
-        width: root.button-width;
-        height: root.button-height;
-        icon: action.icon;
-        text: action.name;
+    HorizontalLayout {
+        spacing: 8px;
+        VerticalLayout {
+            padding-top: 8px;
+            width: self.preferred-width;
+            for action[idx] in [
+                { name: "Copy", icon: @image-url("images/mcu/copy-button.jpg") },
+                { name: "Scan", icon: @image-url("images/mcu/scan-button.jpg") },
+            ]: ActionButton {
+                clicked => { root.current-subpage = idx + 1; }
+                source: action.icon;
+                text: action.name;
+            }
+        }
+        queue-view :=  NarrowPrinterQueueList {
+        }
     }
 
-    queue-view := PrinterQueueView {
-        x: root.button-width + root.button-spacing * 2;
-        width: parent.width - self.x;
-    }
 
     ScanPage {
         back => { root.current-subpage = 0 }
-        x: root.current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 2 ? 0 : 320px;
+        y: -root.header-height;
         animate x { duration: 125ms; easing: ease; }
     }
 
     CopyPage {
         back => { root.current-subpage = 0 }
-        x: root.current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 1 ? 0 : 320px;
+        y: -root.header-height;
         animate x { duration: 125ms; easing: ease; }
     }
 }
