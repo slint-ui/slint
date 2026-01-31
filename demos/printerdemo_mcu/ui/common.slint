@@ -7,25 +7,27 @@ struct ButtonColors  {
     hovered: color,
 }
 
-export global DemoPalette  {
+export global DemoPalette {
+    out property <length> side-bar-width: 36px;
+    out property <length> header-height: 45px;
     // Color of the home/settings/ink buttons on the left side bar
+    out property <color> header-background: white;
+    out property <color> page-background: #F8FAFC;
     out property <color> active-page-icon-color: Colors.white;
     out property <color> inactive-page-icon-color: #90A1B9;
     out property <color> main-background: #0E133F;
     out property <color> neutral-box: #BDC0D1;
-    out property <color> page-background-color: root.night-mode ? #122F7B : white;
-    out property <color> text-foreground-color: root.night-mode ? #F4F6FF : #0A0A0A;
-    out property <color> secondary-foreground-color: root.night-mode ? #C1C3CA : #6C6E7A;
-    out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
-    out property <color> printer-queue-item-background-color: root.page-background-color;
-    out property <color> status-label-text-color: root.night-mode ? #F1FF98 : #6284FF;
+    out property <color> text-foreground-color: #473f74;
+    out property <color> secondary-foreground-color: #6C6E7A;
+    out property <color> printer-action-background-color: white;
+    out property <color> status-label-text-color: #6284FF;
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
     out property <color> control-outline-color: #FFBF63;
     out property <color> control-secondary: #6284FF;
-    out property <color> control-foreground: root.night-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> control-foreground: #122F7B;  // FIXME: the night mode color was not part of the design
     out property <color> primary-push-button-base: #6284FF;
     out property <ButtonColors> primary-push-button-colors: {
         base: root.primary-push-button-base,
@@ -42,27 +44,23 @@ export global DemoPalette  {
     out property <length> base-font-size: 12px;
     out property <string> medium-font-family: "Inter 24pt Medium";
     out property <string> regular-font-family: "Inter 24pt Regular";
-    in-out property <bool> night-mode: false;
 }
 
 export component Page inherits Rectangle {
     in property <string> header <=> h.text;
     in property <bool> has-back-button: false;
 
-    out property <length> header-height: 45px;
-
     callback back;
 
-    background: DemoPalette.page-background-color;
-
-    TouchArea {} // protect underneath controls
+    TouchArea { } // protect underneath controls
 
     VerticalLayout {
         page-header := Rectangle {
             width: 100%;
-            height: root.header-height;
+            height: DemoPalette.header-height;
+            background: DemoPalette.header-background;
 
-            if (root.has-back-button) : Image {
+            if (root.has-back-button): Image {
                 source: @image-url("images/back.svg");
                 image-fit: contain;
                 colorize: DemoPalette.control-secondary;
@@ -92,7 +90,7 @@ export component Page inherits Rectangle {
 
                 // Allow clicking on the title as well to get back easier when just
                 // using fingers on a small screen.
-                if (root.has-back-button) : TouchArea {
+                if (root.has-back-button): TouchArea {
                     pointer-event(ev) => {
                         if (ev.kind == PointerEventKind.up) {
                             root.back()
@@ -110,12 +108,11 @@ export component Page inherits Rectangle {
         }
 
         page-content := Rectangle {
-            background: #F8FAFC;
             @children
         }
     }
-
 }
+
 export component Label inherits Text {
     color: DemoPalette.text-foreground-color;
     vertical-alignment: center;
@@ -134,22 +131,20 @@ component SquareButton inherits Rectangle {
 
     touch := TouchArea {
         pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.up) {
+            if (ev.kind == PointerEventKind.down) {
                 root.clicked()
             }
         }
 
-        x: -4px;
-        y: -4px;
-        width: parent.width + 8px;
-        height: parent.height + 8px;
+        width: 120%;
+        height: 120%;
     }
 
     Image {
         height: 12px;
         width: 12px;
-        x: (parent.width - self.width)/2;
-        y: (parent.height - self.height)/2;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
         source <=> root.img;
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
@@ -206,116 +201,62 @@ export component SpinBox inherits Rectangle {
     }
 }
 
-export component ComboBox inherits Rectangle {
-    in property <[string]> choices;
-    in-out property <string> value;
 
-    border-radius: 3px;
-    border-width: 2px;
-    border-color: DemoPalette.control-outline-color;
-    height: 32px;
-    min-width: label.x + label.width + i.width;
-    horizontal-stretch: 1; // Work around #2284
 
-    label := Text {
-        vertical-alignment: center;
-        horizontal-alignment: left;
-        text <=> root.value;
-        color: DemoPalette.control-foreground;
-        height: 100%;
-        x: 12px;
-    }
-
-    i := Image {
-        source: @image-url("images/down.svg");
-        colorize: DemoPalette.control-secondary;
-        height: 40%;
-        width: self.height;
-        image-fit: contain;
-        x: parent.width - self.width - self.y;
-        y: (parent.height - self.height)/2;
-    }
-
-    TouchArea {
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.up) {
-                popup.show()
-            }
-        }
-
-        width: 100%;
-        height: 100%;
-    }
-
-    popup := PopupWindow {
-        x: 0;
-        y: root.height;
-        width: root.width;
-
-        Rectangle {
-            background: DemoPalette.page-background-color;
-            border-radius: 3px;
-            border-width: 2px;
-            border-color: DemoPalette.control-outline-color;
-        }
-
-        VerticalLayout {
-            spacing: 6px;
-            padding: 3px;
-
-            for value[idx] in root.choices: Rectangle {
-                border-radius: 3px;
-                background: item-area.has-hover ? DemoPalette.primary-push-button-colors.hovered : #0000;
-
-                HorizontalLayout {
-                    Text {
-                        text: value;
-                        color: item-area.has-hover ? DemoPalette.push-button-text-color : DemoPalette.text-foreground-color;
-                        font-size: DemoPalette.base-font-size;
-                    }
-                }
-
-                item-area := TouchArea {
-                    clicked => {
-                        root.value = value;
-                    }
-                }
-            }
-        }
-    }
-}
-
-export component CheckBox inherits Rectangle {
+export component CheckBox {
     in property <string> text;
     in-out property <bool> checked;
 
-    height: 32px;
+    property <length> margin: (root.height - tick-box.height) / 2;
 
-    HorizontalLayout {
-        spacing: 12px;
-        padding: 0;
+    width: 100%;
+    height: 74px;
 
-        SquareButton {
-            clicked => { root.checked = !root.checked; }
-
-            width: root.height - parent.padding * 2;
-            img: root.checked ? @image-url("images/check.svg") : @image-url("");
-        }
-
-        if root.text != "" : Text {
-            text <=> root.text;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-            color: DemoPalette.control-foreground;
-            horizontal-stretch: 1;
-        }
+    fake-shadow := Rectangle {
+        y: 2px;
+        background: #eeeeee;
+        border-radius: bg.border-radius;
     }
 
-    TouchArea {
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.up) {
+    bg := Rectangle {
+        background: white;
+        border-radius: 14px;
+        border-width: 2px;
+        border-color: #E2E8F0;
+    }
+
+    Text {
+        x: margin;
+        text <=> root.text;
+        font-size: 16px;
+        color: DemoPalette.text-foreground-color;
+    }
+
+    tick-box := Rectangle {
+        in property <image> img;
+        callback clicked;
+        x: parent.width - self.width - margin;
+        width: 48px;
+        height: self.width;
+        border-radius: 10px;
+        border-width: 2px;
+        border-color: #CAD5E2;
+
+        Image {
+            visible: root.checked;
+            source: @image-url("images/mcu/switch-active.png");
+
+            Image {
+                source: @image-url("images/mcu/tick.svg");
+            }
+        }
+
+        touch := TouchArea {
+            clicked => {
                 root.checked = !root.checked;
             }
+            width: 150%;
+            height: 150%;
         }
     }
 }

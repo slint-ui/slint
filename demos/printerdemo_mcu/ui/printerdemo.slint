@@ -77,13 +77,13 @@ export component MainWindow inherits Window {
             function icon-y(index: int) -> length {
                 return index * 50px;
             }
-            width: 36px;
+            width: DemoPalette.side-bar-width;
 
             VerticalLayout {
                 width: self.preferred-width;
                 padding-top: 12px;
                 spacing: 12px;
-                for page-data[idx] in [
+                for page-data[index] in [
                     {enum: Pages.home, icon: @image-url("images/mcu/home.svg")},
                     {enum: Pages.ink, icon: @image-url("images/mcu/ink.svg")},
                 ] : SideBarIcon {
@@ -109,6 +109,7 @@ export component MainWindow inherits Window {
         }
 
         main-view := Rectangle {
+            background: DemoPalette.page-background;
 
             home-page := HomePage {
                 visible: root.active-page == Pages.home;

@@ -42,11 +42,11 @@ export component HomePage inherits Page {
         VerticalLayout {
             padding-top: 8px;
             width: self.preferred-width;
-            for action[idx] in [
+            for action[index] in [
                 { name: "Copy", icon: @image-url("images/mcu/copy-button.jpg") },
                 { name: "Scan", icon: @image-url("images/mcu/scan-button.jpg") },
             ]: ActionButton {
-                clicked => { root.current-subpage = idx + 1; }
+                clicked => { root.current-subpage = index + 1; }
                 source: action.icon;
                 text: action.name;
             }
@@ -59,14 +59,14 @@ export component HomePage inherits Page {
     ScanPage {
         back => { root.current-subpage = 0 }
         x: root.current-subpage == 2 ? 0 : 320px;
-        y: -root.header-height;
+        y: -DemoPalette.header-height;
         animate x { duration: 125ms; easing: ease; }
     }
 
     CopyPage {
         back => { root.current-subpage = 0 }
         x: root.current-subpage == 1 ? 0 : 320px;
-        y: -root.header-height;
+        y: -DemoPalette.header-height;
         animate x { duration: 125ms; easing: ease; }
     }
 }
