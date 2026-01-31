@@ -1011,6 +1011,21 @@ pub struct BoxLayoutData<'a> {
 }
 
 #[repr(C)]
+#[derive(Debug)]
+/// The FlexBoxLayoutData is used for a horizontal flow layout with wrapping.
+pub struct FlexBoxLayoutData<'a> {
+    pub width: Coord,
+    pub height: Coord,
+    pub spacing: Coord,
+    pub padding: Padding,
+    pub alignment: LayoutAlignment,
+    /// Horizontal constraints (width) for each cell
+    pub cells_h: Slice<'a, LayoutItemInfo>,
+    /// Vertical constraints (height) for each cell
+    pub cells_v: Slice<'a, LayoutItemInfo>,
+}
+
+#[repr(C)]
 #[derive(Default, Debug, Clone)]
 /// The information about a single item in a layout
 /// For now this only contains the LayoutInfo constraints, but could be extended in the future
@@ -1146,6 +1161,164 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
     fold
 }
 
+/// Solve a FlexBoxLayout (horizontal row direction with wrapping)
+/// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
+pub fn solve_flexbox_layout(
+    data: &FlexBoxLayoutData,
+    repeater_indices: Slice<u32>,
+) -> SharedVector<Coord> {
+    // 4 values per item: x, y, width, height
+    let mut result = SharedVector::<Coord>::default();
+    result.resize(data.cells_h.len() * 4 + repeater_indices.len() * 2, 0 as _);
+
+    if data.cells_h.is_empty() {
+        return result;
+    }
+
+    let available_width = data.width - data.padding.begin - data.padding.end;
+
+    // First pass: determine which items go on which row
+    struct RowInfo {
+        start_idx: usize,
+        end_idx: usize, // exclusive
+        row_height: Coord,
+    }
+
+    let mut rows: Vec<RowInfo> = Vec::new();
+    let mut current_row_start = 0;
+    let mut current_row_width: Coord = 0.0;
+    let mut current_row_height: Coord = 0.0;
+
+    for (idx, cell_h) in data.cells_h.iter().enumerate() {
+        let item_width = cell_h.constraint.preferred_bounded();
+        // Get height from vertical constraints
+        let item_height = data.cells_v.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
+
+        // Check if this item fits on the current row
+        let width_with_item = if current_row_width > 0.0 {
+            current_row_width + data.spacing + item_width
+        } else {
+            item_width
+        };
+
+        if width_with_item > available_width && current_row_width > 0.0 {
+            // Start a new row
+            rows.push(RowInfo {
+                start_idx: current_row_start,
+                end_idx: idx,
+                row_height: current_row_height,
+            });
+            current_row_start = idx;
+            current_row_width = item_width;
+            current_row_height = item_height;
+        } else {
+            current_row_width = width_with_item;
+            current_row_height = current_row_height.max(item_height);
+        }
+    }
+
+    // Don't forget the last row
+    if current_row_start < data.cells_h.len() {
+        rows.push(RowInfo {
+            start_idx: current_row_start,
+            end_idx: data.cells_h.len(),
+            row_height: current_row_height,
+        });
+    }
+
+    // Second pass: position items
+    let mut y = data.padding.begin;
+    let result_slice = result.make_mut_slice();
+
+    for row in &rows {
+        let mut x = data.padding.begin;
+
+        for idx in row.start_idx..row.end_idx {
+            let cell_h = &data.cells_h[idx];
+            let item_width = cell_h.constraint.preferred_bounded();
+            let item_height =
+                data.cells_v.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
+
+            // Calculate vertical position based on alignment within row
+            let item_y = match data.alignment {
+                LayoutAlignment::Start => y,
+                LayoutAlignment::End => y + row.row_height - item_height,
+                LayoutAlignment::Center => y + (row.row_height - item_height) / 2.0,
+                _ => y, // Stretch or other: align to top
+            };
+
+            // Store: x, y, width, height
+            let base = idx * 4;
+            result_slice[base] = x;
+            result_slice[base + 1] = item_y;
+            result_slice[base + 2] = item_width;
+            result_slice[base + 3] = item_height;
+
+            x += item_width + data.spacing;
+        }
+
+        y += row.row_height + data.spacing;
+    }
+
+    result
+}
+
+/// Return the LayoutInfo for a FlexBoxLayout with the given cells.
+pub fn flexbox_layout_info(
+    cells: Slice<LayoutItemInfo>,
+    spacing: Coord,
+    padding: &Padding,
+    orientation: Orientation,
+) -> LayoutInfo {
+    let count = cells.len();
+    if count < 1 {
+        let mut info = LayoutInfo::default();
+        let pad = padding.begin + padding.end;
+        info.min = pad;
+        info.preferred = pad;
+        return info;
+    }
+
+    let extra_pad = padding.begin + padding.end;
+
+    match orientation {
+        Orientation::Horizontal => {
+            // For horizontal: min width is the widest single item, preferred is all items in one row
+            let min = cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+                + extra_pad;
+            let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+                + spacing * (count - 1) as Coord
+                + extra_pad;
+            let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
+            LayoutInfo {
+                min,
+                max: Coord::MAX,
+                min_percent: 0.0,
+                max_percent: 100.0,
+                preferred,
+                stretch,
+            }
+        }
+        Orientation::Vertical => {
+            // For vertical: depends on container width (which we don't know here)
+            // Return constraints assuming single row as minimum
+            let min = cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+                + extra_pad;
+            let preferred =
+                cells.iter().map(|c| c.constraint.preferred).fold(0.0 as Coord, |a, b| a.max(b))
+                    + extra_pad;
+            LayoutInfo {
+                min,
+                max: Coord::MAX,
+                min_percent: 0.0,
+                max_percent: 100.0,
+                preferred,
+                stretch: 1.0,
+            }
+        }
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -1237,6 +1410,26 @@ pub(crate) mod ffi {
         padding: &Padding,
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_solve_flexbox_layout(
+        data: &FlexBoxLayoutData,
+        repeater_indices: Slice<u32>,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_flexbox_layout(data, repeater_indices)
+    }
+
+    #[unsafe(no_mangle)]
+    /// Return the LayoutInfo for a FlexBoxLayout with the given cells.
+    pub extern "C" fn slint_flexbox_layout_info(
+        cells: Slice<LayoutItemInfo>,
+        spacing: Coord,
+        padding: &Padding,
+        orientation: Orientation,
+    ) -> LayoutInfo {
+        super::flexbox_layout_info(cells, spacing, padding, orientation)
     }
 }
 

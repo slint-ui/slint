@@ -810,6 +810,10 @@ pub enum Expression {
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
     },
+    /// Solve a FlexBoxLayout - returns positions for all items (x, y, width, height per item)
+    SolveFlexBoxLayout(crate::layout::FlexBoxLayout),
+    /// Compute the LayoutInfo for the given FlexBoxLayout
+    ComputeFlexBoxLayoutInfo(crate::layout::FlexBoxLayout, crate::layout::Orientation),
 
     MinMax {
         ty: Type,
@@ -943,6 +947,8 @@ impl Expression {
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::SolveBoxLayout(..) => Type::LayoutCache,
             Expression::SolveGridLayout { .. } => Type::LayoutCache,
+            Expression::SolveFlexBoxLayout(..) => Type::LayoutCache,
+            Expression::ComputeFlexBoxLayoutInfo(..) => typeregister::layout_info_type().into(),
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
@@ -1046,6 +1052,8 @@ impl Expression {
             Expression::ComputeGridLayoutInfo { .. } => {}
             Expression::SolveBoxLayout(..) => {}
             Expression::SolveGridLayout { .. } => {}
+            Expression::SolveFlexBoxLayout(..) => {}
+            Expression::ComputeFlexBoxLayoutInfo(..) => {}
             Expression::MinMax { lhs, rhs, .. } => {
                 visitor(lhs);
                 visitor(rhs);
@@ -1154,6 +1162,8 @@ impl Expression {
             Expression::ComputeGridLayoutInfo { .. } => {}
             Expression::SolveBoxLayout(..) => {}
             Expression::SolveGridLayout { .. } => {}
+            Expression::SolveFlexBoxLayout(..) => {}
+            Expression::ComputeFlexBoxLayoutInfo(..) => {}
             Expression::MinMax { lhs, rhs, .. } => {
                 visitor(lhs);
                 visitor(rhs);
@@ -1252,6 +1262,8 @@ impl Expression {
             Expression::ComputeGridLayoutInfo { .. } => false,
             Expression::SolveBoxLayout(..) => false,
             Expression::SolveGridLayout { .. } => false,
+            Expression::SolveFlexBoxLayout(..) => false,
+            Expression::ComputeFlexBoxLayoutInfo(..) => false,
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant(ga) && rhs.is_constant(ga),
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
@@ -1944,6 +1956,8 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::ComputeGridLayoutInfo { .. } => write!(f, "grid_layout_info(..)"),
         Expression::SolveBoxLayout(..) => write!(f, "solve_box_layout(..)"),
         Expression::SolveGridLayout { .. } => write!(f, "solve_grid_layout(..)"),
+        Expression::SolveFlexBoxLayout(..) => write!(f, "solve_flexbox_layout(..)"),
+        Expression::ComputeFlexBoxLayoutInfo(..) => write!(f, "flexbox_layout_info(..)"),
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             match op {
                 MinMaxOp::Min => write!(f, "min(")?,

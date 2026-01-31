@@ -600,6 +600,12 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
                 fxe(&mut e.item.element);
             }
         }
+        Expression::SolveFlexBoxLayout(layout)
+        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+            for e in &mut layout.elems {
+                fxe(&mut e.element);
+            }
+        }
         Expression::RepeaterModelReference { element }
         | Expression::RepeaterIndexReference { element } => fx(element),
         _ => expr.visit_mut(|e| fixup_element_references(e, mapping)),

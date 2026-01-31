@@ -109,6 +109,7 @@ fn lower_element_layout(
         "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
+        "FlexBoxLayout" => lower_flexbox_layout(elem, diag),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
             // return now, the Dialog stays in the tree as a Dialog
@@ -707,6 +708,97 @@ fn lower_box_layout(
     }
 }
 
+fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
+    let mut layout = crate::layout::FlexBoxLayout {
+        elems: Default::default(),
+        geometry: LayoutGeometry::new(layout_element),
+    };
+
+    // FlexBoxLayout needs 4 values per item: x, y, width, height
+    let layout_cache_prop =
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+    let layout_info_prop_v = create_new_prop(
+        layout_element,
+        SmolStr::new_static("layoutinfo-v"),
+        layout_info_type().into(),
+    );
+    let layout_info_prop_h = create_new_prop(
+        layout_element,
+        SmolStr::new_static("layoutinfo-h"),
+        layout_info_type().into(),
+    );
+
+    let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
+
+    for layout_child in &layout_children {
+        let item = create_layout_item(layout_child, diag);
+        let index = layout.elems.len() * 4; // 4 values per item: x, y, width, height
+        let rep_idx = &item.repeater_index;
+        let actual_elem = &item.elem;
+
+        // Set x from cache[index]
+        set_prop_from_cache(actual_elem, "x", &layout_cache_prop, index, rep_idx, 4, diag);
+        // Set y from cache[index + 1]
+        set_prop_from_cache(actual_elem, "y", &layout_cache_prop, index + 1, rep_idx, 4, diag);
+        // Set width from cache[index + 2] if not fixed
+        if !item.item.constraints.fixed_width {
+            set_prop_from_cache(
+                actual_elem,
+                "width",
+                &layout_cache_prop,
+                index + 2,
+                rep_idx,
+                4,
+                diag,
+            );
+        }
+        // Set height from cache[index + 3] if not fixed
+        if !item.item.constraints.fixed_height {
+            set_prop_from_cache(
+                actual_elem,
+                "height",
+                &layout_cache_prop,
+                index + 3,
+                rep_idx,
+                4,
+                diag,
+            );
+        }
+        layout.elems.push(item.item);
+    }
+    layout_element.borrow_mut().children = layout_children;
+    let span = layout_element.borrow().to_source_location();
+
+    layout_cache_prop.element().borrow_mut().bindings.insert(
+        layout_cache_prop.name().clone(),
+        BindingExpression::new_with_span(
+            Expression::SolveFlexBoxLayout(layout.clone()),
+            span.clone(),
+        )
+        .into(),
+    );
+    layout_info_prop_h.element().borrow_mut().bindings.insert(
+        layout_info_prop_h.name().clone(),
+        BindingExpression::new_with_span(
+            Expression::ComputeFlexBoxLayoutInfo(layout.clone(), Orientation::Horizontal),
+            span.clone(),
+        )
+        .into(),
+    );
+    layout_info_prop_v.element().borrow_mut().bindings.insert(
+        layout_info_prop_v.name().clone(),
+        BindingExpression::new_with_span(
+            Expression::ComputeFlexBoxLayoutInfo(layout.clone(), Orientation::Vertical),
+            span,
+        )
+        .into(),
+    );
+    layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
+    for d in layout_element.borrow_mut().debug.iter_mut() {
+        d.layout = Some(Layout::FlexBoxLayout(layout.clone()));
+    }
+}
+
 fn lower_dialog_layout(
     dialog_element: &ElementRc,
     style_metrics: &Rc<Component>,
@@ -1138,7 +1230,7 @@ fn check_number_literal_is_positive_integer(
 }
 
 fn recognized_layout_types() -> &'static [&'static str] {
-    &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "Dialog"]
+    &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "FlexBoxLayout", "Dialog"]
 }
 
 /// Checks that there are no grid-layout specific properties used wrongly

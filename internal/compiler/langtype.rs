@@ -662,6 +662,7 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
+    FlexBoxLayoutData,
     LayoutItemInfo,
     Padding,
     LayoutInfo,
@@ -679,7 +680,13 @@ pub enum BuiltinPrivateStruct {
 
 impl BuiltinPrivateStruct {
     pub fn is_layout_data(&self) -> bool {
-        matches!(self, Self::GridLayoutInputData | Self::GridLayoutData | Self::BoxLayoutData)
+        matches!(
+            self,
+            Self::GridLayoutInputData
+                | Self::GridLayoutData
+                | Self::BoxLayoutData
+                | Self::FlexBoxLayoutData
+        )
     }
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {

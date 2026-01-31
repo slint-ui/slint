@@ -175,6 +175,132 @@ pub(crate) fn solve_box_layout(
     .into()
 }
 
+pub(crate) fn solve_flexbox_layout(
+    flexbox_layout: &i_slint_compiler::layout::FlexBoxLayout,
+    local_context: &mut EvalLocalContext,
+) -> Value {
+    let component = local_context.component_instance;
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    };
+
+    let (cells_h, cells_v, repeated_indices) =
+        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
+    let (padding, spacing) =
+        padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
+
+    let width_ref = &flexbox_layout.geometry.rect.width_reference;
+    let height_ref = &flexbox_layout.geometry.rect.height_reference;
+    let alignment = flexbox_layout
+        .geometry
+        .alignment
+        .as_ref()
+        .map_or(i_slint_core::items::LayoutAlignment::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
+
+    core_layout::solve_flexbox_layout(
+        &core_layout::FlexBoxLayoutData {
+            width: width_ref.as_ref().map(&expr_eval).unwrap_or(0.),
+            height: height_ref.as_ref().map(&expr_eval).unwrap_or(0.),
+            spacing,
+            padding,
+            alignment,
+            cells_h: i_slint_core::slice::Slice::from(cells_h.as_slice()),
+            cells_v: i_slint_core::slice::Slice::from(cells_v.as_slice()),
+        },
+        i_slint_core::slice::Slice::from(repeated_indices.as_slice()),
+    )
+    .into()
+}
+
+pub(crate) fn compute_flexbox_layout_info(
+    flexbox_layout: &i_slint_compiler::layout::FlexBoxLayout,
+    orientation: Orientation,
+    local_context: &mut EvalLocalContext,
+) -> Value {
+    let component = local_context.component_instance;
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    };
+
+    let (cells_h, cells_v, _repeated_indices) =
+        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
+    let (padding, spacing) = padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
+
+    // Use the appropriate cells based on orientation
+    let cells = match orientation {
+        Orientation::Horizontal => cells_h,
+        Orientation::Vertical => cells_v,
+    };
+
+    core_layout::flexbox_layout_info(
+        i_slint_core::slice::Slice::from(cells.as_slice()),
+        spacing,
+        &padding,
+        to_runtime(orientation),
+    )
+    .into()
+}
+
+fn flexbox_layout_data(
+    flexbox_layout: &i_slint_compiler::layout::FlexBoxLayout,
+    component: InstanceRef,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
+    _local_context: &mut EvalLocalContext,
+) -> (Vec<core_layout::LayoutItemInfo>, Vec<core_layout::LayoutItemInfo>, Vec<u32>) {
+    let window_adapter = component.window_adapter();
+    let mut cells_h = Vec::with_capacity(flexbox_layout.elems.len());
+    let mut cells_v = Vec::with_capacity(flexbox_layout.elems.len());
+    let mut repeated_indices = Vec::new();
+
+    for layout_elem in &flexbox_layout.elems {
+        if layout_elem.element.borrow().repeated.is_some() {
+            let component_vec = repeater_instances(component, &layout_elem.element);
+            repeated_indices.push(cells_h.len() as u32);
+            repeated_indices.push(component_vec.len() as u32);
+            cells_h.extend(component_vec.iter().map(|x| {
+                x.as_pin_ref().layout_item_info(to_runtime(Orientation::Horizontal), None)
+            }));
+            cells_v.extend(
+                component_vec.iter().map(|x| {
+                    x.as_pin_ref().layout_item_info(to_runtime(Orientation::Vertical), None)
+                }),
+            );
+        } else {
+            let mut layout_info_h = get_layout_info(
+                &layout_elem.element,
+                component,
+                &window_adapter,
+                Orientation::Horizontal,
+            );
+            fill_layout_info_constraints(
+                &mut layout_info_h,
+                &layout_elem.constraints,
+                Orientation::Horizontal,
+                &expr_eval,
+            );
+            cells_h.push(core_layout::LayoutItemInfo { constraint: layout_info_h });
+
+            let mut layout_info_v = get_layout_info(
+                &layout_elem.element,
+                component,
+                &window_adapter,
+                Orientation::Vertical,
+            );
+            fill_layout_info_constraints(
+                &mut layout_info_v,
+                &layout_elem.constraints,
+                Orientation::Vertical,
+                &expr_eval,
+            );
+            cells_v.push(core_layout::LayoutItemInfo { constraint: layout_info_v });
+        }
+    }
+
+    (cells_h, cells_v, repeated_indices)
+}
+
 fn padding_and_spacing(
     layout_geometry: &LayoutGeometry,
     orientation: Orientation,

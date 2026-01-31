@@ -275,6 +275,8 @@ pub fn lower_expression(
         tree_Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             solve_grid_layout(layout_organized_data_prop, layout, *orientation, ctx)
         }
+        tree_Expression::SolveFlexBoxLayout(l) => solve_flexbox_layout(l, ctx),
+        tree_Expression::ComputeFlexBoxLayoutInfo(l, o) => compute_flexbox_layout_info(l, *o, ctx),
         tree_Expression::MinMax { ty, op, lhs, rhs } => llr_Expression::MinMax {
             ty: ty.clone(),
             op: *op,
@@ -885,6 +887,180 @@ fn solve_box_layout(
             arguments: vec![data, empty_int32_slice()],
             return_ty: Type::LayoutCache,
         },
+    }
+}
+
+fn solve_flexbox_layout(
+    layout: &crate::layout::FlexBoxLayout,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    let (padding, spacing) =
+        generate_layout_padding_and_spacing(&layout.geometry, Orientation::Horizontal, ctx);
+    let fld = flexbox_layout_data(layout, ctx);
+    let width = layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
+    let height = layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
+    let data = make_struct(
+        BuiltinPrivateStruct::FlexBoxLayoutData,
+        [
+            ("width", Type::Float32, width),
+            ("height", Type::Float32, height),
+            ("spacing", Type::Float32, spacing),
+            ("padding", padding.ty(ctx), padding),
+            (
+                "alignment",
+                crate::typeregister::BUILTIN
+                    .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
+                fld.alignment,
+            ),
+            ("cells_h", fld.cells_h.ty(ctx), fld.cells_h),
+            ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
+        ],
+    );
+    match fld.compute_cells {
+        Some((_cells_h_var, _cells_v_var, _elements)) => {
+            // TODO: Repeaters in FlexBoxLayout not yet supported
+            // For now, fall through to simple case
+            llr_Expression::ExtraBuiltinFunctionCall {
+                function: "solve_flexbox_layout".into(),
+                arguments: vec![data, empty_int32_slice()],
+                return_ty: Type::LayoutCache,
+            }
+        }
+        None => llr_Expression::ExtraBuiltinFunctionCall {
+            function: "solve_flexbox_layout".into(),
+            arguments: vec![data, empty_int32_slice()],
+            return_ty: Type::LayoutCache,
+        },
+    }
+}
+
+fn compute_flexbox_layout_info(
+    layout: &crate::layout::FlexBoxLayout,
+    orientation: Orientation,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    let (padding, spacing) =
+        generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
+    let fld = flexbox_layout_data(layout, ctx);
+    // Use the appropriate cells based on orientation
+    let cells = match orientation {
+        Orientation::Horizontal => fld.cells_h,
+        Orientation::Vertical => fld.cells_v,
+    };
+    let arguments = vec![
+        cells,
+        spacing,
+        padding,
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: orientation as usize,
+            enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
+        }),
+    ];
+    match fld.compute_cells {
+        Some((_cells_h_var, _cells_v_var, _elements)) => {
+            // TODO: Repeaters in FlexBoxLayout not yet supported
+            llr_Expression::ExtraBuiltinFunctionCall {
+                function: "flexbox_layout_info".into(),
+                arguments,
+                return_ty: crate::typeregister::layout_info_type().into(),
+            }
+        }
+        None => llr_Expression::ExtraBuiltinFunctionCall {
+            function: "flexbox_layout_info".into(),
+            arguments,
+            return_ty: crate::typeregister::layout_info_type().into(),
+        },
+    }
+}
+
+struct FlexBoxLayoutDataResult {
+    alignment: llr_Expression,
+    cells_h: llr_Expression,
+    cells_v: llr_Expression,
+    compute_cells: Option<(String, String, Vec<Either<llr_Expression, LayoutRepeatedElement>>)>,
+}
+
+fn flexbox_layout_data(
+    layout: &crate::layout::FlexBoxLayout,
+    ctx: &mut ExpressionLoweringCtx,
+) -> FlexBoxLayoutDataResult {
+    let alignment = if let Some(expr) = &layout.geometry.alignment {
+        llr_Expression::PropertyReference(ctx.map_property_reference(expr))
+    } else {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignment.clone());
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: e.default_value,
+            enumeration: e,
+        })
+    };
+
+    let repeater_count =
+        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
+
+    let element_ty = crate::typeregister::box_layout_cell_data_type();
+
+    if repeater_count == 0 {
+        let cells_h = llr_Expression::Array {
+            values: layout
+                .elems
+                .iter()
+                .map(|li| {
+                    let layout_info_h =
+                        get_layout_info(&li.element, ctx, &li.constraints, Orientation::Horizontal);
+                    make_layout_cell_data_struct(layout_info_h)
+                })
+                .collect(),
+            element_ty: element_ty.clone(),
+            output: llr_ArrayOutput::Slice,
+        };
+        let cells_v = llr_Expression::Array {
+            values: layout
+                .elems
+                .iter()
+                .map(|li| {
+                    let layout_info_v =
+                        get_layout_info(&li.element, ctx, &li.constraints, Orientation::Vertical);
+                    make_layout_cell_data_struct(layout_info_v)
+                })
+                .collect(),
+            element_ty,
+            output: llr_ArrayOutput::Slice,
+        };
+        FlexBoxLayoutDataResult { alignment, cells_h, cells_v, compute_cells: None }
+    } else {
+        let mut elements = Vec::new();
+        for item in &layout.elems {
+            if item.element.borrow().repeated.is_some() {
+                let repeater_index =
+                    match ctx.mapping.element_mapping.get(&item.element.clone().into()).unwrap() {
+                        LoweredElement::Repeated { repeated_index } => *repeated_index,
+                        _ => panic!(),
+                    };
+                elements.push(Either::Right(LayoutRepeatedElement {
+                    repeater_index,
+                    repeated_children_count: None,
+                }))
+            } else {
+                // For static elements, we still need both orientations but handled via WithLayoutItemInfo
+                let layout_info =
+                    get_layout_info(&item.element, ctx, &item.constraints, Orientation::Horizontal);
+                elements.push(Either::Left(make_layout_cell_data_struct(layout_info)));
+            }
+        }
+        let cells_h = llr_Expression::ReadLocalVariable {
+            name: "cells_h".into(),
+            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
+        };
+        let cells_v = llr_Expression::ReadLocalVariable {
+            name: "cells_v".into(),
+            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
+        };
+        FlexBoxLayoutDataResult {
+            alignment,
+            cells_h,
+            cells_v,
+            compute_cells: Some(("cells_h".into(), "cells_v".into(), elements)),
+        }
     }
 }
 

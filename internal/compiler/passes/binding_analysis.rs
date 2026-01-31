@@ -536,6 +536,24 @@ fn recurse_expression(
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
+        Expression::SolveFlexBoxLayout(layout)
+        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+            // Visit all layout geometry dependencies
+            if matches!(expr, Expression::SolveFlexBoxLayout(..)) {
+                // FlexBoxLayout needs both width and height
+                if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
+                if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
+            }
+            // Visit item dependencies for horizontal orientation (primary direction)
+            visit_layout_items_dependencies(layout.elems.iter(), Orientation::Horizontal, vis);
+            let mut g = layout.geometry.clone();
+            g.rect = Default::default(); // already visited;
+            g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
+        }
         Expression::OrganizeGridLayout(layout) => {
             let mut layout = layout.clone();
             layout.visit_rowcol_named_references(&mut |nr: &mut NamedReference| {
