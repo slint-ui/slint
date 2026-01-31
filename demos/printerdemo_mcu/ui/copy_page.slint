@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.slint";
+import { DemoPalette, Page, SpinBox, Label, PushButton, CheckBox } from "./common.slint";
+import { ComboBox } from "./components/components.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
 
@@ -37,7 +38,6 @@ export component CopyPage inherits Page {
         Row {
             Label { text: "Color"; }
             ComboBox {
-                value: "Grayscale";
                 choices: ["Grayscale", "Color"];
             }
         }
