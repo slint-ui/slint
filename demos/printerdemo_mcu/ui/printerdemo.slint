@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore noto subpage
-
 import { DemoPalette, Page } from "common.slint";
 import { HomePage } from "./home_page.slint";
 import { InkLevel, InkPage } from "./ink_page.slint";
@@ -105,7 +103,6 @@ export component MainWindow inherits Window {
                 }
 
                 y: parent.height - self.height - 12px;
-                x: 0px;
                 icon: @image-url("images/mcu/settings.svg");
                 active: root.active-page == Pages.settings;
             }
@@ -127,5 +124,13 @@ export component MainWindow inherits Window {
                 visible: root.active-page == Pages.settings;
             }
         }
+    }
+    Rectangle {
+        width: parent.width + self.border-width * 2;
+        height: parent.height + self.border-width * 2;
+        property <length> test: 40px;
+        border-radius: 40px;
+        border-width: 20px;
+        border-color: #212e4a;
     }
 }

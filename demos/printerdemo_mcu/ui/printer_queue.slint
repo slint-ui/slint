@@ -72,99 +72,6 @@ export global PrinterQueue {
     }
 }
 
-component PrintQueueDetailsLabel inherits Text {
-    font-family: DemoPalette.regular-font-family;
-    color: DemoPalette.control-foreground;
-    horizontal-stretch: 0;
-    font-size: DemoPalette.base-font-size * 0.9375;
-}
-
-component PrintQueueSeparator inherits Rectangle {
-    height: 1px;
-    border-width: 1px;
-    border-color: #BDC0D1;
-    horizontal-stretch: 2;
-}
-
-component PrintDetails inherits GridLayout {
-    in property <PrinterQueueItem> queue-item;
-
-    spacing: 3px;
-
-    Row {
-        PrintQueueDetailsLabel {
-            text: "Owner";
-        }
-
-        Text {
-            text: root.queue-item.owner;
-            color: DemoPalette.secondary-foreground-color;
-            overflow: elide;
-            horizontal-stretch: 1;
-            font-size: DemoPalette.base-font-size * 0.9375;
-        }
-    }
-
-    Row {
-        PrintQueueSeparator {
-            colspan: 2;
-        }
-    }
-
-    Row {
-        PrintQueueDetailsLabel {
-            text: "Pages";
-        }
-
-        Text {
-            text: root.queue-item.pages;
-            color: DemoPalette.secondary-foreground-color;
-            overflow: elide;
-            horizontal-stretch: 1;
-            font-size: DemoPalette.base-font-size * 0.9375;
-        }
-    }
-
-    Row {
-        PrintQueueSeparator {
-            colspan: 2;
-        }
-    }
-
-    Row {
-        PrintQueueDetailsLabel {
-            text: "Size";
-        }
-
-        Text {
-            text: root.queue-item.pages;
-            color: DemoPalette.secondary-foreground-color;
-            overflow: elide;
-            horizontal-stretch: 1;
-            font-size: DemoPalette.base-font-size * 0.9375;
-        }
-    }
-
-    Row {
-        PrintQueueSeparator {
-            colspan: 2;
-        }
-    }
-
-    Row {
-        PrintQueueDetailsLabel {
-            text: "Submitted";
-        }
-
-        Text {
-            text: root.queue-item.submission-date;
-            color: DemoPalette.secondary-foreground-color;
-            overflow: elide;
-            horizontal-stretch: 1;
-            font-size: DemoPalette.base-font-size * 0.9375;
-        }
-    }
-}
 
 component NarrowPrintQueueElement {
     in property <PrinterQueueItem> queue-item;
@@ -176,8 +83,6 @@ component NarrowPrintQueueElement {
 
     width: 190px;
     height: layout.height + 16px;
-    //always-visible.min-height + layout.padding * 2;
-
 
     fake-shadow := Rectangle {
         y: 2px;
@@ -196,90 +101,31 @@ component NarrowPrintQueueElement {
         border-color: #d4dae1;
     }
 
-    // clip: true;
-    
-    // states [
-    //     expanded when root.expanded : {
-    //         height: layout.min-height;
-    //         expanded-opacity: 1;
-    //         in {
-    //             animate height { duration: 200ms; easing: ease; }
-    //             animate expanded-opacity { duration: 200ms; }
-    //         }
-    //         out {
-    //             animate height { duration: 200ms; easing: ease; }
-    //             animate expanded-opacity { duration: 200ms; }
-    //         }
-    //     }
-    // ]
-
-    TouchArea {
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.up) {
-                root.expanded = !root.expanded;
-            }
-        }
-    }
-
     layout := VerticalLayout {
         height: layout.preferred-height;
-            spacing: 8px;
+        spacing: 8px;
+        padding: 12px;
 
-            always-visible := VerticalLayout {
-            padding: 12px;
-            spacing: parent.spacing;
-
-            Text {
-                    text: {
-                    if (root.queue-item.status == "printing") {
-                        "\{root.queue-item.progress}% - \{PrinterQueue.statusString(root.queue-item.status)}"
-                    } else {
-                        PrinterQueue.statusString(root.queue-item.status)
-                    }
+        Text {
+            text: {
+                if (root.queue-item.status == "printing") {
+                    "\{root.queue-item.progress}% - \{PrinterQueue.statusString(root.queue-item.status)}"
+                } else {
+                    PrinterQueue.statusString(root.queue-item.status)
                 }
-                color: DemoPalette.status-label-text-color;
-                font-size: 12px;
-                font-family: DemoPalette.regular-font-family;
-                    // letter-spacing: 1.26px;
-                }
-
-            Text {
-                text: root.queue-item.title;
-                overflow: elide;
-                color: DemoPalette.text-foreground-color;
-                font-size: 16px;
-                font-family: DemoPalette.regular-font-family;
             }
+            color: DemoPalette.status-label-text-color;
+            font-size: 12px;
+            font-family: DemoPalette.regular-font-family;
         }
 
-        // if (root.expanded || root.expanded-opacity > 0): PrintDetails {
-        //     padding: 0px;
-        //         // padding-bottom: root.border-radius / 2;
-        //         queue-item: root.queue-item;
-        //     opacity: root.expanded-opacity;
-        // }
-
-        // if (root.expanded || root.expanded-opacity > 0): HorizontalLayout {
-        //     Rectangle {
-        //         horizontal-stretch: 0;
-        //         width: 10%;
-        //     }
-
-        //     PushButton {
-        //         clicked => {
-        //             root.cancel-job();
-        //         }
-
-        //         opacity: root.expanded-opacity;
-        //         text: "Delete";
-        //         icon: @image-url("images/delete.svg");
-        //     }
-
-        //     Rectangle {
-        //         horizontal-stretch: 0;
-        //         width: 10%;
-        //     }
-        // }
+        Text {
+            text: root.queue-item.title;
+            overflow: elide;
+            color: DemoPalette.text-foreground-color;
+            font-size: 16px;
+            font-family: DemoPalette.regular-font-family;
+        }
     }
 }
 
