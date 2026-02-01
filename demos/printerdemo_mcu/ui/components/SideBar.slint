@@ -47,7 +47,7 @@ export component SideBar inherits Rectangle {
         ]: SideBarIcon {
 
             activate => {
-                PrinterState.current-subpage = SubPages.none;
+                PrinterState.active-subpage = SubPages.none;
                 PrinterState.active-page = page-data.enum;
             }
             icon: page-data.icon;
