@@ -3,7 +3,7 @@
 
 import { DemoPalette, Pages, SubPages, PrinterState } from "common.slint";
 import { SideBar } from "./components/components.slint";
-import { HomePage, InkPage, ScanPage, CopyPage, SettingsPage, PrinterQueue } from "./pages/pages.slint";
+import { HomePage, InkPage, ScanPage, CopyPage, CopyPagePosition, SettingsPage, PrinterQueue } from "./pages/pages.slint";
 
 // re-export for the native code
 export { PrinterQueue, PrinterState }
@@ -45,6 +45,12 @@ export component MainWindow inherits Window {
             }
 
             if PrinterState.active-subpage == SubPages.copy: CopyPage {
+                back => {
+                    PrinterState.active-subpage = SubPages.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPages.copy-position: CopyPagePosition {
                 back => {
                     PrinterState.active-subpage = SubPages.none;
                 }
