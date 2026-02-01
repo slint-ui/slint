@@ -972,7 +972,10 @@ pub fn grid_layout_info(
         None,
     );
     if layout_data.is_empty() {
-        return Default::default();
+        let mut info = LayoutInfo::default();
+        info.min = padding.begin + padding.end;
+        info.preferred = info.min;
+        return info;
     }
     let spacing_w = spacing * (layout_data.len() - 1) as Coord + padding.begin + padding.end;
     let min = layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_w;
