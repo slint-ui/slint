@@ -64,7 +64,7 @@ export component ScanPage inherits Page {
                 }
                 PushButton {
                     icon: @image-url("../images/scan.svg");
-                    text: "Start scanning";
+                    label: "Start scanning";
                     clicked => {
                         PrinterQueue.start-job("Scan");
                     }

@@ -5,8 +5,8 @@ import { DemoPalette, ButtonColors } from "../common.slint";
 
 export component PushButton inherits Rectangle {
 
-    in property <string> text <=> label.text;
-    in property <image> icon <=> img.source;
+    in property <string> label <=> label.text;
+    in property <image> icon;
     in property <bool> primary: true;
     out property <bool> pressed: touch-area.pressed;
     out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
@@ -15,28 +15,30 @@ export component PushButton inherits Rectangle {
 
     border-radius: 13.5px;
     background: root.pressed ? root.colors.pressed : (touch-area.has-hover ? root.colors.hovered : root.colors.base);
-    horizontal-stretch: 1;
+    width: 248px;
+    height: 64px;
+
+    Image {
+        y: 1px;
+        source: @image-url("../images/mcu/sub-action-button.jpg");
+    }
 
     HorizontalLayout {
-        padding-top: 5px;
-        padding-bottom: 5px;
-        padding-left: parent.border-radius;
-        padding-right: parent.border-radius;
-
-        img := Image {
-            horizontal-stretch: 0;
-            colorize: DemoPalette.push-button-text-color;
-            image-fit: contain;
-            width: 17px;
-        }
-
+        spacing: 10px;
         label := Text {
-            font-size: DemoPalette.base-font-size * 0.975;
+            font-size: 18px;
             color: DemoPalette.push-button-text-color;
             horizontal-alignment: center;
             vertical-alignment: center;
         }
+        if root.icon.width > 0: img := Image {
+            source: root.icon;
+            image-fit: contain;
+            width: 17px;
+            height: 17px;
+        }
     }
+
 
     touch-area := TouchArea {
         pointer-event(ev) => {
