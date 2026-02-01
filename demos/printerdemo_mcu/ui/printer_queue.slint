@@ -10,7 +10,8 @@ export struct PrinterQueueItem  {
     owner: string,
     pages: int,
     size: string, // number instead and format in .slint?
-    submission-date: string}
+    submission-date: string,
+}
 
 export global PrinterQueue {
     in property <[PrinterQueueItem]> printer-queue: [
