@@ -28,11 +28,17 @@ jobs:
                     #- "https://github.com/ElevenJune/mastermind_Rust" # Not upgraded to Slint 1.0
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
                     - "https://github.com/bjorn/raccoin"
-                    # - "https://gitlab.com/floers/ordinary" # compile error in hlua-0.4.2
+                    - "https://gitlab.com/floers/ordinary"
                     - "https://github.com/parchlinux/parch-welcome/"
                     #- "https://github.com/boclair/fractal-explorer"  # RE-ENABLE WHEN https://github.com/arturoc/color-rs/pull/2 is released
                     - "https://github.com/arunpkio/tymoz"
                     - "https://github.com/Surrealism-All/surrealism-ui-template"
+                    - https://codeberg.org/vivi-ui/vivi/src/branch/main/apps/castle_of_focus
+                    - https://github.com/raykavin/market-prices-rust
+                    - https://github.com/tadghh/transparent-windows
+                    - https://github.com/pezfisk/OxideManager
+                    - https://github.com/azurewood/guaViewer
+                    - https://github.com/m4rz3r0/foruster
 
                     # from crates.io
                     - "https://codeberg.org/drendog/frametrix"
@@ -43,11 +49,21 @@ jobs:
                     #- "https://github.com/abhay-n-j/warp-gui-app" (wrong edition in Cargo.toml)
                     - "https://github.com/dimas-fw/dimas"
                     - "https://github.com/vova-max-png/slintcalc"
-                    #- "https://github.com/moistpyro/land-calc"  (doesn't actually have an ui)
+                    - "https://github.com/moistpyro/land-calc"
                     - "https://github.com/clay-6/baze64"
                     - "https://github.com/Siiir/k_means-interactive/"
                     - "https://codeberg.org/waydeer/layer-shika"
                     - "https://github.com/limitcool/xm"
+                    - "https://codeberg.org/vivi-ui/lili"
+                    - "https://github.com/vexide/vexide-slint"
+                    - "https://github.com/ChenhuiZhang/envsensor-demo"
+                    - "https://github.com/arunkumar-mourougappane/gjallarhorn-rs"
+                    - "https://github.com/3axap4ehko/litra"
+                    - "https://github.com/rezabani/modern-minesweeper"
+                    - "https://github.com/guimath/phog"
+                    - "https://github.com/bandipapa/rsaber"
+                    - "https://github.com/mcbridejc/slint-evdev-input"
+                    - "https://github.com/heathcliff26/turbo-clicker"
 
 
                     - "https://github.com/Decodetalkers/launchre"
@@ -142,6 +158,16 @@ jobs:
                     - "https://github.com/trappitsch/calculon"
                     - "https://github.com/Jaysmito101/slint-nav"
                     - "https://github.com/mq1/TinyWiiBackupManager"
+                    - "https://github.com/jacquetc/qleany"
+                    - "https://github.com/heng30/wayshot"
+                    - https://github.com/heng30/tasklog
+                    - https://github.com/taichi765/Tsukuyomi
+                    - https://github.com/Cheikh-Nakamoto/Generateur-d-architecture-
+                    - https://github.com/Spencer-0003/aletheia
+                    - https://github.com/engels74/EasyHDR
+                    - https://github.com/reedrosenbluth/oscen
+                    - https://github.com/futo-org/fcast
+                    - https://github.com/BiliRumble/Cloubit
 
                     # Missing images
                     # - "https://github.com/rurishigeo/Probe-Downloader"
@@ -306,6 +332,38 @@ jobs:
                     - git_url: "https://github.com/mackler/Lodge-Musician"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: "https://github.com/game-exchange-token/gxt"
+                      sub_path: "gtx-cli"
+                      extra_args: "--features=ui"
+                    - git_url: "https://github.com/paulusminus/lipl-display"
+                      sub_path: "crates/lipl-display-slint"
+                    - git_url: "https://github.com/vimyoung/spell"
+                      sub_path: "spell-framework"
+                    - git_url: "https://github.com/Farmadupe/vid_dup_finder_lib"
+                      sub_path: vid_dup_finder_app
+                    - git_url: "https://github.com/simmsb/inkview-rs"
+                      sub_path: inkview-slint
+                    - git_url: "https://codeberg.org/psylink/psylink"
+                    - git_url: "https://github.com/shuntia/bestest"
+                      extra_args: "--features=gui"
+                    - git_url: https://github.com/Konstantin-Dudersky/rsiot
+                      extra_args: "--features=cmp_slint"
+                    - git_url: https://github.com/Szybet/snake-slint/
+                      sub_path: "snake_bin_std"
+                    - git_url: https://github.com/maplibre/maplibre-native-slint/tree/main/rust
+                      sub_path: rust
+                    - git_url: https://github.com/AgustinSRG/PersonalMediaVault
+                      sub_path: launcher-gui
+                    - git_url: https://github.com/MERCorg
+                      sub_path: tools/gui
+                    - git_url: https://github.com/guycorbaz/rbibli
+                      sub_path: frontend
+
+
+
+
+
+
 
 
         runs-on: "ubuntu-latest"
