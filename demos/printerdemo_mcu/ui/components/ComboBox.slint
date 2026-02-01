@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { DemoPalette } from "../common.slint";
+import { MiniPopup } from "./MiniPopup.slint";
 
 export component ComboBox {
     in property <[string]> choices;
@@ -66,85 +67,65 @@ export component ComboBox {
         height: 100%;
     }
 
-    popup := PopupWindow {
-        x: 0px;
-        y: 0px;
-        width: 320px;
-        height: 240px;
-        Rectangle {
-            x: 0px;
-            y: 0px;
-            width: 320px;
-            height: 240px;
-            background: white;
+    popup := MiniPopup {
 
+        frame := Rectangle {
+            width: 192px;
+            height: 174px;
+            border-radius: 14px;
 
-                frame := Rectangle {
-                    width: 192px;
-                    height: 174px;
-                    border-radius: 14px;
-                    Image {
-                        x: -35px;
-                        y: -9px;
-                        width: parent.width + 70px;
-                        height: parent.height + 70px;
-                        source: @image-url("../images/mcu/popup.jpg", nine-slice(50 50 100 100));
+            Image {
+                y: current-index == 0 ? 1px : current-index == 1 ? (parent.height - self.height) / 2 : parent.height - self.height - 1px;
+                source: @image-url("../images/mcu/combo-active-background.png");
+            }
+
+            VerticalLayout {
+                for choice[index] in root.choices: Rectangle {
+                    border-top-left-radius: index == 0 ? frame.border-radius : 0;
+                    border-top-right-radius: index == 0 ? frame.border-radius : 0;
+                    border-bottom-left-radius: index == root.choices.length - 1 ? frame.border-radius : 0;
+                    border-bottom-right-radius: index == root.choices.length - 1 ? frame.border-radius : 0;
+                    background: index == root.current-index ? transparent : white;
+                    height: parent.height / 3;
+                    width: 100%;
+                    Text {
+                        x: 12px;
+                        font-size: 16px;
+                        text: choice;
+                        color: index == root.current-index ? white : DemoPalette.text-foreground-color;
                     }
 
-                    Rectangle {
-                        // opacity: 0.2;
-                        Rectangle {
-                            border-radius: frame.border-radius;
-                        }
+                    Image {
+                        x: parent.width - self.width - 12px;
+                        width: 20px;
+                        source: @image-url("../images/mcu/tick-combo.svg");
+                    }
 
-                        Image {
-                            y: current-index == 0 ? 1px : current-index == 1 ? (parent.height - self.height) / 2 : parent.height - self.height - 1px;
-                            source: @image-url("../images/mcu/combo-active-background.png");
-                        }
+                    TouchArea {
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down) {
+                                root.current-index = index;
 
-                        VerticalLayout {
-                            for choice[index] in root.choices: Rectangle {
-                                border-top-left-radius: index == 0 ? frame.border-radius : 0;
-                                border-top-right-radius: index == 0 ? frame.border-radius : 0;
-                                border-bottom-left-radius: index == root.choices.length - 1 ? frame.border-radius : 0;
-                                border-bottom-right-radius: index == root.choices.length - 1 ? frame.border-radius : 0;
-                                background: index == root.current-index ? transparent : white;
-                                height: parent.height / 3;
-                                width: 100%;
-                                Text {
-                                    x: 12px;
-                                    font-size: 16px;
-                                    text: choice;
-                                    color: index == root.current-index ? white : DemoPalette.text-foreground-color;
-                                }
-
-                                Image {
-                                    x: parent.width - self.width - 12px;
-                                    width: 20px;
-                                    source: @image-url("../images/mcu/tick-combo.svg");
-                                }
-
-                                TouchArea {
-                                    clicked => {
-                                        root.current-index = index;
-                                    }
-                                }
                             }
                         }
-
-                        for choice[index] in root.choices.length - 1: Rectangle {
-                            background: #E2E8F0;
-                            height: 1px;
-                            width: 100%;
-                            y: (parent.height / 3) * (1 + index);
-                        }
-                        Rectangle {
-                            border-radius: frame.border-radius;
-                            border-width: 3px;
-                            border-color: #E2E8F0;
+                        clicked => {
+                            popup.close();
                         }
                     }
                 }
             }
+
+            for choice[index] in root.choices.length - 1: Rectangle {
+                background: #E2E8F0;
+                height: 1px;
+                width: 100%;
+                y: (parent.height / 3) * (1 + index);
+            }
+            Rectangle {
+                border-radius: frame.border-radius;
+                border-width: 3px;
+                border-color: #E2E8F0;
+            }
+        }
     }
 }
