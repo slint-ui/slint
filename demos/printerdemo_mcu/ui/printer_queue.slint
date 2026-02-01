@@ -10,7 +10,8 @@ export struct PrinterQueueItem  {
     owner: string,
     pages: int,
     size: string, // number instead and format in .slint?
-    submission-date: string}
+    submission-date: string,
+}
 
 export global PrinterQueue {
     in property <[PrinterQueueItem]> printer-queue: [
@@ -71,7 +72,6 @@ export global PrinterQueue {
         }
     }
 }
-
 
 component NarrowPrintQueueElement {
     in property <PrinterQueueItem> queue-item;
@@ -135,11 +135,11 @@ export component NarrowPrinterQueueList inherits Flickable {
         alignment: start;
         padding-top: 8px;
         padding-bottom: 8px;
-        spacing: 6px;
+        spacing: 8px;
 
-        for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
+        for queue-item[index] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
             cancel-job => {
-                PrinterQueue.cancel-job(idx)
+                PrinterQueue.cancel-job(index)
             }
 
             queue-item: queue-item;
