@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { DemoPalette } from "../common.slint";
+import { ShadowBox } from "ShadowBox.slint";
 
 export component CheckBox {
     in property <string> text;
@@ -11,18 +12,7 @@ export component CheckBox {
     width: 100%;
     height: 74px;
 
-    fake-shadow := Rectangle {
-        y: 2px;
-        background: #eeeeee;
-        border-radius: bg.border-radius;
-    }
-
-    bg := Rectangle {
-        background: white;
-        border-radius: 14px;
-        border-width: 2px;
-        border-color: #E2E8F0;
-    }
+    ShadowBox { }
 
     Text {
         x: margin;

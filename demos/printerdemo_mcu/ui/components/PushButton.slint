@@ -13,13 +13,12 @@ export component PushButton inherits Rectangle {
 
     callback clicked;
 
-    border-radius: 13.5px;
-    background: root.pressed ? root.colors.pressed : (touch-area.has-hover ? root.colors.hovered : root.colors.base);
-    width: 248px;
     height: 64px;
 
     Image {
+        x: -3px;
         y: 1px;
+        width: root.width + 10px;
         source: @image-url("../images/mcu/sub-action-button.jpg");
     }
 

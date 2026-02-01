@@ -1,15 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Label } from "../common.slint";
-import { ComboBox, CheckBox, SpinBox, PushButton, Page } from "../components/components.slint";
+import { DemoPalette, Label, PrinterState, SubPages } from "../common.slint";
+import {
+    ComboBox,
+    CheckBox,
+    SpinBox,
+    PushButton,
+    Page,
+} from "../components/components.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
 export component CopyPage inherits Page {
     header: "Copy";
 
     VerticalLayout {
-        padding: 16px;
+        padding: 8px;
         spacing: 16px;
 
         SpinBox {
@@ -21,9 +27,70 @@ export component CopyPage inherits Page {
         PushButton {
             label: "Continue";
             clicked => {
+                PrinterState.active-subpage = SubPages.copy-position;
+            }
+        }
+    }
+}
+
+export component CopyPagePosition inherits Page {
+    header: "Place document correctly";
+    header-font-size: 14px;
+    header-height: 33px;
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 16px;
+        alignment: start;
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 144px;
+                height: 96px;
+                Image {
+                    y: 0px;
+                    source: @image-url("../images/mcu/place-document.jpg");
+                }
+
+                indicator := Rectangle {
+                    x: 9px;
+                    y: 10px;
+                    property <length> indicator-size: 14px;
+
+                    Timer {
+                        interval: 600ms;
+                        running: true;
+                        triggered => {
+                            indicator.visible = !indicator.visible;
+                        }
+                    }
+
+                    Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: indicator-size;
+                        height: 2px;
+                        background: blue;
+                    }
+
+                    Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: 2px;
+                        height: indicator-size;
+                        background: blue;
+                    }
+                }
+            }
+        }
+
+        PushButton {
+            label: "Start";
+            clicked => {
+                PrinterState.active-subpage = SubPages.none;
                 PrinterQueue.start-job("Copy");
             }
         }
     }
-
 }

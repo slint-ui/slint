@@ -3,6 +3,7 @@
 
 import { DemoPalette } from "../common.slint";
 import { MiniPopup } from "./MiniPopup.slint";
+import { ShadowBox } from "ShadowBox.slint";
 
 export component ComboBox {
     in property <[string]> choices;
@@ -12,18 +13,7 @@ export component ComboBox {
 
     height: 108px;
 
-    fake-shadow := Rectangle {
-        y: 2px;
-        background: #eeeeee;
-        border-radius: bg.border-radius;
-    }
-
-    bg := Rectangle {
-        background: white;
-        border-radius: 14px;
-        border-width: 2px;
-        border-color: #E2E8F0;
-    }
+    ShadowBox { }
 
     label := Text {
         text <=> root.label;
