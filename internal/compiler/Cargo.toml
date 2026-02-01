@@ -34,7 +34,7 @@ software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fon
 sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
 # Translation bundler
-bundle-translations = ["dep:polib"]
+bundle-translations = ["dep:rspolib"]
 
 # Enable expermental library module support
 experimental-library-module = []
@@ -70,7 +70,7 @@ fdsm-ttf-parser = { version = "0.2", optional = true }
 nalgebra = { version = "0.34.0", optional = true }
 rayon = { workspace = true, optional = true }
 # translations
-polib = { version = "0.2", optional = true }
+rspolib = { version = "0.1.2", optional = true }
 
 pathdiff = { version = "0.2.3", optional = true }
 
