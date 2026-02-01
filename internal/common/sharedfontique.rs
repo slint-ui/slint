@@ -177,6 +177,7 @@ pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] = [
 /// to map the blob to the native type face representation (skia_safe::Typeface, femtovg::FontId, QRawFont, etc.).
 /// The use as key also ensures the blob remains strongly referenced, so that it doesn't vanish from the
 /// shared SourceCache (parley prunes it).
+#[derive(Clone)]
 pub struct HashedBlob(fontique::Blob<u8>);
 impl core::hash::Hash for HashedBlob {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {

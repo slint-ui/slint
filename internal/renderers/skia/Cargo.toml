@@ -60,6 +60,7 @@ lyon_path = "1.0"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
+clru = { workspace = true }
 
 skia-safe = { version = "0.90", features = ["gl"] }
 glow = { workspace = true }
