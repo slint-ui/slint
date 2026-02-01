@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, SpinBox, Label, PushButton } from "./common.slint";
-import { ComboBox, CheckBox } from "./components/components.slint";
+// cSpell:ignore YCMB
+
+import { DemoPalette, Label } from "../common.slint";
+import { ComboBox, SpinBox, PushButton, Page } from "../components/components.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
-
-export component CopyPage inherits Page {
+export component ScanPage inherits Page {
     has-back-button: true;
-    header: "Copy";
+    header: "Scan";
 
     GridLayout {
         padding-top: 23px /* header line height in design */
@@ -21,6 +22,7 @@ export component CopyPage inherits Page {
                 font-size: DemoPalette.base-font-size * 1.125;
             }
         }
+
         Row {
             Label { text: "Copies"; }
             SpinBox {
@@ -34,35 +36,37 @@ export component CopyPage inherits Page {
                 value: "Best";
                 choices: ["Best", "Medium", "Draft"];
             }
+            Rectangle {}
         }*/
         Row {
             Label { text: "Color"; }
             ComboBox {
-                choices: ["Grayscale", "Color"];
-            }
-        }
-        Row {
-            Label { text: "Paper Handling"; }
-            CheckBox {
-                checked: true;
-                text: "sort page";
+                choices: ["Grayscale", "RGB", "YCMB"];
             }
         }
 
         Row {
+         Label { text: "Format"; }
+            ComboBox {
+                choices: ["PDF", "JPEG", "PNG"];
+            }
+        }
+
+         Row {
             HorizontalLayout {
                 col: 0;
-                colspan: 3;
+                colspan: 2;
+
 
                 Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
                 }
                 PushButton {
-                    icon: @image-url("images/copy.svg");
-                    text: "Start copying";
+                    icon: @image-url("../images/scan.svg");
+                    text: "Start scanning";
                     clicked => {
-                        PrinterQueue.start-job("Copy");
+                        PrinterQueue.start-job("Scan");
                     }
                 }
                 Rectangle {
@@ -72,5 +76,6 @@ export component CopyPage inherits Page {
             }
         }
         Row { Rectangle {} }
+
     }
 }
