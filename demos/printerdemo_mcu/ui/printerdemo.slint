@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page } from "common.slint";
+import { DemoPalette, Page, Pages, SubPages, PrinterState } from "common.slint";
 import { HomePage } from "./home_page.slint";
-import { InkLevel, InkPage } from "./ink_page.slint";
+import { InkPage } from "./ink_page.slint";
 import { SettingsPage } from "./settings_page.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
 // re-export for the native code
-export { PrinterQueue }
+export { PrinterQueue, PrinterState }
 
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
@@ -43,11 +43,7 @@ component SideBarIcon inherits Rectangle {
     }
 }
 
-enum Pages {
-    home,
-    ink,
-    settings
-}
+
 
 export component MainWindow inherits Window {
     min-width: 320px;
@@ -58,17 +54,6 @@ export component MainWindow inherits Window {
     background: DemoPalette.main-background;
     default-font-family: DemoPalette.medium-font-family;
     default-font-size: DemoPalette.base-font-size;
-
-    /// Note that this property is overwritten in the .cpp and .rs code.
-    /// The data is only in this file so it looks good in the viewer
-    in-out property <[InkLevel]> ink-levels: [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ];
-
-    in-out property <Pages> active-page: Pages.home;
 
     callback quit();
 
@@ -89,44 +74,37 @@ export component MainWindow inherits Window {
                 ] : SideBarIcon {
 
                     activate => {
-                        home-page.current-subpage = 0;
-                        root.active-page = page-data.enum;
+                        PrinterState.current-subpage = SubPages.none;
+                        PrinterState.active-page = page-data.enum;
                     }
                     icon: page-data.icon;
-                    active: root.active-page == page-data.enum;
+                    active: PrinterState.active-page == page-data.enum;
                 }
             }
 
             SideBarIcon {
                 activate => {
-                    root.active-page = Pages.settings;
+                    PrinterState.active-page = Pages.settings;
                 }
 
                 y: parent.height - self.height - 12px;
                 icon: @image-url("images/mcu/settings.svg");
-                active: root.active-page == Pages.settings;
+                active: PrinterState.active-page == Pages.settings;
             }
         }
 
         main-view := Rectangle {
             background: DemoPalette.page-background;
 
-            home-page := HomePage {
-                visible: root.active-page == Pages.home;
-            }
+            if PrinterState.active-page == Pages.home:home-page := HomePage { }
 
-            InkPage {
-                visible: root.active-page == Pages.ink;
-                ink-levels <=> root.ink-levels;
-                page-visible: root.active-page == Pages.ink;
-            }
+            if PrinterState.active-page == Pages.ink : InkPage { }
 
-            SettingsPage {
-                visible: root.active-page == Pages.settings;
-            }
+            if PrinterState.active-page == Pages.settings : SettingsPage { }
         }
     }
-    Rectangle {
+
+    screen-corners :=Rectangle {
         width: parent.width + self.border-width * 2;
         height: parent.height + self.border-width * 2;
         property <length> test: 40px;

@@ -1,18 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page } from "common.slint";
-
-export struct InkLevel  {
-    color: color,
-    level: float,
-}
+import { DemoPalette, Page, PrinterState, InkLevel } from "common.slint";
 
 export component InkPage inherits Page {
-    in property <[InkLevel]> ink-levels;
-    in property <bool> page-visible;
+    property <bool> page-visible;
 
     header: "Ink Level";
+
+    Timer {
+        interval: 30ms;
+        running: true;
+        triggered => {
+            self.stop();
+            page-visible = true;
+        }
+    }
 
     Rectangle {
         x: (parent.width - self.width) / 2;
@@ -23,7 +26,7 @@ export component InkPage inherits Page {
         HorizontalLayout {
             spacing: root.width * 5%;
 
-            for color-info in root.ink-levels : Rectangle {
+            for color-info in PrinterState.ink-levels : Rectangle {
                 ink := Rectangle {
                     width: parent.width;
                     height: parent.height * color-info.level;

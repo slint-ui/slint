@@ -46,6 +46,37 @@ export global DemoPalette {
     out property <string> regular-font-family: "Inter 24pt Regular";
 }
 
+export enum Pages {
+    home,
+    ink,
+    settings
+}
+
+export enum SubPages {
+    none,
+    copy,
+    scan
+}
+
+export struct InkLevel  {
+    color: color,
+    level: float,
+}
+
+export global PrinterState {
+    in-out property <Pages> active-page: Pages.home;
+    in-out property <SubPages> current-subpage: SubPages.none;
+
+    /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in-out property <[InkLevel]> ink-levels: [
+        { color: #0ff, level: 60% },
+        { color: #ff0, level: 80% },
+        { color: #f0f, level: 70% },
+        { color: #000, level: 30% },
+    ];
+}
+
 export component Page inherits Rectangle {
     in property <string> header <=> h.text;
     in property <bool> has-back-button: false;
@@ -199,10 +230,6 @@ export component SpinBox inherits Rectangle {
         }
     }
 }
-
-
-
-
 
 export component PushButton inherits Rectangle {
 
