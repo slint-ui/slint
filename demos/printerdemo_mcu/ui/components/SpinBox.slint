@@ -4,37 +4,6 @@
 import { DemoPalette, Label } from "../common.slint";
 import { ShadowBox } from "./ShadowBox.slint";
 
-component SquareButton inherits Rectangle {
-    in property <image> img;
-
-    callback clicked;
-
-    border-radius: 3px;
-    border-width: 2px;
-    border-color: DemoPalette.control-outline-color;
-
-    touch := TouchArea {
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.down) {
-                root.clicked()
-            }
-        }
-
-        width: 120%;
-        height: 120%;
-    }
-
-    Image {
-        height: 12px;
-        width: 12px;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        source <=> root.img;
-        image-fit: contain;
-        colorize: DemoPalette.control-secondary;
-    }
-}
-
 export component SpinBox inherits ShadowBox {
     in property <string> label;
     in property <int> minimum;
@@ -43,49 +12,22 @@ export component SpinBox inherits ShadowBox {
 
     height: 90px;
 
-    HorizontalLayout {
-        spacing: 12px;
-        padding: 0;
+    VerticalLayout {
+        height: self.preferred-height;
+        spacing: 4px;
 
-        label-text := Label {
+        label-text := Text {
+            horizontal-alignment: center;
             text: root.label;
+            color: #45556C;
+            font-size: 14px;
         }
 
-        SquareButton {
-            clicked => {
-                if (root.value > root.minimum) {
-                    root.value -= 1;
-                }
-            }
-
-            width: root.height - parent.padding * 2;
-            img: @image-url("../images/minus.svg");
-        }
-
-        Rectangle {
-            border-radius: 3px;
-            border-width: 2px;
-            border-color: DemoPalette.control-outline-color;
-
-            Text {
-                width: 100%;
-                height: 100%;
-                vertical-alignment: center;
-                horizontal-alignment: center;
-                text: root.value;
-                color: DemoPalette.control-foreground;
-            }
-        }
-
-        SquareButton {
-            clicked => {
-                if (root.value < root.maximum) {
-                    root.value += 1;
-                }
-            }
-
-            width: root.height - parent.padding * 2;
-            img: @image-url("../images/plus.svg");
+        Text {
+            horizontal-alignment: center;
+            text: root.value;
+            color: DemoPalette.control-foreground;
+            font-size: 30px;
         }
     }
 }
