@@ -5,72 +5,25 @@ import { DemoPalette, Label } from "../common.slint";
 import { ComboBox, CheckBox, SpinBox, PushButton, Page } from "../components/components.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
-
 export component CopyPage inherits Page {
-    has-back-button: true;
     header: "Copy";
 
-    GridLayout {
-        padding-top: 23px /* header line height in design */
-                     + /* extra top-padding in design */ 13px;
-        spacing: 5px;
-        Row {
-            Text {
-                text: "Choose Settings";
-                color: DemoPalette.secondary-foreground-color;
-                font-size: DemoPalette.base-font-size * 1.125;
-            }
-        }
-        Row {
-            Label { text: "Copies"; }
-            SpinBox {
-                value: 1;
-                minimum: 1;
-            }
-        }
-        /*Row {
-            Label { text: "Quality"; }
-            ComboBox {
-                value: "Best";
-                choices: ["Best", "Medium", "Draft"];
-            }
-        }*/
-        Row {
-            Label { text: "Color"; }
-            ComboBox {
-                choices: ["Grayscale", "Color"];
-            }
-        }
-        Row {
-            Label { text: "Paper Handling"; }
-            CheckBox {
-                checked: true;
-                text: "sort page";
-            }
+    VerticalLayout {
+        padding: 16px;
+        spacing: 16px;
+
+        SpinBox {
+            label: "Copies";
+            value: 1;
+            minimum: 1;
         }
 
-        Row {
-            HorizontalLayout {
-                col: 0;
-                colspan: 3;
-
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-                PushButton {
-                    icon: @image-url("../images/copy.svg");
-                    text: "Start copying";
-                    clicked => {
-                        PrinterQueue.start-job("Copy");
-                    }
-                }
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
+        PushButton {
+            label: "Continue";
+            clicked => {
+                PrinterQueue.start-job("Copy");
             }
         }
-        Row { Rectangle {} }
     }
+
 }
