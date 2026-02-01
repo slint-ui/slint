@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 import { DemoPalette, Page, SubPages, PrinterState } from "./common.slint";
-import { CopyPage } from "./copy_page.slint";
-import { ScanPage } from "./scan_page.slint";
 import { NarrowPrinterQueueList } from "./printer_queue.slint";
 
 component ActionButton inherits Image {
@@ -41,7 +39,7 @@ export component HomePage inherits Page {
                 { name: "Copy", enum: SubPages.copy, icon: @image-url("images/mcu/copy-button.jpg") },
                 { name: "Scan", enum: SubPages.scan, icon: @image-url("images/mcu/scan-button.jpg") },
             ]: ActionButton {
-                clicked => { PrinterState.current-subpage = action.enum; }
+                clicked => { PrinterState.active-subpage = action.enum; }
                 source: action.icon;
                 text: action.name;
             }
@@ -49,13 +47,4 @@ export component HomePage inherits Page {
         queue-view :=  NarrowPrinterQueueList { }
     }
 
-    if PrinterState.current-subpage == SubPages.scan: ScanPage {
-        back => { PrinterState.current-subpage = SubPages.none; }
-        y: -DemoPalette.header-height;
-    }
-
-    if PrinterState.current-subpage == SubPages.copy: CopyPage {
-        back => { PrinterState.current-subpage = SubPages.none; }
-        y: -DemoPalette.header-height;
-    }
 }
