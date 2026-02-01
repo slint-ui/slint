@@ -15,8 +15,8 @@ export component CopyPage inherits Page {
     header: "Copy";
 
     VerticalLayout {
-        padding: 8px;
-        spacing: 16px;
+        padding: 12px;
+        alignment: space-between;
 
         SpinBox {
             label: "Copies";
@@ -39,9 +39,8 @@ export component CopyPagePosition inherits Page {
     header-height: 33px;
 
     VerticalLayout {
-        padding: 8px;
-        spacing: 16px;
-        alignment: start;
+        padding: 12px;
+        alignment: space-between;
 
         HorizontalLayout {
             alignment: center;
@@ -54,7 +53,7 @@ export component CopyPagePosition inherits Page {
                 }
 
                 indicator := Rectangle {
-                    x: 9px;
+                    x: 8px;
                     y: 10px;
                     property <length> indicator-size: 14px;
 
@@ -70,14 +69,14 @@ export component CopyPagePosition inherits Page {
                         x: 0px;
                         y: 0px;
                         width: indicator-size;
-                        height: 2px;
+                        height: 3px;
                         background: blue;
                     }
 
                     Rectangle {
                         x: 0px;
                         y: 0px;
-                        width: 2px;
+                        width: 3px;
                         height: indicator-size;
                         background: blue;
                     }
