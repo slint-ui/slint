@@ -27,20 +27,20 @@ export component MainWindow inherits Window {
     callback quit();
 
     HorizontalLayout {
-        sidebar := SideBar {}
+        sidebar := SideBar { }
 
         main-view := Rectangle {
             background: DemoPalette.page-background;
 
             if PrinterState.active-page == Pages.home:home-page := HomePage { }
 
-            if PrinterState.active-page == Pages.ink : InkPage { }
+            if PrinterState.active-page == Pages.ink: InkPage { }
 
-            if PrinterState.active-page == Pages.settings : SettingsPage { }
+            if PrinterState.active-page == Pages.settings: SettingsPage { }
         }
     }
 
-    screen-corners :=Rectangle {
+    screen-corners := Rectangle {
         width: parent.width + self.border-width * 2;
         height: parent.height + self.border-width * 2;
         property <length> test: 40px;

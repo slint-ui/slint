@@ -72,7 +72,6 @@ export global PrinterQueue {
     }
 }
 
-
 component NarrowPrintQueueElement {
     in property <PrinterQueueItem> queue-item;
     in-out property <bool> expanded;
@@ -135,11 +134,11 @@ export component NarrowPrinterQueueList inherits Flickable {
         alignment: start;
         padding-top: 8px;
         padding-bottom: 8px;
-        spacing: 6px;
+        spacing: 8px;
 
-        for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
+        for queue-item[index] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
             cancel-job => {
-                PrinterQueue.cancel-job(idx)
+                PrinterQueue.cancel-job(index)
             }
 
             queue-item: queue-item;
