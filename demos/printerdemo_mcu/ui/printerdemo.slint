@@ -5,6 +5,8 @@ import { DemoPalette, Page, Pages, SubPages, PrinterState } from "common.slint";
 import { SideBar } from "components/SideBar.slint";
 import { HomePage } from "./home_page.slint";
 import { InkPage } from "./ink_page.slint";
+import { ScanPage } from "./scan_page.slint";
+import { CopyPage } from "./copy_page.slint";
 import { SettingsPage } from "./settings_page.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
@@ -32,11 +34,26 @@ export component MainWindow inherits Window {
         main-view := Rectangle {
             background: DemoPalette.page-background;
 
-            if PrinterState.active-page == Pages.home: HomePage { }
+            if PrinterState.active-subpage == SubPages.none: Rectangle {
 
-            if PrinterState.active-page == Pages.ink: InkPage { }
+                if PrinterState.active-page == Pages.home: HomePage { }
 
-            if PrinterState.active-page == Pages.settings: SettingsPage { }
+                if PrinterState.active-page == Pages.ink: InkPage { }
+
+                if PrinterState.active-page == Pages.settings: SettingsPage { }
+            }
+
+            if PrinterState.active-subpage == SubPages.scan: ScanPage {
+                back => {
+                    PrinterState.active-subpage = SubPages.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPages.copy: CopyPage {
+                back => {
+                    PrinterState.active-subpage = SubPages.none;
+                }
+            }
         }
     }
 

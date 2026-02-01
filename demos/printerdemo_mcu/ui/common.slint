@@ -65,7 +65,7 @@ export struct InkLevel  {
 
 export global PrinterState {
     in-out property <Pages> active-page: Pages.home;
-    in-out property <SubPages> current-subpage: SubPages.none;
+    in-out property <SubPages> active-subpage: SubPages.none;
 
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
