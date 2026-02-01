@@ -18,7 +18,7 @@ categories = ["gui", "command-line-utilities", "development-tools"]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock"] }
 clap = { workspace = true }
-polib = "0.2"
+rspolib = "0.1.2"
 smol_str = { workspace = true }
 
 [dev-dependencies]

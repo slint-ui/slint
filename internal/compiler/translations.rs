@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
-use core::ops::Not;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -41,7 +40,7 @@ pub struct TranslationsBuilder {
     map: HashMap<(SmolStr, SmolStr, SmolStr), usize>,
 
     /// The catalog containing the translations
-    catalogs: Rc<Vec<polib::catalog::Catalog>>,
+    catalogs: Rc<Vec<rspolib::POFile>>,
 }
 
 impl TranslationsBuilder {
@@ -56,19 +55,34 @@ impl TranslationsBuilder {
             let l = l?;
             let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
-                let catalog = polib::po_file::parse(&path).map_err(|e| {
+                let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;
                 languages.push(l.file_name().to_string_lossy().into());
-                plural_rules.push(Some(
-                    plural_rule_parser::parse_rule_expression(&catalog.metadata.plural_rules.expr)
-                        .map_err(|_| {
-                            std::io::Error::other(format!(
-                                "Error parsing plural rules in {}",
-                                path.display()
-                            ))
-                        })?,
-                ));
+
+                let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
+                    let plural_expr = header.split(';').find_map(|sub_entry| {
+                        let (key, expression) = sub_entry.split_once('=')?;
+                        (key.trim() == "plural").then(|| expression)
+                    });
+                    plural_expr.ok_or_else(|| {
+                        std::io::Error::other(format!(
+                            "Error parsing plural rules in {}",
+                            path.display()
+                        ))
+                    })?
+                } else {
+                    "n != 1"
+                };
+                plural_rules.push(Some(plural_rule_parser::parse_rule_expression(&expr).map_err(
+                    |_| {
+                        std::io::Error::other(format!(
+                            "Error parsing plural rules in {}",
+                            path.display()
+                        ))
+                    },
+                )?));
+
                 catalogs.push(catalog);
             }
         }
@@ -109,23 +123,23 @@ impl TranslationsBuilder {
             },
             Entry::Vacant(entry) => {
                 let messages = self.catalogs.iter().map(|catalog| {
-                    catalog.find_message(
-                        contextid.is_empty().not().then_some(contextid.as_str()),
-                        &original,
-                        is_plural.then_some(plural.as_str()),
-                    )
+                    catalog.find_by_msgid_msgctxt(original.as_str(), contextid.as_str())
                 });
                 let idx = if is_plural {
                     let messages = std::iter::once(Some(vec![original.clone(), plural.clone()]))
-                        .chain(messages.map(|x| {
-                            x.and_then(|x| {
-                                Some(
-                                    x.msgstr_plural()
-                                        .ok()?
-                                        .iter()
-                                        .map(|x| x.to_smolstr())
-                                        .collect(),
-                                )
+                        .chain(messages.map(|opt_entry| {
+                            opt_entry.and_then(|entry| {
+                                if entry.msgstr_plural.is_empty() {
+                                    None
+                                } else {
+                                    Some(
+                                        entry
+                                            .msgstr_plural
+                                            .iter()
+                                            .map(|s| s.to_smolstr())
+                                            .collect(),
+                                    )
+                                }
                             })
                         }))
                         .collect();
@@ -133,10 +147,9 @@ impl TranslationsBuilder {
                     self.result.plurals.len() - 1
                 } else {
                     let messages = std::iter::once(Some(original.clone()))
-                        .chain(
-                            messages
-                                .map(|x| x.and_then(|x| x.msgstr().ok()).map(|x| x.to_smolstr())),
-                        )
+                        .chain(messages.map(|opt_entry| {
+                            opt_entry.and_then(|entry| entry.msgstr.map(|s| s.to_smolstr()))
+                        }))
                         .collect::<Vec<_>>();
                     self.result.strings.push(messages);
                     self.result.strings.len() - 1
@@ -159,13 +172,12 @@ impl TranslationsBuilder {
             self.catalogs
                 .iter()
                 .flat_map(|catalog| {
-                    catalog.messages().flat_map(|msg| {
-                        msg.msgstr().ok().into_iter().chain(
-                            msg.msgstr_plural()
-                                .ok()
-                                .into_iter()
-                                .flat_map(|vec| vec.iter().map(|s| s.as_ref())),
-                        )
+                    catalog.entries.iter().flat_map(|entry| {
+                        entry
+                            .msgstr
+                            .iter()
+                            .map(|s| s.as_str())
+                            .chain(entry.msgstr_plural.iter().map(|s| s.as_str()))
                     })
                 })
                 .flat_map(|str| str.chars()),
