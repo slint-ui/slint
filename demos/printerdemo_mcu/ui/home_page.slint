@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page } from "./common.slint";
+import { DemoPalette, Page, SubPages, PrinterState } from "./common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { NarrowPrinterQueueList } from "./printer_queue.slint";
@@ -29,12 +29,6 @@ component ActionButton inherits Image {
 }
 
 export component HomePage inherits Page {
-    in-out property <length> header-row-height: 40px / 2;
-    in-out property <length> button-spacing: 8px;
-    in-out property <length> button-width: 127px / 2;
-    in-out property <length> button-height: root.button-width + 20px;
-    in-out property <int> current-subpage: 0;
-
     header: "Printer";
 
     HorizontalLayout {
@@ -44,30 +38,24 @@ export component HomePage inherits Page {
             padding-left: 4px;
             width: self.preferred-width;
             for action[index] in [
-                { name: "Copy", icon: @image-url("images/mcu/copy-button.jpg") },
-                { name: "Scan", icon: @image-url("images/mcu/scan-button.jpg") },
+                { name: "Copy", enum: SubPages.copy, icon: @image-url("images/mcu/copy-button.jpg") },
+                { name: "Scan", enum: SubPages.scan, icon: @image-url("images/mcu/scan-button.jpg") },
             ]: ActionButton {
-                clicked => { root.current-subpage = index + 1; }
+                clicked => { PrinterState.current-subpage = action.enum; }
                 source: action.icon;
                 text: action.name;
             }
         }
-        queue-view :=  NarrowPrinterQueueList {
-        }
+        queue-view :=  NarrowPrinterQueueList { }
     }
 
-
-    ScanPage {
-        back => { root.current-subpage = 0 }
-        x: root.current-subpage == 2 ? 0 : 320px;
+    if PrinterState.current-subpage == SubPages.scan: ScanPage {
+        back => { PrinterState.current-subpage = SubPages.none; }
         y: -DemoPalette.header-height;
-        animate x { duration: 125ms; easing: ease; }
     }
 
-    CopyPage {
-        back => { root.current-subpage = 0 }
-        x: root.current-subpage == 1 ? 0 : 320px;
+    if PrinterState.current-subpage == SubPages.copy: CopyPage {
+        back => { PrinterState.current-subpage = SubPages.none; }
         y: -DemoPalette.header-height;
-        animate x { duration: 125ms; easing: ease; }
     }
 }

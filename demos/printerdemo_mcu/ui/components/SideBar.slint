@@ -17,7 +17,7 @@ component SideBarIcon inherits Rectangle {
     icon := Image {
         colorize: icon-colorize;
         image-fit: contain;
-        width: 16px;
+        width: 20px;
         height: self.width;
     }
 
@@ -34,9 +34,6 @@ component SideBarIcon inherits Rectangle {
 }
 
 export component SideBar inherits Rectangle {
-    function icon-y(index: int) -> length {
-        return index * 50px;
-    }
     width: DemoPalette.side-bar-width;
     background: DemoPalette.main-background;
 
