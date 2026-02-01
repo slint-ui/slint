@@ -8,14 +8,14 @@ struct ButtonColors  {
 }
 
 export global DemoPalette {
-    out property <length> side-bar-width: 36px;
+    out property <length> side-bar-width: 48px;
     out property <length> header-height: 45px;
     // Color of the home/settings/ink buttons on the left side bar
     out property <color> header-background: white;
     out property <color> page-background: #F8FAFC;
     out property <color> active-page-icon-color: Colors.white;
     out property <color> inactive-page-icon-color: #90A1B9;
-    out property <color> main-background: #0E133F;
+    out property <color> main-background: #0F172B;
     out property <color> neutral-box: #BDC0D1;
     out property <color> text-foreground-color: #473f74;
     out property <color> secondary-foreground-color: #6C6E7A;
@@ -44,6 +44,37 @@ export global DemoPalette {
     out property <length> base-font-size: 12px;
     out property <string> medium-font-family: "Inter 24pt Medium";
     out property <string> regular-font-family: "Inter 24pt Regular";
+}
+
+export enum Pages {
+    home,
+    ink,
+    settings
+}
+
+export enum SubPages {
+    none,
+    copy,
+    scan
+}
+
+export struct InkLevel  {
+    color: color,
+    level: float,
+}
+
+export global PrinterState {
+    in-out property <Pages> active-page: Pages.home;
+    in-out property <SubPages> current-subpage: SubPages.none;
+
+    /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in-out property <[InkLevel]> ink-levels: [
+        { color: #0ff, level: 60% },
+        { color: #ff0, level: 80% },
+        { color: #f0f, level: 70% },
+        { color: #000, level: 30% },
+    ];
 }
 
 export component Page inherits Rectangle {
@@ -116,7 +147,6 @@ export component Page inherits Rectangle {
 export component Label inherits Text {
     color: DemoPalette.text-foreground-color;
     vertical-alignment: center;
-    font-family: DemoPalette.regular-font-family;
     vertical-stretch: 0;
 }
 
@@ -197,66 +227,6 @@ export component SpinBox inherits Rectangle {
 
             width: root.height - parent.padding * 2;
             img: @image-url("images/plus.svg");
-        }
-    }
-}
-
-
-
-export component CheckBox {
-    in property <string> text;
-    in-out property <bool> checked;
-
-    property <length> margin: (root.height - tick-box.height) / 2;
-
-    width: 100%;
-    height: 74px;
-
-    fake-shadow := Rectangle {
-        y: 2px;
-        background: #eeeeee;
-        border-radius: bg.border-radius;
-    }
-
-    bg := Rectangle {
-        background: white;
-        border-radius: 14px;
-        border-width: 2px;
-        border-color: #E2E8F0;
-    }
-
-    Text {
-        x: margin;
-        text <=> root.text;
-        font-size: 16px;
-        color: DemoPalette.text-foreground-color;
-    }
-
-    tick-box := Rectangle {
-        in property <image> img;
-        callback clicked;
-        x: parent.width - self.width - margin;
-        width: 48px;
-        height: self.width;
-        border-radius: 10px;
-        border-width: 2px;
-        border-color: #CAD5E2;
-
-        Image {
-            visible: root.checked;
-            source: @image-url("images/mcu/switch-active.png");
-
-            Image {
-                source: @image-url("images/mcu/tick.svg");
-            }
-        }
-
-        touch := TouchArea {
-            clicked => {
-                root.checked = !root.checked;
-            }
-            width: 150%;
-            height: 150%;
         }
     }
 }

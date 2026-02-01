@@ -1,53 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page } from "common.slint";
+import { DemoPalette, Page, Pages, SubPages, PrinterState } from "common.slint";
+import { SideBar } from "components/SideBar.slint";
 import { HomePage } from "./home_page.slint";
-import { InkLevel, InkPage } from "./ink_page.slint";
+import { InkPage } from "./ink_page.slint";
 import { SettingsPage } from "./settings_page.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
 // re-export for the native code
-export { PrinterQueue }
+export { PrinterQueue, PrinterState }
 
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
 
-component SideBarIcon inherits Rectangle {
-    in-out property <bool> active;
-    in-out property icon <=> icon.source;
-    in-out property <color> icon-colorize: active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-
-    callback activate;
-    width: 36px;
-    height: self.width;
-    border-radius: 10px;
-    background: active ? #273752 : transparent;
-
-    icon := Image {
-        colorize: icon-colorize;
-        image-fit: contain;
-        width: 16px;
-        height: self.width;
-    }
-
-    TouchArea {
-        pointer-event(event) => {
-            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                root.activate();
-            }
-        }
-
-        width: 150%;
-        height: 150%;
-    }
-}
-
-enum Pages {
-    home,
-    ink,
-    settings
-}
 
 export component MainWindow inherits Window {
     min-width: 320px;
@@ -55,83 +21,31 @@ export component MainWindow inherits Window {
     preferred-width: self.min-width;
     preferred-height: self.min-height;
     title: "Slint printer demo";
-    background: DemoPalette.main-background;
     default-font-family: DemoPalette.medium-font-family;
     default-font-size: DemoPalette.base-font-size;
-
-    /// Note that this property is overwritten in the .cpp and .rs code.
-    /// The data is only in this file so it looks good in the viewer
-    in-out property <[InkLevel]> ink-levels: [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ];
-
-    in-out property <Pages> active-page: Pages.home;
 
     callback quit();
 
     HorizontalLayout {
-        sidebar := Rectangle {
-            function icon-y(index: int) -> length {
-                return index * 50px;
-            }
-            width: DemoPalette.side-bar-width;
-
-            VerticalLayout {
-                width: self.preferred-width;
-                padding-top: 12px;
-                spacing: 12px;
-                for page-data[index] in [
-                    {enum: Pages.home, icon: @image-url("images/mcu/home.svg")},
-                    {enum: Pages.ink, icon: @image-url("images/mcu/ink.svg")},
-                ] : SideBarIcon {
-
-                    activate => {
-                        home-page.current-subpage = 0;
-                        root.active-page = page-data.enum;
-                    }
-                    icon: page-data.icon;
-                    active: root.active-page == page-data.enum;
-                }
-            }
-
-            SideBarIcon {
-                activate => {
-                    root.active-page = Pages.settings;
-                }
-
-                y: parent.height - self.height - 12px;
-                icon: @image-url("images/mcu/settings.svg");
-                active: root.active-page == Pages.settings;
-            }
-        }
+        sidebar := SideBar {}
 
         main-view := Rectangle {
             background: DemoPalette.page-background;
 
-            home-page := HomePage {
-                visible: root.active-page == Pages.home;
-            }
+            if PrinterState.active-page == Pages.home:home-page := HomePage { }
 
-            InkPage {
-                visible: root.active-page == Pages.ink;
-                ink-levels <=> root.ink-levels;
-                page-visible: root.active-page == Pages.ink;
-            }
+            if PrinterState.active-page == Pages.ink : InkPage { }
 
-            SettingsPage {
-                visible: root.active-page == Pages.settings;
-            }
+            if PrinterState.active-page == Pages.settings : SettingsPage { }
         }
     }
-    Rectangle {
+
+    screen-corners :=Rectangle {
         width: parent.width + self.border-width * 2;
         height: parent.height + self.border-width * 2;
         property <length> test: 40px;
-        border-radius: 40px;
-        border-width: 20px;
+        border-radius: 30px;
+        border-width: 10px;
         border-color: #212e4a;
     }
 }
