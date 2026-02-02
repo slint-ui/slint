@@ -3,13 +3,14 @@
 
 [package]
 name = "vtable-macro"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Helper crate to generate ffi-friendly virtual tables"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
+rust-version = "1.85"
 
 [lib]
 proc-macro = true

@@ -307,3 +307,40 @@ fn ptr_eq() {
     assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1));
     assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1clone));
 }
+
+#[test]
+fn new_cyclic() {
+    struct CyclicStruct {
+        self_weak: vtable::VWeak<FooVTable, Self>,
+        value: String,
+    }
+    impl CyclicStruct {
+        fn new(value: String) -> VRc<FooVTable, Self> {
+            VRc::new_cyclic(|weak| Self { self_weak: weak.clone(), value })
+        }
+        fn check_self(&self) {
+            let self_rc = self.self_weak.upgrade().unwrap();
+            assert_eq!(self_rc.value, self.value);
+            let self2: &Self = &*self_rc;
+            assert!(core::ptr::eq(self as *const Self, self2));
+        }
+    }
+
+    impl Foo for CyclicStruct {
+        fn rc_string(&self) -> Rc<String> {
+            Rc::new(self.value.clone())
+        }
+    }
+
+    FooVTable_static!(static CYCLIC_STRUCT_TYPE for CyclicStruct);
+
+    let c = CyclicStruct::new("salut".to_string());
+    assert_eq!(VRc::strong_count(&c), 1);
+    c.check_self();
+
+    let weak = VRc::downgrade(&c);
+    c.check_self();
+    assert_eq!(weak.upgrade().unwrap().value, "salut");
+    drop(c);
+    assert!(weak.upgrade().is_none());
+}

@@ -3,18 +3,19 @@
 
 [package]
 name = "vtable"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Helper crate to generate ffi-friendly virtual tables"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
+rust-version = "1.85"
 
 [lib]
 
 [dependencies]
-vtable-macro = { version = "=0.3.0", path = "./macro" }
+vtable-macro = { version = "=0.3.1", path = "./macro" }
 const-field-offset = { version = "0.1", path = "../const-field-offset" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
 portable-atomic = "1"
