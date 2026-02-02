@@ -58,6 +58,7 @@ export component SideBar inherits Rectangle {
     SideBarIcon {
         activate => {
             PrinterState.active-page = Pages.settings;
+            PrinterState.active-subpage = SubPages.none;
         }
 
         y: parent.height - self.height - 12px;
