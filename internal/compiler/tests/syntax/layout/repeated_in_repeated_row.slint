@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #10670
+
+export component Demo {
+    GridLayout {
+        for x in 10: Row {
+            for y in 10: Text {
+//                       >   <error{'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)}
+                text: y;
+            }
+        }
+    }
+
+
+    in property <bool> condition;
+    GridLayout {
+        if condition: Row {
+            for y in 10: Text {
+//                       >   <error{'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)}
+                text: y;
+            }
+        }
+    }
+}
