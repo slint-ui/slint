@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Theme, ComponentTheme, SubPage } from "../common.slint";
+import { DemoPalette, Theme, ComponentTheme, SubPage, Page } from "../common.slint";
 import { PrinterState } from "../common.slint";
 import { MenuPopup } from "./popup_menu.slint";
 
@@ -38,17 +38,17 @@ export component Sidebar inherits Rectangle {
         spacing: DemoPalette.default-margin;
         alignment: start;
 
-        for page-icon[index] in [
-            @image-url("../images/sidebar/home.svg"),
-            @image-url("../images/sidebar/settings.svg"),
-            @image-url("../images/sidebar/ink.svg"),
+        for page-data[index] in [
+            { icon: @image-url("../images/sidebar/home.svg"), page: Page.home },
+            { icon: @image-url("../images/sidebar/settings.svg"), page: Page.settings },
+            { icon: @image-url("../images/sidebar/ink.svg"), page: Page.ink },
         ]: SideBarIcon {
             activate => {
                 PrinterState.current-subpage = SubPage.none;
-                PrinterState.active-page = index;
+                PrinterState.active-page = page-data.page;
             }
-            icon: page-icon;
-            active: PrinterState.active-page == index;
+            icon: page-data.icon;
+            active: PrinterState.active-page == page-data.page;
         }
     }
 

@@ -63,6 +63,8 @@ export enum Theme {
     Glass
 }
 
+export enum Page { home, ink, settings }
+
 export enum SubPage { none, print, scan, copy, usb }
 
 export global ComponentTheme {
@@ -435,8 +437,21 @@ export component CheckBox inherits Rectangle {
     }
 }
 
+export struct InkLevel  {
+    color: color,
+    level: float,
+}
+
 export global PrinterState {
-    in property <int> active-page: 0;
+    in property <Page> active-page: Page.home;
     in-out property <SubPage> current-subpage: SubPage.none;
-    in-out property <[string]> combobox-choices: [];
+
+    /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in-out property <[InkLevel]> ink-levels: [
+        { color: #00c1e2, level: 60% },
+        { color: #f9bf00, level: 80% },
+        { color: #d40bec, level: 70% },
+        { color: #131c30, level: 30% },
+    ];
 }

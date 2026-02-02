@@ -1,33 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette } from "../common.slint";
+import { DemoPalette, PrinterState } from "../common.slint";
 import { Page, Header } from "./page.slint";
 
-export struct InkLevel  {
-    color: color,
-    level: float,
-}
-
 export component InkPage inherits Page {
-    in property <[InkLevel]> ink-levels;
-
     header: @tr("Ink Level");
     header-type: Header.plain;
 
     property <bool> page-visible: false;
 
-    changed visible => {
-        if !root.visible {
-            page-visible = false;
-        } else {
-            animationTimer.start();
-        }
-    }
-
-    animationTimer := Timer {
+    Timer {
         interval: 30ms;
-        running: false;
+        running: true;
         triggered => {
             self.stop();
             page-visible = true;
@@ -39,7 +24,7 @@ export component InkPage inherits Page {
         width: 75%;
         height: 65%;
 
-        for color-info in root.ink-levels: Rectangle {
+        for color-info in PrinterState.ink-levels: Rectangle {
             ink := Rectangle {
                 width: parent.width;
                 height: parent.height * color-info.level;
