@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    // Right-side modifier keys
+    property <keyboard-shortcut> alt_r: @keys(AltR + a);
+//                                            >  <error{Right-side modifiers are not supported}
+    property <keyboard-shortcut> control_r: @keys(ControlR + a);
+//                                                >      <error{Right-side modifiers are not supported}
+    property <keyboard-shortcut> meta_r: @keys(MetaR + a);
+//                                             >   <error{Right-side modifiers are not supported}
+    property <keyboard-shortcut> shift_r: @keys(ShiftR + a);
+//                                              >    <error{Right-side modifiers are not supported}
+
+
+    // Duplicate modifier or key
+    property <keyboard-shortcut> duplicate_alt: @keys(Alt + Control + Shift + Meta + Alt + a);
+//                                                                                   > <error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> duplicate_control: @keys(Alt + Control + Shift + Meta + Control + a);
+//                                                                                       >     <error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> duplicate_key: @keys(a + b);
+//                                                        ^error{Duplicated key in keyboard shortcut}
+    property <keyboard-shortcut> duplicate_meta: @keys(Alt + Control + Shift + Meta + Meta + a);
+//                                                                                    >  <error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> duplicate_shift: @keys(Alt + Control + Shift + Meta + Shift + a);
+//                                                                                     >   <error{Duplicated modifier in keyboard shortcut}
+
+    // Valid cases
+    property <keyboard-shortcut> empty: @keys();
+    property <keyboard-shortcut> single_key: @keys(a);
+    property <keyboard-shortcut> valid_all_mods: @keys(Alt + Control + Shift + Meta + a);
+    property <keyboard-shortcut> valid_return: @keys(Alt + Control + Shift + Meta + Return);
+    property <keyboard-shortcut> invalid_key: @keys(    Alt + Control + Shift + Meta + FooBar    ); // TODO
+
+
+    // Invalid syntax
+    property <keyboard-shortcut> invalid_token: @keys(a, b);
+//                                                     ^error{Expected 'Alt', 'Control', 'Meta', 'Shift, '+', <CHAR>, or any other symbol in the Keys namespace}
+    property <keyboard-shortcut> missing_plus: @keys(Alt Control + Shift + Meta + a);
+//                                                       >     <error{Expected '+' to separate parts of a keyboard shortcut}
+    property <keyboard-shortcut> no_key: @keys(Alt + Shift);
+//                                                        ^error{A keyboard shortcut must be empty or contain exactly one key}
+    property <keyboard-shortcut> stray_plus: @keys(Alt ++ a);
+//                                                      ^error{Unexpected '+' in keyboard shortcut}
+}
