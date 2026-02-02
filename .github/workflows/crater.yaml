@@ -352,7 +352,7 @@ jobs:
                     - git_url: https://github.com/guycorbaz/rbibli
                       sub_path: frontend
                     - git_url: https://github.com/tadghh/transparent-windows
-                      extra_args: "--features="tray-item/ksni
+                      extra_args: "--features=tray-item/ksni"
                     - git_url: "https://codeberg.org/vivi-ui/lili"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/bandipapa/rsaber"
