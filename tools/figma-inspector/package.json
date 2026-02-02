@@ -21,7 +21,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "1.122.0",
+    "@figma/plugin-typings": "1.123.0",
     "@types/jszip": "3.4.1",
     "@types/node": "catalog:",
     "@types/react": "19.2.10",
@@ -29,7 +29,7 @@
     "@vitejs/plugin-react": "5.1.2",
     "cross-env": "10.1.0",
     "jszip": "3.10.1",
-    "shiki": "3.21.0",
+    "shiki": "3.22.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
