@@ -130,6 +130,15 @@ path = [
   "examples/sprite-sheet/images/**.png",
   "examples/speedometer/needle.png",
 
+  "demos/printerdemo/ui/images/action-button-frame.png",
+  "demos/printerdemo/ui/images/mcu/combo-active-background.png",
+  "demos/printerdemo/ui/images/mcu/copy-button.jpg",
+  "demos/printerdemo/ui/images/mcu/place-document.jpg",
+  "demos/printerdemo/ui/images/mcu/popup.jpg",
+  "demos/printerdemo/ui/images/mcu/scan-button.jpg",
+  "demos/printerdemo/ui/images/mcu/sub-action-button.jpg",
+  "demos/printerdemo/ui/images/mcu/switch-active.png",
+
   "helper_crates/**.md",
 
   "ui-libraries/material/**.md",
