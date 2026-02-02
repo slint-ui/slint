@@ -11,7 +11,7 @@ use euclid::default::Size2D;
 use gleam::gl::{self, Gl};
 use glow::NativeFramebuffer;
 use image::RgbaImage;
-use servo::webrender_api::units::DeviceIntRect;
+use servo::DeviceIntRect;
 
 use surfman::{
     Adapter, Connection, Context, ContextAttributeFlags, ContextAttributes, Device, Error, GLApi,
