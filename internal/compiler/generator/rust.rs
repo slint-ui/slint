@@ -2367,7 +2367,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!(sp::SharedString::from(#s))
         }
         Expression::KeyboardShortcutLiteral(shortcut) => {
-                let key = shortcut.key.clone();
+                let key = &*shortcut.key;
                 let alt = shortcut.modifiers.alt;
                 let control = shortcut.modifiers.control;
                 let shift = shortcut.modifiers.shift;

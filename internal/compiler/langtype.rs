@@ -1020,7 +1020,7 @@ pub struct KeyboardModifiers {
 
 #[derive(Clone, Debug, Default)]
 pub struct KeyboardShortcut {
-    pub key: String,
+    pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
 }
 
