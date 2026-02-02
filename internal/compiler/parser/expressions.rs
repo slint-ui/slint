@@ -560,6 +560,11 @@ fn parse_keys(p: &mut impl Parser) {
                             p.until(SyntaxKind::RParent);
                             break;
                         }
+                        "AltGr" => {
+                            p.error("AltGr as modifier is unnecessary (remove it)");
+                            p.until(SyntaxKind::RParent);
+                            break;
+                        }
                         _ => key_count += 1,
                     }
                 }

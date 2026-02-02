@@ -5,6 +5,8 @@ export component SuperSimple {
     // Right-side modifier keys
     property <keyboard-shortcut> alt_r: @keys(AltR + a);
 //                                            >  <error{Right-side modifiers are not supported}
+    property <keyboard-shortcut> alt_gr: @keys(AltGr + a);
+//                                             >   <error{AltGr as modifier is unnecessary (remove it)}
     property <keyboard-shortcut> control_r: @keys(ControlR + a);
 //                                                >      <error{Right-side modifiers are not supported}
     property <keyboard-shortcut> meta_r: @keys(MetaR + a);
