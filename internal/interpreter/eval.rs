@@ -443,7 +443,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
-        Expression::KeyboardShortcut(ks) => Value::KeyboardShortcut(i_slint_core::input::KeyboardShortcut { key: SharedString::from(ks.key.clone()), modifiers: i_slint_core::input::KeyboardModifiers { alt: ks.modifiers.alt, control: ks.modifiers.control, shift: ks.modifiers.shift, meta: ks.modifiers.meta}}),
+        Expression::KeyboardShortcut(ks) => {
+            Value::KeyboardShortcut(i_slint_core::input::KeyboardShortcut {
+                key: SharedString::from(ks.key.clone()),
+                modifiers: i_slint_core::input::KeyboardModifiers {
+                    alt: ks.modifiers.alt,
+                    control: ks.modifiers.control,
+                    shift: ks.modifiers.shift,
+                    meta: ks.modifiers.meta,
+                },
+            })
+        }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {

@@ -3328,7 +3328,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::KeyboardShortcutLiteral(ks) => {
             format!(
                 "slint::private_api::KeyboardShortcut {{ .key = {}, .modifiers = {{{}, {}, {}, {}}} }}",
-                ks.key, ks.modifiers.alt, ks.modifiers.control, ks.modifiers.shift, ks.modifiers.meta
+                ks.key,
+                ks.modifiers.alt,
+                ks.modifiers.control,
+                ks.modifiers.shift,
+                ks.modifiers.meta
             )
         }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
