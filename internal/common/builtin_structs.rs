@@ -38,6 +38,7 @@ macro_rules! for_each_builtin_structs {
             ///
             /// On Windows, the Windows key is mapped to the meta modifier.
             #[derive(Copy, Eq)]
+            #[non_exhaustive]
             struct KeyboardModifiers {
                 @name = BuiltinPrivateStruct::KeyboardModifiers,
                 export {
