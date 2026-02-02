@@ -28,16 +28,13 @@ jobs:
                     #- "https://github.com/ElevenJune/mastermind_Rust" # Not upgraded to Slint 1.0
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
                     - "https://github.com/bjorn/raccoin"
-                    - "https://gitlab.com/floers/ordinary"
+                    - "https://gitlab.com/floers/ordinary"  #  Has `zip="*"` in its Cargo.toml
                     - "https://github.com/parchlinux/parch-welcome/"
                     #- "https://github.com/boclair/fractal-explorer"  # RE-ENABLE WHEN https://github.com/arturoc/color-rs/pull/2 is released
                     - "https://github.com/arunpkio/tymoz"
                     - "https://github.com/Surrealism-All/surrealism-ui-template"
-                    - https://codeberg.org/vivi-ui/vivi/src/branch/main/apps/castle_of_focus
                     - https://github.com/raykavin/market-prices-rust
-                    - https://github.com/tadghh/transparent-windows
                     - https://github.com/pezfisk/OxideManager
-                    - https://github.com/azurewood/guaViewer
                     - https://github.com/m4rz3r0/foruster
 
                     # from crates.io
@@ -54,14 +51,12 @@ jobs:
                     - "https://github.com/Siiir/k_means-interactive/"
                     - "https://codeberg.org/waydeer/layer-shika"
                     - "https://github.com/limitcool/xm"
-                    - "https://codeberg.org/vivi-ui/lili"
-                    - "https://github.com/vexide/vexide-slint"
+                    #- "https://github.com/vexide/vexide-slint"  # vexide somehow enable the error_in_core feature of snafu
                     - "https://github.com/ChenhuiZhang/envsensor-demo"
                     - "https://github.com/arunkumar-mourougappane/gjallarhorn-rs"
                     - "https://github.com/3axap4ehko/litra"
                     - "https://github.com/rezabani/modern-minesweeper"
                     - "https://github.com/guimath/phog"
-                    - "https://github.com/bandipapa/rsaber"
                     - "https://github.com/mcbridejc/slint-evdev-input"
                     - "https://github.com/heathcliff26/turbo-clicker"
 
@@ -114,7 +109,7 @@ jobs:
                     - "https://github.com/radev1924/profit-first-income-calculator-desktop"
                     - "https://github.com/JarrodDoyle/slint-fmeditor"
                     - "https://github.com/planet0104/slint-noframe-window"
-                    - "https://github.com/Dusk-Labs/kira"
+                    #- "https://github.com/Dusk-Labs/kira" uses private API
                     # - "https://github.com/TuEmb/can-viewer"   # depends on a deleted repo
                     # - "https://github.com/qhua948/anubis" # uses nightly rust
                     - "https://github.com/Surrealism-All/slimk"
@@ -124,7 +119,7 @@ jobs:
                     - "https://github.com/remy2019/smtbr_gui"
                     - "https://github.com/mrandal/PDFer"
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
-                    - "https://github.com/DraKraft/ozon-rs"
+                    # - "https://github.com/DraKraft/ozon-rs"  # Error: the trait `ToSql` is not implemented for `usize`
                     # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
                     # - "https://github.com/foxboxpdx/melonstt" # repo gone?
                     - "https://github.com/sanyexieai/me_chat"
@@ -159,8 +154,6 @@ jobs:
                     - "https://github.com/Jaysmito101/slint-nav"
                     - "https://github.com/mq1/TinyWiiBackupManager"
                     - "https://github.com/jacquetc/qleany"
-                    - "https://github.com/heng30/wayshot"
-                    - https://github.com/heng30/tasklog
                     - https://github.com/taichi765/Tsukuyomi
                     - https://github.com/Cheikh-Nakamoto/Generateur-d-architecture-
                     - https://github.com/Spencer-0003/aletheia
@@ -310,7 +303,7 @@ jobs:
                       extra_packages: libarchive-dev
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
-                      sub_path: "n_music"
+                      sub_path: "n_player"
                     - git_url: "https://github.com/BiliRumble/Cloubit"
                       sub_path: "."
                       extra_packages:  build-essential perl nasm libasound2-dev pkg-config
@@ -333,7 +326,7 @@ jobs:
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/game-exchange-token/gxt"
-                      sub_path: "gtx-cli"
+                      sub_path: "gxt-cli"
                       extra_args: "--features=ui"
                     - git_url: "https://github.com/paulusminus/lipl-display"
                       sub_path: "crates/lipl-display-slint"
@@ -350,19 +343,25 @@ jobs:
                       extra_args: "--features=cmp_slint"
                     - git_url: https://github.com/Szybet/snake-slint/
                       sub_path: "snake_bin_std"
-                    - git_url: https://github.com/maplibre/maplibre-native-slint/tree/main/rust
+                    - git_url: https://github.com/maplibre/maplibre-native-slint
                       sub_path: rust
                     - git_url: https://github.com/AgustinSRG/PersonalMediaVault
                       sub_path: launcher-gui
-                    - git_url: https://github.com/MERCorg
+                    - git_url: https://github.com/MERCorg/merc
                       sub_path: tools/gui
                     - git_url: https://github.com/guycorbaz/rbibli
                       sub_path: frontend
-
-
-
-
-
+                    - git_url: https://github.com/tadghh/transparent-windows
+                      extra_args: "--features="tray-item/ksni
+                    - git_url: "https://codeberg.org/vivi-ui/lili"
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: "https://github.com/bandipapa/rsaber"
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: "https://github.com/heng30/wayshot"
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    - git_url: https://github.com/heng30/tasklog
+                      sub_path: tasklog
+                      extra_args: "--features=desktop"
 
 
 
@@ -396,7 +395,7 @@ jobs:
               run: |
                   cd $HOME/the_repo
                   rm -r rust-toolchain.toml .cargo/config.toml || true
-                  cd ${{ matrix.sub_path }}
+                  cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   cargo update
                   cargo check ${{ matrix.extra_args }}
