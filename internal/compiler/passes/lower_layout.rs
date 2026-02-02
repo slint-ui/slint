@@ -471,11 +471,22 @@ impl GridLayout {
             let repeated_children_count = comp.root_element.borrow().children.len();
             let mut children_layout_items = Vec::new();
             for child in &comp.root_element.borrow().children {
-                let child_constraints = LayoutConstraints::new(child, diag, DiagnosticLevel::Error);
+                let child = if child.borrow().repeated.is_some() {
+                    diag.push_error(
+                        "'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)".into(),
+                        &*child.borrow(),
+                    );
+                    child.borrow().base_type.as_component().root_element.clone()
+                } else {
+                    child.clone()
+                };
+
+                let child_constraints =
+                    LayoutConstraints::new(&child, diag, DiagnosticLevel::Error);
 
                 // The layout engine will set x,y,width,height,row,col for each of the repeated children
                 set_properties_from_cache(
-                    child,
+                    &child,
                     &child_constraints,
                     layout_cache_prop_h,
                     layout_cache_prop_v,
