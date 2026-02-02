@@ -1173,7 +1173,7 @@ impl ComponentDefinition {
         i_slint_backend_selector::with_platform(|_| Ok(()))?;
         let instance = crate::dynamic_item_tree::instantiate(
             &self.llr,
-            self.public_component_index
+            self.public_component_index,
             Some(&options),
         );
         if let WindowOptions::UseExistingWindow(existing_adapter) = options {
@@ -1388,7 +1388,10 @@ pub struct ComponentInstance {
 impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
-        ComponentDefinition { llr: self.inner.llr.clone(), public_component_index: self.inner.public_component_index }
+        ComponentDefinition {
+            llr: self.inner.llr.clone(),
+            public_component_index: self.inner.public_component_index,
+        }
     }
 
     /// Return the value for a public property of this component.

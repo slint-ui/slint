@@ -19,6 +19,7 @@ use i_slint_compiler::expression_tree::{
     PathElement as ExprPathElement,
 };
 use i_slint_compiler::langtype::Type;
+use i_slint_compiler::llr;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
@@ -157,7 +158,10 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
 }
 
 /// Evaluate an expression and return a Value as the result of this expression
-pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalContext) -> Value {
+pub fn eval_expression(
+    expression: &llr::Expression,
+    local_context: &mut EvalLocalContext,
+) -> Value {
     if let Some(r) = &local_context.return_value {
         return r.clone();
     }

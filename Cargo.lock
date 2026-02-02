@@ -10953,7 +10953,7 @@ dependencies = [
 
 [[package]]
 name = "vtable"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
@@ -10963,7 +10963,7 @@ dependencies = [
 
 [[package]]
 name = "vtable-macro"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "proc-macro2",
  "quote",

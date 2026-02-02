@@ -3,8 +3,9 @@
 
 use crate::Value;
 use core::pin::Pin;
-use i_slint_core::items::PropertyAnimation;
-use i_slint_core::{rtti, Property};
+use i_slint_core::items::{ItemRef, PropertyAnimation};
+use i_slint_core::rtti::AnimatedBindingKind;
+use i_slint_core::{Callback, Property, rtti};
 use std::rc::Rc;
 
 pub trait ItemInstance {
@@ -13,7 +14,7 @@ pub trait ItemInstance {
         name: &str,
     ) -> Option<PropertyOrCallback<'a>>;
 
-    fn as_item_ref(&self) -> Pin<vtable::VRef<i_slint_core::items::ItemVTable>>;
+    fn as_item_ref(&self) -> Pin<ItemRef>;
 }
 
 pub trait ErasedProperty {
@@ -55,23 +56,43 @@ where
     fn set(self: Pin<&Self>, value: Value, animation: Option<PropertyAnimation>) {
         match animation {
             None => Property::set(&*self, value.try_into().ok().unwrap()),
-            Some(a) => self.set_animated_value(value.try_into().ok().unwrap(), a),
+            Some(a) => self.set_animated_value(value.try_into().ok().unwrap(), move || (a, None)),
         }
     }
     fn set_binding(
         self: Pin<&Self>,
         binding: Box<dyn Fn() -> Value>,
         animation: AnimatedBindingKind,
-    ) -> Result<(), ()> {
-        self.set_binding(binding, animation)
+    ) {
+        match animation {
+            AnimatedBindingKind::NotAnimated => Property::set_binding(&*self, binding),
+            AnimatedBindingKind::Animation(a) => {
+                Property::set_animated_binding(&*self, binding, move || (a(), None))
+            }
+            AnimatedBindingKind::Transition(t) => {
+                Property::set_animated_binding(&*self, binding, t)
+            }
+        }
     }
 
-    fn prepare_for_two_way_binding(self: Pin<&Self>) -> Pin<Rc<Property<Value>>> {}
+    fn prepare_for_two_way_binding(self: Pin<&Self>) -> Pin<Rc<Property<Value>>> {
+        todo!()
+    }
 
     fn link_two_way_with_map(
         self: Pin<&Self>,
         property2: Pin<Rc<Property<Value>>>,
         map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>>,
     ) {
+    }
+}
+
+impl ErasedCallback for Callback<[Value], Value> {
+    fn call(self: Pin<&Self>, args: &[Value]) -> Value {
+        Callback::call(self.get_ref(), args)
+    }
+
+    fn set_handler(self: Pin<&Self>, handler: Box<dyn Fn(&[Value]) -> Value>) {
+        Callback::set_handler(self.get_ref(), handler)
     }
 }

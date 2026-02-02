@@ -5,18 +5,26 @@ use crate::erased_item::*;
 use crate::{CompilationResult, Value};
 use core::pin::Pin;
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::langtype::Type;
-use i_slint_compiler::llr::{ItemTree, TypeResolutionContext};
-use i_slint_compiler::{llr, CompilerConfiguration};
-use i_slint_core::item_tree::{ItemTreeNode, ItemTreeWeak, ItemVisitorVTable};
-use i_slint_core::items::ItemTreeVTable;
+use i_slint_compiler::{CompilerConfiguration, llr};
+use i_slint_core::accessibility::{
+    AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+};
+use i_slint_core::item_tree::{
+    IndexRange, ItemTree, ItemTreeNode, ItemTreeWeak, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult
+};
+use i_slint_core::items::{AccessibleRole, ItemRef, ItemTreeVTable, ItemVTable, Orientation};
+use i_slint_core::layout::LayoutInfo;
+use i_slint_core::lengths::LogicalRect;
+use i_slint_core::model::{Conditional, Repeater};
 use i_slint_core::properties::ChangeTracker;
+use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
-use i_slint_core::{rtti, Callback, Property};
+use i_slint_core::{Callback, Property, SharedString, rtti};
+use itertools::Either;
 use smol_str::SmolStr;
 use std::rc::Rc;
 use typed_index_collections::TiVec;
-use vtable::VRc;
+use vtable::{Dyn, VRc};
 
 #[derive(Default)]
 pub enum WindowOptions {
@@ -147,8 +155,8 @@ struct SubComponentInstance {
     repeated: TiVec<
         llr::RepeatedElementIdx,
         itertools::Either<
-            i_slint_core::model::Repeater<RepeatedItemTreeInstance>,
-            i_slint_core::model::Conditional<RepeatedItemTreeInstance>,
+            i_slint_core::model::Repeater<DynamicItemTree>,
+            i_slint_core::model::Conditional<DynamicItemTree>,
         >,
     >,
 }
@@ -183,9 +191,27 @@ impl SubComponentInstance {
             .map(|sci| Self::instantiate(sci.ty, root, None))
             .collect();
 
-        let items = component.items.iter().map(|item| instantiate_item(item, root, None)).collect();
+        let items = component.items.iter().map(|item| instantiate_item(item, root)).collect();
+        let repeated = component
+            .repeated
+            .iter()
+            .map(|r| {
+                if r.data_prop.is_some() {
+                    Either::Left(Repeater::default())
+                } else {
+                    Either::Right(Conditional::default())
+                }
+            })
+            .collect();
 
-        SubComponentInstance { properties, callbacks, items, sub_components, change_trackers }
+        SubComponentInstance {
+            properties,
+            callbacks,
+            items,
+            sub_components,
+            change_trackers,
+            repeated,
+        }
     }
 
     fn init(&self, component_idx: llr::SubComponentIdx, item_tree_rc: &DynamicItemTreeRc) {
@@ -236,14 +262,22 @@ impl SubComponentInstance {
 
         for (init_idx, (prop, init)) in component.property_init.iter().enumerate() {
             match self.get_property_or_callback(prop).unwrap() {
-                itertools::Either::Left(prop) => {
+                Either::Left(prop) => {
                     if init.is_constant {
-                        let value = evaluate(init.expression.borrow());
+                        let value =
+                            crate::eval::eval_expression(&init.expression.borrow(), todo!());
                         prop.set(value, None);
                     } else {
-                        let animation = init.animation.map(|a| evaluate_animation(a));
-
                         let item_tree_weak = VRc::downgrade(&item_tree_rc);
+                        let animation = match &init.animation {
+                            Some(llr::Animation::Static(anim)) => {
+                                todo!()
+                            }
+                            Some(llr::Animation::Transition(animation)) => {
+                                todo!()
+                            }
+                            None => rtti::AnimatedBindingKind::NotAnimated,
+                        };
 
                         prop.set_binding(
                             Box::new(move || {
@@ -252,7 +286,7 @@ impl SubComponentInstance {
                                 };
                                 let component = &item_tree_rc.llr.sub_components[component_idx];
                                 let e = &component.property_init[init_idx].1.expression.borrow();
-                                evaluate(e)
+                                crate::eval::eval_expression(e, todo!())
                             }),
                             animation,
                         );
@@ -266,12 +300,12 @@ impl SubComponentInstance {
                         };
                         let component = &item_tree_rc.llr.sub_components[component_idx];
                         let e = &component.property_init[init_idx].1.expression.borrow();
-                        evaluate(e)
+                        crate::eval::eval_expression(e, todo!())
                     }));
                 }
             }
             for prop in &component.const_properties {
-                let prop = self.get_property_or_callback(prop).unwrap().left().unwrap();
+                let prop = self.get_property_or_callback(&prop.clone().into()).unwrap().left().unwrap();
                 prop.set_constant();
             }
         }
@@ -279,13 +313,26 @@ impl SubComponentInstance {
 
     fn get_property_or_callback<'a>(
         &'a self,
-        reference: &llr::LocalMemberReference,
+        reference: &llr::MemberReference,
     ) -> Option<PropertyOrCallback<'a>> {
+        let local = match reference {
+            llr::MemberReference::Relative { parent_level, local_reference } => {
+                let mut s = self;
+                for _ in 0..*parent_level {
+                    todo!()
+                }
+                local_reference
+            }
+            llr::MemberReference::Global { global_index, member } => {
+                todo!();
+            }
+        };
+
         let mut s = self;
-        for i in reference.sub_component_path.iter() {
+        for i in local.sub_component_path.iter() {
             s = &s.sub_components[*i];
         }
-        match &reference.reference {
+        match &local.reference {
             llr::LocalMemberIndex::Property(property_idx) => {
                 PropertyOrCallback::Left(s.properties[*property_idx].as_ref()).into()
             }
@@ -312,7 +359,12 @@ struct DynamicItemTree {
 impl DynamicItemTree {
     fn instantiate(llr: Rc<llr::CompilationUnit>, item_tree: &llr::ItemTree) -> DynamicItemTreeRc {
         let root_component = SubComponentInstance::instantiate(item_tree.root, &llr, None);
-        let item_tree_rc = vtable::VRc::new(Self { llr, root_component });
+        let item_tree_rc = vtable::VRc::new_cyclic(|self_weak| Self {
+            llr,
+            root_component,
+            item_array_cache: todo!(),
+            self_weak: self_weak.clone(),
+        });
         item_tree_rc.root_component.init(item_tree.root, &item_tree_rc);
         item_tree_rc
     }
@@ -327,11 +379,11 @@ struct ItemTreeArrayCache {
     items: Vec<(Vec<llr::SubComponentInstanceIdx>, itertools::Either<llr::ItemInstanceIdx, u32>)>,
 }
 
-impl i_slint_core::item_tree::ItemTree for DynamicItemTree {
+impl ItemTree for DynamicItemTree {
     fn visit_children_item(
         self: core::pin::Pin<&Self>,
         index: isize,
-        order: i_slint_core::item_tree::TraversalOrder,
+        order: TraversalOrder,
         visitor: vtable::VRefMut<ItemVisitorVTable>,
     ) -> i_slint_core::item_tree::VisitChildrenResult {
         let self_rc = self.self_weak.upgrade().unwrap();
@@ -346,7 +398,7 @@ impl i_slint_core::item_tree::ItemTree for DynamicItemTree {
         )
     }
 
-    fn get_item_ref(self: core::pin::Pin<&Self>, idx: u32) -> ::core::pin::Pin<VRef<ItemVTable>> {
+    fn get_item_ref(self: core::pin::Pin<&Self>, idx: u32) -> Pin<ItemRef> {
         let (path, itm) = &self.item_array_cache.items[idx as usize];
         let mut s = &self.root_component;
         for i in path {
@@ -356,12 +408,7 @@ impl i_slint_core::item_tree::ItemTree for DynamicItemTree {
     }
 
     fn get_subtree_range(self: core::pin::Pin<&Self>, index: u32) -> IndexRange {
-        let (path, itm) = &self.item_array_cache.items[idx as usize];
-        let mut s = &self.root_component;
-        for i in path {
-            s = &s.sub_components[*i];
-        }
-        s.items[itm.left().unwrap()].as_item_ref()
+        todo!()
     }
 
     fn get_subtree(
@@ -381,7 +428,7 @@ impl i_slint_core::item_tree::ItemTree for DynamicItemTree {
         todo!()
     }
 
-    fn embed_component(self: core::pin::Pin<&Self>, _1: &VWeak<ItemTreeVTable>, _2: u32) -> bool {
+    fn embed_component(self: core::pin::Pin<&Self>, _1: &ItemTreeWeak, _2: u32) -> bool {
         todo!()
     }
 
@@ -429,10 +476,19 @@ impl i_slint_core::item_tree::ItemTree for DynamicItemTree {
     }
 }
 
-struct RepeatedItemTreeInstance{
-    item_tree: DynamicItemTreeRc,
+impl i_slint_core::model::RepeatedItemTree for DynamicItemTree {
+    type Data = Value;
+
+    fn update(&self, index: usize, data: Self::Data) {
+        todo!()
+    }
 }
 
+i_slint_core::ItemTreeVTable_static!(static DYNAMIC_ITEM_TREE_VTABLE for DynamicItemTree);
+
+fn instantiate_item(item: &llr::Item, root: &llr::CompilationUnit) -> Pin<Box<dyn ItemInstance>> {
+    todo!()
+}
 
 /*
 use crate::api::{CompilationResult, ComponentDefinition, Value};
