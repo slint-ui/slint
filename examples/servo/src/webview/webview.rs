@@ -11,7 +11,7 @@ use euclid::Size2D;
 
 use slint::{ComponentHandle, SharedString, language::ColorScheme};
 
-use servo::{Servo, ServoBuilder, Theme, WebViewBuilder, webrender_api::units::DevicePixel};
+use servo::{DevicePixel, Servo, ServoBuilder, Theme, WebViewBuilder};
 
 use crate::{
     MyApp, Palette, WebviewLogic,
@@ -80,18 +80,11 @@ impl WebView {
         let state_weak = Rc::downgrade(&adapter);
         let state = super::adapter::upgrade_adapter(&state_weak);
 
-        let (rendering_adapter, physical_size) = Self::init_rendering_adapter(&app, state.clone());
+        let rendering_adapter = Self::init_rendering_adapter(&app, state.clone());
 
-        let servo = Self::init_servo_builder(state.clone(), rendering_adapter.clone());
+        let servo = Self::init_servo_builder(state.clone());
 
-        Self::init_webview(
-            &app,
-            physical_size,
-            initial_url,
-            state.clone(),
-            servo,
-            rendering_adapter,
-        );
+        Self::init_webview(&app, initial_url, state.clone(), servo, rendering_adapter);
 
         Self::spin_servo_event_loop(adapter.clone());
 
@@ -105,13 +98,11 @@ impl WebView {
     ///
     /// # Returns
     ///
-    /// A tuple containing:
-    /// - The rendering adapter (GPU or software)
-    /// - The physical size of the viewport in pixels
+    /// A rendering adapter (GPU or software)
     fn init_rendering_adapter(
         app: &MyApp,
         adapter: Rc<SlintServoAdapter>,
-    ) -> (Rc<Box<dyn ServoRenderingAdapter>>, PhysicalSize<u32>) {
+    ) -> Rc<Box<dyn ServoRenderingAdapter>> {
         let width = app.global::<WebviewLogic>().get_viewport_width();
         let height = app.global::<WebviewLogic>().get_viewport_height();
 
@@ -131,7 +122,7 @@ impl WebView {
 
         let rendering_adapter_rc = Rc::new(rendering_adapter);
 
-        (rendering_adapter_rc, physical_size)
+        rendering_adapter_rc
     }
 
     /// Initializes and builds the Servo browser engine instance.
@@ -142,20 +133,14 @@ impl WebView {
     /// # Arguments
     ///
     /// * `adapter` - The Slint-Servo adapter for state management
-    /// * `rendering_adapter` - The rendering backend to use
     ///
     /// # Returns
     ///
     /// A configured Servo instance ready for use
-    fn init_servo_builder(
-        adapter: Rc<SlintServoAdapter>,
-        rendering_adapter: Rc<Box<dyn ServoRenderingAdapter>>,
-    ) -> Servo {
+    fn init_servo_builder(adapter: Rc<SlintServoAdapter>) -> Servo {
         let waker = Waker::new(adapter.waker_sender());
         let event_loop_waker = Box::new(waker);
-        let rendering_context = rendering_adapter.get_rendering_context();
-
-        ServoBuilder::new(rendering_context).event_loop_waker(event_loop_waker).build()
+        ServoBuilder::default().event_loop_waker(event_loop_waker).build()
     }
 
     /// Initializes the Servo WebView with the initial URL and configuration.
@@ -169,14 +154,12 @@ impl WebView {
     /// # Arguments
     ///
     /// * `app` - The Slint application instance
-    /// * `physical_size` - Initial viewport dimensions
     /// * `initial_url` - URL to navigate to on startup
     /// * `adapter` - The Slint-Servo adapter
     /// * `servo` - The Servo engine instance
     /// * `rendering_adapter` - The rendering backend
     fn init_webview(
         app: &MyApp,
-        physical_size: PhysicalSize<u32>,
         initial_url: SharedString,
         adapter: Rc<SlintServoAdapter>,
         servo: Servo,
@@ -188,10 +171,12 @@ impl WebView {
 
         let delegate = Rc::new(AppDelegate::new(app, adapter.clone()));
 
-        let webview =
-            WebViewBuilder::new(&servo).url(url).size(physical_size).delegate(delegate).build();
+        let rendering_context = rendering_adapter.get_rendering_context();
 
-        webview.show(true);
+        let webview =
+            WebViewBuilder::new(&servo, rendering_context).url(url).delegate(delegate).build();
+
+        webview.show();
 
         let color_scheme = app.global::<Palette>().get_color_scheme();
         let theme = if color_scheme == ColorScheme::Dark { Theme::Dark } else { Theme::Light };

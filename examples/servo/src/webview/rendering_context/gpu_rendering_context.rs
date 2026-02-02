@@ -7,7 +7,7 @@ use euclid::default::Size2D;
 use image::RgbaImage;
 use winit::dpi::PhysicalSize;
 
-use servo::{RenderingContext, webrender_api::units::DeviceIntRect};
+use servo::{DeviceIntRect, RenderingContext};
 
 use surfman::{
     Connection, Device, Surface, SurfaceTexture, SurfaceType,

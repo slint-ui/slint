@@ -5,14 +5,11 @@ use std::rc::Rc;
 
 use winit::dpi::PhysicalSize;
 
-use euclid::{Box2D, Point2D, Scale, Size2D};
+use euclid::{Scale, Size2D};
 
 use slint::{ComponentHandle, language::ColorScheme};
 
-use servo::{
-    Scroll, Theme,
-    webrender_api::units::{DevicePixel, DevicePoint, DeviceVector2D},
-};
+use servo::{DevicePixel, DevicePoint, DeviceVector2D, Scroll, Theme};
 
 use crate::{MyApp, WebviewLogic, webview::SlintServoAdapter};
 
@@ -74,12 +71,9 @@ impl<'a> WebViewEvents<'a> {
 
             webview.set_hidpi_scale_factor(scale);
 
-            let size = Size2D::new(width, height);
+            let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
             let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
-            let rect: Box2D<f32, DevicePixel> =
-                Box2D::from_origin_and_size(Point2D::origin(), size);
 
-            webview.move_resize(rect);
             webview.resize(physical_size);
         });
     }

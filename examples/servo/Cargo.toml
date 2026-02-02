@@ -34,7 +34,6 @@ winit = "0.30.12"
 spin_on = "0.1.1"
 rustls = "0.23.34"
 euclid = "0.22.11"
-surfman = "0.10.0"
 time-now = "0.1.2"
 termcolor = "1.4.1"
 thiserror = "2.0.17"
@@ -44,8 +43,9 @@ wgpu-hal = "28.0.0"
 wgpu-core = "28.0.0"
 wgpu = { version = "28.0.0", features = ["metal"] }
 
-libservo = { git = "https://github.com/servo/servo", rev = "158bf97e" }
-embedder_traits = { git = "https://github.com/servo/servo", rev = "158bf97e", features = ["baked-default-resources"] }
+surfman = { version = "0.11.0", features = ["chains"] }
+libservo = { git = "https://github.com/servo/servo", rev = "e8aa7d5" }
+embedder_traits = { git = "https://github.com/servo/servo", rev = "e8aa7d5", features = ["baked-default-resources"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"
