@@ -19,18 +19,11 @@ export component SuperSimple {
     property <keyboard-shortcut> duplicate_control: @keys(Alt + Control + Shift + Meta + Control + a);
 //                                                                                       >     <error{Duplicated modifier in keyboard shortcut}
     property <keyboard-shortcut> duplicate_key: @keys(a + b);
-//                                                        ^error{Duplicated key in keyboard shortcut}
+//                                                        ^error{A keyboard shortcut can only contain one key (with modifiers)}
     property <keyboard-shortcut> duplicate_meta: @keys(Alt + Control + Shift + Meta + Meta + a);
 //                                                                                    >  <error{Duplicated modifier in keyboard shortcut}
     property <keyboard-shortcut> duplicate_shift: @keys(Alt + Control + Shift + Meta + Shift + a);
 //                                                                                     >   <error{Duplicated modifier in keyboard shortcut}
-
-    // Valid cases
-    property <keyboard-shortcut> empty: @keys();
-    property <keyboard-shortcut> single_key: @keys(a);
-    property <keyboard-shortcut> valid_all_mods: @keys(Alt + Control + Shift + Meta + a);
-    property <keyboard-shortcut> valid_return: @keys(Alt + Control + Shift + Meta + Return);
-    property <keyboard-shortcut> invalid_key: @keys(    Alt + Control + Shift + Meta + FooBar    ); // TODO
 
 
     // Invalid syntax

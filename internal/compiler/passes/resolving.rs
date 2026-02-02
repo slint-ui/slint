@@ -1084,21 +1084,55 @@ impl Expression {
                 "Meta" => shortcut.modifiers.meta = true,
                 "Shift" => shortcut.modifiers.shift = true,
                 s => {
-                    let count = s.chars().count();
                     let lookup = crate::lookup::KeysLookup {};
-                    if count > 1 && lookup.lookup(ctx, &SmolStr::from(s)).is_none() {
+                    if lookup.lookup(ctx, &SmolStr::from(s)).is_none() {
+                        // TODO: This should suggest close matches
                         ctx.diag.push_error(
-                            format!("'{s}' is not a member of the `Keys` namespace"),
+                            format!(
+                                "`{s}` not defined in the `Keys` namespace\n(Consider using \"{s}\")"
+                            ),
                             &identifier,
                         );
                         shortcut.modifiers = KeyboardModifiers::default();
                         break;
-                    } else {
-                        shortcut.key = s.to_string();
                     }
                 }
             }
         }
+
+        // If there is a string literal, use it as the key
+        node.child_token(SyntaxKind::StringLiteral).map(|token| {
+            if let Some(key) = crate::literals::unescape_string(&token.text()) {
+                shortcut.key = key;
+
+                // Emit warnings if the string case for A-Z doesn't match the shift state
+                if let Some(character) = shortcut.key.chars().next()
+                    && shortcut.key.len() == 1
+                    && character.is_ascii()
+                    && character.is_alphabetic()
+                {
+                    let is_lower = character.is_ascii_lowercase();
+                    if is_lower == shortcut.modifiers.shift {
+                        let case = if is_lower { "Lowercase" } else { "Uppercase" };
+                        let shift = if shortcut.modifiers.shift { "with" } else { "without" };
+                        let shifted = if is_lower {
+                            character.to_ascii_uppercase()
+                        } else {
+                            character.to_ascii_lowercase()
+                        };
+                        let add_remove = if is_lower { "remove" } else { "add" };
+
+                        ctx.diag.push_warning(
+                            format!(
+                                "{case} \"{character}\" {shift} `Shift` will never match!\n\
+                                Use \"{shifted}\" instead or {add_remove} `Shift`!",
+                            ),
+                            &token,
+                        );
+                    }
+                };
+            }
+        });
 
         Expression::KeyboardShortcut(shortcut)
     }
