@@ -42,4 +42,11 @@ export component MiniPopup inherits PopupWindow {
             @children
         }
     }
+    screen-corners := Rectangle {
+        width: parent.width + self.border-width * 2;
+        height: parent.height + self.border-width * 2;
+        border-radius: 30px;
+        border-width: 10px;
+        border-color: #212e4a;
+    }
 }

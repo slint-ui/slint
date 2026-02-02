@@ -41,7 +41,7 @@ export component PushButton inherits Rectangle {
 
     touch-area := TouchArea {
         pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.up) {
+            if (ev.kind == PointerEventKind.down) {
                 root.clicked()
             }
         }
