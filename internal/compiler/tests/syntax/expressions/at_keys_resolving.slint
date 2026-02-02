@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <keyboard-shortcut> unknown_single_key: @keys(a);
+//                                                         ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+    property <keyboard-shortcut> unknown_single_key_all_mods: @keys(Alt + Control + Shift + Meta + a);
+//                                                                                                 ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+    property <keyboard-shortcut> unknown_key_long: @keys(    Alt + Control + Shift + Meta + FooBar    );
+//                                                                                          >    <error{`FooBar` not defined in the `Keys` namespace↵(Consider using "FooBar")}
+}

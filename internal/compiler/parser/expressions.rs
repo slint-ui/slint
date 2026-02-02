@@ -485,8 +485,8 @@ fn parse_markdown(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,AtKeys
 /// @keys()
-/// @keys(x)
-/// @keys(Control +Shift + Alt+Meta+a)
+/// @keys("x")
+/// @keys(Control +Shift + Alt+Meta+"a")
 /// @keys(Control +Shift + Alt+Meta+Return)
 /// ```
 fn parse_keys(p: &mut impl Parser) {
@@ -505,6 +505,14 @@ fn parse_keys(p: &mut impl Parser) {
     let mut meta_count = 0_u32;
 
     let mut need_plus = false;
+
+    fn check_duplicate_keys(p: &mut crate::parser::Node<'_, impl Parser>, key_count: u32) -> bool {
+        if key_count > 1 {
+            p.error("A keyboard shortcut can only contain one key (with modifiers)");
+            p.until(SyntaxKind::RParent);
+        }
+        key_count > 1
+    }
 
     loop {
         match p.peek().kind() {
@@ -557,14 +565,28 @@ fn parse_keys(p: &mut impl Parser) {
                     p.until(SyntaxKind::RParent);
                     break;
                 }
-                if key_count > 1 {
-                    p.error("Duplicated key in keyboard shortcut");
-                    p.until(SyntaxKind::RParent);
+                if check_duplicate_keys(&mut p, key_count) {
                     break;
                 }
 
                 p.consume();
                 continue;
+            }
+            SyntaxKind::StringLiteral => {
+                if need_plus {
+                    p.error("Expected '+' to separate parts of a keyboard shortcut");
+                    p.until(SyntaxKind::RParent);
+                    break;
+                }
+
+                // We do not check string literals, they can be any single character
+                key_count += 1;
+                need_plus = true;
+
+                if check_duplicate_keys(&mut p, key_count) {
+                    break;
+                }
+                p.consume();
             }
             _ => {
                 p.error("Expected 'Alt', 'Control', 'Meta', 'Shift, '+', <CHAR>, or any other symbol in the Keys namespace");

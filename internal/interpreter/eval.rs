@@ -445,7 +445,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::KeyboardShortcut(ks) => {
             Value::KeyboardShortcut(i_slint_core::input::KeyboardShortcut {
-                key: SharedString::from(ks.key.clone()),
+                key: SharedString::from(&*ks.key),
                 modifiers: i_slint_core::input::KeyboardModifiers {
                     alt: ks.modifiers.alt,
                     control: ks.modifiers.control,
