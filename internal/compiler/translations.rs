@@ -123,11 +123,7 @@ impl TranslationsBuilder {
             },
             Entry::Vacant(entry) => {
                 let messages = self.catalogs.iter().map(|catalog| {
-                    if contextid.is_empty() {
-                        catalog.find_by_msgid(original.as_str())
-                    } else {
-                        catalog.find_by_msgid_msgctxt(original.as_str(), contextid.as_str())
-                    }
+                    catalog.find_by_msgid_msgctxt(original.as_str(), contextid.as_str())
                 });
                 let idx = if is_plural {
                     let messages = std::iter::once(Some(vec![original.clone(), plural.clone()]))
@@ -152,7 +148,7 @@ impl TranslationsBuilder {
                 } else {
                     let messages = std::iter::once(Some(original.clone()))
                         .chain(messages.map(|opt_entry| {
-                            opt_entry.and_then(|entry| entry.msgstr.clone()).map(|s| s.to_smolstr())
+                            opt_entry.and_then(|entry| entry.msgstr.map(|s| s.to_smolstr()))
                         }))
                         .collect::<Vec<_>>();
                     self.result.strings.push(messages);
