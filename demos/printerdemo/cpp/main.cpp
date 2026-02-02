@@ -35,7 +35,7 @@ int main()
 #endif
 
     auto printer_demo = MainWindow::create();
-    printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());
+    printer_demo->global<PrinterState>().set_ink_levels(std::make_shared<InkLevelModel>());
     printer_demo->on_quit([] { std::exit(0); });
 
     auto printer_queue = std::make_shared<slint::VectorModel<PrinterQueueItem>>();

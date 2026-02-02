@@ -1,10 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Theme, PrinterState, Label } from "common.slint";
+import { DemoPalette, PrinterState, InkLevel, Label, Page } from "common.slint";
 import {
     HomePage,
-    InkLevel,
     InkPage,
     SettingsPage,
     PrinterSettings,
@@ -13,22 +12,12 @@ import { PrinterQueue } from "./pages/printer_queue.slint";
 import { Sidebar } from "components/sidebar.slint";
 
 // re-export for the native code
-export { PrinterQueue, PrinterSettings }
+export { PrinterQueue, PrinterSettings, PrinterState, InkLevel }
 
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
-import { MenuPopup } from "components/popup_menu.slint";
 
 export component MainWindow inherits Window {
-    /// Note that this property is overwritten in the .cpp and .rs code.
-    /// The data is only in this file so it looks good in the viewer
-    in property <[InkLevel]> ink-levels: [
-        { color: #00c1e2, level: 60% },
-        { color: #f9bf00, level: 80% },
-        { color: #d40bec, level: 70% },
-        { color: #131c30, level: 30% },
-    ];
-
     callback quit();
 
     min-width: 772px;
@@ -46,16 +35,14 @@ export component MainWindow inherits Window {
             side-bar := Sidebar { }
 
             main-view := Rectangle {
-                if PrinterState.active-page == 0:home-page := HomePage {
+                if PrinterState.active-page == Page.home: home-page := HomePage {
                     property <int> pageNumber: 0;
                 }
-                if PrinterState.active-page == 1:settings-page := SettingsPage {
+                if PrinterState.active-page == Page.settings: settings-page := SettingsPage {
                     property <int> pageNumber: 1;
                 }
-                ink-page := InkPage {
+                if PrinterState.active-page == Page.ink: ink-page := InkPage {
                     property <int> pageNumber: 2;
-                    ink-levels <=> root.ink-levels;
-                    visible: PrinterState.active-page == 2;
                 }
             }
         }
