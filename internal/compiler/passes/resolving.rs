@@ -1124,8 +1124,8 @@ impl Expression {
 
                         ctx.diag.push_warning(
                             format!(
-                                "{case} \"{character}\" {shift} `Shift` will never match!\n\
-                                Use \"{shifted}\" instead or {add_remove} `Shift`!",
+                                "{case} \"{character}\" {shift} `Shift` will never match\n\
+                                Use \"{shifted}\" instead or {add_remove} `Shift`",
                             ),
                             &token,
                         );

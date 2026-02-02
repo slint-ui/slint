@@ -504,29 +504,32 @@ fn parse_keys(p: &mut impl Parser) {
     let mut shift_count = 0_u32;
     let mut meta_count = 0_u32;
 
-    let mut need_plus = false;
-
-    fn check_duplicate_keys(p: &mut crate::parser::Node<'_, impl Parser>, key_count: u32) -> bool {
-        if key_count > 1 {
-            p.error("A keyboard shortcut can only contain one key (with modifiers)");
-            p.until(SyntaxKind::RParent);
-        }
-        key_count > 1
+    #[derive(Eq, PartialEq)]
+    enum State {
+        Start,
+        NeedPlus,
+        NeedKey,
     }
+    let mut state = State::Start;
 
     loop {
         match p.peek().kind() {
             SyntaxKind::RParent => {
                 assert!(key_count <= 1);
-                if key_count == 0 && (alt_count + control_count + shift_count + meta_count) > 0 {
-                    p.error("A keyboard shortcut must be empty or contain exactly one key");
+                // Trailing plus
+                if state == State::NeedKey {
+                    p.error("Expected another identifier or string literal");
+                } else if key_count == 0
+                    && (alt_count + control_count + shift_count + meta_count) > 0
+                {
+                    p.error("A keyboard shortcut must be empty or contain exactly one key (with modifiers)");
                 }
                 p.consume();
                 break;
             }
             SyntaxKind::Plus => {
-                if need_plus {
-                    need_plus = false;
+                if state == State::NeedPlus {
+                    state = State::NeedKey;
                     p.consume();
                 } else {
                     p.error("Unexpected '+' in keyboard shortcut");
@@ -535,61 +538,55 @@ fn parse_keys(p: &mut impl Parser) {
                 }
                 continue;
             }
-            SyntaxKind::Identifier => {
-                if need_plus {
+            SyntaxKind::Identifier | SyntaxKind::StringLiteral => {
+                if state == State::NeedPlus {
                     p.error("Expected '+' to separate parts of a keyboard shortcut");
                     p.until(SyntaxKind::RParent);
                     break;
                 }
 
                 let token = p.peek();
-                let text = token.as_str();
+                // Modifiers must be identifiers, not string literals
+                if token.kind() == SyntaxKind::Identifier {
+                    let text = token.as_str();
 
-                match text {
-                    "Alt" => alt_count += 1,
-                    "Control" => control_count += 1,
-                    "Meta" => meta_count += 1,
-                    "Shift" => shift_count += 1,
-                    "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
-                        p.error("Right-side modifiers are not supported");
-                        p.until(SyntaxKind::RParent);
-                        break;
+                    match text {
+                        "Alt" => alt_count += 1,
+                        "Control" => control_count += 1,
+                        "Meta" => meta_count += 1,
+                        "Shift" => shift_count += 1,
+                        "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
+                            p.error("Right-side modifiers are not supported");
+                            p.until(SyntaxKind::RParent);
+                            break;
+                        }
+                        "AltGr" => {
+                            p.error("AltGr as modifier is unnecessary (remove it)");
+                            p.until(SyntaxKind::RParent);
+                            break;
+                        }
+                        _ => key_count += 1,
                     }
-                    _ => key_count += 1,
                 }
 
-                need_plus = true;
+                state = State::NeedPlus;
 
                 if alt_count > 1 || control_count > 1 || meta_count > 1 || shift_count > 1 {
                     p.error("Duplicated modifier in keyboard shortcut");
                     p.until(SyntaxKind::RParent);
                     break;
                 }
-                if check_duplicate_keys(&mut p, key_count) {
+                if key_count > 1 {
+                    p.error("A keyboard shortcut can only contain one key (with modifiers)");
+                    p.until(SyntaxKind::RParent);
                     break;
                 }
 
                 p.consume();
                 continue;
             }
-            SyntaxKind::StringLiteral => {
-                if need_plus {
-                    p.error("Expected '+' to separate parts of a keyboard shortcut");
-                    p.until(SyntaxKind::RParent);
-                    break;
-                }
-
-                // We do not check string literals, they can be any single character
-                key_count += 1;
-                need_plus = true;
-
-                if check_duplicate_keys(&mut p, key_count) {
-                    break;
-                }
-                p.consume();
-            }
             _ => {
-                p.error("Expected 'Alt', 'Control', 'Meta', 'Shift, '+', <CHAR>, or any other symbol in the Keys namespace");
+                p.error("Expected '+', a string literal, or an identifier in the Keys namespace");
                 p.until(SyntaxKind::RParent);
                 break;
             }
