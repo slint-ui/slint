@@ -364,18 +364,18 @@ fn region_line_ranges(
                             return true;
                         }
                         r.start = it.start;
-                        return false;
+                        false
                     } else if it.start <= r.end {
                         if it.end <= r.end {
-                            return false;
+                            false
                         } else {
                             it.start = r.start;
                             tmp = None;
-                            return true;
+                            true
                         }
                     } else {
                         core::mem::swap(it, r);
-                        return true;
+                        true
                     }
                 } else {
                     true
@@ -1108,17 +1108,16 @@ impl RendererSealed for SoftwareRenderer {
         let window = window_adapter.window();
         let size = window.size();
 
-        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
-        else {
+        if size.width == 0 || size.height == 0 {
             // Nothing to render
             return Err("take_snapshot() called on window with invalid size".into());
         };
 
         let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(width, height);
+            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(size.width, size.height);
 
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
-        self.render(target_buffer.make_mut_slice(), width as usize);
+        self.render(target_buffer.make_mut_slice(), size.width as usize);
         // ensure that caches are clear for the next call
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
 
@@ -1600,12 +1599,11 @@ fn process_rectangle_impl(
         return;
     }
 
-    if color.alpha > 0 {
-        if let Some(r) =
+    if color.alpha > 0
+        && let Some(r) =
             geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
-        {
-            processor.process_simple_rectangle(r, color);
-        }
+    {
+        processor.process_simple_rectangle(r, color);
     }
 
     if border_color.alpha > 0 {
@@ -1675,7 +1673,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                     size: PhysicalSize::new(end - begin, next - line),
                 };
 
-                f(&mut self.buffer, region, extra_left_clip, extra_right_clip);
+                f(self.buffer, region, extra_left_clip, extra_right_clip);
             }
             if next == geometry.max_y() {
                 break;

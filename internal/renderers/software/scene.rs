@@ -129,7 +129,7 @@ impl Scene {
                 .map(|i| i.z);
             let item = loop {
                 if tmp1 != tmp2 {
-                    if future_next_z.map_or(true, |z| self.items[tmp1].z > z) {
+                    if future_next_z.is_none_or(|z| self.items[tmp1].z > z) {
                         let idx = tmp1;
                         tmp1 += 1;
                         if tmp1 == tmp2 {
@@ -144,7 +144,7 @@ impl Scene {
                         j += 1;
                         continue;
                     }
-                    if future_next_z.map_or(true, |z| item.z > z) {
+                    if future_next_z.is_none_or(|z| item.z > z) {
                         j += 1;
                         break *item;
                     }
@@ -215,19 +215,19 @@ impl Scene {
             self.current_line.get(),
             &mut self.current_line_ranges,
         );
-        if self.current_line_ranges.is_empty() {
-            if let Some(next) = validity {
-                self.current_line = Length::new(next);
-                self.range_valid_until_line = Length::new(
-                    super::region_line_ranges(
-                        &self.dirty_region,
-                        self.current_line.get(),
-                        &mut self.current_line_ranges,
-                    )
-                    .unwrap_or_default(),
-                );
-                return true;
-            }
+        if self.current_line_ranges.is_empty()
+            && let Some(next) = validity
+        {
+            self.current_line = Length::new(next);
+            self.range_valid_until_line = Length::new(
+                super::region_line_ranges(
+                    &self.dirty_region,
+                    self.current_line.get(),
+                    &mut self.current_line_ranges,
+                )
+                .unwrap_or_default(),
+            );
+            return true;
         }
         self.range_valid_until_line = Length::new(validity.unwrap_or_default());
         false
@@ -384,8 +384,8 @@ impl SceneTextureExtra {
             offset -= euclid::vec2(tiling.offset_x, tiling.offset_y).cast();
 
             // FIXME: gap
-            tiling.gap_x;
-            tiling.gap_y;
+            let _ = tiling.gap_x;
+            let _ = tiling.gap_y;
 
             (Fixed::from_f32(tiling.scale_x)?, Fixed::from_f32(tiling.scale_y)?)
         } else {
