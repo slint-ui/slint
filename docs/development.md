@@ -14,6 +14,12 @@ we ship. Afterwards `mise install` makes all the necessary tooling available.
 Even if you do not want to use mise: `.mise/config.toml` contains a handy list of tools
 to make available.
 
+If you would like to automatically invoke autofix tasks (formatting, linting) before committing changes using a git pre-commit hook, set up the hook with the following command:
+
+```
+mise generate git-pre-commit --write --task=ci:autofix:fix
+```
+
 ## Repository structures
 
 ### `helper_crates`
