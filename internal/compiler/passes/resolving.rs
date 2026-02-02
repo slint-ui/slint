@@ -1085,7 +1085,13 @@ impl Expression {
                 "Shift" => shortcut.modifiers.shift = true,
                 s => {
                     let lookup = crate::lookup::KeysLookup {};
-                    if lookup.lookup(ctx, &SmolStr::from(s)).is_none() {
+                    if let Some(LookupResult::Expression {
+                        expression: Expression::StringLiteral(key),
+                        ..
+                    }) = lookup.lookup(ctx, &SmolStr::from(s))
+                    {
+                        shortcut.key = key;
+                    } else {
                         // TODO: This should suggest close matches
                         ctx.diag.push_error(
                             format!(

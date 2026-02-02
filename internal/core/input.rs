@@ -332,7 +332,9 @@ impl Display for KeyboardShortcut {
                 if self.modifiers.control { "Control+" } else { "" },
                 if self.modifiers.shift { "Shift+" } else { "" },
                 if self.modifiers.meta { "Meta+" } else { "" },
-                self.key,
+                // Make sure to escape the key, as it may contain control characters.
+                // TODO: Do a reverse character lookup to pretty-print the control characters (i.e. "Escape")
+                self.key.escape_default(),
             )
         }
     }
