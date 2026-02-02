@@ -95,7 +95,7 @@ impl DrawTextureArgs {
             TextureDataContainer::Static(data) => data.clone(),
             TextureDataContainer::Shared { buffer, source_rect } => {
                 let stride = buffer.width();
-                let core::ops::Range { start, end } = compute_range_in_buffer(&source_rect, stride);
+                let core::ops::Range { start, end } = compute_range_in_buffer(source_rect, stride);
                 let size = source_rect.size.to_untyped().cast();
 
                 match &buffer {
