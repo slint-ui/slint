@@ -6,11 +6,12 @@ export component SuperSimple {
     property <keyboard-shortcut> empty: @keys();
     property <keyboard-shortcut> single_key: @keys("a");
     property <keyboard-shortcut> single_key_wrong_case: @keys("A");
-//                                                            > <warning{Uppercase "A" without `Shift` will never match!↵Use "a" instead or add `Shift`!}
     property <keyboard-shortcut> special_key: @keys(Control + "+");
+//                                                               ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
     property <keyboard-shortcut> valid_all_mods: @keys(Alt + Control + Shift + Meta + "X");
+//                                                                                       ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
     property <keyboard-shortcut> warning_all_mods: @keys(Alt + Control + Shift + Meta + "x");
-//                                                                                      > <warning{Lowercase "x" with `Shift` will never match!↵Use "X" instead or remove `Shift`!}
+//                                                                                         ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
     // Lookup in Keys namespace
     property <keyboard-shortcut> valid_return: @keys(Alt + Control + Shift + Meta + Return);
     property <keyboard-shortcut> valid_escape: @keys(Escape);
