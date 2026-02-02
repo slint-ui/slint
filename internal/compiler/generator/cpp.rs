@@ -529,7 +529,8 @@ impl CppType for Type {
             Type::Void => Some("void".into()),
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
-            Type::String | Type::KeyboardShortcutType => Some("slint::SharedString".into()),
+            Type::String => Some("slint::SharedString".into()),
+            Type::KeyboardShortcutType => Some("slint::private_api::KeyboardShortcut".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -3307,12 +3308,14 @@ fn native_prop_info<'a, 'b>(
     (&sub_component.items[*item_index].ty, prop_name)
 }
 
+fn shared_string_literal(string: &str) -> String {
+    format!(r#"slint::SharedString(u8"{}")"#, escape_string(string))
+}
+
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
-        Expression::StringLiteral(s) => {
-            format!(r#"slint::SharedString(u8"{}")"#, escape_string(s.as_str()))
-        }
+        Expression::StringLiteral(s) => shared_string_literal(s),
         Expression::NumberLiteral(num) => {
             if !num.is_finite() {
                 // just print something
@@ -3328,7 +3331,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::KeyboardShortcutLiteral(ks) => {
             format!(
                 "slint::private_api::KeyboardShortcut {{ .key = {}, .modifiers = {{{}, {}, {}, {}}} }}",
-                ks.key,
+                shared_string_literal(&ks.key),
                 ks.modifiers.alt,
                 ks.modifiers.control,
                 ks.modifiers.shift,

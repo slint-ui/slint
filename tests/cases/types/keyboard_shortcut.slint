@@ -17,7 +17,7 @@ assert(shortcut.modifiers.alt);
 assert(shortcut.modifiers.control);
 assert(!shortcut.modifiers.meta);
 assert(!shortcut.modifiers.shift);
-assert_eq(shortcut.key, "Escape");
+assert_eq(shortcut.key, "\u{1b}");
 ```
 
 ```rust
@@ -27,18 +27,18 @@ assert!(shortcut.modifiers.alt);
 assert!(shortcut.modifiers.control);
 assert!(!shortcut.modifiers.meta);
 assert!(!shortcut.modifiers.shift);
-assert_eq!(shortcut.key, "Escape");
+assert_eq!(shortcut.key, "\u{1b}");
 ```
 
 ```js
 var instance = new slint.TestCase({});
 
 var shortcut = instance.shortcut;
-assert.equal(shortcut.modifiers.alt, True);
-assert.equal(shortcut.modifiers.control, True);
-assert.equal(shortcut.modifiers.meta, False);
-assert.equal(shortcut.modifiers.shift, False);
-assert.equal(shortcut.key, "Escape");
+assert.equal(shortcut.modifiers.alt, true);
+assert.equal(shortcut.modifiers.control, true);
+assert.equal(shortcut.modifiers.meta, false);
+assert.equal(shortcut.modifiers.shift, false);
+assert.equal(shortcut.key, "\u{1b}");
 ```
 
 */
