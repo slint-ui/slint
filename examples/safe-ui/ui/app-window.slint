@@ -4,9 +4,13 @@
 import { AboutSlint, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
+    // Window width and height are set here for preview only
+    // width and heigth are set at RT via rust
     width: 320px;
     height: 240px;
+
     background: #ff000047;
+
     VerticalBox {
         AboutSlint {
             preferred-height: 150px;

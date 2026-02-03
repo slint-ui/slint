@@ -5,6 +5,10 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=SAFE_UI_WIDTH");
+    println!("cargo:rerun-if-env-changed=SAFE_UI_HEIGHT");
+    println!("cargo:rerun-if-env-changed=SAFE_UI_SCALE_FACTOR");
+
     let bindings = bindgen::Builder::default()
         .header("src/slint-safeui-platform-interface.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
@@ -19,7 +23,6 @@ fn main() {
     let config = slint_build::CompilerConfiguration::new()
         .with_style("fluent-light".into())
         .with_sdf_fonts(true)
-        .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer)
-        .with_scale_factor(2.);
+        .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer);
     slint_build::compile_with_config("../ui/app-window.slint", config).unwrap();
 }
