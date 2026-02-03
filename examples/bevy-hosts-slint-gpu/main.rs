@@ -56,7 +56,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        renderer::RenderDevice,
+        renderer::{RenderDevice, RenderInstance},
         texture::GpuImage,
     },
 };
@@ -148,9 +148,10 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
 }
 
 impl BevyWindowAdapter {
-    fn new(device: wgpu::Device, queue: wgpu::Queue) -> Rc<Self> {
+    fn new(instance: wgpu::Instance, device: wgpu::Device, queue: wgpu::Queue) -> Rc<Self> {
         // Create renderer using the new helper
-        let renderer = FemtoVGWGPURenderer::new(device, queue).expect("Failed to create renderer");
+        let renderer =
+            FemtoVGWGPURenderer::new(instance, device, queue).expect("Failed to create renderer");
 
         Rc::new_cyclic(|self_weak: &Weak<Self>| Self {
             size: Cell::new(slint::PhysicalSize::new(UI_WIDTH, UI_HEIGHT)),
@@ -176,6 +177,7 @@ impl BevyWindowAdapter {
 /// Registered via `slint::platform::set_platform()` before creating Slint components.
 /// Stores the WGPU device and queue needed to create `FemtoVGWGPURenderer` instances.
 struct SlintBevyPlatform {
+    instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
@@ -184,7 +186,8 @@ impl slint::platform::Platform for SlintBevyPlatform {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        let adapter = BevyWindowAdapter::new(self.device.clone(), self.queue.clone());
+        let adapter =
+            BevyWindowAdapter::new(self.instance.clone(), self.device.clone(), self.queue.clone());
         SLINT_WINDOWS.with(|windows| {
             windows.borrow_mut().push(Rc::downgrade(&adapter));
         });
@@ -448,10 +451,11 @@ fn render_slint(slint_context: Option<NonSend<SlintContext>>, shared: Res<SlintS
 /// Initializes the Slint platform and creates the Demo UI component.
 /// This runs as a startup system after `setup` to ensure Bevy's render device is available.
 fn initialize_slint(world: &mut World) {
+    let instance = (**world.resource::<RenderInstance>().0).clone();
     let device = world.resource::<RenderDevice>().wgpu_device().clone();
     let queue = (**world.resource::<bevy::render::renderer::RenderQueue>().0).clone();
 
-    let platform = SlintBevyPlatform { device, queue };
+    let platform = SlintBevyPlatform { instance, device, queue };
     slint::platform::set_platform(Box::new(platform)).unwrap();
 
     let instance = Demo::new().unwrap();
