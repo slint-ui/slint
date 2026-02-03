@@ -50,7 +50,7 @@ cargo test -p doctests                        # Documentation snippet tests
 
 ### Filtered Testing
 ```sh
-SLINT_TEST_FILTER=layout cargo test -p test-driver-rust  # Filter by name
+tests/run_tests.sh rust layout     # Filter by name
 ```
 
 ### Syntax Tests (Compiler Errors)

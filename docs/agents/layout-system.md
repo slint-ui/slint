@@ -216,7 +216,7 @@ Repeaters (dynamic item lists) in layouts use indirection:
 
 ```sh
 # Run layout-specific tests
-SLINT_TEST_FILTER=layout cargo test -p test-driver-rust
+tests/run_tests.sh rust layout
 
 # Run all interpreter tests (fast)
 cargo test -p test-driver-interpreter
