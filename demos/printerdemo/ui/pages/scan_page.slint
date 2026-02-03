@@ -7,7 +7,7 @@ import { SpinBox } from "../components/spinbox.slint";
 import { DropDownMenu } from "../components/drop_down_menu.slint";
 import { TextButton } from "../components/text_button.slint";
 import { IconTextButton } from "../components/icon_text_button.slint";
-import { DemoPalette } from "../common.slint";
+import { DemoPalette, PrinterState, SubPage } from "../common.slint";
 
 export component ScanPage inherits Page {
     header: @tr("Scan");
@@ -77,6 +77,7 @@ export component ScanPage inherits Page {
                 text-color: white;
                 clicked => {
                     PrinterQueue.start-job(@tr("Scan"));
+                    PrinterState.active-subpage = SubPage.none;
                 }
             }
         }

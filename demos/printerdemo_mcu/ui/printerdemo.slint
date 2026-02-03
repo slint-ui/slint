@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Pages, SubPages, PrinterState } from "common.slint";
+import { DemoPalette, Pages, SubPage, PrinterState } from "common.slint";
 import { SideBar } from "./components/components.slint";
 import { HomePage, InkPage, ScanPage, ScanPagePosition, CopyPage, CopyPagePosition, SettingsPage, PrinterQueue } from "./pages/pages.slint";
 
@@ -29,7 +29,7 @@ export component MainWindow inherits Window {
         main-view := Rectangle {
             background: DemoPalette.page-background;
 
-            if PrinterState.active-subpage == SubPages.none: Rectangle {
+            if PrinterState.active-subpage == SubPage.none: Rectangle {
 
                 if PrinterState.active-page == Pages.home: HomePage { }
 
@@ -38,27 +38,27 @@ export component MainWindow inherits Window {
                 if PrinterState.active-page == Pages.settings: SettingsPage { }
             }
 
-            if PrinterState.active-subpage == SubPages.scan: ScanPage {
+            if PrinterState.active-subpage == SubPage.scan: ScanPage {
                 back => {
-                    PrinterState.active-subpage = SubPages.none;
+                    PrinterState.active-subpage = SubPage.none;
                 }
             }
 
-            if PrinterState.active-subpage == SubPages.scan-position: ScanPagePosition {
+            if PrinterState.active-subpage == SubPage.scan-position: ScanPagePosition {
                 back => {
-                    PrinterState.active-subpage = SubPages.none;
+                    PrinterState.active-subpage = SubPage.none;
                 }
             }
 
-            if PrinterState.active-subpage == SubPages.copy: CopyPage {
+            if PrinterState.active-subpage == SubPage.copy: CopyPage {
                 back => {
-                    PrinterState.active-subpage = SubPages.none;
+                    PrinterState.active-subpage = SubPage.none;
                 }
             }
 
-            if PrinterState.active-subpage == SubPages.copy-position: CopyPagePosition {
+            if PrinterState.active-subpage == SubPage.copy-position: CopyPagePosition {
                 back => {
-                    PrinterState.active-subpage = SubPages.none;
+                    PrinterState.active-subpage = SubPage.none;
                 }
             }
         }

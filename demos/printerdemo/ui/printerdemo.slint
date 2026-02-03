@@ -35,15 +35,11 @@ export component MainWindow inherits Window {
             side-bar := Sidebar { }
 
             main-view := Rectangle {
-                if PrinterState.active-page == Page.home: home-page := HomePage {
-                    property <int> pageNumber: 0;
-                }
-                if PrinterState.active-page == Page.settings: settings-page := SettingsPage {
-                    property <int> pageNumber: 1;
-                }
-                if PrinterState.active-page == Page.ink: ink-page := InkPage {
-                    property <int> pageNumber: 2;
-                }
+                if PrinterState.active-page == Page.home: home-page := HomePage { }
+
+                if PrinterState.active-page == Page.settings: settings-page := SettingsPage { }
+
+                if PrinterState.active-page == Page.ink: ink-page := InkPage { }
             }
         }
     }

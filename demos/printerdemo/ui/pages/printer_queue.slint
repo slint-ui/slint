@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { DemoPalette } from "../common.slint";
-import { IconTextButton } from "../components/icon_text_button.slint";
+import { IconTextButton, ButtonType } from "../components/icon_text_button.slint";
 import { TextButton } from "../components/text_button.slint";
 
 
@@ -384,7 +384,7 @@ component WidePrintQueueElement inherits Rectangle {
                 clicked => {
                     root.pause-job();
                 }
-
+                button-type: ButtonType.Primary;
                 text: @tr("Pause");
                 icon: @image-url("../images/pause.svg");
             }
@@ -393,6 +393,7 @@ component WidePrintQueueElement inherits Rectangle {
                 clicked => {
                     root.cancel-job();
                 }
+                button-type: ButtonType.Destructive;
                 text: @tr("Delete");
                 icon: @image-url("../images/delete.svg");
             }

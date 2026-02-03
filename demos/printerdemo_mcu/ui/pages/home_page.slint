@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, SubPages, PrinterState } from "../common.slint";
+import { DemoPalette, SubPage, PrinterState } from "../common.slint";
 import { Page } from "../components/components.slint";
 import { NarrowPrinterQueueList } from "./printer_queue.slint";
 
@@ -37,8 +37,8 @@ export component HomePage inherits Page {
             padding-left: 4px;
             width: self.preferred-width;
             for action[index] in [
-                { name: "Copy", enum: SubPages.copy, icon: @image-url("../images/mcu/copy-button.jpg") },
-                { name: "Scan", enum: SubPages.scan, icon: @image-url("../images/mcu/scan-button.jpg") },
+                { name: "Copy", enum: SubPage.copy, icon: @image-url("../images/mcu/copy-button.jpg") },
+                { name: "Scan", enum: SubPage.scan, icon: @image-url("../images/mcu/scan-button.jpg") },
             ]: ActionButton {
                 clicked => { PrinterState.active-subpage = action.enum; }
                 source: action.icon;

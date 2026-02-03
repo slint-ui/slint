@@ -131,14 +131,14 @@ export component HomePage inherits Page {
             inner-background: action.inner-background;
             text-color: action.text-color;
             clicked => {
-                PrinterState.current-subpage = action.id;
+                PrinterState.active-subpage = action.id;
             }
         }
     }
 
     queue-view := PrinterQueueView {
         show-job-details(idx) => {
-            PrinterState.current-subpage = SubPage.print;
+            PrinterState.active-subpage = SubPage.print;
         }
 
         x: parent.width - self.width;
@@ -147,9 +147,9 @@ export component HomePage inherits Page {
 
     PrintPage {
         back => {
-            PrinterState.current-subpage = SubPage.none;
+            PrinterState.active-subpage = SubPage.none;
         }
-        x: PrinterState.current-subpage == SubPage.print ? 0 : parent.width + parent.x + 2px;
+        x: PrinterState.active-subpage == SubPage.print ? 0 : parent.width + parent.x + 2px;
         animate x {
             duration: 125ms;
             easing: ease;
@@ -158,22 +158,22 @@ export component HomePage inherits Page {
 
     ScanPage {
         back => {
-            PrinterState.current-subpage = SubPage.none;
+            PrinterState.active-subpage = SubPage.none;
         }
-        x: PrinterState.current-subpage == SubPage.scan ? 0 : parent.width + parent.x + 2px;
+        x: PrinterState.active-subpage == SubPage.scan ? 0 : parent.width + parent.x + 2px;
     }
 
     CopyPage {
         back => {
-            PrinterState.current-subpage = SubPage.none;
+            PrinterState.active-subpage = SubPage.none;
         }
-        x: PrinterState.current-subpage == SubPage.copy ? 0 : parent.width + parent.x + 2px;
+        x: PrinterState.active-subpage == SubPage.copy ? 0 : parent.width + parent.x + 2px;
     }
 
     UsbPage {
         back => {
-            PrinterState.current-subpage = SubPage.none;
+            PrinterState.active-subpage = SubPage.none;
         }
-        x: PrinterState.current-subpage == SubPage.usb ? 0 : parent.width + parent.x + 2px;
+        x: PrinterState.active-subpage == SubPage.usb ? 0 : parent.width + parent.x + 2px;
     }
 }
