@@ -868,3 +868,62 @@ fn issue_9882_borrow_mut() {
         do_test_render_region(renderer, 0, 0, 180, 260);
     }));
 }
+
+#[test]
+/// Check that changing the position of a rectangle is properly tracked when RepaintBufferType::NewBuffer is used.
+fn position_tracking_without_partial_rendering() {
+    slint::slint! {
+        export component App inherits Window {
+            width: 180px;
+            height: 260px;
+
+            in property <bool> cond: true;
+            in property <length> rect-x: 10px;
+
+            Rectangle {
+                background: red;
+                width: 40px;
+                height: 80px;
+                x: rect-x;
+            }
+
+            Rectangle {
+                width: 100px;
+                height: 100px;
+                x: 1000px;
+                background: cond ? green : blue;
+            }
+        }
+    }
+
+    struct TestPlatform2(Rc<MinimalSoftwareWindow>);
+    impl slint::platform::Platform for TestPlatform2 {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            Ok(self.0.clone())
+        }
+    }
+    let window = MinimalSoftwareWindow::new(
+        slint::platform::software_renderer::RepaintBufferType::NewBuffer,
+    );
+    slint::platform::set_platform(Box::new(TestPlatform2(window.clone()))).ok();
+    let ui = App::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_cond(false);
+    assert!(!window.draw_if_needed(|_| {
+        unreachable!("the rectangle is outside the window so it should not be drawn")
+    }));
+
+    ui.set_rect_x(20.);
+    assert!(
+        window.draw_if_needed(|renderer| {
+            do_test_render_region(renderer, 0, 0, 180, 260);
+        }),
+        "change of x should trigger a redraw"
+    );
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
