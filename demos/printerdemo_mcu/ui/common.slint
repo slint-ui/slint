@@ -52,7 +52,7 @@ export enum Pages {
     settings
 }
 
-export enum SubPages {
+export enum SubPage {
     none,
     copy,
     copy-position,
@@ -67,7 +67,7 @@ export struct InkLevel  {
 
 export global PrinterState {
     in-out property <Pages> active-page: Pages.home;
-    in-out property <SubPages> active-subpage: SubPages.none;
+    in-out property <SubPage> active-subpage: SubPage.none;
 
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer

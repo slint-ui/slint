@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Label, PrinterState, SubPages } from "../common.slint";
+import { DemoPalette, Label, PrinterState, SubPage } from "../common.slint";
 import {
     ComboBox,
     CheckBox,
@@ -27,7 +27,7 @@ export component ScanPage inherits Page {
         PushButton {
             label: "Continue";
             clicked => {
-                PrinterState.active-subpage = SubPages.scan-position;
+                PrinterState.active-subpage = SubPage.scan-position;
             }
         }
     }
@@ -87,7 +87,7 @@ export component ScanPagePosition inherits Page {
         PushButton {
             label: "Start";
             clicked => {
-                PrinterState.active-subpage = SubPages.none;
+                PrinterState.active-subpage = SubPage.none;
                 PrinterQueue.start-job("Scan");
             }
         }
