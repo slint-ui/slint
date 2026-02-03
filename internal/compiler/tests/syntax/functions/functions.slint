@@ -54,4 +54,9 @@ export Xxx := Rectangle {
     fooo => {}
 //  >  <error{'fooo' is not a callback in Rectangle}
 
+    function no-body-no-return-type(a: int);
+//  >                                      <error{Functions must have a code block}
+    function no-body-return-type(a: int) -> int;
+//  >                                          <error{Functions must have a code block}
+
 }

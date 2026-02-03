@@ -3,12 +3,6 @@
 
 export component Foo {
 
-    function no-body-no-return-type(a: int);
-//                                         ^error{Syntax error: expected '{'}
-    function no-body-return-type(a: int) -> int;
-//           >                 <error{Syntax error: expected '}'}
-//                                ^^error{Syntax error: expected ')'}
-//                                ^^^error{Syntax error: expected '=>'}
-//                                ^^^^error{invalid expression}
-//                                ^^^^^error{Parse error}
+    function no-body-or-semi-colon() -> int
 }
+//^<<error{Expected function body or semicolon}

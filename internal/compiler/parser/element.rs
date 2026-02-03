@@ -648,6 +648,8 @@ fn parse_transition_inner(p: &mut impl Parser) -> bool {
 /// function bar(xx : int,) -> int { return 42; }
 /// public function aa(x: int, b: {a: int}, c: int) {}
 /// protected pure function fff() {}
+/// function foo();
+/// function foo() -> int;
 /// ```
 fn parse_function(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Function);
@@ -695,5 +697,10 @@ fn parse_function(p: &mut impl Parser) {
             parse_type(&mut *p);
         }
     }
-    parse_code_block(&mut *p);
+
+    if p.peek().kind() == SyntaxKind::LBrace {
+        parse_code_block(&mut *p);
+    } else if !p.test(SyntaxKind::Semicolon) {
+        p.error("Expected function body or semicolon");
+    }
 }
