@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Pages, SubPages, PrinterState } from "../common.slint";
+import { DemoPalette, Pages, SubPage, PrinterState } from "../common.slint";
 
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
@@ -47,7 +47,7 @@ export component SideBar inherits Rectangle {
         ]: SideBarIcon {
 
             activate => {
-                PrinterState.active-subpage = SubPages.none;
+                PrinterState.active-subpage = SubPage.none;
                 PrinterState.active-page = page-data.enum;
             }
             icon: page-data.icon;
@@ -58,7 +58,7 @@ export component SideBar inherits Rectangle {
     SideBarIcon {
         activate => {
             PrinterState.active-page = Pages.settings;
-            PrinterState.active-subpage = SubPages.none;
+            PrinterState.active-subpage = SubPage.none;
         }
 
         y: parent.height - self.height - 12px;
