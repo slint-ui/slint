@@ -1,0 +1,136 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell:ignore Adressliste
+
+import { DemoPalette } from "../common.slint";
+import { PushButton, ShadowBox } from "../components/components.slint";
+
+export struct PrinterQueueItem  {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string,
+}
+
+export global PrinterQueue {
+    in property <[PrinterQueueItem]> printer-queue: [
+        {
+            status: "printing",
+            progress: 63,
+            title: "Slint-Demo.jpeg",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "Adressliste.docx",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+        {
+            status: "waiting",
+            title: "210106-FinalPresentation.pdf",
+            owner: "info@slint.dev",
+            pages: 6,
+            size: "143kb",
+            submission-date: "11:41 25/01/21"
+        },
+    ];
+
+    callback start-job(string);
+    callback cancel-job(int);
+    callback pause-job(int);
+
+    public pure function statusString(status: string) -> string {
+        if (status == "printing") {
+            status.to-uppercase()
+        } else if (status == "waiting") {
+            status.to-uppercase()
+        } else {
+            "Unknown job status"
+        }
+    }
+}
+
+component NarrowPrintQueueElement {
+    in property <PrinterQueueItem> queue-item;
+    in-out property <bool> expanded;
+
+    private property <float> expanded-opacity: 0;
+
+    callback cancel-job();
+
+    width: 190px;
+    height: layout.height + 16px;
+
+    ShadowBox { }
+
+    layout := VerticalLayout {
+        height: layout.preferred-height;
+        spacing: 8px;
+        padding: 12px;
+
+        Text {
+            text: {
+                if (root.queue-item.status == "printing") {
+                    "\{root.queue-item.progress}% - \{PrinterQueue.statusString(root.queue-item.status)}"
+                } else {
+                    PrinterQueue.statusString(root.queue-item.status)
+                }
+            }
+            color: DemoPalette.status-label-text-color;
+            font-size: 12px;
+            font-family: DemoPalette.regular-font-family;
+        }
+
+        Text {
+            text: root.queue-item.title;
+            overflow: elide;
+            color: DemoPalette.text-foreground-color;
+            font-size: 16px;
+            font-family: DemoPalette.regular-font-family;
+        }
+    }
+}
+
+export component NarrowPrinterQueueList inherits Flickable {
+    viewport-width: self.width;
+    VerticalLayout {
+        alignment: start;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 8px;
+
+        for queue-item[index] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
+            cancel-job => {
+                PrinterQueue.cancel-job(index)
+            }
+
+            queue-item: queue-item;
+        }
+    }
+}

@@ -18,7 +18,7 @@ PrinterQueueItem = slint.loader.ui.printerdemo.PrinterQueueItem
 class MainWindow(slint.loader.ui.printerdemo.MainWindow):
     def __init__(self):
         super().__init__()
-        self.ink_levels = ListModel(
+        self.PrinterState.ink_levels = ListModel(
             [
                 {"color": Color("#0ff"), "level": 0.4},
                 {"color": Color("#ff0"), "level": 0.2},

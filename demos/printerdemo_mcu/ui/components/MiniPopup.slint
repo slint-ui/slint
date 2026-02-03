@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component MiniPopup inherits PopupWindow {
+    x: 0px;
+    y: 0px;
+    width: 320px;
+    height: 240px;
+
+    close-policy: close-on-click-outside;
+
+    TouchArea {
+        clicked => {
+            root.close();
+        }
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 320px;
+        height: 240px;
+        background: white;
+
+        Rectangle {
+            width: frame.width;
+            height: frame.height;
+            border-radius: 14px;
+            Image {
+                x: -35px;
+                y: -9px;
+                width: parent.width + 70px;
+                height: parent.height + 70px;
+                source: @image-url("../images/mcu/popup.jpg", nine-slice(50 50 100 100));
+            }
+        }
+
+        frame := VerticalLayout {
+            width: self.preferred-width;
+            height: self.preferred-height;
+
+            @children
+        }
+    }
+    screen-corners := Rectangle {
+        width: parent.width + self.border-width * 2;
+        height: parent.height + self.border-width * 2;
+        border-radius: 30px;
+        border-width: 10px;
+        border-color: #212e4a;
+    }
+}

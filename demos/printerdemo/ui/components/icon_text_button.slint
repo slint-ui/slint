@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette } from "../common.slint";
+import { Button } from "./button.slint";
+
+export component IconTextButton inherits Button {
+    in property <image> icon <=> img.source;
+    in property <string> text <=> label.text;
+    in property <brush> icon-color <=> img.colorize;
+    in property <brush> text-color <=> label.color;
+    in property font-size <=> label.font-size;
+
+    height: 40px;
+    border-radius: 14px;
+
+    background: self.hovered ? DemoPalette.primary-button.darker(0.2) : DemoPalette.primary-button;
+
+    HorizontalLayout {
+        spacing: 10px;
+        padding-left: 14px;
+        padding-right: 14px;
+        alignment: center;
+
+        img := Image {
+            width: 22px;
+            height: self.width;
+            image-fit: contain;
+            y: (parent.height - self.height) / 2;
+            colorize: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
+        }
+
+        label := Text {
+            font-size: DemoPalette.base-font-size;
+            vertical-alignment: center;
+
+            color: root.hovered ? DemoPalette.text-primary : DemoPalette.text-secondary;
+        }
+    }
+}

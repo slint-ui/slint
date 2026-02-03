@@ -6,7 +6,7 @@ import {
     StandardButton, StandardListView, TabWidget, VerticalBox
 } from "std-widgets.slint";
 
-import "../../demos/printerdemo/ui/fonts/NotoSans-Regular.ttf";
+import "../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
 
 export component Demo inherits Window {
     in property <string> firmware-vendor;
@@ -15,7 +15,7 @@ export component Demo inherits Window {
     in property <bool> secure-boot;
 
     default-font-size: 22px;
-    default-font-family: "Noto Sans";
+    default-font-family: "Inter 24pt";
 
     TabWidget {
         width: root.width;
