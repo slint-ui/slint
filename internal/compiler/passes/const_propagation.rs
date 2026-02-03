@@ -210,8 +210,8 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
         Expression::ElementReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::OrganizeGridLayout { .. } => false,
-        Expression::SolveLayout { .. } => false,
-        Expression::ComputeLayoutInfo { .. } => false,
+        Expression::SolveBoxLayout { .. } => false,
+        Expression::ComputeBoxLayoutInfo { .. } => false,
         _ => {
             let mut result = true;
             expr.visit_mut(|expr| result &= simplify_expression(expr, ga));

@@ -246,8 +246,8 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-26".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-27".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-28".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()
@@ -302,6 +302,7 @@ fn gen_corelib(
         "SwipeGestureHandler",
         "Flickable",
         "SimpleText",
+        "StyledTextItem",
         "ComplexText",
         "Path",
         "WindowItem",
@@ -422,7 +423,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
+        .with_after_include("namespace slint { struct SharedString; namespace private_api { struct StyledText; } namespace cbindgen_private { using private_api::StyledText; }}")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
         .write_to_file(include_dir.join("slint_string_internal.h"));
@@ -508,7 +509,9 @@ fn gen_corelib(
             "slint_color_mix",
             "slint_color_with_alpha",
             "slint_color_to_hsva",
-            "slint_color_from_hsva",],
+            "slint_color_from_hsva",
+            "slint_color_from_oklch",
+            "slint_color_to_oklch",],
             "slint_color_internal.h",
             "",
         ),

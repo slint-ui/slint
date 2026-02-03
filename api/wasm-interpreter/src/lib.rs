@@ -79,7 +79,7 @@ pub async fn compile_from_string_with_style(
     }
 
     if let Some(load_callback) = optional_import_callback {
-        let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<
+        let open_import_callback = move |file_name: &Path| -> core::pin::Pin<
             Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > {
             Box::pin({
@@ -99,7 +99,7 @@ pub async fn compile_from_string_with_style(
                 }
             })
         };
-        compiler.set_file_loader(open_import_fallback);
+        compiler.set_file_loader(open_import_callback);
     }
 
     let c = compiler.build_from_source(source, base_url.into()).await;

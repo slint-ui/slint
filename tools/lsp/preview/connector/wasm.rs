@@ -85,7 +85,6 @@ impl PreviewConnector {
         lsp_notifier: SignalLspFunction,
         resource_url_mapper: ResourceUrlMapperFunction,
         style: String,
-        experimental: bool,
         invoke_slintpad_callback: InvokeSlintpadCallback,
     ) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
@@ -113,7 +112,7 @@ impl PreviewConnector {
                             )
                             .unwrap_throw();
                     } else {
-                        match ui::create_ui(&to_lsp, &style, experimental) {
+                        match ui::create_ui(&to_lsp, &style) {
                             Ok(ui) => {
                                 let api = ui.global::<crate::preview::ui::Api>();
 

@@ -15,7 +15,7 @@ use crate::input::{
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, key_codes,
 };
 use crate::item_tree::{
-    ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
+    ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
@@ -165,7 +165,7 @@ pub trait WindowAdapter {
 #[doc(hidden)]
 pub trait WindowAdapterInternal: core::any::Any {
     /// This function is called by the generated code when a component and therefore its tree of items are created.
-    fn register_item_tree(&self) {}
+    fn register_item_tree(&self, _: ItemTreeRefPin) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources.
@@ -246,7 +246,7 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     /// Return the inset of the safe area of the Window in physical pixels.
     /// This is necessary to avoid overlapping system UI such as notches or system bars.
-    fn safe_area_inset(&self) -> crate::lengths::PhysicalInset {
+    fn safe_area_inset(&self) -> crate::lengths::PhysicalEdges {
         Default::default()
     }
 }
@@ -552,12 +552,7 @@ impl WindowInner {
             .internal(crate::InternalToken)
             .map(|internal| internal.safe_area_inset())
             .unwrap_or_default();
-        self.set_window_item_safe_area(
-            inset.top_to_logical(scale_factor),
-            inset.bottom_to_logical(scale_factor),
-            inset.left_to_logical(scale_factor),
-            inset.right_to_logical(scale_factor),
-        );
+        self.set_window_item_safe_area(inset.to_logical(scale_factor));
         window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
         crate::timers::Timer::single_shot(Default::default(), move || {
@@ -1156,12 +1151,7 @@ impl WindowInner {
             .internal(crate::InternalToken)
             .map(|internal| internal.safe_area_inset())
             .unwrap_or_default();
-        self.set_window_item_safe_area(
-            inset.top_to_logical(scale_factor),
-            inset.bottom_to_logical(scale_factor),
-            inset.left_to_logical(scale_factor),
-            inset.right_to_logical(scale_factor),
-        );
+        self.set_window_item_safe_area(inset.to_logical(scale_factor));
         self.window_adapter().renderer().resize(size).unwrap();
         if let Some(hook) = self.ctx.0.window_shown_hook.borrow_mut().as_mut() {
             hook(&self.window_adapter());
@@ -1490,22 +1480,14 @@ impl WindowInner {
         }
     }
 
-    pub(crate) fn set_window_item_safe_area(
-        &self,
-        top: crate::lengths::LogicalLength,
-        bottom: crate::lengths::LogicalLength,
-        left: crate::lengths::LogicalLength,
-        right: crate::lengths::LogicalLength,
-    ) {
+    /// The safe area of the window has changed.
+    pub fn set_window_item_safe_area(&self, inset: crate::lengths::LogicalEdges) {
         if let Some(component_rc) = self.try_component() {
             let component = ItemTreeRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.safe_area_inset_top.set(top);
-                window_item.safe_area_inset_bottom.set(bottom);
-                window_item.safe_area_inset_left.set(left);
-                window_item.safe_area_inset_right.set(right);
+                window_item.safe_area_insets.set(inset);
             }
         }
     }
@@ -1523,14 +1505,8 @@ impl WindowInner {
         let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item) else {
             return;
         };
-        for (property, value) in [
-            (&window_item.virtual_keyboard_x, origin.x),
-            (&window_item.virtual_keyboard_y, origin.y),
-            (&window_item.virtual_keyboard_width, size.width),
-            (&window_item.virtual_keyboard_height, size.height),
-        ] {
-            property.set(LogicalLength::new(value));
-        }
+        window_item.virtual_keyboard_position.set(origin);
+        window_item.virtual_keyboard_size.set(size);
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
             focus_item.try_scroll_into_visible();
         }
@@ -1543,16 +1519,7 @@ impl WindowInner {
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
-        Some((
-            crate::lengths::LogicalPoint::from_lengths(
-                window_item.virtual_keyboard_x(),
-                window_item.virtual_keyboard_y(),
-            ),
-            crate::lengths::LogicalSize::from_lengths(
-                window_item.virtual_keyboard_width(),
-                window_item.virtual_keyboard_height(),
-            ),
-        ))
+        Some((window_item.virtual_keyboard_position(), window_item.virtual_keyboard_size()))
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
@@ -1882,10 +1849,10 @@ pub mod ffi {
                     let cpp_graphics_api = match graphics_api {
                         crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
                         crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
-                        #[cfg(feature = "unstable-wgpu-26")]
-                        crate::api::GraphicsAPI::WGPU26 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                         #[cfg(feature = "unstable-wgpu-27")]
                         crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                        #[cfg(feature = "unstable-wgpu-28")]
+                        crate::api::GraphicsAPI::WGPU28 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                     };
                     (self.callback)(state, cpp_graphics_api, self.user_data)
                 }

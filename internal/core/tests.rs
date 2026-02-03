@@ -31,7 +31,8 @@ pub extern "C" fn slint_get_mocked_time() -> u64 {
     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick()).as_millis()
 }
 
-/// Simulate a click on a position within the component.
+/// Simulate a click on a position within the component and releasing after some time.
+/// The time until the release is hardcoded to 50ms
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_send_mouse_click(
     x: f32,

@@ -5,9 +5,9 @@ name: autofix.ci  # needed to securely identify the workflow
 
 on:
   pull_request:
-    branches: [master, "feature/*"]
+    branches: [master, "feature/*", "pre-release/*"]
   push:
-    branches: [master, "feature/*"]
+    branches: [master, "feature/*", "pre-release/*"]
   workflow_dispatch:
   merge_group:
 

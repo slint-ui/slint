@@ -1,7 +1,7 @@
 
 # Briefcase Slint Plugin
 
-The `briefcasex-slint` package extends the [Briefcase](https://briefcase.readthedocs.io/en/stable/) tool
+The `briefcasex-slint` package extends the [Briefcase](https://briefcase.beeware.org/en/stable/) tool
 with support for Slint as toolkit for standalone applications.
 
 Install it in your Python environment, and `briefcase new` will offer you Slint as GUI framework for your next application.

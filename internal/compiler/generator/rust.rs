@@ -633,16 +633,21 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            slint::private_unstable_api::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
-                        } }
-                    }
-                    Some(llr::Animation::Transition(anim)) => {
-                        let anim = compile_expression(anim, ctx);
-                        quote! {
-                            slint::private_unstable_api::set_animated_property_binding_for_transition(
+                            slint::private_unstable_api::set_animated_property_binding(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
-                                    #anim
+                                    (#anim, None)
+                                });
+                        } }
+                    }
+                    Some(llr::Animation::Transition(animation)) => {
+                        let animation = compile_expression(animation, ctx);
+                        quote! {
+                            slint::private_unstable_api::set_animated_property_binding(
+                                #rust_property, &self_rc, #binding_tokens, move |self_rc| {
+                                    #init_self_pin_ref
+                                    let (animation, change_time) = #animation;
+                                    (animation, Some(change_time))
                                 }
                             );
                         }
@@ -1190,7 +1195,8 @@ fn generate_sub_component(
                 fn grid_layout_input_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                     new_row: bool,
-                ) -> sp::GridLayoutInputData {
+                    result: &mut [sp::GridLayoutInputData],
+                ) {
                     #![allow(unused)]
                     let _self = self;
                     #expr
@@ -1908,9 +1914,10 @@ fn generate_repeated_component(
         quote! {
             fn grid_layout_input_data(
                 self: ::core::pin::Pin<&Self>,
-                new_row: bool) -> sp::GridLayoutInputData
-            {
-                self.as_ref().grid_layout_input_for_repeated(new_row)
+                new_row: bool,
+                result: &mut [sp::GridLayoutInputData],
+            ) {
+                self.as_ref().grid_layout_input_for_repeated(new_row, result)
             }
         }
     });
@@ -1931,11 +1938,59 @@ fn generate_repeated_component(
         }
     } else {
         let layout_item_info_fn = root_sc.child_of_layout.then(|| {
-            quote! {
-                fn layout_item_info(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
-                    -> sp::LayoutItemInfo
-                {
-                    sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+            // Generate layout_item_info (from the RepeatedItemTree trait) in terms of ItemTree::layout_info
+            if root_sc.is_repeated_row {
+                // Create a context with proper global_access for compiling layout info expressions
+                let layout_ctx = EvaluationContext {
+                    compilation_unit: unit,
+                    current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
+                    generator_state: RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                    argument_types: &[],
+                };
+                // Generate match arms for each grid layout child
+                let child_match_arms = root_sc.grid_layout_children.iter().enumerate().map(|(idx, child)| {
+                    // Get layout info of child number idx.
+                    let layout_info_h_code = compile_expression(&child.layout_info_h.borrow(), &layout_ctx);
+                    let layout_info_v_code = compile_expression(&child.layout_info_v.borrow(), &layout_ctx);
+                    quote! {
+                        #idx => {
+                            sp::LayoutItemInfo {
+                                constraint: match o {
+                                    sp::Orientation::Horizontal => #layout_info_h_code,
+                                    sp::Orientation::Vertical => #layout_info_v_code,
+                                }
+                            }
+                        }
+                    }
+                });
+
+                let num_children = root_sc.grid_layout_children.len();
+                quote! {
+                    fn layout_item_info(
+                        self: ::core::pin::Pin<&Self>,
+                        o: sp::Orientation,
+                        child_index: sp::Option<usize>,
+                    ) -> sp::LayoutItemInfo {
+                        if let Some(index) = child_index {
+                            let _self = self.as_ref();
+                            match index {
+                                #(#child_match_arms)*
+                                _ => panic!("child_index {index} out of bounds (max {})", #num_children),
+                            }
+                        } else {
+                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    fn layout_item_info(
+                        self: ::core::pin::Pin<&Self>,
+                        o: sp::Orientation,
+                        _child_index: sp::Option<usize>,
+                    ) -> sp::LayoutItemInfo {
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                    }
                 }
             }
         });
@@ -2334,8 +2389,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
-                (Type::Struct (lhs), Type::Struct (rhs)) => {
-                    debug_assert_eq!(lhs.fields, rhs.fields, "cast of struct with deferent fields should be handled before llr");
+                (Type::Struct(lhs), Type::Struct(rhs)) => {
+                    debug_assert_eq!(
+                        lhs.fields, rhs.fields,
+                        "cast of struct with deferent fields should be handled before llr"
+                    );
                     match (&lhs.name, &rhs.name) {
                         (StructName::None, targetstruct) if targetstruct.is_some() => {
                             // Convert from an anonymous struct to a named one
@@ -2378,7 +2436,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     };
                     quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
-                (Type::Struct { .. }, Type::PathData) if matches!(from.as_ref(), Expression::Struct { .. }) => {
+                (Type::Struct { .. }, Type::PathData)
+                    if matches!(from.as_ref(), Expression::Struct { .. }) =>
+                {
                     let (events, points) = match from.as_ref() {
                         Expression::Struct { ty: _, values } => (
                             compile_expression(&values["events"], ctx),
@@ -2395,7 +2455,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
                 (Type::Enumeration(e), Type::String) => {
                     let cases = e.values.iter().enumerate().map(|(idx, v)| {
-                        let c = compile_expression(&Expression::EnumerationValue(EnumerationValue{ value: idx, enumeration: e.clone() }), ctx);
+                        let c = compile_expression(
+                            &Expression::EnumerationValue(EnumerationValue {
+                                value: idx,
+                                enumeration: e.clone(),
+                            }),
+                            ctx,
+                        );
                         let v = v.as_str();
                         quote!(#c => sp::SharedString::from(#v))
                     });
@@ -2443,11 +2509,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let f = ident(function);
             let a = arguments.iter().map(|a| {
                 let arg = compile_expression(a, ctx);
-                if matches!(a.ty(ctx), Type::Struct { .. }) {
-                    quote!(&#arg)
-                } else {
-                    arg
-                }
+                if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
             });
             quote! { sp::#f(#(#a as _),*) }
         }
@@ -2476,7 +2538,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let mut body = TokenStream::new();
             for (i, e) in sub.iter().enumerate() {
                 body.extend(compile_expression_no_parenthesis(e, ctx));
-                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable{..}) {
+                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
                     body.extend(quote!(;));
                 }
             }
@@ -2489,7 +2551,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
             let mut path = quote!(_self);
-            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
+            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+                unreachable!()
+            };
             let mut repeater_index = None;
             for _ in 0..=*level {
                 let x = par.unwrap();
@@ -2501,9 +2565,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let repeater_index = repeater_index.unwrap();
             let sub_component = &ctx.compilation_unit.sub_components[sc];
             let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
+            let index_prop =
+                llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
-            let repeater = access_component_field_offset(&inner_component_id(sub_component), &format_ident!("repeater{}", usize::from(repeater_index)));
+            let repeater = access_component_field_offset(
+                &inner_component_id(sub_component),
+                &format_ident!("repeater{}", usize::from(repeater_index)),
+            );
             quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
@@ -2512,6 +2580,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let index_e = compile_expression(index, ctx);
             let value_e = compile_expression(value, ctx);
             quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
+        }
+        Expression::SliceIndexAssignment { slice_name, index, value } => {
+            let slice_ident = ident(slice_name);
+            let value_e = compile_expression(value, ctx);
+            quote!(#slice_ident[#index] = #value_e)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);
@@ -2632,7 +2705,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
                 let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data()) {
+                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data())
+                {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
@@ -2727,7 +2801,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(sp::#base_ident::#value_ident)
             }
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index, entries_per_item } => {
+        Expression::LayoutCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            entries_per_item,
+        } => {
             access_member(layout_cache_prop, ctx).map_or_default(|cache| {
                 if let Some(ri) = repeater_index {
                     let offset = compile_expression(ri, ctx);
@@ -2742,13 +2821,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::WithLayoutItemInfo {
             cells_variable,
-            repeater_indices,
+            repeater_indices_var_name,
+            repeater_steps_var_name,
             elements,
             orientation,
             sub_expression,
         } => generate_with_layout_item_info(
             cells_variable,
-            repeater_indices.as_ref().map(SmolStr::as_str),
+            repeater_indices_var_name.as_ref().map(SmolStr::as_str),
+            repeater_steps_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             *orientation,
             sub_expression,
@@ -2756,10 +2837,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         ),
 
         Expression::WithGridInputData {
-            cells_variable, repeater_indices, elements, sub_expression
+            cells_variable,
+            repeater_indices_var_name,
+            repeater_steps_var_name,
+            elements,
+            sub_expression,
         } => generate_with_grid_input_data(
             cells_variable,
-            repeater_indices.as_ref().map(SmolStr::as_str),
+            &repeater_indices_var_name,
+            &repeater_steps_var_name,
             elements.as_ref(),
             sub_expression,
             ctx,
@@ -2772,7 +2858,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 Some(t) => {
                     let rhs = compile_expression(rhs, ctx);
                     (quote!((#lhs as #t)), quote!(#rhs as #t))
-                },
+                }
                 None => {
                     let rhs = compile_expression_no_parenthesis(rhs, ctx);
                     (lhs, rhs)
@@ -2800,10 +2886,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         #plural as _
                     ))
                 }
-                None => quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice())),
-
+                None => {
+                    quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+                }
             }
-        },
+        }
     }
 }
 
@@ -3232,6 +3319,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
+        BuiltinFunction::ColorOklchStruct => quote!( #(#a)*.to_oklch()),
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();
@@ -3285,6 +3373,16 @@ fn compile_builtin_function_call(
                 let v: f32 = (#v as f32).max(0.).min(1.) as f32;
                 let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
                 sp::Color::from_hsva(#h as f32, s, v, a)
+            })
+        }
+        BuiltinFunction::Oklch => {
+            let (l, c, h, alpha) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!({
+                let l: f32 = (#l as f32).max(0.).min(1.) as f32;
+                let c: f32 = (#c as f32).max(0.) as f32;
+                let alpha: f32 = (#alpha as f32).max(0.).min(1.) as f32;
+                sp::Color::from_oklch(l, c, #h as f32, alpha)
             })
         }
         BuiltinFunction::ColorScheme => {
@@ -3434,10 +3532,6 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
-        BuiltinFunction::OpenUrl => {
-            let url = a.next().unwrap();
-            quote!(sp::open_url(&#url))
-        }
         BuiltinFunction::EscapeMarkdown => {
             let text = a.next().unwrap();
             quote!(sp::escape_markdown(&#text))
@@ -3466,19 +3560,85 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
     }
 }
 
+fn generate_common_repeater_code(
+    // Which repeater this is about
+    repeater_index: llr::RepeatedElementIdx,
+    // If not set, we're only going over repeaters and calling a function on repeated items
+    // If set, we're also generating code to fill in this "repeated indices" array
+    repeated_indices_var_name: &Option<Ident>,
+    // ... which currently has this size, so this is where we'll write
+    repeated_indices_size: &mut usize,
+    // ... and this "repeater steps" array (number of items in repeated rows)
+    repeater_steps_var_name: &Option<Ident>,
+    repeater_count_code: &mut TokenStream,
+    repeated_item_count: usize, // >1 for repeated Rows
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
+    let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
+    let rep_inner_component_id = self::inner_component_id(
+        &ctx.compilation_unit.sub_components
+            [ctx.current_sub_component().unwrap().repeated[repeater_index].sub_tree.root],
+    );
+    *repeater_count_code = quote!(#repeater_count_code + _self.#repeater_id.len());
+
+    let mut repeater_code = quote!();
+    if let Some(ri) = repeated_indices_var_name {
+        let ri_idx = *repeated_indices_size;
+        repeater_code = quote!(
+            #ri[#ri_idx] = items_vec.len() as u32;
+            #ri[#ri_idx + 1] = internal_vec.len() as u32;
+        );
+        *repeated_indices_size += 2;
+        if let Some(rs) = repeater_steps_var_name {
+            let rs_idx = ri_idx / 2;
+            repeater_code.extend(quote!(#rs[#rs_idx] = #repeated_item_count as u32;));
+        }
+    }
+
+    quote!(
+        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
+        );
+        let internal_vec = _self.#repeater_id.instances_vec();
+        #repeater_code
+    )
+}
+
+fn generate_common_repeater_indices_init_code(
+    repeated_indices_var_name: &Option<Ident>,
+    repeated_indices_size: usize,
+    repeater_steps_var_name: &Option<Ident>,
+) -> TokenStream {
+    if let Some(ri) = repeated_indices_var_name {
+        let rs_init = if let Some(rs) = repeater_steps_var_name {
+            quote!(let mut #rs = [0u32; #repeated_indices_size / 2];)
+        } else {
+            quote!()
+        };
+        quote!(
+            let mut #ri = [0u32; #repeated_indices_size];
+            #rs_init
+        )
+    } else {
+        quote!()
+    }
+}
+
 fn generate_with_grid_input_data(
     cells_variable: &str,
-    repeated_indices: Option<&str>,
+    repeated_indices_var_name: &SmolStr,
+    repeater_steps_var_name: &SmolStr,
     elements: &[Either<Expression, llr::GridLayoutRepeatedElement>],
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let repeated_indices = repeated_indices.map(ident);
-    let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
+    let repeated_indices_var_name = Some(ident(repeated_indices_var_name));
+    let repeater_steps_var_name = Some(ident(repeater_steps_var_name));
     let mut fixed_count = 0usize;
-    let mut repeated_count = quote!();
+    let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
-    let mut repeater_idx = 0usize;
+    let mut repeated_indices_size = 0usize;
     for item in elements {
         match item {
             Either::Left(value) => {
@@ -3487,68 +3647,73 @@ fn generate_with_grid_input_data(
                 push_code.push(quote!(items_vec.push(#value);))
             }
             Either::Right(repeater) => {
-                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
-                let rep_inner_component_id = self::inner_component_id(
-                    &ctx.compilation_unit.sub_components[ctx
-                        .current_sub_component()
-                        .unwrap()
-                        .repeated[repeater.repeater_index]
-                        .sub_tree
-                        .root],
+                let repeated_item_count = repeater.repeated_children_count.unwrap_or(1);
+                let common_push_code = self::generate_common_repeater_code(
+                    repeater.repeater_index,
+                    &repeated_indices_var_name,
+                    &mut repeated_indices_size,
+                    &repeater_steps_var_name,
+                    &mut repeated_count_code,
+                    repeated_item_count,
+                    ctx,
                 );
-                repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
-                let ri = repeated_indices.as_ref().map(|ri| {
-                    quote!(
-                        #ri[#repeater_idx * 2] = items_vec.len() as u32;
-                        #ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
-                    )
-                });
-                repeater_idx += 1;
+
                 let new_row = repeater.new_row;
+                let loop_code = quote!({
+                    let start_offset = items_vec.len();
+                    items_vec.extend(core::iter::repeat_with(Default::default).take(internal_vec.len() * #repeated_item_count));
+                    for (i, sub_comp) in internal_vec.iter().enumerate() {
+                        let offset = start_offset + i * #repeated_item_count;
+                        sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + #repeated_item_count]);
+                        new_row = false;
+                    }
+                });
                 push_code.push(quote!(
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
-                        );
-                        let internal_vec = _self.#repeater_id.instances_vec();
-                        #ri
-                        let mut new_row = #new_row;
-                        for sub_comp in &internal_vec {
-                            items_vec.push(sub_comp.as_pin_ref().grid_layout_input_data(new_row));
-                            new_row = false;
-                        }
-                    ));
+                    #common_push_code
+                    let mut new_row = #new_row;
+                    #loop_code
+                ));
             }
         }
     }
-    let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
-    let ri2 = repeated_indices.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let ri_init_code = generate_common_repeater_indices_init_code(
+        &repeated_indices_var_name,
+        repeated_indices_size,
+        &repeater_steps_var_name,
+    );
+    let ri_from_slice =
+        repeated_indices_var_name.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let rs_from_slice =
+        repeater_steps_var_name.map(|rs| quote!(let #rs = sp::Slice::from_slice(&#rs);));
     let cells_variable = ident(cells_variable);
     let sub_expression = compile_expression(sub_expression, ctx);
 
     quote! { {
-        #ri
-        let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count);
+        #ri_init_code
+        let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
         #(#push_code)*
         let #cells_variable = sp::Slice::from_slice(&items_vec);
-        #ri2
+        #ri_from_slice
+        #rs_from_slice
         #sub_expression
     } }
 }
 
 fn generate_with_layout_item_info(
     cells_variable: &str,
-    repeated_indices: Option<&str>,
-    elements: &[Either<Expression, llr::RepeatedElementIdx>],
+    repeated_indices_var_name: Option<&str>,
+    repeater_steps_var_name: Option<&str>,
+    elements: &[Either<Expression, llr::LayoutRepeatedElement>],
     orientation: Orientation,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let repeated_indices = repeated_indices.map(ident);
-    let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
+    let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    let repeater_steps_var_name = repeater_steps_var_name.map(ident);
     let mut fixed_count = 0usize;
-    let mut repeated_count = quote!();
+    let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
-    let mut repeater_idx = 0usize;
+    let mut repeated_indices_size = 0usize;
     for item in elements {
         match item {
             Either::Left(value) => {
@@ -3557,44 +3722,62 @@ fn generate_with_layout_item_info(
                 push_code.push(quote!(items_vec.push(#value);))
             }
             Either::Right(repeater) => {
-                let repeater_id = format_ident!("repeater{}", usize::from(*repeater));
-                let rep_inner_component_id = self::inner_component_id(
-                    &ctx.compilation_unit.sub_components
-                        [ctx.current_sub_component().unwrap().repeated[*repeater].sub_tree.root],
+                let repeated_item_count = repeater.repeated_children_count.unwrap_or(1);
+                let common_push_code = self::generate_common_repeater_code(
+                    repeater.repeater_index,
+                    &repeated_indices_var_name,
+                    &mut repeated_indices_size,
+                    &repeater_steps_var_name,
+                    &mut repeated_count_code,
+                    repeated_item_count,
+                    ctx,
                 );
-                repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
-                let ri = repeated_indices.as_ref().map(|ri| {
-                    quote!(
-                        #ri[#repeater_idx * 2] = items_vec.len() as u32;
-                        #ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
-                    )
-                });
-                repeater_idx += 1;
+                let loop_code = match repeater.repeated_children_count {
+                    None => {
+                        quote!(
+                            for sub_comp in &internal_vec {
+                                items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                            }
+                        )
+                    }
+                    Some(count) if count > 0 => {
+                        quote!(
+                            for sub_comp in &internal_vec {
+                                for child_idx in 0..#count {
+                                    items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
+                                }
+                            }
+                        )
+                    }
+                    _ => quote!(),
+                };
                 push_code.push(quote!(
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
-                        );
-                        let internal_vec = _self.#repeater_id.instances_vec();
-                        #ri
-                        for sub_comp in &internal_vec {
-                            items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation))
-                        }
-                    ));
+                    #common_push_code
+                    #loop_code
+                ));
             }
         }
     }
+    let ri_init_code = generate_common_repeater_indices_init_code(
+        &repeated_indices_var_name,
+        repeated_indices_size,
+        &repeater_steps_var_name,
+    );
 
-    let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
-    let ri2 = repeated_indices.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let ri_from_slice =
+        repeated_indices_var_name.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let rs_from_slice =
+        repeater_steps_var_name.map(|rs| quote!(let #rs = sp::Slice::from_slice(&#rs);));
     let cells_variable = ident(cells_variable);
     let sub_expression = compile_expression(sub_expression, ctx);
 
     quote! { {
-        #ri
-        let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count);
+        #ri_init_code
+        let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
         #(#push_code)*
         let #cells_variable = sp::Slice::from_slice(&items_vec);
-        #ri2
+        #ri_from_slice
+        #rs_from_slice
         #sub_expression
     } }
 }

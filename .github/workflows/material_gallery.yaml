@@ -1,0 +1,115 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Build an APK and AAB for the gallery example
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+
+jobs:
+  material_gallery_android:
+    env:
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+      CARGO_INCREMENTAL: false
+      CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
+      CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui-libraries/material
+    steps:
+      - uses: actions/checkout@v6
+
+      # 1. Check Artifact Caches
+      - name: Cache apk build
+        id: cache-apk
+        uses: actions/cache@v5
+        with:
+          path: |
+            target/x/release/android/material-gallery.apk
+          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
+
+      - name: Cache aab build
+        id: cache-aab
+        uses: actions/cache@v5
+        with:
+          path: |
+            target/x/release/android/material-gallery.aab
+          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
+
+      # 2. Install Dependencies (Run only if artifacts are missing)
+      - uses: ./.github/actions/install-linux-dependencies
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+
+      - name: Install Rust
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: aarch64-linux-android
+
+      - name: Install Android API level 30
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+
+      # 3. Setup Environment (Run only if artifacts are missing)
+      - name: Add NDK LLVM to PATH
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+        run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+      - name: Dump keystore
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /home/runner/.android
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+
+      # 4. Tool Caching & Installation
+      - name: Cache xbuild
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+        id: xbuild-cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/x
+            ~/.cargo/bin/xbuild
+          key: xbuild-cache-v2
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
+        with:
+          key: android-build
+
+      - name: Install xbuild
+        if: (steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true') && steps.xbuild-cache.outputs.cache-hit != 'true'
+        run: cargo install --git https://github.com/burhankhanzada/xbuild --rev 5eb203e9e0718bd992632b803d59bed80ae0bdc0 xbuild
+
+      # 5. Build
+      - name: Build apk
+        if: steps.cache-apk.outputs.cache-hit != 'true'
+        working-directory: ui-libraries/material/examples/gallery
+        run: x build --platform android --arch arm64 --release --format 'apk'
+
+      - name: Build aab
+        if: steps.cache-aab.outputs.cache-hit != 'true'
+        working-directory: ui-libraries/material/examples/gallery
+        run: x build --platform android --arch arm64 --release --format 'aab'
+
+      - name: Verify aab
+        if: steps.cache-aab.outputs.cache-hit != 'true'
+        working-directory: ui-libraries/material/examples/gallery
+        run: |
+          wget https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          java -jar bundletool-all-1.18.3.jar validate --bundle $GITHUB_WORKSPACE/target/x/release/android/material-gallery.aab
+
+      # 6. Upload
+      - name: "Upload Artifacts"
+        uses: actions/upload-artifact@v6
+        with:
+          name: material_gallery
+          path: |
+            target/x/release/android/material-gallery.apk
+            target/x/release/android/material-gallery.aab

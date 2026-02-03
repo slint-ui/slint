@@ -20,6 +20,8 @@ use itertools::Itertools;
 
 enum LoadedDocument {
     Document(Document),
+    /// A dependency of this file has changed, so we need to re-analyze it.
+    /// The file contents have not changed, so we can keep the parsed CST around.
     Invalidated(syntax_nodes::Document),
 }
 
@@ -885,11 +887,7 @@ struct BorrowedTypeLoader<'a> {
 }
 
 impl TypeLoader {
-    pub fn new(
-        global_type_registry: Rc<RefCell<TypeRegister>>,
-        compiler_config: CompilerConfiguration,
-        diag: &mut BuildDiagnostics,
-    ) -> Self {
+    pub fn new(compiler_config: CompilerConfiguration, diag: &mut BuildDiagnostics) -> Self {
         let mut style = compiler_config
             .style
             .clone()
@@ -901,7 +899,11 @@ impl TypeLoader {
         }
 
         let myself = Self {
-            global_type_registry,
+            global_type_registry: if compiler_config.enable_experimental {
+                crate::typeregister::TypeRegister::builtin_experimental()
+            } else {
+                crate::typeregister::TypeRegister::builtin()
+            },
             compiler_config,
             resolved_style: style.clone(),
             all_documents: Default::default(),
@@ -928,32 +930,35 @@ impl TypeLoader {
         myself
     }
 
-    pub fn drop_document(&mut self, path: &Path) -> Result<(), std::io::Error> {
-        if let Some((LoadedDocument::Document(doc), _)) = self.all_documents.docs.remove(path) {
-            for dep in &doc.imports {
-                self.all_documents
-                    .dependencies
-                    .entry(Path::new(&dep.file).into())
-                    .or_default()
-                    .remove(path);
-            }
-        }
-        self.all_documents.dependencies.remove(path);
+    /// Drop a document from the TypeLoader and invalidate all of its dependencies.
+    /// Returns the list of all (transitive) dependencies.
+    ///
+    /// This forces the compiler to entirely reload the document from scratch.
+    /// To only cause a re-analyze, but not a reparse, use [Self::invalidate_document]
+    pub fn drop_document(&mut self, path: &Path) -> Result<HashSet<PathBuf>, std::io::Error> {
+        let dependencies = self.invalidate_document(path);
+        self.all_documents.docs.remove(path);
+
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
         } else {
-            Ok(())
+            Ok(dependencies)
         }
     }
 
     /// Invalidate a document and all its dependencies.
+    ///
+    /// This will keep the CST of the document in cache, but mark that it needs to be re-analyzed
+    /// to reconstruct its types.
+    ///
+    /// To entirely forget a document and cause a complete re-parse, use [Self::drop_document].
     pub fn invalidate_document(&mut self, path: &Path) -> HashSet<PathBuf> {
         if let Some((d, _)) = self.all_documents.docs.get_mut(path) {
             if let LoadedDocument::Document(doc) = d {
-                for dep in &doc.imports {
+                for import in &doc.imports {
                     self.all_documents
                         .dependencies
-                        .entry(Path::new(&dep.file).into())
+                        .entry(Path::new(&import.file).into())
                         .or_default()
                         .remove(path);
                 }
@@ -1248,7 +1253,7 @@ impl TypeLoader {
                     }
                     (import_path, None)
                 } else {
-                    // We will load using the `open_import_fallback`
+                    // We will load using the `open_import_callback`
                     // Simplify the path to remove the ".."
                     let base_path = import_token
                         .as_ref()
@@ -1318,9 +1323,9 @@ impl TypeLoader {
                         .expect("internal error: embedded file is not UTF-8 source code"),
                 ))
             } else {
-                let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
-                if let Some(fallback) = fallback {
-                    let result = fallback(path_canon.to_string_lossy().into()).await;
+                let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
+                if let Some(callback) = callback {
+                    let result = callback(path_canon.to_string_lossy().into()).await;
                     result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
                 } else {
                     std::fs::read_to_string(&path_canon)
@@ -1617,6 +1622,7 @@ impl TypeLoader {
             ))
             .chain(
                 (file_to_import == "std-widgets.slint"
+                    || (file_to_import == "style-base.slint" && referencing_file.is_none())
                     || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.resolved_style).into()),
             )
@@ -1797,21 +1803,18 @@ fn test_dependency_loading() {
         HashMap::from([("library".into(), test_source_path.join("library").join("lib.slint"))]);
     compiler_config.style = Some("fluent".into());
 
-    let mut main_test_path = test_source_path;
+    let mut main_test_path = test_source_path.clone();
     main_test_path.push("dependency_test_main.slint");
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse_file(main_test_path, &mut test_diags).unwrap();
+    let doc_node = crate::parser::parse_file(&main_test_path, &mut test_diags).unwrap();
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
-    let global_registry = TypeRegister::builtin();
-
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
-
     let mut build_diagnostics = BuildDiagnostics::default();
 
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
 
     let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
@@ -1823,6 +1826,36 @@ fn test_dependency_loading() {
     assert!(!build_diagnostics.has_errors());
     assert_eq!(foreign_imports.len(), 3);
     assert!(foreign_imports.iter().all(|x| matches!(x.import_kind, ImportKind::ImportList(..))));
+
+    let imported_files: Vec<_> = [
+        "incpath/local_helper_type.slint",
+        "incpath/dependency_from_incpath.slint",
+        "dependency_local.slint",
+        "library/lib.slint",
+        "library/dependency_from_library.slint",
+    ]
+    .into_iter()
+    .map(|path| test_source_path.join(path))
+    .collect();
+    for file in &imported_files {
+        assert!(loader.get_document(file).is_some());
+    }
+
+    // Test Typeloader invalidation/dropping
+    // Dropping/invalidating all leaf nodes should invalidate everything.
+    let to_drop = test_source_path.join("incpath/local_helper_type.slint");
+    loader.drop_document(&to_drop).unwrap();
+    let to_invalidate = test_source_path.join("library/dependency_from_library.slint");
+    loader.invalidate_document(&to_invalidate);
+
+    // Check that the dropped file has indeed been fully dropped.
+    assert!(!loader.all_files().contains(&to_drop));
+    // But that the invalidated file is still there (even if get_document won't return it anymore)
+    assert!(loader.all_files().contains(&to_invalidate));
+
+    for file in imported_files {
+        assert!(loader.get_document(&file).is_none(), "{} is still loaded", file.display());
+    }
 }
 
 #[test]
@@ -1848,13 +1881,10 @@ fn test_dependency_loading_from_rust() {
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
-    let global_registry = TypeRegister::builtin();
-
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
-
     let mut build_diagnostics = BuildDiagnostics::default();
 
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
 
     let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
@@ -1878,7 +1908,7 @@ fn test_load_from_callback_ok() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
-    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
             assert_eq!(path.replace('\\', "/"), "../FooBar.slint");
@@ -1901,10 +1931,9 @@ X := XX {}
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -1934,10 +1963,9 @@ component Foo { XX {} }
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -1970,9 +1998,8 @@ fn test_manual_import() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     let maybe_button_type = spin_on::spin_on(loader.import_component(
         "std-widgets.slint",
@@ -1996,9 +2023,8 @@ fn test_builtin_style() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("fluent".into());
 
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let _loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     assert!(!build_diagnostics.has_errors());
 }
@@ -2015,9 +2041,8 @@ fn test_user_style() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("TestStyle".into());
 
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let _loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     assert!(!build_diagnostics.has_errors());
 }
@@ -2034,9 +2059,8 @@ fn test_unknown_style() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("FooBar".into());
 
-    let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let _loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
     assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
@@ -2072,10 +2096,9 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -2116,10 +2139,9 @@ import { E } from "@unknown/lib.slint";
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
-    let global_registry = TypeRegister::builtin();
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
@@ -2168,7 +2190,6 @@ import { E } from "@unknown/lib.slint";
 #[test]
 fn test_snapshotting() {
     let mut type_loader = TypeLoader::new(
-        crate::typeregister::TypeRegister::builtin(),
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
         &mut BuildDiagnostics::default(),
     );

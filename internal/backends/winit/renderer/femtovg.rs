@@ -166,18 +166,18 @@ impl GlutinFemtoVGRenderer {
     }
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(all(feature = "unstable-wgpu-28", not(target_family = "wasm")))]
 pub struct WGPUFemtoVGRenderer {
     renderer: FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(all(feature = "unstable-wgpu-28", not(target_family = "wasm")))]
 impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        if !i_slint_core::graphics::wgpu_27::any_wgpu27_adapters_with_gpu(
+        if !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
             shared_backend_data._requested_graphics_api.clone(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
@@ -190,7 +190,7 @@ impl WGPUFemtoVGRenderer {
     }
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(all(feature = "unstable-wgpu-28", not(target_family = "wasm")))]
 impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         self.renderer.render()

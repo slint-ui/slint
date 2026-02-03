@@ -103,7 +103,6 @@ pub type Coord = i32;
 /// This type is not exported from the public API crate, so function having this
 /// parameter cannot be called from the public API without naming it
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(C)]
 pub struct InternalToken;
 
 #[cfg(feature = "std")]
@@ -166,42 +165,4 @@ pub fn detect_operating_system() -> OperatingSystemType {
 /// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
 pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
-}
-
-#[cfg_attr(not(feature = "std"), allow(unused))]
-pub fn open_url(url: &str) {
-    #[cfg(feature = "std")]
-    if let Err(err) = webbrowser::open(url) {
-        debug_log!("Error opening url {}: {}", url, err);
-    }
-}
-
-pub fn escape_markdown(text: &str) -> alloc::string::String {
-    let mut out = alloc::string::String::with_capacity(text.len());
-
-    for c in text.chars() {
-        match c {
-            '*' => out.push_str("\\*"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '_' => out.push_str("\\_"),
-            '#' => out.push_str("\\#"),
-            '-' => out.push_str("\\-"),
-            '`' => out.push_str("\\`"),
-            '&' => out.push_str("\\&"),
-            _ => out.push(c),
-        }
-    }
-
-    out
-}
-
-#[cfg_attr(not(feature = "std"), allow(unused))]
-pub fn parse_markdown(text: &str) -> crate::api::StyledText {
-    #[cfg(feature = "std")]
-    {
-        crate::api::StyledText::parse(text).unwrap()
-    }
-    #[cfg(not(feature = "std"))]
-    Default::default()
 }

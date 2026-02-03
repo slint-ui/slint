@@ -17,11 +17,19 @@ use crate::webview::WebView;
 slint::include_modules!();
 
 pub fn main() {
+    #[cfg(not(target_os = "windows"))]
     let (device, queue) = setup_wgpu();
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
 
-    WebView::new(app.clone_strong(), "https://slint.dev".into(), device, queue);
+    WebView::new(
+        app.clone_strong(),
+        "https://slint.dev".into(),
+        #[cfg(not(target_os = "windows"))]
+        device,
+        #[cfg(not(target_os = "windows"))]
+        queue,
+    );
 
     app.run().expect("Application failed to run - check for runtime errors");
 }
@@ -33,6 +41,7 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
     main();
 }
 
+#[cfg(not(target_os = "windows"))]
 fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
     let backends = wgpu::Backends::from_env().unwrap_or_default();
 
@@ -55,7 +64,7 @@ fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
     });
 
     slint::BackendSelector::new()
-        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
+        .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Manual {
             instance,
             adapter,
             device: device.clone(),

@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, ButtonColors } from "../common.slint";
+
+export component PushButton inherits Rectangle {
+
+    in property <string> label <=> label.text;
+    in property <image> icon;
+    in property <bool> primary: true;
+    out property <bool> pressed: touch-area.pressed;
+    out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
+
+    callback clicked;
+
+    height: 66px;
+
+    Image {
+        x: -3px;
+        y: 0px;
+        width: root.width + 8px;
+        source: @image-url("../images/mcu/sub-action-button.jpg");
+    }
+
+    HorizontalLayout {
+        spacing: 10px;
+        label := Text {
+            font-size: 18px;
+            color: DemoPalette.push-button-text-color;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        if root.icon.width > 0: img := Image {
+            source: root.icon;
+            image-fit: contain;
+            width: 17px;
+            height: 17px;
+        }
+    }
+
+
+    touch-area := TouchArea {
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down) {
+                root.clicked()
+            }
+        }
+    }
+}

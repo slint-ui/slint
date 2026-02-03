@@ -56,8 +56,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
-    let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
-    let ui = ui::create_ui(&to_lsp, &"", experimental)?;
+    let ui = ui::create_ui(&to_lsp, &"")?;
 
     to_lsp
         .send_telemetry(&mut [(
@@ -120,6 +119,7 @@ type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 pub struct PreviewState {
     pub ui: Option<ui::PreviewUi>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
+    /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
     selected: Option<element_selection::ElementSelection>,
@@ -169,15 +169,29 @@ impl PreviewState {
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-// Just mark the cache as "read from disk" by setting the version to None.
-// Do not reset the code: We can check once the LSP has re-read it from disk
-// whether we need to refresh the preview or not.
 fn invalidate_contents(url: &lsp_types::Url) {
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    let needs_reload = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(cache_entry) = preview_state.source_code.get_mut(url) {
+            // A source file was invalidated that is not currently open in the LSP.
+            //
+            // Just mark the cache as "read from disk" by setting the version to None.
+            // Do not reset the code: We can check once the LSP has re-read it from disk
+            // whether we need to refresh the preview or not.
+            //
+            // We should get an updated version of the file from the LSP when it recompiles, so
+            // no reload needed at the moment.
             cache_entry.version = None;
         }
-    })
+        // If a resource file was invalidated - we need to reload the preview
+        //
+        // This is a rather heavy-handed operation, but currently the best we can do.
+        // Ideally, this should just reload that specific resource.
+        preview_state.resources.contains(&url)
+    });
+
+    if needs_reload {
+        reload_preview();
+    }
 }
 
 fn delete_document(url: &lsp_types::Url) {
@@ -1030,15 +1044,15 @@ fn extract_resources(
     dependencies: &HashSet<Url>,
     component_instance: &ComponentInstance,
 ) -> HashSet<Url> {
-    let tl = component_instance.definition().type_loader();
+    let type_loader = component_instance.definition().type_loader();
 
     let mut result: HashSet<Url> = Default::default();
 
-    for d in dependencies {
-        let Ok(path) = d.to_file_path() else {
+    for dependency in dependencies {
+        let Ok(path) = dependency.to_file_path() else {
             continue;
         };
-        let Some(doc) = tl.get_document(&path) else {
+        let Some(doc) = type_loader.get_document(&path) else {
             continue;
         };
 
@@ -1360,8 +1374,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 }
 
 async fn parse_source(
-    include_paths: Vec<PathBuf>,
-    library_paths: HashMap<String, PathBuf>,
+    config: common::PreviewConfig,
     path: PathBuf,
     version: common::SourceFileVersion,
     source_code: String,
@@ -1379,7 +1392,7 @@ async fn parse_source(
 ) -> (
     Vec<diagnostics::Diagnostic>,
     Option<ComponentDefinition>,
-    Option<common::document_cache::OpenImportFallback>,
+    Option<common::document_cache::OpenImportCallback>,
     Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
@@ -1399,8 +1412,9 @@ async fn parse_source(
     if !style.is_empty() {
         cc.style = Some(style);
     }
-    cc.include_paths = include_paths;
-    cc.library_paths = library_paths;
+    cc.include_paths = config.include_paths;
+    cc.library_paths = config.library_paths;
+    cc.enable_experimental |= config.enable_experimental;
 
     let (open_file_fallback, source_file_versions) =
         common::document_cache::document_cache_parts_setup(
@@ -1436,9 +1450,11 @@ async fn reload_preview_impl(
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let (version, source) = get_url_from_cache(&component.url);
 
-    let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
-        config.include_paths,
-        config.library_paths,
+    let format =
+        if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
+
+    let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
+        config,
         path,
         version,
         source,
@@ -1473,9 +1489,7 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    let format =
-        if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
-    update_preview_area(compiled, behavior, open_import_fallback, source_file_versions, format)?;
+    update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
 
     finish_parsing(&component.url, loaded_component_name, success);
     Ok(())
@@ -1844,7 +1858,7 @@ fn set_status_text(text: &str) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
-    open_import_fallback: Option<common::document_cache::OpenImportFallback>,
+    open_import_callback: Option<common::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
     format: common::ByteFormat,
 ) -> Result<(), PlatformError> {
@@ -1868,7 +1882,7 @@ fn update_preview_area(
                         shared_document_cache.replace(Some(Rc::new(
                             common::DocumentCache::new_from_raw_parts(
                                 rtl,
-                                open_import_fallback.clone(),
+                                open_import_callback.clone(),
                                 source_file_versions.clone(),
                                 format,
                             ),
@@ -1926,8 +1940,7 @@ pub mod test {
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            Vec::new(),
-            std::collections::HashMap::new(),
+            Default::default(),
             path,
             Some(24),
             source_code.to_string(),

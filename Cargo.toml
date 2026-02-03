@@ -156,7 +156,9 @@ glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
-resvg = { version = "0.45.0", default-features = false, features = ["text", "raster-images"] }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3" }
+resvg = { version = "0.46.0", default-features = false, features = ["text", "raster-images"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
@@ -175,8 +177,8 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-26 = { package = "wgpu", version = "26", default-features = false }
 wgpu-27 = { package = "wgpu", version = "27", default-features = false }
+wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.7.0" }

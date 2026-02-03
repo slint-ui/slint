@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::common;
 use crate::language::convert_diagnostics;
-use crate::language::reload_document_impl;
+use crate::language::load_document_impl;
 
 use super::Context;
 
@@ -46,7 +46,7 @@ pub fn loaded_document_cache_with_file_name(
     };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
     let (extra_files, diag) =
-        spin_on::spin_on(reload_document_impl(None, content, url.clone(), Some(42), &mut dc));
+        spin_on::spin_on(load_document_impl(None, content, url.clone(), Some(42), &mut dc));
 
     let diag = convert_diagnostics(&extra_files, diag, dc.format);
     (dc, url, diag)
@@ -119,7 +119,7 @@ pub fn load(
 ) -> (Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
     let url = Url::from_file_path(path).unwrap();
 
-    let (main_file, diag) = spin_on::spin_on(reload_document_impl(
+    let (main_file, diag) = spin_on::spin_on(load_document_impl(
         ctx,
         content.into(),
         url.clone(),
@@ -170,6 +170,7 @@ fn accurate_diagnostics_in_dependencies() {
         to_show: Default::default(),
         open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
         to_preview: Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
     }));
 
     let (bar_url, diag) = load(
@@ -224,6 +225,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
         to_show: Default::default(),
         open_urls: Default::default(),
         to_preview: Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
     });
 
     let (bar_url, diag) = load(
@@ -271,4 +273,57 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     assert_eq!(diag[&bar_url], Vec::new());
     // But reexport_url still have the same syntax error as before
     assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
+}
+
+/// Test for issue #10521: Preview file should be recompiled when dependency changes,
+/// even if the preview file is not open in the editor.
+#[test]
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+fn preview_file_recompiled_when_dependency_changes() {
+    let mut cache = empty_document_cache();
+
+    let (dep_url, _diag) = load(
+        None,
+        &mut cache,
+        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+        r#" export component Bar { property <int> hi; } "#,
+    );
+
+    let (main_url, _diag) = load(
+        None,
+        &mut cache,
+        &std::env::current_dir().unwrap().join("xxx/main.slint"),
+        r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
+    );
+
+    // Create context with:
+    // - main.slint set as the preview file (to_show)
+    // - main.slint NOT in open_urls (simulating it was closed in the editor)
+    let ctx = std::rc::Rc::new(crate::language::Context {
+        document_cache: cache.into(),
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        to_show: RefCell::new(Some(common::PreviewComponent {
+            url: main_url.clone(),
+            component: None,
+        })),
+        open_urls: RefCell::new(HashSet::new()),
+        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
+    });
+
+    spin_on::spin_on(crate::language::trigger_file_watcher(
+        &ctx,
+        dep_url.clone(),
+        lsp_types::FileChangeType::CHANGED,
+    ))
+    .unwrap();
+
+    // The preview file (main.slint) should be scheduled for recompilation
+    // even though it's not in open_urls
+    assert!(
+        ctx.pending_recompile.borrow().contains(&main_url),
+        "Preview file should be in pending_recompile when its dependency changes"
+    );
 }

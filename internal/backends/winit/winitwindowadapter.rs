@@ -15,7 +15,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::lengths::{LogicalInset, PhysicalPx, ScaleFactor};
+use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -28,7 +28,7 @@ use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
-use corelib::item_tree::ItemTreeRef;
+use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
 use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
@@ -776,10 +776,8 @@ impl WinitWindowAdapter {
             let size = physical_size.to_logical(scale_factor);
             self.window().try_dispatch_event(WindowEvent::Resized { size })?;
 
-            self.window().try_dispatch_event(WindowEvent::SafeAreaChanged {
-                inset: self.safe_area_inset().to_logical(scale_factor),
-                token: corelib::InternalToken,
-            })?;
+            WindowInner::from_pub(self.window())
+                .set_window_item_safe_area(self.safe_area_inset().to_logical(scale_factor));
 
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
             // with the width/height attribute (the size of the viewport/GL surface)
@@ -1233,17 +1231,8 @@ impl WindowAdapter for WinitWindowAdapter {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();
-            self.window()
-                .try_dispatch_event(WindowEvent::SafeAreaChanged {
-                    inset: LogicalInset::new(
-                        window_item.safe_area_inset_top().get(),
-                        window_item.safe_area_inset_bottom().get(),
-                        window_item.safe_area_inset_left().get(),
-                        window_item.safe_area_inset_right().get(),
-                    ),
-                    token: corelib::InternalToken,
-                })
-                .unwrap();
+            WindowInner::from_pub(self.window())
+                .set_window_item_safe_area(window_item.safe_area_insets());
         }
 
         let m = properties.is_fullscreen();
@@ -1495,7 +1484,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(enable_accesskit)]
-    fn register_item_tree(&self) {
+    fn register_item_tree(&self, _: ItemTreeRefPin) {
         let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
         // If the accesskit_adapter is already borrowed, this means the new items were created when the tree was built and there is no need to re-visit them
         if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
@@ -1544,7 +1533,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(target_os = "ios")]
-    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalInset {
+    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalEdges {
         self.winit_window_or_none
             .borrow()
             .as_window()
@@ -1553,7 +1542,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 let inner_position = window.inner_position().ok()?;
                 let outer_size = window.outer_size();
                 let inner_size = window.inner_size();
-                Some(i_slint_core::lengths::PhysicalInset::new(
+                Some(i_slint_core::lengths::PhysicalEdges::new(
                     inner_position.y - outer_position.y,
                     outer_size.height as i32
                         - (inner_size.height as i32)

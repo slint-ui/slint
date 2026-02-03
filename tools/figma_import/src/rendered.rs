@@ -120,7 +120,7 @@ pub fn render(
     };
 
     let mut ctx = Ctx::default();
-    writeln!(ctx, "App := Window {{")?;
+    writeln!(ctx, "export component App inherits Window {{")?;
     ctx.indent += 1;
     writeln!(ctx, "background: {background};")?;
     writeln!(ctx, "width: {}px;", frame.absoluteBoundingBox.width)?;
@@ -135,10 +135,7 @@ pub fn render(
 fn render_frame(frame: &Frame, rc: &mut Ctx) -> Result<bool, Box<dyn std::error::Error>> {
     rc.begin_element("Rectangle", &frame.node, Some(&frame.absoluteBoundingBox))?;
     rc.offset = frame.absoluteBoundingBox.origin();
-    let mut has_background = false;
-    for p in frame.background.iter() {
-        has_background |= handle_paint(p, rc, "background")?;
-    }
+    let has_background = handle_last_visible_paint(&frame.background, rc, "background")?;
     if !has_background && !frame.backgroundColor.is_transparent() {
         writeln!(rc, "background: {};", frame.backgroundColor)?;
     }
@@ -161,13 +158,8 @@ fn render_vector(
             if vector.strokeWeight > 0. {
                 writeln!(rc, "stroke-width: {}px;", vector.strokeWeight)?;
             }
-            for p in vector.strokes.iter() {
-                handle_paint(p, rc, "stroke")?;
-            }
-            for p in vector.fills.iter() {
-                handle_paint(p, rc, "fill")?;
-                if let Some(_imr) = &p.imageRef { /* */ }
-            }
+            handle_last_visible_paint(&vector.strokes, rc, "stroke")?;
+            handle_last_visible_paint(&vector.fills, rc, "fill")?;
             rc.end_element()?;
         }
         return Ok(false);
@@ -204,9 +196,7 @@ fn render_text(
     writeln!(rc, "horizontal-alignment: {};", font.textAlignHorizontal.to_ascii_lowercase())?;
     writeln!(rc, "vertical-alignment: {};", font.textAlignVertical.to_ascii_lowercase())?;
     writeln!(rc, "letter-spacing: {}px;", font.letterSpacing)?;
-    for p in vector.fills.iter() {
-        handle_paint(p, rc, "color")?;
-    }
+    handle_last_visible_paint(&vector.fills, rc, "color")?;
     rc.end_element()?;
     Ok(())
 }
@@ -225,15 +215,12 @@ fn render_rectangle(
         let min_edge = vector.absoluteBoundingBox.width.min(vector.absoluteBoundingBox.height);
         writeln!(rc, "border-radius: {}px;", cornerRadius.min(min_edge / 2.))?;
     }
-    let mut has_border = false;
-    for p in vector.strokes.iter() {
-        has_border |= handle_paint(p, rc, "border-color")?;
-    }
+    let has_border = handle_last_visible_paint(&vector.strokes, rc, "border-color")?;
     if vector.strokeWeight > 0. && has_border {
         writeln!(rc, "border-width: {}px;", vector.strokeWeight)?;
     }
+    handle_last_visible_paint(&vector.fills, rc, "background")?;
     for p in vector.fills.iter() {
-        handle_paint(p, rc, "background")?;
         if let Some(imr) = &p.imageRef {
             writeln!(rc, "Image {{")?;
             writeln!(rc, "    width: 100%; height: 100%;")?;
@@ -267,9 +254,7 @@ fn render_line(
     }
 
     rc.begin_element("Rectangle", &vector.node, Some(&bb))?;
-    for p in vector.strokes.iter() {
-        handle_paint(p, rc, "background")?;
-    }
+    handle_last_visible_paint(&vector.strokes, rc, "background")?;
     rc.end_element()?;
     Ok(())
 }
@@ -353,4 +338,19 @@ fn handle_paint(p: &Paint, rc: &mut Ctx, arg: &str) -> Result<bool, Box<dyn std:
         }
     }
     Ok(has_something)
+}
+
+/// From a paint array, apply only the last visible paint to avoid duplicate properties.
+/// Figma renders paints bottom-to-top, so the last visible one is the topmost layer.
+/// Since Slint properties only accept a single value, we pick the most visually dominant one.
+fn handle_last_visible_paint(
+    paints: &[Paint],
+    rc: &mut Ctx,
+    arg: &str,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    if let Some(p) = paints.iter().rev().find(|p| p.visible) {
+        handle_paint(p, rc, arg)
+    } else {
+        Ok(false)
+    }
 }

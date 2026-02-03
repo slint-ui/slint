@@ -13,7 +13,6 @@ use super::{
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
     VoidArg, WindowItem,
 };
-use crate::api;
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -231,7 +230,7 @@ impl ComplexText {
 pub struct StyledTextItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub text: Property<api::StyledText>,
+    pub text: Property<crate::styled_text::StyledText>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
     pub color: Property<Brush>,

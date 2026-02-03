@@ -137,7 +137,7 @@ assert_eq!(instance.get_clicked_score(), 44000);
 
 // At position 0 there is the invalid item
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq!(instance.get_clicked_score(), 0);
+assert_eq!(instance.get_clicked_score(), 42000);
 assert_eq!(instance.get_clicked_index(), 0);
 
 ```
@@ -229,7 +229,7 @@ assert_eq(instance.get_clicked_score(), 44000);
 
 // At position 0 there is the invalid item
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq(instance.get_clicked_score(), 0);
+assert_eq(instance.get_clicked_score(), 42000);
 assert_eq(instance.get_clicked_index(), 0);
 ```
 

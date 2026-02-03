@@ -224,6 +224,22 @@ macro_rules! for_each_builtin_structs {
                 }
                 private {}
             }
+
+            /// A structure representing the four edges of an axis-aligned rectangle
+            struct Edges {
+                @name = BuiltinPrivateStruct::Edges,
+                export {
+                    /// The left edge value
+                    left: Coord,
+                    /// The top edge value
+                    top: Coord,
+                    /// The right edge value
+                    right: Coord,
+                    /// The bottom edge value
+                    bottom: Coord,
+                }
+                private {}
+            }
         ];
     };
 }

@@ -1,66 +1,58 @@
 // Copyright © 2025 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component UsesBuiltin
- uses { Rectangle from base } {
-//      >        <error{'Rectangle' is not an interface}
-    base := Rectangle {}
+export component UsesBuiltin uses { Rectangle from base } {
+//                                  >        <error{'Rectangle' is not an interface}
+    base := Rectangle { }
 }
 
-component ComponentA {}
+component ComponentA { }
 
-export component UsesComponent
- uses { ComponentA from base } {
-//      >         <error{'ComponentA' is not an interface}
-    base := ComponentA {}
+export component UsesComponent uses { ComponentA from base } {
+//                                    >         <error{'ComponentA' is not an interface}
+    base := ComponentA { }
 }
 
-export component UsesMissing
- uses { MissingInterface from base } {
-//      >               <error{Unknown element 'MissingInterface'}
-    base := ComponentA {}
+export component UsesMissing uses { MissingInterface from base } {
+//                                  >               <error{Unknown element 'MissingInterface'}
+    base := ComponentA { }
 }
 
-export component UsesRow
- uses { Row from base } {
-//      >  <error{Row can only be within a GridLayout element}
-    base := ComponentA {}
+export component UsesRow uses { Row from base } {
+//                              >  <error{Row can only be within a GridLayout element}
+    base := ComponentA { }
 }
 
-export component UsesRowInGridLayout
- uses { Row from base } inherits GridLayout {
-//      >  <error{Row can only be within a GridLayout element}
-    base := ComponentA {}
+export component UsesRowInGridLayout uses { Row from base } inherits GridLayout {
+//                                          >  <error{Row can only be within a GridLayout element}
+    base := ComponentA { }
 }
 
-export component MultipleErrors
- uses { MissingInterface from base, Rectangle from base, ComponentA from base, Row from base } {
-//      >               <error{Unknown element 'MissingInterface'}
-//                                  >        <^error{'Rectangle' is not an interface}
-//                                                       >         <^^error{'ComponentA' is not an interface}
-//                                                                             >  <^^^error{Row can only be within a GridLayout element}
-    base := ComponentA {}
+export component MultipleErrors uses { MissingInterface from base, Rectangle from base, ComponentA from base, Row from base } {
+//                                     >               <error{Unknown element 'MissingInterface'}
+//                                                                 >        <^error{'Rectangle' is not an interface}
+//                                                                                      >         <^^error{'ComponentA' is not an interface}
+//                                                                                                            >  <^^^error{Row can only be within a GridLayout element}
+    base := ComponentA { }
 }
 
 export interface ValidInterface {
     in-out property <int> value;
 }
 
-export component MissingChild
- uses { ValidInterface from base} {}
-//                          >  <error{'base' does not exist}
+export component MissingChild uses { ValidInterface from base} { }
+//                                                       >  <error{'base' does not exist}
 
-export component ChildDoesNotImplementInterface
- uses { ValidInterface from base } {
-//                          >  <error{base does not implement ValidInterface}
-    base := ComponentA {}
+export component ChildDoesNotImplementInterface uses { ValidInterface from base } {
+//                                                                         >  <error{base does not implement ValidInterface}
+    base := ComponentA { }
 }
 
-component ValidBase implements ValidInterface {}
+component ValidBase implements ValidInterface { }
 
-export component DuplicatePropertyName
- uses { ValidInterface from base } {
-    base := ValidBase {}
+export component DuplicatePropertyName uses { ValidInterface from base } {
+    base := ValidBase { }
+
     in-out property <int> value;
 //                        >   <error{Cannot override property 'value' from 'ValidInterface'}
 }
@@ -72,5 +64,5 @@ component BaseWithProperty {
 
 export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithProperty {
 //                                             >             <error{Cannot use interface 'ValidInterface' because property 'value' conflicts with existing property in 'BaseWithProperty'}
-    base := ValidBase {}
+    base := ValidBase { }
 }

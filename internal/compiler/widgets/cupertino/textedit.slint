@@ -100,9 +100,7 @@ export component TextEdit {
     }
 
     public function cut() {
-        if (!root.read-only && root.enabled) {
-            text-input.cut();
-        }
+        text-input.cut();
     }
 
     public function copy() {
@@ -110,9 +108,7 @@ export component TextEdit {
     }
 
     public function paste() {
-        if (!root.read-only && root.enabled) {
-            text-input.paste();
-        }
+        text-input.paste();
     }
 
     forward-focus: text-input;

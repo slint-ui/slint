@@ -922,9 +922,8 @@ class Repeater
             }
             auto &c = data[index];
             if (model && c.ptr) {
-                if (auto data = model->row_data(index)) {
-                    (*c.ptr)->update_data(index, *data);
-                }
+                std::optional<ModelData> data = model->row_data(index);
+                (*c.ptr)->update_data(index, data ? *data : ModelData {});
                 c.state = State::Clean;
             } else {
                 c.state = State::Dirty;
@@ -994,9 +993,8 @@ public:
                         created = true;
                     }
                     if (c.state == RepeaterInner::State::Dirty) {
-                        if (auto data = m->row_data(i)) {
-                            (*c.ptr)->update_data(i, *data);
-                        }
+                        std::optional<ModelData> data = m->row_data(i);
+                        (*c.ptr)->update_data(i, data ? *data : ModelData {});
                     }
                     if (created) {
                         (*c.ptr)->init();

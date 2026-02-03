@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette } from "../common.slint";
+import { IconButton } from "./icon_button.slint";
+
+export component BackHeader inherits Rectangle {
+    in property <string> title <=> title-text.text;
+    in property <string> subtitle <=> subtitle-text.text;
+
+    callback back <=> back-button.clicked;
+
+    height: 102px;
+    background: DemoPalette.header-background;
+
+    layout := VerticalLayout {
+        height: self.preferred-height;
+        HorizontalLayout {
+            alignment: start;
+            height: self.preferred-height;
+            padding-left: DemoPalette.default-margin;
+            spacing: 12px;
+            back-button := IconButton {
+                width: 36px;
+                height: 36px;
+                icon: @image-url("../images/back.svg");
+                icon-size: 5px;
+                colorize: DemoPalette.text-primary;
+            }
+
+            title-text := Text {
+                font-size: 24px;
+                font-family: DemoPalette.medium-weight;
+                color: DemoPalette.text-primary;
+            }
+        }
+
+        HorizontalLayout {
+            height: self.preferred-height;
+            padding-left: DemoPalette.default-margin;
+            spacing: 12px;
+            Rectangle {
+                width: 36px;
+            }
+
+            subtitle-text := Text {
+                font-size: 16px;
+                color: DemoPalette.text-tertiary;
+                font-family: DemoPalette.medium-weight;
+            }
+        }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 2px;
+        background: DemoPalette.header-separator;
+    }
+}
+
+export component PlainHeader inherits Rectangle {
+    in property <string> title <=> title-text.text;
+
+    height: 86px;
+    background: DemoPalette.header-background;
+
+    layout := VerticalLayout {
+        height: self.preferred-height;
+        HorizontalLayout {
+            alignment: start;
+            height: self.preferred-height;
+            padding-left: DemoPalette.default-margin;
+            spacing: 12px;
+
+            title-text := Text {
+                font-size: 24px;
+                font-family: DemoPalette.medium-weight;
+                color: DemoPalette.text-primary;
+            }
+        }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 2px;
+        background: DemoPalette.header-separator;
+    }
+}

@@ -392,7 +392,13 @@ fn duplicate_element_with_mapping(
         has_popup_child: elem.has_popup_child,
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
-        grid_layout_cell: elem.grid_layout_cell.clone(),
+        // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
+        // This is important because children_constraints contain NamedReferences that need
+        // to be fixed up independently for each inlined copy.
+        grid_layout_cell: elem
+            .grid_layout_cell
+            .as_ref()
+            .map(|cell| Rc::new(RefCell::new(cell.borrow().clone()))),
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     if let ElementType::Component(c) = &mut new.borrow_mut().base_type
@@ -582,18 +588,11 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     };
     match expr {
         Expression::ElementReference(element) => fx(element),
-        Expression::SolveLayout(l, _) | Expression::ComputeLayoutInfo(l, _) => match l {
-            crate::layout::Layout::GridLayout(l) => {
-                for e in &mut l.elems {
-                    fxe(&mut e.item.element);
-                }
+        Expression::SolveBoxLayout(l, _) | Expression::ComputeBoxLayoutInfo(l, _) => {
+            for e in &mut l.elems {
+                fxe(&mut e.element);
             }
-            crate::layout::Layout::BoxLayout(l) => {
-                for e in &mut l.elems {
-                    fxe(&mut e.element);
-                }
-            }
-        },
+        }
         Expression::SolveGridLayout { layout, .. }
         | Expression::OrganizeGridLayout(layout)
         | Expression::ComputeGridLayoutInfo { layout, .. } => {

@@ -6,9 +6,7 @@ use std::path::Path;
 
 fn main() -> std::io::Result<()> {
     let default_font_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "..", "demos", "printerdemo", "ui", "fonts"]
-            .iter()
-            .collect();
+        [env!("CARGO_MANIFEST_DIR"), "fonts"].iter().collect();
 
     // Safety: there are no other threads at this point
     unsafe {

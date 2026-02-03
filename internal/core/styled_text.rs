@@ -588,3 +588,32 @@ pub mod ffi {
         unsafe { core::ptr::write(out, ss.clone()) }
     }
 }
+
+pub fn escape_markdown(text: &str) -> alloc::string::String {
+    let mut out = alloc::string::String::with_capacity(text.len());
+
+    for c in text.chars() {
+        match c {
+            '*' => out.push_str("\\*"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '_' => out.push_str("\\_"),
+            '#' => out.push_str("\\#"),
+            '-' => out.push_str("\\-"),
+            '`' => out.push_str("\\`"),
+            '&' => out.push_str("\\&"),
+            _ => out.push(c),
+        }
+    }
+
+    out
+}
+
+pub fn parse_markdown(_text: &str) -> StyledText {
+    #[cfg(feature = "std")]
+    {
+        StyledText::parse(_text).unwrap()
+    }
+    #[cfg(not(feature = "std"))]
+    Default::default()
+}

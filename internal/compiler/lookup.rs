@@ -520,7 +520,21 @@ fn expression_from_reference(
     match ty {
         Type::Callback { .. } => Callable::Callback(n).into(),
         Type::InferredCallback => Callable::Callback(n).into(),
-        Type::Function { .. } => Callable::Function(n).into(),
+        Type::Function(function) => {
+            let base_expr = Rc::downgrade(&n.element());
+            let callable = Callable::Function(n);
+            // If the function has a ElementReference type as the first argument, that usually means it is
+            // a member function
+            if matches!(function.args.first(), Some(Type::ElementReference)) {
+                LookupResult::Callable(LookupResultCallable::MemberFunction {
+                    base: Expression::ElementReference(base_expr),
+                    base_node: None,
+                    member: Box::new(LookupResultCallable::Callable(callable)),
+                })
+            } else {
+                callable.into()
+            }
+        }
         _ => LookupResult::Expression { expression: Expression::PropertyReference(n), deprecated },
     }
 }
@@ -804,7 +818,6 @@ impl LookupObject for SlintInternal {
         .or_else(|| f("date-now", b(BuiltinFunction::DateNow)))
         .or_else(|| f("valid-date", b(BuiltinFunction::ValidDate)))
         .or_else(|| f("parse-date", b(BuiltinFunction::ParseDate)))
-        .or_else(|| f("open-url", b(BuiltinFunction::OpenUrl)))
     }
 }
 
@@ -819,6 +832,7 @@ impl LookupObject for ColorFunctions {
         None.or_else(|| f("rgb", BuiltinMacroFunction::Rgb))
             .or_else(|| f("rgba", BuiltinMacroFunction::Rgb))
             .or_else(|| f("hsv", BuiltinMacroFunction::Hsv))
+            .or_else(|| f("oklch", BuiltinMacroFunction::Oklch))
     }
 }
 
@@ -989,7 +1003,10 @@ impl LookupObject for ColorExpression<'_> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
-            let base = if f == BuiltinFunction::ColorHsvaStruct && self.0.ty() == Type::Brush {
+            let base = if (f == BuiltinFunction::ColorHsvaStruct
+                || f == BuiltinFunction::ColorOklchStruct)
+                && self.0.ty() == Type::Brush
+            {
                 Expression::Cast { from: Box::new(self.0.clone()), to: Type::Color }
             } else {
                 self.0.clone()
@@ -1022,6 +1039,7 @@ impl LookupObject for ColorExpression<'_> {
             .or_else(|| f("blue", field_access("blue")))
             .or_else(|| f("alpha", field_access("alpha")))
             .or_else(|| f("to-hsv", member_function(BuiltinFunction::ColorHsvaStruct)))
+            .or_else(|| f("to-oklch", member_function(BuiltinFunction::ColorOklchStruct)))
             .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
             .or_else(|| f("transparentize", member_function(BuiltinFunction::ColorTransparentize)))

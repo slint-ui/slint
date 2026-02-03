@@ -115,8 +115,8 @@ impl VectorFont {
                 let alpha_map: Rc<[u8]> = alpha_map.into();
 
                 let glyph = super::RenderableVectorGlyph {
-                    x: Fixed::from_integer(metrics.xmin.try_into().unwrap()),
-                    y: Fixed::from_integer(metrics.ymin.try_into().unwrap()),
+                    x: Fixed::from_integer(metrics.xmin),
+                    y: Fixed::from_integer(metrics.ymin),
                     width: PhysicalLength::new(metrics.width.try_into().unwrap()),
                     height: PhysicalLength::new(metrics.height.try_into().unwrap()),
                     alpha_map,
@@ -160,15 +160,14 @@ impl TextShaper for VectorFont {
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
-        NonZeroU16::try_from(self.fontdue_font.lookup_glyph_index(ch)).ok().map(|glyph_id| {
-            let mut out_glyph = Glyph::default();
-            out_glyph.glyph_id = Some(glyph_id);
-            out_glyph.advance = PhysicalLength::new(
+        NonZeroU16::try_from(self.fontdue_font.lookup_glyph_index(ch)).ok().map(|glyph_id| Glyph {
+            glyph_id: Some(glyph_id),
+            advance: PhysicalLength::new(
                 self.fontdue_font
                     .metrics_indexed(glyph_id.get(), self.pixel_size.get() as _)
                     .advance_width as _,
-            );
-            out_glyph
+            ),
+            ..Default::default()
         })
     }
 

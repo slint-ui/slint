@@ -71,29 +71,14 @@ pub fn set_animated_property_binding<
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> T,
-    animation_data: PropertyAnimation,
-) {
-    let weak = component_strong.to_weak();
-    property.set_animated_binding(
-        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap()),
-        animation_data,
-    )
-}
-
-pub fn set_animated_property_binding_for_transition<
-    T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-    StrongRef: StrongItemTreeRef + 'static,
->(
-    property: Pin<&Property<T>>,
-    component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
     compute_animation_details: fn(
         StrongRef,
-    ) -> (PropertyAnimation, i_slint_core::animations::Instant),
+    )
+        -> (PropertyAnimation, Option<i_slint_core::animations::Instant>),
 ) {
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();
-    property.set_animated_binding_for_transition(
+    property.set_animated_binding(
         move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
             compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
@@ -178,7 +163,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
-    pub use i_slint_core::{escape_markdown, format, parse_markdown};
+    pub use i_slint_core::styled_text::{StyledText, escape_markdown, parse_markdown};
     // This one is empty when Qt is not available, which triggers a warning
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
@@ -186,8 +171,8 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
-    pub use i_slint_core::animations::{EasingCurve, animation_tick};
-    pub use i_slint_core::api::{LogicalPosition, StyledText};
+    pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
+    pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
@@ -225,7 +210,7 @@ pub mod re_exports {
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
     };
-    pub use i_slint_core::{Color, Coord, SharedString, SharedVector};
+    pub use i_slint_core::{Color, Coord, SharedString, SharedVector, format};
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;
     pub use num_traits::ops::euclid::Euclid;

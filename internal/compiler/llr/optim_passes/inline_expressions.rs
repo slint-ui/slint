@@ -40,6 +40,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
         Expression::ArrayIndexAssignment { .. } => return isize::MAX,
+        Expression::SliceIndexAssignment { .. } => return isize::MAX,
         Expression::BinaryExpression { .. } => 1,
         Expression::UnaryOp { .. } => 1,
         // Avoid inlining calls to load the image from the cache, as in the worst case the image isn't cached
@@ -123,6 +124,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringToUppercase => ALLOC_COST,
         BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorHsvaStruct => 50,
+        BuiltinFunction::ColorOklchStruct => 50,
         BuiltinFunction::ColorBrighter => 50,
         BuiltinFunction::ColorDarker => 50,
         BuiltinFunction::ColorTransparentize => 50,
@@ -132,6 +134,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ArrayLength => 50,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
+        BuiltinFunction::Oklch => 50,
         BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
@@ -155,7 +158,6 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StartTimer => 10,
         BuiltinFunction::StopTimer => 10,
         BuiltinFunction::RestartTimer => 10,
-        BuiltinFunction::OpenUrl => isize::MAX,
         BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => isize::MAX,
     }
 }

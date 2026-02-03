@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Label } from "../common.slint";
+import { ShadowBox } from "./ShadowBox.slint";
+
+export component SpinBox inherits ShadowBox {
+    in property <string> label;
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in-out property <int> value;
+
+    height: 90px;
+
+    VerticalLayout {
+        height: self.preferred-height;
+        spacing: 4px;
+
+        label-text := Text {
+            horizontal-alignment: center;
+            text: root.label;
+            color: #45556C;
+            font-size: 14px;
+        }
+
+        Text {
+            horizontal-alignment: center;
+            text: root.value;
+            color: DemoPalette.control-foreground;
+            font-size: 30px;
+        }
+    }
+}

@@ -10,6 +10,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
+use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use smol_str::SmolStr;
@@ -51,6 +52,7 @@ pub enum ValueType {
     /// Correspond to `image` type in .slint.
     Image,
     /// Correspond to `styled-text` type in .slint.
+    #[doc(hidden)]
     StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
@@ -130,8 +132,9 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
+    #[doc(hidden)] // make visible when we make StyledText public
     /// Correspond to the `styled-text` type in .slint
-    StyledText(i_slint_core::api::StyledText) = 13,
+    StyledText(StyledText) = 13,
     #[doc(hidden)]
     ArrayOfU16(SharedVector<u16>) = 14,
 }
@@ -253,7 +256,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
-declare_value_conversion!(StyledText => [i_slint_core::api::StyledText] );
+declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
@@ -433,6 +436,114 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalLength, Self::Error> {
         match v {
             Value::Number(n) => Ok(i_slint_core::lengths::LogicalLength::new(n as _)),
+            _ => Err(v),
+        }
+    }
+}
+
+impl From<i_slint_core::lengths::LogicalPoint> for Value {
+    #[inline]
+    fn from(pt: i_slint_core::lengths::LogicalPoint) -> Self {
+        Value::Struct(Struct::from_iter([
+            ("x".to_owned(), Value::Number(pt.x as _)),
+            ("y".to_owned(), Value::Number(pt.y as _)),
+        ]))
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalPoint {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalPoint, Self::Error> {
+        match v {
+            Value::Struct(s) => {
+                let x = s
+                    .get_field("x")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let y = s
+                    .get_field("y")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                Ok(i_slint_core::lengths::LogicalPoint::new(x, y))
+            }
+            _ => Err(v),
+        }
+    }
+}
+
+impl From<i_slint_core::lengths::LogicalSize> for Value {
+    #[inline]
+    fn from(s: i_slint_core::lengths::LogicalSize) -> Self {
+        Value::Struct(Struct::from_iter([
+            ("width".to_owned(), Value::Number(s.width as _)),
+            ("height".to_owned(), Value::Number(s.height as _)),
+        ]))
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalSize {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalSize, Self::Error> {
+        match v {
+            Value::Struct(s) => {
+                let width = s
+                    .get_field("width")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let height = s
+                    .get_field("height")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                Ok(i_slint_core::lengths::LogicalSize::new(width, height))
+            }
+            _ => Err(v),
+        }
+    }
+}
+
+impl From<i_slint_core::lengths::LogicalEdges> for Value {
+    #[inline]
+    fn from(s: i_slint_core::lengths::LogicalEdges) -> Self {
+        Value::Struct(Struct::from_iter([
+            ("left".to_owned(), Value::Number(s.left as _)),
+            ("right".to_owned(), Value::Number(s.right as _)),
+            ("top".to_owned(), Value::Number(s.top as _)),
+            ("bottom".to_owned(), Value::Number(s.bottom as _)),
+        ]))
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalEdges {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalEdges, Self::Error> {
+        match v {
+            Value::Struct(s) => {
+                let left = s
+                    .get_field("left")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let right = s
+                    .get_field("right")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let top = s
+                    .get_field("top")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                let bottom = s
+                    .get_field("bottom")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Number(0 as _))
+                    .try_into()?;
+                Ok(i_slint_core::lengths::LogicalEdges::new(left, right, top, bottom))
+            }
             _ => Err(v),
         }
     }
@@ -652,7 +763,7 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_fallback =
+        self.config.open_import_callback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
     }
 
@@ -828,7 +939,7 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_fallback =
+        self.config.open_import_callback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
     }
 
@@ -2135,6 +2246,7 @@ fn lang_type_to_value_type() {
 
 #[test]
 fn test_multi_components() {
+    i_slint_backend_testing::init_no_event_loop();
     let result = spin_on::spin_on(
         Compiler::default().build_from_source(
             r#"

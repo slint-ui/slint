@@ -223,6 +223,8 @@ private:
     void *inner; // opaque
 };
 
+namespace private_api {
+
 /// Styled text that has been parsed and seperated into paragraphs
 struct StyledText
 {
@@ -243,6 +245,13 @@ public:
         return *this;
     }
 
+    /// Move-assigns \a other to this StyledText instance.
+    StyledText &operator=(StyledText &&other)
+    {
+        std::swap(inner, other.inner);
+        return *this;
+    }
+
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const StyledText &a, const StyledText &b)
     {
@@ -250,9 +259,8 @@ public:
     }
 
 private:
-    void *paragraphs;
+    void *inner;
 };
-namespace private_api {
 
 template<typename T>
 inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
@@ -275,5 +283,4 @@ inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
     return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
 }
 }
-
 }

@@ -5,10 +5,15 @@ export component Test  {
     property <bool> condition;
 
     GridLayout {
-        // Issue #3729
         if (condition) : r := Row {
-//                            >  <error{'if' or 'for' expressions are not currently supported for Row elements in grid layouts}
-            Rectangle {}
+            row: 1;
+//          > <error{Unknown property row in Row}
+            col: 2;
+//          > <error{Unknown property col in Row}
+            rowspan: 2;
+//          >     <error{Unknown property rowspan in Row}
+            colspan: 2;
+//          >     <error{Unknown property colspan in Row}
         }
     }
 }

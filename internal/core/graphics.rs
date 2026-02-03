@@ -54,10 +54,10 @@ pub mod boxshadowcache;
 pub mod border_radius;
 pub use border_radius::*;
 
-#[cfg(feature = "unstable-wgpu-26")]
-pub mod wgpu_26;
 #[cfg(feature = "unstable-wgpu-27")]
 pub mod wgpu_27;
+#[cfg(feature = "unstable-wgpu-28")]
+pub mod wgpu_28;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
@@ -168,12 +168,12 @@ pub enum RequestedGraphicsAPI {
     Vulkan,
     /// Direct 3D
     Direct3D,
-    #[cfg(feature = "unstable-wgpu-26")]
-    /// WGPU 26.x
-    WGPU26(wgpu_26::api::WGPUConfiguration),
     #[cfg(feature = "unstable-wgpu-27")]
     /// WGPU 27.x
     WGPU27(wgpu_27::api::WGPUConfiguration),
+    #[cfg(feature = "unstable-wgpu-28")]
+    /// WGPU 28.x
+    WGPU28(wgpu_28::api::WGPUConfiguration),
 }
 
 impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
@@ -193,13 +193,13 @@ impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
             RequestedGraphicsAPI::Direct3D => {
                 Err("Direct3D rendering is not supported with an OpenGL renderer".into())
             }
-            #[cfg(feature = "unstable-wgpu-26")]
-            RequestedGraphicsAPI::WGPU26(..) => {
-                Err("WGPU 26.x rendering is not supported with an OpenGL renderer".into())
-            }
             #[cfg(feature = "unstable-wgpu-27")]
             RequestedGraphicsAPI::WGPU27(..) => {
                 Err("WGPU 27.x rendering is not supported with an OpenGL renderer".into())
+            }
+            #[cfg(feature = "unstable-wgpu-28")]
+            RequestedGraphicsAPI::WGPU28(..) => {
+                Err("WGPU 28.x rendering is not supported with an OpenGL renderer".into())
             }
         }
     }
@@ -213,17 +213,6 @@ impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
 
 /// Private API exposed to just the renderers to create GraphicsAPI instance with
 /// non-exhaustive enum variant.
-#[cfg(feature = "unstable-wgpu-26")]
-pub fn create_graphics_api_wgpu_26(
-    instance: wgpu_26::wgpu::Instance,
-    device: wgpu_26::wgpu::Device,
-    queue: wgpu_26::wgpu::Queue,
-) -> crate::api::GraphicsAPI<'static> {
-    crate::api::GraphicsAPI::WGPU26 { instance, device, queue }
-}
-
-/// Private API exposed to just the renderers to create GraphicsAPI instance with
-/// non-exhaustive enum variant.
 #[cfg(feature = "unstable-wgpu-27")]
 pub fn create_graphics_api_wgpu_27(
     instance: wgpu_27::wgpu::Instance,
@@ -231,6 +220,17 @@ pub fn create_graphics_api_wgpu_27(
     queue: wgpu_27::wgpu::Queue,
 ) -> crate::api::GraphicsAPI<'static> {
     crate::api::GraphicsAPI::WGPU27 { instance, device, queue }
+}
+
+/// Private API exposed to just the renderers to create GraphicsAPI instance with
+/// non-exhaustive enum variant.
+#[cfg(feature = "unstable-wgpu-28")]
+pub fn create_graphics_api_wgpu_28(
+    instance: wgpu_28::wgpu::Instance,
+    device: wgpu_28::wgpu::Device,
+    queue: wgpu_28::wgpu::Queue,
+) -> crate::api::GraphicsAPI<'static> {
+    crate::api::GraphicsAPI::WGPU28 { instance, device, queue }
 }
 
 /// Internal module for use by cbindgen and the C++ platform API layer.

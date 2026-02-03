@@ -10,7 +10,8 @@ import { IconButton } from "./icon_button.slint";
 import { Icon } from "./icon.slint";
 
 export component TextField {
-    in property <string> label;
+    in property <string> label: placeholder_text;
+    // Deprecated: this property was unintentionally made public. Use `label` instead.
     in property <string> placeholder_text;
     in property <string> supporting_text;
     in property <bool> has_error;

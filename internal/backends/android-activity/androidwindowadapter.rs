@@ -10,8 +10,9 @@ use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
+use i_slint_core::input::MouseEvent;
 use i_slint_core::items::ColorScheme;
-use i_slint_core::lengths::PhysicalInset;
+use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
@@ -166,7 +167,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         self.color_scheme.as_ref().get()
     }
 
-    fn safe_area_inset(&self) -> PhysicalInset {
+    fn safe_area_inset(&self) -> PhysicalEdges {
         if self.fullscreen.get() {
             Default::default()
         } else {
@@ -189,12 +190,12 @@ impl AndroidWindowAdapter {
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
-            #[cfg(not(any(feature = "unstable-wgpu-26", feature = "unstable-wgpu-27")))]
+            #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
-            #[cfg(feature = "unstable-wgpu-27")]
+            #[cfg(feature = "unstable-wgpu-28")]
+            renderer: SkiaRenderer::default_wgpu_28(&SkiaSharedContext::default()),
+            #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
             renderer: SkiaRenderer::default_wgpu_27(&SkiaSharedContext::default()),
-            #[cfg(all(feature = "unstable-wgpu-26", not(feature = "unstable-wgpu-27")))]
-            renderer: SkiaRenderer::default_wgpu_26(&SkiaSharedContext::default()),
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
@@ -269,13 +270,11 @@ impl AndroidWindowAdapter {
                     self.window.try_dispatch_event(WindowEvent::Resized {
                         size: self.size().to_logical(scale_factor),
                     })?;
-                    self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
-                        inset: self
-                            .internal(i_slint_core::InternalToken)
+                    WindowInner::from_pub(&self.window).set_window_item_safe_area(
+                        self.internal(i_slint_core::InternalToken)
                             .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
                             .unwrap_or_default(),
-                        token: i_slint_core::InternalToken,
-                    })?;
+                    );
                 }
             }
             PollEvent::Main(MainEvent::Destroy) => {
@@ -362,13 +361,14 @@ impl AndroidWindowAdapter {
                             long_press_timeout,
                         );
                         self.long_press.replace(Some(LongPressDetection { position, _timer }));
-
-                        let pointer_index = motion_event.pointer_index();
-                        let pointer = motion_event.pointer_at_index(pointer_index);
-                        let pointer_id = pointer.pointer_id();
-                        let window_event =
-                            WindowEvent::TouchPressed { touch_id: pointer_id, position };
-                        result = self.window.try_dispatch_event(window_event);
+                        WindowInner::from_pub(&self.window).process_mouse_input(
+                            MouseEvent::Pressed {
+                                position: i_slint_core::lengths::logical_point_from_api(position),
+                                button: PointerEventButton::Left,
+                                click_count: 0,
+                                is_touch: true,
+                            },
+                        );
                         InputStatus::Handled
                     }
                     MotionAction::Up => {
@@ -376,15 +376,16 @@ impl AndroidWindowAdapter {
                             .to_logical(self.window.scale_factor());
                         self.long_press.take();
 
-                        let pointer_index = motion_event.pointer_index();
-                        let pointer = motion_event.pointer_at_index(pointer_index);
-                        let pointer_id = pointer.pointer_id();
-                        let window_event =
-                            WindowEvent::TouchReleased { touch_id: pointer_id, position };
-                        result = self.window.try_dispatch_event(window_event).and_then(|_| {
-                            // Also send exit to avoid remaining hover state
-                            self.window.try_dispatch_event(WindowEvent::PointerExited)
-                        });
+                        WindowInner::from_pub(&self.window).process_mouse_input(
+                            MouseEvent::Released {
+                                position: i_slint_core::lengths::logical_point_from_api(position),
+                                button: PointerEventButton::Left,
+                                click_count: 0,
+                                is_touch: true,
+                            },
+                        );
+                        // Also send exit to avoid remaining hover state
+                        result = self.window.try_dispatch_event(WindowEvent::PointerExited);
                         InputStatus::Handled
                     }
                     MotionAction::Move => {
@@ -399,12 +400,12 @@ impl AndroidWindowAdapter {
                             *lp = None;
                         }
 
-                        let pointer_index = motion_event.pointer_index();
-                        let pointer = motion_event.pointer_at_index(pointer_index);
-                        let pointer_id = pointer.pointer_id();
-                        let window_event =
-                            WindowEvent::TouchMoved { touch_id: pointer_id, position };
-                        result = self.window.try_dispatch_event(window_event);
+                        WindowInner::from_pub(&self.window).process_mouse_input(
+                            MouseEvent::Moved {
+                                position: i_slint_core::lengths::logical_point_from_api(position),
+                                is_touch: true,
+                            },
+                        );
                         InputStatus::Handled
                     }
                     MotionAction::HoverMove => {
@@ -484,13 +485,11 @@ impl AndroidWindowAdapter {
         let scale_factor = self.window.scale_factor();
         self.window
             .try_dispatch_event(WindowEvent::Resized { size: size.to_logical(scale_factor) })?;
-        self.window.try_dispatch_event(WindowEvent::SafeAreaChanged {
-            inset: self
-                .internal(i_slint_core::InternalToken)
+        WindowInner::from_pub(&self.window).set_window_item_safe_area(
+            self.internal(i_slint_core::InternalToken)
                 .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
                 .unwrap_or_default(),
-            token: i_slint_core::InternalToken,
-        })?;
+        );
         self.offset.set(offset);
         Ok(())
     }
@@ -519,14 +518,12 @@ impl AndroidWindowAdapter {
         &self,
         window_origin: PhysicalPosition,
         window_size: PhysicalSize,
-        safe_area: PhysicalInset,
-        keyboard: PhysicalInset,
+        safe_area: PhysicalEdges,
+        keyboard: PhysicalEdges,
     ) {
         let scale_factor = self.window.scale_factor();
-        self.window.dispatch_event(WindowEvent::SafeAreaChanged {
-            inset: safe_area.to_logical(scale_factor),
-            token: i_slint_core::InternalToken,
-        });
+        WindowInner::from_pub(&self.window)
+            .set_window_item_safe_area(safe_area.to_logical(scale_factor));
 
         let window_origin = window_origin.to_logical(scale_factor);
         let window_size = window_size.to_logical(scale_factor);

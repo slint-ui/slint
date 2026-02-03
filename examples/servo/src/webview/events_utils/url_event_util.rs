@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use servo::servo_url::ServoUrl;
+use servo::ServoUrl;
 
 pub fn convert_input_string_to_servo_url(url: &str) -> ServoUrl {
     let parsed_url = input_to_url(url, "https://google.com/search?q=%s");

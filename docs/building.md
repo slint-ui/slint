@@ -17,7 +17,7 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 - **FFMPEG**
 
-- **Skia** (only few available binaries):
+- **Skia** (binaries limited to few platforms):
 
 <center>
 
@@ -31,8 +31,6 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 | WebAssembly                       | `wasm32-unknown-emscripten`                        |
 
 </center>
-
-- Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
 
 ### Linux
 
@@ -54,6 +52,8 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - FFMPEG `brew install pkg-config ffmpeg`
 
 ### Windows
+
+- Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
 
 - See [System Link](#symlinks-in-the-repository-windows)
 - Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`

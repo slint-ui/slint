@@ -492,8 +492,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_layout_info(lay, *o, local_context)
+        Expression::ComputeBoxLayoutInfo(lay, o) => {
+            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
         }
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
             let cache = load_property_helper(
@@ -516,7 +516,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::OrganizeGridLayout(lay) => {
             crate::eval_layout::organize_grid_layout(lay, local_context)
         }
-        Expression::SolveLayout(lay, o) => crate::eval_layout::solve_layout(lay, *o, local_context),
+        Expression::SolveBoxLayout(lay, o) => {
+            crate::eval_layout::solve_box_layout(lay, *o, local_context)
+        }
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
@@ -849,6 +851,10 @@ fn call_builtin_function(
 
             generativity::make_guard!(guard);
             let compiled = enclosing_component.description.popup_menu_description.unerase(guard);
+            let extra_data = enclosing_component
+                .description
+                .extra_data_offset
+                .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
                 Some(enclosing_component.self_weak().get().unwrap().clone()),
@@ -856,7 +862,7 @@ fn call_builtin_function(
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
                 )),
-                Default::default(),
+                extra_data.globals.get().unwrap().clone(),
             );
 
             generativity::make_guard!(guard);
@@ -1139,6 +1145,24 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ColorOklchStruct => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ColorOklchStruct")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                let color = brush.color().to_oklch();
+                let values = IntoIterator::into_iter([
+                    ("lightness".to_string(), Value::Number(color.lightness.into())),
+                    ("chroma".to_string(), Value::Number(color.chroma.into())),
+                    ("hue".to_string(), Value::Number(color.hue.into())),
+                    ("alpha".to_string(), Value::Number(color.alpha.into())),
+                ])
+                .collect();
+                Value::Struct(values)
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ColorBrighter => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorBrighter")
@@ -1273,6 +1297,16 @@ fn call_builtin_function(
             let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
             let a = (1. * a).clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_hsva(h, s, v, a)))
+        }
+        BuiltinFunction::Oklch => {
+            let l: f32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let c: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let h: f32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
+            let l = l.clamp(0., 1.);
+            let c = c.max(0.);
+            let a = a.clamp(0., 1.);
+            Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
         BuiltinFunction::ColorScheme => local_context
             .component_instance
@@ -1513,21 +1547,15 @@ fn call_builtin_function(
                 panic!("internal error: argument to RestartTimer must be an element")
             }
         }
-        BuiltinFunction::OpenUrl => {
-            let url: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            corelib::open_url(&url);
-            Value::Void
-        }
         BuiltinFunction::EscapeMarkdown => {
             let text: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::String(corelib::escape_markdown(&text).into())
+            Value::String(corelib::styled_text::escape_markdown(&text).into())
         }
         BuiltinFunction::ParseMarkdown => {
             let text: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::parse_markdown(&text))
+            Value::StyledText(corelib::styled_text::parse_markdown(&text))
         }
     }
 }
@@ -1569,6 +1597,13 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
             "is-open" => return Value::Bool(s.is_open(&window_adapter, &item_rc)),
             _ => {
                 panic!("internal: Unknown member function {name} called on ContextMenu")
+            }
+        }
+    } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
+        match name {
+            "hide" => s.hide(&window_adapter),
+            _ => {
+                panic!("internal: Unknown member function {name} called on WindowItem")
             }
         }
     } else {
@@ -1994,7 +2029,9 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
         // (it assumes that the 'id must outlive 'a , which is not true)
         let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
 
-        let parent_instance = component.parent_instance(static_guard).unwrap();
+        let parent_instance = component
+            .parent_instance(static_guard)
+            .expect("accessing deleted parent (issue #6426)");
         enclosing_component_for_element(element, parent_instance, _guard)
     }
 }
@@ -2010,11 +2047,11 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     match component_instance {
         ComponentInstance::InstanceRef(component) => {
             if enclosing.is_global() && !Rc::ptr_eq(enclosing, &component.description.original) {
-                let root = component.toplevel_instance(guard);
                 ComponentInstance::GlobalComponent(
-                    root.description
+                    component
+                        .description
                         .extra_data_offset
-                        .apply(root.instance.get_ref())
+                        .apply(component.instance.get_ref())
                         .globals
                         .get()
                         .unwrap()

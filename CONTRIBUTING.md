@@ -2,7 +2,7 @@
 # Contributing
 
 We warmly welcome contributions to the project. Let's discuss ideas or questions
-in [Github discussions](https://github.com/slint-ui/slint/discussions).
+in [Github discussions](https://github.com/slint-ui/slint/discussions) or on our [public chat](https://chat.slint.dev).
 Please feel welcome to open GitHub issues or pull requests.
 Use 👍 reaction on issue that you consider important.
 
@@ -14,7 +14,7 @@ https://github.com/slint-ui/slint/labels/good%20first%20issue.
  - [Development guide](docs/development.md)
  - [Building Slint from sources in this repository](docs/building.md)
  - [Testing](docs/testing.md)
- - [GitHub issues triage and labels](docs/triage.md)
+ - [GitHub issues triage and labels](docs/internal/triage.md)
 
 ## License
 

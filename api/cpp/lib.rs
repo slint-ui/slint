@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-/*! This crate just expose the function used by the C++ integration */
+/*! This crate just exposes the function used by the C++ integration */
 
 #![no_std]
 extern crate alloc;
@@ -11,8 +11,8 @@ extern crate std;
 use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
-use i_slint_core::api::StyledText;
 use i_slint_core::items::OperatingSystemType;
+use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
 pub mod platform;
@@ -29,7 +29,7 @@ pub fn with_platform<R>(
     i_slint_core::with_platform(|| Err(i_slint_core::platform::PlatformError::NoPlatform), f)
 }
 
-// One need to make sure something from the crate is exported,
+// We need to make sure something from the crate is exported,
 // otherwise its symbols are not going to be in the final binary
 #[cfg(feature = "testing")]
 pub use i_slint_backend_testing;
@@ -241,17 +241,12 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_open_url(url: &SharedString) {
-    i_slint_core::open_url(url)
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedString {
-    *text = i_slint_core::escape_markdown(text).into();
+    *text = i_slint_core::styled_text::escape_markdown(text).into();
     text
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_parse_markdown(text: &SharedString, out: &mut StyledText) {
-    *out = i_slint_core::parse_markdown(text);
+    *out = i_slint_core::styled_text::parse_markdown(text);
 }

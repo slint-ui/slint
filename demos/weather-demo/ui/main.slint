@@ -16,30 +16,33 @@ import { BusyLayerController, BusyLayer } from "./controls/busy-layer.slint";
 export { WindowInfo, AppPalette, BusyLayerController, CityWeather, GeoLocation }
 
 component EdgeFloatingTextButton inherits FloatingTextButton {
-    out property<length> edge-spacing: 15px;
+    out property <length> edge-spacing: 15px;
 }
 
 component AnimatedStackPage inherits StackPage {
     // is-active and is-opened are not set as a binding here, only when the value is actually changed.
     // This is to avoid redundant reevaluation of dependent properties and conditional elements.
     // see: https://github.com/slint-ui/slint/issues/5209
-    out property<bool> is-active: false;
-    out property<bool> is-opened: false;
+    out property <bool> is-active: false;
+    out property <bool> is-opened: false;
 
     // using a helper int property to be able to use animate
-    property<int> is-active-value: 0;
+    property <int> is-active-value: 0;
 
-    property<duration> animation-duration: 250ms;
+    property <duration> animation-duration: 250ms;
 
     visible: root.is-active;
 
-    init => { root.is-active = (self.is-active_value == 1); }
-    changed is-active-value => { root.is-active = (self.is-active_value == 1); }
+    init => {
+        root.is-active = (self.is-active_value == 1);
+    }
+    changed is-active-value => {
+        root.is-active = (self.is-active_value == 1);
+    }
 
     states [
         active when self.is-current: {
             is-active-value: 1;
-
             out {
                 animate is-active-value { delay: root.animation-duration; }
             }
@@ -60,7 +63,10 @@ component AnimatedStackPage inherits StackPage {
 
         y: root.is-current ? 0px : root.height;
 
-        animate y { duration: root.animation-duration; easing: ease-in-out-quad; }
+        animate y {
+            duration: root.animation-duration;
+            easing: ease-in-out-quad;
+        }
 
         @children
     }
@@ -87,16 +93,15 @@ export component AppWindow inherits Window {
     }
 
     stack := StackView {
-        x: root.safe-area-inset-left;
-        y: root.safe-area-inset-top;
-        width: root.width - root.safe-area-inset-right - root.safe-area-inset-left;
-        height: root.height - root.safe-area-inset-bottom - root.safe-area-inset-top;
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.right - root.safe-area-insets.left;
+        height: root.height - root.safe-area-insets.bottom - root.safe-area-insets.top;
 
-        function show-page(pageType : PageType) {
+        function show-page(pageType: PageType) {
             if (pageType == PageType.Main) {
                 self.current-index = 0;
-            }
-            else if (pageType == PageType.AddLocation) {
+            } else if (pageType == PageType.AddLocation) {
                 self.current-index = 1;
             }
         }
@@ -110,10 +115,12 @@ export component AppWindow inherits Window {
 
         StackPage {
             is-current: self.check-is-current(stack.current-index);
-            init => { self.page-index = stack.insert-page(); }
+            init => {
+                self.page-index = stack.insert-page();
+            }
             visible: self.page-index <= stack.current-index;
 
-            CityListView {}
+            CityListView { }
 
             // right (refresh) button
             EdgeFloatingTextButton {
@@ -145,11 +152,13 @@ export component AppWindow inherits Window {
 
         AnimatedStackPage {
             is-current: self.check-is-current(stack.current-index);
-            init => { self.page-index = stack.insert-page(); }
+            init => {
+                self.page-index = stack.insert-page();
+            }
 
             location-search-view := LocationSearchView {
-                property<bool> is-active: parent.is-active;
-                property<bool> is-opened: parent.is-opened;
+                property <bool> is-active: parent.is-active;
+                property <bool> is-opened: parent.is-opened;
 
                 changed is-active => {
                     if (self.is-active) {
@@ -174,11 +183,13 @@ export component AppWindow inherits Window {
 
                     icon-source: AppImages.xmark;
 
-                    clicked => { location-search-view.close-request(); }
+                    clicked => {
+                        location-search-view.close-request();
+                    }
                 }
             }
         }
     }
 
-    if BusyLayerController.is-busy: BusyLayer {}
+    if BusyLayerController.is-busy: BusyLayer { }
 }

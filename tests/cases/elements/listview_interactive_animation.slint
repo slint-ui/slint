@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Testing if the animation is applied to the flickable after mouse release
+
+import { ListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    preferred-width: 300px;
+    preferred-height: 300px;
+
+    in-out property <string> result;
+    in-out property <length> viewport-y <=> lv.viewport-y;
+
+    lv := ListView {
+        mouse-drag-pan-enabled: true;
+        for _[num] in 2130000000: Rectangle {
+            height: 20px;
+            border-width: 1px;
+            border-color: red;
+            Text { text: num; }
+        }
+    }
+}
+
+
+/*
+
+```rust
+/// Simulate a mouse press at `(pressed_x, pressed_y)` and release at `(released_x, released_y)`
+pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
+    component: &Component,
+    pressed_x: f32,
+    pressed_y: f32,
+    released_x: f32,
+    released_y: f32,
+) {
+    use slint::*;
+
+    let window = component.window();
+    let pressed_position = LogicalPosition::new(pressed_x, pressed_y);
+    let released_position = LogicalPosition::new(released_x, released_y);
+    let button = platform::PointerEventButton::Left;
+
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
+    window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
+    window.dispatch_event(platform::WindowEvent::PointerMoved { position: released_position });
+    slint_testing::mock_elapsed_time(50);
+    window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
+}
+
+let instance = TestCase::new().unwrap();
+
+// Scroll down
+send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Scrolling up. Larger y is display bottom (Diff: 130 - 5 = 125)
+// let the animation run for a bit
+slint_testing::mock_elapsed_time(100);
+// Due to the animation the value must be more than the diff of scrolling
+assert!(instance.get_viewport_y() < -125., "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), -125);
+
+// Now scrolling up again
+let old_viewport_y = instance.get_viewport_y();
+println!("Old viewport y: {:?}", old_viewport_y);
+send_mouse_press_and_release(&instance, 5., 0., 5., 75.); // Larger y is display bottom (Diff: 75 - 0)
+// let the animation run for a bit
+slint_testing::mock_elapsed_time(100);
+assert!((instance.get_viewport_y() - old_viewport_y) > 75., "Received: {}, Desired: larger than {}", instance.get_viewport_y() - old_viewport_y, 75);
+```
+
+*/

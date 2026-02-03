@@ -64,8 +64,8 @@ jobs:
                       save_if: ${{ github.ref == 'refs/heads/master' }}
                       extra_args: "--exclude plotter"
                     - os: windows-2022
-                      name: "Windows 2022 1.88"
-                      rust_version: "1.88"
+                      name: "Windows 2022 1.92"
+                      rust_version: "1.92"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: macos-14
@@ -76,11 +76,10 @@ jobs:
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
-            name: ${{ matrix.name }}
+            name: build_and_test ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }} --exclude material-gallery
             save_if: ${{ matrix.save_if }}
-            timeout_minutes: 120
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
@@ -482,6 +481,7 @@ jobs:
                             --skip example_fancy_switches \
                             --skip example_sprite_sheet \
                             --skip example_grid_model_rows \
+                            --skip example_grid_with_repeated_rows \
                             --skip example_vector_as_grid \
                             --skip example_vlayout \
                             --skip test_interpreter_elements_path_fit \

@@ -5,6 +5,7 @@
 
 use super::PhysicalRect;
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
+use alloc::vec;
 use alloc::vec::Vec;
 use zeno::{Fill, Mask, Stroke};
 
@@ -75,8 +76,7 @@ fn render_path_with_style<T: TargetPixel>(
     }
 
     // Create a buffer for the mask output
-    let mut mask_buffer = Vec::with_capacity(path_width * path_height);
-    mask_buffer.resize(path_width * path_height, 0u8);
+    let mut mask_buffer = vec![0u8; path_width * path_height];
 
     // Render the full path into the mask
     Mask::new(commands)
@@ -104,7 +104,11 @@ fn render_path_with_style<T: TargetPixel>(
             continue;
         }
 
-        for screen_x in clip_x_start..clip_x_end {
+        // Iterate the writable portion of the line directly to avoid indexing by loop variable
+        let line_slice = &mut line[clip_x_start..clip_x_end];
+        for (i, pixel) in line_slice.iter_mut().enumerate() {
+            let screen_x = clip_x_start + i;
+
             // Calculate the x coordinate in the mask buffer
             let mask_x = screen_x as isize - path_x_start;
             if mask_x < 0 || mask_x >= path_width as isize {
@@ -123,7 +127,7 @@ fn render_path_with_style<T: TargetPixel>(
                     blue: ((color.blue as u16 * coverage_factor) / 255) as u8,
                     alpha: ((color.alpha as u16 * coverage_factor) / 255) as u8,
                 };
-                T::blend(&mut line[screen_x], alpha_color);
+                T::blend(pixel, alpha_color);
             }
         }
     }

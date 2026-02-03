@@ -1,0 +1,20 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Inverter {
+    pure callback invert(bool) -> bool;
+}
+
+export component InverterDuplicate implements Inverter {
+    callback invert(bool) -> bool;
+//           >    <error{Duplicated callback declaration}
+}
+
+export component InverterAliases implements Inverter {
+    pure callback invert-alias <=> invert;
+}
+
+export interface Initialized {
+    callback init;
+//  >            <error{An interface cannot have an 'init' callback}
+}

@@ -364,18 +364,18 @@ fn region_line_ranges(
                             return true;
                         }
                         r.start = it.start;
-                        return false;
+                        false
                     } else if it.start <= r.end {
                         if it.end <= r.end {
-                            return false;
+                            false
                         } else {
                             it.start = r.start;
                             tmp = None;
-                            return true;
+                            true
                         }
                     } else {
                         core::mem::swap(it, r);
-                        return true;
+                        true
                     }
                 } else {
                     true
@@ -599,23 +599,29 @@ impl SoftwareRenderer {
             .draw_contents(|components| {
                 let logical_size = (size.cast() / factor).cast();
 
-                let dirty_region_of_existing_buffer = match self.repaint_buffer_type.get() {
+                match self.repaint_buffer_type.get() {
                     RepaintBufferType::NewBuffer => {
-                        Some(LogicalRect::from_size(logical_size).into())
+                        renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                        self.partial_rendering_state.clear_cache();
                     }
-                    RepaintBufferType::ReusedBuffer => None,
-                    RepaintBufferType::SwappedBuffers => Some(self.prev_frame_dirty.take()),
-                };
-
-                let dirty_region_for_this_frame = self.partial_rendering_state.apply_dirty_region(
-                    &mut renderer,
-                    components,
-                    logical_size,
-                    dirty_region_of_existing_buffer,
-                );
-
-                if self.repaint_buffer_type.get() == RepaintBufferType::SwappedBuffers {
-                    self.prev_frame_dirty.set(dirty_region_for_this_frame);
+                    RepaintBufferType::ReusedBuffer => {
+                        self.partial_rendering_state.apply_dirty_region(
+                            &mut renderer,
+                            components,
+                            logical_size,
+                            None,
+                        );
+                    }
+                    RepaintBufferType::SwappedBuffers => {
+                        let dirty_region_for_this_frame =
+                            self.partial_rendering_state.apply_dirty_region(
+                                &mut renderer,
+                                components,
+                                logical_size,
+                                Some(self.prev_frame_dirty.take()),
+                            );
+                        self.prev_frame_dirty.set(dirty_region_for_this_frame);
+                    }
                 }
 
                 let rotation = RotationInfo { orientation: rotation, screen_size: size };
@@ -1108,17 +1114,16 @@ impl RendererSealed for SoftwareRenderer {
         let window = window_adapter.window();
         let size = window.size();
 
-        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
-        else {
+        if size.width == 0 || size.height == 0 {
             // Nothing to render
             return Err("take_snapshot() called on window with invalid size".into());
         };
 
         let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(width, height);
+            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(size.width, size.height);
 
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
-        self.render(target_buffer.make_mut_slice(), width as usize);
+        self.render(target_buffer.make_mut_slice(), size.width as usize);
         // ensure that caches are clear for the next call
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
 
@@ -1301,22 +1306,31 @@ fn prepare_scene(
     window.draw_contents(|components| {
         let logical_size = (size.cast() / factor).cast();
 
-        let dirty_region_of_existing_buffer = match software_renderer.repaint_buffer_type.get() {
-            RepaintBufferType::NewBuffer => Some(LogicalRect::from_size(logical_size).into()),
-            RepaintBufferType::ReusedBuffer => None,
-            RepaintBufferType::SwappedBuffers => Some(software_renderer.prev_frame_dirty.take()),
-        };
-
-        let dirty_region_for_this_frame =
-            software_renderer.partial_rendering_state.apply_dirty_region(
-                &mut renderer,
-                components,
-                logical_size,
-                dirty_region_of_existing_buffer,
-            );
-
-        if software_renderer.repaint_buffer_type.get() == RepaintBufferType::SwappedBuffers {
-            software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
+        match software_renderer.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => {
+                // NewBuffer always redraws the full screen, so skip dirty region
+                // tracking to avoid unbounded growth of the partial rendering cache.
+                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                software_renderer.partial_rendering_state.clear_cache();
+            }
+            RepaintBufferType::ReusedBuffer => {
+                software_renderer.partial_rendering_state.apply_dirty_region(
+                    &mut renderer,
+                    components,
+                    logical_size,
+                    None,
+                );
+            }
+            RepaintBufferType::SwappedBuffers => {
+                let dirty_region_for_this_frame =
+                    software_renderer.partial_rendering_state.apply_dirty_region(
+                        &mut renderer,
+                        components,
+                        logical_size,
+                        Some(software_renderer.prev_frame_dirty.take()),
+                    );
+                software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
+            }
         }
 
         let rotation =
@@ -1600,12 +1614,11 @@ fn process_rectangle_impl(
         return;
     }
 
-    if color.alpha > 0 {
-        if let Some(r) =
+    if color.alpha > 0
+        && let Some(r) =
             geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
-        {
-            processor.process_simple_rectangle(r, color);
-        }
+    {
+        processor.process_simple_rectangle(r, color);
     }
 
     if border_color.alpha > 0 {
@@ -1675,7 +1688,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                     size: PhysicalSize::new(end - begin, next - line),
                 };
 
-                f(&mut self.buffer, region, extra_left_clip, extra_right_clip);
+                f(self.buffer, region, extra_left_clip, extra_right_clip);
             }
             if next == geometry.max_y() {
                 break;

@@ -116,24 +116,6 @@ impl BackendSelector {
     /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
     /// Use this when you integrate other WGPU-based renderers with a Slint UI.
     ///
-    /// *Note*: This function is behind the [`unstable-wgpu-26` feature flag](slint:rust:slint/docs/cargo_features/#backends)
-    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
-    ///
-    /// See also the [`slint::wgpu_26`](slint:rust:slint/wgpu_26) module.
-    #[cfg(feature = "unstable-wgpu-26")]
-    #[must_use]
-    pub fn require_wgpu_26(
-        mut self,
-        configuration: i_slint_core::graphics::wgpu_26::api::WGPUConfiguration,
-    ) -> Self {
-        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU26(configuration));
-        self
-    }
-
-    #[i_slint_core_macros::slint_doc]
-    /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
-    /// Use this when you integrate other WGPU-based renderers with a Slint UI.
-    ///
     /// *Note*: This function is behind the [`unstable-wgpu-27` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
@@ -145,6 +127,24 @@ impl BackendSelector {
         configuration: i_slint_core::graphics::wgpu_27::api::WGPUConfiguration,
     ) -> Self {
         self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU27(configuration));
+        self
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
+    /// Use this when you integrate other WGPU-based renderers with a Slint UI.
+    ///
+    /// *Note*: This function is behind the [`unstable-wgpu-28` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_28`](slint:rust:slint/wgpu_28) module.
+    #[cfg(feature = "unstable-wgpu-28")]
+    #[must_use]
+    pub fn require_wgpu_28(
+        mut self,
+        configuration: i_slint_core::graphics::wgpu_28::api::WGPUConfiguration,
+    ) -> Self {
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU28(configuration));
         self
     }
 

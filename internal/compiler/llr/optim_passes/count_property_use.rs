@@ -72,6 +72,10 @@ pub fn count_property_use(root: &CompilationUnit) {
         if let Some(e) = &sc.grid_layout_input_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
+        for child in &sc.grid_layout_children {
+            child.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
+            child.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);
+        }
 
         // 6. accessibility props and geometries
         for b in sc.accessible_prop.values() {
@@ -159,7 +163,7 @@ fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext
     binding.expression.borrow().visit_property_references(ctx, &mut visit_property);
     match &binding.animation {
         Some(Animation::Static(e) | Animation::Transition(e)) => {
-            e.visit_property_references(ctx, &mut visit_property)
+            e.visit_property_references(ctx, &mut visit_property);
         }
         None => (),
     }

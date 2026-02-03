@@ -115,7 +115,7 @@ jobs:
                 components: rust-src
                 target: ${{matrix.target}}
           - name: Setup Zephyr project
-            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.11
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.12
             with:
                 app-path: slint
                 manifest-file-name: demos/zephyr-common/west.yaml
@@ -290,6 +290,9 @@ jobs:
             - name: Build bevy-hosts-slint Example
               run: cargo build
               working-directory: examples/bevy-hosts-slint
+            - name: Build bevy-hosts-slint-gpu Example
+              run: cargo build
+              working-directory: examples/bevy-hosts-slint-gpu
 
     android_wgpu:
         runs-on: ubuntu-latest

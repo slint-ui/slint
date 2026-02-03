@@ -1,0 +1,90 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface TestInterface {
+    pure callback invert(bool) -> bool;
+    pure callback double(int) -> int;
+    pure callback sum(int, int) -> int;
+}
+
+interface Speaker {
+    callback add-message(string);
+    pure callback speak() -> string;
+}
+
+component SpeakerImpl implements Speaker {
+    property <string> message;
+
+    add-message(text) => {
+        if self.message.is-empty {
+            self.message = text;
+        } else {
+            self.message = self.message + " " + text;
+        }
+    }
+
+    speak() => {
+        self.message
+    }
+}
+
+export component TestCase uses { Speaker from speaker } implements TestInterface {
+    invert(b) => {
+        return !b;
+    }
+
+    double(i) => {
+        return i * 2;
+    }
+    pure callback double-alias <=> double;
+
+    speaker := SpeakerImpl { }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.invoke_invert(false));
+assert!(!instance.invoke_invert(true));
+
+assert_eq!(instance.invoke_double_alias(2), 4);
+
+instance.on_sum(|a, b| a + b);
+assert_eq!(instance.invoke_sum(2, 3), 5);
+
+instance.invoke_add_message("Hello".into());
+instance.invoke_add_message("World".into());
+assert_eq!(instance.invoke_speak(), "Hello World");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.invoke_invert(false));
+assert(!instance.invoke_invert(true));
+
+assert_eq(instance.invoke_double_alias(2), 4);
+
+instance.on_sum([](auto a, auto b){ return a + b;});
+assert_eq(instance.invoke_sum(2, 3), 5);
+
+instance.invoke_add_message("Hello");
+instance.invoke_add_message("World");
+assert_eq(instance.invoke_speak(), "Hello World");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.invert(false));
+assert(!instance.invert(true));
+
+assert.equal(instance.double_alias(2), 4);
+
+instance.sum = function(a, b) { return a + b };
+assert.equal(instance.sum(2, 3), 5);
+
+instance.add_message("Hello");
+instance.add_message("World");
+assert.equal(instance.speak(), "Hello World");
+```
+*/

@@ -91,6 +91,7 @@ renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "std"
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
+## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use Vulkan.

@@ -73,4 +73,4 @@ COPY --from=build /slint/demos_compiled/* /usr/bin/
 
 ENV SLINT_FULLSCREEN=1
 ENV SLINT_BACKEND=linuxkms
-CMD /usr/bin/energy-monitor
+CMD /usr/bin/home-automation

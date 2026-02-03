@@ -87,10 +87,10 @@ The horizontal alignment of the text.
 -   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also <Link type="FocusHandling" label="focus handling" />.
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
--   **`clear-selection()`** Clears the selection.
+-   **`clear-selection()`** Clears the selection. This function takes effect regardless of the `read-only` and `enabled` properties.
 -   **`copy()`** Copies the selected text to the clipboard.
--   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
--   **`paste()`** Pastes the text content of the clipboard at the cursor position.
+-   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area. This function takes effect regardless of the `read-only` and `enabled` properties.
+-   **`paste()`** Pastes the text content of the clipboard at the cursor position. This function takes effect regardless of the `read-only` and `enabled` properties.
 
 ## Callbacks
 

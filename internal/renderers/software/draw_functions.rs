@@ -63,7 +63,7 @@ pub(super) fn draw_texture_line(
             let o = (off_x + (delta * (extra_clip_end as i32 + len as i32 - 1)))
                 % Fixed::from_integer(source_size.width);
             pos = o;
-            tile_start = source_size.width as i32;
+            tile_start = source_size.width;
             end = (o / delta) as usize + 1;
             acc_err = -delta + o % delta;
             delta = -delta;

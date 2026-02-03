@@ -18,9 +18,6 @@ on:
                 required: false
                 description: "Release? Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
 
-    schedule:
-        - cron: "0 2 * * *"
-
 env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
     SLINT_BINARY_FEATURES: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
@@ -556,7 +553,9 @@ jobs:
               id: www-releases
               working-directory: ./www-releases
               run: |
-                git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
+                git add .
+                git add -u .
+                git diff-index --cached --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
 
             - name: commit and push
               if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
@@ -564,8 +563,6 @@ jobs:
               run: |
                 git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
                 git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
-                git add .
-                git add -u .
                 git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
                 git push
 
@@ -643,6 +640,10 @@ jobs:
                   fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
                   cat $notes_file slint-src/docs/release-artifacts.md > release-notes.md
+                  branch="${GITHUB_REF#refs/heads/}"
+                  feature="${GITHUB_REF##*/}"
+                  sed -i -e "s,{branch},$branch,g" release-notes.md
+                  sed -i -e "s,{feature},$feature,g" release-notes.md
                   sed -i -e "s,{version},$version,g" release-notes.md
                   sed -i -e "s,{download_version},$download_version,g" release-notes.md
                   sed -i -e "s,{major_version},$major_version,g" release-notes.md
@@ -683,7 +684,7 @@ jobs:
                   bodyFile: release-notes.md
                   name: nightly
                   tag: nightly
-                  commit: 7742f833803020023364c0ec801648fb93f4793b
+                  commit: ${{ github.sha }}
             - name: trigger stm32 build
               run: |
                 curl -L \
@@ -705,27 +706,28 @@ jobs:
             matrix:
                 include:
                     - os: ubuntu-22.04
-                      name: "Ubuntu 22.04 1.88"
-                      rust_version: "1.88"
-                      cache: false
+                      name: "Ubuntu 22.04 1.92"
+                      rust_version: "1.92"
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly"
                       rust_version: "nightly"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                      cache: false
                     - os: macos-14
                       name: "MacOS 14 nightly"
                       rust_version: "nightly"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                      cache: false
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
-            cache: ${{ matrix.cache }}
             extra_args: ${{ matrix.extra_args }}
+            # In the nightly CI run, run cargo update to test if any downstream dependency broke our build
+            # Do not update the cache though, as that would trash the cache for the next runner, which uses the non-updated
+            # lockfile.
+            update: true
+            cache: false
 
     android:
         env:

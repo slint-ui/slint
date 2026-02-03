@@ -17,8 +17,9 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
 };
-use i_slint_core::item_tree::ParentItemTraversalMode;
-use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
+use i_slint_core::item_tree::{
+    ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
+};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin,
     MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
@@ -674,7 +675,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
+        self.save_state();
+        self.pixel_align_origin();
         self.draw_image_impl(item_rc, size, image);
+        self.restore_state();
     }
 
     fn draw_text(
@@ -684,7 +688,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
+        self.save_state();
+        self.pixel_align_origin();
         sharedparley::draw_text(self, text, Some(self_rc), size);
+        self.restore_state();
     }
 
     fn draw_text_input(
@@ -693,7 +700,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
+        self.save_state();
+        self.pixel_align_origin();
         sharedparley::draw_text_input(self, text_input, self_rc, size, Some(qt_password_character));
+        self.restore_state();
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
@@ -938,6 +948,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
+        // Don't add any additinoal calls here without adjusting `save_state_and_pixel_align_origin()`.
         self.painter.save()
     }
 
@@ -1096,6 +1107,27 @@ impl GlyphRenderer for QtItemRenderer<'_> {
             GlyphBrush::Fill(qt_brush) => {
                 cpp! { unsafe [painter as "QPainterPtr*", glyph_indices_ptr as "const quint32 *", glyph_positions_ptr as "const QPointF *", size as "int", raw_font as "QRawFont", qt_brush as "QBrush"] {
                     // drawGlyphRun uses QPen to fill glyphs
+
+                    #ifndef QT_MAX_CACHED_GLYPH_SIZE
+                    constexpr int QT_MAX_CACHED_GLYPH_SIZE = 64;
+                    #endif
+                    auto pixelSize = raw_font.pixelSize();
+                    // Same formula as in https://github.com/qt/qtbase/blob/cd94dd0424aff272dc1fdc061fe605d32897298e/src/gui/text/freetype/qfontengine_ft.cpp#L2261
+                    if (pixelSize * pixelSize * (*painter)->deviceTransform().determinant() >= QT_MAX_CACHED_GLYPH_SIZE * QT_MAX_CACHED_GLYPH_SIZE) {
+                        // Workaround a Qt bug to resolve https://github.com/slint-ui/slint/issues/10568
+                        // There is a bug in Qt in which drawGlyphRun is not drawing correctly bigger fonts
+
+                        (*painter)->setBrush(qt_brush);
+                        QPainterPath path;
+                        for (int i = 0; i < size; i++) {
+                            QPainterPath glyphPath = raw_font.pathForGlyph(glyph_indices_ptr[i]);
+                            glyphPath.translate(glyph_positions_ptr[i]);
+                            path.addPath(glyphPath);
+                        }
+                        (*painter)->drawPath(path);
+                        return;
+                    }
+
                     (*painter)->setPen(QPen(qt_brush, 1));
                     (*painter)->setBrush(Qt::NoBrush);
 
@@ -1147,7 +1179,8 @@ impl QRawFont {
     pub fn load_from_data(&mut self, data: &[u8], pixel_size: f32) {
         let font_data = qttypes::QByteArray::from(data);
         cpp! { unsafe [ self as "QRawFont*", font_data as "QByteArray", pixel_size as "float"] {
-            self->loadFromData(font_data, pixel_size, QFont::PreferDefaultHinting);
+            // https://github.com/slint-ui/slint/issues/9831: Disable hinting, as it can cause bad positioned glyphs
+            self->loadFromData(font_data, pixel_size, QFont::PreferNoHinting);
         }}
     }
 
@@ -1480,22 +1513,25 @@ impl QtItemRenderer<'_> {
         })
     }
 
-    fn render_and_blend_layer(&mut self, alpha_tint: f32, self_rc: &ItemRc) -> RenderingResult {
+    fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
+        let window_adapter = self.window().window_adapter();
         let current_clip = self.get_current_clip();
-        let mut layer_image = self.render_layer(self_rc, &|| {
-            // We don't need to include the size of the opacity item itself, since it has no content.
+        let mut layer_image = self.render_layer(item_rc, &|| {
+            // FIXME: We don't need to include the size of the opacity item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                self_rc.geometry().union(
+                item_rc.geometry().union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
-                        &self_rc.item_tree(),
-                        self_rc.index() as isize,
-                        &current_clip,
-                    ),
+                        item_rc,
+                        &window_adapter,
+                    )
+                    .intersection(&current_clip)
+                    .unwrap_or_default(),
                 )
             });
             children_rect.size
         });
         self.save_state();
+        self.pixel_align_origin();
         self.apply_opacity(alpha_tint);
         {
             let painter: &mut QPainterPtr = &mut self.painter;
@@ -1509,6 +1545,25 @@ impl QtItemRenderer<'_> {
         }
         self.restore_state();
         RenderingResult::ContinueRenderingWithoutChildren
+    }
+
+    fn pixel_align_origin(&mut self) {
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "const QPainterPtr*" ] {
+            QTransform t = (*painter)->transform();
+
+            // Check for no rotation / shear / scale
+            if (qFuzzyIsNull(t.m12()) && qFuzzyIsNull(t.m21()) && qFuzzyCompare(t.m11(), 1.0) && qFuzzyCompare(t.m22(), 1.0)) {
+                QPointF deviceOrigin = t.map(QPointF(0, 0));
+
+                QPointF delta(
+                    std::round(deviceOrigin.x()) - deviceOrigin.x(),
+                    std::round(deviceOrigin.y()) - deviceOrigin.y()
+                );
+
+                (*painter)->translate(delta);
+            }
+        }}
     }
 }
 
@@ -1952,7 +2007,7 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 }
 
 impl WindowAdapterInternal for QtWindow {
-    fn register_item_tree(&self) {
+    fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }
 

@@ -12,11 +12,11 @@ license.workspace = true
 [lib]
 crate-type = ["lib", "cdylib"]
 path = "src/lib.rs"
-name = "gallery_lib"
+name = "material_gallery"
 
 [[bin]]
 path = "src/main.rs"
-name = "material_gallery"
+name = "material-gallery"
 
 [dependencies]
 slint = { path = "../../../../api/rs/slint", features = ["backend-android-activity-06"] }

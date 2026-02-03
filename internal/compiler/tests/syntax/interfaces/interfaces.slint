@@ -16,19 +16,35 @@ export component LineEditBase implements LineEditInterface {
     text-input := TextInput { }
 }
 
-export component MyLineEdit uses { LineEditInterface from base } {
-    base := LineEditBase {}
+interface Inverter {
+    pure callback invert(bool) -> bool;
 }
 
-export component Foo implements Bar {}
+export component InverterImpl implements Inverter {
+    invert(b) => {
+        return !b;
+    }
+}
+
+export component LineEditBase2 implements LineEditInterface inherits Rectangle { }
+
+export component MyLineEdit uses { LineEditInterface from base } {
+    base := LineEditBase { }
+}
+
+export component Foo implements Bar { }
 //                              >  <error{Unknown element 'Bar'}
 
-export component MyRectangle implements Rectangle {}
+export component MyRectangle implements Rectangle { }
 //                                      >        <error{Cannot implement Rectangle. It is not an interface}
 
-export component LineEdit implements LineEditBase {}
+export component ImplementsRow implements Row { }
+//                                        >  <error{Row can only be within a GridLayout element}
+
+export component LineEdit implements LineEditBase { }
 //                                   >           <error{Cannot implement LineEditBase. It is not an interface}
 
-global MyGlobal {}
-export component MyGlobalG implements MyGlobal {}
-//                                    >       <error{Cannot create an instance of a global component}
+global MyGlobal { }
+
+export component MyGlobalG implements MyGlobal { }
+//                                    >       <error{Cannot implement MyGlobal. It is not an interface}

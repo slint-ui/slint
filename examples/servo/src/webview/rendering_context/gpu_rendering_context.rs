@@ -7,14 +7,15 @@ use euclid::default::Size2D;
 use image::RgbaImage;
 use winit::dpi::PhysicalSize;
 
-use servo::{RenderingContext, webrender_api::units::DeviceIntRect};
+use servo::{DeviceIntRect, RenderingContext};
 
 use surfman::{
     Connection, Device, Surface, SurfaceTexture, SurfaceType,
     chains::{PreserveBuffer, SwapChain},
 };
 
-use slint::wgpu_27::wgpu;
+#[cfg(not(target_os = "windows"))]
+use slint::wgpu_28::wgpu;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
@@ -291,6 +292,7 @@ impl GPURenderingContext {
                         // Free the memory
                         vulkan_device.free_memory(memory, None);
                     })),
+                    wgpu_hal::vulkan::TextureMemory::External,
                 ),
                 &wgpu::TextureDescriptor {
                     label: None,

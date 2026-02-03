@@ -189,6 +189,8 @@ pub struct ItemVTable {
         size: LogicalSize,
     ) -> RenderingResult,
 
+    /// Returns the rendering bounding rect for that particular item in the parent's item coordinate
+    /// (same coordinate system as the geometry)
     pub bounding_rect: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         window_adapter: &WindowAdapterRc,
@@ -1182,14 +1184,9 @@ impl Default for PropertyAnimation {
 pub struct WindowItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub safe_area_inset_top: Property<LogicalLength>,
-    pub safe_area_inset_bottom: Property<LogicalLength>,
-    pub safe_area_inset_left: Property<LogicalLength>,
-    pub safe_area_inset_right: Property<LogicalLength>,
-    pub virtual_keyboard_x: Property<LogicalLength>,
-    pub virtual_keyboard_y: Property<LogicalLength>,
-    pub virtual_keyboard_width: Property<LogicalLength>,
-    pub virtual_keyboard_height: Property<LogicalLength>,
+    pub safe_area_insets: Property<crate::lengths::LogicalEdges>,
+    pub virtual_keyboard_position: Property<crate::lengths::LogicalPoint>,
+    pub virtual_keyboard_size: Property<crate::lengths::LogicalSize>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
@@ -1404,11 +1401,29 @@ impl WindowItem {
             italic: local_italic,
         }
     }
+
+    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        let _ = WindowInner::from_pub(window_adapter.window()).hide();
+    }
 }
 
 impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_hide(
+    window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    _self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        window_item.hide(window_adapter);
+    }
 }
 
 declare_item_vtable! {

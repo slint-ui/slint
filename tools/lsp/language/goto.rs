@@ -192,7 +192,7 @@ fn test_goto_definition_multi_files() {
     "#,
         url1 = url1.to_file_path().unwrap().display()
     );
-    let (extra_files, diag) = spin_on::spin_on(crate::language::reload_document_impl(
+    let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
         None,
         source2.clone(),
         url2.clone(),

@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component MyComponent inherits Window {
+}
+
+export component Test inherits Window {
+    MyComponent { }
+//  >          <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead↵(Note: MyComponent inherits Window)}
+
+    Window { }
+//  >     <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead}
+
+    // Note: PopupWindow should not receive a warning
+    PopupWindow { }
+
+    // Dialog should not get a warning either:
+    Dialog {
+        Text {
+            text: "Hello World";
+        }
+    }
+}

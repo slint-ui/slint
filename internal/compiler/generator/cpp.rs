@@ -558,7 +558,7 @@ impl CppType for Type {
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
-            Type::StyledText => Some("slint::StyledText".into()),
+            Type::StyledText => Some("slint::private_api::StyledText".into()),
             _ => None,
         }
     }
@@ -669,19 +669,26 @@ fn handle_property_init(
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
-                        format!("{prop_access}.set_animated_binding({binding_code}, {anim});")
+                        // Note: The start_time defaults to the current tick, so doesn't need to be
+                        // udpated here.
+                        format!("{prop_access}.set_animated_binding({binding_code},
+                                [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
+                                    [[maybe_unused]] auto self = this;
+                                    auto anim = {anim};
+                                    *start_time = nullptr;
+                                    return anim;
+                                }});",
+                                )
                     }
-                    Some(llr::Animation::Transition (
-                        anim
-                    )) => {
-                        let anim = compile_expression(anim, ctx);
+                    Some(llr::Animation::Transition(animation)) => {
+                        let animation = compile_expression(animation, ctx);
                         format!(
-                            "{prop_access}.set_animated_binding_for_transition({binding_code},
-                            [this](uint64_t *start_time) -> slint::cbindgen_private::PropertyAnimation {{
+                            "{prop_access}.set_animated_binding({binding_code},
+                            [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
-                                auto [anim, time] = {anim};
-                                *start_time = time;
-                                return anim;
+                                auto [animation, change_time] = {animation};
+                                **start_time = change_time;
+                                return animation;
                             }});",
                         )
                     }
@@ -1826,7 +1833,7 @@ fn generate_item_tree(
                     .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
-            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));"));
+            create_code.push("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));".to_string());
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -2546,7 +2553,10 @@ fn generate_repeated_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(&parent_ctx)),
-        generator_state: CppGeneratorContext { global_access: "self".into(), conditional_includes },
+        generator_state: CppGeneratorContext {
+            global_access: "self->globals".into(),
+            conditional_includes,
+        },
         argument_types: &[],
     };
 
@@ -2609,28 +2619,65 @@ fn generate_repeated_component(
             }),
         ));
     } else {
-        repeater_struct.members.push((
-            Access::Public, // Because Repeater accesses it
+        // Generate layout_item_info with child_index support if there are grid_layout_children
+        let layout_item_info_fn = if !root_sc.grid_layout_children.is_empty() {
+            let num_children = root_sc.grid_layout_children.len();
+            let mut child_match_arms = String::from(
+                "[[maybe_unused]] auto self = this;\n
+                if (child_index.has_value()) {\n
+                    switch (*child_index) {\n",
+            );
+            for (idx, child) in root_sc.grid_layout_children.iter().enumerate() {
+                let layout_info_h_code = compile_expression(&child.layout_info_h.borrow(), &ctx);
+                let layout_info_v_code = compile_expression(&child.layout_info_v.borrow(), &ctx);
+                write!(
+                            child_match_arms,
+                            "        case {idx}: return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};\n",
+                        ).unwrap();
+            }
+            write!(
+                child_match_arms,
+                "        default: std::abort(); // child_index out of bounds (max {num_children})\n",
+            )
+            .unwrap();
+            child_match_arms.push_str("}}\n
+            return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };");
             Declaration::Function(Function {
                 name: "layout_item_info".into(),
-                signature: "(slint::cbindgen_private::Orientation o) const -> slint::cbindgen_private::LayoutItemInfo".to_owned(),
-                statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
-
+                signature: "(slint::cbindgen_private::Orientation o, std::optional<size_t> child_index) const -> slint::cbindgen_private::LayoutItemInfo".to_owned(),
+                statements: Some(vec![child_match_arms]),
                 ..Function::default()
-            }),
+            })
+        } else {
+            Declaration::Function(Function {
+                name: "layout_item_info".into(),
+                signature: "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::LayoutItemInfo".to_owned(),
+                statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
+                ..Function::default()
+            })
+        };
+        repeater_struct.members.push((
+            Access::Public, // Because Repeater accesses it
+            layout_item_info_fn,
         ));
         root_sc.grid_layout_input_for_repeated.as_ref().map(|expr| {
+            let compiled_expr = compile_expression(&expr.borrow(), &ctx);
+            // Ensure the expression is terminated as a statement (CodeBlock with 1 item doesn't add semicolon)
+            let statement = if compiled_expr.is_empty() || compiled_expr.ends_with(';') || compiled_expr.ends_with('}') {
+                compiled_expr
+            } else {
+                format!("{compiled_expr};")
+            };
             repeater_struct.members.push((
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
                     name: "grid_layout_input_for_repeated".into(),
                     signature:
-                        "(bool new_row) const -> slint::cbindgen_private::GridLayoutInputData"
+                        "([[maybe_unused]] bool new_row, [[maybe_unused]] std::span<slint::cbindgen_private::GridLayoutInputData> result) const -> void"
                             .to_owned(),
-
                     statements: Some(vec![
                         "[[maybe_unused]] auto self = this;".into(),
-                        format!("return {};", compile_expression(&expr.borrow(), &ctx)),
+                        statement,
                     ]),
                     ..Function::default()
                 }),
@@ -3536,6 +3583,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 "[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})"
             )
         }
+        Expression::SliceIndexAssignment { slice_name, index, value } => {
+            let value_e = compile_expression(value, ctx);
+            format!("{slice_name}[{index}] = {value_e}")
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_str = compile_expression(lhs, ctx);
             let rhs_str = compile_expression(rhs, ctx);
@@ -3759,13 +3810,15 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::WithLayoutItemInfo {
             cells_variable,
-            repeater_indices,
+            repeater_indices_var_name,
+            repeater_steps_var_name,
             elements,
             orientation,
             sub_expression,
         } => generate_with_layout_item_info(
             cells_variable,
-            repeater_indices.as_ref().map(SmolStr::as_str),
+            repeater_indices_var_name.as_ref().map(SmolStr::as_str),
+            repeater_steps_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             *orientation,
             sub_expression,
@@ -3773,12 +3826,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         ),
         Expression::WithGridInputData {
             cells_variable,
-            repeater_indices,
+            repeater_indices_var_name,
+            repeater_steps_var_name,
             elements,
             sub_expression,
         } => generate_with_grid_input_data(
             cells_variable,
-            repeater_indices.as_ref().map(SmolStr::as_str),
+            repeater_indices_var_name,
+            repeater_steps_var_name,
             elements.as_ref(),
             sub_expression,
             ctx,
@@ -3842,7 +3897,7 @@ fn compile_builtin_function_call(
             format!("{}.scale_factor()", access_window_field(ctx))
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            format!("slint::private_api::get_resolved_default_font_size(*this)")
+            "slint::private_api::get_resolved_default_font_size(*this)".to_string()
         }
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
@@ -3981,6 +4036,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorHsvaStruct => {
             format!("{}.to_hsva()", a.next().unwrap())
         }
+        BuiltinFunction::ColorOklchStruct => {
+            format!("{}.to_oklch()", a.next().unwrap())
+        }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }
@@ -4016,6 +4074,14 @@ fn compile_builtin_function_call(
                 s = a.next().unwrap(),
                 v = a.next().unwrap(),
                 a = a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::Oklch => {
+            format!("slint::Color::from_oklch(std::clamp(static_cast<float>({l}), 0.f, 1.f), std::max(static_cast<float>({c}), 0.f), static_cast<float>({h}), std::clamp(static_cast<float>({alpha}), 0.f, 1.f))",
+                l = a.next().unwrap(),
+                c = a.next().unwrap(),
+                h = a.next().unwrap(),
+                alpha = a.next().unwrap(),
             )
         }
         BuiltinFunction::ColorScheme => {
@@ -4316,7 +4382,7 @@ fn compile_builtin_function_call(
             "self->update_timers()".into()
         }
         BuiltinFunction::DetectOperatingSystem => {
-            format!("slint::cbindgen_private::slint_detect_operating_system()")
+            "slint::cbindgen_private::slint_detect_operating_system()".to_string()
         }
         // start and stop are unreachable because they are lowered to simple assignment of running
         BuiltinFunction::StartTimer => unreachable!(),
@@ -4327,10 +4393,6 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RetartTimer {arguments:?}")
             }
-        }
-        BuiltinFunction::OpenUrl => {
-            let url = a.next().unwrap();
-            format!("slint::cbindgen_private::slint_open_url({})", url)
         }
         BuiltinFunction::EscapeMarkdown => {
             let text = a.next().unwrap();
@@ -4345,13 +4407,15 @@ fn compile_builtin_function_call(
 
 fn generate_with_layout_item_info(
     cells_variable: &str,
-    repeated_indices: Option<&str>,
-    elements: &[Either<llr::Expression, llr::RepeatedElementIdx>],
+    repeated_indices_var_name: Option<&str>,
+    repeater_steps_var_name: Option<&str>,
+    elements: &[Either<llr::Expression, llr::LayoutRepeatedElement>],
     orientation: Orientation,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
-    let repeated_indices = repeated_indices.map(ident);
+    let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    let repeater_steps_var_name = repeater_steps_var_name.map(ident);
     let mut push_code =
         "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector;".to_owned();
     let mut repeater_idx = 0usize;
@@ -4367,45 +4431,75 @@ fn generate_with_layout_item_info(
                 .unwrap();
             }
             Either::Right(repeater) => {
-                let repeater = usize::from(*repeater);
-                write!(push_code, "self->repeater_{repeater}.ensure_updated(self);").unwrap();
+                let repeater_index = usize::from(repeater.repeater_index);
+                write!(push_code, "self->repeater_{repeater_index}.ensure_updated(self);").unwrap();
 
-                if let Some(ri) = &repeated_indices {
-                    write!(push_code, "{}_array[{}] = cells_vector.size();", ri, repeater_idx * 2)
-                        .unwrap();
+                if let Some(ri) = &repeated_indices_var_name {
                     write!(
                         push_code,
-                        "{ri}_array[{c}] = self->repeater_{id}.len();",
-                        ri = ri,
+                        "{ri}_array[{c}] = cells_vector.size();",
+                        c = repeater_idx * 2
+                    )
+                    .unwrap();
+                    write!(
+                        push_code,
+                        "{ri}_array[{c}] = self->repeater_{repeater_index}.len();",
                         c = repeater_idx * 2 + 1,
-                        id = repeater,
                     )
                     .unwrap();
                 }
+                if let Some(rs) = &repeater_steps_var_name {
+                    let repeated_item_count = repeater.repeated_children_count.unwrap_or(1);
+                    write!(push_code, "{rs}_array[{repeater_idx}] = {repeated_item_count};")
+                        .unwrap();
+                }
                 repeater_idx += 1;
-                write!(
-                    push_code,
-                    "self->repeater_{id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o})); }});",
-                    id = repeater,
-                    o = to_cpp_orientation(orientation),
-                )
-                .unwrap();
+                match repeater.repeated_children_count {
+                    None => {
+                        write!(
+                        push_code,
+                        "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});",
+                        o = to_cpp_orientation(orientation),
+                    )
+                    .unwrap();
+                    }
+                    Some(count) => {
+                        if count > 0 {
+                            write!(
+                                push_code,
+                                "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{
+                                    for (size_t child_idx = 0; child_idx < {count}; ++child_idx) {{
+                                        cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
+                                    }}
+                                }});",
+                                o = to_cpp_orientation(orientation),
+                            )
+                            .unwrap();
+                        }
+                    }
+                }
             }
         }
     }
 
-    let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
+    let ri = repeated_indices_var_name.as_ref().map_or(String::new(), |ri| {
         write!(
             push_code,
             "slint::cbindgen_private::Slice<int> {ri} = slint::private_api::make_slice(std::span({ri}_array));"
         )
         .unwrap();
-        format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
+        format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
+    });
+    let rs = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
+        write!(
+            push_code,
+            "slint::cbindgen_private::Slice<int> {rs} = slint::private_api::make_slice(std::span({rs}_array));"
+        )
+        .unwrap();
+        format!("std::array<int, {}> {rs}_array;", repeater_idx)
     });
     format!(
-        "[&]{{ {} {} slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
-        ri,
-        push_code,
+        "[&]{{ {ri} {rs} {push_code} slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
         ident(cells_variable),
         compile_expression(sub_expression, ctx)
     )
@@ -4413,11 +4507,14 @@ fn generate_with_layout_item_info(
 
 fn generate_with_grid_input_data(
     cells_variable: &str,
-    repeated_indices: Option<&str>,
+    repeated_indices_var_name: &SmolStr,
+    repeater_steps_var_name: &SmolStr,
     elements: &[Either<llr::Expression, llr::GridLayoutRepeatedElement>],
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
+    let repeated_indices_var_name = Some(ident(repeated_indices_var_name));
+    let repeater_steps_var_name = Some(ident(repeater_steps_var_name));
     let mut push_code =
         "std::vector<slint::cbindgen_private::GridLayoutInputData> cells_vector;".to_owned();
     let mut repeater_idx = 0usize;
@@ -4437,15 +4534,21 @@ fn generate_with_grid_input_data(
                 let repeater_id = format!("repeater_{}", usize::from(repeater.repeater_index));
                 write!(push_code, "self->{repeater_id}.ensure_updated(self);").unwrap();
 
-                if let Some(ri) = &repeated_indices {
-                    write!(push_code, "{}_array[{}] = cells_vector.size();", ri, repeater_idx * 2)
+                if let Some(ri) = &repeated_indices_var_name {
+                    write!(push_code, "{ri}_array[{}] = cells_vector.size();", repeater_idx * 2)
                         .unwrap();
                     write!(
                         push_code,
-                        "{ri}_array[{c}] = self->{id}.len();",
-                        ri = ri,
+                        "{ri}_array[{c}] = self->{repeater_id}.len();",
                         c = repeater_idx * 2 + 1,
-                        id = repeater_id,
+                    )
+                    .unwrap();
+                }
+                if let Some(rs) = &repeater_steps_var_name {
+                    write!(
+                        push_code,
+                        "{rs}_array[{repeater_idx}] = {};",
+                        repeater.repeated_children_count.unwrap_or(1)
                     )
                     .unwrap();
                 }
@@ -4453,13 +4556,20 @@ fn generate_with_grid_input_data(
                 write!(
                     push_code,
                     "{maybe_bool} new_row = {new_row};
-                    self->{id}.for_each([&](const auto &sub_comp) {{
-                        cells_vector.push_back(sub_comp->grid_layout_input_for_repeated(new_row));
-                        new_row = false;
-                    }});",
+                    {{
+                        auto start_offset = cells_vector.size();
+                        cells_vector.resize(start_offset + self->{repeater_id}.len() * {repeated_item_count});
+                        std::size_t i = 0;
+                        self->{repeater_id}.for_each([&](const auto &sub_comp) {{
+                            auto offset = start_offset + i * {repeated_item_count};
+                            sub_comp->grid_layout_input_for_repeated(new_row, std::span(cells_vector).subspan(offset, {repeated_item_count}));
+                            new_row = false;
+                            ++i;
+                        }});
+                    }}",
                     new_row = repeater.new_row,
                     maybe_bool = if has_new_row_bool { "" } else { "bool " },
-                    id = repeater_id,
+                    repeated_item_count = repeater.repeated_children_count.unwrap_or(1),
                 )
                 .unwrap();
                 has_new_row_bool = true;
@@ -4467,18 +4577,24 @@ fn generate_with_grid_input_data(
         }
     }
 
-    let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
+    let ri = repeated_indices_var_name.as_ref().map_or(String::new(), |ri| {
         write!(
             push_code,
             "slint::cbindgen_private::Slice<int> {ri} = slint::private_api::make_slice(std::span({ri}_array));"
         )
         .unwrap();
-        format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
+        format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
+    });
+    let rs = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
+        write!(
+            push_code,
+            "slint::cbindgen_private::Slice<int> {rs} = slint::private_api::make_slice(std::span({rs}_array));"
+        )
+        .unwrap();
+        format!("std::array<int, {}> {rs}_array;", repeater_idx)
     });
     format!(
-        "[&]{{ {} {} slint::cbindgen_private::Slice<slint::cbindgen_private::GridLayoutInputData>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
-        ri,
-        push_code,
+        "[&]{{ {ri} {rs} {push_code} slint::cbindgen_private::Slice<slint::cbindgen_private::GridLayoutInputData>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
         ident(cells_variable),
         compile_expression(sub_expression, ctx)
     )
