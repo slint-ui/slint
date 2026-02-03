@@ -9,7 +9,7 @@ use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{DropEvent, ItemRef, TextCursorDirection};
-pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, KeyboardShortcut};
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -313,10 +313,64 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
+/// A `KeyboardShortcut` is created by the `@keys(...)` macro and defines
+/// defines which key events match the given shortcuts.
+///
+/// See [`Self::match()`] for details
+#[derive(Clone, Eq, PartialEq, Default)]
+#[repr(C)]
+pub struct KeyboardShortcut {
+    /// The `key` used to trigger the shortcut
+    key: SharedString,
+    /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
+    modifiers: KeyboardModifiers,
+}
+
+/// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
+pub fn make_keyboard_shortcut(key: SharedString, modifiers: KeyboardModifiers) -> KeyboardShortcut {
+    KeyboardShortcut { key, modifiers }
+}
+
+#[cfg(feature = "ffi")]
+#[allow(unsafe_code)]
+pub(crate) mod ffi {
+    use super::*;
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut(
+        key: &SharedString,
+        alt: bool,
+        control: bool,
+        shift: bool,
+        meta: bool,
+        out: &mut KeyboardShortcut,
+    ) {
+        *out = make_keyboard_shortcut(key.clone(), KeyboardModifiers { alt, control, shift, meta });
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut_to_string(
+        shortcut: &KeyboardShortcut,
+        out: &mut SharedString,
+    ) {
+        *out = crate::format!("{shortcut}")
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut_matches(
+        shortcut: &KeyboardShortcut,
+        key_event: &KeyEvent,
+    ) -> bool {
+        shortcut.matches(key_event)
+    }
+}
+
 impl KeyboardShortcut {
     /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
-    pub fn matches(&self, _key_event: KeyEvent) -> bool {
-        todo!();
+    pub fn matches(&self, key_event: &KeyEvent) -> bool {
+        // TODO: Should this check the event_type and only match on KeyReleased?
+        // TODO: Add support for ignoring shift
+        key_event.text == self.key && key_event.modifiers == self.modifiers
     }
 }
 

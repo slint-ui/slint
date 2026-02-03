@@ -179,7 +179,7 @@ pub mod re_exports {
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
-        MouseEvent, key_codes::Key,
+        KeyboardShortcut, MouseEvent, key_codes::Key, make_keyboard_shortcut,
     };
     pub use i_slint_core::item_tree::{
         IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, register_item_tree,

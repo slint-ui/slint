@@ -530,7 +530,9 @@ impl CppType for Type {
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
             Type::String => Some("slint::SharedString".into()),
-            Type::KeyboardShortcutType => Some("slint::private_api::KeyboardShortcut".into()),
+            Type::KeyboardShortcutType => {
+                Some("slint::cbindgen_private::types::KeyboardShortcut".into())
+            }
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -3330,7 +3332,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::KeyboardShortcutLiteral(ks) => {
             format!(
-                "slint::private_api::KeyboardShortcut {{ .key = {}, .modifiers = {{{}, {}, {}, {}}} }}",
+                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta) {{
+                    slint::cbindgen_private::types::KeyboardShortcut out;
+                    slint::cbindgen_private::slint_keyboard_shortcut(&key, alt, control, shift, meta, &out);
+                    return out;
+                }}({}, {}, {}, {}, {})",
                 shared_string_literal(&ks.key),
                 ks.modifiers.alt,
                 ks.modifiers.control,
@@ -3909,6 +3915,15 @@ fn compile_builtin_function_call(
         BuiltinFunction::GetWindowScaleFactor => {
             format!("{}.scale_factor()", access_window_field(ctx))
         }
+        BuiltinFunction::KeyboardShortcutMatches => {
+            let [shortcut, key_event] = arguments else {
+                panic!("internal error: incorrect number of arguments to KeyboardShortcut::matches");
+            };
+            let shortcut = compile_expression(shortcut, ctx);
+            let key_event = compile_expression(key_event, ctx);
+
+            format!("[&]() -> bool {{ auto shortcut = {shortcut}; auto keyEvent = {key_event}; return slint_keyboard_shortcut_matches(&shortcut, &keyEvent); }}()")
+        },
         BuiltinFunction::GetWindowDefaultFontSize => {
             "slint::private_api::get_resolved_default_font_size(*this)".to_string()
         }
