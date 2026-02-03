@@ -45,6 +45,11 @@ description = "Run cargo fmt --all"
 run = "cargo fmt --all"
 dir = "examples/bevy-hosts-slint"
 
+["fix:rust:format:bevy-hosts-gpu"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "examples/bevy-hosts-slint-gpu"
+
 ["fix:rust:format:servo"]
 description = "Run cargo fmt --all"
 run = "cargo fmt --all"
@@ -60,6 +65,7 @@ depends = [
   "fix:rust:format:root",
   "fix:rust:format:bevy",
   "fix:rust:format:bevy-hosts",
+  "fix:rust:format:bevy-hosts-gpu",
   "fix:rust:format:servo",
   "fix:rust:format:safeui",
 ]
