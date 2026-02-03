@@ -27,6 +27,23 @@ pub fn send_mouse_click<
     );
 }
 
+/// Simulate entering a keyboard shortcut or other "nested" character sequence
+pub fn send_keyboard_shortcut<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    keys: impl IntoIterator<Item = impl Into<char>>,
+) {
+    let keys: Vec<_> = keys.into_iter().map(Into::into).collect();
+    for key in &keys {
+        send_keyboard_char(component, key.clone(), true);
+    }
+    for key in keys.iter().rev() {
+        send_keyboard_char(component, key.clone(), false);
+    }
+}
+
 /// Simulate entering a sequence of ascii characters key by (pressed or released).
 pub fn send_keyboard_char<
     X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,

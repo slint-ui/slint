@@ -2373,7 +2373,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let shift = shortcut.modifiers.shift;
                 let meta = shortcut.modifiers.meta;
 
-                quote!(sp::KeyboardShortcut { key: #key.into(), modifiers: sp::KeyboardModifiers { alt: #alt, control: #control, shift: #shift, meta: #meta } })
+                quote!(
+                    sp::make_keyboard_shortcut(
+                        #key.into(),
+                        sp::KeyboardModifiers {
+                            alt: #alt,
+                            control: #control,
+                            shift: #shift,
+                            meta: #meta
+                        }))
         },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
@@ -2933,6 +2941,15 @@ fn compile_builtin_function_call(
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
+            }
+        }
+        BuiltinFunction::KeyboardShortcutMatches => {
+            if let [shortcut, event] = arguments {
+                let shortcut = compile_expression(&shortcut, ctx);
+                let event = compile_expression(&event, ctx);
+                quote!(#shortcut.matches(&#event))
+            } else {
+                panic!("internal error: invalid args to KeyboardShortcut::matches {arguments:?}")
             }
         }
         BuiltinFunction::ClearFocusItem => {

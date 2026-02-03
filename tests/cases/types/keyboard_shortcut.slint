@@ -1,8 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component TestCase {
+// Open me with the live-preview to see the logged keyboard events
+export component TestCase inherits Window {
     in-out property <keyboard-shortcut> shortcut: @keys(Control + Alt + Escape);
+    out property <int> matches: 0;
+
+    Text {
+        text: focus.has-focus ? "Focused" : "Unfocused";
+    }
+
+    init => { focus.focus() }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            debug("Pressed: ", event);
+            EventResult.accept
+        }
+        key-released(event) => {
+            if root.shortcut.matches(event) {
+                debug("MATCHES");
+                matches += 1;
+            }
+            debug("Released: ", event);
+            EventResult.accept
+        }
+    }
 }
 
 
@@ -13,32 +36,50 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 const auto shortcut = instance.get_shortcut();
-assert(shortcut.modifiers.alt);
-assert(shortcut.modifiers.control);
-assert(!shortcut.modifiers.meta);
-assert(!shortcut.modifiers.shift);
-assert_eq(shortcut.key, "\u{1b}");
+slint::SharedString shortcut_string;
+slint::cbindgen_private::slint_keyboard_shortcut_to_string(&shortcut, &shortcut_string);
+assert_eq(shortcut_string, "Alt+Control+\\u{1b}");
+
+slint::SharedString escape("\u{1b}");
+slint::SharedString shift("\u{10}");
+slint::SharedString control("\u{11}");
+slint::SharedString alt("\u{12}");
+
+// Does not match with incorrect modifiers
+slint::private_api::testing::send_keyboard_shortcut(&instance, {escape});
+slint::private_api::testing::send_keyboard_shortcut(&instance, {control, escape});
+slint::private_api::testing::send_keyboard_shortcut(&instance, {alt, escape});
+slint::private_api::testing::send_keyboard_shortcut(&instance, {control, alt, shift, escape});
+assert_eq(instance.get_matches(), 0);
+
+// matches with correct modifiers
+slint::private_api::testing::send_keyboard_shortcut(&instance, {control, alt, escape});
+assert_eq(instance.get_matches(), 1);
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
 let shortcut = instance.get_shortcut();
-assert!(shortcut.modifiers.alt);
-assert!(shortcut.modifiers.control);
-assert!(!shortcut.modifiers.meta);
-assert!(!shortcut.modifiers.shift);
-assert_eq!(shortcut.key, "\u{1b}");
+assert_eq!(shortcut.to_string(), "Alt+Control+\\u{1b}");
+
+use slint::private_unstable_api::re_exports::Key;
+// Doesn't match with incorrect modifiers
+slint_testing::send_keyboard_shortcut(&instance, [Key::Escape]);
+slint_testing::send_keyboard_shortcut(&instance, [Key::Control, Key::Escape]);
+slint_testing::send_keyboard_shortcut(&instance, [Key::Control, Key::Alt, Key::Shift, Key::Escape]);
+assert_eq!(instance.get_matches(), 0);
+// matches with correct modifers
+slint_testing::send_keyboard_shortcut(&instance, [Key::Control, Key::Alt, Key::Escape]);
+assert_eq!(instance.get_matches(), 1);
 ```
 
 ```js
 var instance = new slint.TestCase({});
 
 var shortcut = instance.shortcut;
-assert.equal(shortcut.modifiers.alt, true);
-assert.equal(shortcut.modifiers.control, true);
-assert.equal(shortcut.modifiers.meta, false);
-assert.equal(shortcut.modifiers.shift, false);
-assert.equal(shortcut.key, "\u{1b}");
+assert.equal(shortcut, "Alt+Control+\\u{1b}")
+
+// TODO: Simulate shortcuts in JS
 ```
 
 */
