@@ -1,6 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { Palette } from "std-widgets.slint";
 
 struct ButtonColors  {
     base: color,
@@ -9,127 +8,391 @@ struct ButtonColors  {
 }
 
 struct ModeColors {
-    background: color,
+    background: brush,
     primary: color,
     secondary: color,
     text-primary: color,
     text-secondary: color,
-    destructive: color,
+    text-tertiary: color,
+    primary-button: brush,
+    destructive-button: brush,
+    primary-button-text-color: color,
+    destructive-button-text-color: color,
+    color-button-gradient: brush,
+    grayscale-button-gradient: brush,
+    spinbox-button-gradient: brush,
+    spinbox-button-border: color,
+    spinbox-text-color: color,
+    header-background: brush,
+    header-separator: color,
+    print-queue-background: brush,
+    print-queue-separator: color,
+    print-button-bg: brush,
+    scan-button-bg: brush,
+    copy-button-bg: brush,
+    usb-button-bg: brush,
+    print-button-bg-inner: brush,
+    scan-button-bg-inner: brush,
+    copy-button-bg-inner: brush,
+    usb-button-bg-inner: brush,
+    print-button-text-color: color,
+    scan-button-text-color: color,
+    copy-button-text-color: color,
+    usb-button-text-color: color,
+    home-button-border: color,
+    home-button-text-color: color,
+    popup-bg: brush,
+    popup-border: color,
+    popup-active-background: brush,
+    popup-hover-background: color,
+    popup-active-text-color: color,
+    popup-hover-text-color: color,
 }
 
-export global DemoPalette  {
-    in property <bool> dark-mode: Palette.color-scheme == ColorScheme.dark;
+struct SideBarTheme {
+    icon-border-radius: length,
+    background: color,
+    separator: color,
+    active-background: brush,
+    active-icon-color: color,
+    inactive-icon-color: color,
+    icon-size: length,
+}
 
-    property <ModeColors> light-mode-colors: {
+export enum Theme {
+    Gradient,
+    Minimalist,
+    Vibrant,
+    Glass
+}
+
+export enum Page { home, ink, settings }
+
+export enum SubPage { none, print, scan, copy, usb }
+
+export global ComponentTheme {
+    out property <SideBarTheme> side-bar: {
+        if DemoPalette.theme == Theme.Gradient {
+            gradient;
+        } else if DemoPalette.theme == Theme.Minimalist {
+            minimalist;
+        } else if DemoPalette.theme == Theme.Vibrant {
+            vibrant
+        } else {
+            glass
+        }
+    }
+
+    property <SideBarTheme> gradient: {
+        icon-size: 40px,
+        icon-border-radius: 16px,
+        background: #0e172b,
+        separator: Colors.transparent,
+        active-background: #1D293D,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #90A1B9,
+        header-background: #F8FAFC
+    };
+    property <SideBarTheme> minimalist: {
+        icon-size: 40px,
+        icon-border-radius: 40px / 2,
+        background: #ffffff,
+        active-background: #0f172b,
+        separator: #E2E8F0,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #45556c,
+    };
+    property <SideBarTheme> vibrant: {
+        icon-size: 40px,
+        icon-border-radius: 16px,
+        background: #f4f4ff,
+        active-background: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
+        active-icon-color: Colors.white,
+        inactive-icon-color: #6036f8,
+        separator: Colors.white,
+    };
+    property <SideBarTheme> glass: {
+        icon-size: 40px,
+        icon-border-radius: 16px,
+        background: #f5f8ff,
+        active-background: #706eff,
+        active-icon-color: Colors.white,
+        inactive-icon-color: #4f39f6,
+        separator: #ffffff,
+    };
+}
+
+export global DemoPalette {
+    in-out property <Theme> theme: Theme.Gradient;
+
+    property <ModeColors> current-theme: {
+        if theme == Theme.Gradient {
+            return gradient;
+        } else if theme == Theme.Minimalist {
+            return minimalist;
+        } else if theme == Theme.Vibrant {
+            return vibrant;
+        } else {
+            return glass;
+        }
+    }
+
+    property <ModeColors> gradient: {
         background: #FFFFFF,
         primary: #0E133F,
-        secondary: #FFBF63,
-        text-primary: #000,
-        text-secondary: #6284FF,
-        destructive: #FF3B30,
+        secondary: #E2E8F0,
+        text-primary: #1D293D,
+        text-secondary: #155DFC,
+        text-tertiary: #62748e,
+        primary-button: #2b7fff,
+        destructive-button: #fa2c37,
+        primary-button-text-color: #FFFFFF,
+        destructive-button-text-color: #FFFFFF,
+        color-button-gradient: @linear-gradient(90deg, #ff3b30 0%, #ff9500 33%, #ffd60a 66%, #af52de 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #99a1af 0%, #4a5565 100%),
+        spinbox-button-gradient: #277aff,
+        spinbox-button-border: #00000000,
+        spinbox-text-color: #FFFFFF,
+        header-background: #F8FAFC,
+        header-separator: #CAD5E2,
+        print-queue-background: #f8f4ff,
+        print-queue-separator: #CAD5E2,
+        print-button-bg: @linear-gradient(135deg, #2B7FFF 0%, #155DFC 100%),
+        scan-button-bg: @linear-gradient(135deg, #00BC7D 0%, #009966 100%),
+        copy-button-bg: @linear-gradient(135deg, #FF2056 0%, #fd3d6d 100%),
+        usb-button-bg: @linear-gradient(135deg, #FF6900 0%, #F54900 100%),
+        print-button-bg-inner: #FFFFFF.with-alpha(0.2),
+        scan-button-bg-inner: #FFFFFF.with-alpha(0.2),
+        copy-button-bg-inner: #FFFFFF.with-alpha(0.2),
+        usb-button-bg-inner: #FFFFFF.with-alpha(0.2),
+        print-button-text-color: #FFFFFF,
+        scan-button-text-color: #FFFFFF,
+        copy-button-text-color: #FFFFFF,
+        usb-button-text-color: #FFFFFF,
+        home-button-border: #00000000,
+        home-button-text-color: #FFFFFF,
+        popup-bg: #FFFFFF,
+        popup-border: #FFB86A,
+        popup-active-background: #FFEDD4,
+        popup-active-text-color: #F54900,
+        popup-hover-background: #FFF8EC,
     };
 
-    property <ModeColors> dark-mode-colors: {
-        background: #122F7B,
-        primary: #0E133F,
-        secondary: #FFBF63,
-        text-primary: #F4F6FF,
-        text-secondary: #F4F6FF,
-        destructive: #FF3B30,
+    property <ModeColors> minimalist: {
+        background: #FFFFFF,
+        primary: #0f172b,
+        secondary: #0f172b,
+        text-primary: #0f172b,
+        text-secondary: #45556c,
+        text-tertiary: #45556c,
+        primary-button: #0f172b,
+        destructive-button: #FFFFFF,
+        primary-button-text-color: #FFFFFF,
+        destructive-button-text-color: Colors.red,
+        color-button-gradient: @linear-gradient(90deg, #ff6567 0%, #fec500 50%, #c787f3 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #99a1af 0%, #4a5565 100%),
+        spinbox-button-gradient: #00000000,
+        spinbox-button-border: #0f172b,
+        spinbox-text-color: #0f172b,
+        header-background: #F8FAFC,
+        header-separator: #0f172b,
+        print-queue-background: #f8fafc,
+        print-queue-separator: #e2e8f0,
+        print-button-bg: #FFFFFF,
+        scan-button-bg: #FFFFFF,
+        copy-button-bg: #FFFFFF,
+        usb-button-bg: #FFFFFF,
+        print-button-bg-inner: #f1f5f9,
+        scan-button-bg-inner: #f1f5f9,
+        copy-button-bg-inner: #f1f5f9,
+        usb-button-bg-inner: #f1f5f9,
+        print-button-text-color: #0f172b,
+        scan-button-text-color: #0f172b,
+        copy-button-text-color: #0f172b,
+        usb-button-text-color: #0f172b,
+        home-button-border: #cad5e2,
+        home-button-text-color: #0f172b,
+        popup-bg: #FFFFFF,
+        popup-border: #0f172b,
+        popup-active-background: #0f172b,
+        popup-active-text-color: Colors.white,
+        popup-hover-background: #b0bcda,
     };
 
-    out property <color> background: dark-mode ? dark-mode-colors.background : light-mode-colors.background;
-    out property <color> primary: dark-mode ? dark-mode-colors.primary : light-mode-colors.primary;
-    out property <color> secondary: dark-mode ? dark-mode-colors.secondary : light-mode-colors.secondary;
-    out property <color> text-primary: dark-mode ? dark-mode-colors.text-primary : light-mode-colors.text-primary;
-    out property <color> text-secondary: dark-mode ? dark-mode-colors.text-secondary : light-mode-colors.text-secondary;
-    out property <color> destructive: dark-mode ? dark-mode-colors.destructive : light-mode-colors.destructive;
+    property <ModeColors> vibrant: {
+        background: #f5f4ff,
+        primary: #6036f8,
+        secondary: #e9d4ff,
+        text-primary: #6036f8,
+        text-secondary: #aa48ff,
+        text-tertiary: #bd37fa,
+        primary-button: #a34bff,
+        destructive-button: #a24642,
+        primary-button-text-color: #FFFFFF,
+        destructive-button-text-color: #FFFFFF,
+        color-button-gradient: @linear-gradient(90deg, #ff6567 0%, #fec500 50%, #c787f3 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #99a1af 0%, #4a5565 100%),
+        spinbox-button-gradient: #8753ff,
+        spinbox-button-border: #00000000,
+        spinbox-text-color: #FFFFFF,
+        header-background: #f5f4ff,
+        header-separator: #dab2ff,
+        print-queue-background: #eff3ff,
+        print-queue-separator: #00000000,
+        print-button-bg: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
+        scan-button-bg: @linear-gradient(135deg, #2adaca 0%, #08bbdb 100%),
+        copy-button-bg: @linear-gradient(135deg, #f73397 0%, #ff225a 100%),
+        usb-button-bg: @linear-gradient(135deg, #ffb600 0%, #ff6d00 100%),
+        print-button-bg-inner: #00000000,
+        scan-button-bg-inner: #00000000,
+        copy-button-bg-inner: #00000000,
+        usb-button-bg-inner: #00000000,
+        print-button-text-color: #FFFFFF,
+        scan-button-text-color: #FFFFFF,
+        copy-button-text-color: #FFFFFF,
+        usb-button-text-color: #FFFFFF,
+        home-button-border: #00000000,
+        home-button-text-color: #FFFFFF,
+        popup-bg: #FFFFFF,
+        popup-border: #bd37fa,
+        popup-active-background: #8753ff,
+        popup-active-text-color: #FFFFFF,
+        popup-hover-background: #f5f4ff,
+    };
+
+    property <ModeColors> glass: {
+        background: #ecf2fd,
+        primary: #1d293d,
+        secondary: #e4eaff,
+        text-primary: #1d293d,
+        text-secondary: #432dd7,
+        text-tertiary: #45556c,
+        primary-button: #a34bff,
+        destructive-button: #a24642,
+        primary-button-text-color: #FFFFFF,
+        destructive-button-text-color: #FFFFFF,
+        color-button-gradient: @linear-gradient(90deg, #ff6567 0%, #fec500 50%, #c787f3 100%),
+        grayscale-button-gradient: @linear-gradient(90deg, #99a1af 0%, #4a5565 100%),
+        spinbox-button-gradient: #6f6dff,
+        spinbox-button-border: #00000000,
+        spinbox-text-color: #FFFFFF,
+        header-background: #f8faff,
+        header-separator: #c4ceff,
+        print-queue-background: #f9f8ff,
+        print-queue-separator: #ffffff,
+        print-button-bg: #f8faff,
+        scan-button-bg: #f8faff,
+        copy-button-bg: #f8faff,
+        usb-button-bg: #f8faff,
+        print-button-bg-inner: @linear-gradient(135deg, #655eff 0%, #aa48ff 100%),
+        scan-button-bg-inner: @linear-gradient(135deg, #2adaca 0%, #08bbdb 100%),
+        copy-button-bg-inner: @linear-gradient(135deg, #f73397 0%, #ff225a 100%),
+        usb-button-bg-inner: @linear-gradient(135deg, #ffb600 0%, #ff6d00 100%),
+        print-button-text-color: #432dd7,
+        scan-button-text-color: #00786f,
+        copy-button-text-color: #c6005c,
+        usb-button-text-color: #bc4e02,
+        home-button-border: #00000000,
+        home-button-text-color: #FFFFFF,
+        popup-bg: #FFFFFF,
+        popup-border: #aeb5ff,
+        popup-active-background: #6f6dff,
+        popup-active-text-color: #FFFFFF,
+        popup-hover-background: #f0f4ff,
+    };
+
+    out property <[Theme]> themes: [Theme.Gradient, Theme.Vibrant, Theme.Minimalist, Theme.Glass];
+
+    out property <color> background: current-theme.background;
+    out property <color> primary: current-theme.primary;
+    out property <color> secondary: current-theme.secondary;
+    out property <color> text-primary: current-theme.text-primary;
+    out property <color> text-secondary: current-theme.text-secondary;
+    out property <color> text-tertiary: current-theme.text-tertiary;
+    out property <brush> primary-button: current-theme.primary-button;
+    out property <brush> destructive-button: current-theme.destructive-button;
+    out property <color> primary-button-text-color: current-theme.primary-button-text-color;
+    out property <color> destructive-button-text-color: current-theme.destructive-button-text-color;
+    out property <brush> color-button-gradient: current-theme.color-button-gradient;
+    out property <brush> grayscale-button-gradient: current-theme.grayscale-button-gradient;
+    out property <brush> spinbox-button-gradient: current-theme.spinbox-button-gradient;
+    out property <color> spinbox-button-border: current-theme.spinbox-button-border;
+    out property <color> spinbox-text-color: current-theme.spinbox-text-color;
+    out property <brush> header-background: current-theme.header-background;
+    out property <color> header-separator: current-theme.header-separator;
+    out property <brush> print-queue-background: current-theme.print-queue-background;
+    out property <color> print-queue-separator: current-theme.print-queue-separator;
+    out property <brush> print-button-bg: current-theme.print-button-bg;
+    out property <brush> scan-button-bg: current-theme.scan-button-bg;
+    out property <brush> copy-button-bg: current-theme.copy-button-bg;
+    out property <brush> usb-button-bg: current-theme.usb-button-bg;
+    out property <brush> print-button-bg-inner: current-theme.print-button-bg-inner;
+    out property <brush> scan-button-bg-inner: current-theme.scan-button-bg-inner;
+    out property <brush> copy-button-bg-inner: current-theme.copy-button-bg-inner;
+    out property <brush> usb-button-bg-inner: current-theme.usb-button-bg-inner;
+    out property <color> print-button-text-color: current-theme.print-button-text-color;
+    out property <color> scan-button-text-color: current-theme.scan-button-text-color;
+    out property <color> copy-button-text-color: current-theme.copy-button-text-color;
+    out property <color> usb-button-text-color: current-theme.usb-button-text-color;
+    out property <color> home-button-border: current-theme.home-button-border;
+    out property <color> home-button-text-color: current-theme.home-button-text-color;
+    out property <brush> popup-bg: current-theme.popup-bg;
+    out property <color> popup-border: current-theme.popup-border;
+    out property <brush> popup-active-background: current-theme.popup-active-background;
+    out property <color> popup-active-text-color: current-theme.popup-active-text-color;
+    out property <color> popup-hover-background: current-theme.popup-hover-background;
+    out property <color> popup-hover-text-color: current-theme.popup-hover-text-color;
 
     // Fixed (non-themeable) colors
     out property <color> push-button-text-color: white;
 
     // Color of the home/settings/ink buttons on the left side bar
-    out property <color> active-page-icon-color: root.dark-mode ? #6284FF : #122F7B;
     out property <color> inactive-page-icon-color: #BDC0D1;
     out property <color> neutral-box: #BDC0D1;
-    out property <color> secondary-foreground-color: root.dark-mode ? #C1C3CA : #6C6E7A;
+    out property <color> secondary-foreground-color: root.theme == Theme.Gradient ? #C1C3CA : #6C6E7A;
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
     out property <color> control-secondary: #6284FF;
-    out property <color> control-foreground: root.dark-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> control-foreground: root.theme == Theme.Gradient ? white : #122F7B;  // FIXME: the night mode color was not part of the design
     out property <color> primary-push-button-base: #6284FF;
     out property <ButtonColors> primary-push-button-colors: {
         base: root.primary-push-button-base,
         pressed: root.primary-push-button-base.darker(40%),
         hovered: root.primary-push-button-base.darker(20%),
     };
-    out property <color> secondary-push-button-base: destructive;
-    out property <ButtonColors> secondary-push-button-colors: {
-        base: root.secondary-push-button-base,
-        pressed: root.secondary-push-button-base.darker(40%),
-        hovered: root.secondary-push-button-base.darker(20%),
-    };
 
     out property <length> base-font-size: 16px;
-    out property <length> button-width: 130px;
-    out property <length> button-height: button-width + 30px;
-    out property <length> side-bar-width: 67px;
+    out property <length> title-font-size: 24px;
+    out property <length> button-width: 162px;
+    out property <length> button-height: 192px;
+    out property <length> side-bar-width: 64px;
     out property <length> side-bar-margin: 10px;
+    out property <length> default-margin: 24px;
 
-}
+    out property <string> regular-weight: "Inter 24pt";
+    out property <string> medium-weight: "Inter 24pt Medium";
 
-export component Page inherits Rectangle {
-    in property <string> header <=> h.text;
-    in property <bool> has-back-button: false;
-
-    callback back;
-
-    background: DemoPalette.background;
-    // Stop accidentally getting clicks dur to animation only moving page half way offscreen
-    visible: self.opacity > 0;
-
-    TouchArea { } // protect underneath controls
-
-
-
-    if (root.has-back-button) : Image {
-        x:0;
-        source: @image-url("images/back.svg");
-        image-fit: contain;
-        colorize: DemoPalette.control-secondary;
-        y: h.y + (h.height - self.height) / 2;
-        width: 14px;
-        height: 24px;
-
-        TouchArea {
-            clicked => { root.back() }
-
-            x: -14px;
-            height: 200%;
-            width: self.height;
-        }
-    }
-
-    h := Text {
-        font-weight: 900;
-        font-size: DemoPalette.base-font-size * 2;
-        color: DemoPalette.text-primary;
-        y: 46px - self.font-size;
-        x: root.has-back-button ? 24px + 16px : 0px;
-        // Allow clicking on the title as well to get back easier when just
-        // using fingers on a small screen.
-        if (root.has-back-button) : TouchArea {
-            clicked => { root.back() }
+    public pure function theme-label(theme: Theme) -> string {
+        if theme == Theme.Gradient {
+            @tr("Gradient")
+        } else if theme == Theme.Minimalist {
+            @tr("Minimalist")
+        } else if theme == Theme.Vibrant {
+            @tr("Vibrant")
+        } else {
+            @tr("Glass")
         }
     }
 }
+
 export component Label inherits Text {
     color: DemoPalette.text-primary;
     vertical-alignment: center;
-    font-weight: 700;
     vertical-stretch: 0;
+    font-family: DemoPalette.medium-weight;
+    font-size: 18px;
 }
 
 component SquareButton inherits Rectangle {
@@ -150,147 +413,11 @@ component SquareButton inherits Rectangle {
     Image {
         height: 40%;
         width: 40%;
-        x: (parent.width - self.width)/2;
-        y: (parent.height - self.height)/2;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
         source <=> root.img;
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
-    }
-}
-
-export component SpinBox inherits Rectangle {
-    in property <int> minimum;
-    in property <int> maximum: 100;
-    in-out property <int> value;
-
-    height: 32px;
-
-    HorizontalLayout {
-        spacing: 12px;
-        padding: 0;
-
-        SquareButton {
-            clicked => {
-                if (root.value > root.minimum) {
-                    root.value -= 1;
-                }
-            }
-
-            width: root.height - parent.padding * 2;
-            img: @image-url("images/minus.svg");
-        }
-
-        Rectangle {
-            border-radius: 3px;
-            border-width: 2px;
-            border-color: DemoPalette.secondary;
-
-            Text {
-                width: 100%;
-                height: 100%;
-                vertical-alignment: center;
-                horizontal-alignment: center;
-                text: root.value;
-                color: DemoPalette.control-foreground;
-            }
-        }
-
-        SquareButton {
-            clicked => {
-                if (root.value < root.maximum) {
-                    root.value += 1;
-                }
-            }
-
-            width: root.height - parent.padding * 2;
-            img: @image-url("images/plus.svg");
-        }
-    }
-}
-
-export component ComboBox inherits Rectangle {
-    in-out property <string> value;
-    in property <[string]> choices;
-    callback selected(int);
-
-    border-radius: 3px;
-    border-width: 2px;
-    border-color: DemoPalette.secondary;
-    height: 32px;
-    min-width: label.x + label.width + i.width;
-    horizontal-stretch: 1; // Work around #2284
-
-    label := Text {
-        vertical-alignment: center;
-        horizontal-alignment: left;
-        text <=> root.value;
-        color: DemoPalette.control-foreground;
-        height: 100%;
-        x: 12px;
-    }
-
-    i := Image {
-        source: @image-url("images/down.svg");
-        colorize: DemoPalette.control-secondary;
-        height: 40%;
-        width: self.height;
-        image-fit: contain;
-        x: parent.width - self.width - self.y;
-        y: (parent.height - self.height)/2;
-    }
-
-    TouchArea {
-        clicked => { popup.show(); }
-
-        width: 100%;
-        height: 100%;
-    }
-
-    popup := PopupWindow {
-        x:0;
-        y: root.height;
-        width: root.width;
-
-        Rectangle {
-            background: DemoPalette.background;
-            border-radius: 3px;
-            border-width: 2px;
-            border-color: DemoPalette.secondary;
-        }
-
-        VerticalLayout {
-            spacing: 6px;
-            padding: 3px;
-            function textColor(hashover: bool) -> color {
-                if DemoPalette.dark-mode {
-                    return DemoPalette.text-primary;
-                }
-                // if hashover {
-                    return DemoPalette.text-primary;
-                // }
-
-            }
-
-            for value[idx] in root.choices: Rectangle {
-                border-radius: 3px;
-                background: item-area.has-hover ? DemoPalette.primary-push-button-colors.hovered : #0000;
-
-                HorizontalLayout {
-                    Text {
-                        text: value;
-                        color: item-area.has-hover ? DemoPalette.push-button-text-color : DemoPalette.text-primary;
-                        font-size: DemoPalette.base-font-size;
-                    }
-                }
-
-                item-area := TouchArea {
-                    clicked => {
-                        root.value = value;
-                        root.selected(idx);
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -304,7 +431,9 @@ export component CheckBox inherits Rectangle {
         spacing: 12px;
         padding: 0;
         SquareButton {
-            clicked => { root.checked = !root.checked; }
+            clicked => {
+                root.checked = !root.checked;
+            }
 
             width: root.height - parent.padding * 2;
             img: root.checked ? @image-url("images/check.svg") : @image-url("");
@@ -326,42 +455,21 @@ export component CheckBox inherits Rectangle {
     }
 }
 
-export component PushButton inherits Rectangle {
-    in property <string> text <=> label.text;
-    in property <bool> primary: true;
-    out property <bool> pressed: touch-area.pressed;
-    out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
-    in-out property <image> icon <=> img.source;
+export struct InkLevel  {
+    color: color,
+    level: float,
+}
 
-    callback clicked;
+export global PrinterState {
+    in property <Page> active-page: Page.home;
+    in-out property <SubPage> active-subpage: SubPage.none;
 
-    border-radius: 13.5px;
-    background: root.pressed ? root.colors.pressed : (touch-area.has-hover ? root.colors.hovered : root.colors.base);
-
-    height: 27px; // line-height in the design
-    horizontal-stretch: 1;
-
-    HorizontalLayout {
-        padding-top: 0px;
-        padding-bottom: 0px;
-        padding-left: parent.border-radius;
-        padding-right: parent.border-radius;
-
-        img := Image {
-            horizontal-stretch: 0;
-            colorize: DemoPalette.push-button-text-color;
-            image-fit: contain;
-            width: 17px;
-        }
-
-        label := Text {
-            font-weight: 900;
-            font-size: DemoPalette.base-font-size * 0.975;
-            color: DemoPalette.push-button-text-color;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-    }
-
-    touch-area := TouchArea { clicked => { root.clicked() } }
+    /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in-out property <[InkLevel]> ink-levels: [
+        { color: #00c1e2, level: 60% },
+        { color: #f9bf00, level: 80% },
+        { color: #d40bec, level: 70% },
+        { color: #131c30, level: 30% },
+    ];
 }

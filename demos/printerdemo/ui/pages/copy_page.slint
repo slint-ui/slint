@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { PrinterQueue } from "./printer_queue.slint";
+import { Page } from "./page.slint";
+import { SpinBox } from "../components/spinbox.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
+import { TextButton } from "../components/text_button.slint";
+import { IconTextButton } from "../components/icon_text_button.slint";
+import { DemoPalette, PrinterState, SubPage } from "../common.slint";
+
+export component CopyPage inherits Page {
+    header: @tr("Copy");
+    subtitle: @tr("Choose Settings");
+
+    GridLayout {
+        padding: DemoPalette.default-margin;
+        spacing: 16px;
+        width: parent.width;
+        height: self.preferred-height;
+
+        property <length> item-width: (parent.width - self.spacing - self.padding * 2) / 2;
+
+        Row {
+            SpinBox {
+                width: self.preferred-width;
+                value: 1;
+                minimum: 1;
+                label: @tr("Copies");
+            }
+
+            TextButton {
+                property <bool> is-color: true;
+                width: item-width;
+                text: is-color ? @tr("Color") : @tr("Grayscale");
+                background: is-color ? DemoPalette.color-button-gradient : DemoPalette.grayscale-button-gradient;
+
+                clicked => {
+                    is-color = !is-color;
+                }
+            }
+        }
+        Row {
+            DropDownMenu {
+                width: item-width;
+                label: @tr("Quality");
+                items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
+            }
+
+            DropDownMenu {
+                width: item-width;
+                label: @tr("Size");
+                items: ["100%","75%", "50%"];
+            }
+        }
+        Row {
+            DropDownMenu {
+                width: item-width;
+                label: @tr("Paper Size");
+                items: [@tr("Original"), @tr("A4")];
+            }
+
+            DropDownMenu {
+                width: item-width;
+                label: @tr("Layout");
+                items: [@tr("Portrait"), @tr("Landscape")];
+            }
+        }
+        Row {
+            IconTextButton {
+                colspan: 2;
+                icon: @image-url("../images/scan.svg");
+                font-size: 18px;
+                text: @tr("Start copying");
+                height: 60px;
+                icon-color: white;
+                text-color: white;
+                clicked => {
+                    PrinterQueue.start-job(@tr("Copy"));
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+        }
+    }
+}

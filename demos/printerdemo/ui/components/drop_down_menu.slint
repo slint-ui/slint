@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Label, PrinterState } from "../common.slint";
+import { MenuPopup } from "popup_menu.slint";
+
+export component DropDownMenu inherits VerticalLayout {
+    in property <string> label <=> label-layout.text;
+    in property <[string]> items;
+    in-out property <int> current_index: 0;
+
+    callback selected(int);
+
+    label-layout := Label { }
+
+    alignment: start;
+    spacing: 4px;
+
+    Rectangle {
+        border-radius: 14px;
+        border-width: 2px;
+        border-color: DemoPalette.secondary;
+        background: DemoPalette.popup-bg;
+        height: 52px;
+
+        HorizontalLayout {
+            alignment: space-between;
+            spacing: 10px;
+            padding: 12px;
+            height: self.preferred-height;
+
+            default-option := Label {
+                vertical-alignment: center;
+                text: root.items[root.current_index];
+                font-size: 16px;
+            }
+
+            i := Image {
+                source: @image-url("../images/back.svg");
+                transform-rotation: -90deg;
+                colorize: DemoPalette.text-primary;
+                width: 8px;
+                image-fit: contain;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        touch_area := TouchArea {
+            clicked => {
+                popup.show();
+            }
+        }
+
+        popup := MenuPopup {
+            x: 0;
+            y: parent.height + 4px;
+            width: root.width;
+
+            items: root.items;
+            current_index: root.current_index;
+
+            selected(index) => {
+                root.current_index = index;
+                root.selected(index);
+            }
+        }
+    }
+}

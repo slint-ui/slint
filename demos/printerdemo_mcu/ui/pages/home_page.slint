@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, SubPage, PrinterState } from "../common.slint";
+import { Page } from "../components/components.slint";
+import { NarrowPrinterQueueList } from "./printer_queue.slint";
+
+component ActionButton inherits Image {
+    in property <string> text <=> label.text;
+
+    callback clicked;
+    width: 104px;
+
+    label := Text {
+        y: 50px;
+        font-size: DemoPalette.base-font-size * 1.2;
+        horizontal-alignment: center;
+        color: white;
+    }
+
+    ta := TouchArea {
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                root.clicked();
+            }
+        }
+    }
+}
+
+export component HomePage inherits Page {
+    header: "Printer";
+
+    HorizontalLayout {
+        spacing: 4px;
+        VerticalLayout {
+            padding-top: 8px;
+            padding-left: 4px;
+            width: self.preferred-width;
+            for action[index] in [
+                { name: "Copy", enum: SubPage.copy, icon: @image-url("../images/mcu/copy-button.jpg") },
+                { name: "Scan", enum: SubPage.scan, icon: @image-url("../images/mcu/scan-button.jpg") },
+            ]: ActionButton {
+                clicked => { PrinterState.active-subpage = action.enum; }
+                source: action.icon;
+                text: action.name;
+            }
+        }
+        queue-view :=  NarrowPrinterQueueList { }
+    }
+
+}

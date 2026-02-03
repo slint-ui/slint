@@ -1,36 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore noto subpage
-
-import { DemoPalette, Page } from "common.slint";
-import { HomePage } from "./home_page.slint";
-import { InkLevel, InkPage } from "./ink_page.slint";
-import { SettingsPage } from "./settings_page.slint";
-import { PrinterQueue } from "./printer_queue.slint";
+import { DemoPalette, Pages, SubPage, PrinterState } from "common.slint";
+import { SideBar } from "./components/components.slint";
+import { HomePage, InkPage, ScanPage, ScanPagePosition, CopyPage, CopyPagePosition, SettingsPage, PrinterQueue } from "./pages/pages.slint";
 
 // re-export for the native code
-export { PrinterQueue }
+export { PrinterQueue, PrinterState }
 
-import "./fonts/NotoSans-Regular.ttf";
-import "./fonts/NotoSans-Bold.ttf";
+import "./fonts/Inter-24pt-Regular.ttf";
+import "./fonts/Inter-24pt-Medium.ttf";
 
-component SideBarIcon inherits Rectangle {
-    in-out property <bool> active;
-
-    callback activate;
-
-    TouchArea {
-        pointer-event(event) => {
-            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                root.activate();
-            }
-        }
-
-        width: 170%;
-        height: 150%;
-    }
-}
 
 export component MainWindow inherits Window {
     min-width: 320px;
@@ -38,137 +18,57 @@ export component MainWindow inherits Window {
     preferred-width: self.min-width;
     preferred-height: self.min-height;
     title: "Slint printer demo";
-    background: DemoPalette.main-background;
-    default-font-family: "Noto Sans";
+    default-font-family: DemoPalette.medium-font-family;
     default-font-size: DemoPalette.base-font-size;
-
-    /// Note that this property is overwritten in the .cpp and .rs code.
-    /// The data is only in this file so it looks good in the viewer
-    in-out property <[InkLevel]> ink-levels: [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ];
-
-    in-out property <int> active-page: 0;
 
     callback quit();
 
-    main-view := Rectangle {
-        property <length> margin: 5px;
+    HorizontalLayout {
+        sidebar := SideBar { }
 
-        x: sidebar.x + sidebar.width;
-        y: self.margin;
-        height: parent.height - self.margin * 2;
-        width: parent.width - self.x - self.margin;
-        border-radius: 15px;
-        background: DemoPalette.page-background-color;
+        main-view := Rectangle {
+            background: DemoPalette.page-background;
 
-        Rectangle {
-            clip: true;
-            x: main-view.border-radius / 2;
-            y: main-view.border-radius / 2;
-            width: main-view.width - main-view.border-radius;
-            height: main-view.height - main-view.border-radius;
+            if PrinterState.active-subpage == SubPage.none: Rectangle {
 
-            home-page := HomePage {
-                y: root.active-page == 0 ? 0 : root.active-page > 0 ? - self.height - 1px : parent.height + 1px;
-                //animate y { duration: 125ms; easing: ease; }
+                if PrinterState.active-page == Pages.home: HomePage { }
+
+                if PrinterState.active-page == Pages.ink: InkPage { }
+
+                if PrinterState.active-page == Pages.settings: SettingsPage { }
             }
 
-            SettingsPage {
-                y: root.active-page == 1 ? 0 : root.active-page > 1 ? - self.height - 1px : parent.height + 1px;
-                //animate y { duration: 125ms; easing: ease; }
+            if PrinterState.active-subpage == SubPage.scan: ScanPage {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
             }
 
-            InkPage {
-                y: root.active-page == 2 ? 0 : root.active-page > 2 ? - self.height - 1px : parent.height + 1px;
-                //animate y { duration: 125ms; easing: ease; }
-                ink-levels <=> root.ink-levels;
-                page-visible: root.active-page == 2;
+            if PrinterState.active-subpage == SubPage.scan-position: ScanPagePosition {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPage.copy: CopyPage {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPage.copy-position: CopyPagePosition {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
             }
         }
     }
 
-
-    sidebar := Rectangle {
-        function icon-y(index: int) -> length {
-            return 34px // top padding
-                + index * 50px;
-        }
-
-
-        width: 48px;
-        x: 5px;
-
-        Image {
-            x:0;
-            source: @image-url("images/page_selection.svg");
-            y: sidebar.icon-y(root.active-page) - 23px;
-            width: 49px;
-            height: 86px;
-            colorize: DemoPalette.page-background-color;
-
-            animate y {
-                duration: 125ms;
-            }
-        }
-
-        for page-icon[idx] in [
-            @image-url("images/home.svg"),
-            @image-url("images/settings.svg"),
-            @image-url("images/ink.svg"),
-        ] : SideBarIcon {
-            activate => {
-                home-page.current-subpage = 0;
-                root.active-page = idx;
-            }
-
-            y: sidebar.icon-y(idx)+3px;
-            x: (parent.width - self.width) / 2;
-            height: 30px;
-            width: 30px;
-
-            icon := Image {
-                colorize: (root.active-page == idx) ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-                source: page-icon;
-                image-fit: contain;
-                width: 100%;
-                height: 100%;
-
-                animate colorize {
-                    duration: 125ms;
-                }
-            }
-        }
-
-        Rectangle {
-            y: sidebar.icon-y(3) ;
-            x: (parent.width - self.width) / 2;
-            background: #6284FF;
-            height: 2px;
-            width: 37px;
-        }
-
-        SideBarIcon {
-            activate => {
-                DemoPalette.night-mode = !DemoPalette.night-mode;
-            }
-
-            //y: sidebar.icon-y(3) + 10px;
-            y: parent.height - self.height - main-view.margin * 2;
-            x: (parent.width - self.width) / 2;
-            height: 27px;
-            width: 27px;
-
-            Image {
-                colorize: DemoPalette.night-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-                source: DemoPalette.night-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
-                image-fit: contain;
-                width: 100%;
-                height: 100%;
-            }
-        }
+    screen-corners := Rectangle {
+        width: parent.width + self.border-width * 2;
+        height: parent.height + self.border-width * 2;
+        border-radius: 30px;
+        border-width: 10px;
+        border-color: #212e4a;
     }
 }

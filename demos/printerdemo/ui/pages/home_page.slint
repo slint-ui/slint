@@ -1,0 +1,179 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, SubPage, PrinterState } from "../common.slint";
+import { CopyPage } from "./copy_page.slint";
+import { ScanPage } from "./scan_page.slint";
+import { PrintPage } from "./print_page.slint";
+import { PrinterQueueView } from "./printer_queue.slint";
+import { UsbPage } from "./usb_page.slint";
+import { Page, Header } from "./page.slint";
+component ActionButton  {
+    in property <image> icon <=> img.source;
+    in property <string> text <=> label.text;
+    in property <brush> background <=> img-back.colorize;
+    in property <brush> inner-background <=> inner.background;
+    in property <brush> text-color <=> label.color;
+
+    width: DemoPalette.button-width;
+    height: DemoPalette.button-height;
+    img-back := Image {
+        width: 100%;
+        height: 100%;
+        source: @image-url("../images/action-button-frame.png");
+        colorize: white;
+    }
+
+    callback clicked;
+
+    VerticalLayout {
+        spacing: 10px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+
+        inner := Rectangle {
+            width: 64px;
+            height: self.width;
+            border-radius: 16px;
+            background: DemoPalette.print-button-bg-inner;
+
+            img := Image {
+                width: 32px;
+                colorize: DemoPalette.home-button-text-color;
+            }
+        }
+
+        label := Text {
+            font-size: 18px;
+            font-family: DemoPalette.medium-weight;
+            horizontal-alignment: center;
+            color: DemoPalette.home-button-text-color;
+        }
+    }
+
+    Rectangle {
+        border-radius: 24px;
+        border-width:  2px;
+        border-color: DemoPalette.home-button-border;
+    }
+
+    TouchArea {
+        width: 249px;
+        clicked => {
+            root.clicked()
+        }
+    }
+}
+
+export component HomePage inherits Page {
+    in-out property <length> header-row-height: 40px;
+    in-out property <length> button-spacing: 35px;
+
+    header-type: Header.none;
+
+    Text {
+        x: DemoPalette.default-margin;
+        y: DemoPalette.default-margin;
+        text: @tr("Slint Printer");
+        color: DemoPalette.text-primary;
+        font-size: DemoPalette.title-font-size;
+        font-family: DemoPalette.medium-weight;
+        letter-spacing: 0.7px;
+    }
+
+
+    gl := GridLayout {
+        x: DemoPalette.default-margin;
+        y: parent.height - DemoPalette.default-margin - self.preferred-height;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        spacing: 16px;
+
+        for action[index] in [
+            {
+                name: @tr("Print"),
+                id: SubPage.print,
+                icon: @image-url("../images/print.svg"),
+                background:  DemoPalette.print-button-bg,
+                inner-background: DemoPalette.print-button-bg-inner,
+                text-color: DemoPalette.print-button-text-color,
+            },
+            {
+                name: @tr("Scan"),
+                id: SubPage.scan,
+                icon: @image-url("../images/scan.svg"),
+                background:  DemoPalette.scan-button-bg,
+                inner-background: DemoPalette.scan-button-bg-inner,
+                text-color: DemoPalette.scan-button-text-color,
+            },
+            {
+                name: @tr("Copy"),
+                id: SubPage.copy,
+                icon: @image-url("../images/copy.svg"),
+                background:  DemoPalette.copy-button-bg,
+                inner-background: DemoPalette.copy-button-bg-inner,
+                text-color: DemoPalette.copy-button-text-color,
+            },
+            {
+                name: @tr("USB"),
+                id: SubPage.usb,
+                icon: @image-url("../images/usb.svg"),
+                background:  DemoPalette.usb-button-bg,
+                inner-background: DemoPalette.usb-button-bg-inner,
+                text-color: DemoPalette.usb-button-text-color,
+            },
+        ]: ActionButton {
+            col: index.mod(2);
+            row: index / 2;
+            icon: action.icon;
+            text: action.name;
+            background: action.background;
+            inner-background: action.inner-background;
+            text-color: action.text-color;
+            clicked => {
+                PrinterState.active-subpage = action.id;
+            }
+        }
+    }
+
+    queue-view := PrinterQueueView {
+        show-job-details(idx) => {
+            PrinterState.active-subpage = SubPage.print;
+        }
+
+        x: parent.width - self.width;
+        width: root.width - (DemoPalette.default-margin * 2) - gl.width;
+    }
+
+    PrintPage {
+        back => {
+            PrinterState.active-subpage = SubPage.none;
+        }
+        x: PrinterState.active-subpage == SubPage.print ? 0 : parent.width + parent.x + 2px;
+        animate x {
+            duration: 125ms;
+            easing: ease;
+        }
+    }
+
+    ScanPage {
+        back => {
+            PrinterState.active-subpage = SubPage.none;
+        }
+        x: PrinterState.active-subpage == SubPage.scan ? 0 : parent.width + parent.x + 2px;
+    }
+
+    CopyPage {
+        back => {
+            PrinterState.active-subpage = SubPage.none;
+        }
+        x: PrinterState.active-subpage == SubPage.copy ? 0 : parent.width + parent.x + 2px;
+    }
+
+    UsbPage {
+        back => {
+            PrinterState.active-subpage = SubPage.none;
+        }
+        x: PrinterState.active-subpage == SubPage.usb ? 0 : parent.width + parent.x + 2px;
+    }
+}

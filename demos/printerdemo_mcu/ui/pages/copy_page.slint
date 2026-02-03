@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Label, PrinterState, SubPage } from "../common.slint";
+import {
+    ComboBox,
+    CheckBox,
+    SpinBox,
+    PushButton,
+    Page,
+} from "../components/components.slint";
+import { PrinterQueue } from "./printer_queue.slint";
+
+export component CopyPage inherits Page {
+    header: "Copy";
+
+    VerticalLayout {
+        padding: 12px;
+        alignment: space-between;
+
+        SpinBox {
+            label: "Copies";
+            value: 1;
+            minimum: 1;
+        }
+
+        PushButton {
+            label: "Continue";
+            clicked => {
+                PrinterState.active-subpage = SubPage.copy-position;
+            }
+        }
+    }
+}
+
+export component CopyPagePosition inherits Page {
+    header: "Place document correctly";
+    header-font-size: 14px;
+    header-height: 33px;
+
+    VerticalLayout {
+        padding: 12px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 144px;
+                height: 96px;
+                Image {
+                    y: 0px;
+                    source: @image-url("../images/mcu/place-document.jpg");
+                }
+
+                indicator := Rectangle {
+                    x: 8px;
+                    y: 10px;
+                    property <length> indicator-size: 14px;
+
+                    Timer {
+                        interval: 600ms;
+                        running: true;
+                        triggered => {
+                            indicator.visible = !indicator.visible;
+                        }
+                    }
+
+                    Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: indicator-size;
+                        height: 3px;
+                        background: blue;
+                    }
+
+                    Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: 3px;
+                        height: indicator-size;
+                        background: blue;
+                    }
+                }
+            }
+        }
+
+        PushButton {
+            label: "Start";
+            clicked => {
+                PrinterState.active-subpage = SubPage.none;
+                PrinterQueue.start-job("Copy");
+            }
+        }
+    }
+}

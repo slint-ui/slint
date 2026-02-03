@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Pages, SubPage, PrinterState } from "../common.slint";
+
+component SideBarIcon inherits Rectangle {
+    in-out property <bool> active;
+    in-out property icon <=> icon.source;
+    in-out property <color> icon-colorize: active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
+
+    callback activate;
+    width: 36px;
+    height: self.width;
+    border-radius: 10px;
+    background: active ? white.with-alpha(0.1) : transparent;
+
+    icon := Image {
+        colorize: icon-colorize;
+        image-fit: contain;
+        width: 20px;
+        height: self.width;
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                root.activate();
+            }
+        }
+
+        width: 150%;
+        height: 150%;
+    }
+}
+
+export component SideBar inherits Rectangle {
+    width: DemoPalette.side-bar-width;
+    background: DemoPalette.main-background;
+
+    VerticalLayout {
+        width: self.preferred-width;
+        padding-top: 12px;
+        spacing: 12px;
+        for page-data[index] in [
+            { enum: Pages.home, icon: @image-url("../images/mcu/home.svg") },
+            { enum: Pages.ink, icon: @image-url("../images/mcu/ink.svg") },
+        ]: SideBarIcon {
+
+            activate => {
+                PrinterState.active-subpage = SubPage.none;
+                PrinterState.active-page = page-data.enum;
+            }
+            icon: page-data.icon;
+            active: PrinterState.active-page == page-data.enum;
+        }
+    }
+
+    SideBarIcon {
+        activate => {
+            PrinterState.active-page = Pages.settings;
+            PrinterState.active-subpage = SubPage.none;
+        }
+
+        y: parent.height - self.height - 12px;
+        icon: @image-url("../images/mcu/settings.svg");
+        active: PrinterState.active-page == Pages.settings;
+    }
+}
