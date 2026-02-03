@@ -10,6 +10,7 @@ use alloc::rc::Rc;
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 struct Platform {
+    scale_factor: f32,
     window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
     //event_queue: Queue,
 }
@@ -22,8 +23,9 @@ impl slint::platform::Platform for Platform {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        self.window
-            .dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged { scale_factor: 2.0 });
+        self.window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
+            scale_factor: self.scale_factor,
+        });
 
         let mut width: u32 = 0;
         let mut height: u32 = 0;
@@ -110,11 +112,16 @@ where
     unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<P, F>)) }
 }
 
-pub fn slint_init_safeui_platform() {
+pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
+    let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+        slint::platform::software_renderer::RepaintBufferType::NewBuffer,
+    );
+
+    window.set_size(slint::PhysicalSize { width, height });
+
     let platform = Platform {
-        window: slint::platform::software_renderer::MinimalSoftwareWindow::new(
-            slint::platform::software_renderer::RepaintBufferType::NewBuffer,
-        ),
+        scale_factor,
+        window,
         //event_queue: Queue(critical_section::Mutex::new(RefCell::new(Vec::new())).into()),
     };
 
