@@ -61,6 +61,7 @@ unstable-wgpu-27 = [
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
   "i-slint-renderer-skia?/unstable-wgpu-28",
+  "i-slint-renderer-femtovg?/unstable-wgpu-28",
   "i-slint-backend-winit?/unstable-wgpu-28",
 ]
 
