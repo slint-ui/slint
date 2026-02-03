@@ -13,32 +13,22 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 const auto shortcut = instance.get_shortcut();
-assert(shortcut.modifiers.alt);
-assert(shortcut.modifiers.control);
-assert(!shortcut.modifiers.meta);
-assert(!shortcut.modifiers.shift);
-assert_eq(shortcut.key, "\u{1b}");
+slint::SharedString shortcut_string;
+slint::cbindgen_private::slint_keyboard_shortcut_to_string(&shortcut, &shortcut_string);
+assert_eq(shortcut_string, "Alt+Control+\\u{1b}");
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
 let shortcut = instance.get_shortcut();
-assert!(shortcut.modifiers.alt);
-assert!(shortcut.modifiers.control);
-assert!(!shortcut.modifiers.meta);
-assert!(!shortcut.modifiers.shift);
-assert_eq!(shortcut.key, "\u{1b}");
+assert_eq!(shortcut.to_string(), "Alt+Control+\\u{1b}");
 ```
 
 ```js
 var instance = new slint.TestCase({});
 
 var shortcut = instance.shortcut;
-assert.equal(shortcut.modifiers.alt, true);
-assert.equal(shortcut.modifiers.control, true);
-assert.equal(shortcut.modifiers.meta, false);
-assert.equal(shortcut.modifiers.shift, false);
-assert.equal(shortcut.key, "\u{1b}");
+assert.equal(shortcut, "Alt+Control+\\u{1b}")
 ```
 
 */

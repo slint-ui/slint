@@ -444,35 +444,15 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
         Expression::KeyboardShortcut(ks) => {
-            let modifiers: HashMap<_, _> = [
-                ("alt", Value::Bool(ks.modifiers.alt)),
-                ("control", Value::Bool(ks.modifiers.control)),
-                ("shift", Value::Bool(ks.modifiers.shift)),
-                ("meta", Value::Bool(ks.modifiers.meta)),
-            ]
-            .into_iter()
-            .map(|(key, value)| (SmolStr::from(key), value))
-            .collect();
-            let modifiers = Struct(modifiers);
-
-            let values: HashMap<_, _> = [
-                ("key", Value::String(SharedString::from(&*ks.key))),
-                ("modifiers", Value::Struct(modifiers)),
-            ]
-            .into_iter()
-            .map(|(key, value)| (SmolStr::from(key), value))
-            .collect();
-
-            Value::Struct(Struct(values))
-            // Value::KeyboardShortcut(i_slint_core::input::KeyboardShortcut {
-            //     key: SharedString::from(&*ks.key),
-            //     modifiers: i_slint_core::input::KeyboardModifiers {
-            //         alt: ks.modifiers.alt,
-            //         control: ks.modifiers.control,
-            //         shift: ks.modifiers.shift,
-            //         meta: ks.modifiers.meta,
-            //     },
-            // })
+            Value::KeyboardShortcut(i_slint_core::input::make_keyboard_shortcut(
+                SharedString::from(&*ks.key),
+                i_slint_core::input::KeyboardModifiers {
+                    alt: ks.modifiers.alt,
+                    control: ks.modifiers.control,
+                    shift: ks.modifiers.shift,
+                    meta: ks.modifiers.meta,
+                },
+            ))
         }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));

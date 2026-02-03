@@ -2373,7 +2373,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let shift = shortcut.modifiers.shift;
                 let meta = shortcut.modifiers.meta;
 
-                quote!(sp::KeyboardShortcut { key: #key.into(), modifiers: sp::KeyboardModifiers { alt: #alt, control: #control, shift: #shift, meta: #meta } })
+                quote!(
+                    sp::make_keyboard_shortcut(
+                        #key.into(),
+                        sp::KeyboardModifiers {
+                            alt: #alt,
+                            control: #control,
+                            shift: #shift,
+                            meta: #meta
+                        }))
         },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
