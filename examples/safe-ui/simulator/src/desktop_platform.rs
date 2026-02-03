@@ -6,10 +6,11 @@ use std::time::Instant;
 
 use slint::platform::software_renderer::TargetPixel;
 use slint_safeui_core::pixels::PlatformPixel;
+use slint_safeui_core::{HEIGHT_PIXELS, SCALE_FACTOR, WIDTH_PIXELS};
 
-pub const WIDTH_PIXELS: u32 = 640;
-pub const HEIGHT_PIXELS: u32 = 480;
-const PIXEL_STRIDE: u32 = WIDTH_PIXELS;
+pub const SCALED_WIDTH: u32 = (WIDTH_PIXELS as f32 * SCALE_FACTOR).round() as u32;
+pub const SCALED_HEIGHT: u32 = (HEIGHT_PIXELS as f32 * SCALE_FACTOR).round() as u32;
+const PIXEL_STRIDE: u32 = SCALED_WIDTH;
 
 static SIM_THREAD: OnceLock<std::thread::Thread> = OnceLock::new();
 static PIXEL_CHANNEL: OnceLock<smol::channel::Sender<Vec<slint::Rgb8Pixel>>> = OnceLock::new();
@@ -84,7 +85,7 @@ extern "C" fn slint_safeui_platform_render(
     ),
 ) {
     let mut pixels =
-        vec![PlatformPixel::background(); PIXEL_STRIDE as usize * HEIGHT_PIXELS as usize];
+        vec![PlatformPixel::background(); PIXEL_STRIDE as usize * SCALED_HEIGHT as usize];
     let pixel_bytes: &mut [u8] = bytemuck::cast_slice_mut(&mut pixels);
     render_fn(
         user_data,
@@ -108,7 +109,7 @@ extern "C" fn slint_safeui_platform_duration_since_start() -> i32 {
 #[unsafe(no_mangle)]
 extern "C" fn slint_safeui_platform_get_screen_size(width: *mut u32, height: *mut u32) {
     unsafe {
-        *width = WIDTH_PIXELS;
-        *height = HEIGHT_PIXELS;
+        *width = SCALED_WIDTH;
+        *height = SCALED_HEIGHT;
     }
 }

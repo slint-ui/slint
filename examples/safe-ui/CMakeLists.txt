@@ -4,6 +4,14 @@
 cmake_minimum_required(VERSION 3.21)
 project(SlintSafeUI LANGUAGES C CXX VERSION 1.0)
 
+if(NOT DEFINED SLINT_SAFEUI_WIDTH)
+    set(SLINT_SAFEUI_WIDTH "" CACHE STRING "SafeUI window width (optional)")
+endif()
+
+if(NOT DEFINED SLINT_SAFEUI_HEIGHT)
+    set(SLINT_SAFEUI_HEIGHT "" CACHE STRING "SafeUI window height (optional)")
+endif()
+
 # Use pixel-bgra8888 as default pixel format
 set(SLINT_SAFEUI_PIXEL_FORMAT "pixel-bgra8888" CACHE STRING "Pixel format for Slint SafeUI")
 set_property(CACHE SLINT_SAFEUI_PIXEL_FORMAT PROPERTY STRINGS
@@ -36,6 +44,15 @@ corrosion_import_crate(
     CRATE_TYPES staticlib
     FEATURES "${SLINT_SAFEUI_FEATURES}"
 )
+
+if(SLINT_SAFEUI_WIDTH AND SLINT_SAFEUI_HEIGHT)
+    message(STATUS "Custom Slint SafeUI Window Size: ${SLINT_SAFEUI_WIDTH}x${SLINT_SAFEUI_HEIGHT}")
+    corrosion_set_env_vars(
+        slint_safeui_core
+        SAFE_UI_WIDTH=${SLINT_SAFEUI_WIDTH}
+        SAFE_UI_HEIGHT=${SLINT_SAFEUI_HEIGHT}
+    )
+endif()
 
 add_library(SlintSafeUi INTERFACE)
 target_link_libraries(SlintSafeUi INTERFACE slint_safeui_core)
