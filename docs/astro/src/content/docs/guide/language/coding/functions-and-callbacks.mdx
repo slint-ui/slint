@@ -30,9 +30,10 @@ Functions can have parameters which are declared within parentheses, following t
 These parameters can be referenced by their names within the function body. Parameters are passed by
 value.
 
-Functions can also return a value. The return type is specified after `->` in the function signature.
-The `return` keyword is used within the function body to return an expression of the declared type.
-If a function does not explicitly return a value, the value of the last statement is returned by default.
+Functions can also return a value. The return type is specified after `->` in the function
+signature. The return type is `void` if no return type is specified. The `return` keyword is used
+within the function body to return an expression of the declared type. If a function does not have
+an explicit return statement, the value of the last statement is returned by default.
 
 Functions can be annotated with the `pure` keyword.
 This indicates that the function does not cause any side effects.
