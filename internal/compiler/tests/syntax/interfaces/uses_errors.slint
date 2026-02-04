@@ -51,11 +51,15 @@ export component ChildDoesNotImplementInterface uses { ValidInterface from base 
 
 component ValidBase implements ValidInterface { }
 
-export component DuplicatePropertyName uses { ValidInterface from base } {
+export component ConflictingNames uses { ValidInterface from base } {
     base := ValidBase { }
 
     in-out property <int> value;
-//                        >   <error{Cannot override property 'value' from 'ValidInterface'}
+//                        >   <error{Cannot override 'value' from 'ValidInterface'}
+
+    callback speak();
+//           >   <error{Cannot override 'speak' from 'ValidInterface'}
+
 }
 
 component BaseWithConflicts {

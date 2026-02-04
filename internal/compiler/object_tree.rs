@@ -2256,7 +2256,7 @@ fn apply_uses_statement(
 
                 diag.push_error(
                     format!(
-                        "Cannot override property '{}' from '{}'",
+                        "Cannot override '{}' from '{}'",
                         prop_name, uses_statement.interface_name
                     ),
                     &source,
