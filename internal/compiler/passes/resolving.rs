@@ -17,6 +17,7 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
+use i_slint_common::for_each_normal_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -1070,8 +1071,53 @@ impl Expression {
     }
 
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
+        #[derive(Clone, Debug)]
+        enum ShiftBehavior {
+            // Keys that change their key code when Shift is pressed
+            Shiftable(SmolStr),
+            // Keys that change their key code when Shift is pressed, but the shifted value is layout-dependent
+            LocalizedShiftable { shifted_hint: &'static str },
+            // Unshiftable keys have the same key code regardless of the shift state
+            Unshiftable,
+        }
+        macro_rules! key_shift_behavior {
+            ($keycode:literal # $ident:ident # $shifted:literal) => {
+                (
+                    stringify!($ident),
+                    (
+                        $keycode,
+                        ShiftBehavior::Shiftable(SmolStr::from_iter(core::iter::once($shifted))),
+                    ),
+                )
+            };
+            ($keycode:literal # $ident:ident # $shifted:ident) => {
+                (
+                    stringify!($ident),
+                    (
+                        $keycode,
+                        ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) },
+                    ),
+                )
+            };
+        }
+        macro_rules! generate_key_map {
+            [ $($keycode:literal # $ident:ident # $shifted:tt ;)* ] => {
+                {
+                    let key_map : HashMap<_, _> = [
+                        $(
+                            key_shift_behavior!($keycode # $ident # $shifted)
+                        ),*
+                    ].into_iter().collect();
+                    key_map
+                }
+            }
+        }
+        // TODO: Make this a thread_local or const somewhere
+        let key_map = for_each_normal_keys!(generate_key_map);
+
         let mut shortcut = langtype::KeyboardShortcut::default();
 
+        let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
         for identifier in node
             .children_with_tokens()
             .filter(|n| matches!(n.kind(), SyntaxKind::Identifier))
@@ -1083,6 +1129,7 @@ impl Expression {
                 "Control" => shortcut.modifiers.control = true,
                 "Meta" => shortcut.modifiers.meta = true,
                 "Shift" => shortcut.modifiers.shift = true,
+                "IgnoreShift" => shortcut.ignore_shift = true,
                 s => {
                     let lookup = crate::lookup::KeysLookup {};
                     if let Some(LookupResult::Expression {
@@ -1090,7 +1137,15 @@ impl Expression {
                         ..
                     }) = lookup.lookup(ctx, &SmolStr::from(s))
                     {
-                        shortcut.key = key;
+                        // TODO: This should support IgnoreShift, while A/B/... do not!
+                        key_code =
+                            Some((key.clone(), ShiftBehavior::Unshiftable, identifier.clone()))
+                    } else if let Some((key, shiftbehavior)) = key_map.get(s) {
+                        key_code = Some((
+                            SmolStr::from_iter(core::iter::once(*key)),
+                            shiftbehavior.clone(),
+                            identifier.clone(),
+                        ))
                     } else {
                         // TODO: This should suggest close matches
                         ctx.diag.push_error(
@@ -1104,6 +1159,52 @@ impl Expression {
                     }
                 }
             }
+        }
+
+        if let Some((mut key_code, shift_behavior, node)) = key_code {
+            match shift_behavior {
+                ShiftBehavior::Shiftable(smol_str) => {
+                    if shortcut.modifiers.shift {
+                        key_code = smol_str;
+                    }
+                    if shortcut.ignore_shift {
+                        ctx.diag.push_error(
+                            format!(
+                                "{name} is always affected by Shift\n\
+                                (Remove IgnoreShift and use both a shifted and unshifted shortcut to handle both cases)",
+                                name = node.as_token().unwrap().text()
+                            ),
+                            &node,
+                        );
+                    }
+                }
+                ShiftBehavior::LocalizedShiftable { shifted_hint } => {
+                    if shortcut.ignore_shift {
+                        ctx.diag.push_warning(
+                            format!(
+                                "{name} already implies IgnoreShift (remove IgnoreShift)",
+                                name = node.as_token().unwrap().text()
+                            ),
+                            &node,
+                        );
+                    }
+                    shortcut.ignore_shift = true;
+                    if shortcut.modifiers.shift {
+                        ctx.diag.push_error(
+                                        format!(
+                                            "{name} implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.\n\
+                                Remove Shift or use {shifted_hint} instead (for U.S. Keyboards)",
+                                            name = node.as_token().unwrap().text()
+                                        ),
+                                        &node,
+                                    );
+                    }
+                }
+                // Unshiftable keys ignore the shift state in their key_code
+                // No special action needed
+                ShiftBehavior::Unshiftable => {}
+            }
+            shortcut.key = key_code;
         }
 
         // If there is a string literal, use it as the key

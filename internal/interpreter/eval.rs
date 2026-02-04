@@ -453,6 +453,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     shift: ks.modifiers.shift,
                     meta: ks.modifiers.meta,
                 },
+                ks.ignore_shift,
             ))
         }
         Expression::ReturnStatement(x) => {
