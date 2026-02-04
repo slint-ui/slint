@@ -387,6 +387,41 @@ export global DemoPalette {
     }
 }
 
+export global KioskState {
+    in-out property <bool> scan-sequence-active: false;
+    in-out property <int> scan-copies: 1;
+    in-out property <bool> scan-is-color: true;
+    in-out property <int> scan-quality-index: 0;
+    in-out property <int> scan-format-index: 0;
+    in-out property <int> scan-paper-size-index: 0;
+    in-out property <int> scan-layout-index: 0;
+
+    in-out property <bool> copy-sequence-active: false;
+    in-out property <int> copy-copies: 1;
+    in-out property <bool> copy-is-color: true;
+    in-out property <int> copy-quality-index: 0;
+    in-out property <int> copy-size-index: 0;
+    in-out property <int> copy-paper-size-index: 0;
+    in-out property <int> copy-layout-index: 0;
+
+    in-out property <bool> usb-sequence-active: false;
+    in-out property <int> usb-file-index: 0;
+    in-out property <int> usb-copies: 1;
+    in-out property <bool> usb-is-color: true;
+
+    in-out property <bool> settings-active: false;
+    in-out property <bool> settings-turbo-mode: true;
+    in-out property <bool> settings-eco-mode: false;
+    in-out property <bool> settings-sort-pages: true;
+    in-out property <int> settings-layout-index: 0;
+    in-out property <int> settings-tray-index: 0;
+    in-out property <int> settings-quality-index: 0;
+    in-out property <int> settings-language-index: 0;
+    in-out property <int> settings-color-mode-index: 0;
+
+    in-out property <int> theme-index: 0;
+}
+
 export component Label inherits Text {
     color: DemoPalette.text-primary;
     vertical-alignment: center;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, SubPage, PrinterState } from "../common.slint";
+import { DemoPalette, SubPage, PrinterState, KioskState } from "../common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrintPage } from "./print_page.slint";
@@ -68,6 +68,24 @@ component ActionButton  {
 export component HomePage inherits Page {
     in-out property <length> header-row-height: 40px;
     in-out property <length> button-spacing: 35px;
+
+    in-out property <int> scan-copies <=> KioskState.scan-copies;
+    in-out property <bool> scan-is-color <=> KioskState.scan-is-color;
+    in-out property <int> scan-quality-index <=> KioskState.scan-quality-index;
+    in-out property <int> scan-format-index <=> KioskState.scan-format-index;
+    in-out property <int> scan-paper-size-index <=> KioskState.scan-paper-size-index;
+    in-out property <int> scan-layout-index <=> KioskState.scan-layout-index;
+
+    in-out property <int> copy-copies <=> KioskState.copy-copies;
+    in-out property <bool> copy-is-color <=> KioskState.copy-is-color;
+    in-out property <int> copy-quality-index <=> KioskState.copy-quality-index;
+    in-out property <int> copy-size-index <=> KioskState.copy-size-index;
+    in-out property <int> copy-paper-size-index <=> KioskState.copy-paper-size-index;
+    in-out property <int> copy-layout-index <=> KioskState.copy-layout-index;
+
+    in-out property <int> usb-file-index <=> KioskState.usb-file-index;
+    in-out property <int> usb-copies <=> KioskState.usb-copies;
+    in-out property <bool> usb-is-color <=> KioskState.usb-is-color;
 
     header-type: Header.none;
 
@@ -145,7 +163,7 @@ export component HomePage inherits Page {
         width: root.width - (DemoPalette.default-margin * 2) - gl.width;
     }
 
-    PrintPage {
+    print-page := PrintPage {
         back => {
             PrinterState.active-subpage = SubPage.none;
         }
@@ -156,21 +174,21 @@ export component HomePage inherits Page {
         }
     }
 
-    ScanPage {
+    scan-page := ScanPage {
         back => {
             PrinterState.active-subpage = SubPage.none;
         }
         x: PrinterState.active-subpage == SubPage.scan ? 0 : parent.width + parent.x + 2px;
     }
 
-    CopyPage {
+    copy-page := CopyPage {
         back => {
             PrinterState.active-subpage = SubPage.none;
         }
         x: PrinterState.active-subpage == SubPage.copy ? 0 : parent.width + parent.x + 2px;
     }
 
-    UsbPage {
+    usb-page := UsbPage {
         back => {
             PrinterState.active-subpage = SubPage.none;
         }

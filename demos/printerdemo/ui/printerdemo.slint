@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, PrinterState, InkLevel, Label, Page } from "common.slint";
+import { DemoPalette, PrinterState, InkLevel, Page, SubPage, KioskState } from "common.slint";
 import {
     HomePage,
     InkPage,
@@ -17,6 +17,22 @@ export { PrinterQueue, PrinterSettings, PrinterState, InkLevel }
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
 
+export enum KioskStep {
+    Home,
+    HomePrint,
+    HomePrintBack,
+    HomeScan,
+    HomeScanStart,
+    HomeCopy,
+    HomeCopyStart,
+    HomeUsb,
+    HomeUsbStart,
+    Ink,
+    Settings,
+    Theme,
+}
+
+
 export component MainWindow inherits Window {
     callback quit();
 
@@ -26,21 +42,149 @@ export component MainWindow inherits Window {
     default-font-family: DemoPalette.medium-weight;
     default-font-size: DemoPalette.base-font-size;
 
+    property <bool> kiosk-mode: true;
+    property <KioskStep> kiosk-step: KioskStep.Home;
+    property <duration> inactivity-timeout: 30s;
+
+    kiosk-timer := Timer {
+        running: kiosk-mode;
+        interval: 5s;
+        triggered => {
+            root.advance_kiosk();
+        }
+    }
+
+    inactivity-timer := Timer {
+        running: !kiosk-mode;
+        interval: inactivity-timeout;
+        triggered => {
+            debug("Re-entering kiosk mode");
+            root.enter_kiosk();
+        }
+    }
+
+    callback advance_kiosk();
+    callback enter_kiosk();
+    callback exit_kiosk();
+
+    advance_kiosk => {
+        if (kiosk-step == KioskStep.Home) {
+            PrinterState.active-page = Page.home;
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomePrint;
+            kiosk-timer.interval = 3s;
+
+        } else if (kiosk-step == KioskStep.HomePrint) {
+            PrinterState.active-page = Page.home;
+            PrinterState.active-subpage = SubPage.print;
+            kiosk-step = KioskStep.HomePrintBack;
+            kiosk-timer.interval = 3s;
+
+        } else if (kiosk-step == KioskStep.HomePrintBack) {
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomeScan;
+            kiosk-timer.interval = 2s;
+
+        } else if (kiosk-step == KioskStep.HomeScan) {
+            PrinterState.active-subpage = SubPage.scan;
+            KioskState.scan-sequence-active = true;
+            kiosk-step = KioskStep.HomeScanStart;
+            kiosk-timer.interval = 7s;
+
+        } else if (kiosk-step == KioskStep.HomeScanStart) {
+            PrinterQueue.start-job(@tr("Scan"));
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomeCopy;
+            kiosk-timer.interval = 2s;
+
+        } else if (kiosk-step == KioskStep.HomeCopy) {
+            PrinterState.active-subpage = SubPage.copy;
+            KioskState.copy-sequence-active = true;
+            kiosk-step = KioskStep.HomeCopyStart;
+            kiosk-timer.interval = 7s;
+
+        } else if (kiosk-step == KioskStep.HomeCopyStart) {
+            PrinterQueue.start-job(@tr("Copy"));
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomeUsb;
+            kiosk-timer.interval = 2s;
+
+        } else if (kiosk-step == KioskStep.HomeUsb) {
+            PrinterState.active-subpage = SubPage.usb;
+            KioskState.usb-sequence-active = true;
+            kiosk-step = KioskStep.HomeUsbStart;
+            kiosk-timer.interval = 4s;
+
+        } else if (kiosk-step == KioskStep.HomeUsbStart) {
+            PrinterQueue.start-job(@tr("USB Print"));
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.Ink;
+            kiosk-timer.interval = 4s;
+
+        } else if (kiosk-step == KioskStep.Ink) {
+            PrinterState.active-page = Page.ink;
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.Settings;
+            kiosk-timer.interval = 4s;
+
+        } else if (kiosk-step == KioskStep.Settings) {
+            PrinterState.active-page = Page.settings;
+            PrinterState.active-subpage = SubPage.none;
+            KioskState.settings-active = true;
+            kiosk-step = KioskStep.Theme;
+            kiosk-timer.interval = 10s;
+        } else {
+            KioskState.theme-index = mod(KioskState.theme-index + 1, 4);
+            kiosk-step = KioskStep.Home;
+            kiosk-timer.interval = 3s;
+        }
+
+        debug("Kiosk step:", kiosk-step);
+    }
+
+    exit_kiosk => {
+        if (kiosk-mode) {
+            kiosk-mode = false;
+            inactivity-timer.restart();
+            debug("Kiosk mode disabled");
+        }
+    }
+
+    enter_kiosk => {
+        kiosk-mode = true;
+        kiosk-step = KioskStep.Home;
+        PrinterState.active-page = Page.home;
+        kiosk-timer.restart();
+        debug("Kiosk mode enabled");
+    }
+
     Rectangle {
         border-radius: 24px;
         clip: true;
         background: white;
-        HorizontalLayout {
 
+        HorizontalLayout {
             side-bar := Sidebar { }
 
             main-view := Rectangle {
-                if PrinterState.active-page == Page.home: home-page := HomePage { }
+                opacity: 1;
 
-                if PrinterState.active-page == Page.settings: settings-page := SettingsPage { }
+                if PrinterState.active-page == Page.home:
+                    HomePage { }
 
-                if PrinterState.active-page == Page.ink: ink-page := InkPage { }
+                if PrinterState.active-page == Page.ink:
+                    InkPage { }
+
+                if PrinterState.active-page == Page.settings:
+                    SettingsPage { }
             }
+        }
+    }
+
+    TouchArea {
+        enabled: kiosk-mode;
+        clicked => {
+            root.exit_kiosk();
         }
     }
 }
