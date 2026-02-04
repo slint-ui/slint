@@ -86,9 +86,9 @@ pub(crate) fn completion_at(
                 ]
                 .iter()
                 .map(|(kw, ins_tex)| {
-                    let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
-                    c.kind = Some(CompletionItemKind::KEYWORD);
-                    with_insert_text(c, ins_tex, snippet_support)
+                    CompletionItem::new_simple(kw.to_string(), String::new())
+                        .with_kind(CompletionItemKind::KEYWORD)
+                        .with_insert_text(ins_tex, snippet_support)
                 }),
             );
 
@@ -104,9 +104,9 @@ pub(crate) fn completion_at(
                     ]
                     .iter()
                     .map(|(kw, ins_tex)| {
-                        let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
-                        c.kind = Some(CompletionItemKind::KEYWORD);
-                        with_insert_text(c, ins_tex, snippet_support)
+                        CompletionItem::new_simple(kw.to_string(), String::new())
+                            .with_kind(CompletionItemKind::KEYWORD)
+                            .with_insert_text(ins_tex, snippet_support)
                     }),
                 );
             }
@@ -206,19 +206,16 @@ pub(crate) fn completion_at(
         {
             return Some(
                 [
-                    ("tr", "tr(\"$1\")"),
-                    ("image-url", "image-url(\"$1\")"),
-                    ("linear-gradient", "linear-gradient($1)"),
-                    ("radial-gradient", "radial-gradient(circle, $1)"),
-                    ("conic-gradient", "conic-gradient($1)"),
+                    ("tr(..)", "tr(\"$1\")"),
+                    ("image-url(..)", "image-url(\"$1\")"),
+                    ("linear-gradient(..)", "linear-gradient($1)"),
+                    ("radial-gradient(..)", "radial-gradient(circle, $1)"),
+                    ("conic-gradient(..)", "conic-gradient($1)"),
                 ]
                 .into_iter()
                 .map(|(label, insert)| {
-                    with_insert_text(
-                        CompletionItem::new_simple(label.into(), String::new()),
-                        insert,
-                        snippet_support,
-                    )
+                    CompletionItem::new_simple(label.into(), String::new())
+                        .with_insert_text(insert, snippet_support)
                 })
                 .collect::<Vec<_>>(),
             );
@@ -335,9 +332,9 @@ pub(crate) fn completion_at(
         ]
         .iter()
         .map(|(kw, ins_tex)| {
-            let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
-            c.kind = Some(CompletionItemKind::KEYWORD);
-            with_insert_text(c, ins_tex, snippet_support)
+            CompletionItem::new_simple(kw.to_string(), String::new())
+                .with_kind(CompletionItemKind::KEYWORD)
+                .with_insert_text(ins_tex, snippet_support)
         })
         .collect();
         if let Some(component) = token
@@ -363,17 +360,17 @@ pub(crate) fn completion_at(
                 .children_with_tokens()
                 .any(|c| c.as_token().is_some_and(|t| t.text() == "inherits"))
         {
-            let mut c = CompletionItem::new_simple("inherits".into(), String::new());
-            c.kind = Some(CompletionItemKind::KEYWORD);
+            let c = CompletionItem::new_simple("inherits".into(), String::new())
+                .with_kind(CompletionItemKind::KEYWORD);
             return Some(vec![c]);
         }
     } else if node.kind() == SyntaxKind::State {
         let r: Vec<_> = [("when", "when $1: {\n    $0\n}")]
             .iter()
             .map(|(kw, ins_tex)| {
-                let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
-                c.kind = Some(CompletionItemKind::KEYWORD);
-                with_insert_text(c, ins_tex, snippet_support)
+                CompletionItem::new_simple(kw.to_string(), String::new())
+                    .with_kind(CompletionItemKind::KEYWORD)
+                    .with_insert_text(ins_tex, snippet_support)
             })
             .collect();
         return Some(r);
@@ -407,16 +404,36 @@ pub(crate) fn completion_at(
     None
 }
 
-fn with_insert_text(
-    mut c: CompletionItem,
-    ins_text: &str,
-    snippet_support: bool,
-) -> CompletionItem {
-    if snippet_support {
-        c.insert_text_format = Some(InsertTextFormat::SNIPPET);
-        c.insert_text = Some(ins_text.to_string());
+/// Convenience trait that allows for builder-style construction of CompletionItems
+trait CompletionItemExt {
+    fn with_insert_text(self, ins_text: impl ToString, snippet_support: bool) -> CompletionItem;
+
+    fn with_kind(self, kind: CompletionItemKind) -> CompletionItem;
+
+    fn with_sort_text(self, sort_text: impl ToString) -> CompletionItem;
+}
+
+impl CompletionItemExt for CompletionItem {
+    fn with_insert_text(
+        mut self,
+        ins_text: impl ToString,
+        snippet_support: bool,
+    ) -> CompletionItem {
+        if snippet_support {
+            self.insert_text_format = Some(InsertTextFormat::SNIPPET);
+            self.insert_text = Some(ins_text.to_string());
+        }
+        self
     }
-    c
+    fn with_kind(mut self, kind: CompletionItemKind) -> CompletionItem {
+        self.kind = Some(kind);
+        self
+    }
+
+    fn with_sort_text(mut self, sort_text: impl ToString) -> CompletionItem {
+        self.sort_text = Some(sort_text.to_string());
+        self
+    }
 }
 
 /// This is different than the properties in resolve_element_scope, because it also include the "out" properties
@@ -475,18 +492,16 @@ fn resolve_element_scope(
     with_snippets: bool,
 ) -> Option<Vec<CompletionItem>> {
     let apply_property_ty =
-        |mut c: CompletionItem, ty: &Type, cb_args: Option<&[SmolStr]>| -> CompletionItem {
+        |c: CompletionItem, ty: &Type, cb_args: Option<&[SmolStr]>| -> CompletionItem {
             if matches!(ty, Type::InferredCallback | Type::Callback { .. }) {
-                c.kind = Some(CompletionItemKind::METHOD);
                 let ins_text = match cb_args {
                     Some(a) => format!("{}({}) => {{$1}}", c.label, a.join(", ")),
                     None => format!("{} => {{$1}}", c.label),
                 };
-                with_insert_text(c, &ins_text, with_snippets)
+                c.with_kind(CompletionItemKind::METHOD).with_insert_text(&ins_text, with_snippets)
             } else {
-                c.kind = Some(CompletionItemKind::PROPERTY);
                 let ins_text = format!("{}: ", c.label);
-                with_insert_text(c, &ins_text, with_snippets)
+                c.with_kind(CompletionItemKind::PROPERTY).with_insert_text(&ins_text, with_snippets)
             }
         };
 
@@ -529,20 +544,24 @@ fn resolve_element_scope(
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {
             let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
-            let mut c = CompletionItem::new_simple(
-                name.to_string(),
-                pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
-            );
-            c.kind = Some(CompletionItemKind::PROPERTY);
-            c.sort_text = Some(format!("#{}", c.label));
-            Some(with_insert_text(c, &format!("{name}: "), with_snippets))
+            Some(
+                CompletionItem::new_simple(
+                    name.to_string(),
+                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
+                )
+                .with_kind(CompletionItemKind::PROPERTY)
+                .with_sort_text(format!("#{name}"))
+                .with_insert_text(format!("{name}: "), with_snippets),
+            )
         }))
         .chain(element.CallbackDeclaration().filter_map(|cd| {
             let name = cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
-            let mut c = CompletionItem::new_simple(name.to_string(), "callback".into());
-            c.kind = Some(CompletionItemKind::METHOD);
-            c.sort_text = Some(format!("#{}", c.label));
-            Some(with_insert_text(c, &format!("{name} => {{$1}}"), with_snippets))
+            Some(
+                CompletionItem::new_simple(name.to_string(), "callback".into())
+                    .with_kind(CompletionItemKind::METHOD)
+                    .with_sort_text(format!("#{name}"))
+                    .with_insert_text(format!("{name} => {{$1}}"), with_snippets),
+            )
         }))
         .collect::<Vec<_>>();
 
@@ -593,9 +612,9 @@ fn resolve_element_scope(
             ));
         }
         result.extend(extra.into_iter().map(|k| {
-            let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
-            c.kind = Some(CompletionItemKind::CLASS);
-            with_insert_text(c, &format!("{k} {{$1}}"), with_snippets)
+            CompletionItem::new_simple(k.to_string(), "element".into())
+                .with_kind(CompletionItemKind::CLASS)
+                .with_insert_text(format!("{k} {{$1}}"), with_snippets)
         }));
         if accepts_children {
             result.extend(tr.all_elements().into_iter().filter_map(|(k, t)| {
@@ -604,9 +623,11 @@ fn resolve_element_scope(
                     ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                     _ => return None,
                 };
-                let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
-                c.kind = Some(CompletionItemKind::CLASS);
-                Some(with_insert_text(c, &format!("{k} {{$1}}"), with_snippets))
+                Some(
+                    CompletionItem::new_simple(k.to_string(), "element".into())
+                        .with_kind(CompletionItemKind::CLASS)
+                        .with_insert_text(format!("{k} {{$1}}"), with_snippets),
+                )
             }));
         }
     };
