@@ -7,56 +7,11 @@ import { SpinBox } from "../components/spinbox.slint";
 import { DropDownMenu } from "../components/drop_down_menu.slint";
 import { TextButton } from "../components/text_button.slint";
 import { IconTextButton } from "../components/icon_text_button.slint";
-import { DemoPalette, PrinterState, SubPage, KioskState } from "../common.slint";
+import { DemoPalette, PrinterState, SubPage, PrinterData } from "../common.slint";
 
 export component CopyPage inherits Page {
     header: @tr("Copy");
     subtitle: @tr("Choose Settings");
-
-    in-out property <int> copies: 1;
-    in-out property <bool> is-color: true;
-    in-out property <int> quality-index: 0;
-    in-out property <int> size-index: 0;
-    in-out property <int> paper-size-index: 0;
-    in-out property <int> layout-index: 0;
-
-    in-out property <bool> kiosk-sequence-running <=> KioskState.copy-sequence-active;
-    property <int> kiosk-sequence-step: 0;
-
-    function advance-kiosk-sequence() {
-        if (kiosk-sequence-step == 0) {
-            root.copies = 3;
-        } else if (kiosk-sequence-step == 1) {
-            root.is-color = true;
-        } else if (kiosk-sequence-step == 2) {
-            root.quality-index = 1;
-        } else if (kiosk-sequence-step == 3) {
-            root.size-index = 1;
-        } else if (kiosk-sequence-step == 4) {
-            root.paper-size-index = 1;
-        } else if (kiosk-sequence-step == 5) {
-            root.layout-index = 0;
-            kiosk-sequence-running = false;
-            return;
-        }
-
-        kiosk-sequence-step += 1;
-    }
-
-    changed kiosk-sequence-running => {
-        if (kiosk-sequence-running) {
-            kiosk-sequence-step = 0;
-            kiosk-sequence-running = true;
-        }
-    }
-
-    kiosk-sequence-timer := Timer {
-        interval: 1s;
-        running: kiosk-sequence-running;
-        triggered => {
-            root.advance-kiosk-sequence();
-        }
-    }
 
     GridLayout {
         padding: DemoPalette.default-margin;
@@ -69,13 +24,13 @@ export component CopyPage inherits Page {
         Row {
             SpinBox {
                 width: self.preferred-width;
-                value <=> root.copies;
+                value <=> PrinterData.copy-copies;
                 minimum: 1;
                 label: @tr("Copies");
             }
 
             TextButton {
-                property <bool> is-color <=> root.is-color;
+                property <bool> is-color <=> PrinterData.copy-is-color;
                 width: item-width;
                 text: is-color ? @tr("Color") : @tr("Grayscale");
                 background: is-color ? DemoPalette.color-button-gradient : DemoPalette.grayscale-button-gradient;
@@ -90,14 +45,14 @@ export component CopyPage inherits Page {
                 width: item-width;
                 label: @tr("Quality");
                 items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
-                current_index <=> root.quality-index;
+                current_index <=> PrinterData.copy-quality-index;
             }
 
             DropDownMenu {
                 width: item-width;
                 label: @tr("Size");
                 items: ["100%","75%", "50%"];
-                current_index <=> root.size-index;
+                current_index <=> PrinterData.copy-size-index;
             }
         }
         Row {
@@ -105,14 +60,14 @@ export component CopyPage inherits Page {
                 width: item-width;
                 label: @tr("Paper Size");
                 items: [@tr("Original"), @tr("A4")];
-                current_index <=> root.paper-size-index;
+                current_index <=> PrinterData.copy-paper-size-index;
             }
 
             DropDownMenu {
                 width: item-width;
                 label: @tr("Layout");
                 items: [@tr("Portrait"), @tr("Landscape")];
-                current_index <=> root.layout-index;
+                current_index <=> PrinterData.copy-layout-index;
             }
         }
         Row {

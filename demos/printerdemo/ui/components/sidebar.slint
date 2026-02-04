@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Theme, ComponentTheme, SubPage, Page, KioskState } from "../common.slint";
+import { DemoPalette, Theme, ComponentTheme, SubPage, Page, PrinterData } from "../common.slint";
 import { PrinterState } from "../common.slint";
 import { MenuPopup } from "./popup_menu.slint";
 
@@ -74,22 +74,15 @@ export component Sidebar inherits Rectangle {
         height: 100%;
     }
 
-    in-out property <int> current_theme_index <=> KioskState.theme-index;
-    property <[Theme]> themes: DemoPalette.themes;
-
-    changed current_theme_index => {
-        DemoPalette.theme = themes[current_theme_index];
-    }
-
     popup := MenuPopup {
         x: root.width - 10px;
         y: root.height - self.preferred-height - 10px;
         width: 200px;
         items: [@tr("Gradient"), @tr("Vibrant"), @tr("Minimalist"), @tr("Glass")];
-        current_index: current_theme_index;
+        current_index: PrinterData.current_theme_index;
 
         selected(index) => {
-            current_theme_index = index;
+            PrinterData.current_theme_index = index;
         }
     }
 }
