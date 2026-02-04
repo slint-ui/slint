@@ -35,12 +35,12 @@ pub fn send_keyboard_shortcut<
     component: &Component,
     keys: impl IntoIterator<Item = impl Into<char>>,
 ) {
-    let keys: Vec<_> = keys.into_iter().map(char::from).collect();
+    let keys: Vec<_> = keys.into_iter().map(Into::into).collect();
     for key in &keys {
-        send_keyboard_char(component, key.into(), true);
+        send_keyboard_char(component, key.clone(), true);
     }
     for key in keys.iter().rev() {
-        send_keyboard_char(component, key.into(), false);
+        send_keyboard_char(component, key.clone(), false);
     }
 }
 

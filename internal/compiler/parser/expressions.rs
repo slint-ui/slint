@@ -486,7 +486,7 @@ fn parse_markdown(p: &mut impl Parser) {
 /// ```test,AtKeys
 /// @keys()
 /// @keys("x")
-/// @keys(Control +Shift + Alt+Meta+"a")
+/// @keys(Control +Shift + Alt+Meta+"A")
 /// @keys(Control +Shift + Alt+Meta+Return)
 /// ```
 fn parse_keys(p: &mut impl Parser) {
@@ -567,6 +567,8 @@ fn parse_keys(p: &mut impl Parser) {
                         }
                         _ => key_count += 1,
                     }
+                } else {
+                    key_count += 1;
                 }
 
                 state = State::NeedPlus;

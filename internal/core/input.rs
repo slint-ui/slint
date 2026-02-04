@@ -353,7 +353,7 @@ pub(crate) mod ffi {
         shortcut: &KeyboardShortcut,
         out: &mut SharedString,
     ) {
-        *out = std::format!("{shortcut}").into()
+        *out = crate::format!("{shortcut}")
     }
 
     #[unsafe(no_mangle)]
