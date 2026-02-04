@@ -3,7 +3,7 @@
 
 [package]
 name = "bapp"
-version = "1.15.0"
+version = "1.16.0"
 edition.workspace = true
 authors = ["Slint Developers <info@slint.dev>"]
 publish = false
