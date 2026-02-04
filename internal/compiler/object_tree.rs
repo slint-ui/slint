@@ -2097,24 +2097,35 @@ fn get_implements_specifier(
     parent.ImplementsSpecifier()
 }
 
+enum InterfaceUseMode {
+    Implements,
+    Uses,
+}
+
 fn validate_property_declaration_for_interface(
+    mode: InterfaceUseMode,
     result: &PropertyLookupResult,
     base_type: &ElementType,
     interface_name: &dyn Display,
 ) -> Result<(), String> {
+    let usage = match mode {
+        InterfaceUseMode::Implements => "implement",
+        InterfaceUseMode::Uses => "use",
+    };
+
     match result.property_type {
         Type::Invalid => Ok(()),
         Type::Callback { .. } => Err(format!(
-            "Cannot implement interface '{}' because '{}' conflicts with an existing callback in '{}'",
-            interface_name, result.resolved_name, base_type
+            "Cannot {} interface '{}' because '{}' conflicts with an existing callback in '{}'",
+            usage, interface_name, result.resolved_name, base_type
         )),
         Type::Function { .. } => Err(format!(
-            "Cannot implement interface '{}' because '{}' conflicts with an existing function in '{}'",
-            interface_name, result.resolved_name, base_type
+            "Cannot {} interface '{}' because '{}' conflicts with an existing function in '{}'",
+            usage, interface_name, result.resolved_name, base_type
         )),
         _ => Err(format!(
-            "Cannot implement interface '{}' because '{}' conflicts with an existing property in '{}'",
-            interface_name, result.resolved_name, base_type
+            "Cannot {} interface '{}' because '{}' conflicts with an existing property in '{}'",
+            usage, interface_name, result.resolved_name, base_type
         )),
     }
 }
@@ -2171,6 +2182,7 @@ fn apply_implements_specifier(
         {
             let lookup_result = e.lookup_property(unresolved_prop_name);
             if let Err(message) = validate_property_declaration_for_interface(
+                InterfaceUseMode::Implements,
                 &lookup_result,
                 &e.base_type,
                 &interface_name,
@@ -2219,14 +2231,13 @@ fn apply_uses_statement(
 
         for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
             let lookup_result = e.borrow().base_type.lookup_property(prop_name);
-            if lookup_result.is_valid() {
-                diag.push_error(
-                    format!(
-                        "Cannot use interface '{}' because property '{}' conflicts with existing property in '{}'",
-                        uses_statement.interface_name, prop_name, e.borrow().base_type
-                    ),
-                    &uses_statement.interface_name_node(),
-                );
+            if let Err(message) = validate_property_declaration_for_interface(
+                InterfaceUseMode::Uses,
+                &lookup_result,
+                &e.borrow().base_type,
+                &uses_statement.interface_name,
+            ) {
+                diag.push_error(message, &uses_statement.interface_name_node());
                 continue;
             }
 
