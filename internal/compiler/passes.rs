@@ -223,7 +223,7 @@ pub async fn run_passes(
             const_propagation::const_propagation(component, &global_analysis);
         }
         deduplicate_property_read::deduplicate_property_read(component);
-        if !component.is_global() {
+        if !component.is_global() && !component.is_interface() {
             resolve_native_classes::resolve_native_classes(component);
         }
     });
