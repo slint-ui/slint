@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-generated"
-version = "1.15.0"
+version = "1.16.0"
 edition.workspace = true
 build = "build.rs"
 authors = ["David Haig <david@ninjametal.com>"]
