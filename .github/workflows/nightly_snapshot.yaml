@@ -674,7 +674,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true'
+              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
               with:
                   allowUpdates: true
                   prerelease: true
@@ -686,6 +686,7 @@ jobs:
                   tag: nightly
                   commit: ${{ github.sha }}
             - name: trigger stm32 build
+              if: github.ref == 'refs/heads/master'
               run: |
                 curl -L \
                 -X POST \
