@@ -16,6 +16,12 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     let root = super::root_dir();
 
+    {
+        let enums = extract_enum_docs();
+        let structs = extract_builtin_structs();
+        write_global_structs_enums_index(&root, &structs, &enums)?;
+    }
+
     let docs_source_dir = root.join("docs/astro");
 
     {
@@ -24,6 +30,67 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
         cmd!(sh, "pnpm run build").run()?;
     }
+
+    Ok(())
+}
+
+fn write_global_structs_enums_index(
+    root_dir: &Path,
+    structs: &std::collections::BTreeMap<String, StructDoc>,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = root_dir.join("docs/astro/src/content/docs/reference/global-structs-enums.mdx");
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+
+    writeln!(
+        file,
+        r#"---
+title: Global Structs and Enums
+description: Global Structs and Enums
+---
+"#
+    )?;
+
+    for name in structs.keys() {
+        writeln!(file, "import {0} from \"../../collections/structs/{0}.md\"", name)?;
+    }
+
+    if !structs.is_empty() {
+        writeln!(file)?;
+    }
+
+    for name in enums.keys() {
+        // `keys.md` is generated separately and documented elsewhere.
+        if name == "keys" {
+            continue;
+        }
+        writeln!(file, "import {0} from \"../../collections/enums/{0}.md\"", name)?;
+    }
+
+    writeln!(file)?;
+    writeln!(file, "## Structs")?;
+    writeln!(file)?;
+
+    for name in structs.keys() {
+        writeln!(file, "### {name}")?;
+        writeln!(file, "<{name} />")?;
+        writeln!(file)?;
+    }
+
+    writeln!(file, "## Enums")?;
+    writeln!(file)?;
+
+    for name in enums.keys() {
+        if name == "keys" {
+            continue;
+        }
+        writeln!(file, "### {name}")?;
+        writeln!(file, "<{name} />")?;
+        writeln!(file)?;
+    }
+
+    file.flush()?;
 
     Ok(())
 }
