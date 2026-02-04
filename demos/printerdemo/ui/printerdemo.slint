@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, PrinterState, InkLevel, Label, Page } from "common.slint";
+import { DemoPalette, PrinterState, InkLevel, Page } from "common.slint";
 import {
     HomePage,
     InkPage,
@@ -17,6 +17,12 @@ export { PrinterQueue, PrinterSettings, PrinterState, InkLevel }
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
 
+export enum KioskStep {
+    Home,
+    Ink,
+    Settings,
+}
+
 export component MainWindow inherits Window {
     callback quit();
 
@@ -26,21 +32,94 @@ export component MainWindow inherits Window {
     default-font-family: DemoPalette.medium-weight;
     default-font-size: DemoPalette.base-font-size;
 
+    property <bool> kiosk-mode: true;
+    property <KioskStep> kiosk-step: KioskStep.Home;
+    property <duration> inactivity-timeout: 30s;
+
+    kiosk-timer := Timer {
+        running: kiosk-mode;
+        interval: 5s;
+        triggered => {
+            root.advance_kiosk();
+        }
+    }
+
+    inactivity-timer := Timer {
+        running: !kiosk-mode;
+        interval: inactivity-timeout;
+        triggered => {
+            debug("Re-entering kiosk mode");
+            root.enter_kiosk();
+        }
+    }
+
+    callback advance_kiosk();
+    callback enter_kiosk();
+    callback exit_kiosk();
+
+    advance_kiosk => {
+        if (kiosk-step == KioskStep.Home) {
+            kiosk-step = KioskStep.Ink;
+            PrinterState.active-page = Page.ink;
+            kiosk-timer.interval = 4s;
+
+        } else if (kiosk-step == KioskStep.Ink) {
+            kiosk-step = KioskStep.Settings;
+            PrinterState.active-page = Page.settings;
+            kiosk-timer.interval = 6s;
+
+        } else {
+            kiosk-step = KioskStep.Home;
+            PrinterState.active-page = Page.home;
+            kiosk-timer.interval = 5s;
+        }
+
+        debug("Kiosk step:", kiosk-step);
+    }
+
+    exit_kiosk => {
+        if (kiosk-mode) {
+            kiosk-mode = false;
+            inactivity-timer.restart();
+            debug("Kiosk mode disabled");
+        }
+    }
+
+    enter_kiosk => {
+        kiosk-mode = true;
+        kiosk-step = KioskStep.Home;
+        PrinterState.active-page = Page.home;
+        kiosk-timer.restart();
+        debug("Kiosk mode enabled");
+    }
+
     Rectangle {
         border-radius: 24px;
         clip: true;
         background: white;
-        HorizontalLayout {
 
+        HorizontalLayout {
             side-bar := Sidebar { }
 
             main-view := Rectangle {
-                if PrinterState.active-page == Page.home: home-page := HomePage { }
+                opacity: 1;
 
-                if PrinterState.active-page == Page.settings: settings-page := SettingsPage { }
+                if PrinterState.active-page == Page.home:
+                    HomePage { }
 
-                if PrinterState.active-page == Page.ink: ink-page := InkPage { }
+                if PrinterState.active-page == Page.ink:
+                    InkPage { }
+
+                if PrinterState.active-page == Page.settings:
+                    SettingsPage { }
             }
+        }
+    }
+
+    TouchArea {
+        enabled: kiosk-mode;
+        clicked => {
+            root.exit_kiosk();
         }
     }
 }
