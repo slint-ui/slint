@@ -345,7 +345,6 @@ impl Expression {
             .map(|x| identifier_text(&x.DeclaredIdentifier()).unwrap_or_default())
             .collect();
         let Some(code_block) = node.CodeBlock() else {
-            ctx.diag.push_error("Functions must have a code block".into(), &node);
             return Expression::Invalid;
         };
         Self::from_codeblock_node(code_block, ctx).maybe_convert_to(

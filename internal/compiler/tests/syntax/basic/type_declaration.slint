@@ -30,6 +30,8 @@ global MyType := {
     qqq: 42;
 //  > <error{Unknown property qqq in }
 
+    function foo();
+//  >             <error{Functions must have a code block}
 }
 
 export SuperSimple := Rectangle {

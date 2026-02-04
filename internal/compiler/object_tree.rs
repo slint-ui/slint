@@ -1427,6 +1427,25 @@ impl Element {
             let return_type = func
                 .ReturnType()
                 .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr));
+
+            match (base_type.clone(), func.CodeBlock()) {
+                (ElementType::Interface, Some(code_block)) => {
+                    diag.push_error(
+                        "Interfaces may only contain function declarations".into(),
+                        &code_block,
+                    );
+                    continue;
+                }
+                (ElementType::Interface, None) => {
+                    // We explicitly do not want to add function declarations into an interface element
+                    continue;
+                }
+                (_, None) => {
+                    diag.push_error("Functions must have a code block".into(), &func);
+                }
+                (_, Some(_)) => {}
+            }
+
             if r.bindings
                 .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
                 .is_some()

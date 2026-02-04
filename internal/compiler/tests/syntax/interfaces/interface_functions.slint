@@ -1,0 +1,20 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface Calculator {
+    pure function add(a: int, b: int) -> int;
+    function format(value: int) -> string;
+    function reset();  // void functions don't specify a return type
+
+    // Mix with existing features
+    in-out property <int> value;
+    callback notify();
+}
+
+export interface FunctionWithBody {
+    pure function sum(a: int, b: int) -> int {
+//                                           >error{Interfaces may only contain function declarations}
+        return a + b;
+    }
+//  <error{Interfaces may only contain function declarations}
+}
