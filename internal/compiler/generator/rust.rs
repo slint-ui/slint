@@ -2372,6 +2372,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let control = shortcut.modifiers.control;
                 let shift = shortcut.modifiers.shift;
                 let meta = shortcut.modifiers.meta;
+                let ignore_shift = shortcut.ignore_shift;
 
                 quote!(
                     sp::make_keyboard_shortcut(
@@ -2381,7 +2382,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             control: #control,
                             shift: #shift,
                             meta: #meta
-                        }))
+                        },
+                        #ignore_shift))
         },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),

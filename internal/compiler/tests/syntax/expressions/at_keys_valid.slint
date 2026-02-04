@@ -2,16 +2,26 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component SuperSimple {
-    // Valid cases
-    property <keyboard-shortcut> empty: @keys();
-    property <keyboard-shortcut> single_key: @keys("a");
-    property <keyboard-shortcut> single_key_wrong_case: @keys("A");
-//                                                            > <warning{Uppercase "A" without `Shift` will never match↵Use "a" instead or add `Shift`}
-    property <keyboard-shortcut> special_key: @keys(Control + "+");
-    property <keyboard-shortcut> valid_all_mods: @keys(Alt + Control + Shift + Meta + "X");
-    property <keyboard-shortcut> warning_all_mods: @keys(Alt + Control + Shift + Meta + "x");
-//                                                                                      > <warning{Lowercase "x" with `Shift` will never match↵Use "X" instead or remove `Shift`}
-    // Lookup in Keys namespace
-    property <keyboard-shortcut> valid_return: @keys(Alt + Control + Shift + Meta + Return);
-    property <keyboard-shortcut> valid_escape: @keys(Escape);
+    property <[keyboard-shortcut]> shortcuts: [
+        @keys(),
+        @keys("a"),
+        @keys("A"),
+//            > <warning{Uppercase "A" without `Shift` will never match↵Use "a" instead or add `Shift`}
+        @keys(Control + "+"),
+        @keys(Alt + Control + Shift + Meta + "X"),
+        @keys(Alt + Control + Shift + Meta + "x"),
+//                                           > <warning{Lowercase "x" with `Shift` will never match↵Use "X" instead or remove `Shift`}
+
+        // Lookup in Keys namespace
+        @keys(Alt + Control + Shift + Meta + Return),
+        @keys(Escape),
+        @keys(A),
+        @keys(Control + Shift + A),
+        @keys(Plus),
+        @keys(Control + Alt + Plus),
+
+        // IgnoreShift
+        @keys(IgnoreShift + "+"), // equivalent to @keys(Plus)
+        @keys(Alt + IgnoreShift + Control + Meta + Escape), // supports both Shift+Escape and Escape in a single shortcut
+    ];
 }

@@ -488,6 +488,7 @@ fn parse_markdown(p: &mut impl Parser) {
 /// @keys("x")
 /// @keys(Control +Shift + Alt+Meta+"A")
 /// @keys(Control +Shift + Alt+Meta+Return)
+/// @keys(Control +IgnoreShift + Alt+Meta+Return)
 /// ```
 fn parse_keys(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtKeys);
@@ -503,6 +504,7 @@ fn parse_keys(p: &mut impl Parser) {
     let mut control_count = 0_u32;
     let mut shift_count = 0_u32;
     let mut meta_count = 0_u32;
+    let mut ignore_shift_count = 0_u32;
 
     #[derive(Eq, PartialEq)]
     enum State {
@@ -555,6 +557,7 @@ fn parse_keys(p: &mut impl Parser) {
                         "Control" => control_count += 1,
                         "Meta" => meta_count += 1,
                         "Shift" => shift_count += 1,
+                        "IgnoreShift" => ignore_shift_count += 1,
                         "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
                             p.error("Right-side modifiers are not supported");
                             p.until(SyntaxKind::RParent);
@@ -573,8 +576,18 @@ fn parse_keys(p: &mut impl Parser) {
 
                 state = State::NeedPlus;
 
-                if alt_count > 1 || control_count > 1 || meta_count > 1 || shift_count > 1 {
+                if [alt_count, control_count, meta_count, shift_count, ignore_shift_count]
+                    .into_iter()
+                    .max()
+                    .unwrap_or_default()
+                    > 1
+                {
                     p.error("Duplicated modifier in keyboard shortcut");
+                    p.until(SyntaxKind::RParent);
+                    break;
+                }
+                if shift_count > 0 && ignore_shift_count > 0 {
+                    p.error("Cannot use both Shift and IgnoreShift (remove one of them)");
                     p.until(SyntaxKind::RParent);
                     break;
                 }

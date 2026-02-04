@@ -324,11 +324,17 @@ pub struct KeyboardShortcut {
     key: SharedString,
     /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
     modifiers: KeyboardModifiers,
+    /// Whether to ignore shift state when matching the shortcut
+    ignore_shift: bool,
 }
 
 /// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
-pub fn make_keyboard_shortcut(key: SharedString, modifiers: KeyboardModifiers) -> KeyboardShortcut {
-    KeyboardShortcut { key, modifiers }
+pub fn make_keyboard_shortcut(
+    key: SharedString,
+    modifiers: KeyboardModifiers,
+    ignore_shift: bool,
+) -> KeyboardShortcut {
+    KeyboardShortcut { key, modifiers, ignore_shift }
 }
 
 #[cfg(feature = "ffi")]
@@ -343,9 +349,14 @@ pub(crate) mod ffi {
         control: bool,
         shift: bool,
         meta: bool,
+        ignore_shift: bool,
         out: &mut KeyboardShortcut,
     ) {
-        *out = make_keyboard_shortcut(key.clone(), KeyboardModifiers { alt, control, shift, meta });
+        *out = make_keyboard_shortcut(
+            key.clone(),
+            KeyboardModifiers { alt, control, shift, meta },
+            ignore_shift,
+        );
     }
 
     #[unsafe(no_mangle)]
@@ -369,8 +380,11 @@ impl KeyboardShortcut {
     /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
     pub fn matches(&self, key_event: &KeyEvent) -> bool {
         // TODO: Should this check the event_type and only match on KeyReleased?
-        // TODO: Add support for ignoring shift
-        key_event.text == self.key && key_event.modifiers == self.modifiers
+        let mut expected_modifiers = self.modifiers.clone();
+        if self.ignore_shift {
+            expected_modifiers.shift = key_event.modifiers.shift;
+        }
+        key_event.text == self.key && key_event.modifiers == expected_modifiers
     }
 }
 
