@@ -2,43 +2,53 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component SuperSimple {
-    // Right-side modifier keys
-    property <keyboard-shortcut> alt_r: @keys(AltR + a);
-//                                            >  <error{Right-side modifiers are not supported}
-    property <keyboard-shortcut> alt_gr: @keys(AltGr + a);
-//                                             >   <error{AltGr as modifier is unnecessary (remove it)}
-    property <keyboard-shortcut> control_r: @keys(ControlR + a);
-//                                                >      <error{Right-side modifiers are not supported}
-    property <keyboard-shortcut> meta_r: @keys(MetaR + a);
-//                                             >   <error{Right-side modifiers are not supported}
-    property <keyboard-shortcut> shift_r: @keys(ShiftR + a);
-//                                              >    <error{Right-side modifiers are not supported}
+    property <[keyboard-shortcut]> invalid_shortcuts: [
+        // Right-side modifier keys
+        @keys(AltR + "a"),
+//            >  <error{Right-side modifiers are not supported}
+        @keys(AltGr + "a"),
+//            >   <error{AltGr as modifier is unnecessary (remove it)}
+        @keys(ControlR + "a"),
+//            >      <error{Right-side modifiers are not supported}
+        @keys(MetaR + "a"),
+//            >   <error{Right-side modifiers are not supported}
+        @keys(ShiftR + "a"),
+//            >    <error{Right-side modifiers are not supported}
 
 
-    // Duplicate modifier or key
-    property <keyboard-shortcut> duplicate_alt: @keys(Alt + Control + Shift + Meta + Alt + a);
-//                                                                                   > <error{Duplicated modifier in keyboard shortcut}
-    property <keyboard-shortcut> duplicate_control: @keys(Alt + Control + Shift + Meta + Control + a);
-//                                                                                       >     <error{Duplicated modifier in keyboard shortcut}
-    property <keyboard-shortcut> duplicate_key: @keys(a + b);
-//                                                        ^error{A keyboard shortcut can only contain one key (with modifiers)}
-    property <keyboard-shortcut> duplicate_meta: @keys(Alt + Control + Shift + Meta + Meta + a);
-//                                                                                    >  <error{Duplicated modifier in keyboard shortcut}
-    property <keyboard-shortcut> duplicate_shift: @keys(Alt + Control + Shift + Meta + Shift + a);
-//                                                                                     >   <error{Duplicated modifier in keyboard shortcut}
+        // Duplicate modifier or key
+        @keys(Alt + Control + Shift + Meta + Alt + "a"),
+//                                           > <error{Duplicated modifier in keyboard shortcut}
+        @keys(Alt + Control + Shift + Meta + Control + "a"),
+//                                           >     <error{Duplicated modifier in keyboard shortcut}
+        @keys(a + b),
+//                ^error{A keyboard shortcut can only contain one key (with modifiers)}
+        @keys(Alt + Control + Shift + Meta + Meta + "a"),
+//                                           >  <error{Duplicated modifier in keyboard shortcut}
+        @keys(Alt + Control + Shift + Meta + Shift + "a"),
+//                                           >   <error{Duplicated modifier in keyboard shortcut}
+        @keys(IgnoreShift + IgnoreShift + "a"),
+//                          >         <error{Duplicated modifier in keyboard shortcut}
+
+        // Conflicting Shift + IgnoreShift
+        @keys(Alt + Control + Shift + Meta + IgnoreShift + "a"),
+//                                           >         <error{Cannot use both Shift and IgnoreShift (remove one of them)}
+        @keys(Alt + Control + IgnoreShift + Meta + Shift + "a"),
+//                                                 >   <error{Cannot use both Shift and IgnoreShift (remove one of them)}
 
 
-    // Invalid syntax
-    property <keyboard-shortcut> invalid_token: @keys(a, b);
-//                                                     ^error{Expected '+', a string literal, or an identifier in the Keys namespace}
-    property <keyboard-shortcut> missing_plus: @keys(Alt Control + Shift + Meta + a);
-//                                                       >     <error{Expected '+' to separate parts of a keyboard shortcut}
-    property <keyboard-shortcut> no_key: @keys(Alt + Shift);
-//                                                        ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
-    property <keyboard-shortcut> stray_plus: @keys(Alt ++ a);
-//                                                      ^error{Unexpected '+' in keyboard shortcut}
-    property <keyboard-shortcut> trailing_plus: @keys("a" +);
-//                                                         ^error{Expected another identifier or string literal}
-    property <keyboard-shortcut> trailing_plus_with_modifier: @keys(Shift +);
-//                                                                         ^error{Expected another identifier or string literal}
+        // Invalid syntax
+        @keys(a, b),
+//             ^error{Expected '+', a string literal, or an identifier in the Keys namespace}
+        @keys(Alt Control + Shift + Meta + a),
+//                >     <error{Expected '+' to separate parts of a keyboard shortcut}
+        @keys(Alt + Shift),
+//                       ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
+        @keys(Alt ++ a),
+//                 ^error{Unexpected '+' in keyboard shortcut}
+        @keys("a" +),
+//                 ^error{Expected another identifier or string literal}
+        @keys(Shift +),
+//                   ^error{Expected another identifier or string literal}
+    ];
 }

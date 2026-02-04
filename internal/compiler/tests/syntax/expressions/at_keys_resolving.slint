@@ -2,10 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component SuperSimple {
-    property <keyboard-shortcut> unknown_single_key: @keys(a);
-//                                                         ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
-    property <keyboard-shortcut> unknown_single_key_all_mods: @keys(Alt + Control + Shift + Meta + a);
-//                                                                                                 ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
-    property <keyboard-shortcut> unknown_key_long: @keys(    Alt + Control + Shift + Meta + FooBar    );
-//                                                                                          >    <error{`FooBar` not defined in the `Keys` namespace↵(Consider using "FooBar")}
+    property <[keyboard-shortcut]> unknown_keys_list: [
+        @keys(a),
+//            ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+        @keys(Alt + Control + Shift + Meta + a),
+//                                           ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+        @keys(    Alt + Control + Shift + Meta + FooBar    ),
+//                                               >    <error{`FooBar` not defined in the `Keys` namespace↵(Consider using "FooBar")}
+        @keys(Shift+Plus),
+//                  >  <error{Plus implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.↵Remove Shift or use Asterisk instead (for U.S. Keyboards)}
+        @keys(Shift+Asterisk),
+//                  >      <error{Asterisk implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.↵Remove Shift or use Plus instead (for U.S. Keyboards)}
+
+        // IgnoreShift
+        @keys(IgnoreShift + Asterisk),
+//                          >      <warning{Asterisk already implies IgnoreShift (remove IgnoreShift)}
+        @keys(IgnoreShift + A),
+//                          ^error{A is always affected by Shift↵(Remove IgnoreShift and use both a shifted and unshifted shortcut to handle both cases)}
+    ];
 }
