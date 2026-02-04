@@ -1428,6 +1428,33 @@ impl Element {
                 .ReturnType()
                 .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr));
 
+            let mut visibility = PropertyVisibility::Private;
+            let mut pure = None;
+            for token in func.children_with_tokens() {
+                if token.kind() != SyntaxKind::Identifier {
+                    continue;
+                }
+                match token.as_token().unwrap().text() {
+                    "pure" => pure = Some(true),
+                    "public" => {
+                        visibility = PropertyVisibility::Public;
+                        pure = pure.or(Some(false));
+                    }
+                    "protected" => {
+                        visibility = PropertyVisibility::Protected;
+                        pure = pure.or(Some(false));
+                    }
+                    _ => (),
+                }
+            }
+
+            if base_type == ElementType::Interface && visibility != PropertyVisibility::Public {
+                diag.push_error(
+                    "Function declarations in an interface must be public".into(),
+                    &func,
+                );
+            }
+
             match (base_type.clone(), func.CodeBlock()) {
                 (ElementType::Interface, Some(code_block)) => {
                     diag.push_error(
@@ -1451,26 +1478,6 @@ impl Element {
                 .is_some()
             {
                 assert!(diag.has_errors());
-            }
-
-            let mut visibility = PropertyVisibility::Private;
-            let mut pure = None;
-            for token in func.children_with_tokens() {
-                if token.kind() != SyntaxKind::Identifier {
-                    continue;
-                }
-                match token.as_token().unwrap().text() {
-                    "pure" => pure = Some(true),
-                    "public" => {
-                        visibility = PropertyVisibility::Public;
-                        pure = pure.or(Some(false));
-                    }
-                    "protected" => {
-                        visibility = PropertyVisibility::Protected;
-                        pure = pure.or(Some(false));
-                    }
-                    _ => (),
-                }
             }
 
             r.property_declarations.insert(

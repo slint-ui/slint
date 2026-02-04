@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export interface Calculator {
-    pure function add(a: int, b: int) -> int;
-    function format(value: int) -> string;
-    function reset();  // void functions don't specify a return type
+    public pure function add(a: int, b: int) -> int;
+    public function format(value: int) -> string;
+    public function reset();  // void functions don't specify a return type
 
     // Mix with existing features
     in-out property <int> value;
@@ -12,9 +12,21 @@ export interface Calculator {
 }
 
 export interface FunctionWithBody {
-    pure function sum(a: int, b: int) -> int {
-//                                           >error{Interfaces may only contain function declarations}
+    pure public function sum(a: int, b: int) -> int {
+//                                                  >error{Interfaces may only contain function declarations}
         return a + b;
     }
 //  <error{Interfaces may only contain function declarations}
+}
+
+export interface InvalidFunctionVisibility {
+    function default-private-function();
+//  >                                  <error{Function declarations in an interface must be public}
+    pure function pure-default-private-function();
+//  >                                            <error{Function declarations in an interface must be public}
+
+    protected function protected-function();
+//  >                                      <error{Function declarations in an interface must be public}
+    pure protected function pure-protected-function();
+//  >                                                <error{Function declarations in an interface must be public}
 }
