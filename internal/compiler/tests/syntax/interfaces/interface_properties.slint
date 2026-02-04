@@ -13,3 +13,12 @@ export interface ValidInterfacePropertyDeclarations {
     in-out property <angle> in-out-property;
     in_out property <angle> in-out-underscore-property;
 }
+
+export interface Background {
+    in-out property <color> background;
+    callback clip();
+}
+
+export component MyComponent implements Background inherits Rectangle { }
+//                                      >         <error{Cannot implement interface 'Background' because 'background' conflicts with an existing property in 'Rectangle'}
+//                                      >         <^error{Cannot implement interface 'Background' because 'clip' conflicts with an existing property in 'Rectangle'}
