@@ -73,3 +73,29 @@ export component DuplicatPropertyOnBase uses { ValidInterface from base } inheri
 //                                             >             <^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }
+
+interface InterfaceA {
+    in property <bool> test;
+}
+
+component AImpl implements InterfaceA { }
+
+interface InterfaceB {
+    out property <bool> test: true;
+}
+
+component BImpl implements InterfaceB { }
+
+export component ConflictingUses uses { InterfaceA from a, InterfaceB from b } {
+//                                                         >         <error{'test' occurs in 'InterfaceB' and 'InterfaceA'}
+    a := AImpl { }
+
+    b := BImpl { }
+}
+
+export component DuplicateUses uses { InterfaceA from a, InterfaceA from b } {
+//                                                       >         <error{'InterfaceA' is used multiple times}
+    a := AImpl { }
+
+    b := AImpl { }
+}
