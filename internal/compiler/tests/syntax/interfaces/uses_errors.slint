@@ -38,6 +38,7 @@ export component MultipleErrors uses { MissingInterface from base, Rectangle fro
 
 export interface ValidInterface {
     in-out property <int> value;
+    callback speak();
 }
 
 export component MissingChild uses { ValidInterface from base} { }
@@ -57,12 +58,14 @@ export component DuplicatePropertyName uses { ValidInterface from base } {
 //                        >   <error{Cannot override property 'value' from 'ValidInterface'}
 }
 
-component BaseWithProperty {
+component BaseWithConflicts {
     in-out property <int> value: 10;
+    callback speak();
     @children
 }
 
-export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithProperty {
-//                                             >             <error{Cannot use interface 'ValidInterface' because property 'value' conflicts with existing property in 'BaseWithProperty'}
+export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithConflicts {
+//                                             >             <error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
+//                                             >             <^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }
