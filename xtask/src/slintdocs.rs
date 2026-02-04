@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     generate_enum_docs()?;
@@ -39,11 +39,9 @@ fn write_global_structs_enums_index(
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let path =
-        root_dir.join("docs/astro/src/content/docs/reference/global-structs-enums.mdx");
-    let mut file = BufWriter::new(
-        std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
-    );
+    let path = root_dir.join("docs/astro/src/content/docs/reference/global-structs-enums.mdx");
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     writeln!(
         file,
@@ -55,11 +53,7 @@ description: Global Structs and Enums
     )?;
 
     for name in structs.keys() {
-        writeln!(
-            file,
-            "import {0} from \"../../collections/structs/{0}.md\"",
-            name
-        )?;
+        writeln!(file, "import {0} from \"../../collections/structs/{0}.md\"", name)?;
     }
 
     if !structs.is_empty() {
@@ -71,11 +65,7 @@ description: Global Structs and Enums
         if name == "keys" {
             continue;
         }
-        writeln!(
-            file,
-            "import {0} from \"../../collections/enums/{0}.md\"",
-            name
-        )?;
+        writeln!(file, "import {0} from \"../../collections/enums/{0}.md\"", name)?;
     }
 
     writeln!(file)?;
