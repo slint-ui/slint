@@ -137,24 +137,45 @@ pub struct StructDoc {
 pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
-    let mut structs = std::collections::BTreeMap::from([(
-        "Point".to_string(),
-        StructDoc {
-            description: "This structure represents a point with x and y coordinate".to_string(),
-            fields: vec![
-                StructFieldDoc {
-                    key: "x".to_string(),
-                    description: String::new(),
-                    type_name: "length".to_string(),
-                },
-                StructFieldDoc {
-                    key: "y".to_string(),
-                    description: String::new(),
-                    type_name: "length".to_string(),
-                },
-            ],
-        },
-    )]);
+    let mut structs = std::collections::BTreeMap::from([
+        (
+            "Point".to_string(),
+            StructDoc {
+                description: "This structure represents a point with x and y coordinate"
+                    .to_string(),
+                fields: vec![
+                    StructFieldDoc {
+                        key: "x".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                    StructFieldDoc {
+                        key: "y".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                ],
+            },
+        ),
+        (
+            "Size".to_string(),
+            StructDoc {
+                description: "This structure represents a size with width and height".to_string(),
+                fields: vec![
+                    StructFieldDoc {
+                        key: "width".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                    StructFieldDoc {
+                        key: "height".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                ],
+            },
+        ),
+    ]);
 
     macro_rules! map_type {
         (i32) => {
