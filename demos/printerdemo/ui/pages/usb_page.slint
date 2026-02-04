@@ -7,12 +7,48 @@ import { SpinBox } from "../components/spinbox.slint";
 import { DropDownMenu } from "../components/drop_down_menu.slint";
 import { IconTextButton } from "../components/icon_text_button.slint";
 import { TextButton } from "../components/text_button.slint";
-import { DemoPalette, Label } from "../common.slint";
+import { DemoPalette, Label, KioskState, PrinterState, SubPage, Page } from "../common.slint";
 import { VerticalBox } from "std-widgets.slint";
 
 struct File  { name: string, preview: image }
 
 export component UsbPage inherits Page {
+    in-out property <int> file-index: 0;
+    in-out property <int> copies: 1;
+    in-out property <bool> is-color: true;
+
+    in-out property <bool> kiosk-sequence-running <=> KioskState.usb-sequence-active;
+    property <int> kiosk-sequence-step: 0;
+
+    function advance-kiosk-sequence() {
+        if (kiosk-sequence-step == 0) {
+            root.file-index = 2;
+        } else if (kiosk-sequence-step == 1) {
+            root.copies = 2;
+        } else if (kiosk-sequence-step == 2) {
+            root.is-color = false;
+            kiosk-sequence-running = false;
+            return;
+        }
+
+        kiosk-sequence-step += 1;
+    }
+
+    changed kiosk-sequence-running => {
+        if (kiosk-sequence-running) {
+            kiosk-sequence-step = 0;
+            kiosk-sequence-running = true;
+        }
+    }
+
+    kiosk-sequence-timer := Timer {
+        interval: 1s;
+        running: kiosk-sequence-running;
+        triggered => {
+            root.advance-kiosk-sequence();
+        }
+    }
+
     in property <[File]> files: [
         { name: "cat.jpg", preview: @image-url("../images/cat.jpg") },
         { name: "dog.jpg", preview: @image-url("../images/dog.jpg") },
@@ -53,10 +89,11 @@ export component UsbPage inherits Page {
                 image-selector := DropDownMenu {
                     label: @tr("Select File:");
                     items: root.file-names;
+                    current_index <=> root.file-index;
                 }
 
                 SpinBox {
-                    value: 1;
+                    value <=> root.copies;
                     minimum: 1;
                     label: @tr("Copies");
                 }
@@ -67,7 +104,7 @@ export component UsbPage inherits Page {
                         color: DemoPalette.text-primary;
                     }
                     TextButton {
-                        property <bool> is-color: true;
+                        property <bool> is-color <=> root.is-color;
                         text: is-color ? @tr("Color") : @tr("Grayscale");
                         background: is-color ? DemoPalette.color-button-gradient : DemoPalette.grayscale-button-gradient;
                         height: 50px;

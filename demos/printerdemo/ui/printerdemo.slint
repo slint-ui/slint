@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, PrinterState, InkLevel, Page } from "common.slint";
+import { DemoPalette, PrinterState, InkLevel, Page, SubPage, KioskState } from "common.slint";
 import {
     HomePage,
     InkPage,
@@ -19,9 +19,19 @@ import "./fonts/Inter-24pt-Medium.ttf";
 
 export enum KioskStep {
     Home,
+    HomePrint,
+    HomePrintBack,
+    HomeScan,
+    HomeScanStart,
+    HomeCopy,
+    HomeCopyStart,
+    HomeUsb,
+    HomeUsbStart,
     Ink,
     Settings,
+    Theme,
 }
+
 
 export component MainWindow inherits Window {
     callback quit();
@@ -59,19 +69,74 @@ export component MainWindow inherits Window {
 
     advance_kiosk => {
         if (kiosk-step == KioskStep.Home) {
+            PrinterState.active-page = Page.home;
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomePrint;
+            kiosk-timer.interval = 3s;
+
+        } else if (kiosk-step == KioskStep.HomePrint) {
+            PrinterState.active-page = Page.home;
+            PrinterState.active-subpage = SubPage.print;
+            kiosk-step = KioskStep.HomePrintBack;
+            kiosk-timer.interval = 3s;
+
+        } else if (kiosk-step == KioskStep.HomePrintBack) {
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomeScan;
+            kiosk-timer.interval = 2s;
+
+        } else if (kiosk-step == KioskStep.HomeScan) {
+            PrinterState.active-subpage = SubPage.scan;
+            KioskState.scan-sequence-active = true;
+            kiosk-step = KioskStep.HomeScanStart;
+            kiosk-timer.interval = 7s;
+
+        } else if (kiosk-step == KioskStep.HomeScanStart) {
+            PrinterQueue.start-job(@tr("Scan"));
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomeCopy;
+            kiosk-timer.interval = 2s;
+
+        } else if (kiosk-step == KioskStep.HomeCopy) {
+            PrinterState.active-subpage = SubPage.copy;
+            KioskState.copy-sequence-active = true;
+            kiosk-step = KioskStep.HomeCopyStart;
+            kiosk-timer.interval = 7s;
+
+        } else if (kiosk-step == KioskStep.HomeCopyStart) {
+            PrinterQueue.start-job(@tr("Copy"));
+            PrinterState.active-subpage = SubPage.none;
+            kiosk-step = KioskStep.HomeUsb;
+            kiosk-timer.interval = 2s;
+
+        } else if (kiosk-step == KioskStep.HomeUsb) {
+            PrinterState.active-subpage = SubPage.usb;
+            KioskState.usb-sequence-active = true;
+            kiosk-step = KioskStep.HomeUsbStart;
+            kiosk-timer.interval = 4s;
+
+        } else if (kiosk-step == KioskStep.HomeUsbStart) {
+            PrinterQueue.start-job(@tr("USB Print"));
+            PrinterState.active-subpage = SubPage.none;
             kiosk-step = KioskStep.Ink;
-            PrinterState.active-page = Page.ink;
             kiosk-timer.interval = 4s;
 
         } else if (kiosk-step == KioskStep.Ink) {
+            PrinterState.active-page = Page.ink;
+            PrinterState.active-subpage = SubPage.none;
             kiosk-step = KioskStep.Settings;
-            PrinterState.active-page = Page.settings;
-            kiosk-timer.interval = 6s;
+            kiosk-timer.interval = 4s;
 
+        } else if (kiosk-step == KioskStep.Settings) {
+            PrinterState.active-page = Page.settings;
+            PrinterState.active-subpage = SubPage.none;
+            KioskState.settings-active = true;
+            kiosk-step = KioskStep.Theme;
+            kiosk-timer.interval = 10s;
         } else {
+            KioskState.theme-index = mod(KioskState.theme-index + 1, 4);
             kiosk-step = KioskStep.Home;
-            PrinterState.active-page = Page.home;
-            kiosk-timer.interval = 5s;
+            kiosk-timer.interval = 3s;
         }
 
         debug("Kiosk step:", kiosk-step);
