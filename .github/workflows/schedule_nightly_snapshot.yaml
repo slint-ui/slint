@@ -16,6 +16,7 @@ jobs:
       matrix:
         branch:
           - pre-release/1.15
+          - master
 
     steps:
       - uses: actions/checkout@v6
