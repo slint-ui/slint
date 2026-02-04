@@ -102,4 +102,5 @@ i-slint-common = { workspace = true }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "unstable-winit-030"] }
 
 [package.metadata.docs.rs]
+features = ["renderer-software"]
 rustdoc-args = ["--generate-link-to-definition"]
