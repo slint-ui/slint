@@ -7,7 +7,7 @@ module.exports = grammar({
   name: "slint",
 
   extras: ($) => [/[\s\r\n]+/, $.comment],
-  conflicts: ($) => [[$._assignment_value_block], [$.assignment_block]],
+  conflicts: ($) => [[$._assignment_value_block], [$.assignment_block], [$.easing_kind_identifier, $.interpolation_mode_identifier]],
 
   rules: {
     sourcefile: ($) => repeat($._definition),
@@ -273,7 +273,7 @@ module.exports = grammar({
     animate_statement: ($) => seq("animate", $.expression, $.animate_body),
 
     animate_option_identifier: (_) =>
-      choice("delay", "duration", "iteration-count", "direction", "easing"),
+      choice("delay", "duration", "iteration-count", "direction", "easing", "interpolation"),
 
     animate_option: ($) =>
       seq(
@@ -710,6 +710,15 @@ module.exports = grammar({
         seq("cubic-bezier", $.arguments),
       ),
 
+    interpolation_mode_identifier: ($) =>
+      choice(
+        "linear",
+        "angle-shorter",
+        "angle-longer",
+        "angle-clockwise",
+        "angle-counterclockwise",
+      ),
+
     user_type_identifier: ($) => prec(1, $._identifier),
     _type_identifier: ($) =>
       choice($.builtin_type_identifier, $.user_type_identifier),
@@ -767,6 +776,7 @@ module.exports = grammar({
         $.percent_value,
         $.relative_font_size_value,
         $.easing_kind_identifier,
+        $.interpolation_mode_identifier,
       ),
 
     comment: (_) =>
