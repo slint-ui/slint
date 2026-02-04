@@ -2097,6 +2097,28 @@ fn get_implements_specifier(
     parent.ImplementsSpecifier()
 }
 
+fn validate_property_declaration_for_interface(
+    result: &PropertyLookupResult,
+    base_type: &ElementType,
+    interface_name: &dyn Display,
+) -> Result<(), String> {
+    match result.property_type {
+        Type::Invalid => Ok(()),
+        Type::Callback { .. } => Err(format!(
+            "Cannot implement interface '{}' because '{}' conflicts with an existing callback in '{}'",
+            interface_name, result.resolved_name, base_type
+        )),
+        Type::Function { .. } => Err(format!(
+            "Cannot implement interface '{}' because '{}' conflicts with an existing function in '{}'",
+            interface_name, result.resolved_name, base_type
+        )),
+        _ => Err(format!(
+            "Cannot implement interface '{}' because '{}' conflicts with an existing property in '{}'",
+            interface_name, result.resolved_name, base_type
+        )),
+    }
+}
+
 fn apply_implements_specifier(
     e: &mut Element,
     implements_specifier: Option<syntax_nodes::ImplementsSpecifier>,
@@ -2144,8 +2166,20 @@ fn apply_implements_specifier(
     }
 
     for interface in interfaces.iter() {
-        for (prop_name, prop_decl) in interface.root_element.borrow().property_declarations.iter() {
-            e.property_declarations.insert(prop_name.clone(), prop_decl.clone());
+        for (unresolved_prop_name, prop_decl) in
+            interface.root_element.borrow().property_declarations.iter()
+        {
+            let lookup_result = e.lookup_property(unresolved_prop_name);
+            if let Err(message) = validate_property_declaration_for_interface(
+                &lookup_result,
+                &e.base_type,
+                &interface_name,
+            ) {
+                diag.push_error(message, &implements_specifier.QualifiedName());
+                continue;
+            }
+
+            e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
         }
     }
 }
