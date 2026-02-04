@@ -79,6 +79,7 @@ export type KnownType =
     | "length"
     | "percent"
     | "physical-length"
+    | "Edges"
     | "Point"
     | "relative-font-size"
     | "string"
@@ -128,6 +129,11 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap.EnumType.href,
                 defaultValue: "the first enum value",
+            };
+        case "Edges":
+            return {
+                href: linkMap.StructType.href,
+                defaultValue: "0px",
             };
         case "float":
             return {
