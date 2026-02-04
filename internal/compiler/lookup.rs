@@ -930,6 +930,9 @@ impl LookupObject for Expression {
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).for_each_entry(ctx, f)
                 }
+                Type::KeyboardShortcutType => {
+                    KeyboardShortcutExpression(self).for_each_entry(ctx, f)
+                }
                 ty if ty.as_unit_product().is_some() => {
                     NumberWithUnitExpression(self).for_each_entry(ctx, f)
                 }
@@ -955,6 +958,7 @@ impl LookupObject for Expression {
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).lookup(ctx, name)
                 }
+                Type::KeyboardShortcutType => KeyboardShortcutExpression(self).lookup(ctx, name),
                 ty if ty.as_unit_product().is_some() => {
                     NumberWithUnitExpression(self).lookup(ctx, name)
                 }
@@ -1165,5 +1169,23 @@ impl LookupObject for NumberWithUnitExpression<'_> {
                     .or_else(|| f("cos", member_function(BuiltinFunction::Cos)))
                     .or_else(|| f("tan", member_function(BuiltinFunction::Tan)))
             })
+    }
+}
+
+struct KeyboardShortcutExpression<'a>(&'a Expression);
+
+impl LookupObject for KeyboardShortcutExpression<'_> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        None.or_else(|| {
+            f(
+                &SmolStr::new_static("matches"),
+                member_function(BuiltinFunction::KeyboardShortcutMatches),
+            )
+        })
     }
 }

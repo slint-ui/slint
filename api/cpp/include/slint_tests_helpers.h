@@ -33,6 +33,19 @@ inline void send_keyboard_char(const Component *component, const slint::SharedSt
 }
 
 template<typename Component>
+inline void send_keyboard_shortcut(const Component *component,
+                                   std::vector<slint::SharedString> shortcut)
+{
+    for (const auto &character : shortcut) {
+        send_keyboard_char(component, character, true);
+    }
+    std::reverse(std::begin(shortcut), std::end(shortcut));
+    for (const auto &character : shortcut) {
+        send_keyboard_char(component, character, false);
+    }
+}
+
+template<typename Component>
 inline void send_keyboard_string_sequence(const Component *component,
                                           const slint::SharedString &str)
 {

@@ -545,6 +545,7 @@ fn gen_corelib(
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
             "slint_keyboard_shortcut_to_string",
+            "slint_keyboard_shortcut_matches",
             "slint_keyboard_shortcut",
             "slint_visit_item_tree",
             "slint_windowrc_drop",

@@ -355,12 +355,22 @@ pub(crate) mod ffi {
     ) {
         *out = std::format!("{shortcut}").into()
     }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut_matches(
+        shortcut: &KeyboardShortcut,
+        key_event: &KeyEvent,
+    ) -> bool {
+        shortcut.matches(key_event)
+    }
 }
 
 impl KeyboardShortcut {
     /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
-    pub fn matches(&self, _key_event: KeyEvent) -> bool {
-        todo!();
+    pub fn matches(&self, key_event: &KeyEvent) -> bool {
+        // TODO: Should this check the event_type and only match on KeyReleased?
+        // TODO: Add support for ignoring shift
+        key_event.text == self.key && key_event.modifiers == self.modifiers
     }
 }
 
