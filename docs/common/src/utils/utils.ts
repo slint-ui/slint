@@ -81,6 +81,7 @@ export type KnownType =
     | "physical-length"
     | "Edges"
     | "Point"
+    | "Size"
     | "relative-font-size"
     | "string"
     | "struct";
@@ -132,7 +133,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "Edges":
             return {
-                href: linkMap.StructType.href,
+                href: linkMap.Edges.href,
                 defaultValue: "0px",
             };
         case "float":
@@ -167,7 +168,12 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "Point":
             return {
-                href: linkMap.StructType.href,
+                href: linkMap.Point.href,
+                defaultValue: "(0px, 0px)",
+            };
+        case "Size":
+            return {
+                href: linkMap.Size.href,
                 defaultValue: "(0px, 0px)",
             };
         case "relative-font-size":
