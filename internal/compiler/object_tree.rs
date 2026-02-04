@@ -2211,24 +2211,10 @@ fn apply_uses_statement(
         return;
     }
 
-    for uses_identifier_node in uses_specifier.UsesIdentifier() {
-        let uses_statement: UsesStatement = (&uses_identifier_node).into();
-        let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
-            continue;
-        };
+    let uses_statements = gather_valid_uses_statements(e, tr, diag, uses_specifier);
+    let uses_statements = filter_conflicting_uses_statements(diag, uses_statements);
 
-        let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
-            diag.push_error(
-                format!("'{}' does not exist", uses_statement.child_id),
-                &uses_statement.child_id_node(),
-            );
-            continue;
-        };
-
-        if !element_implements_interface(&child, &interface, &uses_statement, diag) {
-            continue;
-        }
-
+    for ValidUsesStatement { uses_statement, interface, child } in uses_statements {
         for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
             let lookup_result = e.borrow().base_type.lookup_property(prop_name);
             if let Err(message) = validate_property_declaration_for_interface(
@@ -2285,6 +2271,88 @@ fn apply_uses_statement(
             }
         }
     }
+}
+
+/// A valid `uses` statement, containing the looked up interface and child element.
+struct ValidUsesStatement {
+    uses_statement: UsesStatement,
+    interface: Rc<Component>,
+    child: ElementRc,
+}
+
+/// Gather valid `uses` statements, emitting diagnostics for invalid ones. A valid `uses` statement is one where the
+/// interface can be found, the child element can be found, and the child element implements the interface.
+fn gather_valid_uses_statements(
+    e: &Rc<RefCell<Element>>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+    uses_specifier: syntax_nodes::UsesSpecifier,
+) -> Vec<ValidUsesStatement> {
+    let mut valid_uses_statements: Vec<ValidUsesStatement> = Vec::new();
+
+    for uses_identifier_node in uses_specifier.UsesIdentifier() {
+        let uses_statement: UsesStatement = (&uses_identifier_node).into();
+        let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
+            continue;
+        };
+
+        let Some(child) = find_element_by_id(e, &uses_statement.child_id) else {
+            diag.push_error(
+                format!("'{}' does not exist", uses_statement.child_id),
+                &uses_statement.child_id_node(),
+            );
+            continue;
+        };
+
+        if !element_implements_interface(&child, &interface, &uses_statement, diag) {
+            continue;
+        }
+
+        valid_uses_statements.push(ValidUsesStatement { uses_statement, interface, child });
+    }
+    valid_uses_statements
+}
+
+/// Filter out conflicting `uses` statements, emitting diagnostics for each conflict. Two `uses` statements conflict if
+/// they introduce properties/callbacks/functions with the same name. In that case we keep the first one and filter out
+/// the rest.
+fn filter_conflicting_uses_statements(
+    diag: &mut BuildDiagnostics,
+    uses_statements: Vec<ValidUsesStatement>,
+) -> Vec<ValidUsesStatement> {
+    let mut seen_interfaces: Vec<SmolStr> = Vec::new();
+    let mut seen_interface_api: BTreeMap<SmolStr, SmolStr> = BTreeMap::new();
+    let valid_uses_statements: Vec<ValidUsesStatement> = uses_statements
+        .into_iter()
+        .filter(|vus| {
+            let interface_name = vus.uses_statement.interface_name.to_smolstr();
+            if seen_interfaces.contains(&interface_name) {
+                diag.push_error(
+                    format!("'{}' is used multiple times", vus.uses_statement.interface_name),
+                    &vus.uses_statement.interface_name_node(),
+                );
+                return false;
+            }
+            seen_interfaces.push(interface_name.clone());
+
+            for (prop_name, _) in vus.interface.root_element.borrow().property_declarations.iter() {
+                if let Some(existing_interface) = seen_interface_api.get(prop_name) {
+                    diag.push_error(
+                        format!(
+                            "'{}' occurs in '{}' and '{}'",
+                            prop_name, vus.uses_statement.interface_name, existing_interface
+                        ),
+                        &vus.uses_statement.interface_name_node(),
+                    );
+                    return false;
+                } else {
+                    seen_interface_api.insert(prop_name.clone(), interface_name.clone());
+                }
+            }
+            return true;
+        })
+        .collect();
+    valid_uses_statements
 }
 
 /// Check that the given element implements the given interface. Emits a diagnostic if the interface is not implemented.
