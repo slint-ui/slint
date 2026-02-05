@@ -30,9 +30,5 @@ fn main() {
     }
 
     let out_path = Path::new(&out_dir).join("link-data.json");
-    fs::write(
-        &out_path,
-        serde_json::to_string_pretty(&merged).unwrap(),
-    )
-    .unwrap();
+    fs::write(&out_path, serde_json::to_string_pretty(&merged).unwrap()).unwrap();
 }
