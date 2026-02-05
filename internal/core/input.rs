@@ -188,7 +188,7 @@ pub enum InputEventFilterResult {
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
-       ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|*;)*) => {
+       ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
             $(pub const $name : char = $char;)*
 
             #[allow(missing_docs)]
@@ -228,7 +228,7 @@ pub mod key_codes {
         };
     }
 
-    i_slint_common::for_each_special_keys!(declare_consts_for_special_keys);
+    i_slint_common::for_each_keys!(declare_consts_for_special_keys);
 }
 
 /// Internal struct to maintain the pressed/released state of the keys that
