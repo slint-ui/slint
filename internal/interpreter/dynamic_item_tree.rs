@@ -1852,7 +1852,8 @@ fn prepare_for_two_way_binding(
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
                 && let Some(x) = enclosing_component.description.custom_properties.get(name)
             {
-                let item = unsafe { Pin::new_unchecked(&*instance_ref.as_ptr().add(x.offset)) };
+                let item =
+                    unsafe { Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)) };
                 let common = x.prop.prepare_for_two_way_binding(item);
                 return (common, map);
             }
