@@ -2373,7 +2373,7 @@ fn apply_uses_statement(
     let uses_statements = filter_conflicting_uses_statements(diag, uses_statements);
 
     for ValidUsesStatement { uses_statement, interface, child } in uses_statements {
-        for (prop_name, prop_decl) in &interface.root_element.borrow().property_declarations {
+        for (prop_name, prop_decl) in &interface.borrow().property_declarations {
             let lookup_result = e.borrow().base_type.lookup_property(prop_name);
             if let Err(message) = validate_property_declaration_for_interface(
                 InterfaceUseMode::Uses,
@@ -2434,7 +2434,7 @@ fn apply_uses_statement(
 /// A valid `uses` statement, containing the looked up interface and child element.
 struct ValidUsesStatement {
     uses_statement: UsesStatement,
-    interface: Rc<Component>,
+    interface: ElementRc,
     child: ElementRc,
 }
 
@@ -2450,7 +2450,7 @@ fn gather_valid_uses_statements(
 
     for uses_identifier_node in uses_specifier.UsesIdentifier() {
         let uses_statement: UsesStatement = (&uses_identifier_node).into();
-        let Ok(interface) = uses_statement.lookup_interface(tr, diag) else {
+        let Ok(interface_component) = uses_statement.lookup_interface(tr, diag) else {
             continue;
         };
 
@@ -2462,6 +2462,7 @@ fn gather_valid_uses_statements(
             continue;
         };
 
+        let interface = interface_component.root_element.clone();
         if !element_implements_interface(&child, &interface, &uses_statement, diag) {
             continue;
         }
@@ -2493,7 +2494,7 @@ fn filter_conflicting_uses_statements(
             }
             seen_interfaces.push(interface_name.clone());
 
-            for (prop_name, _) in vus.interface.root_element.borrow().property_declarations.iter() {
+            for (prop_name, _) in vus.interface.borrow().property_declarations.iter() {
                 if let Some(existing_interface) = seen_interface_api.get(prop_name) {
                     diag.push_error(
                         format!(
@@ -2516,7 +2517,7 @@ fn filter_conflicting_uses_statements(
 /// Check that the given element implements the given interface. Emits a diagnostic if the interface is not implemented.
 fn element_implements_interface(
     element: &ElementRc,
-    interface: &Rc<Component>,
+    interface: &ElementRc,
     uses_statement: &UsesStatement,
     diag: &mut BuildDiagnostics,
 ) -> bool {
@@ -2526,9 +2527,7 @@ fn element_implements_interface(
                 && property.property_visibility == interface_declaration.visibility
         };
 
-    for (property_name, property_declaration) in
-        interface.root_element.borrow().property_declarations.iter()
-    {
+    for (property_name, property_declaration) in interface.borrow().property_declarations.iter() {
         let lookup_result = element.borrow().lookup_property(property_name);
         if !property_matches_interface(&lookup_result, property_declaration) {
             diag.push_error(
