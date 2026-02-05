@@ -326,6 +326,8 @@ pub struct KeyboardShortcut {
     modifiers: KeyboardModifiers,
     /// Whether to ignore shift state when matching the shortcut
     ignore_shift: bool,
+    /// Whether to ignore alt state when matching the shortcut
+    ignore_alt: bool,
 }
 
 /// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
@@ -333,8 +335,9 @@ pub fn make_keyboard_shortcut(
     key: SharedString,
     modifiers: KeyboardModifiers,
     ignore_shift: bool,
+    ignore_alt: bool,
 ) -> KeyboardShortcut {
-    KeyboardShortcut { key, modifiers, ignore_shift }
+    KeyboardShortcut { key, modifiers, ignore_shift, ignore_alt }
 }
 
 #[cfg(feature = "ffi")]
@@ -350,12 +353,14 @@ pub(crate) mod ffi {
         shift: bool,
         meta: bool,
         ignore_shift: bool,
+        ignore_alt: bool,
         out: &mut KeyboardShortcut,
     ) {
         *out = make_keyboard_shortcut(
             key.clone(),
             KeyboardModifiers { alt, control, shift, meta },
             ignore_shift,
+            ignore_alt,
         );
     }
 
@@ -384,6 +389,9 @@ impl KeyboardShortcut {
         if self.ignore_shift {
             expected_modifiers.shift = key_event.modifiers.shift;
         }
+        if self.ignore_alt {
+            expected_modifiers.alt = key_event.modifiers.alt;
+        }
         key_event.text == self.key && key_event.modifiers == expected_modifiers
     }
 }
@@ -395,10 +403,16 @@ impl Display for KeyboardShortcut {
         } else {
             write!(
                 f,
-                "{}{}{}{}{}",
-                if self.modifiers.alt { "Alt+" } else { "" },
+                "{}{}{}{}\"{}\"",
+                self.ignore_alt
+                    .then_some("IgnoreAlt+")
+                    .or(self.modifiers.alt.then_some("Alt+"))
+                    .unwrap_or_default(),
                 if self.modifiers.control { "Control+" } else { "" },
-                if self.modifiers.shift { "Shift+" } else { "" },
+                self.ignore_shift
+                    .then_some("IgnoreShift+")
+                    .or(self.modifiers.shift.then_some("Shift+"))
+                    .unwrap_or_default(),
                 if self.modifiers.meta { "Meta+" } else { "" },
                 // Make sure to escape the key, as it may contain control characters.
                 // TODO: Do a reverse character lookup to pretty-print the control characters (i.e. "Escape")

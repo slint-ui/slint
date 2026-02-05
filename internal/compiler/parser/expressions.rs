@@ -489,6 +489,7 @@ fn parse_markdown(p: &mut impl Parser) {
 /// @keys(Control +Shift + Alt+Meta+"A")
 /// @keys(Control +Shift + Alt+Meta+Return)
 /// @keys(Control +IgnoreShift + Alt+Meta+Return)
+/// @keys(Control +Shift + IgnoreAlt+Meta+Return)
 /// ```
 fn parse_keys(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtKeys);
@@ -505,6 +506,7 @@ fn parse_keys(p: &mut impl Parser) {
     let mut shift_count = 0_u32;
     let mut meta_count = 0_u32;
     let mut ignore_shift_count = 0_u32;
+    let mut ignore_alt_count = 0_u32;
 
     #[derive(Eq, PartialEq)]
     enum State {
@@ -513,6 +515,11 @@ fn parse_keys(p: &mut impl Parser) {
         NeedKey,
     }
     let mut state = State::Start;
+
+    fn bail(p: &mut crate::parser::Node<'_, impl Parser>, message: &str) {
+        p.error(message);
+        p.until(SyntaxKind::RParent);
+    }
 
     loop {
         match p.peek().kind() {
@@ -534,16 +541,14 @@ fn parse_keys(p: &mut impl Parser) {
                     state = State::NeedKey;
                     p.consume();
                 } else {
-                    p.error("Unexpected '+' in keyboard shortcut");
-                    p.until(SyntaxKind::RParent);
+                    bail(&mut p, "Unexpected '+' in keyboard shortcut");
                     break;
                 }
                 continue;
             }
             SyntaxKind::Identifier | SyntaxKind::StringLiteral => {
                 if state == State::NeedPlus {
-                    p.error("Expected '+' to separate parts of a keyboard shortcut");
-                    p.until(SyntaxKind::RParent);
+                    bail(&mut p, "Expected '+' to separate parts of a keyboard shortcut");
                     break;
                 }
 
@@ -558,14 +563,13 @@ fn parse_keys(p: &mut impl Parser) {
                         "Meta" => meta_count += 1,
                         "Shift" => shift_count += 1,
                         "IgnoreShift" => ignore_shift_count += 1,
+                        "IgnoreAlt" => ignore_alt_count += 1,
                         "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
-                            p.error("Right-side modifiers are not supported");
-                            p.until(SyntaxKind::RParent);
+                            bail(&mut p, "Right-side modifiers are not supported");
                             break;
                         }
                         "AltGr" => {
-                            p.error("AltGr as modifier is unnecessary (remove it)");
-                            p.until(SyntaxKind::RParent);
+                            bail(&mut p, "AltGr as modifier is unnecessary (remove it)");
                             break;
                         }
                         _ => key_count += 1,
@@ -576,24 +580,32 @@ fn parse_keys(p: &mut impl Parser) {
 
                 state = State::NeedPlus;
 
-                if [alt_count, control_count, meta_count, shift_count, ignore_shift_count]
-                    .into_iter()
-                    .max()
-                    .unwrap_or_default()
+                if [
+                    alt_count,
+                    control_count,
+                    meta_count,
+                    shift_count,
+                    ignore_shift_count,
+                    ignore_alt_count,
+                ]
+                .into_iter()
+                .max()
+                .unwrap_or_default()
                     > 1
                 {
-                    p.error("Duplicated modifier in keyboard shortcut");
-                    p.until(SyntaxKind::RParent);
+                    bail(&mut p, "Duplicated modifier in keyboard shortcut");
                     break;
                 }
                 if shift_count > 0 && ignore_shift_count > 0 {
-                    p.error("Cannot use both Shift and IgnoreShift (remove one of them)");
-                    p.until(SyntaxKind::RParent);
+                    bail(&mut p, "Cannot use both Shift and IgnoreShift (remove one of them)");
+                    break;
+                }
+                if alt_count > 0 && ignore_alt_count > 0 {
+                    bail(&mut p, "Cannot use both Alt and IgnoreAlt (remove one of them)");
                     break;
                 }
                 if key_count > 1 {
-                    p.error("A keyboard shortcut can only contain one key (with modifiers)");
-                    p.until(SyntaxKind::RParent);
+                    bail(&mut p, "A keyboard shortcut can only contain one key (with modifiers)");
                     break;
                 }
 
@@ -601,8 +613,10 @@ fn parse_keys(p: &mut impl Parser) {
                 continue;
             }
             _ => {
-                p.error("Expected '+', a string literal, or an identifier in the Keys namespace");
-                p.until(SyntaxKind::RParent);
+                bail(
+                    &mut p,
+                    "Expected '+', a string literal, or an identifier in the Keys namespace",
+                );
                 break;
             }
         }

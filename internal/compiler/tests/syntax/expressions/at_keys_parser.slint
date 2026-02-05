@@ -29,6 +29,12 @@ export component SuperSimple {
 //                                           >   <error{Duplicated modifier in keyboard shortcut}
         @keys(IgnoreShift + IgnoreShift + "a"),
 //                          >         <error{Duplicated modifier in keyboard shortcut}
+        @keys(IgnoreAlt + IgnoreAlt + "a"),
+//                        >       <error{Duplicated modifier in keyboard shortcut}
+        @keys(Alt + IgnoreAlt + "a"),
+//                  >       <error{Cannot use both Alt and IgnoreAlt (remove one of them)}
+        @keys(IgnoreAlt + Alt + "a"),
+//                        > <error{Cannot use both Alt and IgnoreAlt (remove one of them)}
 
         // Conflicting Shift + IgnoreShift
         @keys(Alt + Control + Shift + Meta + IgnoreShift + "a"),
