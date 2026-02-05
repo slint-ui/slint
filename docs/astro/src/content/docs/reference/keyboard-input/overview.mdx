@@ -21,6 +21,10 @@ encoded in a string. Use the [`Key` namespace](#key-namespace) to identify known
 
 
 ## Key Namespace
-Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character.
+
+The `Key` namespace contains a list of well-known key codes (including any non-printable characters).
+
+Note that alphabetic keys (e.g. Key.A-Key.Z) are represented as lowercase (e.g. "a"-"z").
+Use `Key.X.to-uppercase()` if necessary.
 
 <SpecialKeys />

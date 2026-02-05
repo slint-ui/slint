@@ -235,9 +235,13 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
 
                 macro_rules! winit_key_to_char {
-                ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
+                ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
                     match &key_code {
-                        $($(winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit) $(if event.location == winit::keyboard::KeyLocation::$pos)? => $char.into(),)*)*
+                        $( $( $(
+                                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit)
+                                    $(if event.location == winit::keyboard::KeyLocation::$pos)?
+                                        => $char.into(),
+                        )* )? )*
                         winit::keyboard::Key::Character(str) => str.as_str().into(),
                         _ => {
                             if let Some(text) = &event.text {
@@ -250,7 +254,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 }
             }
                 #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
-                let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
+                let text = i_slint_common::for_each_keys!(winit_key_to_char);
 
                 self.loop_error = window
                     .window()

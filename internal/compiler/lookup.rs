@@ -652,7 +652,7 @@ impl ColorSpecific {
 pub struct KeysLookup;
 
 macro_rules! special_keys_lookup {
-    ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
+    ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
         impl LookupObject for KeysLookup {
             fn for_each_entry<R>(
                 &self,
@@ -669,7 +669,7 @@ macro_rules! special_keys_lookup {
     };
 }
 
-i_slint_common::for_each_special_keys!(special_keys_lookup);
+i_slint_common::for_each_keys!(special_keys_lookup);
 
 struct EasingSpecific;
 impl LookupObject for EasingSpecific {
