@@ -10,9 +10,9 @@ export component SuperSimple {
         @keys(    Alt + Control + Shift + Meta + FooBar    ),
 //                                               >    <error{`FooBar` not defined in the `Keys` namespace↵(Consider using "FooBar")}
         @keys(Shift+Plus),
-//                  >  <error{Plus implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.↵Remove Shift or use Asterisk instead (for U.S. Keyboards)}
+//                  >  <error{Plus implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.↵Remove Shift or use Equal instead (for U.S. Keyboards)}
         @keys(Shift+Asterisk),
-//                  >      <error{Asterisk implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.↵Remove Shift or use Plus instead (for U.S. Keyboards)}
+//                  >      <error{Asterisk implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.↵Remove Shift or use Digit8 instead (for U.S. Keyboards)}
 
         // IgnoreShift
         @keys(IgnoreShift + Asterisk),
