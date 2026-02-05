@@ -1171,7 +1171,8 @@ impl Element {
             ..Default::default()
         };
 
-        apply_implements_specifier(&mut r, get_implements_specifier(&node), tr, diag);
+        let implemented_interface = get_implemented_interface(&r, &node, tr, diag);
+        apply_implements_specifier(&mut r, &implemented_interface, diag);
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
@@ -2113,14 +2114,6 @@ fn apply_default_type_properties(element: &mut Element) {
     }
 }
 
-fn get_implements_specifier(
-    node: &syntax_nodes::Element,
-) -> Option<syntax_nodes::ImplementsSpecifier> {
-    let parent: syntax_nodes::Component =
-        node.parent().filter(|p| p.kind() == SyntaxKind::Component)?.into();
-    parent.ImplementsSpecifier()
-}
-
 enum InterfaceUseMode {
     Implements,
     Uses,
@@ -2154,26 +2147,36 @@ fn validate_property_declaration_for_interface(
     }
 }
 
-fn apply_implements_specifier(
-    e: &mut Element,
-    implements_specifier: Option<syntax_nodes::ImplementsSpecifier>,
+/// Ann ImplementsSpecifier and the corresponding interface element.
+struct ImplementedInterface {
+    implements_specifier: syntax_nodes::ImplementsSpecifier,
+    interface: ElementRc,
+    interface_name: SmolStr,
+}
+
+/// If the element implements a valid interface, return the corresponding ImplementedInterface. Otherwise return None.
+/// Emits diagnostics if the implements specifier is invalid.
+fn get_implemented_interface(
+    e: &Element,
+    node: &syntax_nodes::Element,
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
-) {
-    let Some(implements_specifier) = implements_specifier else {
-        return;
+) -> Option<ImplementedInterface> {
+    let parent: syntax_nodes::Component =
+        node.parent().filter(|p| p.kind() == SyntaxKind::Component)?.into();
+    let Some(implements_specifier) = parent.ImplementsSpecifier() else {
+        return None;
     };
 
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
-        return;
+        return None;
     }
 
     let interface_name =
         QualifiedTypeName::from_node(implements_specifier.QualifiedName().clone().into())
             .to_smolstr();
 
-    let mut interfaces: Vec<Rc<Component>> = Vec::new();
     match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
         Ok(ElementType::Component(c)) => {
             if !c.is_interface() {
@@ -2181,42 +2184,54 @@ fn apply_implements_specifier(
                     format!("Cannot implement {}. It is not an interface", interface_name),
                     &implements_specifier.QualifiedName(),
                 );
-                return;
+                return None;
             }
 
             c.used.set(true);
-            interfaces.push(c);
+            Some(ImplementedInterface {
+                implements_specifier,
+                interface: c.root_element.clone(),
+                interface_name,
+            })
         }
         Ok(_) => {
             diag.push_error(
                 format!("Cannot implement {}. It is not an interface", interface_name),
                 &implements_specifier.QualifiedName(),
             );
-            return;
+            None
         }
         Err(err) => {
             diag.push_error(err, &implements_specifier.QualifiedName());
-            return;
+            None
         }
     }
+}
 
-    for interface in interfaces.iter() {
-        for (unresolved_prop_name, prop_decl) in
-            interface.root_element.borrow().property_declarations.iter()
-        {
-            let lookup_result = e.lookup_property(unresolved_prop_name);
-            if let Err(message) = validate_property_declaration_for_interface(
-                InterfaceUseMode::Implements,
-                &lookup_result,
-                &e.base_type,
-                &interface_name,
-            ) {
-                diag.push_error(message, &implements_specifier.QualifiedName());
-                continue;
-            }
+fn apply_implements_specifier(
+    e: &mut Element,
+    implemented_interface: &Option<ImplementedInterface>,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+        implemented_interface
+    else {
+        return;
+    };
 
-            e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+    for (unresolved_prop_name, prop_decl) in interface.borrow().property_declarations.iter() {
+        let lookup_result = e.lookup_property(unresolved_prop_name);
+        if let Err(message) = validate_property_declaration_for_interface(
+            InterfaceUseMode::Implements,
+            &lookup_result,
+            &e.base_type,
+            &interface_name,
+        ) {
+            diag.push_error(message, &implements_specifier.QualifiedName());
+            continue;
         }
+
+        e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
     }
 }
 
