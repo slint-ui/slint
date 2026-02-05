@@ -353,7 +353,7 @@ impl KeyEvent {
         } else if self.modifiers.control && self.modifiers.shift {
             match self.text.as_str() {
                 #[cfg(not(target_os = "windows"))]
-                "z" => Some(StandardShortcut::Redo),
+                "z" | "Z" => Some(StandardShortcut::Redo),
                 _ => None,
             }
         } else {
