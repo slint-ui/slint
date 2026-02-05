@@ -391,7 +391,7 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     macro_rules! collect_special_key {
-        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
+        ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
             $(
                  write!(file, r#"-   **`{}`**
 "#, stringify!($name)
@@ -400,7 +400,7 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
         };
     }
 
-    i_slint_common::for_each_special_keys!(collect_special_key);
+    i_slint_common::for_each_keys!(collect_special_key);
 
     file.flush()?;
 

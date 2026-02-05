@@ -17,7 +17,7 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
-use i_slint_common::for_each_normal_keys;
+use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -1099,13 +1099,16 @@ impl Expression {
                     ),
                 )
             };
+            ($keycode:literal # $ident:ident # ) => {
+                (stringify!($ident), ($keycode, ShiftBehavior::Unshiftable))
+            };
         }
         macro_rules! generate_key_map {
-            [ $($keycode:literal # $ident:ident # $shifted:tt ;)* ] => {
+            [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
                 {
                     let key_map : HashMap<_, _> = [
                         $(
-                            key_shift_behavior!($keycode # $ident # $shifted)
+                            key_shift_behavior!($char # $name # $($shifted_char)?$($shifted_ident)?)
                         ),*
                     ].into_iter().collect();
                     key_map
@@ -1113,7 +1116,7 @@ impl Expression {
             }
         }
         // TODO: Make this a thread_local or const somewhere
-        let key_map = for_each_normal_keys!(generate_key_map);
+        let key_map = for_each_keys!(generate_key_map);
 
         let mut shortcut = langtype::KeyboardShortcut::default();
 
@@ -1131,16 +1134,7 @@ impl Expression {
                 "Shift" => shortcut.modifiers.shift = true,
                 "IgnoreShift" => shortcut.ignore_shift = true,
                 s => {
-                    let lookup = crate::lookup::KeysLookup {};
-                    if let Some(LookupResult::Expression {
-                        expression: Expression::StringLiteral(key),
-                        ..
-                    }) = lookup.lookup(ctx, &SmolStr::from(s))
-                    {
-                        // TODO: This should support IgnoreShift, while A/B/... do not!
-                        key_code =
-                            Some((key.clone(), ShiftBehavior::Unshiftable, identifier.clone()))
-                    } else if let Some((key, shiftbehavior)) = key_map.get(s) {
+                    if let Some((key, shiftbehavior)) = key_map.get(s) {
                         key_code = Some((
                             SmolStr::from_iter(core::iter::once(*key)),
                             shiftbehavior.clone(),
@@ -1161,6 +1155,8 @@ impl Expression {
             }
         }
 
+        // Handle localization issues regarding shift per-keycode
+        // This only applies to keys that are in the Key namespace
         if let Some((mut key_code, shift_behavior, node)) = key_code {
             match shift_behavior {
                 ShiftBehavior::Shiftable(smol_str) => {
