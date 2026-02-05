@@ -4,6 +4,7 @@
 // cspell:ignore slintdocs pipenv pipfile
 
 use anyhow::{Context, Result};
+use std::collections::BTreeMap;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -20,6 +21,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         let enums = extract_enum_docs();
         let structs = extract_builtin_structs();
         write_global_structs_enums_index(&root, &structs, &enums)?;
+        write_link_data_generated(&root, structs.keys(), enums.keys())?;
     }
 
     let docs_source_dir = root.join("docs/astro");
@@ -92,6 +94,30 @@ description: Global Structs and Enums
 
     file.flush()?;
 
+    Ok(())
+}
+
+fn write_link_data_generated<'a>(
+    root_dir: &Path,
+    struct_names: impl Iterator<Item = &'a String>,
+    enum_names: impl Iterator<Item = &'a String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut map = BTreeMap::new();
+    let base = "reference/global-structs-enums/#";
+    for name in struct_names {
+        let href = format!("{}{}", base, name.to_lowercase());
+        map.insert(name.clone(), serde_json::json!({ "href": href }));
+    }
+    for name in enum_names {
+        if name == "keys" {
+            continue;
+        }
+        let href = format!("{}{}", base, name.to_lowercase());
+        map.insert(name.clone(), serde_json::json!({ "href": href }));
+    }
+    let path = root_dir.join("internal/core-macros/link-data-generated.json");
+    let contents = serde_json::to_string_pretty(&map).context("serialize link-data-generated")?;
+    std::fs::write(&path, contents).context(format!("write {path:?}"))?;
     Ok(())
 }
 

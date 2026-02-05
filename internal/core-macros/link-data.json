@@ -44,23 +44,14 @@
     "easing": {
         "href": "reference/primitive-types/#easing"
     },
-    "Edges": {
-        "href": "reference/global-structs-enums/#edges"
-    },
     "EnumType": {
         "href": "reference/global-structs-enums/"
-    },
-    "EventResult": {
-        "href": "reference/global-structs-enums/#eventresult"
     },
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
     "float": {
         "href": "reference/primitive-types/#float"
-    },
-    "FocusReason": {
-        "href": "reference/global-structs-enums/#focusreason"
     },
     "FocusHandling": {
         "href": "guide/development/focus/"
@@ -134,9 +125,6 @@
     "PopupWindow": {
         "href": "reference/window/popupwindow/"
     },
-    "Point": {
-        "href": "reference/global-structs-enums/#point"
-    },
     "ProgressIndicator": {
         "href": "reference/std-widgets/basic-widgets/progressindicator/"
     },
@@ -148,9 +136,6 @@
     },
     "relativeFontSize": {
         "href": "reference/primitive-types/#relative-font-size"
-    },
-    "Size": {
-        "href": "reference/global-structs-enums/#size"
     },
     "slintFile": {
         "href": "guide/language/coding/file/"

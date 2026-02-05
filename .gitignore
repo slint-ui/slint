@@ -15,6 +15,7 @@ Pipfile.lock
 /docs/astro/src/content/collections/structs/
 /playwright-report
 global-structs-enums.mdx
+internal/core-macros/link-data-generated.json
 
 # Ignore all package-lock.json files
 **/package-lock.json

@@ -130,17 +130,19 @@ rst_epilog = ""
 
 myst_substitutions = {}
 
-with open(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "internal",
-        "core-macros",
-        "link-data.json",
-    )
-) as link_data:
-    links = json.load(link_data)
+link_data_dir = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "..",
+    "internal",
+    "core-macros",
+)
+with open(os.path.join(link_data_dir, "link-data.json")) as f:
+    links = json.load(f)
+generated_path = os.path.join(link_data_dir, "link-data-generated.json")
+if os.path.isfile(generated_path):
+    with open(generated_path) as f:
+        links.update(json.load(f))
 
 for key in links.keys():
     href = links[key]["href"]
