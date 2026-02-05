@@ -25,7 +25,7 @@ impl syn::visit_mut::VisitMut for Visitor {
 impl Visitor {
     pub fn new() -> Self {
         let link_data: serde_json::Value = serde_json::from_str(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
+            env!("OUT_DIR"),
             "/link-data.json"
         )))
         .expect("Failed to parse link-data.json");

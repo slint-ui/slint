@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import linkMapData from "../../../../internal/core-macros/link-data.json" with {
     type: "json",
 };
@@ -11,7 +15,27 @@ export type LinkMapType = {
     };
 };
 
-export const linkMap: Readonly<LinkMapType> = linkMapData;
+function loadMergedLinkMap(): LinkMapType {
+    const base = { ...linkMapData } as LinkMapType;
+    try {
+        const __dirname = dirname(fileURLToPath(import.meta.url));
+        const generatedPath = join(
+            __dirname,
+            "../../../../internal/core-macros/link-data-generated.json",
+        );
+        if (existsSync(generatedPath)) {
+            const generated = JSON.parse(
+                readFileSync(generatedPath, "utf-8"),
+            ) as LinkMapType;
+            return { ...base, ...generated };
+        }
+    } catch {
+        // use manual only when generated file is missing or invalid
+    }
+    return base;
+}
+
+export const linkMap: Readonly<LinkMapType> = loadMergedLinkMap();
 
 export async function getEnumContent(enumName: string | undefined) {
     if (enumName) {

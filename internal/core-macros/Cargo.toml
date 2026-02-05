@@ -24,5 +24,8 @@ quote = "1.0"
 syn = { version = "2.0", features = ["full", "visit-mut"] }
 serde_json = { workspace = true }
 
+[build-dependencies]
+serde_json = { workspace = true }
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
