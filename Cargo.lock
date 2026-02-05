@@ -9140,7 +9140,6 @@ dependencies = [
  "bytemuck",
  "const-field-offset",
  "document-features",
- "fontique",
  "i-slint-backend-android-activity",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
@@ -9174,6 +9173,7 @@ name = "slint-build"
 version = "1.15.0"
 dependencies = [
  "derive_more",
+ "fontique",
  "i-slint-compiler",
  "spin_on",
  "toml_edit 0.24.0+spec-1.1.0",

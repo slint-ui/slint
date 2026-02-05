@@ -168,7 +168,7 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 
 ## Render using the software renderer.
-renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software", "dep:fontique"]
+renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
@@ -303,11 +303,6 @@ i-slint-renderer-femtovg = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
-
-[target.'cfg(target_os = "linux")'.build-dependencies]
-# Workaround cross compiling on linux where the build dependencies depends on fontique through slint-build
-# but fontconfig build script find the target library via pkg-config and causes link errors
-fontique = { workspace = true, optional = true, features = ["fontconfig-dlopen"] }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
