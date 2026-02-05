@@ -1990,34 +1990,25 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     fn draw_text_bitmap(
         &mut self,
         text: &Pin<&dyn RenderText>,
-        geom: LogicalRect,
+        size: LogicalSize,
         bitmap: AlphaMapBuffer,
     ) {
-        let full_geom = (geom.translate(self.current_state.offset.to_vector()).cast()
-            * self.scale_factor)
-            .round()
-            .cast()
-            .transformed(self.rotation);
+        let phys_size = (size * self.scale_factor).round().transformed(self.rotation);
+        let phys_clip =
+            (self.current_state.clip * self.scale_factor).round().transformed(self.rotation);
 
-        let Some(logical_clip) = self.current_state.clip.intersection(&geom) else {
-            return; // completely outside the clip
-        };
-        let clip_phys = (logical_clip.translate(self.current_state.offset.to_vector()).cast()
-            * self.scale_factor)
-            .round()
-            .cast()
-            .transformed(self.rotation);
-
-        let Some(clipped_geom) = full_geom.intersection(&clip_phys) else {
+        let Some(clipped_geom) = phys_clip.intersection(&phys_size.into()) else {
             return; // nothing visible
         };
 
         // Corresponding area inside the cached bitmap
-        let dx = (clipped_geom.min_x() - full_geom.min_x()) as i16;
-        let dy = (clipped_geom.min_y() - full_geom.min_y()) as i16;
-        let source_rect = euclid::rect(dx, dy, clipped_geom.width(), clipped_geom.height());
+        let source_rect = clipped_geom.cast();
 
         let full_color = self.alpha_color(text.color().color());
+        let translated_geom = clipped_geom
+            .translate(self.current_state.offset.to_vector() * self.scale_factor)
+            .round()
+            .cast();
 
         let t = target_pixel_buffer::DrawTextureArgs {
             data: target_pixel_buffer::TextureDataContainer::Shared {
@@ -2027,15 +2018,15 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             colorize: Some(full_color),
             // color already is mixed with global alpha
             alpha: full_color.alpha(),
-            dst_x: clipped_geom.min_x() as _,
-            dst_y: clipped_geom.min_y() as _,
-            dst_width: clipped_geom.width() as _,
-            dst_height: clipped_geom.height() as _,
+            dst_x: translated_geom.min_x() as _,
+            dst_y: translated_geom.min_y() as _,
+            dst_width: source_rect.width() as _,
+            dst_height: source_rect.height() as _,
             rotation: self.rotation.orientation,
             tiling: None,
         };
 
-        self.processor.process_target_texture(&t, clipped_geom);
+        self.processor.process_target_texture(&t, translated_geom);
         return;
     }
 
@@ -2044,15 +2035,14 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         &mut self,
         text: &Pin<&dyn RenderText>,
         self_rc: &ItemRc,
-        geom: LogicalRect,
+        size: LogicalSize,
         string: crate::SharedString,
         cache_key: paragraph_cache::ParagraphCacheKey,
     ) {
         use crate::graphics::AlphaOnly;
 
         // ceil to ensure we don't have off by 1 errors when rendering the bitmap
-        let max_size: euclid::Size2D<f32, PhysicalPx> =
-            (geom.size.cast() * self.scale_factor).ceil();
+        let max_size = (size * self.scale_factor).ceil();
 
         let font_request = text.font_request(self_rc);
         let font = fonts::match_font(&font_request, self.scale_factor);
@@ -2076,7 +2066,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             AlphaMapBuffer { data: Rc::from(alpha_bytes), width: alpha_map.width() as u16 };
 
         paragraph_cache::add_to_cache(cache_key, alpha_map.clone());
-        self.draw_text_bitmap(&text, geom, alpha_map);
+        self.draw_text_bitmap(&text, size, alpha_map);
     }
 
     #[cfg(feature = "std")]
@@ -2325,17 +2315,17 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font_request = text.font_request(self_rc);
 
         let color = self.alpha_color(text.color().color());
-        let max_size = (geom.size.cast() * self.scale_factor).cast();
+        let max_size = (size * self.scale_factor).cast();
         #[cfg(feature = "std")]
         if let Some(cache_key) =
             paragraph_cache::ParagraphCacheKey::new(&text, &font_request, size, self.scale_factor)
         {
             if let Some(cached) = paragraph_cache::get_from_cache(&cache_key) {
-                self.draw_text_bitmap(&text, geom, cached);
+                self.draw_text_bitmap(&text, size, cached);
                 return;
             }
 
-            self.draw_text_bitmap_to_cache(&text, self_rc, geom, string, cache_key);
+            self.draw_text_bitmap_to_cache(&text, self_rc, size, string, cache_key);
             return;
         }
 
