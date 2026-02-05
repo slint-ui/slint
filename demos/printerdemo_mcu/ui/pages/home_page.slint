@@ -37,8 +37,8 @@ export component HomePage inherits Page {
             padding-left: 4px;
             width: self.preferred-width;
             for action[index] in [
-                { name: "Copy", enum: SubPage.copy, icon: @image-url("../images/mcu/copy-button.jpg") },
-                { name: "Scan", enum: SubPage.scan, icon: @image-url("../images/mcu/scan-button.jpg") },
+                { name: "Copy", enum: SubPage.copy, icon: @image-url("../images/mcu/copy-button.png") },
+                { name: "Scan", enum: SubPage.scan, icon: @image-url("../images/mcu/scan-button.png") },
             ]: ActionButton {
                 clicked => { PrinterState.active-subpage = action.enum; }
                 source: action.icon;
