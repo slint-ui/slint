@@ -118,6 +118,7 @@ struct LivePreview {
     #[arg(long)]
     fullscreen: bool,
 }
+
 enum OutgoingRequest {
     Start,
     Pending(Waker),
@@ -315,21 +316,29 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
 
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    let to_show = std::sync::Arc::new(common::watcher::Watcher::new());
+
     #[cfg(not(feature = "preview-engine"))]
     let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview: Rc<dyn LspToPreview> = {
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender));
+        let child_preview: Box<dyn common::LspToPreview> = Box::new(
+            preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()),
+        );
         let embedded_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::EmbeddedLspToPreview::new(sn));
+            Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+        let remote_preview: Box<dyn common::LspToPreview> = Box::new(
+            preview::connector::RemoteLspToPreview::new(to_show.clone(), preview_to_lsp_sender, sn),
+        );
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
                     (common::PreviewTarget::EmbeddedWasm, embedded_preview),
+                    (common::PreviewTarget::Remote, remote_preview),
                 ]),
                 common::PreviewTarget::ChildProcess,
             )
@@ -387,7 +396,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         server_notifier,
         init_param,
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: Default::default(),
+        to_show,
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
@@ -541,6 +550,27 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
             }
         }
 
+        // #[cfg(feature = "preview-remote")]
+        // language::SHOW_REMOTE_PREVIEW_COMMAND => {
+        //     match language::show_remote_preview_command(
+        //         req.params.as_array().map_or(&[], |x| x.as_slice()),
+        //         ctx,
+        //     ) {
+        //         Ok(()) => Ok(()),
+        //         Err(e) => match e.code {
+        //             LspErrorCode::RequestFailed => ctx
+        //                 .server_notifier
+        //                 .send_notification::<lsp_types::notification::ShowMessage>(
+        //                 lsp_types::ShowMessageParams {
+        //                     typ: lsp_types::MessageType::ERROR,
+        //                     message: e.message,
+        //                 },
+        //             ),
+        //             _ => Err(e.message.into()),
+        //         },
+        //     }
+        // }
+
         // Messages from the WASM preview come in as notifications sent by the "editor":
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         "slint/preview_to_lsp" => {
@@ -602,12 +632,8 @@ async fn handle_preview_to_lsp_message(
             )
             .await;
         }
-        M::PreviewTypeChanged { is_external } => {
-            if is_external {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
-            } else {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::ChildProcess)?;
-            }
+        M::PreviewTypeChanged { target } => {
+            ctx.to_preview.set_preview_target(target)?;
         }
         M::RequestState { .. } => {
             crate::language::send_state_to_preview(ctx);
