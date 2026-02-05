@@ -128,6 +128,7 @@ macro_rules! for_each_keys {
 
 
 // -------------------- NORMAL KEYS ------------------------------
+// The names are based on: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode
 'a' # A # 'A' ;
 'b' # B # 'B' ;
 'c' # C # 'C' ;
@@ -154,11 +155,50 @@ macro_rules! for_each_keys {
 'x' # X # 'X' ;
 'y' # Y # 'Y' ;
 'z' # Z # 'Z' ;
-'+' # Plus          # Equals ;
-'=' # Equals        # Plus ;
-'-' # Minus         # Underscore ;
-'_' # Underscore    # Minus ;
-// TODO
+
+'0' # Digit0 # CloseParen;
+'1' # Digit1 # Exclamation;
+'2' # Digit2 # At;
+'3' # Digit3 # Hash;
+'4' # Digit4 # Dollar;
+'5' # Digit5 # Percent;
+'6' # Digit6 # Circumflex;
+'7' # Digit7 # Ampersand;
+'8' # Digit8 # Asterisk;
+'9' # Digit9 # OpenParen;
+
+'^' # Circumflex        # Digit6;
+'!' # Exclamation       # Digit1;
+'"' # DoubleQuote       # Quote;
+'#' # Hash              # Digit3;
+'$' # Dollar            # Digit4;
+'%' # Percent           # Digit5;
+'&' # Ampersand         # Digit7;
+'_' # Underscore        # HyphenMinus;
+'(' # OpenParen         # Digit9;
+')' # CloseParen        # Digit0;
+'*' # Asterisk          # Digit8;
+'+' # Plus              # Equal;
+'|' # Pipe              # BackSlash;
+'-' # HyphenMinus       # Underscore;
+'{' # OpenCurlyBracket  # OpenBracket;
+'}' # CloseCurlyBracket # CloseBracket;
+'~' # Tilde             # BackQuote;
+':' # Colon             # Semicolon;
+';' # Semicolon         # Colon;
+'<' # LessThan          # Comma;
+'=' # Equals            # Plus;
+'>' # GreaterThan       # Period;
+'?' # QuestionMark      # Slash;
+'@' # At                # Digit2;
+',' # Comma             # LessThan;
+'.' # Period            # GreaterThan;
+'/' # Slash             # QuestionMark;
+'`' # BackQuote         # Tilde;
+'[' # OpenBracket       # OpenCurlyBracket;
+'\\' # BackSlash        # Pipe;
+']' # CloseBracket      # CloseCurlyBracket;
+'\'' # Quote            # DoubleQuote;
 
 ];
     };
