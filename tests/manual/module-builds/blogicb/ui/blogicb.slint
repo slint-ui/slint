@@ -23,24 +23,9 @@ export global BLogicBAPI {
     in-out property <string> crank5: "7";
     in-out property <string> crank6: "11";
 
-    out property <string> status;
+    in-out property <string> status;
 
-    public function crank-it(crank-data:CrankData) {
-        if (crank-data.magic-number == 42) {
-            self.status = "The answer to life, the universe and everything";
-        } else {
-            self.status = "Just a number";
-        }
-
-        if (crank-data.cranks.length >= 6) {
-            self.crank1 = crank-data.cranks[0];
-            self.crank2 = crank-data.cranks[1];
-            self.crank3 = crank-data.cranks[2];
-            self.crank4 = crank-data.cranks[3];
-            self.crank5 = crank-data.cranks[4];
-            self.crank6 = crank-data.cranks[5];
-        }
-    }
+    callback crank-it(CrankData);
 }
 
 export component BLogicB {
