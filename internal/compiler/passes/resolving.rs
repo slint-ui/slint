@@ -1133,6 +1133,7 @@ impl Expression {
                 "Meta" => shortcut.modifiers.meta = true,
                 "Shift" => shortcut.modifiers.shift = true,
                 "IgnoreShift" => shortcut.ignore_shift = true,
+                "IgnoreAlt" => shortcut.ignore_alt = true,
                 s => {
                     if let Some((key, shiftbehavior)) = key_map.get(s) {
                         key_code = Some((

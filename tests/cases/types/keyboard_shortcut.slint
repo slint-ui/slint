@@ -38,7 +38,7 @@ const TestCase &instance = *handle;
 const auto shortcut = instance.get_shortcut();
 slint::SharedString shortcut_string;
 slint::cbindgen_private::slint_keyboard_shortcut_to_string(&shortcut, &shortcut_string);
-assert_eq(shortcut_string, "Alt+Control+\\u{1b}");
+assert_eq(shortcut_string, "Alt+Control+\"\\u{1b}\"");
 
 slint::SharedString escape("\u{1b}");
 slint::SharedString shift("\u{10}");
@@ -60,7 +60,7 @@ assert_eq(instance.get_matches(), 1);
 ```rust
 let instance = TestCase::new().unwrap();
 let shortcut = instance.get_shortcut();
-assert_eq!(shortcut.to_string(), "Alt+Control+\\u{1b}");
+assert_eq!(shortcut.to_string(), "Alt+Control+\"\\u{1b}\"");
 
 use slint::private_unstable_api::re_exports::Key;
 // Doesn't match with incorrect modifiers
@@ -77,7 +77,7 @@ assert_eq!(instance.get_matches(), 1);
 var instance = new slint.TestCase({});
 
 var shortcut = instance.shortcut;
-assert.equal(shortcut, "Alt+Control+\\u{1b}")
+assert.equal(shortcut, "Alt+Control+\"\\u{1b}\"")
 
 // TODO: Simulate shortcuts in JS
 ```

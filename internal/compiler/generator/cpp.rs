@@ -3332,17 +3332,18 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::KeyboardShortcutLiteral(ks) => {
             format!(
-                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift) {{
+                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
                     slint::cbindgen_private::types::KeyboardShortcut out;
-                    slint::cbindgen_private::slint_keyboard_shortcut(&key, alt, control, shift, meta, ignoreShift, &out);
+                    slint::cbindgen_private::slint_keyboard_shortcut(&key, alt, control, shift, meta, ignoreShift, ignoreAlt, &out);
                     return out;
-                }}({}, {}, {}, {}, {}, {})",
+                }}({}, {}, {}, {}, {}, {}, {})",
                 shared_string_literal(&ks.key),
                 ks.modifiers.alt,
                 ks.modifiers.control,
                 ks.modifiers.shift,
                 ks.modifiers.meta,
-                ks.ignore_shift
+                ks.ignore_shift,
+                ks.ignore_alt,
             )
         }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),

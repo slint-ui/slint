@@ -1023,6 +1023,7 @@ pub struct KeyboardShortcut {
     pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
     pub ignore_shift: bool,
+    pub ignore_alt: bool,
 }
 
 impl PartialEq for KeyboardShortcut {
