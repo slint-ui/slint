@@ -26,7 +26,50 @@ A complete list of all containers can be found at
 
 https://github.com/orgs/slint-ui/packages?q=torizon&tab=packages&q=torizon
 
-### Running with Docker
+### Running with Docker Compose
+
+Deply the following `docker-compose.yaml` to launch the home-automation demo.
+
+**Note**:
+Change the `image` to match your hardware platform:
+
+| Platform      | Image                                                    |
+| ------------- | -------------------------------------------------------- |
+| ARM64 no GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64:latest`      |
+| i.MX8 w/ GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx9:latest` |
+| AM62 w/  GPU  | `ghcr.io/slint-ui/slint/torizon-demos-am62:latest`       |
+| i.MX96 W/ GPU | `ghcr.io/slint-ui/slint/torizon-demos-imx95:latest`      |
+
+```yaml
+services:
+  slint-demo:
+    image: ghcr.io/slint-ui/slint/torizon-demos-arm64:latest
+    restart: unless-stopped
+    environment:
+      - ACCEPT_FSL_EULA=1
+    user: torizon
+    privileged: true
+    volumes:
+      - type: bind
+        source: /tmp
+        target: /tmp
+      - type: bind
+        source: /dev
+        target: /dev
+      - type: bind
+        source: /run/udev
+        target: /run/udev
+    device_cgroup_rules:
+      # ... for tty
+      - "c 4:* rmw"
+      # ... for /dev/input devices
+      - "c 13:* rmw"
+      - "c 199:* rmw"
+      # ... for /dev/dri devices
+      - "c 226:* rmw"
+```
+
+### Running with Docker Manually
 
 For i.MX8 series boards:
 
