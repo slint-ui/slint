@@ -357,6 +357,7 @@ fn duplicate_element_with_mapping(
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
         property_declarations: elem.property_declarations.clone(),
+        function_declarations: Default::default(),
         // We will do the fixup of the references in bindings later
         bindings: elem
             .bindings

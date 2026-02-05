@@ -827,6 +827,9 @@ pub struct Element {
 
     pub property_declarations: BTreeMap<SmolStr, PropertyDeclaration>,
 
+    /// Interfaces store function declarations for validation only
+    pub function_declarations: Vec<(SmolStr, PropertyDeclaration)>,
+
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
 
@@ -1455,6 +1458,14 @@ impl Element {
                 );
             }
 
+            let declaration = PropertyDeclaration {
+                property_type: Type::Function(Rc::new(Function { return_type, args, arg_names })),
+                node: Some(func.clone().into()),
+                visibility,
+                pure,
+                ..Default::default()
+            };
+
             match (base_type.clone(), func.CodeBlock()) {
                 (ElementType::Interface, Some(code_block)) => {
                     diag.push_error(
@@ -1464,7 +1475,7 @@ impl Element {
                     continue;
                 }
                 (ElementType::Interface, None) => {
-                    // We explicitly do not want to add function declarations into an interface element
+                    r.function_declarations.push((name, declaration));
                     continue;
                 }
                 (_, None) => {
@@ -1480,20 +1491,7 @@ impl Element {
                 assert!(diag.has_errors());
             }
 
-            r.property_declarations.insert(
-                name,
-                PropertyDeclaration {
-                    property_type: Type::Function(Rc::new(Function {
-                        return_type,
-                        args,
-                        arg_names,
-                    })),
-                    node: Some(func.into()),
-                    visibility,
-                    pure,
-                    ..Default::default()
-                },
-            );
+            r.property_declarations.insert(name, declaration);
         }
 
         for con_node in node.CallbackConnection() {
