@@ -50,13 +50,14 @@ use bevy::{
     input::{ButtonState, mouse::MouseButtonInput},
     prelude::*,
     render::{
-        Render, RenderApp,
+        Render, RenderApp, RenderPlugin,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         renderer::{RenderDevice, RenderInstance},
+        settings::RenderCreation,
         texture::GpuImage,
     },
 };
@@ -450,31 +451,40 @@ fn render_slint(slint_context: Option<NonSend<SlintContext>>, shared: Res<SlintS
 
 /// Initializes the Slint platform and creates the Demo UI component.
 /// This runs as a startup system after `setup` to ensure Bevy's render device is available.
-fn initialize_slint(world: &mut World) {
-    let instance = (**world.resource::<RenderInstance>().0).clone();
-    let device = world.resource::<RenderDevice>().wgpu_device().clone();
-    let queue = (**world.resource::<bevy::render::renderer::RenderQueue>().0).clone();
+fn initialize_slint(
+    render_instance: &RenderInstance,
+    render_device: &RenderDevice,
+    render_queue: &bevy::render::renderer::RenderQueue,
+) -> impl Fn(&mut World) + use<> {
+    let instance = (**render_instance.0).clone();
+    let device = render_device.wgpu_device().clone();
+    let queue = (**render_queue.0).clone();
+    move |world: &mut World| {
+        let platform = SlintBevyPlatform {
+            instance: instance.clone(),
+            device: device.clone(),
+            queue: queue.clone(),
+        };
+        slint::platform::set_platform(Box::new(platform)).unwrap();
 
-    let platform = SlintBevyPlatform { instance, device, queue };
-    slint::platform::set_platform(Box::new(platform)).unwrap();
+        let instance = Demo::new().unwrap();
+        instance.window().show().unwrap();
 
-    let instance = Demo::new().unwrap();
-    instance.window().show().unwrap();
+        // Retrieve the adapter that was created when Demo::new() called create_window_adapter()
+        let adapter = SLINT_WINDOWS
+            .with(|w| w.borrow().first().and_then(|a| a.upgrade()))
+            .expect("Window adapter should have been created");
 
-    // Retrieve the adapter that was created when Demo::new() called create_window_adapter()
-    let adapter = SLINT_WINDOWS
-        .with(|w| w.borrow().first().and_then(|a| a.upgrade()))
-        .expect("Window adapter should have been created");
+        instance.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
+        adapter.resize(slint::PhysicalSize::new(UI_WIDTH, UI_HEIGHT), SCALE_FACTOR);
 
-    instance.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
-    adapter.resize(slint::PhysicalSize::new(UI_WIDTH, UI_HEIGHT), SCALE_FACTOR);
-
-    // The SlintSharedTexture was already inserted in main() with the channel receiver
-    world.insert_non_send_resource(SlintContext {
-        // Keep instance alive for the app's lifetime
-        _instance: instance,
-        adapter,
-    });
+        // The SlintSharedTexture was already inserted in main() with the channel receiver
+        world.insert_non_send_resource(SlintContext {
+            // Keep instance alive for the app's lifetime
+            _instance: instance,
+            adapter,
+        });
+    }
 }
 
 // Thread-local storage for window adapters created by the platform.
@@ -510,17 +520,42 @@ fn rotate_cube(
 fn main() {
     let (tx, rx) = std::sync::mpsc::channel();
 
+    let backends = wgpu::Backends::from_env().unwrap_or_default();
+
+    let bevy::render::settings::RenderResources(
+        render_device,
+        render_queue,
+        adapter_info,
+        adapter,
+        instance,
+    ) = spin_on::spin_on(bevy::render::renderer::initialize_renderer(
+        backends,
+        None,
+        &bevy::render::settings::WgpuSettings::default(),
+    ));
+
+    let slint_init = initialize_slint(&instance, &render_device, &render_queue);
+
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins)
-        .insert_resource(SlintSharedTexture {
-            receiver: Mutex::new(rx),
-            texture: Arc::new(Mutex::new(None)),
-        })
-        .init_resource::<CursorState>()
-        .add_plugins(ExtractResourcePlugin::<SlintImageHandle>::default())
-        .add_systems(Startup, (setup, initialize_slint).chain())
-        .add_systems(Update, (receive_texture, handle_input, render_slint, rotate_cube).chain());
+    app.add_plugins(DefaultPlugins.set(RenderPlugin {
+        render_creation: RenderCreation::manual(
+            render_device,
+            render_queue,
+            adapter_info,
+            adapter,
+            instance,
+        ),
+        ..default()
+    }))
+    .insert_resource(SlintSharedTexture {
+        receiver: Mutex::new(rx),
+        texture: Arc::new(Mutex::new(None)),
+    })
+    .init_resource::<CursorState>()
+    .add_plugins(ExtractResourcePlugin::<SlintImageHandle>::default())
+    .add_systems(Startup, (setup, slint_init).chain())
+    .add_systems(Update, (receive_texture, handle_input, render_slint, rotate_cube).chain());
 
     let render_app = app.sub_app_mut(RenderApp);
     render_app.insert_resource(TextureSender(tx));
