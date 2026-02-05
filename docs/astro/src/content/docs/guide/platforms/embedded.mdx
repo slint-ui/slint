@@ -53,7 +53,50 @@ A complete list of all containers can be found at
 
 https://github.com/orgs/slint-ui/packages?q=torizon&tab=packages&q=torizon
 
-For example, to run the container on an i.MX8 board with GPU, use the following command line:
+For example, to run the container on an i.MX8 board with GPU, deploy the following `docker-compose.yaml`
+with Docker Compose:
+
+```yaml
+services:
+  slint-demo:
+    image: ghcr.io/slint-ui/slint/torizon-demos-arm64-imx8:latest
+    restart: unless-stopped
+    environment:
+      - ACCEPT_FSL_EULA=1
+    user: torizon
+    privileged: true
+    volumes:
+      - type: bind
+        source: /tmp
+        target: /tmp
+      - type: bind
+        source: /dev
+        target: /dev
+      - type: bind
+        source: /run/udev
+        target: /run/udev
+    device_cgroup_rules:
+      # ... for tty
+      - "c 4:* rmw"
+      # ... for /dev/input devices
+      - "c 13:* rmw"
+      - "c 199:* rmw"
+      # ... for /dev/dri devices
+      - "c 226:* rmw"
+```
+
+:::Note{}
+Change the `image` to match your hardware platform:
+
+| Platform      | Image                                                    |
+| ------------- | -------------------------------------------------------- |
+| ARM64 no GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64:latest`      |
+| i.MX8 w/ GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx9:latest` |
+| AM62 w/  GPU  | `ghcr.io/slint-ui/slint/torizon-demos-am62:latest`       |
+| i.MX96 W/ GPU | `ghcr.io/slint-ui/slint/torizon-demos-imx95:latest`      |
+:::
+
+Alternative, run the container with the following command line:
 
 ```
 sudo docker run --rm --privileged \
@@ -70,9 +113,10 @@ sudo docker run --rm --privileged \
 
 #### Selecting Demos
 
-By default, the **energy-monitor** demo is run. The containers package multiple demo applications:
+By default, the **home-automation** demo is run. The containers package multiple demo applications:
 
- * **energy-monitor** (default) - Energy monitoring dashboard
+ * **home-automation** (default) - Smart home control panel
+ * **energy-monitor** - Energy monitoring dashboard
  * **printerdemo** - 3D printer control interface
  * **gallery** - Image gallery with touch navigation
  * **slide_puzzle** - Interactive sliding puzzle game
@@ -80,7 +124,6 @@ By default, the **energy-monitor** demo is run. The containers package multiple 
  * **carousel** - 3D carousel interface
  * **todo** - Task management application
  * **weather-demo** - Weather information display (requires API key)
- * **home-automation** - Smart home control panel
 
 Run a specific demo by specifying it as a parameter to `docker run`, for example:
 
