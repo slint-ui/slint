@@ -10,7 +10,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
-use embedded_graphics_core::geometry::OriginDimensions;
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_bus::spi::ExclusiveDevice;
@@ -176,8 +175,7 @@ impl EspBackend {
         backlight.set_high();
 
         // Update the Slint window size from the display.
-        let size = display.size();
-        let size = slint::PhysicalSize::new(size.width, size.height);
+        let size = slint::PhysicalSize::new(320, 240);
         self.window.borrow().as_ref().unwrap().set_size(size);
 
         // --- End Display Initialization ---
