@@ -508,7 +508,7 @@ impl TextParagraph {
                     // we want to place an elipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get() >= metrics.max_coord
+                        max_physical_height.get().ceil() >= metrics.max_coord
                     }
                     _ => true,
                 }
@@ -828,7 +828,7 @@ impl Layout {
         // Run starts after where the elipsis would go - skip entirely
         let run_beyond_elision = run_start > max_width;
         // Run extends beyond max width and needs truncation + elipsis
-        let needs_elision = !run_beyond_elision && run_end > max_width;
+        let needs_elision = !run_beyond_elision && run_end.get().floor() > max_width.get().ceil();
 
         let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
             !run_beyond_elision
