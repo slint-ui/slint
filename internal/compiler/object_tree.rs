@@ -20,7 +20,7 @@ use crate::parser;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
-use itertools::Either;
+use itertools::{Either, Itertools};
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::btree_map::Entry;
@@ -1776,6 +1776,8 @@ impl Element {
             }
         }
 
+        validate_function_implementations_for_interface(&r.borrow(), &implemented_interface, diag);
+
         r
     }
 
@@ -2232,6 +2234,123 @@ fn apply_implements_specifier(
         }
 
         e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+    }
+}
+
+/// Validate that the functions declared in the interface are correctly implemented in the element. Emits diagnostics if not.
+fn validate_function_implementations_for_interface(
+    e: &Element,
+    implemented_interface: &Option<ImplementedInterface>,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+        implemented_interface
+    else {
+        return;
+    };
+
+    for (function_name, function_property_decl) in interface.borrow().function_declarations.iter() {
+        let Type::Function(ref function_declaration) = function_property_decl.property_type else {
+            debug_assert!(false, "function_declarations should only contain functions");
+            continue;
+        };
+
+        let push_interface_error = |diag: &mut BuildDiagnostics, is_local_to_component, error| {
+            if is_local_to_component {
+                let source = e
+                    .property_declarations
+                    .get(function_name)
+                    .and_then(|decl| decl.node.clone())
+                    .map_or_else(
+                        || parser::NodeOrToken::Node(implements_specifier.QualifiedName().into()),
+                        parser::NodeOrToken::Node,
+                    );
+                diag.push_error(error, &source);
+            } else {
+                diag.push_error(error, &implements_specifier.QualifiedName());
+            }
+        };
+
+        let found_function = e.lookup_property(&function_name);
+        let function_impl = match found_function.property_type {
+            Type::Invalid => {
+                diag.push_error(
+                    format!("Missing implementation of function '{}'", function_name),
+                    &implements_specifier.QualifiedName(),
+                );
+                None
+            }
+            Type::Function(function) => Some(function.clone()),
+            _ => {
+                push_interface_error(
+                    diag,
+                    found_function.is_local_to_component,
+                    format!(
+                        "Cannot override '{}' from interface '{}'",
+                        function_name, interface_name
+                    ),
+                );
+                None
+            }
+        };
+        let Some(function_impl) = function_impl else { continue };
+
+        match (function_property_decl.pure, found_function.declared_pure) {
+            (Some(true), Some(false)) | (Some(true), None) => push_interface_error(
+                diag,
+                found_function.is_local_to_component,
+                format!(
+                    "Implementation of pure function '{}' from interface '{}' cannot be impure",
+                    function_name, interface_name
+                ),
+            ),
+            _ => {
+                // If the implementation is pure but the declaration is not, we allow it.
+            }
+        }
+
+        if function_property_decl.visibility != found_function.property_visibility {
+            push_interface_error(
+                diag,
+                found_function.is_local_to_component,
+                format!(
+                    "Incorrect visibility for implementation of '{}' from interface '{}'. Expected '{}'",
+                    function_name, interface_name, function_property_decl.visibility,
+                ),
+            );
+        }
+
+        if function_impl.args != function_declaration.args {
+            let display_args = |args: &Vec<Type>| -> SmolStr {
+                args.iter().map(|t| t.to_string()).join(", ").into()
+            };
+
+            push_interface_error(
+                diag,
+                found_function.is_local_to_component,
+                format!(
+                    "Incorrect arguments for implementation of '{}' from interface '{}'. Expected ({}) but got ({})",
+                    function_name,
+                    interface_name,
+                    display_args(&function_declaration.args),
+                    display_args(&function_impl.args),
+                ),
+            );
+        }
+
+        if function_impl.return_type != function_declaration.return_type {
+            push_interface_error(
+                diag,
+                found_function.is_local_to_component,
+                format!(
+                    "Incorrect return type for implementation of '{}' from interface '{}'. Expected '{}' but got '{}'",
+                    function_name,
+                    interface_name,
+                    function_declaration.return_type,
+                    function_impl.return_type,
+                ),
+            );
+        }
     }
 }
 
