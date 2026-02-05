@@ -34,6 +34,11 @@ spin_on = { workspace = true }
 toml_edit = { workspace = true }
 derive_more = { workspace = true, features = ["std", "error"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Workaround cross compiling on linux where here in slint-build we depend on fontique through the software
+# renderer compiler feature but fontconfig's build script find the target library via pkg-config and causes link errors
+fontique = { workspace = true, features = ["fontconfig-dlopen"] }
+
 [package.metadata.docs.rs]
 features = ["sdf-fonts"]
 rustdoc-args = ["--generate-link-to-definition"]
