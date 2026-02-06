@@ -13,10 +13,10 @@ export interface Calculator {
 
 export interface FunctionWithBody {
     pure public function sum(a: int, b: int) -> int {
-//                                                  >error{Interfaces may only contain function declarations}
+//                                                  >error{Function declarations in interfaces must not have a body}
         return a + b;
     }
-//  <error{Interfaces may only contain function declarations}
+//  <error{Function declarations in interfaces must not have a body}
 }
 
 export interface InvalidFunctionVisibility {

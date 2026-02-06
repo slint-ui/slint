@@ -1470,7 +1470,7 @@ impl Element {
             match (base_type.clone(), func.CodeBlock()) {
                 (ElementType::Interface, Some(code_block)) => {
                     diag.push_error(
-                        "Interfaces may only contain function declarations".into(),
+                        "Function declarations in interfaces must not have a body".into(),
                         &code_block,
                     );
                     continue;
