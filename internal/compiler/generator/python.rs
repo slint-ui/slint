@@ -700,6 +700,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
                 python_type_name(&function.return_type)
             )
         }
+        Type::KeyboardShortcutType => SmolStr::new_static("str"),
         ty @ _ => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

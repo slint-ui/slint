@@ -359,25 +359,27 @@ pub enum PyValueType {
 
 impl From<i_slint_compiler::langtype::Type> for PyValueType {
     fn from(ty: i_slint_compiler::langtype::Type) -> Self {
+        use i_slint_compiler::langtype::Type;
         match ty {
-            i_slint_compiler::langtype::Type::Bool => PyValueType::Bool,
-            i_slint_compiler::langtype::Type::Void => PyValueType::Void,
-            i_slint_compiler::langtype::Type::Float32
-            | i_slint_compiler::langtype::Type::Int32
-            | i_slint_compiler::langtype::Type::Duration
-            | i_slint_compiler::langtype::Type::Angle
-            | i_slint_compiler::langtype::Type::PhysicalLength
-            | i_slint_compiler::langtype::Type::LogicalLength
-            | i_slint_compiler::langtype::Type::Percent
-            | i_slint_compiler::langtype::Type::Rem
-            | i_slint_compiler::langtype::Type::UnitProduct(_) => PyValueType::Number,
-            i_slint_compiler::langtype::Type::String => PyValueType::String,
-            i_slint_compiler::langtype::Type::Array(..) => PyValueType::Model,
-            i_slint_compiler::langtype::Type::Struct { .. } => PyValueType::Struct,
-            i_slint_compiler::langtype::Type::Brush => PyValueType::Brush,
-            i_slint_compiler::langtype::Type::Color => PyValueType::Brush,
-            i_slint_compiler::langtype::Type::Image => PyValueType::Image,
-            i_slint_compiler::langtype::Type::Enumeration(..) => PyValueType::Enumeration,
+            Type::Bool => PyValueType::Bool,
+            Type::Void => PyValueType::Void,
+            Type::Float32
+            | Type::Int32
+            | Type::Duration
+            | Type::Angle
+            | Type::PhysicalLength
+            | Type::LogicalLength
+            | Type::Percent
+            | Type::Rem
+            | Type::UnitProduct(_) => PyValueType::Number,
+            Type::String => PyValueType::String,
+            Type::Array(..) => PyValueType::Model,
+            Type::Struct { .. } => PyValueType::Struct,
+            Type::Brush => PyValueType::Brush,
+            Type::Color => PyValueType::Brush,
+            Type::Image => PyValueType::Image,
+            Type::Enumeration(..) => PyValueType::Enumeration,
+            Type::KeyboardShortcutType => PyValueType::String,
             _ => unimplemented!(),
         }
     }
