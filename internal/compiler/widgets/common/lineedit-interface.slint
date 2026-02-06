@@ -19,4 +19,11 @@ export interface LineEditInterface {
     callback edited(text: string);
     callback key-pressed(event: KeyEvent) -> EventResult;
     callback key-released(event: KeyEvent) -> EventResult;
+
+    public function set-selection-offsets(start: int, end: int);
+    public function select-all();
+    public function clear-selection();
+    public function cut();
+    public function copy();
+    public function paste();
 }
