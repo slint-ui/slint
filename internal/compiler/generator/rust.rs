@@ -1124,7 +1124,7 @@ fn generate_sub_component(
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
-        let p1 = access_member(prop1, &ctx).unwrap();
+        let p1 = access_local_member(prop1, &ctx);
         let p2 = access_member(prop2, &ctx);
         let r = p2.then(|p2| {
             if fields.is_empty() {

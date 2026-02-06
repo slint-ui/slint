@@ -369,7 +369,7 @@ mod visitor {
             .collect();
 
         for (a, b, _) in two_way_bindings {
-            visit_member_reference(a, &scope, state, visitor);
+            visit_local_member_reference(a, &scope, state, visitor);
             visit_member_reference(b, &scope, state, visitor);
         }
         for c in const_properties {

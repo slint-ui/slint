@@ -438,7 +438,7 @@ fn lower_sub_component(
 
         for tw in &binding.two_way_bindings {
             sub_component.two_way_bindings.push((
-                prop.clone(),
+                prop.local(),
                 ctx.map_property_reference(&tw.property),
                 tw.field_access.clone(),
             ));

@@ -370,7 +370,7 @@ pub struct SubComponent {
     /// The animation for properties which are animated
     pub animations: HashMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
-    pub two_way_bindings: Vec<(MemberReference, MemberReference, Vec<SmolStr>)>,
+    pub two_way_bindings: Vec<(LocalMemberReference, MemberReference, Vec<SmolStr>)>,
     pub const_properties: Vec<LocalMemberReference>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,

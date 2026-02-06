@@ -2128,8 +2128,8 @@ fn generate_sub_component(
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
         if fields.is_empty() {
-            let ty = ctx.property_ty(&prop1).cpp_type().unwrap();
-            let p1 = access_member(prop1, &ctx).unwrap();
+            let ty = ctx.relative_property_ty(&prop1, 0).cpp_type().unwrap();
+            let p1 = access_local_member(prop1, &ctx);
             init.push(
                 access_member(prop2, &ctx).then(|p2| {
                     format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
@@ -2147,7 +2147,7 @@ fn generate_sub_component(
                 ty = s.fields.get(f).unwrap();
             }
 
-            let p1 = access_member(prop1, &ctx).unwrap();
+            let p1 = access_local_member(prop1, &ctx);
             init.push(
                 access_member(prop2, &ctx).then(|p2|
                     format!("slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
