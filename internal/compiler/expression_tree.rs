@@ -1909,8 +1909,8 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             Some(val) => write!(f, "{}.{}", e.enumeration.name, val),
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },
-        Expression::KeyboardShortcut(ks) => {
-            write!(f, "@keys({})", ks.to_string())
+        Expression::KeyboardShortcut(shortcut) => {
+            write!(f, "@keys({shortcut})")
         }
         Expression::ReturnStatement(e) => {
             write!(f, "return ")?;
