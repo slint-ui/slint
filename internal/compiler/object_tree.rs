@@ -2149,7 +2149,7 @@ fn validate_property_declaration_for_interface(
     }
 }
 
-/// Ann ImplementsSpecifier and the corresponding interface element.
+/// An ImplementsSpecifier and the corresponding interface element.
 struct ImplementedInterface {
     implements_specifier: syntax_nodes::ImplementsSpecifier,
     interface: ElementRc,
