@@ -24,6 +24,7 @@ These examples demonstrate the main features of Slint and how to use them in dif
 | [Virtual Keyboard![Virtual Keyboard demo image](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard demo image")](./virtual_keyboard/) | A Rust and C++ example that shows how to implement a custom virtual keyboard in Slint. <br/> [Project...](./virtual_keyboard/) |  |
 | [7GUIs![7 GUI's demo image](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7 GUI's demo image")](./7guis/) | Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks. <br/> [Project...](./7guis/) |  |
 | [Slint & Bevy![Bevy demo image](https://github.com/user-attachments/assets/69785864-b6ae-40e1-8f62-4f70677d930e "Bevy demo image")](./bevy/slint-hosts-bevy/) | A demo that shows how to embed [Bevy](https://bevyengine.org) into Slint <br/> [Project...](./bevy/slint-hosts-bevy) |  |
+| [Bevy & Slint![Bevy demo image](https://github.com/user-attachments/assets/47671596-36df-4b3b-b316-a5e1c9475050 "Bevy demo image")](./bevy/bevy-hosts-slint/) | A demo that shows how to embed Slint into [Bevy](https://bevyengine.org) <br/> [Project...](./bevy/bevy-hosts-slint) |  |
 
 ### Additional Examples
 
