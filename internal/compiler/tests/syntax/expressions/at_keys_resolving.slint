@@ -17,7 +17,10 @@ export component SuperSimple {
         // IgnoreShift
         @keys(IgnoreShift + Asterisk),
 //                          >      <warning{Asterisk already implies IgnoreShift (remove IgnoreShift)}
-        @keys(IgnoreShift + A),
-//                          ^error{A is always affected by Shift↵(Remove IgnoreShift and use both a shifted and unshifted shortcut to handle both cases)}
+
+        @keys("A"),
+//            > <error{Keyboard shortcut literals must currently be lowercase, use "a" instead}
+        @keys(Alt + Control + Shift + Meta + "Ä"),
+//                                           >  <error{Keyboard shortcut literals must currently be lowercase, use "ä" instead}
     ];
 }

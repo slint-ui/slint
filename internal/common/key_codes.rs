@@ -129,32 +129,32 @@ macro_rules! for_each_keys {
 
 // -------------------- NORMAL KEYS ------------------------------
 // The names are based on: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode
-'a' # A # 'A' ;
-'b' # B # 'B' ;
-'c' # C # 'C' ;
-'d' # D # 'D' ;
-'e' # E # 'E' ;
-'f' # F # 'F' ;
-'g' # G # 'G' ;
-'h' # H # 'H' ;
-'i' # I # 'I' ;
-'j' # J # 'J' ;
-'k' # K # 'K' ;
-'l' # L # 'L' ;
-'m' # M # 'M' ;
-'n' # N # 'N' ;
-'o' # O # 'O' ;
-'p' # P # 'P' ;
-'q' # Q # 'Q' ;
-'r' # R # 'R' ;
-'s' # S # 'S' ;
-'t' # T # 'T' ;
-'u' # U # 'U' ;
-'v' # V # 'V' ;
-'w' # W # 'W' ;
-'x' # X # 'X' ;
-'y' # Y # 'Y' ;
-'z' # Z # 'Z' ;
+'a' # A # ;
+'b' # B # ;
+'c' # C # ;
+'d' # D # ;
+'e' # E # ;
+'f' # F # ;
+'g' # G # ;
+'h' # H # ;
+'i' # I # ;
+'j' # J # ;
+'k' # K # ;
+'l' # L # ;
+'m' # M # ;
+'n' # N # ;
+'o' # O # ;
+'p' # P # ;
+'q' # Q # ;
+'r' # R # ;
+'s' # S # ;
+'t' # T # ;
+'u' # U # ;
+'v' # V # ;
+'w' # W # ;
+'x' # X # ;
+'y' # Y # ;
+'z' # Z # ;
 
 '0' # Digit0 # CloseParen;
 '1' # Digit1 # Exclamation;

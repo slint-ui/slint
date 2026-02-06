@@ -321,6 +321,8 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 #[repr(C)]
 pub struct KeyboardShortcut {
     /// The `key` used to trigger the shortcut
+    ///
+    /// Note: This is currently converted to lowercase when the shortcut is created!
     key: SharedString,
     /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
     modifiers: KeyboardModifiers,
@@ -337,7 +339,7 @@ pub fn make_keyboard_shortcut(
     ignore_shift: bool,
     ignore_alt: bool,
 ) -> KeyboardShortcut {
-    KeyboardShortcut { key, modifiers, ignore_shift, ignore_alt }
+    KeyboardShortcut { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
 }
 
 #[cfg(feature = "ffi")]
@@ -392,7 +394,14 @@ impl KeyboardShortcut {
         if self.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
-        key_event.text == self.key && key_event.modifiers == expected_modifiers
+        // Note: The constructor of KeyboardShortcut ensures that the shortcut's key is already
+        // in lowercase, so we can just compare it to the lowercased event text.
+        //
+        // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
+        // if caps lock is active, even if shift is not pressed.
+        let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
+
+        event_text.eq(self.key.chars()) && key_event.modifiers == expected_modifiers
     }
 }
 
