@@ -2494,6 +2494,7 @@ fn filter_conflicting_uses_statements(
             }
             seen_interfaces.push(interface_name.clone());
 
+            let mut valid = true;
             for (prop_name, _) in vus.interface.borrow().property_declarations.iter() {
                 if let Some(existing_interface) = seen_interface_api.get(prop_name) {
                     diag.push_error(
@@ -2503,12 +2504,12 @@ fn filter_conflicting_uses_statements(
                         ),
                         &vus.uses_statement.interface_name_node(),
                     );
-                    return false;
+                    valid = false;
                 } else {
                     seen_interface_api.insert(prop_name.clone(), interface_name.clone());
                 }
             }
-            return true;
+            return valid;
         })
         .collect();
     valid_uses_statements

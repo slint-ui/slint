@@ -76,18 +76,21 @@ export component DuplicatPropertyOnBase uses { ValidInterface from base } inheri
 
 interface InterfaceA {
     in property <bool> test;
+    callback test-callback();
 }
 
 component AImpl implements InterfaceA { }
 
 interface InterfaceB {
     out property <bool> test: true;
+    callback test-callback(string);
 }
 
 component BImpl implements InterfaceB { }
 
 export component ConflictingUses uses { InterfaceA from a, InterfaceB from b } {
 //                                                         >         <error{'test' occurs in 'InterfaceB' and 'InterfaceA'}
+//                                                         >         <^error{'test-callback' occurs in 'InterfaceB' and 'InterfaceA'}
     a := AImpl { }
 
     b := BImpl { }
