@@ -2373,61 +2373,7 @@ fn apply_uses_statement(
     let uses_statements = filter_conflicting_uses_statements(diag, uses_statements);
 
     for ValidUsesStatement { uses_statement, interface, child } in uses_statements {
-        for (prop_name, prop_decl) in &interface.borrow().property_declarations {
-            let lookup_result = e.borrow().base_type.lookup_property(prop_name);
-            if let Err(message) = validate_property_declaration_for_interface(
-                InterfaceUseMode::Uses,
-                &lookup_result,
-                &e.borrow().base_type,
-                &uses_statement.interface_name,
-            ) {
-                diag.push_error(message, &uses_statement.interface_name_node());
-                continue;
-            }
-
-            if let Some(existing_property) =
-                e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl.clone())
-            {
-                let source = existing_property
-                    .node
-                    .as_ref()
-                    .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
-                    .and_then(|node| node.child_token(SyntaxKind::Identifier))
-                    .map_or_else(
-                        || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
-                        parser::NodeOrToken::Token,
-                    );
-
-                diag.push_error(
-                    format!(
-                        "Cannot override '{}' from '{}'",
-                        prop_name, uses_statement.interface_name
-                    ),
-                    &source,
-                );
-                continue;
-            }
-
-            if let Some(existing_binding) = e.borrow_mut().bindings.insert(
-                prop_name.clone(),
-                BindingExpression::new_two_way(
-                    NamedReference::new(&child, prop_name.clone()).into(),
-                )
-                .into(),
-            ) {
-                let message = format!(
-                    "Cannot override binding for property '{}' from interface '{}'",
-                    prop_name, uses_statement.interface_name
-                );
-                if let Some(location) = &existing_binding.borrow().span {
-                    diag.push_error(message, location);
-                } else {
-                    diag.push_error(message, &uses_statement.interface_name_node());
-                }
-
-                continue;
-            }
-        }
+        apply_uses_statement_properties_and_callbacks(e, diag, &uses_statement, &interface, &child);
     }
 }
 
@@ -2542,6 +2488,67 @@ fn element_implements_interface(
         }
     }
     true
+}
+
+/// Apply the properties and callbacks from the interface to the element for a valid `uses` statement. Emits diagnostics
+/// if there are conflicts with existing declarations in the element or its dervied type.
+fn apply_uses_statement_properties_and_callbacks(
+    e: &ElementRc,
+    diag: &mut BuildDiagnostics,
+    uses_statement: &UsesStatement,
+    interface: &ElementRc,
+    child: &ElementRc,
+) {
+    for (prop_name, prop_decl) in &interface.borrow().property_declarations {
+        let lookup_result = e.borrow().base_type.lookup_property(prop_name);
+        if let Err(message) = validate_property_declaration_for_interface(
+            InterfaceUseMode::Uses,
+            &lookup_result,
+            &e.borrow().base_type,
+            &uses_statement.interface_name,
+        ) {
+            diag.push_error(message, &uses_statement.interface_name_node());
+            continue;
+        }
+
+        if let Some(existing_property) =
+            e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl.clone())
+        {
+            let source = existing_property
+                .node
+                .as_ref()
+                .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
+                .and_then(|node| node.child_token(SyntaxKind::Identifier))
+                .map_or_else(
+                    || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
+                    parser::NodeOrToken::Token,
+                );
+
+            diag.push_error(
+                format!("Cannot override '{}' from '{}'", prop_name, uses_statement.interface_name),
+                &source,
+            );
+            continue;
+        }
+
+        if let Some(existing_binding) = e.borrow_mut().bindings.insert(
+            prop_name.clone(),
+            BindingExpression::new_two_way(NamedReference::new(&child, prop_name.clone()).into())
+                .into(),
+        ) {
+            let message = format!(
+                "Cannot override binding for property '{}' from interface '{}'",
+                prop_name, uses_statement.interface_name
+            );
+            if let Some(location) = &existing_binding.borrow().span {
+                diag.push_error(message, location);
+            } else {
+                diag.push_error(message, &uses_statement.interface_name_node());
+            }
+
+            continue;
+        }
+    }
 }
 
 /// Create a Type for this node
