@@ -2488,22 +2488,33 @@ fn element_implements_interface(
         |property: &PropertyLookupResult, interface_declaration: &PropertyDeclaration| -> bool {
             property.property_type == interface_declaration.property_type
                 && property.property_visibility == interface_declaration.visibility
+                && property.declared_pure == interface_declaration.pure
         };
 
-    for (property_name, property_declaration) in interface.borrow().property_declarations.iter() {
+    let mut valid = true;
+    let mut check = |property_name: &SmolStr, property_declaration: &PropertyDeclaration| {
         let lookup_result = element.borrow().lookup_property(property_name);
         if !property_matches_interface(&lookup_result, property_declaration) {
             diag.push_error(
                 format!(
-                    "{} does not implement {}",
-                    uses_statement.child_id, uses_statement.interface_name
+                    "'{}' does not implement '{}' from '{}'",
+                    uses_statement.child_id, property_name, uses_statement.interface_name
                 ),
                 &uses_statement.child_id_node(),
             );
-            return false;
+            valid = false;
         }
+    };
+
+    for (property_name, property_declaration) in interface.borrow().property_declarations.iter() {
+        check(property_name, property_declaration);
     }
-    true
+
+    for (function_name, function_declaration) in interface.borrow().function_declarations.iter() {
+        check(function_name, function_declaration);
+    }
+
+    return valid;
 }
 
 /// Apply the properties and callbacks from the interface to the element for a valid `uses` statement. Emits diagnostics

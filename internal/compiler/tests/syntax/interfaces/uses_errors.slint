@@ -45,9 +45,58 @@ export interface ValidInterface {
 export component MissingChild uses { ValidInterface from base} { }
 //                                                       >  <error{'base' does not exist}
 
-export component ChildDoesNotImplementInterface uses { ValidInterface from base } {
-//                                                                         >  <error{base does not implement ValidInterface}
+export component ChildDoesNotImplementInterface1 uses { ValidInterface from base } {
+//                                                                          >  <error{'base' does not implement 'speak' from 'ValidInterface'}
+//                                                                          >  <^error{'base' does not implement 'value' from 'ValidInterface'}
+//                                                                          >  <^^error{'base' does not implement 'reset' from 'ValidInterface'}
     base := ComponentA { }
+}
+
+export interface FunctionInterface {
+    public pure function foo(i: int, s: string) -> bool;
+}
+
+export component IncorrectPurity {
+    public function foo(i: int, s: string) -> bool {
+        return false;
+    }
+}
+
+export component ChildDoesNotImplementInterface2 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectPurity { }
+}
+
+export component IncorrectArgTypes {
+    pure public function foo(i: int, s: int) -> bool {
+        return false;
+    }
+}
+
+export component ChildDoesNotImplementInterface3 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectArgTypes { }
+}
+
+export component IncorrectArgNames {
+    pure public function foo(i: int, msg: string) -> bool {
+        return false;
+    }
+}
+
+export component ChildDoesNotImplementInterface4 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectArgNames { }
+}
+
+export component IncorrectReturnType {
+    pure public function foo(i: int, s: string) {
+    }
+}
+
+export component ChildDoesNotImplementInterface5 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectReturnType { }
 }
 
 component ValidBase implements ValidInterface {
