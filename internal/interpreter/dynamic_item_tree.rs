@@ -318,7 +318,7 @@ impl Drop for ErasedItemTreeBox {
                 instance_ref.instance,
                 vtable::VRef::new(self),
                 instance_ref.description.item_array.as_slice(),
-                &window_adapter,
+                window_adapter,
             );
         }
     }
@@ -1443,7 +1443,7 @@ pub fn animation_for_property(
             AnimatedBindingKind::Animation(Box::new({
                 let component_ptr = component.as_ptr();
                 let vtable = NonNull::from(&component.description.ct).cast();
-                let anim_elem = Rc::clone(&anim_elem);
+                let anim_elem = Rc::clone(anim_elem);
                 move || -> PropertyAnimation {
                     generativity::make_guard!(guard);
                     let component = unsafe {
@@ -1565,11 +1565,10 @@ pub fn instantiate(
     instance_ref.self_weak().set(self_weak.clone()).ok();
     let description = comp.description();
 
-    if let Some(WindowOptions::UseExistingWindow(existing_adapter)) = &window_options {
-        if let Err((a, b)) = globals.window_adapter().unwrap().try_insert(existing_adapter.clone())
-        {
-            assert!(Rc::ptr_eq(a, &b), "window not the same as parent window");
-        }
+    if let Some(WindowOptions::UseExistingWindow(existing_adapter)) = &window_options
+        && let Err((a, b)) = globals.window_adapter().unwrap().try_insert(existing_adapter.clone())
+    {
+        assert!(Rc::ptr_eq(a, &b), "window not the same as parent window");
     }
 
     if let Some(parent) = parent_ctx {
@@ -1580,11 +1579,9 @@ pub fn instantiate(
             .set(parent)
             .ok()
             .unwrap();
-    } else {
-        if let Some(g) = description.compiled_globals.as_ref() {
-            for g in g.compiled_globals.iter() {
-                crate::global_component::instantiate(g, &globals, self_weak.clone());
-            }
+    } else if let Some(g) = description.compiled_globals.as_ref() {
+        for g in g.compiled_globals.iter() {
+            crate::global_component::instantiate(g, &globals, self_weak.clone());
         }
     }
     let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());

@@ -168,6 +168,8 @@ impl<'id> TypeInfo<'id> {
     /// Safety, the instance must have been created by `TypeInfo::create_instance`
     unsafe fn delete_instance(instance: *mut Instance) {
         unsafe {
+            // removing the & causes a dangerous_implicit_autorefs error
+            #[allow(clippy::needless_borrow)]
             let mem_layout = (&(*instance).type_info).mem_layout;
             Self::drop_in_place(instance);
             let mem = instance as *mut u8;
