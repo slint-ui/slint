@@ -995,7 +995,20 @@ impl BorrowedOpenGLTextureBuilder {
     /// different windows.
     #[allow(unsafe_code)]
     pub unsafe fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
-        Self(BorrowedOpenGLTexture { texture_id, size, origin: Default::default() })
+        Self(BorrowedOpenGLTexture {
+            texture_id,
+            size,
+            external: false,
+            origin: Default::default(),
+        })
+    }
+
+    #[allow(unsafe_code)]
+    pub unsafe fn new_gl_2d_external_rgba_texture(
+        texture_id: core::num::NonZeroU32,
+        size: IntSize,
+    ) -> Self {
+        Self(BorrowedOpenGLTexture { texture_id, size, external: true, origin: Default::default() })
     }
 
     /// Configures the texture to be rendered vertically mirrored.
@@ -1468,6 +1481,8 @@ pub struct BorrowedOpenGLTexture {
     pub size: IntSize,
     /// Origin of the texture when rendering.
     pub origin: BorrowedOpenGLTextureOrigin,
+    /// The texture is external to opengl (e.g. a DMA buffer)
+    pub external: bool,
 }
 
 #[cfg(test)]
