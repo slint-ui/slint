@@ -2533,8 +2533,13 @@ fn apply_uses_statement_properties_and_callbacks(
             continue;
         }
 
+        // Replace the node with the interface name for better diagnostics later, since the declaration won't have a
+        // node in this element.
+        let mut prop_decl = prop_decl.clone();
+        prop_decl.node = Some(uses_statement.interface_name_node().into());
+
         if let Some(existing_property) =
-            e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl.clone())
+            e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl)
         {
             let source = existing_property
                 .node
