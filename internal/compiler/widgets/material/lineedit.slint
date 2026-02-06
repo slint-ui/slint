@@ -16,26 +16,6 @@ export component LineEdit uses { LineEditInterface from base } {
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
 
-    public function set-selection-offsets(start: int, end: int) {
-        base.set-selection-offsets(start, end);
-    }
-
-    public function select-all() {
-        base.select-all();
-    }
-    public function clear-selection() {
-        base.clear-selection();
-    }
-    public function cut() {
-        base.cut();
-    }
-    public function copy() {
-        base.copy();
-    }
-    public function paste() {
-        base.paste();
-    }
-
     min-width: max(120px, layout.min-width);
     min-height: max(56px, layout.min-height);
     forward-focus: base;
