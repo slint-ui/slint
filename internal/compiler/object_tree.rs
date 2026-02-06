@@ -2382,8 +2382,68 @@ fn apply_uses_statement(
     let uses_statements = filter_conflicting_uses_statements(diag, uses_statements);
 
     for ValidUsesStatement { uses_statement, interface, child } in uses_statements {
-        apply_uses_statement_properties_and_callbacks(e, diag, &uses_statement, &interface, &child);
-        apply_uses_statement_functions(e, diag, &uses_statement, &interface, &child);
+        for (name, prop_decl) in interface.borrow().property_declarations.iter() {
+            let lookup_result = e.borrow().base_type.lookup_property(name);
+            if let Err(message) = validate_property_declaration_for_interface(
+                InterfaceUseMode::Uses,
+                &lookup_result,
+                &e.borrow().base_type,
+                &uses_statement.interface_name,
+            ) {
+                diag.push_error(message, &uses_statement.interface_name_node());
+                continue;
+            }
+
+            // Replace the node with the interface name for better diagnostics later, since the declaration won't have a
+            // node in this element.
+            let mut prop_decl = prop_decl.clone();
+            prop_decl.node = Some(uses_statement.interface_name_node().into());
+
+            if let Some(existing_property) =
+                e.borrow_mut().property_declarations.insert(name.clone(), prop_decl.clone())
+            {
+                let source = existing_property
+                    .node
+                    .as_ref()
+                    .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
+                    .and_then(|node| node.child_token(SyntaxKind::Identifier))
+                    .map_or_else(
+                        || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
+                        parser::NodeOrToken::Token,
+                    );
+
+                diag.push_error(
+                    format!("Cannot override '{}' from '{}'", name, uses_statement.interface_name),
+                    &source,
+                );
+                continue;
+            }
+
+            let exisitng_binding = match &prop_decl.property_type {
+                Type::Function(func) => {
+                    apply_uses_statement_function_binding(e, &child, name, func)
+                }
+                _ => e.borrow_mut().bindings.insert(
+                    name.clone(),
+                    BindingExpression::new_two_way(
+                        NamedReference::new(&child, name.clone()).into(),
+                    )
+                    .into(),
+                ),
+            };
+
+            if let Some(existing_binding) = exisitng_binding {
+                let message = format!(
+                    "Cannot override binding for '{}' from interface '{}'",
+                    name, uses_statement.interface_name
+                );
+                if let Some(location) = &existing_binding.borrow().span {
+                    diag.push_error(message, location);
+                } else {
+                    diag.push_error(message, &uses_statement.interface_name_node());
+                }
+            }
+        }
     }
 }
 
@@ -2507,157 +2567,32 @@ fn element_implements_interface(
     return valid;
 }
 
-/// Apply the properties and callbacks from the interface to the element for a valid `uses` statement. Emits diagnostics
-/// if there are conflicts with existing declarations in the element or its dervied type.
-fn apply_uses_statement_properties_and_callbacks(
+/// Apply the function from the interface to the element, creating a forwarding bindings to the function on the child
+/// element. Emits diagnostics if there are conflicting functions.
+fn apply_uses_statement_function_binding(
     e: &ElementRc,
-    diag: &mut BuildDiagnostics,
-    uses_statement: &UsesStatement,
-    interface: &ElementRc,
     child: &ElementRc,
-) {
-    for (prop_name, prop_decl) in interface
-        .borrow()
-        .property_declarations
+    name: &SmolStr,
+    func: &Rc<Function>,
+) -> Option<RefCell<BindingExpression>> {
+    // Create forwarding call expression: child.function_name(arg0, arg1, ...)
+    let args_expr: Vec<Expression> = func
+        .args
         .iter()
-        .filter(|(_, prop_decl)| !matches!(prop_decl.property_type, Type::Function { .. }))
-    {
-        let lookup_result = e.borrow().base_type.lookup_property(prop_name);
-        if let Err(message) = validate_property_declaration_for_interface(
-            InterfaceUseMode::Uses,
-            &lookup_result,
-            &e.borrow().base_type,
-            &uses_statement.interface_name,
-        ) {
-            diag.push_error(message, &uses_statement.interface_name_node());
-            continue;
-        }
+        .enumerate()
+        .map(|(i, ty)| Expression::FunctionParameterReference { index: i, ty: ty.clone() })
+        .collect();
 
-        // Replace the node with the interface name for better diagnostics later, since the declaration won't have a
-        // node in this element.
-        let mut prop_decl = prop_decl.clone();
-        prop_decl.node = Some(uses_statement.interface_name_node().into());
+    // Use Callable::Function with a NamedReference to the child's function
+    let call_expr = Expression::FunctionCall {
+        function: Callable::Function(NamedReference::new(child, name.clone())),
+        arguments: args_expr,
+        source_location: None,
+    };
 
-        if let Some(existing_property) =
-            e.borrow_mut().property_declarations.insert(prop_name.clone(), prop_decl)
-        {
-            let source = existing_property
-                .node
-                .as_ref()
-                .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
-                .and_then(|node| node.child_token(SyntaxKind::Identifier))
-                .map_or_else(
-                    || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
-                    parser::NodeOrToken::Token,
-                );
-
-            diag.push_error(
-                format!("Cannot override '{}' from '{}'", prop_name, uses_statement.interface_name),
-                &source,
-            );
-            continue;
-        }
-
-        if let Some(existing_binding) = e.borrow_mut().bindings.insert(
-            prop_name.clone(),
-            BindingExpression::new_two_way(NamedReference::new(&child, prop_name.clone()).into())
-                .into(),
-        ) {
-            let message = format!(
-                "Cannot override binding for property '{}' from interface '{}'",
-                prop_name, uses_statement.interface_name
-            );
-            if let Some(location) = &existing_binding.borrow().span {
-                diag.push_error(message, location);
-            } else {
-                diag.push_error(message, &uses_statement.interface_name_node());
-            }
-        }
-    }
-}
-
-/// Emits diagnostics if interface function declarations conflict with existing declarations in the element or its
-/// dervied type.
-fn apply_uses_statement_functions(
-    e: &ElementRc,
-    diag: &mut BuildDiagnostics,
-    uses_statement: &UsesStatement,
-    interface: &ElementRc,
-    child: &ElementRc,
-) {
-    for (function_name, function_decl) in interface
-        .borrow()
-        .property_declarations
-        .iter()
-        .filter(|(_, prop_decl)| matches!(prop_decl.property_type, Type::Function { .. }))
-    {
-        let lookup_result = e.borrow().base_type.lookup_property(function_name);
-        if let Err(message) = validate_property_declaration_for_interface(
-            InterfaceUseMode::Uses,
-            &lookup_result,
-            &e.borrow().base_type,
-            &uses_statement.interface_name,
-        ) {
-            diag.push_error(message, &uses_statement.interface_name_node());
-            continue;
-        }
-
-        if let Some(existing_property) = e.borrow().property_declarations.get(function_name) {
-            let source = existing_property
-                .node
-                .as_ref()
-                .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
-                .and_then(|node| node.child_token(SyntaxKind::Identifier))
-                .map_or_else(
-                    || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
-                    parser::NodeOrToken::Token,
-                );
-
-            diag.push_error(
-                format!(
-                    "Cannot override '{}' from '{}'",
-                    function_name, uses_statement.interface_name
-                ),
-                &source,
-            );
-            continue;
-        }
-
-        let Type::Function(func) = function_decl.property_type.clone() else {
-            debug_assert!(false, "Non-functions should have been filtered out already");
-            continue;
-        };
-
-        // Insert the function declaration as a property declaration, so it can be looked up like a normal function.
-        // Replace the node with the interface name for better diagnostics later, since the function declaration won't
-        // have a node in this element.
-        let mut function_decl = function_decl.clone();
-        function_decl.node = Some(uses_statement.interface_name_node().into());
-
-        e.borrow_mut().property_declarations.insert(function_name.clone(), function_decl);
-
-        // Create forwarding call expression: child.function_name(arg0, arg1, ...)
-        let args_expr: Vec<Expression> = func
-            .args
-            .iter()
-            .enumerate()
-            .map(|(i, ty)| Expression::FunctionParameterReference { index: i, ty: ty.clone() })
-            .collect();
-
-        // Use Callable::Function with a NamedReference to the child's function
-        let call_expr = Expression::FunctionCall {
-            function: Callable::Function(NamedReference::new(&child, function_name.clone())),
-            arguments: args_expr,
-            source_location: None,
-        };
-
-        // The function body is just the forwarding call. CodeBlock handles the return implicitly for the last expression
-        let body = Expression::CodeBlock(vec![call_expr]);
-
-        e.borrow_mut()
-            .bindings
-            .insert(function_name.clone(), RefCell::new(BindingExpression::from(body)));
-    }
+    // The function body is just the forwarding call. CodeBlock handles the return implicitly for the last expression
+    let body = Expression::CodeBlock(vec![call_expr]);
+    e.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
 }
 
 /// Create a Type for this node
