@@ -14,30 +14,6 @@ export component LineEdit uses { LineEditInterface from inner } {
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
 
-    public function set-selection-offsets(start: int, end: int) {
-        inner.set-selection-offsets(start, end);
-    }
-
-    public function select-all() {
-        inner.select-all();
-    }
-
-    public function clear-selection() {
-        inner.clear-selection();
-    }
-
-    public function cut() {
-        inner.cut();
-    }
-
-    public function copy() {
-        inner.copy();
-    }
-
-    public function paste() {
-        inner.paste();
-    }
-
     forward-focus: inner;
     horizontal-stretch: 1;
     vertical-stretch: 0;
