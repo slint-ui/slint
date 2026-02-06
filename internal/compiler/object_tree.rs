@@ -827,9 +827,6 @@ pub struct Element {
 
     pub property_declarations: BTreeMap<SmolStr, PropertyDeclaration>,
 
-    /// Interfaces store function declarations for validation only
-    pub function_declarations: Vec<(SmolStr, PropertyDeclaration)>,
-
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
 
@@ -1476,7 +1473,9 @@ impl Element {
                     continue;
                 }
                 (ElementType::Interface, None) => {
-                    r.function_declarations.push((name, declaration));
+                    // Do not create a binding for this function, as it is just a declaration without body. It will be
+                    // implemented by the component that implements the interface.
+                    r.property_declarations.insert(name, declaration);
                     continue;
                 }
                 (_, None) => {
@@ -2221,7 +2220,12 @@ fn apply_implements_specifier(
         return;
     };
 
-    for (unresolved_prop_name, prop_decl) in interface.borrow().property_declarations.iter() {
+    for (unresolved_prop_name, prop_decl) in
+        interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
+            // Functions are expected to be implemented manually, so we don't automatically add them.
+            !matches!(prop_decl.property_type, Type::Function { .. })
+        })
+    {
         let lookup_result = e.lookup_property(unresolved_prop_name);
         if let Err(message) = validate_property_declaration_for_interface(
             InterfaceUseMode::Implements,
@@ -2249,9 +2253,14 @@ fn validate_function_implementations_for_interface(
         return;
     };
 
-    for (function_name, function_property_decl) in interface.borrow().function_declarations.iter() {
+    for (function_name, function_property_decl) in interface
+        .borrow()
+        .property_declarations
+        .iter()
+        .filter(|(_, prop_decl)| matches!(prop_decl.property_type, Type::Function { .. }))
+    {
         let Type::Function(ref function_declaration) = function_property_decl.property_type else {
-            debug_assert!(false, "function_declarations should only contain functions");
+            debug_assert!(false, "Non-functions should have been filtered out already");
             continue;
         };
 
@@ -2456,21 +2465,6 @@ fn filter_conflicting_uses_statements(
                     seen_interface_api.insert(prop_name.clone(), interface_name.clone());
                 }
             }
-
-            for (function_name, _) in vus.interface.borrow().function_declarations.iter() {
-                if let Some(existing_interface) = seen_interface_api.get(function_name) {
-                    diag.push_error(
-                        format!(
-                            "'{}' occurs in '{}' and '{}'",
-                            function_name, vus.uses_statement.interface_name, existing_interface
-                        ),
-                        &vus.uses_statement.interface_name_node(),
-                    );
-                    valid = false;
-                } else {
-                    seen_interface_api.insert(function_name.clone(), interface_name.clone());
-                }
-            }
             return valid;
         })
         .collect();
@@ -2510,10 +2504,6 @@ fn element_implements_interface(
         check(property_name, property_declaration);
     }
 
-    for (function_name, function_declaration) in interface.borrow().function_declarations.iter() {
-        check(function_name, function_declaration);
-    }
-
     return valid;
 }
 
@@ -2526,7 +2516,12 @@ fn apply_uses_statement_properties_and_callbacks(
     interface: &ElementRc,
     child: &ElementRc,
 ) {
-    for (prop_name, prop_decl) in &interface.borrow().property_declarations {
+    for (prop_name, prop_decl) in interface
+        .borrow()
+        .property_declarations
+        .iter()
+        .filter(|(_, prop_decl)| !matches!(prop_decl.property_type, Type::Function { .. }))
+    {
         let lookup_result = e.borrow().base_type.lookup_property(prop_name);
         if let Err(message) = validate_property_declaration_for_interface(
             InterfaceUseMode::Uses,
@@ -2572,8 +2567,6 @@ fn apply_uses_statement_properties_and_callbacks(
             } else {
                 diag.push_error(message, &uses_statement.interface_name_node());
             }
-
-            continue;
         }
     }
 }
@@ -2587,7 +2580,12 @@ fn apply_uses_statement_functions(
     interface: &ElementRc,
     child: &ElementRc,
 ) {
-    for (function_name, function_decl) in &interface.borrow().function_declarations {
+    for (function_name, function_decl) in interface
+        .borrow()
+        .property_declarations
+        .iter()
+        .filter(|(_, prop_decl)| matches!(prop_decl.property_type, Type::Function { .. }))
+    {
         let lookup_result = e.borrow().base_type.lookup_property(function_name);
         if let Err(message) = validate_property_declaration_for_interface(
             InterfaceUseMode::Uses,
@@ -2621,7 +2619,7 @@ fn apply_uses_statement_functions(
         }
 
         let Type::Function(func) = function_decl.property_type.clone() else {
-            debug_assert!(false, "function_declarations should only contain functions");
+            debug_assert!(false, "Non-functions should have been filtered out already");
             continue;
         };
 
