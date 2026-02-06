@@ -150,6 +150,15 @@ A brush is a special type that can be either initialized from a `color` or a `gr
 RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as #RRGGBBAA or #RGB. See <Link type="ColorsRef" label="Colors & Brushes" />.
 </SlintProperty>
 
+## Keyboard input
+
+### keyboard-shortcut
+<SlintProperty propName="keyboard-shortcut" typeName="keyboard-shortcut" defaultValue='empty shortcut'>
+A keyboard-shortcut represents a key combined with a list of modifiers.
+This is the primitive type used to detect if a KeyEvent should trigger a given shortcut.
+See <Link type="KeyboardInput" label="Key Handling" />.
+</SlintProperty>
+
 ## Images
 ### image
 <SlintProperty propName="image" typeName="image" defaultValue='empty image'>
