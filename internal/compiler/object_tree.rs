@@ -2374,6 +2374,7 @@ fn apply_uses_statement(
 
     for ValidUsesStatement { uses_statement, interface, child } in uses_statements {
         apply_uses_statement_properties_and_callbacks(e, diag, &uses_statement, &interface, &child);
+        apply_uses_statement_functions(e, diag, &uses_statement, &interface, &child);
     }
 }
 
@@ -2453,6 +2454,21 @@ fn filter_conflicting_uses_statements(
                     valid = false;
                 } else {
                     seen_interface_api.insert(prop_name.clone(), interface_name.clone());
+                }
+            }
+
+            for (function_name, _) in vus.interface.borrow().function_declarations.iter() {
+                if let Some(existing_interface) = seen_interface_api.get(function_name) {
+                    diag.push_error(
+                        format!(
+                            "'{}' occurs in '{}' and '{}'",
+                            function_name, vus.uses_statement.interface_name, existing_interface
+                        ),
+                        &vus.uses_statement.interface_name_node(),
+                    );
+                    valid = false;
+                } else {
+                    seen_interface_api.insert(function_name.clone(), interface_name.clone());
                 }
             }
             return valid;
@@ -2546,6 +2562,50 @@ fn apply_uses_statement_properties_and_callbacks(
                 diag.push_error(message, &uses_statement.interface_name_node());
             }
 
+            continue;
+        }
+    }
+}
+
+/// Emits diagnostics if interface function declarations conflict with existing declarations in the element or its
+/// dervied type.
+fn apply_uses_statement_functions(
+    e: &ElementRc,
+    diag: &mut BuildDiagnostics,
+    uses_statement: &UsesStatement,
+    interface: &ElementRc,
+    _child: &ElementRc,
+) {
+    for (function_name, _function_decl) in &interface.borrow().function_declarations {
+        let lookup_result = e.borrow().base_type.lookup_property(function_name);
+        if let Err(message) = validate_property_declaration_for_interface(
+            InterfaceUseMode::Uses,
+            &lookup_result,
+            &e.borrow().base_type,
+            &uses_statement.interface_name,
+        ) {
+            diag.push_error(message, &uses_statement.interface_name_node());
+            continue;
+        }
+
+        if let Some(existing_property) = e.borrow().property_declarations.get(function_name) {
+            let source = existing_property
+                .node
+                .as_ref()
+                .and_then(|node| node.child_node(SyntaxKind::DeclaredIdentifier))
+                .and_then(|node| node.child_token(SyntaxKind::Identifier))
+                .map_or_else(
+                    || parser::NodeOrToken::Node(uses_statement.child_id_node().into()),
+                    parser::NodeOrToken::Token,
+                );
+
+            diag.push_error(
+                format!(
+                    "Cannot override '{}' from '{}'",
+                    function_name, uses_statement.interface_name
+                ),
+                &source,
+            );
             continue;
         }
     }

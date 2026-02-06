@@ -43,6 +43,11 @@ export component CalculatorImpl implements Calculator {
     }
 }
 
+// Using interfaces with functions is valid
+export component MyCalculator uses { Calculator from impl } inherits Rectangle {
+    impl := CalculatorImpl { }
+}
+
 export component OverrideImpl implements Calculator {
     public function add(a: int, b: int) -> int {
 //  >error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
