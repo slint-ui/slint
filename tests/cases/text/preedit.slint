@@ -1,0 +1,203 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tests for preedit/composition text functionality used by IME systems.
+//
+// Preedit (also called "composition" or "marked text") is the uncommitted text
+// shown during IME input. For example, when typing Japanese with romaji input:
+// - Type "nihon" → preedit shows "にほん"
+// - Press Enter → preedit commits to "日本"
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 100phx;
+
+    ti := TextInput {
+        width: 100%;
+        height: 100%;
+        text: "Hello";
+    }
+
+    // Expose preedit-text for testing (internal property)
+    out property <string> preedit_text <=> ti.preedit-text;
+    in-out property <string> text <=> ti.text;
+    out property <int> cursor_pos: ti.cursor-position-byte-offset;
+    out property <bool> has_focus: ti.has-focus;
+
+    // Focus the text input for testing
+    callback focus_input();
+    focus_input => {
+        ti.focus();
+    }
+
+    // Move cursor to end for predictable test state
+    callback move_cursor_to_end();
+    move_cursor_to_end => {
+        ti.set-selection-offsets(ti.text.character-count, ti.text.character-count);
+    }
+}
+
+/*
+```rust
+// Test: Preedit text property is accessible and initially empty
+let instance = TestCase::new().unwrap();
+instance.invoke_focus_input();
+slint_testing::mock_elapsed_time(50);
+
+// Initially, preedit should be empty
+assert_eq!(instance.get_preedit_text(), "");
+assert_eq!(instance.get_text(), "Hello");
+assert!(instance.get_has_focus());
+
+// Move cursor to end before typing
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+// Test: Normal keyboard input doesn't set preedit
+slint_testing::send_keyboard_string_sequence(&instance, " World");
+assert_eq!(instance.get_text(), "Hello World");
+assert_eq!(instance.get_preedit_text(), ""); // No preedit with direct input
+
+// Test: IME preedit simulation
+instance.set_text("Test".into());
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+// Simulate IME setting preedit text (like typing "nihon" in Japanese IME)
+slint_testing::simulate_ime_preedit(&instance, "にほん", None);
+slint_testing::mock_elapsed_time(16);
+
+// Preedit should be set, but text should be unchanged
+assert_eq!(instance.get_preedit_text(), "にほん");
+assert_eq!(instance.get_text(), "Test"); // Text unchanged until commit
+
+// Test: IME commit replaces preedit with final text
+slint_testing::simulate_ime_commit(&instance, "日本", 0);
+slint_testing::mock_elapsed_time(16);
+
+// After commit, preedit should be cleared and text should include committed text
+assert_eq!(instance.get_preedit_text(), "");
+assert_eq!(instance.get_text(), "Test日本");
+
+// Test: Clear preedit without committing
+instance.set_text("Start".into());
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+slint_testing::simulate_ime_preedit(&instance, "draft", None);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "draft");
+assert_eq!(instance.get_text(), "Start");
+
+// Clear preedit (simulates user pressing Escape during composition)
+slint_testing::simulate_ime_preedit(&instance, "", None);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "");
+assert_eq!(instance.get_text(), "Start"); // Text unchanged
+
+// Test: Preedit with cursor position
+instance.set_text("ABC".into());
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+// Set preedit with cursor at position 2 (between "に" and "ほ")
+slint_testing::simulate_ime_preedit(&instance, "にほん", Some(3)); // 3 bytes = after first char
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "にほん");
+
+// Test: Multiple preedit updates (simulates incremental composition)
+instance.set_text("".into());
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+slint_testing::simulate_ime_preedit(&instance, "n", None);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "n");
+
+slint_testing::simulate_ime_preedit(&instance, "ni", None);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "ni");
+
+slint_testing::simulate_ime_preedit(&instance, "にh", None);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "にh");
+
+slint_testing::simulate_ime_preedit(&instance, "にほ", None);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "にほ");
+
+// Commit final text
+slint_testing::simulate_ime_commit(&instance, "日本", 0);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_preedit_text(), "");
+assert_eq!(instance.get_text(), "日本");
+
+// Test: Commit with cursor offset
+instance.set_text("prefix".into());
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+slint_testing::simulate_ime_preedit(&instance, "test", None);
+slint_testing::mock_elapsed_time(16);
+
+// Commit with cursor_offset = -2 (cursor 2 positions before end of inserted text)
+slint_testing::simulate_ime_commit(&instance, "XY", -2);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_text(), "prefixXY");
+// Cursor should be at position 6 (after "prefix", before "XY")
+assert_eq!(instance.get_cursor_pos(), 6);
+```
+*/
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.invoke_focus_input();
+slint_testing::mock_elapsed_time(50);
+
+// Initially, preedit should be empty
+assert_eq(instance.get_preedit_text(), "");
+assert_eq(instance.get_text(), "Hello");
+assert(instance.get_has_focus());
+
+// Test: Normal keyboard input doesn't set preedit
+slint_testing::send_keyboard_string_sequence(&instance, " World");
+assert_eq(instance.get_text(), "Hello World");
+assert_eq(instance.get_preedit_text(), ""); // No preedit with direct input
+
+// Test: IME preedit simulation
+instance.set_text("Test");
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+// Simulate IME setting preedit text
+slint_testing::simulate_ime_preedit(&instance, "にほん", {});
+slint_testing::mock_elapsed_time(16);
+
+// Preedit should be set, but text should be unchanged
+assert_eq(instance.get_preedit_text(), "にほん");
+assert_eq(instance.get_text(), "Test");
+
+// Test: IME commit replaces preedit with final text
+slint_testing::simulate_ime_commit(&instance, "日本", 0);
+slint_testing::mock_elapsed_time(16);
+
+assert_eq(instance.get_preedit_text(), "");
+assert_eq(instance.get_text(), "Test日本");
+
+// Test: Clear preedit without committing
+instance.set_text("Start");
+instance.invoke_move_cursor_to_end();
+slint_testing::mock_elapsed_time(16);
+
+slint_testing::simulate_ime_preedit(&instance, "draft", {});
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_preedit_text(), "draft");
+
+slint_testing::simulate_ime_preedit(&instance, "", {});
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_preedit_text(), "");
+assert_eq(instance.get_text(), "Start");
+```
+*/

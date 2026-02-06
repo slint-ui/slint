@@ -99,11 +99,7 @@ pub struct HeadlessWindow {
     renderer: SkiaRenderer,
 }
 
-impl WindowAdapterInternal for HeadlessWindow {
-    fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
-        self.ime_requests.borrow_mut().push(request)
-    }
-}
+impl WindowAdapterInternal for HeadlessWindow {}
 
 impl WindowAdapter for HeadlessWindow {
     fn window(&self) -> &i_slint_core::api::Window {
@@ -134,6 +130,10 @@ impl WindowAdapter for HeadlessWindow {
 
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
+    }
+
+    fn handle_input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
+        self.ime_requests.borrow_mut().push(request)
     }
 }
 

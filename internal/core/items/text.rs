@@ -26,6 +26,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::text_input_controller::CoreTextInputController;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::rc::Rc;
@@ -668,10 +669,10 @@ fn text_layout_info(
 /// Similar as `Option<core::ops::Range<i32>>` but `repr(C)`
 ///
 /// This is the selection within a preedit
-struct PreEditSelection {
-    valid: bool,
-    start: i32,
-    end: i32,
+pub(crate) struct PreEditSelection {
+    pub(crate) valid: bool,
+    pub(crate) start: i32,
+    pub(crate) end: i32,
 }
 
 impl From<Option<core::ops::Range<i32>>> for PreEditSelection {
@@ -681,7 +682,7 @@ impl From<Option<core::ops::Range<i32>>> for PreEditSelection {
 }
 
 impl PreEditSelection {
-    fn as_option(self) -> Option<core::ops::Range<i32>> {
+    pub(crate) fn as_option(self) -> Option<core::ops::Range<i32>> {
         self.valid.then_some(self.start..self.end)
     }
 }
@@ -738,8 +739,24 @@ pub struct TextInput {
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
+    /// Color for preedit/composition text (defaults to regular text color)
+    pub preedit_color: Property<Brush>,
+    /// Color for preedit underline (defaults to regular text color)
+    pub preedit_underline_color: Property<Brush>,
+    /// Width of preedit underline
+    pub preedit_underline_width: Property<LogicalLength>,
+    /// Background color for preedit text (defaults to transparent)
+    pub preedit_background: Property<Brush>,
+    /// Color for composing region underline (defaults to regular text color)
+    pub composing_underline_color: Property<Brush>,
+    /// Width of composing region underline
+    pub composing_underline_width: Property<LogicalLength>,
     /// A selection within the preedit (cursor and anchor)
-    preedit_selection: Property<PreEditSelection>,
+    pub(crate) preedit_selection: Property<PreEditSelection>,
+    /// The composing region marks a range of existing committed text as "being edited".
+    /// This is used by IME systems (e.g., Android autocorrect) to highlight text that
+    /// may be modified. Stored as (start, end) byte offsets.
+    pub(crate) composing_region: Cell<Option<(usize, usize)>>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -1162,11 +1179,14 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
-                    if let Some(w) = window_adapter.internal(crate::InternalToken) {
-                        w.input_method_request(InputMethodRequest::Enable(
-                            self.ime_properties(window_adapter, self_rc),
-                        ));
-                    }
+                    // Create and provide a TextInputController for platform IME integration
+                    let controller =
+                        alloc::rc::Rc::new(CoreTextInputController::new(self_rc, window_adapter));
+                    window_adapter.text_input_focused(controller);
+
+                    window_adapter.handle_input_method_request(InputMethodRequest::Enable(
+                        self.input_method_properties(window_adapter, self_rc),
+                    ));
 
                     #[cfg(not(target_vendor = "apple"))]
                     if *_reason == FocusReason::TabNavigation {
@@ -1184,9 +1204,9 @@ impl Item for TextInput {
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Disable);
-                    }
+                    // Notify platform that TextInput lost focus
+                    window_adapter.text_input_unfocused();
+                    window_adapter.handle_input_method_request(InputMethodRequest::Disable);
                     // commit the preedit text on android
                     #[cfg(target_os = "android")]
                     {
@@ -1224,11 +1244,9 @@ impl Item for TextInput {
         crate::properties::evaluate_no_tracking(|| {
             if self.has_focus() && self.text() != *backend.window().last_ime_text.borrow() {
                 let window_adapter = &backend.window().window_adapter();
-                if let Some(w) = window_adapter.internal(crate::InternalToken) {
-                    w.input_method_request(InputMethodRequest::Update(
-                        self.ime_properties(window_adapter, self_rc),
-                    ));
-                }
+                window_adapter.handle_input_method_request(InputMethodRequest::Update(
+                    self.input_method_properties(window_adapter, self_rc),
+                ));
             }
         });
         (*backend).draw_text_input(self, self_rc, size);
@@ -1369,6 +1387,9 @@ pub struct TextInputVisualRepresentation {
     /// is in progress. Renderers typically provide visual feedback for the currently composed text, such as
     /// by using underlines.
     pub preedit_range: core::ops::Range<usize>,
+    /// If set, specifies the range as byte offsets within the text for the composing region.
+    /// The composing region marks existing committed text as "being edited" by the IME (e.g., for autocorrect).
+    pub composing_range: core::ops::Range<usize>,
     /// If set, specifies the range as byte offsets within the text where to draw the selection.
     pub selection_range: core::ops::Range<usize>,
     /// The position where to draw the cursor, as byte offset within the text.
@@ -1377,6 +1398,18 @@ pub struct TextInputVisualRepresentation {
     pub text_color: Brush,
     /// The color of the blinking cursor
     pub cursor_color: Color,
+    /// The color for preedit text (defaults to text_color if not set)
+    pub preedit_color: Option<Brush>,
+    /// The color for preedit underline
+    pub preedit_underline_color: Option<Brush>,
+    /// The width of preedit underline
+    pub preedit_underline_width: LogicalLength,
+    /// The background color for preedit text
+    pub preedit_background: Option<Brush>,
+    /// The color for composing region underline
+    pub composing_underline_color: Option<Brush>,
+    /// The width of composing region underline
+    pub composing_underline_width: LogicalLength,
     text_without_password: Option<String>,
     password_character: char,
 }
@@ -1404,6 +1437,7 @@ impl TextInputVisualRepresentation {
             }
         };
         fixup_range(&mut self.preedit_range);
+        fixup_range(&mut self.composing_range);
         fixup_range(&mut self.selection_range);
         if let Some(cursor_pos) = self.cursor_position.as_mut() {
             *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len_utf8();
@@ -1621,11 +1655,9 @@ impl TextInput {
         if self.read_only() || !self.has_focus() {
             return;
         }
-        if let Some(w) = window_adapter.internal(crate::InternalToken) {
-            w.input_method_request(InputMethodRequest::Update(
-                self.ime_properties(window_adapter, self_rc),
-            ));
-        }
+        window_adapter.handle_input_method_request(InputMethodRequest::Update(
+            self.input_method_properties(window_adapter, self_rc),
+        ));
     }
 
     fn select_and_delete(
@@ -1703,7 +1735,10 @@ impl TextInput {
         safe_byte_offset(self.cursor_position_byte_offset(), text)
     }
 
-    fn ime_properties(
+    /// Returns the current input method properties for this TextInput.
+    ///
+    /// This is used by platform backends to query the current state of the text input.
+    pub fn input_method_properties(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
@@ -1732,12 +1767,17 @@ impl TextInput {
             LogicalRect::new(parent.map_to_window(geom.origin), geom.size)
         });
 
+        // Extract preedit cursor from preedit_selection if valid
+        let preedit_cursor = self.preedit_selection().as_option().map(|sel| sel.end as usize);
+
         InputMethodProperties {
             text,
             cursor_position,
             anchor_position: (cursor_position != anchor_position).then_some(anchor_position),
             preedit_text: self.preedit_text(),
             preedit_offset: cursor_position,
+            preedit_cursor,
+            composing_region: self.composing_region.get(),
             cursor_rect_origin,
             cursor_rect_size,
             anchor_point,
@@ -1940,6 +1980,170 @@ impl TextInput {
         }
     }
 
+    // ===== IME (Input Method Editor) Methods =====
+    //
+    // These methods are called by platform backends to manipulate text input state
+    // in response to IME events (e.g., Android InputConnection, iOS UITextInput).
+
+    /// Commits text at the cursor position, replacing any active preedit.
+    ///
+    /// This is called when the IME confirms text input.
+    ///
+    /// # Arguments
+    /// * `text` - The text to commit
+    /// * `cursor_offset` - Where to place cursor relative to inserted text end
+    ///   (0 = at end, negative = before, positive = after)
+    pub fn ime_commit_text(
+        self: Pin<&Self>,
+        text: &str,
+        cursor_offset: i32,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        // Clear preedit first
+        self.preedit_text.set(Default::default());
+        self.composing_region.set(None);
+
+        // Insert the committed text
+        self.insert(text, window_adapter, self_rc);
+
+        // Adjust cursor position based on offset
+        if cursor_offset != 0 {
+            let current_text = self.text();
+            let current_cursor = self.cursor_position(&current_text) as i32;
+            let new_cursor = (current_cursor + cursor_offset).max(0) as usize;
+            let new_cursor = new_cursor.min(current_text.len());
+            self.set_cursor_position(
+                new_cursor as i32,
+                true, // reset selection
+                TextChangeNotify::TriggerCallbacks,
+                window_adapter,
+                self_rc,
+            );
+        }
+    }
+
+    /// Sets preedit/composition text without committing.
+    ///
+    /// Preedit text is displayed at the cursor position but is not yet part of the
+    /// committed text. It's typically shown with special styling (underline).
+    ///
+    /// # Arguments
+    /// * `text` - The preedit text to display
+    /// * `cursor` - Cursor position within the preedit (byte offset), or None for end
+    pub fn ime_set_preedit(
+        self: Pin<&Self>,
+        text: &str,
+        cursor: Option<usize>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.preedit_text.set(text.into());
+
+        // Set preedit selection to position the cursor within preedit
+        let cursor_pos = cursor.unwrap_or(text.len()) as i32;
+        self.preedit_selection.set(PreEditSelection {
+            valid: true,
+            start: cursor_pos,
+            end: cursor_pos,
+        });
+
+        // Request update to platform
+        window_adapter.handle_input_method_request(InputMethodRequest::Update(
+            self.input_method_properties(window_adapter, self_rc),
+        ));
+
+        window_adapter.request_redraw();
+    }
+
+    /// Clears preedit text without committing.
+    ///
+    /// This is called when the user cancels composition (e.g., pressing Escape).
+    pub fn ime_clear_preedit(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.preedit_text.set(Default::default());
+        self.preedit_selection.set(Default::default());
+
+        // Request update to platform
+        window_adapter.handle_input_method_request(InputMethodRequest::Update(
+            self.input_method_properties(window_adapter, self_rc),
+        ));
+
+        window_adapter.request_redraw();
+    }
+
+    /// Sets the composing region on existing committed text.
+    ///
+    /// The composing region marks a range of existing text as "being edited" by the IME.
+    /// This is used by autocorrect features to highlight suggested corrections.
+    ///
+    /// # Arguments
+    /// * `region` - The (start, end) byte offsets, or None to clear the region
+    pub fn ime_set_composing_region(
+        self: Pin<&Self>,
+        region: Option<(usize, usize)>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.composing_region.set(region);
+
+        // Request update to platform
+        window_adapter.handle_input_method_request(InputMethodRequest::Update(
+            self.input_method_properties(window_adapter, self_rc),
+        ));
+
+        window_adapter.request_redraw();
+    }
+
+    /// Deletes text around the cursor.
+    ///
+    /// # Arguments
+    /// * `before` - Number of bytes to delete before the cursor
+    /// * `after` - Number of bytes to delete after the cursor
+    pub fn ime_delete_surrounding(
+        self: Pin<&Self>,
+        before: usize,
+        after: usize,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        let text = self.text();
+        let cursor = self.cursor_position(&text);
+
+        let delete_start = cursor.saturating_sub(before);
+        let delete_end = (cursor + after).min(text.len());
+
+        // Set selection to the range to delete, then delete
+        self.anchor_position_byte_offset.set(delete_start as i32);
+        self.cursor_position_byte_offset.set(delete_end as i32);
+        self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
+    }
+
+    /// Sets the selection range.
+    ///
+    /// # Arguments
+    /// * `start` - Start byte offset
+    /// * `end` - End byte offset. If start == end, this just moves the cursor.
+    pub fn ime_set_selection(
+        self: Pin<&Self>,
+        start: usize,
+        end: usize,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.anchor_position_byte_offset.set(start as i32);
+        self.set_cursor_position(
+            end as i32,
+            false, // don't reset selection
+            TextChangeNotify::TriggerCallbacks,
+            window_adapter,
+            self_rc,
+        );
+    }
+
     pub fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
         WindowItem::resolved_font_request(
             self_rc,
@@ -2001,15 +2205,63 @@ impl TextInput {
             text_color.color()
         };
 
+        // Get composing region, adjusting for any preedit text insertion
+        let composing_range = if let Some((start, end)) = self.composing_region.get() {
+            // If preedit was inserted, composing region offsets need adjustment
+            let original_cursor = self.cursor_position(&self.text());
+            let preedit_len = self.preedit_text().len();
+            if preedit_len > 0 && start >= original_cursor {
+                // Composing region is after preedit insertion point
+                (start + preedit_len)..(end + preedit_len)
+            } else {
+                start..end
+            }
+        } else {
+            Default::default()
+        };
+
+        // Get preedit styling properties, using None to indicate default (text_color)
+        let preedit_color_prop = self.preedit_color();
+        let preedit_color =
+            if preedit_color_prop == Brush::default() { None } else { Some(preedit_color_prop) };
+
+        let preedit_underline_color_prop = self.preedit_underline_color();
+        let preedit_underline_color = if preedit_underline_color_prop == Brush::default() {
+            None
+        } else {
+            Some(preedit_underline_color_prop)
+        };
+
+        let preedit_background_prop = self.preedit_background();
+        let preedit_background = if preedit_background_prop == Brush::default() {
+            None
+        } else {
+            Some(preedit_background_prop)
+        };
+
+        let composing_underline_color_prop = self.composing_underline_color();
+        let composing_underline_color = if composing_underline_color_prop == Brush::default() {
+            None
+        } else {
+            Some(composing_underline_color_prop)
+        };
+
         let mut repr = TextInputVisualRepresentation {
             text,
             preedit_range,
+            composing_range,
             selection_range,
             cursor_position,
             text_without_password: None,
             password_character: Default::default(),
             text_color,
             cursor_color,
+            preedit_color,
+            preedit_underline_color,
+            preedit_underline_width: self.preedit_underline_width(),
+            preedit_background,
+            composing_underline_color,
+            composing_underline_width: self.composing_underline_width(),
         };
         repr.apply_password_character_substitution(self, password_character_fn);
         repr
@@ -2047,11 +2299,9 @@ impl TextInput {
                 FocusReason::PointerClick,
             );
         } else if !self.read_only() {
-            if let Some(w) = window_adapter.internal(crate::InternalToken) {
-                w.input_method_request(InputMethodRequest::Enable(
-                    self.ime_properties(window_adapter, self_rc),
-                ));
-            }
+            window_adapter.handle_input_method_request(InputMethodRequest::Enable(
+                self.input_method_properties(window_adapter, self_rc),
+            ));
         }
     }
 

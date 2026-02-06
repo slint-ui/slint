@@ -18,7 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
+use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy, TextInput};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -156,6 +156,74 @@ pub trait WindowAdapter {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    /// This method is called when an editable text input field (such as TextInput) needs to
+    /// communicate with the platform's input method system.
+    ///
+    /// Implement this method to handle input method requests from Slint, such as:
+    /// - `InputMethodRequest::Enable`: A text input has gained focus. Show the virtual keyboard
+    ///   (on mobile) and enable IME composition.
+    /// - `InputMethodRequest::Update`: The cursor position, selection, or composition state
+    ///   has changed. Update the IME accordingly.
+    /// - `InputMethodRequest::Disable`: The text input has lost focus. Hide the virtual keyboard
+    ///   (on mobile) and disable IME.
+    ///
+    /// The default implementation does nothing, which is appropriate for platforms that don't
+    /// support input methods or for testing.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// fn handle_input_method_request(&self, request: slint::platform::InputMethodRequest) {
+    ///     match request {
+    ///         InputMethodRequest::Enable(props) => {
+    ///             // Show virtual keyboard, configure IME with props.input_type
+    ///         }
+    ///         InputMethodRequest::Update(props) => {
+    ///             // Update IME cursor position from props.cursor_rect_origin
+    ///         }
+    ///         InputMethodRequest::Disable => {
+    ///             // Hide virtual keyboard, disable IME
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    fn handle_input_method_request(&self, _request: InputMethodRequest) {}
+
+    /// Called when a TextInput gains focus and IME should be activated.
+    ///
+    /// Platform backends should:
+    /// 1. Store the controller reference for IME protocol handling
+    /// 2. Show the soft keyboard (on mobile)
+    /// 3. Configure IME based on input type
+    ///
+    /// The controller provides methods for the platform to query and modify text state
+    /// synchronously, which is required by mobile IME protocols (Android InputConnection,
+    /// iOS UITextInput).
+    ///
+    /// The controller is valid until [`text_input_unfocused()`](Self::text_input_unfocused)
+    /// is called. After that, controller methods return errors/defaults.
+    ///
+    /// The default implementation does nothing, which is appropriate for desktop platforms
+    /// that use `handle_input_method_request()` for IME integration.
+    fn text_input_focused(
+        &self,
+        _controller: Rc<dyn crate::text_input_controller::TextInputController>,
+    ) {
+        // Default: ignore (backwards compatible for desktop)
+    }
+
+    /// Called when TextInput loses focus or is destroyed.
+    ///
+    /// Platform backends should:
+    /// 1. Clear stored controller reference
+    /// 2. Hide soft keyboard (on mobile)
+    /// 3. Commit or cancel any pending IME composition
+    ///
+    /// The default implementation does nothing.
+    fn text_input_unfocused(&self) {
+        // Default: ignore
+    }
 }
 
 /// Implementation details behind [`WindowAdapter`], but since this
@@ -251,8 +319,34 @@ pub trait WindowAdapterInternal: core::any::Any {
     }
 }
 
-/// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
+/// This is the parameter for [`WindowAdapter::handle_input_method_request()`] which lets editable text input fields
 /// communicate with the platform about input methods.
+///
+/// When a `TextInput` element gains focus, Slint sends `Enable` to activate the platform's input method.
+/// As the user types and the cursor moves, `Update` is sent to keep the IME synchronized.
+/// When focus is lost, `Disable` is sent to deactivate the input method.
+///
+/// # Example
+///
+/// ```ignore
+/// fn handle_input_method_request(&self, request: InputMethodRequest) {
+///     match request {
+///         InputMethodRequest::Enable(props) => {
+///             // Show virtual keyboard, configure IME with props.input_type
+///             self.show_keyboard();
+///             self.set_ime_cursor_area(props.cursor_rect_origin, props.cursor_rect_size);
+///         }
+///         InputMethodRequest::Update(props) => {
+///             // Update IME with current text state and cursor position
+///             self.set_ime_cursor_area(props.cursor_rect_origin, props.cursor_rect_size);
+///         }
+///         InputMethodRequest::Disable => {
+///             // Hide virtual keyboard
+///             self.hide_keyboard();
+///         }
+///     }
+/// }
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum InputMethodRequest {
@@ -265,6 +359,10 @@ pub enum InputMethodRequest {
 }
 
 /// This struct holds properties related to an input method.
+///
+/// All position fields are **byte offsets** into UTF-8 strings, not character counts.
+/// Platform backends must convert to/from their native offset systems (e.g., Java char
+/// offsets for Android).
 #[non_exhaustive]
 #[derive(Clone, Default, Debug)]
 pub struct InputMethodProperties {
@@ -283,6 +381,20 @@ pub struct InputMethodProperties {
     pub preedit_text: SharedString,
     /// When the `preedit_text` is not empty, this is the offset of the pre-edit within the `text`.
     pub preedit_offset: usize,
+    /// The cursor position within the preedit text (byte offset), for multi-stage IME.
+    ///
+    /// For example, in Japanese input, this tracks the cursor within the unconverted kana
+    /// before kanji conversion. `None` means the cursor is at the end of the preedit.
+    pub preedit_cursor: Option<usize>,
+    /// The composing region marks a range of existing committed text as "being edited".
+    ///
+    /// This is different from preedit text: preedit is new uncommitted text, while the
+    /// composing region highlights existing text that the IME may modify (e.g., Android
+    /// autocorrect showing suggestions for a word).
+    ///
+    /// The tuple contains (start, end) byte offsets within the `text` field.
+    /// `None` means no composing region is active.
+    pub composing_region: Option<(usize, usize)>,
     /// The top-left corner of the cursor rectangle in window coordinates.
     pub cursor_rect_origin: LogicalPosition,
     /// The size of the cursor rectangle.
@@ -293,6 +405,40 @@ pub struct InputMethodProperties {
     pub input_type: InputType,
     /// The clip rect in window coordinates
     pub clip_rect: Option<LogicalRect>,
+}
+
+/// Errors that can occur when interacting with text input.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum TextInputError {
+    /// No TextInput element currently has focus.
+    NoFocusedTextInput,
+    /// The provided byte offset is not on a UTF-8 character boundary.
+    InvalidByteOffset(usize),
+}
+
+/// Soft keyboard visibility and geometry.
+///
+/// This struct is used by platform backends to report soft keyboard state to Slint,
+/// allowing layouts to adjust when the keyboard appears on mobile devices.
+///
+/// All dimensions are in logical pixels.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SoftKeyboardState {
+    /// Whether keyboard is currently visible or animating to visible.
+    pub visible: bool,
+    /// Height of keyboard in logical pixels (0 if not visible).
+    pub height: f32,
+    /// Keyboard animation duration in milliseconds, if platform provides it.
+    ///
+    /// Platforms that support keyboard animation (iOS, Android) can provide this
+    /// so Slint can animate layout changes smoothly.
+    pub animation_duration_ms: Option<u32>,
+    /// Current animation progress (0.0 = hidden, 1.0 = fully visible).
+    ///
+    /// Useful for smooth layout transitions during keyboard animation.
+    /// If not provided, Slint assumes instant transitions.
+    pub animation_progress: Option<f32>,
 }
 
 /// This struct describes layout constraints of a resizable element, such as a window.
@@ -469,6 +615,8 @@ pub struct WindowInner {
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     pub(crate) ctx: once_cell::unsync::Lazy<crate::SlintContext>,
+    /// Current soft keyboard state
+    soft_keyboard_state: Cell<SoftKeyboardState>,
 }
 
 impl Drop for WindowInner {
@@ -527,6 +675,7 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
+            soft_keyboard_state: Default::default(),
             // The ctx is lazy so that a Window can be initialized before the backend.
             // (for example in test_empty_window)
             ctx: once_cell::unsync::Lazy::new(|| {
@@ -1522,6 +1671,34 @@ impl WindowInner {
         Some((window_item.virtual_keyboard_position(), window_item.virtual_keyboard_size()))
     }
 
+    /// Returns the current soft keyboard state.
+    pub fn soft_keyboard_state(&self) -> SoftKeyboardState {
+        self.soft_keyboard_state.get()
+    }
+
+    /// Sets the soft keyboard state and updates the window item's virtual keyboard properties.
+    pub fn set_soft_keyboard_state(&self, state: SoftKeyboardState) {
+        self.soft_keyboard_state.set(state);
+
+        // Update the virtual keyboard properties on the window item
+        let scale_factor = self.scale_factor();
+        let window_size = self.window_adapter().size().to_logical(scale_factor);
+
+        if state.visible {
+            // Keyboard is visible - set virtual keyboard rect at bottom of window
+            let height = state.height;
+            let origin = crate::lengths::LogicalPoint::new(0.0, window_size.height - height);
+            let size = crate::lengths::LogicalSize::new(window_size.width, height);
+            self.set_window_item_virtual_keyboard(origin, size);
+        } else {
+            // Keyboard is hidden - clear virtual keyboard rect
+            self.set_window_item_virtual_keyboard(
+                crate::lengths::LogicalPoint::default(),
+                crate::lengths::LogicalSize::default(),
+            );
+        }
+    }
+
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
     pub fn on_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.close_requested.set_handler(move |()| callback());
@@ -1594,6 +1771,164 @@ impl WindowInner {
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
         &self.ctx
+    }
+
+    /// Returns the current text input properties if a TextInput has focus.
+    ///
+    /// This allows platforms to query the current state of the text input field,
+    /// which is the inverse of receiving `InputMethodRequest::Update` notifications.
+    pub fn input_method_properties(&self) -> Option<InputMethodProperties> {
+        let focus_item = self.focus_item.borrow().upgrade()?;
+        let text_input = focus_item.downcast::<TextInput>()?;
+        let window_adapter = self.window_adapter();
+        Some(text_input.as_pin_ref().input_method_properties(&window_adapter, &focus_item))
+    }
+
+    /// Returns a reference to the currently focused TextInput, if any.
+    ///
+    /// This is a helper function for the IME methods.
+    fn focused_text_input(
+        &self,
+    ) -> Result<VRcMapped<crate::item_tree::ItemTreeVTable, TextInput>, TextInputError> {
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        focus_item.downcast::<TextInput>().ok_or(TextInputError::NoFocusedTextInput)
+    }
+
+    /// Validates that a byte offset is on a UTF-8 character boundary.
+    fn validate_byte_offset(text: &str, offset: usize) -> Result<(), TextInputError> {
+        if offset > text.len() || !text.is_char_boundary(offset) {
+            Err(TextInputError::InvalidByteOffset(offset))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Commits text at the cursor position, replacing any active preedit.
+    ///
+    /// This is called by platform IME when the user confirms text input.
+    ///
+    /// # Arguments
+    /// * `text` - The text to commit
+    /// * `cursor_offset` - Where to place cursor relative to inserted text end
+    ///   (0 = at end, negative = before, positive = after)
+    pub fn ime_commit_text(&self, text: &str, cursor_offset: i32) -> Result<(), TextInputError> {
+        let text_input = self.focused_text_input()?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        let window_adapter = self.window_adapter();
+
+        text_input.as_pin_ref().ime_commit_text(text, cursor_offset, &window_adapter, &focus_item);
+        Ok(())
+    }
+
+    /// Sets preedit/composition text without committing.
+    ///
+    /// Preedit text is displayed at the cursor position but is not yet part of the
+    /// committed text. It's typically shown with special styling (underline).
+    ///
+    /// # Arguments
+    /// * `text` - The preedit text to display
+    /// * `cursor` - Cursor position within the preedit (byte offset), or None for end
+    pub fn ime_set_preedit(&self, text: &str, cursor: Option<usize>) -> Result<(), TextInputError> {
+        if let Some(cursor_pos) = cursor {
+            Self::validate_byte_offset(text, cursor_pos)?;
+        }
+
+        let text_input = self.focused_text_input()?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        let window_adapter = self.window_adapter();
+
+        text_input.as_pin_ref().ime_set_preedit(text, cursor, &window_adapter, &focus_item);
+        Ok(())
+    }
+
+    /// Clears preedit text without committing.
+    ///
+    /// This is called when the user cancels composition (e.g., pressing Escape).
+    pub fn ime_clear_preedit(&self) -> Result<(), TextInputError> {
+        let text_input = self.focused_text_input()?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        let window_adapter = self.window_adapter();
+
+        text_input.as_pin_ref().ime_clear_preedit(&window_adapter, &focus_item);
+        Ok(())
+    }
+
+    /// Sets the composing region on existing committed text.
+    ///
+    /// The composing region marks a range of existing text as "being edited" by the IME.
+    /// This is used by autocorrect features to highlight suggested corrections.
+    ///
+    /// # Arguments
+    /// * `region` - The (start, end) byte offsets, or None to clear the region
+    pub fn ime_set_composing_region(
+        &self,
+        region: Option<(usize, usize)>,
+    ) -> Result<(), TextInputError> {
+        let text_input = self.focused_text_input()?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        let window_adapter = self.window_adapter();
+
+        // Validate byte offsets if region is provided
+        if let Some((start, end)) = region {
+            let text = text_input.as_pin_ref().text();
+            Self::validate_byte_offset(&text, start)?;
+            Self::validate_byte_offset(&text, end)?;
+        }
+
+        text_input.as_pin_ref().ime_set_composing_region(region, &window_adapter, &focus_item);
+        Ok(())
+    }
+
+    /// Deletes text around the cursor.
+    ///
+    /// # Arguments
+    /// * `before` - Number of bytes to delete before the cursor
+    /// * `after` - Number of bytes to delete after the cursor
+    pub fn ime_delete_surrounding(
+        &self,
+        before: usize,
+        after: usize,
+    ) -> Result<(), TextInputError> {
+        let text_input = self.focused_text_input()?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        let window_adapter = self.window_adapter();
+
+        // Validate that deletion won't split UTF-8 characters
+        let text = text_input.as_pin_ref().text();
+        let cursor = text_input.as_pin_ref().cursor_position(&text);
+        let delete_start = cursor.saturating_sub(before);
+        let delete_end = (cursor + after).min(text.len());
+
+        Self::validate_byte_offset(&text, delete_start)?;
+        Self::validate_byte_offset(&text, delete_end)?;
+
+        text_input.as_pin_ref().ime_delete_surrounding(before, after, &window_adapter, &focus_item);
+        Ok(())
+    }
+
+    /// Sets the selection range.
+    ///
+    /// # Arguments
+    /// * `start` - Start byte offset
+    /// * `end` - End byte offset. If start == end, this just moves the cursor.
+    pub fn ime_set_selection(&self, start: usize, end: usize) -> Result<(), TextInputError> {
+        let text_input = self.focused_text_input()?;
+        let focus_item =
+            self.focus_item.borrow().upgrade().ok_or(TextInputError::NoFocusedTextInput)?;
+        let window_adapter = self.window_adapter();
+
+        let text = text_input.as_pin_ref().text();
+        Self::validate_byte_offset(&text, start)?;
+        Self::validate_byte_offset(&text, end)?;
+
+        text_input.as_pin_ref().ime_set_selection(start, end, &window_adapter, &focus_item);
+        Ok(())
     }
 }
 
