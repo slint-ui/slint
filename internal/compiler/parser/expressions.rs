@@ -559,6 +559,13 @@ fn parse_keys(p: &mut impl Parser) {
 
                     match text {
                         "Alt" => alt_count += 1,
+                        "Ctrl" => {
+                            bail(
+                                &mut p,
+                                "`Ctrl` is not in the Key namespace (Use `Control` instead)",
+                            );
+                            break;
+                        }
                         "Control" => control_count += 1,
                         "Meta" => meta_count += 1,
                         "Shift" => shift_count += 1,
@@ -570,6 +577,22 @@ fn parse_keys(p: &mut impl Parser) {
                         }
                         "AltGr" => {
                             bail(&mut p, "AltGr as modifier is unnecessary (remove it)");
+                            break;
+                        }
+                        "Command" | "Cmd" => {
+                            bail(
+                                &mut p,
+                                // \x20 equals to a space (needed to avoid the trailing \ eating
+                                // the indentation)
+                                &format!(
+                                    "`{text}` is not a cross-platform modifier\n\
+                                    Use cross-platform modifier names instead:\n\
+                                    \x20   ⌘ command -> Control\n\
+                                    \x20   ⌥ option -> Alt\n\
+                                    \x20   ^ control -> Meta\n\
+                                    \x20   ⇧ shift -> Shift"
+                                ),
+                            );
                             break;
                         }
                         _ => key_count += 1,
