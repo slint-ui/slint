@@ -15,7 +15,6 @@ It shows how to render a Slint component into a Bevy `Image` (texture) and displ
 
 ## Prerequisites
 
-- Rust (latest stable recommended)
 - System dependencies for Bevy (see [Bevy's setup guide](https://bevyengine.org/learn/book/getting-started/setup/))
 
 ## Running the Example
