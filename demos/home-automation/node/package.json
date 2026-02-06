@@ -1,6 +1,6 @@
 {
     "name": "home_automation",
-    "version": "1.15.0",
+    "version": "v1.15.1",
     "main": "main.js",
     "type": "module",
     "dependencies": {

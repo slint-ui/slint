@@ -441,7 +441,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_15_0;
+pub struct VersionCheck_v1_v15_v1;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -473,7 +473,7 @@ pub mod wgpu_27 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.15", features = ["unstable-wgpu-27"] }
+    //! slint = { version = "~v1.15", features = ["unstable-wgpu-27"] }
     //! ```
     //!
     //! `main.rs`:
@@ -569,7 +569,7 @@ pub mod wgpu_28 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.15", features = ["unstable-wgpu-28"] }
+    //! slint = { version = "~v1.15", features = ["unstable-wgpu-28"] }
     //! ```
     //!
     //! `main.rs`:
@@ -656,7 +656,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.15", features = ["unstable-winit-030"] }
+    //! slint = { version = "~v1.15", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -737,7 +737,7 @@ pub mod fontique_07 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.15", features = ["unstable-fontique-07"] }
+    /// slint = { version = "~v1.15", features = ["unstable-fontique-07"] }
     /// ```
     ///
     /// `main.rs`:
