@@ -328,6 +328,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
 #[cfg(test)]
 mod animation_tests {
     use super::*;
+    use std::rc::Rc;
 
     #[derive(Default)]
     struct Component {
