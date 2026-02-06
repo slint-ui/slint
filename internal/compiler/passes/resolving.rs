@@ -345,6 +345,7 @@ impl Expression {
             .map(|x| identifier_text(&x.DeclaredIdentifier()).unwrap_or_default())
             .collect();
         let Some(code_block) = node.CodeBlock() else {
+            debug_assert!(ctx.diag.has_errors());
             return Expression::Invalid;
         };
         Self::from_codeblock_node(code_block, ctx).maybe_convert_to(
