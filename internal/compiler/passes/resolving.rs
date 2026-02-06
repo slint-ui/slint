@@ -1073,23 +1073,14 @@ impl Expression {
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
         #[derive(Clone, Debug)]
         enum ShiftBehavior {
-            // Keys that change their key code when Shift is pressed
-            Shiftable(SmolStr),
             // Keys that change their key code when Shift is pressed, but the shifted value is layout-dependent
             LocalizedShiftable { shifted_hint: &'static str },
             // Unshiftable keys have the same key code regardless of the shift state
+            //
+            // (This also currently applies to the letter keys, as we match everything with lowercase)
             Unshiftable,
         }
         macro_rules! key_shift_behavior {
-            ($keycode:literal # $ident:ident # $shifted:literal) => {
-                (
-                    stringify!($ident),
-                    (
-                        $keycode,
-                        ShiftBehavior::Shiftable(SmolStr::from_iter(core::iter::once($shifted))),
-                    ),
-                )
-            };
             ($keycode:literal # $ident:ident # $shifted:ident) => {
                 (
                     stringify!($ident),
@@ -1158,23 +1149,8 @@ impl Expression {
 
         // Handle localization issues regarding shift per-keycode
         // This only applies to keys that are in the Key namespace
-        if let Some((mut key_code, shift_behavior, node)) = key_code {
+        if let Some((key_code, shift_behavior, node)) = key_code {
             match shift_behavior {
-                ShiftBehavior::Shiftable(smol_str) => {
-                    if shortcut.modifiers.shift {
-                        key_code = smol_str;
-                    }
-                    if shortcut.ignore_shift {
-                        ctx.diag.push_error(
-                            format!(
-                                "{name} is always affected by Shift\n\
-                                (Remove IgnoreShift and use both a shifted and unshifted shortcut to handle both cases)",
-                                name = node.as_token().unwrap().text()
-                            ),
-                            &node,
-                        );
-                    }
-                }
                 ShiftBehavior::LocalizedShiftable { shifted_hint } => {
                     if shortcut.ignore_shift {
                         ctx.diag.push_warning(
@@ -1209,32 +1185,15 @@ impl Expression {
             if let Some(key) = crate::literals::unescape_string(&token.text()) {
                 shortcut.key = key;
 
-                // Emit warnings if the string case for A-Z doesn't match the shift state
-                if let Some(character) = shortcut.key.chars().next()
-                    && shortcut.key.len() == 1
-                    && character.is_ascii()
-                    && character.is_alphabetic()
-                {
-                    let is_lower = character.is_ascii_lowercase();
-                    if is_lower == shortcut.modifiers.shift {
-                        let case = if is_lower { "Lowercase" } else { "Uppercase" };
-                        let shift = if shortcut.modifiers.shift { "with" } else { "without" };
-                        let shifted = if is_lower {
-                            character.to_ascii_uppercase()
-                        } else {
-                            character.to_ascii_lowercase()
-                        };
-                        let add_remove = if is_lower { "remove" } else { "add" };
-
-                        ctx.diag.push_warning(
-                            format!(
-                                "{case} \"{character}\" {shift} `Shift` will never match\n\
-                                Use \"{shifted}\" instead or {add_remove} `Shift`",
-                            ),
-                            &token,
-                        );
-                    }
-                };
+                let lowercase = shortcut.key.to_lowercase();
+                if lowercase != shortcut.key {
+                    ctx.diag.push_error(
+                        format!(
+                            "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
+                        ),
+                        &token,
+                    );
+                }
             }
         });
 

@@ -5,12 +5,8 @@ export component SuperSimple {
     property <[keyboard-shortcut]> shortcuts: [
         @keys(),
         @keys("a"),
-        @keys("A"),
-//            > <warning{Uppercase "A" without `Shift` will never match↵Use "a" instead or add `Shift`}
         @keys(Control + "+"),
-        @keys(Alt + Control + Shift + Meta + "X"),
         @keys(Alt + Control + Shift + Meta + "x"),
-//                                           > <warning{Lowercase "x" with `Shift` will never match↵Use "X" instead or remove `Shift`}
 
         // Lookup in Keys namespace
         @keys(Alt + Control + Shift + Meta + Return),
@@ -23,5 +19,6 @@ export component SuperSimple {
         // IgnoreShift
         @keys(IgnoreShift + "+"), // equivalent to @keys(Plus)
         @keys(Alt + IgnoreShift + Control + Meta + Escape), // supports both Shift+Escape and Escape in a single shortcut
+        @keys(Control + IgnoreShift + A),
     ];
 }
