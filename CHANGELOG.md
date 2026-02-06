@@ -2,6 +2,28 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.16.0] - Unreleased
+
+### General
+
+ - SoftwareRenderer: avoid doing dirty-region computation when we need to redraw the whole buffer
+
+### Slint
+
+ - Fixed empty GridLayout not taking padding into account
+
+### Rust
+
+ - Added `slint::platform::femtovg_renderer::FemtoVGWGPURenderer`
+
+## [1.15.1] - Unreleased
+
+ - Fixed text rendering eliding when not required or not showing text due to rounding differences
+ - Rust: Fix cross-compilation when the target environment doens't provide a host fontconfig via pkg-config
+ - Interpreter: Fix two way binding with property in a parent scope (#10704)
+ - Winit: Fixed the "redo" (Ctrl+Shift+Z) shortcut with winit
+ - Various docs edits
+
 ## [1.15.0] - 2026-02-04
 
 ### General
