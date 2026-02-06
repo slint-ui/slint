@@ -75,7 +75,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "{} <=> {}{}{};",
-                DisplayPropertyRef(p1, &ctx),
+                DisplayLocalRef(p1, &ctx),
                 DisplayPropertyRef(p2, &ctx),
                 if fields.is_empty() { "" } else { "." },
                 fields.join(".")
