@@ -5,8 +5,8 @@
 //! for_each_keys
 //!
 //! The key code comes from <https://www.unicode.org/Public/MAPPINGS/VENDORS/APPLE/CORPCHAR.TXT>
-//! the names comes should match with <https://www.w3.org/TR/uievents-key/#named-key-attribute-values>,
-//! or with https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode
+//! the names for the special keys should match with <https://www.w3.org/TR/uievents-key/#named-key-attribute-values>,
+//! and for normal keys with: <https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode>
 //!
 //! The format is a semicolon separated list of keys
 //! `<char code>  # Slint name # Shifted key => Qt code # Winit code # xkb code`

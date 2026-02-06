@@ -4,7 +4,7 @@
 // Open me with the live-preview to see the logged keyboard events
 export component TestCase inherits Window {
     in-out property <[keyboard-shortcut]> shortcuts: [
-        @keys(Control + Alt + Escape),
+        @keys(Control + Shift + Escape),
         @keys(Control + Shift + A),
         @keys(Control + Plus),
     ];
@@ -74,7 +74,7 @@ send_keyboard_shortcut(&instance, {control, alt, shift, escape});
 assert_eq(instance.get_matches(), 0);
 
 // matches with correct modifiers
-send_keyboard_shortcut(&instance, {control, alt, escape});
+send_keyboard_shortcut(&instance, {control, shift, escape});
 assert_eq(instance.get_matches(), 1);
 
 // additional matches
