@@ -10,18 +10,18 @@ component TestBase implements TestInterface {
 }
 
 component TestA uses { TestInterface from base } {
-    base := TestBase {}
+    base := TestBase { }
 }
 
-
 component TestB uses { TestInterface from base } {
-    base := TestBase {}
+    base := TestBase { }
 }
 
 export component TestCase {
 
-    test-a := TestA {}
-    test-b := TestB {}
+    test-a := TestA { }
+
+    test-b := TestB { }
 
     out property <bool> test: test-a.test && test-b.test;
 }
