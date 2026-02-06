@@ -1,8 +1,6 @@
 # Copyright © 2024 Slint project authors (see AUTHORS or LICENSE-MIT)
 # SPDX-License-Identifier: MIT
 
-[workspace]
-
 [package]
 name = "bevy-hosts-slint-gpu"
 version = "1.16.0"
@@ -17,9 +15,8 @@ name = "bevy_hosts_slint_gpu"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["unstable-wgpu-28", "std", "compat-1-2"] }
-i-slint-core = { path = "../../internal/core" }
-i-slint-renderer-femtovg = { path = "../../internal/renderers/femtovg", features = ["wgpu"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["unstable-wgpu-28", "std", "compat-1-2"] }
+i-slint-renderer-femtovg = { path = "../../../internal/renderers/femtovg", features = ["wgpu"] }
 # Bevy 0.19.0-dev (pre-release) pinned to specific commit for wgpu 28 support.
 # Update to bevy 0.19 stable once released.
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "44ae8e24" }
