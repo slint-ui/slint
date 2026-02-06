@@ -61,7 +61,7 @@ use bevy::{
         texture::GpuImage,
     },
 };
-use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
+use slint::platform::femtovg_renderer::FemtoVGWGPURenderer;
 use slint::{LogicalPosition, PhysicalSize, platform::WindowEvent};
 use std::{
     cell::{Cell, RefCell},
