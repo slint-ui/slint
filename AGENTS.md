@@ -11,15 +11,15 @@ Slint is a declarative GUI toolkit for building native user interfaces across em
 ### Rust (Primary)
 ```sh
 cargo build                                    # Build the workspace
-cargo build --release                          # Release build
+cargo build --release                          # Release build (use this flag whenever testing performance)
 cargo test                                     # Run tests (requires cargo build first!)
-cargo build --workspace --exclude uefi-demo --release  # Build all examples
+cargo build --workspace --exclude uefi-demo    # Build all examples
 ```
 
 ### Running Examples
 ```sh
-cargo run --release -p gallery                 # Run the gallery example
-cargo run --release --bin slint-viewer -- path/to/file.slint  # View a .slint file
+cargo run -p gallery                 # Run the gallery example
+cargo run --bin slint-viewer -- path/to/file.slint  # View a .slint file
 ```
 
 ### C++ Build
