@@ -316,7 +316,7 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 /// A `KeyboardShortcut` is created by the `@keys(...)` macro and defines
 /// defines which key events match the given shortcuts.
 ///
-/// See [`Self::match()`] for details
+/// See [`Self::matches()`] for details
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
 pub struct KeyboardShortcut {
@@ -386,6 +386,11 @@ pub(crate) mod ffi {
 impl KeyboardShortcut {
     /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
     pub fn matches(&self, key_event: &KeyEvent) -> bool {
+        // An empty KeyboardShortcut is never triggered, even if the modifiers match.
+        if self.key.is_empty() {
+            return false;
+        }
+
         // TODO: Should this check the event_type and only match on KeyReleased?
         let mut expected_modifiers = self.modifiers.clone();
         if self.ignore_shift {
