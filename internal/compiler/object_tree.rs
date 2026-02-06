@@ -2585,9 +2585,9 @@ fn apply_uses_statement_functions(
     diag: &mut BuildDiagnostics,
     uses_statement: &UsesStatement,
     interface: &ElementRc,
-    _child: &ElementRc,
+    child: &ElementRc,
 ) {
-    for (function_name, _function_decl) in &interface.borrow().function_declarations {
+    for (function_name, function_decl) in &interface.borrow().function_declarations {
         let lookup_result = e.borrow().base_type.lookup_property(function_name);
         if let Err(message) = validate_property_declaration_for_interface(
             InterfaceUseMode::Uses,
@@ -2619,6 +2619,41 @@ fn apply_uses_statement_functions(
             );
             continue;
         }
+
+        let Type::Function(func) = function_decl.property_type.clone() else {
+            debug_assert!(false, "function_declarations should only contain functions");
+            continue;
+        };
+
+        // Insert the function declaration as a property declaration, so it can be looked up like a normal function.
+        // Replace the node with the interface name for better diagnostics later, since the function declaration won't
+        // have a node in this element.
+        let mut function_decl = function_decl.clone();
+        function_decl.node = Some(uses_statement.interface_name_node().into());
+
+        e.borrow_mut().property_declarations.insert(function_name.clone(), function_decl);
+
+        // Create forwarding call expression: child.function_name(arg0, arg1, ...)
+        let args_expr: Vec<Expression> = func
+            .args
+            .iter()
+            .enumerate()
+            .map(|(i, ty)| Expression::FunctionParameterReference { index: i, ty: ty.clone() })
+            .collect();
+
+        // Use Callable::Function with a NamedReference to the child's function
+        let call_expr = Expression::FunctionCall {
+            function: Callable::Function(NamedReference::new(&child, function_name.clone())),
+            arguments: args_expr,
+            source_location: None,
+        };
+
+        // The function body is just the forwarding call. CodeBlock handles the return implicitly for the last expression
+        let body = Expression::CodeBlock(vec![call_expr]);
+
+        e.borrow_mut()
+            .bindings
+            .insert(function_name.clone(), RefCell::new(BindingExpression::from(body)));
     }
 }
 
