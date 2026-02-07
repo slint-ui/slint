@@ -1,0 +1,79 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that items below a FlexBoxLayout move down when the width decreases
+// i.e. even a VerticalLayout ends up having a "height for width" behavior
+
+export component TestCase inherits Window {
+    background: white;
+    width: 150px;
+    height: 500px;
+
+    VerticalLayout {
+        spacing: 0px;
+
+        FlexBoxLayout {
+            spacing: 10px;
+            vertical-stretch: 0;
+
+            r1 := Rectangle {
+                width: 100px;
+                height: 50px;
+                background: red;
+            }
+            r2 := Rectangle {
+                width: 100px;
+                height: 50px;
+                background: green;
+            }
+            r3 := Rectangle {
+                width: 100px;
+                height: 50px;
+                background: blue;
+            }
+        }
+
+        text := Text {
+            text: "This is below the flow layout";
+            vertical-stretch: 0;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+        }
+    }
+
+    // Check positions:
+    // All flexbox's item are laid out vertically (150px width for 100px items)
+    // and "text" should be below them (that's the main point of this test)
+    out property <bool> test_r1_x: r1.x == 0px;
+    out property <bool> test_r1_y: r1.y == 0px;
+    out property <bool> test_r2_x: r2.x == 0px;
+    out property <bool> test_r2_y: r2.y == 60px;
+    out property <bool> test_r3_x: r3.x == 0px;
+    out property <bool> test_r3_y: r3.y == 120px;
+    out property <bool> test_text_x: text.x == 0px;
+    out property <bool> test_text_y: text.y == 170px;
+    out property <int> test_text_y_debug: text.y / 1px;
+
+    out property <bool> test:
+        test_r1_x && test_r1_y && test_r2_x && test_r2_y && test_r3_x && test_r3_y && test_text_x && test_text_y;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/
