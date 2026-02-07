@@ -1,0 +1,108 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface Calculator {
+    public pure function add(a: int, b: int) -> int;
+    public function format(value: int) -> string;
+    public function reset();  // void functions don't specify a return type
+
+    // Mix with existing features
+    in-out property <int> value;
+    callback notify();
+}
+
+export interface FunctionWithBody {
+    pure public function sum(a: int, b: int) -> int {
+//                                                  >error{Function declarations in interfaces must not have a body}
+        return a + b;
+    }
+//  <error{Function declarations in interfaces must not have a body}
+}
+
+export interface InvalidFunctionVisibility {
+    function default-private-function();
+//  >                                  <error{Function declarations in an interface must be public}
+    pure function pure-default-private-function();
+//  >                                            <error{Function declarations in an interface must be public}
+
+    protected function protected-function();
+//  >                                      <error{Function declarations in an interface must be public}
+    pure protected function pure-protected-function();
+//  >                                                <error{Function declarations in an interface must be public}
+}
+
+export component CalculatorImpl implements Calculator {
+    pure public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    public function format(value: int) -> string {
+        return "Value: " + value;
+    }
+    public function reset() {
+        self.value = 0;
+    }
+}
+
+// Using interfaces with functions is valid
+export component MyCalculator uses { Calculator from impl } inherits Rectangle {
+    impl := CalculatorImpl { }
+}
+
+export component OverrideImpl implements Calculator {
+    public function add(a: int, b: int) -> int {
+//  >error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+        return a + b;
+    }
+//  <error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+    in property <string> format;
+//  >                          <error{Cannot override 'format' from interface 'Calculator'}
+    callback reset();
+//  >               <error{Cannot override 'reset' from interface 'Calculator'}
+}
+
+export component OverrideBase {
+    public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    in property <string> format;
+    callback reset();
+
+    @children
+}
+
+export component OverrideInherited implements Calculator inherits OverrideBase { }
+//                                            >         <error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+//                                            >         <^error{Cannot override 'format' from interface 'Calculator'}
+//                                            >         <^^error{Cannot override 'reset' from interface 'Calculator'}
+
+export component IncorrectImpl implements Calculator {
+//                                        >         <error{Missing implementation of function 'add'}
+    // Missing add() function
+    public function format(fmt: string, value: int) {
+//  >error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+//  >^error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+        return "";
+    }
+//  <error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+//  <^error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+    protected function reset() {
+//  >error{Incorrect visibility for implementation of 'reset' from interface 'Calculator'. Expected 'public'}
+    }
+//  <error{Incorrect visibility for implementation of 'reset' from interface 'Calculator'. Expected 'public'}
+}
+
+export component IncorrectBase {
+    // Missing add() function
+    public function format(fmt: string, value: int) {
+        return "";
+    }
+    protected function reset() {
+    }
+    @children
+}
+
+export component IncorrectImplInherited implements Calculator inherits IncorrectBase { }
+//                                                 >         <error{Missing implementation of function 'add'}
+//                                                 >         <^error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+//                                                 >         <^^error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+//                                                 >         <^^^error{Incorrect visibility for implementation of 'reset' from interface 'Calculator'. Expected 'public'}

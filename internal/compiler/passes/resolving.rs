@@ -344,7 +344,11 @@ impl Expression {
             .ArgumentDeclaration()
             .map(|x| identifier_text(&x.DeclaredIdentifier()).unwrap_or_default())
             .collect();
-        Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
+        let Some(code_block) = node.CodeBlock() else {
+            debug_assert!(ctx.diag.has_errors());
+            return Expression::Invalid;
+        };
+        Self::from_codeblock_node(code_block, ctx).maybe_convert_to(
             ctx.return_type().clone(),
             &node,
             ctx.diag,

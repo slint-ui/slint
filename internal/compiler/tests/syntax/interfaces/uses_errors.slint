@@ -39,17 +39,70 @@ export component MultipleErrors uses { MissingInterface from base, Rectangle fro
 export interface ValidInterface {
     in-out property <int> value;
     callback speak();
+    public pure function reset();
 }
 
 export component MissingChild uses { ValidInterface from base} { }
 //                                                       >  <error{'base' does not exist}
 
-export component ChildDoesNotImplementInterface uses { ValidInterface from base } {
-//                                                                         >  <error{base does not implement ValidInterface}
+export component ChildDoesNotImplementInterface1 uses { ValidInterface from base } {
+//                                                                          >  <error{'base' does not implement 'speak' from 'ValidInterface'}
+//                                                                          >  <^error{'base' does not implement 'value' from 'ValidInterface'}
+//                                                                          >  <^^error{'base' does not implement 'reset' from 'ValidInterface'}
     base := ComponentA { }
 }
 
-component ValidBase implements ValidInterface { }
+export interface FunctionInterface {
+    public pure function foo(i: int, s: string) -> bool;
+}
+
+export component IncorrectPurity {
+    public function foo(i: int, s: string) -> bool {
+        return false;
+    }
+}
+
+export component ChildDoesNotImplementInterface2 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectPurity { }
+}
+
+export component IncorrectArgTypes {
+    pure public function foo(i: int, s: int) -> bool {
+        return false;
+    }
+}
+
+export component ChildDoesNotImplementInterface3 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectArgTypes { }
+}
+
+export component IncorrectArgNames {
+    pure public function foo(i: int, msg: string) -> bool {
+        return false;
+    }
+}
+
+export component ChildDoesNotImplementInterface4 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectArgNames { }
+}
+
+export component IncorrectReturnType {
+    pure public function foo(i: int, s: string) {
+    }
+}
+
+export component ChildDoesNotImplementInterface5 uses { FunctionInterface from base } {
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+    base := IncorrectReturnType { }
+}
+
+component ValidBase implements ValidInterface {
+    public pure function reset() {
+    }
+}
 
 export component ConflictingNames uses { ValidInterface from base } {
     base := ValidBase { }
@@ -60,34 +113,53 @@ export component ConflictingNames uses { ValidInterface from base } {
     callback speak();
 //           >   <error{Cannot override 'speak' from 'ValidInterface'}
 
+    public pure function reset() {
+//                       >   <error{Cannot override 'reset' from 'ValidInterface'}
+    }
 }
 
 component BaseWithConflicts {
     in-out property <int> value: 10;
     callback speak();
+    public pure function reset() {
+    }
     @children
 }
 
 export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithConflicts {
 //                                             >             <error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
 //                                             >             <^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
+//                                             >             <^^error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
     base := ValidBase { }
 }
 
 interface InterfaceA {
     in property <bool> test;
+    callback test-callback();
+    pure public function test-function();
 }
 
-component AImpl implements InterfaceA { }
+component AImpl implements InterfaceA {
+    pure public function test-function() {
+    }
+}
 
 interface InterfaceB {
     out property <bool> test: true;
+    callback test-callback(string);
+    pure public function test-function(i: int) -> int;
 }
 
-component BImpl implements InterfaceB { }
+component BImpl implements InterfaceB {
+    pure public function test-function(i: int) -> int {
+        return i;
+    }
+}
 
 export component ConflictingUses uses { InterfaceA from a, InterfaceB from b } {
 //                                                         >         <error{'test' occurs in 'InterfaceB' and 'InterfaceA'}
+//                                                         >         <^error{'test-callback' occurs in 'InterfaceB' and 'InterfaceA'}
+//                                                         >         <^^error{'test-function' occurs in 'InterfaceB' and 'InterfaceA'}
     a := AImpl { }
 
     b := BImpl { }
