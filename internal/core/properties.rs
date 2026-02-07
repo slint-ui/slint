@@ -1089,6 +1089,7 @@ fn properties_simple_test() {
 
 mod change_tracker;
 mod two_way_binding;
+mod two_way_binding_model;
 pub use change_tracker::*;
 mod properties_animations;
 pub use crate::items::StateInfo;

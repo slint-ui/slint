@@ -85,10 +85,18 @@ pub fn count_property_use(root: &CompilationUnit) {
             i.borrow().visit_property_references(ctx, &mut visit_property)
         }
 
-        // 7. aliases (if they were not optimize, they are probably used)
-        for (a, b, _) in &sc.two_way_bindings {
-            visit_property(&a.clone().into(), ctx);
-            visit_property(b, ctx);
+        // 7. aliases (if they were not optimized, they are probably used)
+        for twb in &sc.two_way_bindings {
+            visit_property(&twb.prop1.clone().into(), ctx);
+            visit_property(&twb.prop2, ctx);
+            if let &Some(p) = &twb.is_model {
+                let mut idx_prop = twb.prop2.clone();
+                let MemberReference::Relative { local_reference, .. } = &mut idx_prop else {
+                    unreachable!()
+                };
+                local_reference.reference = p.into();
+                visit_property(&idx_prop, ctx);
+            }
         }
 
         // 8.functions (TODO: only visit used function)

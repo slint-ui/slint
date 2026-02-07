@@ -204,6 +204,20 @@ impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TwoWayBinding {
+    /// The left-hand-side of the binding
+    pub prop1: LocalMemberReference,
+    /// The right-hand-side of the binding.
+    pub prop2: MemberReference,
+    /// When Some, the binding is a binding to a model data.
+    /// The `prop2` is the model data property: it is a MemberReference::Relative giving the parent_level.
+    /// The the PropertyIdx is the index of the `index` property in the same sub component as the `data` property.
+    pub is_model: Option<PropertyIdx>,
+    /// The field access to the right-hand-side (assumes that the prop2 is a struct)
+    pub field_access: Vec<SmolStr>,
+}
+
 #[derive(Debug, Default)]
 pub struct Property {
     pub name: SmolStr,
@@ -370,7 +384,7 @@ pub struct SubComponent {
     /// The animation for properties which are animated
     pub animations: HashMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
-    pub two_way_bindings: Vec<(LocalMemberReference, MemberReference, Vec<SmolStr>)>,
+    pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,

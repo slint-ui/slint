@@ -368,9 +368,9 @@ mod visitor {
             })
             .collect();
 
-        for (a, b, _) in two_way_bindings {
-            visit_local_member_reference(a, &scope, state, visitor);
-            visit_member_reference(b, &scope, state, visitor);
+        for twb in two_way_bindings {
+            visit_local_member_reference(&mut twb.prop1, &scope, state, visitor);
+            visit_member_reference(&mut twb.prop2, &scope, state, visitor);
         }
         for c in const_properties {
             visit_local_member_reference(c, &scope, state, visitor);

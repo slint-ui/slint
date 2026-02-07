@@ -439,20 +439,26 @@ fn lower_sub_component(
         for tw in &binding.two_way_bindings {
             sub_component.two_way_bindings.push(match tw {
                 crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
-                    (prop.local(), ctx.map_property_reference(property), field_access.clone())
+                    TwoWayBinding {
+                        prop1: prop.local(),
+                        prop2: ctx.map_property_reference(property),
+                        field_access: field_access.clone(),
+                        is_model: None,
+                    }
                 }
                 crate::expression_tree::TwoWayBinding::ModelData {
                     repeated_element,
                     field_access,
-                } => (
-                    prop.local(),
-                    super::lower_expression::repeater_special_property(
+                } => TwoWayBinding {
+                    prop1: prop.local(),
+                    prop2: super::lower_expression::repeater_special_property(
                         repeated_element,
                         component,
                         PropertyIdx::REPEATER_DATA,
                     ),
-                    field_access.clone(),
-                ),
+                    field_access: field_access.clone(),
+                    is_model: Some(PropertyIdx::REPEATER_INDEX),
+                },
             });
         }
         if !matches!(binding.expression, tree_Expression::Invalid) {

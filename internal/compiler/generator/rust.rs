@@ -1123,24 +1123,96 @@ fn generate_sub_component(
     let popup_id_names =
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
-    for (prop1, prop2, fields) in &component.two_way_bindings {
-        let p1 = access_local_member(prop1, &ctx);
-        let p2 = access_member(prop2, &ctx);
-        let r = p2.then(|p2| {
-            if fields.is_empty() {
-                quote!(sp::Property::link_two_way(#p1, #p2))
-            } else {
-                let mut access = quote!();
-                let mut ty = ctx.property_ty(prop2);
-                for f in fields {
-                    let Type::Struct (s) = &ty else { panic!("Field of two way binding on a non-struct type") };
-                    let a = struct_field_access(s, f);
-                    access.extend(quote!(.#a));
-                    ty = s.fields.get(f).unwrap();
-                }
-                quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| s #access .clone(), |s, v| s #access = v.clone()))
+    for twb in &component.two_way_bindings {
+        let access = (!twb.field_access.is_empty()).then(|| {
+            let mut access = quote!();
+            let mut ty = ctx.property_ty(&twb.prop2);
+            for f in &twb.field_access {
+                let Type::Struct(s) = &ty else {
+                    panic!("Field of two way binding on a non-struct type")
+                };
+                let a = struct_field_access(s, f);
+                access.extend(quote!(.#a));
+                ty = s.fields.get(f).unwrap();
             }
+            access
         });
+        let p1 = access_local_member(&twb.prop1, &ctx);
+        let r = if let Some(index_prop) = twb.is_model {
+            let llr::MemberReference::Relative { parent_level, local_reference } = &twb.prop2
+            else {
+                unreachable!()
+            };
+            assert!(local_reference.sub_component_path.is_empty());
+            let llr::LocalMemberIndex::Property(data_prop) = local_reference.reference else {
+                unreachable!()
+            };
+            let item_tree_weak = if *parent_level == 0 {
+                quote!(sp::VRcMapped::downgrade(&self_rc))
+            } else {
+                let mut component_access_tokens = quote!(_self.parent);
+                for _ in 1..*parent_level {
+                    component_access_tokens =
+                        quote!(#component_access_tokens.upgrade().unwrap().parent);
+                }
+                component_access_tokens
+            };
+
+            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+                unreachable!()
+            };
+            for _ in 0..*parent_level {
+                let x = par.unwrap();
+                par = x.parent;
+                sc = x.sub_component;
+            }
+
+            let sc = &ctx.compilation_unit.sub_components[sc];
+            let rep_component_id = self::inner_component_id(sc);
+            let data_f = access_component_field_offset(
+                &rep_component_id,
+                &ident(&sc.properties[data_prop].name),
+            );
+            let index_f = access_component_field_offset(
+                &rep_component_id,
+                &ident(&sc.properties[index_prop].name),
+            );
+            let par = par.expect("repeated item_tree must have a parent");
+            let repeater_index = par.repeater_index.unwrap();
+            let parent_sc = &ctx.compilation_unit.sub_components[par.sub_component];
+            let repeater = access_component_field_offset(
+                &self::inner_component_id(parent_sc),
+                &format_ident!("repeater{}", usize::from(repeater_index)),
+            );
+            let access_model = match &access {
+                Some(access) => quote! {
+                    let mut data = #data_f.apply_pin(x.as_pin_ref()).get();
+                    data #access = value.clone();
+                },
+                None => quote!(let data = value.clone();),
+            };
+            quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak,
+                |item_tree_weak| item_tree_weak.upgrade().map(|x| #data_f.apply_pin(x.as_pin_ref()).get() #access),
+                |item_tree_weak, value| {
+                    if let Some(x) = item_tree_weak.upgrade() {
+                        if let Some(parent) = x.parent.upgrade() {
+                            let index = #index_f.apply_pin(x.as_pin_ref()).get();
+                            #access_model
+                            #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
+                        }
+                    }
+                }
+            )}
+        } else {
+            let p2 = access_member(&twb.prop2, &ctx);
+            p2.then(|p2| {
+                if let Some(access) = access {
+                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| s #access .clone(), |s, v| s #access = v.clone()))
+                } else {
+                    quote!(sp::Property::link_two_way(#p1, #p2))
+                }
+            })
+        };
         init.push(quote!(#r;))
     }
 

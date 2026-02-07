@@ -2007,7 +2007,7 @@ fn resolve_two_way_bindings(
                             let nr = twb.property().cloned();
                             binding.two_way_bindings.push(twb);
 
-                                let Some(nr) = nr else { continue };
+                            let Some(nr) = nr else { continue };
                             nr.element()
                                 .borrow()
                                 .property_analysis

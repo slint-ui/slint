@@ -2126,20 +2126,23 @@ fn generate_sub_component(
         ));
     }
 
-    for (prop1, prop2, fields) in &component.two_way_bindings {
-        if fields.is_empty() {
-            let ty = ctx.relative_property_ty(&prop1, 0).cpp_type().unwrap();
-            let p1 = access_local_member(prop1, &ctx);
+    for twb in &component.two_way_bindings {
+        if twb.is_model.is_some() {
+            todo!("Two way bindings on model are not supported yet");
+        }
+        if twb.field_access.is_empty() {
+            let ty = ctx.relative_property_ty(&twb.prop1, 0).cpp_type().unwrap();
+            let p1 = access_local_member(&twb.prop1, &ctx);
             init.push(
-                access_member(prop2, &ctx).then(|p2| {
+                access_member(&twb.prop2, &ctx).then(|p2| {
                     format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
                 }) + ";",
             );
         } else {
             let mut access = "x".to_string();
-            let mut ty = ctx.property_ty(&prop2);
+            let mut ty = ctx.property_ty(&twb.prop2);
             let cpp_ty = ty.cpp_type().unwrap();
-            for f in fields {
+            for f in &twb.field_access {
                 let Type::Struct(s) = &ty else {
                     panic!("Field of two way binding on a non-struct type")
                 };
@@ -2147,9 +2150,9 @@ fn generate_sub_component(
                 ty = s.fields.get(f).unwrap();
             }
 
-            let p1 = access_local_member(prop1, &ctx);
+            let p1 = access_local_member(&twb.prop1, &ctx);
             init.push(
-                access_member(prop2, &ctx).then(|p2|
+                access_member(&twb.prop2, &ctx).then(|p2|
                     format!("slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
                 ) + ";",
             );
