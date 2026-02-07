@@ -284,15 +284,9 @@ jobs:
                   extra-packages: libwayland-dev libasound2-dev
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
-            - name: Build Bevy Example
+            - name: Build Bevy Examples
               run: cargo build
               working-directory: examples/bevy
-            - name: Build bevy-hosts-slint Example
-              run: cargo build
-              working-directory: examples/bevy-hosts-slint
-            - name: Build bevy-hosts-slint-gpu Example
-              run: cargo build
-              working-directory: examples/bevy-hosts-slint-gpu
 
     android_wgpu:
         runs-on: ubuntu-latest
