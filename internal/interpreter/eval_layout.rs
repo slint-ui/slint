@@ -228,19 +228,32 @@ pub(crate) fn compute_flexbox_layout_info(
         flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
     let (padding, spacing) = padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
 
-    // Use the appropriate cells based on orientation
-    let cells = match orientation {
-        Orientation::Horizontal => cells_h,
-        Orientation::Vertical => cells_v,
-    };
+    match orientation {
+        Orientation::Horizontal => {
+            // For horizontal orientation, return constraint info for horizontal layout
+            core_layout::flexbox_layout_info(
+                i_slint_core::slice::Slice::from(cells_h.as_slice()),
+                spacing,
+                &padding,
+                to_runtime(orientation),
+            )
+            .into()
+        }
+        Orientation::Vertical => {
+            // For vertical orientation, we need width-aware computation to handle wrapping correctly
+            let width_ref = &flexbox_layout.geometry.rect.width_reference;
+            let width = width_ref.as_ref().map(&expr_eval).unwrap_or(0.);
 
-    core_layout::flexbox_layout_info(
-        i_slint_core::slice::Slice::from(cells.as_slice()),
-        spacing,
-        &padding,
-        to_runtime(orientation),
-    )
-    .into()
+            core_layout::flexbox_layout_info_with_width(
+                i_slint_core::slice::Slice::from(cells_h.as_slice()),
+                i_slint_core::slice::Slice::from(cells_v.as_slice()),
+                spacing,
+                &padding,
+                width,
+            )
+            .into()
+        }
+    }
 }
 
 fn flexbox_layout_data(

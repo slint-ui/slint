@@ -211,6 +211,15 @@ flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> ce
     return cbindgen_private::slint_flexbox_layout_info(cells, spacing, &padding, orientation);
 }
 
+inline cbindgen_private::LayoutInfo
+flexbox_layout_info_with_width(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
+                             cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+                             float spacing, const cbindgen_private::Padding &padding, float width)
+{
+    return cbindgen_private::slint_flexbox_layout_info_with_width(cells_h, cells_v, spacing,
+                                                                   &padding, width);
+}
+
 /// Access the layout cache of an item within a repeater
 template<typename T>
 inline T layout_cache_access(const SharedVector<T> &cache, int offset, int repeater_index,

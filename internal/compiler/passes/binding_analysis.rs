@@ -547,9 +547,18 @@ fn recurse_expression(
                 if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
                     vis(&nr.clone().into(), P);
                 }
+            } else if matches!(expr, Expression::ComputeFlexBoxLayoutInfo(_, Orientation::Vertical))
+            {
+                // Vertical layout info needs the width to compute correctly due to wrapping
+                if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
             }
-            // Visit item dependencies for horizontal orientation (primary direction)
+            // Visit item dependencies (both orientations for Vertical, just Horizontal otherwise)
             visit_layout_items_dependencies(layout.elems.iter(), Orientation::Horizontal, vis);
+            if matches!(expr, Expression::ComputeFlexBoxLayoutInfo(_, Orientation::Vertical)) {
+                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Vertical, vis);
+            }
             let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
