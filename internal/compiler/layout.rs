@@ -544,12 +544,12 @@ impl BoxLayout {
     }
 }
 
-/// Internal representation of a FlexBoxLayout (row direction with wrapping)
+/// Internal representation of a FlexBoxLayout (row or column direction with wrapping)
 #[derive(Debug, Clone)]
 pub struct FlexBoxLayout {
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
-    pub direction: FlexDirection,
+    pub direction: Option<NamedReference>,
 }
 
 impl FlexBoxLayout {
@@ -558,6 +558,9 @@ impl FlexBoxLayout {
             cell.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
+        if let Some(e) = self.direction.as_mut() {
+            visitor(&mut *e)
+        }
     }
 }
 

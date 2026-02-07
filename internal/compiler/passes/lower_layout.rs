@@ -709,10 +709,12 @@ fn lower_box_layout(
 }
 
 fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
+    let direction = crate::layout::binding_reference(layout_element, "flex-direction");
+
     let mut layout = crate::layout::FlexBoxLayout {
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
-        direction: crate::layout::FlexDirection::Row, // Default to row direction
+        direction,
     };
 
     // FlexBoxLayout needs 4 values per item: x, y, width, height

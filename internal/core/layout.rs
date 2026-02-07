@@ -5,7 +5,7 @@
 
 // cspell:ignore coord
 
-use crate::items::{DialogButtonRole, LayoutAlignment};
+use crate::items::{DialogButtonRole, FlexDirection, LayoutAlignment};
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
 use alloc::string::String;
@@ -1012,13 +1012,14 @@ pub struct BoxLayoutData<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-/// The FlexBoxLayoutData is used for a horizontal flow layout with wrapping.
+/// The FlexBoxLayoutData is used for a flex layout with wrapping.
 pub struct FlexBoxLayoutData<'a> {
     pub width: Coord,
     pub height: Coord,
     pub spacing: Coord,
     pub padding: Padding,
     pub alignment: LayoutAlignment,
+    pub direction: FlexDirection,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, LayoutItemInfo>,
     /// Vertical constraints (height) for each cell
@@ -1161,7 +1162,193 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
     fold
 }
 
-/// Solve a FlexBoxLayout (horizontal row direction with wrapping)
+/// Helper module for taffy-based flexbox layout
+mod flexbox_taffy {
+    use super::{Coord, LayoutItemInfo, Padding, Slice};
+    use alloc::vec::Vec;
+    pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
+    use taffy::prelude::{
+        AlignContent, AlignItems, AvailableSpace, Dimension, Display, FlexWrap, LengthPercentage,
+        NodeId, Rect, Size, Style, TaffyTree,
+    };
+
+    /// Build a taffy tree from Slint layout constraints
+    pub struct FlexboxTaffyBuilder {
+        pub taffy: TaffyTree<()>,
+        pub children: Vec<NodeId>,
+        pub container: NodeId,
+    }
+
+    impl FlexboxTaffyBuilder {
+        /// Create a new flexbox layout tree from item constraints
+        pub fn new(
+            cells_h: &Slice<LayoutItemInfo>,
+            cells_v: &Slice<LayoutItemInfo>,
+            spacing: Coord,
+            padding: &Padding,
+            alignment: LayoutAlignment,
+            flex_direction: TaffyFlexDirection,
+            container_width: Option<Coord>,
+            container_height: Option<Coord>,
+        ) -> Self {
+            let mut taffy = TaffyTree::<()>::new();
+
+            // Create child nodes from Slint constraints
+            let children: Vec<NodeId> = cells_h
+                .iter()
+                .enumerate()
+                .map(|(idx, cell_h)| {
+                    let cell_v = cells_v.get(idx);
+                    let h_constraint = &cell_h.constraint;
+                    let v_constraint = cell_v.map(|c| &c.constraint);
+
+                    // Use preferred_bounded() which clamps preferred to min/max bounds
+                    let preferred_width = h_constraint.preferred_bounded();
+                    let preferred_height =
+                        v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0.0);
+
+                    // flex_basis depends on direction
+                    let flex_basis = match flex_direction {
+                        TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                            Dimension::Length(preferred_width)
+                        }
+                        TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
+                            Dimension::Length(preferred_height)
+                        }
+                    };
+
+                    taffy
+                        .new_leaf(Style {
+                            flex_basis,
+                            size: Size {
+                                width: match flex_direction {
+                                    TaffyFlexDirection::Column
+                                    | TaffyFlexDirection::ColumnReverse => {
+                                        if preferred_width > 0.0 {
+                                            Dimension::Length(preferred_width)
+                                        } else {
+                                            Dimension::Auto
+                                        }
+                                    }
+                                    _ => Dimension::Auto,
+                                },
+                                height: match flex_direction {
+                                    TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                                        if preferred_height > 0.0 {
+                                            Dimension::Length(preferred_height)
+                                        } else {
+                                            Dimension::Auto
+                                        }
+                                    }
+                                    _ => Dimension::Auto,
+                                },
+                            },
+                            min_size: Size {
+                                width: Dimension::Length(h_constraint.min),
+                                height: Dimension::Length(
+                                    v_constraint.map(|vc| vc.min).unwrap_or(0.0),
+                                ),
+                            },
+                            max_size: Size {
+                                width: if h_constraint.max < Coord::MAX {
+                                    Dimension::Length(h_constraint.max)
+                                } else {
+                                    Dimension::Auto
+                                },
+                                height: if let Some(vc) = v_constraint {
+                                    if vc.max < Coord::MAX {
+                                        Dimension::Length(vc.max)
+                                    } else {
+                                        Dimension::Auto
+                                    }
+                                } else {
+                                    Dimension::Auto
+                                },
+                            },
+                            flex_grow: 0.0,
+                            flex_shrink: 0.0,
+                            ..Default::default()
+                        })
+                        .unwrap() // cannot fail
+                })
+                .collect();
+
+            // Create container node
+            let container = taffy
+                .new_with_children(
+                    Style {
+                        display: Display::Flex,
+                        flex_direction,
+                        flex_wrap: FlexWrap::Wrap,
+                        align_items: Some(AlignItems::FlexStart),
+                        align_content: Some(AlignContent::FlexStart),
+                        gap: Size {
+                            width: LengthPercentage::Length(spacing),
+                            height: LengthPercentage::Length(spacing),
+                        },
+                        // For FlexBoxLayout, padding is uniform on all 4 sides
+                        // The Padding struct has begin/end which should be equal for uniform padding
+                        padding: Rect {
+                            left: LengthPercentage::Length(padding.begin),
+                            right: LengthPercentage::Length(padding.end),
+                            top: LengthPercentage::Length(padding.begin),
+                            bottom: LengthPercentage::Length(padding.end),
+                        },
+                        size: Size {
+                            width: container_width
+                                .map(Dimension::Length)
+                                .unwrap_or(Dimension::Auto),
+                            height: container_height
+                                .map(Dimension::Length)
+                                .unwrap_or(Dimension::Auto),
+                        },
+                        ..Default::default()
+                    },
+                    &children,
+                )
+                .unwrap(); // cannot fail
+
+            Self { taffy, children, container }
+        }
+
+        /// Compute the layout with the given available space
+        pub fn compute_layout(&mut self, available_width: Coord, available_height: Coord) {
+            self.taffy
+                .compute_layout(
+                    self.container,
+                    taffy::prelude::Size {
+                        width: if available_width < Coord::MAX {
+                            AvailableSpace::Definite(available_width)
+                        } else {
+                            AvailableSpace::MaxContent
+                        },
+                        height: if available_height < Coord::MAX {
+                            AvailableSpace::Definite(available_height)
+                        } else {
+                            AvailableSpace::MaxContent
+                        },
+                    },
+                )
+                .unwrap_or_else(|e| {
+                    crate::debug_log!("FlexBox layout computation error: {}", e);
+                });
+        }
+
+        /// Get the computed container size
+        pub fn container_size(&self) -> (Coord, Coord) {
+            let layout = self.taffy.layout(self.container).unwrap();
+            (layout.size.width, layout.size.height)
+        }
+
+        /// Get the geometry for a specific child
+        pub fn child_geometry(&self, idx: usize) -> (Coord, Coord, Coord, Coord) {
+            let layout = self.taffy.layout(self.children[idx]).unwrap();
+            (layout.location.x, layout.location.y, layout.size.width, layout.size.height)
+        }
+    }
+}
+
+/// Solve a FlexBoxLayout using Taffy
 /// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
 pub fn solve_flexbox_layout(
     data: &FlexBoxLayoutData,
@@ -1175,89 +1362,43 @@ pub fn solve_flexbox_layout(
         return result;
     }
 
-    let available_width = data.width - data.padding.begin - data.padding.end;
+    let taffy_direction = match data.direction {
+        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+    };
 
-    // First pass: determine which items go on which row
-    struct RowInfo {
-        start_idx: usize,
-        end_idx: usize, // exclusive
-        row_height: Coord,
-    }
+    let (container_width, container_height) = match data.direction {
+        FlexDirection::Row => (Some(data.width), None),
+        FlexDirection::Column => (None, Some(data.height)),
+    };
 
-    let mut rows: Vec<RowInfo> = Vec::new();
-    let mut current_row_start = 0;
-    let mut current_row_width: Coord = 0.0;
-    let mut current_row_height: Coord = 0.0;
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
+        &data.cells_h,
+        &data.cells_v,
+        data.spacing,
+        &data.padding,
+        data.alignment,
+        taffy_direction,
+        container_width,
+        container_height,
+    );
 
-    for (idx, cell_h) in data.cells_h.iter().enumerate() {
-        let item_width = cell_h.constraint.preferred_bounded();
-        // Get height from vertical constraints
-        let item_height = data.cells_v.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
+    let (available_width, available_height) = match data.direction {
+        FlexDirection::Row => (data.width, Coord::MAX),
+        FlexDirection::Column => (Coord::MAX, data.height),
+    };
 
-        // Check if this item fits on the current row
-        let width_with_item = if current_row_width > 0.0 {
-            current_row_width + data.spacing + item_width
-        } else {
-            item_width
-        };
+    builder.compute_layout(available_width, available_height);
 
-        if width_with_item > available_width && current_row_width > 0.0 {
-            // Start a new row
-            rows.push(RowInfo {
-                start_idx: current_row_start,
-                end_idx: idx,
-                row_height: current_row_height,
-            });
-            current_row_start = idx;
-            current_row_width = item_width;
-            current_row_height = item_height;
-        } else {
-            current_row_width = width_with_item;
-            current_row_height = current_row_height.max(item_height);
-        }
-    }
-
-    // Don't forget the last row
-    if current_row_start < data.cells_h.len() {
-        rows.push(RowInfo {
-            start_idx: current_row_start,
-            end_idx: data.cells_h.len(),
-            row_height: current_row_height,
-        });
-    }
-
-    // Second pass: position items
-    let mut y = data.padding.begin;
+    // Extract results
     let result_slice = result.make_mut_slice();
-
-    for row in &rows {
-        let mut x = data.padding.begin;
-
-        for idx in row.start_idx..row.end_idx {
-            let cell_h = &data.cells_h[idx];
-            let item_width = cell_h.constraint.preferred_bounded();
-            let item_height =
-                data.cells_v.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
-
-            // Calculate vertical position based on alignment within row
-            let item_y = match data.alignment {
-                LayoutAlignment::Start => y,
-                LayoutAlignment::End => y + row.row_height - item_height,
-                LayoutAlignment::Center => y + (row.row_height - item_height) / 2.0,
-                _ => y, // Stretch or other: align to top
-            };
-
-            // Store: x, y, width, height
-            let base = idx * 4;
-            result_slice[base] = x;
-            result_slice[base + 1] = item_y;
-            result_slice[base + 2] = item_width;
-            result_slice[base + 3] = item_height;
-
-            x += item_width + data.spacing;
-        }
-
-        y += row.row_height + data.spacing;
+    for idx in 0..data.cells_h.len() {
+        let (x, y, w, h) = builder.child_geometry(idx);
+        let base = idx * 4;
+        result_slice[base] = x;
+        result_slice[base + 1] = y;
+        result_slice[base + 2] = w;
+        result_slice[base + 3] = h;
     }
 
     result
@@ -1269,6 +1410,7 @@ pub fn flexbox_layout_info(
     spacing: Coord,
     padding: &Padding,
     orientation: Orientation,
+    direction: FlexDirection,
 ) -> LayoutInfo {
     let count = cells.len();
     if count < 1 {
@@ -1281,40 +1423,43 @@ pub fn flexbox_layout_info(
 
     let extra_pad = padding.begin + padding.end;
 
-    match orientation {
-        Orientation::Horizontal => {
-            // For horizontal: min width is the widest single item, preferred is all items in one row
-            let min = cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
-                + extra_pad;
-            let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
-                + spacing * (count - 1) as Coord
-                + extra_pad;
-            let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-            LayoutInfo {
-                min,
-                max: Coord::MAX,
-                min_percent: 0.0,
-                max_percent: 100.0,
-                preferred,
-                stretch,
-            }
+    // Determine if this orientation is the main axis or cross axis
+    let is_main_axis = match (direction, orientation) {
+        (FlexDirection::Row, Orientation::Horizontal) => true,
+        (FlexDirection::Column, Orientation::Vertical) => true,
+        _ => false,
+    };
+
+    if is_main_axis {
+        // Main axis: items are laid out sequentially, so sum their sizes
+        let min =
+            cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
+        let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+            + spacing * (count - 1) as Coord
+            + extra_pad;
+        let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
+        LayoutInfo {
+            min,
+            max: Coord::MAX,
+            min_percent: 0.0,
+            max_percent: 100.0,
+            preferred,
+            stretch,
         }
-        Orientation::Vertical => {
-            // For vertical: depends on container width (which we don't know here)
-            // Return constraints assuming single row as minimum
-            let min = cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+    } else {
+        // Cross axis: items are stacked perpendicular, so use max of their sizes
+        let min =
+            cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
+        let preferred =
+            cells.iter().map(|c| c.constraint.preferred).fold(0.0 as Coord, |a, b| a.max(b))
                 + extra_pad;
-            let preferred =
-                cells.iter().map(|c| c.constraint.preferred).fold(0.0 as Coord, |a, b| a.max(b))
-                    + extra_pad;
-            LayoutInfo {
-                min,
-                max: Coord::MAX,
-                min_percent: 0.0,
-                max_percent: 100.0,
-                preferred,
-                stretch: 1.0,
-            }
+        LayoutInfo {
+            min,
+            max: Coord::MAX,
+            min_percent: 0.0,
+            max_percent: 100.0,
+            preferred,
+            stretch: 1.0,
         }
     }
 }
@@ -1334,47 +1479,20 @@ pub fn flexbox_layout_info_with_width(
         return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
     }
 
-    let available_width = width - padding.begin - padding.end;
+    // Use taffy to compute the layout and get the resulting height
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
+        &cells_h,
+        &cells_v,
+        spacing,
+        padding,
+        LayoutAlignment::Start,
+        flexbox_taffy::TaffyFlexDirection::Row,
+        Some(width),
+        None,
+    );
 
-    // Simulate the row-wrapping algorithm to calculate total height
-    let mut total_height: Coord = padding.begin + padding.end;
-    let mut current_row_width: Coord = 0.0;
-    let mut current_row_height: Coord = 0.0;
-    let mut row_count = 0;
-
-    for (idx, cell_h) in cells_h.iter().enumerate() {
-        let item_width = cell_h.constraint.preferred_bounded();
-        let item_height = cells_v.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
-
-        // Check if this item fits on the current row
-        let width_with_item = if current_row_width > 0.0 {
-            current_row_width + spacing + item_width
-        } else {
-            item_width
-        };
-
-        if width_with_item > available_width && current_row_width > 0.0 {
-            // Complete current row and start a new one
-            total_height += current_row_height;
-            if row_count > 0 {
-                total_height += spacing;
-            }
-            row_count += 1;
-            current_row_width = item_width;
-            current_row_height = item_height;
-        } else {
-            current_row_width = width_with_item;
-            current_row_height = current_row_height.max(item_height);
-        }
-    }
-
-    // Add the last row
-    if current_row_width > 0.0 {
-        if row_count > 0 {
-            total_height += spacing;
-        }
-        total_height += current_row_height;
-    }
+    builder.compute_layout(width, Coord::MAX);
+    let (_, total_height) = builder.container_size();
 
     // Min height is the minimum of any single item
     let min_height = cells_v.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
@@ -1406,47 +1524,20 @@ pub fn flexbox_layout_info_with_height(
         return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
     }
 
-    let available_height = height - padding.begin - padding.end;
+    // Use taffy to compute the layout with column direction and get the resulting width
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
+        &cells_h,
+        &cells_v,
+        spacing,
+        padding,
+        LayoutAlignment::Start,
+        flexbox_taffy::TaffyFlexDirection::Column,
+        None,
+        Some(height),
+    );
 
-    // Simulate the column-wrapping algorithm to calculate total width
-    let mut total_width: Coord = padding.begin + padding.end;
-    let mut current_col_height: Coord = 0.0;
-    let mut current_col_width: Coord = 0.0;
-    let mut col_count = 0;
-
-    for (idx, cell_v) in cells_v.iter().enumerate() {
-        let item_height = cell_v.constraint.preferred_bounded();
-        let item_width = cells_h.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
-
-        // Check if this item fits in the current column
-        let height_with_item = if current_col_height > 0.0 {
-            current_col_height + spacing + item_height
-        } else {
-            item_height
-        };
-
-        if height_with_item > available_height && current_col_height > 0.0 {
-            // Complete current column and start a new one
-            total_width += current_col_width;
-            if col_count > 0 {
-                total_width += spacing;
-            }
-            col_count += 1;
-            current_col_height = item_height;
-            current_col_width = item_width;
-        } else {
-            current_col_height = height_with_item;
-            current_col_width = current_col_width.max(item_width);
-        }
-    }
-
-    // Add the last column
-    if current_col_height > 0.0 {
-        if col_count > 0 {
-            total_width += spacing;
-        }
-        total_width += current_col_width;
-    }
+    builder.compute_layout(Coord::MAX, height);
+    let (total_width, _) = builder.container_size();
 
     // Min width is the minimum of any single item
     let min_width = cells_h.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
@@ -1572,8 +1663,9 @@ pub(crate) mod ffi {
         spacing: Coord,
         padding: &Padding,
         orientation: Orientation,
+        direction: FlexDirection,
     ) -> LayoutInfo {
-        super::flexbox_layout_info(cells, spacing, padding, orientation)
+        super::flexbox_layout_info(cells, spacing, padding, orientation, direction)
     }
 
     #[unsafe(no_mangle)]

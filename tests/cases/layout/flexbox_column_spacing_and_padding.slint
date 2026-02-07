@@ -1,0 +1,54 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout column direction with spacing and padding
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    // Test spacing and padding in column direction
+    FlexBoxLayout {
+        flex-direction: column;
+        spacing: 8px;
+        padding: 10px;
+
+        r1 := Rectangle {
+            width: 40px;
+            height: 35px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 40px;
+            height: 35px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 40px;
+            height: 40px;
+            background: blue;
+        }
+    }
+
+    // Padding: 10px on all sides
+    // Available height: 200 - 10 - 10 = 180px
+    // r1: starts at y=10 (top padding), height 35px
+    // r2: starts at y=53px (10 + 35 + 8 = 53)
+    // r3: starts at y=96px (10 + 35 + 8 + 35 + 8 = 96)
+    // All items stay in first column at x=10px (left padding)
+    out property <bool> test: r1.x >= 9px && r1.x <= 11px && r1.y >= 9px && r1.y <= 11px && r2.x >= 9px && r2.x <= 11px && r2.y >= 51px && r2.y <= 55px && r3.x >= 9px && r3.x <= 11px && r3.y >= 94px && r3.y <= 98px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
