@@ -919,11 +919,20 @@ fn position_tracking_without_partial_rendering() {
     }));
 
     ui.set_rect_x(20.);
-    assert!(
-        window.draw_if_needed(|renderer| {
-            do_test_render_region(renderer, 0, 0, 180, 260);
-        }),
-        "change of x should trigger a redraw"
-    );
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    ui.set_rect_x(-500.);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    ui.set_rect_x(20.);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
