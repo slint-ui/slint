@@ -56,6 +56,9 @@
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
+    "FlexBoxLayout": {
+        "href": "reference/layouts/flexboxlayout/"
+    },
     "float": {
         "href": "reference/primitive-types/#float"
     },

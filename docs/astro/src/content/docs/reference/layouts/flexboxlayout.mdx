@@ -1,0 +1,110 @@
+---
+title: FlexBoxLayout
+description: FlexBoxLayout element api.
+---
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+`FlexBoxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
+
+
+<CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example1.png"  imageWidth="300" imageHeight="150"  imageAlt='flexboxlayout example with row direction'>
+
+```slint playground
+// This example demonstrates FlexBoxLayout with row direction (default)
+export component Foo inherits Window {
+    width: 300px;
+    height: 200px;
+    FlexBoxLayout {
+        spacing: 8px;
+        padding: 8px;
+        flex-direction: row;
+        Rectangle { background: red; width: 60px; height: 50px; }
+        Rectangle { background: blue; width: 60px; height: 50px; }
+        Rectangle { background: yellow; width: 60px; height: 50px; }
+        Rectangle { background: green; width: 60px; height: 50px; }
+        Rectangle { background: purple; width: 60px; height: 50px; }
+    }
+}
+```
+</CodeSnippetMD>
+
+
+<CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example2.png"  imageWidth="150" imageHeight="250"  imageAlt='flexboxlayout example with column direction'>
+
+```slint playground
+// This example demonstrates FlexBoxLayout with column direction
+export component Foo inherits Window {
+    width: 300px;
+    height: 300px;
+    FlexBoxLayout {
+        spacing: 8px;
+        padding: 8px;
+        flex-direction: column;
+        Rectangle { background: red; width: 50px; height: 60px; }
+        Rectangle { background: blue; width: 50px; height: 60px; }
+        Rectangle { background: yellow; width: 50px; height: 60px; }
+        Rectangle { background: green; width: 50px; height: 60px; }
+        Rectangle { background: purple; width: 50px; height: 60px; }
+    }
+}
+```
+</CodeSnippetMD>
+
+## Overview
+
+In row direction, items are placed from left to right. When the available width is exceeded, items automatically wrap to the next row. In column direction, items are placed from top to bottom and wrap to the next column when the available height is exceeded.
+
+## Spacing Properties
+
+### spacing
+<SlintProperty propName="spacing" typeName="length">
+The distance between the elements in the layout. CSS Flexbox usually calls this "gap", but "spacing" is used in Slint for consistency with other layout types.
+This single value is applied as both horizontal and vertical spacing between items.
+</SlintProperty>
+
+To target specific directions with different values use the following properties:
+### spacing-horizontal
+<SlintProperty propName="spacing-horizontal" typeName="length">
+The horizontal distance between items in the layout. CSS Flexbox calls this "column-gap".
+</SlintProperty>
+
+### spacing-vertical
+<SlintProperty propName="spacing-vertical" typeName="length">
+The vertical distance between items in the layout. CSS Flexbox calls this "row-gap".
+</SlintProperty>
+
+## Padding Properties
+
+### padding
+<SlintProperty propName="padding" typeName="length">
+The padding around the layout as a whole. This single value is applied to all sides.
+</SlintProperty>
+
+To target specific sides with different values use the following properties:
+### padding-left
+<SlintProperty propName="padding-left" typeName="length"/>
+
+### padding-right
+<SlintProperty propName="padding-right" typeName="length"/>
+
+### padding-top
+<SlintProperty propName="padding-top" typeName="length"/>
+
+### padding-bottom
+<SlintProperty propName="padding-bottom" typeName="length"/>
+
+## Direction Properties
+
+### flex-direction
+<SlintProperty propName="flex-direction" typeName="enum" enumName="FlexDirection">
+The primary direction in which items are placed. Set to `row` to place items horizontally left-to-right (default), or `column` to place items vertically top-to-bottom.
+</SlintProperty>
+
+## Layout Behavior
+
+The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
+
+You can learn more about the CSS FlexBox specification from
+- <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
+- <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
