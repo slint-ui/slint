@@ -659,11 +659,12 @@ impl SoftwareRenderer {
                     );
                 }
 
+                let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
                 for (component, origin) in components {
                     if let Some(component) = ItemTreeWeak::upgrade(component) {
                         i_slint_core::item_rendering::render_component_items(
                             &component,
-                            &mut renderer,
+                            if partial { &mut renderer } else { &mut renderer.actual_renderer },
                             *origin,
                             &window_adapter,
                         );
@@ -1122,10 +1123,11 @@ impl RendererSealed for SoftwareRenderer {
         let mut target_buffer =
             SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(size.width, size.height);
 
+        let old_repaint_buffer_type = self.repaint_buffer_type();
+        // ensure that caches are clear
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
         self.render(target_buffer.make_mut_slice(), size.width as usize);
-        // ensure that caches are clear for the next call
-        self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+        self.set_repaint_buffer_type(old_repaint_buffer_type);
 
         let mut target_buffer_with_alpha =
             SharedPixelBuffer::<Rgba8Pixel>::new(target_buffer.width(), target_buffer.height());
@@ -1351,11 +1353,12 @@ fn prepare_scene(
         };
         drop(i);
 
+        let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
             if let Some(component) = ItemTreeWeak::upgrade(component) {
                 i_slint_core::item_rendering::render_component_items(
                     &component,
-                    &mut renderer,
+                    if partial { &mut renderer } else { &mut renderer.actual_renderer },
                     *origin,
                     &window_adapter,
                 );
