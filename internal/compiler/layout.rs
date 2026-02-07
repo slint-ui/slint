@@ -19,6 +19,15 @@ pub enum Orientation {
     Vertical,
 }
 
+#[derive(Clone, Debug, Copy, Eq, PartialEq, Default)]
+pub enum FlexDirection {
+    /// Items are laid out in rows (horizontal primary axis)
+    #[default]
+    Row,
+    /// Items are laid out in columns (vertical primary axis)
+    Column,
+}
+
 #[derive(Clone, Debug, derive_more::From)]
 pub enum Layout {
     GridLayout(GridLayout),
@@ -540,6 +549,7 @@ impl BoxLayout {
 pub struct FlexBoxLayout {
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
+    pub direction: FlexDirection,
 }
 
 impl FlexBoxLayout {

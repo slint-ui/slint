@@ -939,59 +939,99 @@ fn compute_flexbox_layout_info(
     orientation: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
+    use crate::layout::FlexDirection;
     let fld = flexbox_layout_data(layout, ctx);
 
-    match orientation {
-        Orientation::Horizontal => {
-            // For horizontal orientation, return constraint info for horizontal layout
-            let (padding, spacing) =
-                generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
-            let arguments = vec![
-                fld.cells_h,
-                spacing,
-                padding,
-                llr_Expression::EnumerationValue(EnumerationValue {
-                    value: orientation as usize,
-                    enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
-                }),
-            ];
-            match fld.compute_cells {
-                Some((_cells_h_var, _cells_v_var, _elements)) => {
-                    // TODO: Repeaters in FlexBoxLayout not yet supported
-                    llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "flexbox_layout_info".into(),
-                        arguments,
-                        return_ty: crate::typeregister::layout_info_type().into(),
+    // Determine which orientation needs wrapping-aware computation
+    let needs_wrap_aware = match (layout.direction, orientation) {
+        (FlexDirection::Row, Orientation::Vertical) => true, // Row wraps horizontally, affects height
+        (FlexDirection::Column, Orientation::Horizontal) => true, // Column wraps vertically, affects width
+        _ => false,
+    };
+
+    if needs_wrap_aware {
+        // Need dimension-aware computation to handle wrapping
+        match layout.direction {
+            FlexDirection::Row => {
+                // Vertical info for row direction: width determines height
+                let (padding, spacing) = generate_layout_padding_and_spacing(
+                    &layout.geometry,
+                    Orientation::Horizontal,
+                    ctx,
+                );
+                let width =
+                    layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
+                let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, width];
+                match fld.compute_cells {
+                    Some((_cells_h_var, _cells_v_var, _elements)) => {
+                        // TODO: Repeaters in FlexBoxLayout not yet supported
+                        llr_Expression::ExtraBuiltinFunctionCall {
+                            function: "flexbox_layout_info_with_width".into(),
+                            arguments,
+                            return_ty: crate::typeregister::layout_info_type().into(),
+                        }
                     }
-                }
-                None => llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "flexbox_layout_info".into(),
-                    arguments,
-                    return_ty: crate::typeregister::layout_info_type().into(),
-                },
-            }
-        }
-        Orientation::Vertical => {
-            // For vertical orientation, we need width-aware computation to handle wrapping correctly
-            let (padding, spacing) =
-                generate_layout_padding_and_spacing(&layout.geometry, Orientation::Horizontal, ctx);
-            let width = layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
-            let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, width];
-            match fld.compute_cells {
-                Some((_cells_h_var, _cells_v_var, _elements)) => {
-                    // TODO: Repeaters in FlexBoxLayout not yet supported
-                    llr_Expression::ExtraBuiltinFunctionCall {
+                    None => llr_Expression::ExtraBuiltinFunctionCall {
                         function: "flexbox_layout_info_with_width".into(),
                         arguments,
                         return_ty: crate::typeregister::layout_info_type().into(),
-                    }
+                    },
                 }
-                None => llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "flexbox_layout_info_with_width".into(),
+            }
+            FlexDirection::Column => {
+                // Horizontal info for column direction: height determines width
+                let (padding, spacing) = generate_layout_padding_and_spacing(
+                    &layout.geometry,
+                    Orientation::Vertical,
+                    ctx,
+                );
+                let height =
+                    layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
+                let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, height];
+                match fld.compute_cells {
+                    Some((_cells_h_var, _cells_v_var, _elements)) => {
+                        // TODO: Repeaters in FlexBoxLayout not yet supported
+                        llr_Expression::ExtraBuiltinFunctionCall {
+                            function: "flexbox_layout_info_with_height".into(),
+                            arguments,
+                            return_ty: crate::typeregister::layout_info_type().into(),
+                        }
+                    }
+                    None => llr_Expression::ExtraBuiltinFunctionCall {
+                        function: "flexbox_layout_info_with_height".into(),
+                        arguments,
+                        return_ty: crate::typeregister::layout_info_type().into(),
+                    },
+                }
+            }
+        }
+    } else {
+        // Simple orientation-based info (no wrapping consideration needed)
+        let (padding, spacing) =
+            generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
+        let arguments = vec![
+            if orientation == Orientation::Horizontal { fld.cells_h } else { fld.cells_v },
+            spacing,
+            padding,
+            llr_Expression::EnumerationValue(EnumerationValue {
+                value: orientation as usize,
+                enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
+            }),
+        ];
+        match fld.compute_cells {
+            Some((_cells_h_var, _cells_v_var, _elements)) => {
+                // TODO: Repeaters in FlexBoxLayout not yet supported
+                llr_Expression::ExtraBuiltinFunctionCall {
+                    function: "flexbox_layout_info".into(),
                     arguments,
                     return_ty: crate::typeregister::layout_info_type().into(),
-                },
+                }
             }
+            None => llr_Expression::ExtraBuiltinFunctionCall {
+                function: "flexbox_layout_info".into(),
+                arguments,
+                return_ty: crate::typeregister::layout_info_type().into(),
+            },
         }
     }
 }

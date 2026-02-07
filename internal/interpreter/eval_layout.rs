@@ -219,6 +219,7 @@ pub(crate) fn compute_flexbox_layout_info(
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
 ) -> Value {
+    use i_slint_compiler::layout::FlexDirection;
     let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
@@ -226,33 +227,68 @@ pub(crate) fn compute_flexbox_layout_info(
 
     let (cells_h, cells_v, _repeated_indices) =
         flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
-    let (padding, spacing) = padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
 
-    match orientation {
-        Orientation::Horizontal => {
-            // For horizontal orientation, return constraint info for horizontal layout
-            core_layout::flexbox_layout_info(
-                i_slint_core::slice::Slice::from(cells_h.as_slice()),
-                spacing,
-                &padding,
-                to_runtime(orientation),
-            )
-            .into()
-        }
-        Orientation::Vertical => {
-            // For vertical orientation, we need width-aware computation to handle wrapping correctly
-            let width_ref = &flexbox_layout.geometry.rect.width_reference;
-            let width = width_ref.as_ref().map(&expr_eval).unwrap_or(0.);
+    // Determine if wrapping-aware computation is needed
+    let needs_wrap_aware = match (flexbox_layout.direction, orientation) {
+        (FlexDirection::Row, Orientation::Vertical) => true, // Row wraps horizontally, affects height
+        (FlexDirection::Column, Orientation::Horizontal) => true, // Column wraps vertically, affects width
+        _ => false,
+    };
 
-            core_layout::flexbox_layout_info_with_width(
-                i_slint_core::slice::Slice::from(cells_h.as_slice()),
-                i_slint_core::slice::Slice::from(cells_v.as_slice()),
-                spacing,
-                &padding,
-                width,
-            )
-            .into()
+    if needs_wrap_aware {
+        match flexbox_layout.direction {
+            FlexDirection::Row => {
+                // Vertical info for row direction: width determines height
+                let (padding, spacing) = padding_and_spacing(
+                    &flexbox_layout.geometry,
+                    Orientation::Horizontal,
+                    &expr_eval,
+                );
+                let width_ref = &flexbox_layout.geometry.rect.width_reference;
+                let width = width_ref.as_ref().map(&expr_eval).unwrap_or(0.);
+
+                core_layout::flexbox_layout_info_with_width(
+                    i_slint_core::slice::Slice::from(cells_h.as_slice()),
+                    i_slint_core::slice::Slice::from(cells_v.as_slice()),
+                    spacing,
+                    &padding,
+                    width,
+                )
+                .into()
+            }
+            FlexDirection::Column => {
+                // Horizontal info for column direction: height determines width
+                let (padding, spacing) = padding_and_spacing(
+                    &flexbox_layout.geometry,
+                    Orientation::Vertical,
+                    &expr_eval,
+                );
+                let height_ref = &flexbox_layout.geometry.rect.height_reference;
+                let height = height_ref.as_ref().map(&expr_eval).unwrap_or(0.);
+
+                core_layout::flexbox_layout_info_with_height(
+                    i_slint_core::slice::Slice::from(cells_h.as_slice()),
+                    i_slint_core::slice::Slice::from(cells_v.as_slice()),
+                    spacing,
+                    &padding,
+                    height,
+                )
+                .into()
+            }
         }
+    } else {
+        // Simple orientation-based info (no wrapping consideration needed)
+        let (padding, spacing) =
+            padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
+        let cells = if orientation == Orientation::Horizontal { &cells_h } else { &cells_v };
+
+        core_layout::flexbox_layout_info(
+            i_slint_core::slice::Slice::from(cells.as_slice()),
+            spacing,
+            &padding,
+            to_runtime(orientation),
+        )
+        .into()
     }
 }
 

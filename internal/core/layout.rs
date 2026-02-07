@@ -1391,6 +1391,78 @@ pub fn flexbox_layout_info_with_width(
     }
 }
 
+/// Return the horizontal LayoutInfo for a FlexBoxLayout given the container height (column direction).
+/// This allows computing the correct width based on how items wrap when laid out in columns.
+pub fn flexbox_layout_info_with_height(
+    cells_h: Slice<LayoutItemInfo>,
+    cells_v: Slice<LayoutItemInfo>,
+    spacing: Coord,
+    padding: &Padding,
+    height: Coord,
+) -> LayoutInfo {
+    let count = cells_v.len();
+    if count < 1 {
+        let pad = padding.begin + padding.end;
+        return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
+    }
+
+    let available_height = height - padding.begin - padding.end;
+
+    // Simulate the column-wrapping algorithm to calculate total width
+    let mut total_width: Coord = padding.begin + padding.end;
+    let mut current_col_height: Coord = 0.0;
+    let mut current_col_width: Coord = 0.0;
+    let mut col_count = 0;
+
+    for (idx, cell_v) in cells_v.iter().enumerate() {
+        let item_height = cell_v.constraint.preferred_bounded();
+        let item_width = cells_h.get(idx).map_or(0.0, |c| c.constraint.preferred_bounded());
+
+        // Check if this item fits in the current column
+        let height_with_item = if current_col_height > 0.0 {
+            current_col_height + spacing + item_height
+        } else {
+            item_height
+        };
+
+        if height_with_item > available_height && current_col_height > 0.0 {
+            // Complete current column and start a new one
+            total_width += current_col_width;
+            if col_count > 0 {
+                total_width += spacing;
+            }
+            col_count += 1;
+            current_col_height = item_height;
+            current_col_width = item_width;
+        } else {
+            current_col_height = height_with_item;
+            current_col_width = current_col_width.max(item_width);
+        }
+    }
+
+    // Add the last column
+    if current_col_height > 0.0 {
+        if col_count > 0 {
+            total_width += spacing;
+        }
+        total_width += current_col_width;
+    }
+
+    // Min width is the minimum of any single item
+    let min_width = cells_h.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+        + padding.begin
+        + padding.end;
+
+    LayoutInfo {
+        min: min_width,
+        max: Coord::MAX,
+        min_percent: 0.0,
+        max_percent: 100.0,
+        preferred: total_width,
+        stretch: 0.0,
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -1514,6 +1586,18 @@ pub(crate) mod ffi {
         width: Coord,
     ) -> LayoutInfo {
         super::flexbox_layout_info_with_width(cells_h, cells_v, spacing, padding, width)
+    }
+
+    #[unsafe(no_mangle)]
+    /// Return the horizontal LayoutInfo for a FlexBoxLayout given the container height (column direction).
+    pub extern "C" fn slint_flexbox_layout_info_with_height(
+        cells_h: Slice<LayoutItemInfo>,
+        cells_v: Slice<LayoutItemInfo>,
+        spacing: Coord,
+        padding: &Padding,
+        height: Coord,
+    ) -> LayoutInfo {
+        super::flexbox_layout_info_with_height(cells_h, cells_v, spacing, padding, height)
     }
 }
 

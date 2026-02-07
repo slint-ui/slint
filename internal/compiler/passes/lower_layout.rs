@@ -712,6 +712,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     let mut layout = crate::layout::FlexBoxLayout {
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
+        direction: crate::layout::FlexDirection::Row, // Default to row direction
     };
 
     // FlexBoxLayout needs 4 values per item: x, y, width, height
