@@ -328,8 +328,8 @@ mod grid_internal {
         if num < 1 {
             return Default::default();
         }
-        let mut layout_data =
-            alloc::vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num];
+        let marker_for_empty = -1.;
+        let mut layout_data = alloc::vec![grid_internal::LayoutData { max: 0 as Coord, stretch: marker_for_empty, ..Default::default() }; num];
         let mut has_spans = false;
         for (idx, cell_data) in constraints.iter().enumerate() {
             let constraint = &cell_data.constraint;
@@ -345,6 +345,12 @@ mod grid_internal {
             );
             for c in 0..(span as usize) {
                 let cdata = &mut layout_data[col_or_row as usize + c];
+                // Initialize max/stretch to proper defaults on first item in this row/col
+                // so that empty rows/columns don't stretch.
+                if cdata.stretch == marker_for_empty {
+                    cdata.max = Coord::MAX;
+                    cdata.stretch = 1.;
+                }
                 cdata.max = cdata.max.min(max);
             }
             if span == 1 {
@@ -412,6 +418,11 @@ mod grid_internal {
                         }
                     }
                 }
+            }
+        }
+        for cdata in layout_data.iter_mut() {
+            if cdata.stretch == marker_for_empty {
+                cdata.stretch = 0.;
             }
         }
         layout_data
@@ -975,6 +986,7 @@ pub fn grid_layout_info(
         let mut info = LayoutInfo::default();
         info.min = padding.begin + padding.end;
         info.preferred = info.min;
+        info.max = info.min;
         return info;
     }
     let spacing_w = spacing * (layout_data.len() - 1) as Coord + padding.begin + padding.end;
