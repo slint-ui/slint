@@ -562,6 +562,7 @@ pub enum LspToPreviewMessage {
     SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),
     HighlightFromEditor { url: Option<Url>, offset: u32 },
+    Quit,
 }
 
 impl lsp_types::notification::Notification for LspToPreviewMessage {
