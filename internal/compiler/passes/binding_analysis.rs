@@ -538,6 +538,7 @@ fn recurse_expression(
         }
         Expression::SolveFlexBoxLayout(layout)
         | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+            use crate::layout::FlexDirection;
             // Visit all layout geometry dependencies
             if matches!(expr, Expression::SolveFlexBoxLayout(..)) {
                 // FlexBoxLayout needs both width and height
@@ -547,17 +548,34 @@ fn recurse_expression(
                 if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
                     vis(&nr.clone().into(), P);
                 }
-            } else if matches!(expr, Expression::ComputeFlexBoxLayoutInfo(_, Orientation::Vertical))
-            {
-                // Vertical layout info needs the width to compute correctly due to wrapping
-                if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
-                    vis(&nr.clone().into(), P);
+            } else if let Expression::ComputeFlexBoxLayoutInfo(_, orientation) = expr {
+                // Check if this orientation needs container dimension for wrapping
+                let needs_container_dim = match (layout.direction, orientation) {
+                    (FlexDirection::Row, Orientation::Vertical) => {
+                        // Row direction: vertical info needs width
+                        if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                            vis(&nr.clone().into(), P);
+                        }
+                        true
+                    }
+                    (FlexDirection::Column, Orientation::Horizontal) => {
+                        // Column direction: horizontal info needs height
+                        if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
+                            vis(&nr.clone().into(), P);
+                        }
+                        true
+                    }
+                    _ => false,
+                };
+                // Visit item dependencies for relevant orientations
+                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Horizontal, vis);
+                if needs_container_dim {
+                    visit_layout_items_dependencies(
+                        layout.elems.iter(),
+                        Orientation::Vertical,
+                        vis,
+                    );
                 }
-            }
-            // Visit item dependencies (both orientations for Vertical, just Horizontal otherwise)
-            visit_layout_items_dependencies(layout.elems.iter(), Orientation::Horizontal, vis);
-            if matches!(expr, Expression::ComputeFlexBoxLayoutInfo(_, Orientation::Vertical)) {
-                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Vertical, vis);
             }
             let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
