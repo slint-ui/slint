@@ -986,6 +986,7 @@ pub fn grid_layout_info(
         let mut info = LayoutInfo::default();
         info.min = padding.begin + padding.end;
         info.preferred = info.min;
+        info.max = info.min;
         return info;
     }
     let spacing_w = spacing * (layout_data.len() - 1) as Coord + padding.begin + padding.end;
