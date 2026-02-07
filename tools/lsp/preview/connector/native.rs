@@ -6,7 +6,6 @@ use crate::{common, preview};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{BufRead as _, Write as _};
-use std::sync::{Arc, Mutex};
 
 pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
     None
@@ -15,7 +14,6 @@ pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
 struct ChildProcessLspToPreviewInner {
     communication_handle: std::thread::JoinHandle<std::result::Result<(), String>>,
     to_child: std::process::ChildStdin,
-    child: Arc<Mutex<std::process::Child>>,
 }
 
 pub struct ChildProcessLspToPreview {
@@ -52,9 +50,6 @@ impl ChildProcessLspToPreview {
 
         let channel = self.preview_to_lsp_channel.clone();
 
-        let child = Arc::new(Mutex::new(child));
-        let child_clone = child.clone();
-
         let preview_to_lsp_channel = self.preview_to_lsp_channel.clone();
 
         let communication_handle = std::thread::spawn(move || -> Result<(), String> {
@@ -65,7 +60,7 @@ impl ChildProcessLspToPreview {
                     channel.send(message).map_err(|e| e.to_string())?;
                 }
             }
-            let mut child = child_clone.lock().expect("This can be waited for...");
+
             let exit_status = child.wait().map_err(|e| e.to_string())?;
 
             if !exit_status.success() {
@@ -85,7 +80,7 @@ impl ChildProcessLspToPreview {
         });
 
         *self.inner.borrow_mut() =
-            Some(ChildProcessLspToPreviewInner { communication_handle, to_child, child });
+            Some(ChildProcessLspToPreviewInner { communication_handle, to_child });
 
         Ok(())
     }
@@ -93,12 +88,9 @@ impl ChildProcessLspToPreview {
 
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
-        if let Some(inner) = self.inner.borrow_mut().take() {
-            {
-                let mut child = inner.child.lock().expect("Can lock the child");
-                let _ = child.kill();
-            }
-
+        if let Some(mut inner) = self.inner.borrow_mut().take() {
+            let message = serde_json::to_string(&common::LspToPreviewMessage::Quit).unwrap();
+            let _ = writeln!(inner.to_child, "{message}");
             let _ = inner.communication_handle.join();
         }
     }

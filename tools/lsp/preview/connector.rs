@@ -30,5 +30,9 @@ pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
         M::HighlightFromEditor { url, offset } => {
             preview::highlight(url, offset.into());
         }
+        M::Quit => {
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = slint::quit_event_loop();
+        }
     }
 }

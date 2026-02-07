@@ -844,9 +844,9 @@ pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::
         let Some(path) = common::uri_to_file(&url) else {
             return Err(format!("Failed to locate file: {url}").into());
         };
-        let content = std::fs::read_to_string(&path)?;
-
-        load_document(ctx, content, url, None, &mut ctx.document_cache.borrow_mut()).await?;
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            load_document(ctx, content, url, None, &mut ctx.document_cache.borrow_mut()).await?;
+        }
     }
 
     Ok(())
