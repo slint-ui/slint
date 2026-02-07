@@ -3,6 +3,8 @@
 
 interface TextInterface {
     in-out property <string> text;
+
+    public pure function length(text: string) -> int;
 }
 
 export component TestCase implements TextInterface {
@@ -11,22 +13,29 @@ export component TestCase implements TextInterface {
     text-input := TextInput {
         text: "Hello TextInterface";
     }
+
+    public pure function length(text: string) -> int {
+        return text.character-count;
+    }
 }
 
 /*
 ```rust
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_text(), "Hello TextInterface");
+assert_eq!(instance.invoke_length("Hello".into()), 5);
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_text(), "Hello TextInterface");
+assert_eq(instance.invoke_length("Hello"), 5);
 ```
 
 ```js
 var instance = new slint.TestCase({});
 assert(instance.text == "Hello TextInterface");
+assert.equal(instance.length("Hello"), 5);
 ```
 */

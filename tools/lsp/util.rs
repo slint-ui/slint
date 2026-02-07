@@ -280,7 +280,9 @@ pub fn with_property_lookup_ctx<R>(
             .flat_map(|a| i_slint_compiler::parser::identifier_text(&a.DeclaredIdentifier()))
             .collect();
 
-        add_codeblock_local_variables(&f.CodeBlock(), to_offset, &mut lookup_context);
+        if let Some(block) = f.CodeBlock() {
+            add_codeblock_local_variables(&block, to_offset, &mut lookup_context);
+        }
     } else if let Some(cb) = element
         .PropertyChangedCallback()
         .find(|p| i_slint_compiler::parser::identifier_text(p).is_some_and(|x| x == prop_name))

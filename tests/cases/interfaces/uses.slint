@@ -3,43 +3,54 @@
 
 interface TestInterface {
     in-out property <bool> test: false;
+    pure public function double(i: int) -> int;
 }
 
 component TestBase implements TestInterface {
     test: true;
+    pure public function double(i: int) -> int {
+        return i * 2;
+    }
 }
 
 component TestA uses { TestInterface from base } {
-    base := TestBase {}
+    base := TestBase { }
 }
 
-
 component TestB uses { TestInterface from base } {
-    base := TestBase {}
+    base := TestBase { }
 }
 
 export component TestCase {
 
-    test-a := TestA {}
-    test-b := TestB {}
+    test-a := TestA { }
+
+    test-b := TestB { }
 
     out property <bool> test: test-a.test && test-b.test;
+
+    pure public function multiply(i: int) -> int {
+        return test-a.double(test-b.double(i));
+    }
 }
 
 /*
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+assert_eq!(instance.invoke_multiply(2), 8);
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+assert_eq(instance.invoke_multiply(2), 8);
 ```
 
 ```js
 var instance = new slint.TestCase({});
 assert(instance.test);
+assert.equal(instance.multiply(2), 8);
 ```
 */
