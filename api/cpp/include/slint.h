@@ -206,9 +206,10 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxL
 inline cbindgen_private::LayoutInfo
 flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells, float spacing,
                  const cbindgen_private::Padding &padding,
-                 cbindgen_private::Orientation orientation)
+                 cbindgen_private::Orientation orientation,
+                 cbindgen_private::FlexDirection direction)
 {
-    return cbindgen_private::slint_flexbox_layout_info(cells, spacing, &padding, orientation);
+    return cbindgen_private::slint_flexbox_layout_info(cells, spacing, &padding, orientation, direction);
 }
 
 inline cbindgen_private::LayoutInfo

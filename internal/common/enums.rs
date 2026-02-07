@@ -356,6 +356,15 @@ macro_rules! for_each_enums {
                 SpaceEvenly,
             }
 
+            /// The direction in which flex items are placed in a flex container.
+            #[non_exhaustive]
+            enum FlexDirection {
+                /// Items are placed in a row, from left to right.
+                Row,
+                /// Items are placed in a column, from top to bottom.
+                Column,
+            }
+
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is
             /// generated at compile time from a higher-level description, such as SVG commands.
             #[non_exhaustive]

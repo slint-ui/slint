@@ -46,6 +46,7 @@ std = [
   "dep:thiserror",
   "dep:htmlparser",
   "i-slint-common/color-parsing",
+  "taffy/std",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -129,6 +130,7 @@ tr = { workspace = true, optional = true }
 
 htmlparser = { version = "0.2.1", optional = true }
 thiserror = { version = "2.0.17", optional = true }
+taffy = { version = "0.7", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
