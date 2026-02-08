@@ -11,7 +11,7 @@ use i_slint_compiler::layout::{
 };
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core::items::{DialogButtonRole, FlexDirection as CoreFlexDirection, ItemRc};
+use i_slint_core::items::{DialogButtonRole, FlexDirection, ItemRc};
 use i_slint_core::layout::{self as core_layout, GridLayoutOrganizedData};
 use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::slice::Slice;
@@ -189,35 +189,21 @@ pub(crate) fn solve_flexbox_layout(
 
     let width_ref = &flexbox_layout.geometry.rect.width_reference;
     let height_ref = &flexbox_layout.geometry.rect.height_reference;
-    let alignment = flexbox_layout
-        .geometry
-        .alignment
-        .as_ref()
-        .map_or(i_slint_core::items::LayoutAlignment::default(), |nr| {
-            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
-        });
-    let direction = flexbox_layout
-        .direction
-        .as_ref()
-        .map_or(i_slint_core::items::FlexDirection::default(), |nr| {
-            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
-        });
+    let direction = flexbox_layout_direction(flexbox_layout, local_context);
 
-    let padding_spacing_orientation = match direction {
-        i_slint_core::items::FlexDirection::Row => Orientation::Horizontal,
-        i_slint_core::items::FlexDirection::Column => Orientation::Vertical,
-        _ => Orientation::Horizontal, // Default to horizontal for unknown variants
-    };
-    let (padding, spacing) =
-        padding_and_spacing(&flexbox_layout.geometry, padding_spacing_orientation, &expr_eval);
+    let (padding_h, spacing_h) =
+        padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
+    let (padding_v, spacing_v) =
+        padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
 
     core_layout::solve_flexbox_layout(
         &core_layout::FlexBoxLayoutData {
             width: width_ref.as_ref().map(&expr_eval).unwrap_or(0.),
             height: height_ref.as_ref().map(&expr_eval).unwrap_or(0.),
-            spacing,
-            padding,
-            alignment,
+            spacing_h,
+            spacing_v,
+            padding_h,
+            padding_v,
             direction,
             cells_h: i_slint_core::slice::Slice::from(cells_h.as_slice()),
             cells_v: i_slint_core::slice::Slice::from(cells_v.as_slice()),
@@ -227,12 +213,37 @@ pub(crate) fn solve_flexbox_layout(
     .into()
 }
 
+fn flexbox_layout_direction(
+    flexbox_layout: &i_slint_compiler::layout::FlexBoxLayout,
+    local_context: &EvalLocalContext,
+) -> FlexDirection {
+    flexbox_layout
+        .direction
+        .as_ref()
+        .and_then(|nr| {
+            let value =
+                eval::load_property(local_context.component_instance, &nr.element(), nr.name())
+                    .ok()?;
+            if let Value::EnumerationValue(_, variant) = &value {
+                match variant.as_str() {
+                    "row" => Some(FlexDirection::Row),
+                    "row-reverse" => Some(FlexDirection::RowReverse),
+                    "column" => Some(FlexDirection::Column),
+                    "column-reverse" => Some(FlexDirection::ColumnReverse),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or(FlexDirection::Row)
+}
+
 pub(crate) fn compute_flexbox_layout_info(
     flexbox_layout: &i_slint_compiler::layout::FlexBoxLayout,
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
 ) -> Value {
-    use i_slint_compiler::layout::FlexDirection;
     let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
@@ -242,30 +253,21 @@ pub(crate) fn compute_flexbox_layout_info(
         flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
 
     // Get the direction from the property binding
-    let direction = flexbox_layout
-        .direction
-        .as_ref()
-        .and_then(|nr| {
-            let value = eval::load_property(component, &nr.element(), nr.name()).ok()?;
-            let direction_int: i32 = value.try_into().ok()?;
-            if direction_int == 0 { Some(FlexDirection::Row) } else { Some(FlexDirection::Column) }
-        })
-        .unwrap_or(FlexDirection::Row);
+    let direction = flexbox_layout_direction(flexbox_layout, local_context);
 
     // Determine if we're on the main axis or cross axis
-    let is_main_axis = match (direction, orientation) {
-        (FlexDirection::Row, Orientation::Horizontal) => true,
-        (FlexDirection::Column, Orientation::Vertical) => true,
-        _ => false,
-    };
+    let is_main_axis = matches!(
+        (direction, orientation),
+        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
+            | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
+    );
 
     let (padding, spacing) = padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
 
-    // Convert compiler FlexDirection to runtime FlexDirection
-    let runtime_direction = match direction {
-        FlexDirection::Row => CoreFlexDirection::Row,
-        FlexDirection::Column => CoreFlexDirection::Column,
-    };
+    let (padding_h, spacing_h) =
+        padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
+    let (padding_v, spacing_v) =
+        padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
 
     if is_main_axis {
         // Main axis: use simple layout info (no constraint needed)
@@ -277,7 +279,7 @@ pub(crate) fn compute_flexbox_layout_info(
             spacing,
             &padding,
             to_runtime(orientation),
-            runtime_direction,
+            direction,
         )
         .into()
     } else {
@@ -299,10 +301,12 @@ pub(crate) fn compute_flexbox_layout_info(
         core_layout::flexbox_layout_info_with_constraint(
             i_slint_core::slice::Slice::from(cells_h.as_slice()),
             i_slint_core::slice::Slice::from(cells_v.as_slice()),
-            spacing,
-            &padding,
+            spacing_h,
+            spacing_v,
+            &padding_h,
+            &padding_v,
             to_runtime(orientation),
-            runtime_direction,
+            direction,
             constraint_size,
         )
         .into()

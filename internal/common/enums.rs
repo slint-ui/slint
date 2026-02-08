@@ -361,8 +361,12 @@ macro_rules! for_each_enums {
             enum FlexDirection {
                 /// Items are placed in a row, from left to right.
                 Row,
+                /// Items are placed in a row in reverse order, from right to left.
+                RowReverse,
                 /// Items are placed in a column, from top to bottom.
                 Column,
+                /// Items are placed in a column in reverse order, from bottom to top.
+                ColumnReverse,
             }
 
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is

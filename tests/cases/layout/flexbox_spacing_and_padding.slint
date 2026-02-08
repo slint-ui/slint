@@ -1,26 +1,81 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout with basic wrapping and spacing
+// Test FlexBoxLayout with wrapping and spacing
 
 export component TestCase inherits Window {
     width: 200px;
-    height: 200px;
+    height: 400px;
 
-    // Test basic wrapping with spacing
-    FlexBoxLayout {
-        spacing: 5px;
-        padding: 0px;
+    Rectangle {
+        y: 0px;
+        width: 200px;
+        height: 200px;
+        border-color: black;
+        border-width: 1px;
+        FlexBoxLayout {
+            spacing: 5px;
+            padding: 2px;
 
-        r1 := Rectangle { width: 60px; height: 30px; background: red; }
-        r2 := Rectangle { width: 60px; height: 30px; background: green; }
-        r3 := Rectangle { width: 80px; height: 30px; background: blue; }
+            r1 := Rectangle {
+                width: 60px;
+                height: 30px;
+                background: red;
+            }
+
+            r2 := Rectangle {
+                width: 60px;
+                height: 30px;
+                background: green;
+            }
+
+            r3 := Rectangle {
+                width: 80px;
+                height: 30px;
+                background: blue;
+            }
+        }
+    }
+
+    Rectangle {
+        width: 200px;
+        height: 200px;
+        y: 200px;
+        border-color: black;
+        border-width: 1px;
+
+        FlexBoxLayout {
+            spacing-vertical: 50px;
+            spacing-horizontal: 10px;
+            padding-top: 10phx;
+            padding-left: 20phx;
+            padding-right: 30phx;
+            padding-bottom: 40phx;
+
+            r4 := Rectangle {
+                width: 60px;
+                height: 30px;
+                background: red;
+            }
+
+            r5 := Rectangle {
+                width: 60px;
+                height: 30px;
+                background: green;
+            }
+
+            r6 := Rectangle {
+                width: 80px;
+                height: 30px;
+                background: blue;
+            }
+        }
     }
 
     // r1 and r2 fit (60+5+60=125 < 200), r3 wraps
-    out property <bool> test: r1.x == 0px && r1.y == 0px &&
-                              r2.x == 65px && r2.y == 0px &&
-                              r3.x == 0px && r3.y == 35px;
+    out property <bool> first_layout_ok: r1.x == 2px && r1.y == 2px && r2.x == 67px && r2.y == 2px && r3.x == 2px && r3.y == 37px;
+    out property <bool> second_layout_ok: r4.x == 20phx && r4.y == 10phx && r5.x == 90phx && r5.y == 10phx && r6.x == 20phx && r6.y == 90phx;
+    out property <bool> test: first_layout_ok && second_layout_ok;
 }
 
 /*
