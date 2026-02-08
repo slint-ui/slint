@@ -207,6 +207,7 @@ pub(crate) fn completion_at(
             return Some(
                 [
                     ("tr(..)", "tr(\"$1\")"),
+                    ("keys(..)", "keys($1)"),
                     ("image-url(..)", "image-url(\"$1\")"),
                     ("linear-gradient(..)", "linear-gradient($1)"),
                     ("radial-gradient(..)", "radial-gradient(circle, $1)"),
@@ -224,6 +225,8 @@ pub(crate) fn completion_at(
         return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
+    } else if node.kind() == SyntaxKind::AtKeys {
+        return with_lookup_ctx(document_cache, node, Some(offset), |ctx| at_keys_completions(ctx));
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
@@ -1121,6 +1124,29 @@ fn is_followed_by_brace(token: &SyntaxToken) -> bool {
         next_token = t.next_token();
     }
     next_token.is_some_and(|x| x.kind() == SyntaxKind::LBrace)
+}
+
+fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {
+    let keys = i_slint_compiler::lookup::KeysLookup;
+
+    let mut completions = Vec::new();
+    keys.for_each_entry(ctx, &mut |label, _expr| -> Option<()> {
+        completions.push(
+            CompletionItem::new_simple(label.to_string(), "".into())
+                .with_kind(CompletionItemKind::ENUM_MEMBER),
+        );
+        None
+    });
+    for modifier in ["Shift", "Alt"] {
+        completions.push(
+            CompletionItem::new_simple(
+                format!("Ignore{modifier}"),
+                format!("Ignore the {modifier} modifier when matching this shortcut"),
+            )
+            .with_kind(CompletionItemKind::KEYWORD),
+        );
+    }
+    completions
 }
 
 #[cfg(test)]

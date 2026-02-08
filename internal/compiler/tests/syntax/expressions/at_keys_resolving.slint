@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <[keyboard-shortcut]> unknown_keys_list: [
+        @keys(a),
+//            ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+        @keys(Alt + Control + Shift + Meta + a),
+//                                           ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+        @keys(    Alt + Control + Shift + Meta + FooBar    ),
+//                                               >    <error{`FooBar` not defined in the `Keys` namespace↵(Consider using "FooBar")}
+        @keys(Shift+Plus),
+//                  >  <error{Shortcuts involving Plus ignore Shift to support different keyboard layouts↵Remove Shift and consider using e.g. Equal (for U.S. Keyboard layout)}
+        @keys(Shift+Asterisk),
+//                  >      <error{Shortcuts involving Asterisk ignore Shift to support different keyboard layouts↵Remove Shift and consider using e.g. Digit8 (for U.S. Keyboard layout)}
+
+        // IgnoreShift
+        @keys(IgnoreShift + Asterisk),
+//                          >      <warning{Asterisk already implies IgnoreShift (remove IgnoreShift)}
+
+        @keys("A"),
+//            > <error{Keyboard shortcut literals must currently be lowercase, use "a" instead}
+        @keys(Alt + Control + Shift + Meta + "Ä"),
+//                                           >  <error{Keyboard shortcut literals must currently be lowercase, use "ä" instead}
+    ];
+}

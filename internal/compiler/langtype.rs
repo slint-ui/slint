@@ -54,6 +54,7 @@ pub enum Type {
     Array(Rc<Type>),
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
+    KeyboardShortcutType,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -105,6 +106,7 @@ impl core::cmp::PartialEq for Type {
                 matches!(other, Type::Struct(rhs) if lhs.fields == rhs.fields && lhs.name == rhs.name)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
+            Type::KeyboardShortcutType => matches!(other, Type::KeyboardShortcutType),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
@@ -166,6 +168,7 @@ impl Display for Type {
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
+            Type::KeyboardShortcutType => write!(f, "keyboard-shortcut"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -216,6 +219,7 @@ impl Type {
                 | Self::Bool
                 | Self::Easing
                 | Self::Enumeration(_)
+                | Self::KeyboardShortcutType
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -320,6 +324,7 @@ impl Type {
             Type::Array(_) => None,
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
+            Type::KeyboardShortcutType => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -702,6 +707,7 @@ pub enum BuiltinPublicStruct {
     LogicalPosition,
     LogicalSize,
     StandardListViewItem,
+    KeyboardShortcut,
 }
 
 impl BuiltinPublicStruct {
@@ -711,6 +717,7 @@ impl BuiltinPublicStruct {
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
+            Self::KeyboardShortcut => Some(SmolStr::new_static("KeyboardShortcut")),
         }
     }
 }
@@ -1000,6 +1007,64 @@ impl Enumeration {
                 None
             }
         })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct KeyboardModifiers {
+    pub alt: bool,
+    pub control: bool,
+    pub meta: bool,
+    pub shift: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct KeyboardShortcut {
+    pub key: SmolStr,
+    pub modifiers: KeyboardModifiers,
+    pub ignore_shift: bool,
+    pub ignore_alt: bool,
+}
+
+impl PartialEq for KeyboardShortcut {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl std::fmt::Display for KeyboardShortcut {
+    // Make sure to keep this in sync with the implemenation in core/input.rs
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.key.is_empty() {
+            write!(f, "")
+        } else {
+            let alt = self
+                .ignore_alt
+                .then_some("IgnoreAlt+")
+                .or(self.modifiers.alt.then_some("Alt+"))
+                .unwrap_or_default();
+            let ctrl = if self.modifiers.control { "Control+" } else { "" };
+            let meta = if self.modifiers.meta { "Meta+" } else { "" };
+            let shift = self
+                .ignore_shift
+                .then_some("IgnoreShift+")
+                .or(self.modifiers.shift.then_some("Shift+"))
+                .unwrap_or_default();
+            let keycode: String = self
+                .key
+                .chars()
+                .flat_map(|character| {
+                    let mut escaped = vec![];
+                    if character.is_control() {
+                        escaped.extend(character.escape_unicode());
+                    } else {
+                        escaped.push(character);
+                    }
+                    escaped
+                })
+                .collect();
+            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+        }
     }
 }
 

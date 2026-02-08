@@ -92,6 +92,12 @@
     "KeyEvent": {
         "href": "reference/keyboard-input/overview/"
     },
+    "KeyboardInput": {
+        "href": "reference/keyboard-input/overview/"
+    },
+    "keyboard-shortcut": {
+        "href": "reference/primitive-types/#keyboard-shortcut"
+    },
     "length": {
         "href": "reference/primitive-types/#length"
     },

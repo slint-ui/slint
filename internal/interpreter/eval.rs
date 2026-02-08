@@ -22,6 +22,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
+use i_slint_core::items::KeyEvent;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -443,6 +444,19 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
+        Expression::KeyboardShortcut(ks) => {
+            Value::KeyboardShortcut(i_slint_core::input::make_keyboard_shortcut(
+                SharedString::from(&*ks.key),
+                i_slint_core::input::KeyboardModifiers {
+                    alt: ks.modifiers.alt,
+                    control: ks.modifiers.control,
+                    shift: ks.modifiers.shift,
+                    meta: ks.modifiers.meta,
+                },
+                ks.ignore_shift,
+                ks.ignore_alt,
+            ))
+        }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -735,6 +749,25 @@ fn call_builtin_function(
             } else {
                 panic!("internal error: argument to ClearFocusItem must be an element")
             }
+        }
+        BuiltinFunction::KeyboardShortcutMatches => {
+            let [shortcut, event] = arguments else {
+                panic!(
+                    "internal error: Incorrect number of arguments to KeyboardShortcut::matches"
+                );
+            };
+            let Value::KeyboardShortcut(shortcut) = eval_expression(shortcut, local_context) else {
+                panic!(
+                    "internal error: first argument to KeyboardShortcut::matches is not a keyboard shortcut"
+                );
+            };
+            let Ok(key_event) = KeyEvent::try_from(eval_expression(event, local_context)) else {
+                panic!(
+                    "internal error: second argument to KeyboardShortcut::matches is not a KeyEvent"
+                );
+            };
+
+            Value::from(shortcut.matches(&key_event))
         }
         BuiltinFunction::ShowPopupWindow => {
             if arguments.len() != 1 {
@@ -1892,6 +1925,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
+        Type::KeyboardShortcutType => matches!(value, Value::KeyboardShortcut(_)),
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
@@ -2186,6 +2220,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.name.to_string(),
             e.values.get(e.default_value).unwrap().to_string(),
         ),
+        Type::KeyboardShortcutType => Value::KeyboardShortcut(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

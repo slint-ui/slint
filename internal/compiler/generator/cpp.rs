@@ -106,7 +106,7 @@ pub mod cpp_ast {
 
     use smol_str::{SmolStr, format_smolstr};
 
-    thread_local!(static INDENTATION : Cell<u32> = Cell::new(0));
+    thread_local!(static INDENTATION : Cell<u32> = const { Cell::new(0) });
     fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
         INDENTATION.with(|i| {
             for _ in 0..(i.get()) {
@@ -157,7 +157,7 @@ pub mod cpp_ast {
                             Some(Declaration::Var(Var {
                                 ty: var.ty.clone(),
                                 name: var.name.clone(),
-                                array_size: var.array_size.clone(),
+                                array_size: var.array_size,
                                 init: std::mem::take(&mut var.init),
                                 is_extern: false,
                                 ..Default::default()
@@ -530,6 +530,9 @@ impl CppType for Type {
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
             Type::String => Some("slint::SharedString".into()),
+            Type::KeyboardShortcutType => {
+                Some("slint::cbindgen_private::types::KeyboardShortcut".into())
+            }
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -576,7 +579,7 @@ fn remove_parentheses(expr: &str) -> &str {
     if expr.starts_with('(') && expr.ends_with(')') {
         let mut level = 0;
         // check that the opening and closing parentheses are on the same level
-        for byte in expr[1..expr.len() - 1].as_bytes() {
+        for byte in &expr.as_bytes()[1..expr.len() - 1] {
             match byte {
                 b')' if level == 0 => return expr,
                 b')' => level -= 1,
@@ -2279,7 +2282,7 @@ fn generate_sub_component(
                 "   if (!self->{name}.running() || self->{name}.interval() != interval)"
             ));
             update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
-            update_timers.push(format!("}} else {{ self->{name}.stop(); }}").into());
+            update_timers.push(format!("}} else {{ self->{name}.stop(); }}"));
             target_struct.members.push((
                 field_access,
                 Declaration::Var(Var { ty: "slint::Timer".into(), name, ..Default::default() }),
@@ -3307,12 +3310,14 @@ fn native_prop_info<'a, 'b>(
     (&sub_component.items[*item_index].ty, prop_name)
 }
 
+fn shared_string_literal(string: &str) -> String {
+    format!(r#"slint::SharedString(u8"{}")"#, escape_string(string))
+}
+
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
-        Expression::StringLiteral(s) => {
-            format!(r#"slint::SharedString(u8"{}")"#, escape_string(s.as_str()))
-        }
+        Expression::StringLiteral(s) => shared_string_literal(s),
         Expression::NumberLiteral(num) => {
             if !num.is_finite() {
                 // just print something
@@ -3325,6 +3330,22 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
+        Expression::KeyboardShortcutLiteral(ks) => {
+            format!(
+                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
+                    slint::cbindgen_private::types::KeyboardShortcut out;
+                    slint::cbindgen_private::slint_keyboard_shortcut(&key, alt, control, shift, meta, ignoreShift, ignoreAlt, &out);
+                    return out;
+                }}({}, {}, {}, {}, {}, {}, {})",
+                shared_string_literal(&ks.key),
+                ks.modifiers.alt,
+                ks.modifiers.control,
+                ks.modifiers.shift,
+                ks.modifiers.meta,
+                ks.ignore_shift,
+                ks.ignore_alt,
+            )
+        }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
@@ -3896,6 +3917,15 @@ fn compile_builtin_function_call(
         BuiltinFunction::GetWindowScaleFactor => {
             format!("{}.scale_factor()", access_window_field(ctx))
         }
+        BuiltinFunction::KeyboardShortcutMatches => {
+            let [shortcut, key_event] = arguments else {
+                panic!("internal error: incorrect number of arguments to KeyboardShortcut::matches");
+            };
+            let shortcut = compile_expression(shortcut, ctx);
+            let key_event = compile_expression(key_event, ctx);
+
+            format!("[&]() -> bool {{ auto shortcut = {shortcut}; auto keyEvent = {key_event}; return slint_keyboard_shortcut_matches(&shortcut, &keyEvent); }}()")
+        },
         BuiltinFunction::GetWindowDefaultFontSize => {
             "slint::private_api::get_resolved_default_font_size(*this)".to_string()
         }

@@ -108,6 +108,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             let i = ident(&e.name);
             if e.node.is_some() { Some(quote!(#i)) } else { Some(quote!(sp::#i)) }
         }
+        Type::KeyboardShortcutType => Some(quote!(sp::KeyboardShortcut)),
         Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(
             sp::SharedVector<
@@ -2365,6 +2366,27 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
+        Expression::KeyboardShortcutLiteral(shortcut) => {
+                let key = &*shortcut.key;
+                let alt = shortcut.modifiers.alt;
+                let control = shortcut.modifiers.control;
+                let shift = shortcut.modifiers.shift;
+                let meta = shortcut.modifiers.meta;
+                let ignore_shift = shortcut.ignore_shift;
+                let ignore_alt = shortcut.ignore_alt;
+
+                quote!(
+                    sp::make_keyboard_shortcut(
+                        #key.into(),
+                        sp::KeyboardModifiers {
+                            alt: #alt,
+                            control: #control,
+                            shift: #shift,
+                            meta: #meta
+                        },
+                        #ignore_shift,
+                        #ignore_alt))
+        },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
         Expression::BoolLiteral(b) => quote!(#b),
@@ -2923,6 +2945,15 @@ fn compile_builtin_function_call(
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
+            }
+        }
+        BuiltinFunction::KeyboardShortcutMatches => {
+            if let [shortcut, event] = arguments {
+                let shortcut = compile_expression(&shortcut, ctx);
+                let event = compile_expression(&event, ctx);
+                quote!(#shortcut.matches(&#event))
+            } else {
+                panic!("internal error: invalid args to KeyboardShortcut::matches {arguments:?}")
             }
         }
         BuiltinFunction::ClearFocusItem => {
