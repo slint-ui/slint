@@ -1348,6 +1348,73 @@ mod flexbox_taffy {
     }
 }
 
+/// A cache generator for FlexBoxLayout that handles 4 values per item (x, y, width, height)
+struct FlexBoxLayoutCacheGenerator<'a> {
+    // Input
+    repeater_indices: &'a [u32],
+    // An always increasing counter, the index of the cell being added
+    counter: usize,
+    // The index/4 in result in which we should add the next repeated item
+    repeat_offset: usize,
+    // The index/4 in repeater_indices
+    next_rep: usize,
+    // The index/4 in result in which we should add the next non-repeated item
+    current_offset: usize,
+    // Output
+    result: &'a mut SharedVector<Coord>,
+}
+
+impl<'a> FlexBoxLayoutCacheGenerator<'a> {
+    fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
+        // Calculate total repeated cells (count for each repeater)
+        let total_repeated_cells: usize = repeater_indices
+            .chunks(2)
+            .map(|chunk| chunk.get(1).copied().unwrap_or(0) as usize)
+            .sum();
+        assert!(result.len() >= total_repeated_cells * 4);
+        let repeat_offset = result.len() / 4 - total_repeated_cells;
+        Self { repeater_indices, counter: 0, repeat_offset, next_rep: 0, current_offset: 0, result }
+    }
+
+    fn add(&mut self, x: Coord, y: Coord, w: Coord, h: Coord) {
+        let res = self.result.make_mut_slice();
+        let o = loop {
+            if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
+                let nr = *nr as usize;
+                if nr == self.counter {
+                    // Write jump entries for repeater start
+                    // Store the base offset (index into the repeated data region)
+                    res[self.current_offset * 4] = (self.repeat_offset * 4) as Coord;
+                    res[self.current_offset * 4 + 1] = (self.repeat_offset * 4 + 1) as Coord;
+                    res[self.current_offset * 4 + 2] = (self.repeat_offset * 4 + 2) as Coord;
+                    res[self.current_offset * 4 + 3] = (self.repeat_offset * 4 + 3) as Coord;
+                    self.current_offset += 1;
+                }
+                if self.counter >= nr {
+                    let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
+                    if self.counter - nr == rep_count {
+                        // Advance repeat_offset past this repeater's data before moving to next
+                        self.repeat_offset += rep_count;
+                        self.next_rep += 1;
+                        continue;
+                    }
+                    // Calculate offset into repeated data
+                    let cell_in_rep = self.counter - nr;
+                    let offset = self.repeat_offset + cell_in_rep;
+                    break offset;
+                }
+            }
+            self.current_offset += 1;
+            break self.current_offset - 1;
+        };
+        res[o * 4] = x;
+        res[o * 4 + 1] = y;
+        res[o * 4 + 2] = w;
+        res[o * 4 + 3] = h;
+        self.counter += 1;
+    }
+}
+
 /// Solve a FlexBoxLayout using Taffy
 /// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
 pub fn solve_flexbox_layout(
@@ -1390,15 +1457,11 @@ pub fn solve_flexbox_layout(
 
     builder.compute_layout(available_width, available_height);
 
-    // Extract results
-    let result_slice = result.make_mut_slice();
+    // Extract results using the cache generator to handle repeaters
+    let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
     for idx in 0..data.cells_h.len() {
         let (x, y, w, h) = builder.child_geometry(idx);
-        let base = idx * 4;
-        result_slice[base] = x;
-        result_slice[base + 1] = y;
-        result_slice[base + 2] = w;
-        result_slice[base + 3] = h;
+        generator.add(x, y, w, h);
     }
 
     result

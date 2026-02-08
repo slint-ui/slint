@@ -1,0 +1,58 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with mixed static and repeated elements
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+
+    property <[int]> items: [1, 2];
+
+    FlexBoxLayout {
+        spacing: 10px;
+        padding: 5px;
+        flex-direction: row;
+
+        // Static element first
+        r1 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: yellow;
+        }
+
+        // Repeated elements
+        for item in root.items: Rectangle {
+            width: 50px;
+            height: 40px;
+            background: item == 1 ? red : green;
+        }
+
+        // Static element at end
+        r2 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: blue;
+        }
+    }
+
+    // r1: x=5 (padding)
+    // repeated[0]: x=65 (5 + 50 + 10)
+    // repeated[1]: x=125 (5 + 50 + 10 + 50 + 10)
+    // r2: x=185 (5 + 50 + 10 + 50 + 10 + 50 + 10)
+    out property <length> r1_x: r1.x;
+    out property <length> r2_x: r2.x;
+    out property <bool> test: r1.x >= 4px && r1.x <= 6px && r2.x >= 184px && r2.x <= 186px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

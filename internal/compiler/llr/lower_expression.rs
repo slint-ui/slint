@@ -943,15 +943,23 @@ fn solve_flexbox_layout(
         ],
     );
     match fld.compute_cells {
-        Some((_cells_h_var, _cells_v_var, _elements)) => {
-            // TODO: Repeaters in FlexBoxLayout not yet supported
-            // For now, fall through to simple case
-            llr_Expression::ExtraBuiltinFunctionCall {
+        Some((cells_h_var, cells_v_var, elements)) => llr_Expression::WithFlexBoxLayoutItemInfo {
+            cells_h_variable: cells_h_var,
+            cells_v_variable: cells_v_var,
+            repeater_indices_var_name: Some("repeated_indices".into()),
+            elements,
+            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
                 function: "solve_flexbox_layout".into(),
-                arguments: vec![data, empty_int32_slice()],
+                arguments: vec![
+                    data,
+                    llr_Expression::ReadLocalVariable {
+                        name: "repeated_indices".into(),
+                        ty: Type::Array(Type::Int32.into()),
+                    },
+                ],
                 return_ty: Type::LayoutCache,
-            }
-        }
+            }),
+        },
         None => llr_Expression::ExtraBuiltinFunctionCall {
             function: "solve_flexbox_layout".into(),
             arguments: vec![data, empty_int32_slice()],
@@ -1009,12 +1017,17 @@ fn compute_flexbox_layout_info(
                     layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
                 let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, width];
                 match fld.compute_cells {
-                    Some((_cells_h_var, _cells_v_var, _elements)) => {
-                        // TODO: Repeaters in FlexBoxLayout not yet supported
-                        llr_Expression::ExtraBuiltinFunctionCall {
-                            function: "flexbox_layout_info_with_width".into(),
-                            arguments,
-                            return_ty: crate::typeregister::layout_info_type().into(),
+                    Some((cells_h_var, cells_v_var, elements)) => {
+                        llr_Expression::WithFlexBoxLayoutItemInfo {
+                            cells_h_variable: cells_h_var,
+                            cells_v_variable: cells_v_var,
+                            repeater_indices_var_name: None,
+                            elements,
+                            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                                function: "flexbox_layout_info_with_width".into(),
+                                arguments,
+                                return_ty: crate::typeregister::layout_info_type().into(),
+                            }),
                         }
                     }
                     None => llr_Expression::ExtraBuiltinFunctionCall {
@@ -1035,12 +1048,17 @@ fn compute_flexbox_layout_info(
                     layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
                 let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, height];
                 match fld.compute_cells {
-                    Some((_cells_h_var, _cells_v_var, _elements)) => {
-                        // TODO: Repeaters in FlexBoxLayout not yet supported
-                        llr_Expression::ExtraBuiltinFunctionCall {
-                            function: "flexbox_layout_info_with_height".into(),
-                            arguments,
-                            return_ty: crate::typeregister::layout_info_type().into(),
+                    Some((cells_h_var, cells_v_var, elements)) => {
+                        llr_Expression::WithFlexBoxLayoutItemInfo {
+                            cells_h_variable: cells_h_var,
+                            cells_v_variable: cells_v_var,
+                            repeater_indices_var_name: None,
+                            elements,
+                            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                                function: "flexbox_layout_info_with_height".into(),
+                                arguments,
+                                return_ty: crate::typeregister::layout_info_type().into(),
+                            }),
                         }
                     }
                     None => llr_Expression::ExtraBuiltinFunctionCall {
@@ -1056,7 +1074,11 @@ fn compute_flexbox_layout_info(
         let (padding, spacing) =
             generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
         let arguments = vec![
-            if orientation == Orientation::Horizontal { fld.cells_h } else { fld.cells_v },
+            if orientation == Orientation::Horizontal {
+                fld.cells_h.clone()
+            } else {
+                fld.cells_v.clone()
+            },
             spacing,
             padding,
             llr_Expression::EnumerationValue(EnumerationValue {
@@ -1066,12 +1088,17 @@ fn compute_flexbox_layout_info(
             fld.direction.clone(),
         ];
         match fld.compute_cells {
-            Some((_cells_h_var, _cells_v_var, _elements)) => {
-                // TODO: Repeaters in FlexBoxLayout not yet supported
-                llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "flexbox_layout_info".into(),
-                    arguments,
-                    return_ty: crate::typeregister::layout_info_type().into(),
+            Some((cells_h_var, cells_v_var, elements)) => {
+                llr_Expression::WithFlexBoxLayoutItemInfo {
+                    cells_h_variable: cells_h_var,
+                    cells_v_variable: cells_v_var,
+                    repeater_indices_var_name: None,
+                    elements,
+                    sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                        function: "flexbox_layout_info".into(),
+                        arguments,
+                        return_ty: crate::typeregister::layout_info_type().into(),
+                    }),
                 }
             }
             None => llr_Expression::ExtraBuiltinFunctionCall {
@@ -1087,7 +1114,13 @@ struct FlexBoxLayoutDataResult {
     direction: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
-    compute_cells: Option<(String, String, Vec<Either<llr_Expression, LayoutRepeatedElement>>)>,
+    /// When there are repeaters involved, we need to do a WithFlexBoxLayoutItemInfo with the
+    /// given cells_h/cells_v variable names and elements (each static element has a tuple of (h, v) layout info)
+    compute_cells: Option<(
+        String,
+        String,
+        Vec<Either<(llr_Expression, llr_Expression), LayoutRepeatedElement>>,
+    )>,
 }
 
 fn flexbox_layout_data(
@@ -1151,10 +1184,15 @@ fn flexbox_layout_data(
                     repeated_children_count: None,
                 }))
             } else {
-                // For static elements, we still need both orientations but handled via WithLayoutItemInfo
-                let layout_info =
+                // For static elements, we need both orientations
+                let layout_info_h =
                     get_layout_info(&item.element, ctx, &item.constraints, Orientation::Horizontal);
-                elements.push(Either::Left(make_layout_cell_data_struct(layout_info)));
+                let layout_info_v =
+                    get_layout_info(&item.element, ctx, &item.constraints, Orientation::Vertical);
+                elements.push(Either::Left((
+                    make_layout_cell_data_struct(layout_info_h),
+                    make_layout_cell_data_struct(layout_info_v),
+                )));
             }
         }
         let cells_h = llr_Expression::ReadLocalVariable {

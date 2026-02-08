@@ -207,6 +207,19 @@ pub enum Expression {
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
+    /// Will call the sub_expression, with two cells variables (horizontal and vertical)
+    /// set to the arrays of LayoutItemInfo from the elements for FlexBoxLayout
+    WithFlexBoxLayoutItemInfo {
+        /// The local variable for horizontal cells
+        cells_h_variable: String,
+        /// The local variable for vertical cells
+        cells_v_variable: String,
+        /// The name for the local variable that contains the repeater indices
+        repeater_indices_var_name: Option<SmolStr>,
+        /// Either an expression pair of type (LayoutItemInfo, LayoutItemInfo), or information about the repeater
+        elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        sub_expression: Box<Expression>,
+    },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
     WithGridInputData {
@@ -355,6 +368,7 @@ impl Expression {
             Self::KeyboardShortcutLiteral(_) => Type::KeyboardShortcutType,
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithFlexBoxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
@@ -443,6 +457,13 @@ macro_rules! visit_impl {
             Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
+            }
+            Expression::WithFlexBoxLayoutItemInfo { elements, sub_expression, .. } => {
+                $visitor(sub_expression);
+                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                    $visitor(h);
+                    $visitor(v);
+                });
             }
             Expression::WithGridInputData { elements, sub_expression, .. } => {
                 $visitor(sub_expression);

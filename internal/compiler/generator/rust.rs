@@ -2885,6 +2885,21 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
+        Expression::WithFlexBoxLayoutItemInfo {
+            cells_h_variable,
+            cells_v_variable,
+            repeater_indices_var_name,
+            elements,
+            sub_expression,
+        } => generate_with_flexbox_layout_item_info(
+            cells_h_variable,
+            cells_v_variable,
+            repeater_indices_var_name.as_ref().map(SmolStr::as_str),
+            elements.as_ref(),
+            sub_expression,
+            ctx,
+        ),
+
         Expression::WithGridInputData {
             cells_variable,
             repeater_indices_var_name,
@@ -3630,6 +3645,8 @@ fn generate_common_repeater_code(
     repeater_steps_var_name: &Option<Ident>,
     repeater_count_code: &mut TokenStream,
     repeated_item_count: usize, // >1 for repeated Rows
+    // The name of the items vector to use for measuring length (e.g., "items_vec" or "items_vec_h")
+    items_vec_name: &str,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
@@ -3640,11 +3657,12 @@ fn generate_common_repeater_code(
     );
     *repeater_count_code = quote!(#repeater_count_code + _self.#repeater_id.len());
 
+    let items_vec_ident = ident(items_vec_name);
     let mut repeater_code = quote!();
     if let Some(ri) = repeated_indices_var_name {
         let ri_idx = *repeated_indices_size;
         repeater_code = quote!(
-            #ri[#ri_idx] = items_vec.len() as u32;
+            #ri[#ri_idx] = #items_vec_ident.len() as u32;
             #ri[#ri_idx + 1] = internal_vec.len() as u32;
         );
         *repeated_indices_size += 2;
@@ -3713,6 +3731,7 @@ fn generate_with_grid_input_data(
                     &repeater_steps_var_name,
                     &mut repeated_count_code,
                     repeated_item_count,
+                    "items_vec",
                     ctx,
                 );
 
@@ -3788,6 +3807,7 @@ fn generate_with_layout_item_info(
                     &repeater_steps_var_name,
                     &mut repeated_count_code,
                     repeated_item_count,
+                    "items_vec",
                     ctx,
                 );
                 let loop_code = match repeater.repeated_children_count {
@@ -3836,6 +3856,82 @@ fn generate_with_layout_item_info(
         let #cells_variable = sp::Slice::from_slice(&items_vec);
         #ri_from_slice
         #rs_from_slice
+        #sub_expression
+    } }
+}
+
+fn generate_with_flexbox_layout_item_info(
+    cells_h_variable: &str,
+    cells_v_variable: &str,
+    repeated_indices_var_name: Option<&str>,
+    elements: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    sub_expression: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    let mut fixed_count = 0usize;
+    let mut repeated_count_code = quote!();
+    let mut push_code = Vec::new();
+    let mut repeated_indices_size = 0usize;
+
+    for item in elements {
+        match item {
+            Either::Left((value_h, value_v)) => {
+                let value_h = compile_expression(value_h, ctx);
+                let value_v = compile_expression(value_v, ctx);
+                fixed_count += 1;
+                push_code.push(quote!(
+                    items_vec_h.push(#value_h);
+                    items_vec_v.push(#value_v);
+                ))
+            }
+            Either::Right(repeater) => {
+                let common_push_code = self::generate_common_repeater_code(
+                    repeater.repeater_index,
+                    &repeated_indices_var_name,
+                    &mut repeated_indices_size,
+                    &None, // No repeater_steps for flexbox
+                    &mut repeated_count_code,
+                    1,             // repeated_item_count
+                    "items_vec_h", // Use items_vec_h for length tracking (same as items_vec_v)
+                    ctx,
+                );
+                let loop_code = quote!(for sub_comp in &internal_vec {
+                    items_vec_h.push(
+                        sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Horizontal, None),
+                    );
+                    items_vec_v.push(
+                        sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Vertical, None),
+                    );
+                });
+                push_code.push(quote!(
+                    #common_push_code
+                    #loop_code
+                ));
+            }
+        }
+    }
+
+    let ri_init_code = generate_common_repeater_indices_init_code(
+        &repeated_indices_var_name,
+        repeated_indices_size,
+        &None,
+    );
+
+    let ri_from_slice =
+        repeated_indices_var_name.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
+    let cells_h_variable = ident(cells_h_variable);
+    let cells_v_variable = ident(cells_v_variable);
+    let sub_expression = compile_expression(sub_expression, ctx);
+
+    quote! { {
+        #ri_init_code
+        let mut items_vec_h = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
+        let mut items_vec_v = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
+        #(#push_code)*
+        let #cells_h_variable = sp::Slice::from_slice(&items_vec_h);
+        let #cells_v_variable = sp::Slice::from_slice(&items_vec_v);
+        #ri_from_slice
         #sub_expression
     } }
 }
