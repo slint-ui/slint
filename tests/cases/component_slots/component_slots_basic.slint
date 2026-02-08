@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SlotContent inherits Rectangle {
+    in-out property <int> value;
+    width: 10px;
+    height: 10px;
+    background: red;
+}
+
+export component Host inherits Rectangle {
+    slot header;
+    VerticalLayout {
+        header {}
+
+
+    }
+}
+
+export component TestCase inherits Rectangle {
+    host := Host {
+        header << SlotContent {
+            value: 42;
+        }
+
+        out property <int> header_value: header.value;
+    }
+
+    out property <int> header_value: host.header_value;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_header_value(), 42);
+```
+*/

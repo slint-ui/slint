@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Base inherits Rectangle {
+    slot header;
+    slot footer;
+
+    VerticalLayout {
+        header {}
+        @children
+        footer {}
+    }
+}
+
+export component Test inherits Rectangle {
+    Base {
+        header << Rectangle {
+            background: blue;
+        }
+        Text { text: "Main Content"; }
+        footer << Rectangle {
+            background: gray;
+        }
+    }
+}
+
+export component FailDuplicateUse inherits Rectangle {
+    slot header;
+    header {}
+    header {}
+//  >       <error{The slot 'header' can only appear once in an element hierarchy}
+}
+
+export component FailDuplicateUse2 inherits Rectangle {
+    slot header;
+    header {}
+    Rectangle {
+        header {}
+//      >       <error{The slot 'header' can only appear once in an element hierarchy}
+    }
+}
+
+export component FailReservedSlotName inherits Rectangle {
+    slot _children;
+//       >       <error{The name '_children' is reserved for the default slot. Use @children instead}
+}
