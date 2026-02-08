@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with row-reverse direction
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    FlexBoxLayout {
+        flex-direction: row-reverse;
+        spacing: 10px;
+
+        r1 := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: blue;
+        }
+    }
+
+    // With row-reverse: items flow right to left, aligned to right edge
+    // Window width: 300px, each item: 50px, spacing: 10px
+    // r1 (first) at right: x = 300 - 50 = 250
+    // r2 (second): x = 250 - 50 - 10 = 190
+    // r3 (third): x = 190 - 50 - 10 = 130
+    out property <length> r1_x: r1.x;
+    out property <length> r1_y: r1.y;
+    out property <length> r2_x: r2.x;
+    out property <length> r2_y: r2.y;
+    out property <length> r3_x: r3.x;
+    out property <length> r3_y: r3.y;
+
+    out property <bool> test: r1.y == 0px && r2.y == 0px && r3.y == 0px &&  // same row
+                              r1.x == 250px && r2.x == 190px && r3.x == 130px;  // reverse order from right
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

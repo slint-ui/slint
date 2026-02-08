@@ -24,8 +24,12 @@ pub enum FlexDirection {
     /// Items are laid out in rows (horizontal primary axis)
     #[default]
     Row,
+    /// Items are laid out in rows in reverse order (horizontal primary axis, right to left)
+    RowReverse,
     /// Items are laid out in columns (vertical primary axis)
     Column,
+    /// Items are laid out in columns in reverse order (vertical primary axis, bottom to top)
+    ColumnReverse,
 }
 
 #[derive(Clone, Debug, derive_more::From)]
