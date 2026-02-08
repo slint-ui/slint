@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <KeyboardModifiers> mods: {
+        shift: true,
+        control: true,
+        alt: true,
+        meta: true
+    };
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let mods = instance.get_mods();
+assert!(mods.shift);
+assert!(mods.control);
+assert!(mods.alt);
+assert!(mods.meta);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto mods = instance.get_mods();
+assert(mods.shift);
+assert(mods.control);
+assert(mods.alt);
+assert(mods.meta);
+```
+
+```js
+var instance = new slint.TestCase();
+var mods = instance.mods;
+assert(mods.shift);
+assert(mods.control);
+assert(mods.alt);
+assert(mods.meta);
+```
+
+```python
+instance = TestCase()
+mods = instance.mods
+assert mods.shift
+assert mods.control
+assert mods.alt
+assert mods.meta
+```
+*/
