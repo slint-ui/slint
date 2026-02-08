@@ -216,10 +216,11 @@ inline cbindgen_private::LayoutInfo
 flexbox_layout_info_with_constraint(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
                                    cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
                                    float spacing, const cbindgen_private::Padding &padding,
+                                   cbindgen_private::Orientation orientation,
                                    cbindgen_private::FlexDirection direction, float constraint_size)
 {
     return cbindgen_private::slint_flexbox_layout_info_with_constraint(
-        cells_h, cells_v, spacing, &padding, direction, constraint_size);
+        cells_h, cells_v, spacing, &padding, orientation, direction, constraint_size);
 }
 
 /// Access the layout cache of an item within a repeater

@@ -975,28 +975,82 @@ fn compute_flexbox_layout_info(
 ) -> llr_Expression {
     let fld = flexbox_layout_data(layout, ctx);
 
-    // Try to determine direction at compile time from constant binding
-    let direction = layout
-        .direction
-        .as_ref()
-        .and_then(|nr| {
-            nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
-                if let crate::expression_tree::Expression::EnumerationValue(ev) =
-                    &binding.borrow().expression
-                {
-                    Some(if ev.value == 0 {
-                        crate::layout::FlexDirection::Row
+    // Try to determine direction at compile time from constant binding.
+    let compile_time_direction = layout.direction.as_ref().and_then(|nr| {
+        nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
+            match &binding.borrow().expression {
+                crate::expression_tree::Expression::EnumerationValue(ev) => {
+                    if ev.value == 0 {
+                        Some(crate::layout::FlexDirection::Row)
                     } else {
-                        crate::layout::FlexDirection::Column
-                    })
-                } else {
-                    None
+                        Some(crate::layout::FlexDirection::Column)
+                    }
                 }
-            })
+                _ => None,
+            }
         })
-        .unwrap_or(crate::layout::FlexDirection::Row);
+    });
 
-    // Determine if asking for cross-axis (needs constraint-based computation for wrapping)
+    // If direction is known at compile time, we can optimize by only generating
+    // the needed code path. Otherwise, generate a runtime conditional.
+    if let Some(direction) = compile_time_direction {
+        compute_flexbox_layout_info_for_direction(layout, orientation, direction, fld, ctx)
+    } else {
+        // Direction is not known at compile time - generate runtime conditional
+        // This ensures we only read the constraint (width/height) in the branch where it's needed
+        let fld_for_col = flexbox_layout_data(layout, ctx);
+
+        let row_expr = compute_flexbox_layout_info_for_direction(
+            layout,
+            orientation,
+            crate::layout::FlexDirection::Row,
+            fld,
+            ctx,
+        );
+        let col_expr = compute_flexbox_layout_info_for_direction(
+            layout,
+            orientation,
+            crate::layout::FlexDirection::Column,
+            fld_for_col,
+            ctx,
+        );
+
+        // Condition: direction == Row (value 0)
+        let direction_enum = crate::typeregister::BUILTIN.with(|e| e.enums.FlexDirection.clone());
+        let direction_ref = if let Some(nr) = &layout.direction {
+            llr_Expression::PropertyReference(ctx.map_property_reference(nr))
+        } else {
+            llr_Expression::EnumerationValue(EnumerationValue {
+                value: 0, // Row
+                enumeration: direction_enum.clone(),
+            })
+        };
+
+        let is_row_condition = llr_Expression::BinaryExpression {
+            lhs: Box::new(direction_ref),
+            rhs: Box::new(llr_Expression::EnumerationValue(EnumerationValue {
+                value: 0, // FlexDirection::Row
+                enumeration: direction_enum,
+            })),
+            op: '=',
+        };
+
+        llr_Expression::Condition {
+            condition: Box::new(is_row_condition),
+            true_expr: Box::new(row_expr),
+            false_expr: Box::new(col_expr),
+        }
+    }
+}
+
+fn compute_flexbox_layout_info_for_direction(
+    layout: &crate::layout::FlexBoxLayout,
+    orientation: Orientation,
+    direction: crate::layout::FlexDirection,
+    fld: FlexBoxLayoutDataResult,
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    // Determine if this is main-axis or cross-axis based on direction
     let is_cross_axis = match (direction, orientation) {
         (crate::layout::FlexDirection::Row, Orientation::Vertical) => true,
         (crate::layout::FlexDirection::Column, Orientation::Horizontal) => true,
@@ -1005,24 +1059,31 @@ fn compute_flexbox_layout_info(
 
     if is_cross_axis {
         // Cross-axis: need constraint to handle wrapping
-        // For Row asking Vertical: constrain by width (horizontal)
-        // For Column asking Horizontal: constrain by height (vertical)
-        let (padding_orientation, constraint_orientation) = match orientation {
-            Orientation::Vertical => (Orientation::Horizontal, Orientation::Horizontal),
-            Orientation::Horizontal => (Orientation::Vertical, Orientation::Vertical),
+        let (padding, spacing) =
+            generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
+
+        // For cross-axis, pass the perpendicular dimension as constraint
+        let constraint_size = match orientation {
+            Orientation::Horizontal => {
+                layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx)
+            }
+            Orientation::Vertical => {
+                layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx)
+            }
         };
 
-        let (padding, spacing) =
-            generate_layout_padding_and_spacing(&layout.geometry, padding_orientation, ctx);
-        let constraint_size =
-            layout_geometry_size(&layout.geometry.rect, constraint_orientation, ctx);
+        let orientation_expr = llr_Expression::EnumerationValue(EnumerationValue {
+            value: orientation as usize,
+            enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
+        });
 
         let arguments = vec![
             fld.cells_h,
             fld.cells_v,
             spacing,
             padding,
-            fld.direction.clone(),
+            orientation_expr,
+            fld.direction,
             constraint_size,
         ];
 
@@ -1048,6 +1109,7 @@ fn compute_flexbox_layout_info(
         }
     } else {
         // Main axis: simple computation (items flow sequentially)
+        // Do NOT read perpendicular dimension to avoid circular dependencies
         let (padding, spacing) =
             generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
         let arguments = vec![
