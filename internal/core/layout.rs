@@ -1527,92 +1527,73 @@ pub fn flexbox_layout_info(
     }
 }
 
-/// Return the vertical LayoutInfo for a FlexBoxLayout given the container width.
-/// This allows computing the correct height based on how items wrap.
-pub fn flexbox_layout_info_with_width(
+/// Return LayoutInfo for a FlexBoxLayout given a constraint on one dimension.
+/// For Row direction, constrains width and computes the resulting height.
+/// For Column direction, constrains height and computes the resulting width.
+pub fn flexbox_layout_info_with_constraint(
     cells_h: Slice<LayoutItemInfo>,
     cells_v: Slice<LayoutItemInfo>,
     spacing: Coord,
     padding: &Padding,
-    width: Coord,
+    direction: FlexDirection,
+    constraint_size: Coord,
 ) -> LayoutInfo {
-    let count = cells_h.len();
-    if count < 1 {
+    let cell_count = match direction {
+        FlexDirection::Row => cells_h.len(),
+        FlexDirection::Column => cells_v.len(),
+    };
+
+    if cell_count < 1 {
         let pad = padding.begin + padding.end;
         return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
     }
 
-    // Use taffy to compute the layout and get the resulting height
+    let taffy_direction = match direction {
+        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+    };
+
+    let (container_width, container_height) = match direction {
+        FlexDirection::Row => (Some(constraint_size), None),
+        FlexDirection::Column => (None, Some(constraint_size)),
+    };
+
     let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
         &cells_h,
         &cells_v,
         spacing,
         padding,
         LayoutAlignment::Start,
-        flexbox_taffy::TaffyFlexDirection::Row,
-        Some(width),
-        None,
+        taffy_direction,
+        container_width,
+        container_height,
     );
 
-    builder.compute_layout(width, Coord::MAX);
-    let (_, total_height) = builder.container_size();
+    let (available_width, available_height) = match direction {
+        FlexDirection::Row => (constraint_size, Coord::MAX),
+        FlexDirection::Column => (Coord::MAX, constraint_size),
+    };
 
-    // Min height is the minimum of any single item
-    let min_height = cells_v.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
-        + padding.begin
-        + padding.end;
+    builder.compute_layout(available_width, available_height);
+    let (total_width, total_height) = builder.container_size();
+
+    let (perpendicular_size, computed_size) = match direction {
+        FlexDirection::Row => (cells_v, total_height),
+        FlexDirection::Column => (cells_h, total_width),
+    };
+
+    // Min perpendicular size is the minimum of any single item
+    let min_size =
+        perpendicular_size.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+            + padding.begin
+            + padding.end;
 
     LayoutInfo {
-        min: min_height,
+        min: min_size,
         max: Coord::MAX,
         min_percent: 0.0,
         max_percent: 100.0,
-        preferred: total_height,
-        stretch: 0.0, // FlexBoxLayout should not stretch vertically by default
-    }
-}
-
-/// Return the horizontal LayoutInfo for a FlexBoxLayout given the container height (column direction).
-/// This allows computing the correct width based on how items wrap when laid out in columns.
-pub fn flexbox_layout_info_with_height(
-    cells_h: Slice<LayoutItemInfo>,
-    cells_v: Slice<LayoutItemInfo>,
-    spacing: Coord,
-    padding: &Padding,
-    height: Coord,
-) -> LayoutInfo {
-    let count = cells_v.len();
-    if count < 1 {
-        let pad = padding.begin + padding.end;
-        return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
-    }
-
-    // Use taffy to compute the layout with column direction and get the resulting width
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
-        &cells_h,
-        &cells_v,
-        spacing,
-        padding,
-        LayoutAlignment::Start,
-        flexbox_taffy::TaffyFlexDirection::Column,
-        None,
-        Some(height),
-    );
-
-    builder.compute_layout(Coord::MAX, height);
-    let (total_width, _) = builder.container_size();
-
-    // Min width is the minimum of any single item
-    let min_width = cells_h.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
-        + padding.begin
-        + padding.end;
-
-    LayoutInfo {
-        min: min_width,
-        max: Coord::MAX,
-        min_percent: 0.0,
-        max_percent: 100.0,
-        preferred: total_width,
+        preferred: computed_size,
         stretch: 0.0,
     }
 }
@@ -1732,27 +1713,23 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    /// Return the vertical LayoutInfo for a FlexBoxLayout given the container width.
-    pub extern "C" fn slint_flexbox_layout_info_with_width(
+    /// Return LayoutInfo for a FlexBoxLayout given a constraint on one dimension.
+    pub extern "C" fn slint_flexbox_layout_info_with_constraint(
         cells_h: Slice<LayoutItemInfo>,
         cells_v: Slice<LayoutItemInfo>,
         spacing: Coord,
         padding: &Padding,
-        width: Coord,
+        direction: FlexDirection,
+        constraint_size: Coord,
     ) -> LayoutInfo {
-        super::flexbox_layout_info_with_width(cells_h, cells_v, spacing, padding, width)
-    }
-
-    #[unsafe(no_mangle)]
-    /// Return the horizontal LayoutInfo for a FlexBoxLayout given the container height (column direction).
-    pub extern "C" fn slint_flexbox_layout_info_with_height(
-        cells_h: Slice<LayoutItemInfo>,
-        cells_v: Slice<LayoutItemInfo>,
-        spacing: Coord,
-        padding: &Padding,
-        height: Coord,
-    ) -> LayoutInfo {
-        super::flexbox_layout_info_with_height(cells_h, cells_v, spacing, padding, height)
+        super::flexbox_layout_info_with_constraint(
+            cells_h,
+            cells_v,
+            spacing,
+            padding,
+            direction,
+            constraint_size,
+        )
     }
 }
 

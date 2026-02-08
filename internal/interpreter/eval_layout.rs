@@ -271,11 +271,13 @@ pub(crate) fn compute_flexbox_layout_info(
                 let width_ref = &flexbox_layout.geometry.rect.width_reference;
                 let width = width_ref.as_ref().map(&expr_eval).unwrap_or(0.);
 
-                core_layout::flexbox_layout_info_with_width(
+                let runtime_direction = CoreFlexDirection::Row;
+                core_layout::flexbox_layout_info_with_constraint(
                     i_slint_core::slice::Slice::from(cells_h.as_slice()),
                     i_slint_core::slice::Slice::from(cells_v.as_slice()),
                     spacing,
                     &padding,
+                    runtime_direction,
                     width,
                 )
                 .into()
@@ -290,11 +292,13 @@ pub(crate) fn compute_flexbox_layout_info(
                 let height_ref = &flexbox_layout.geometry.rect.height_reference;
                 let height = height_ref.as_ref().map(&expr_eval).unwrap_or(0.);
 
-                core_layout::flexbox_layout_info_with_height(
+                let runtime_direction = CoreFlexDirection::Column;
+                core_layout::flexbox_layout_info_with_constraint(
                     i_slint_core::slice::Slice::from(cells_h.as_slice()),
                     i_slint_core::slice::Slice::from(cells_v.as_slice()),
                     spacing,
                     &padding,
+                    runtime_direction,
                     height,
                 )
                 .into()

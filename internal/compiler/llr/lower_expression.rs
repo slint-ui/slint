@@ -973,7 +973,6 @@ fn compute_flexbox_layout_info(
     orientation: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
-    use crate::layout::FlexDirection;
     let fld = flexbox_layout_data(layout, ctx);
 
     // Try to determine direction at compile time from constant binding
@@ -982,111 +981,86 @@ fn compute_flexbox_layout_info(
         .as_ref()
         .and_then(|nr| {
             nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
-                match &binding.borrow().expression {
-                    crate::expression_tree::Expression::EnumerationValue(ev) => {
-                        if ev.value == 0 {
-                            Some(FlexDirection::Row)
-                        } else {
-                            Some(FlexDirection::Column)
-                        }
-                    }
-                    _ => None,
+                if let crate::expression_tree::Expression::EnumerationValue(ev) =
+                    &binding.borrow().expression
+                {
+                    Some(if ev.value == 0 {
+                        crate::layout::FlexDirection::Row
+                    } else {
+                        crate::layout::FlexDirection::Column
+                    })
+                } else {
+                    None
                 }
             })
         })
-        .unwrap_or(FlexDirection::Row); // Default to Row
+        .unwrap_or(crate::layout::FlexDirection::Row);
 
-    // Determine which orientation needs wrapping-aware computation
-    let needs_wrap_aware = match (direction, orientation) {
-        (FlexDirection::Row, Orientation::Vertical) => true, // Row wraps horizontally, affects height
-        (FlexDirection::Column, Orientation::Horizontal) => true, // Column wraps vertically, affects width
+    // Determine if asking for cross-axis (needs constraint-based computation for wrapping)
+    let is_cross_axis = match (direction, orientation) {
+        (crate::layout::FlexDirection::Row, Orientation::Vertical) => true,
+        (crate::layout::FlexDirection::Column, Orientation::Horizontal) => true,
         _ => false,
     };
 
-    if needs_wrap_aware {
-        // Need dimension-aware computation to handle wrapping
-        match direction {
-            FlexDirection::Row => {
-                // Vertical info for row direction: width determines height
-                let (padding, spacing) = generate_layout_padding_and_spacing(
-                    &layout.geometry,
-                    Orientation::Horizontal,
-                    ctx,
-                );
-                let width =
-                    layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
-                let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, width];
-                match fld.compute_cells {
-                    Some((cells_h_var, cells_v_var, elements)) => {
-                        llr_Expression::WithFlexBoxLayoutItemInfo {
-                            cells_h_variable: cells_h_var,
-                            cells_v_variable: cells_v_var,
-                            repeater_indices_var_name: None,
-                            elements,
-                            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                                function: "flexbox_layout_info_with_width".into(),
-                                arguments,
-                                return_ty: crate::typeregister::layout_info_type().into(),
-                            }),
-                        }
-                    }
-                    None => llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "flexbox_layout_info_with_width".into(),
+    if is_cross_axis {
+        // Cross-axis: need constraint to handle wrapping
+        // For Row asking Vertical: constrain by width (horizontal)
+        // For Column asking Horizontal: constrain by height (vertical)
+        let (padding_orientation, constraint_orientation) = match orientation {
+            Orientation::Vertical => (Orientation::Horizontal, Orientation::Horizontal),
+            Orientation::Horizontal => (Orientation::Vertical, Orientation::Vertical),
+        };
+
+        let (padding, spacing) =
+            generate_layout_padding_and_spacing(&layout.geometry, padding_orientation, ctx);
+        let constraint_size =
+            layout_geometry_size(&layout.geometry.rect, constraint_orientation, ctx);
+
+        let arguments = vec![
+            fld.cells_h,
+            fld.cells_v,
+            spacing,
+            padding,
+            fld.direction.clone(),
+            constraint_size,
+        ];
+
+        match fld.compute_cells {
+            Some((cells_h_var, cells_v_var, elements)) => {
+                llr_Expression::WithFlexBoxLayoutItemInfo {
+                    cells_h_variable: cells_h_var,
+                    cells_v_variable: cells_v_var,
+                    repeater_indices_var_name: None,
+                    elements,
+                    sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                        function: "flexbox_layout_info_with_constraint".into(),
                         arguments,
                         return_ty: crate::typeregister::layout_info_type().into(),
-                    },
+                    }),
                 }
             }
-            FlexDirection::Column => {
-                // Horizontal info for column direction: height determines width
-                let (padding, spacing) = generate_layout_padding_and_spacing(
-                    &layout.geometry,
-                    Orientation::Vertical,
-                    ctx,
-                );
-                let height =
-                    layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
-                let arguments = vec![fld.cells_h, fld.cells_v, spacing, padding, height];
-                match fld.compute_cells {
-                    Some((cells_h_var, cells_v_var, elements)) => {
-                        llr_Expression::WithFlexBoxLayoutItemInfo {
-                            cells_h_variable: cells_h_var,
-                            cells_v_variable: cells_v_var,
-                            repeater_indices_var_name: None,
-                            elements,
-                            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                                function: "flexbox_layout_info_with_height".into(),
-                                arguments,
-                                return_ty: crate::typeregister::layout_info_type().into(),
-                            }),
-                        }
-                    }
-                    None => llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "flexbox_layout_info_with_height".into(),
-                        arguments,
-                        return_ty: crate::typeregister::layout_info_type().into(),
-                    },
-                }
-            }
+            None => llr_Expression::ExtraBuiltinFunctionCall {
+                function: "flexbox_layout_info_with_constraint".into(),
+                arguments,
+                return_ty: crate::typeregister::layout_info_type().into(),
+            },
         }
     } else {
-        // Simple orientation-based info (no wrapping consideration needed)
+        // Main axis: simple computation (items flow sequentially)
         let (padding, spacing) =
             generate_layout_padding_and_spacing(&layout.geometry, orientation, ctx);
         let arguments = vec![
-            if orientation == Orientation::Horizontal {
-                fld.cells_h.clone()
-            } else {
-                fld.cells_v.clone()
-            },
+            if orientation == Orientation::Horizontal { fld.cells_h } else { fld.cells_v },
             spacing,
             padding,
             llr_Expression::EnumerationValue(EnumerationValue {
                 value: orientation as usize,
                 enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
             }),
-            fld.direction.clone(),
+            fld.direction,
         ];
+
         match fld.compute_cells {
             Some((cells_h_var, cells_v_var, elements)) => {
                 llr_Expression::WithFlexBoxLayoutItemInfo {
