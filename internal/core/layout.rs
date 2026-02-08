@@ -1527,74 +1527,119 @@ pub fn flexbox_layout_info(
     }
 }
 
-/// Return LayoutInfo for a FlexBoxLayout given a constraint on one dimension.
-/// For Row direction, constrains width and computes the resulting height.
-/// For Column direction, constrains height and computes the resulting width.
+/// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
+/// This handles both main-axis (simple) and cross-axis (wrapping-aware) cases.
+/// The constraint_size is the perpendicular dimension to orientation:
+/// - For Horizontal orientation: constraint_size is height
+/// - For Vertical orientation: constraint_size is width
+/// At runtime, this is used if we're computing cross-axis info; ignored for main-axis.
 pub fn flexbox_layout_info_with_constraint(
     cells_h: Slice<LayoutItemInfo>,
     cells_v: Slice<LayoutItemInfo>,
     spacing: Coord,
     padding: &Padding,
+    orientation: Orientation,
     direction: FlexDirection,
     constraint_size: Coord,
 ) -> LayoutInfo {
-    let cell_count = match direction {
-        FlexDirection::Row => cells_h.len(),
-        FlexDirection::Column => cells_v.len(),
+    // Determine if we're asking for main-axis or cross-axis
+    let is_main_axis = match (direction, orientation) {
+        (FlexDirection::Row, Orientation::Horizontal) => true,
+        (FlexDirection::Column, Orientation::Vertical) => true,
+        _ => false,
     };
 
-    if cell_count < 1 {
-        let pad = padding.begin + padding.end;
-        return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
-    }
+    if is_main_axis {
+        // Main axis: simple calculation (items flow sequentially)
+        // NOTE: We don't use constraint_size here - no circular dependency
+        let cells = match orientation {
+            Orientation::Horizontal => &cells_h,
+            Orientation::Vertical => &cells_v,
+        };
+        let count = cells.len();
+        if count < 1 {
+            let pad = padding.begin + padding.end;
+            return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
+        }
 
-    let taffy_direction = match direction {
-        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-    };
+        let extra_pad = padding.begin + padding.end;
+        let min =
+            cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
+        let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+            + spacing * (count - 1) as Coord
+            + extra_pad;
+        let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
+        LayoutInfo {
+            min,
+            max: Coord::MAX,
+            min_percent: 0.0,
+            max_percent: 100.0,
+            preferred,
+            stretch,
+        }
+    } else {
+        // Cross-axis: constraint-based calculation (wrapping affects this dimension)
+        // constraint_size is the main-axis dimension that determines wrapping:
+        // - Row asking Vertical: constraint_size is width (from Vertical's perpendicular)
+        // - Column asking Horizontal: constraint_size is height (from Horizontal's perpendicular)
+        let cell_count = match direction {
+            FlexDirection::Row => cells_h.len(),
+            FlexDirection::Column => cells_v.len(),
+        };
 
-    let (container_width, container_height) = match direction {
-        FlexDirection::Row => (Some(constraint_size), None),
-        FlexDirection::Column => (None, Some(constraint_size)),
-    };
+        if cell_count < 1 {
+            let pad = padding.begin + padding.end;
+            return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
+        }
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
-        &cells_h,
-        &cells_v,
-        spacing,
-        padding,
-        LayoutAlignment::Start,
-        taffy_direction,
-        container_width,
-        container_height,
-    );
+        let taffy_direction = match direction {
+            FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+            FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        };
 
-    let (available_width, available_height) = match direction {
-        FlexDirection::Row => (constraint_size, Coord::MAX),
-        FlexDirection::Column => (Coord::MAX, constraint_size),
-    };
+        let (container_width, container_height) = match direction {
+            FlexDirection::Row => (Some(constraint_size), None),
+            FlexDirection::Column => (None, Some(constraint_size)),
+        };
 
-    builder.compute_layout(available_width, available_height);
-    let (total_width, total_height) = builder.container_size();
+        let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
+            &cells_h,
+            &cells_v,
+            spacing,
+            padding,
+            LayoutAlignment::Start,
+            taffy_direction,
+            container_width,
+            container_height,
+        );
 
-    let (perpendicular_size, computed_size) = match direction {
-        FlexDirection::Row => (cells_v, total_height),
-        FlexDirection::Column => (cells_h, total_width),
-    };
+        let (available_width, available_height) = match direction {
+            FlexDirection::Row => (constraint_size, Coord::MAX),
+            FlexDirection::Column => (Coord::MAX, constraint_size),
+        };
 
-    // Min perpendicular size is the minimum of any single item
-    let min_size =
-        perpendicular_size.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
-            + padding.begin
-            + padding.end;
+        builder.compute_layout(available_width, available_height);
+        let (total_width, total_height) = builder.container_size();
 
-    LayoutInfo {
-        min: min_size,
-        max: Coord::MAX,
-        min_percent: 0.0,
-        max_percent: 100.0,
-        preferred: computed_size,
-        stretch: 0.0,
+        let (perpendicular_size, computed_size) = match direction {
+            FlexDirection::Row => (cells_v, total_height),
+            FlexDirection::Column => (cells_h, total_width),
+        };
+
+        // Min perpendicular size is the minimum of any single item
+        let min_size =
+            perpendicular_size.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+                + padding.begin
+                + padding.end;
+
+        LayoutInfo {
+            min: min_size,
+            max: Coord::MAX,
+            min_percent: 0.0,
+            max_percent: 100.0,
+            preferred: computed_size,
+            stretch: 0.0,
+        }
     }
 }
 
@@ -1713,12 +1758,13 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    /// Return LayoutInfo for a FlexBoxLayout given a constraint on one dimension.
+    /// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
     pub extern "C" fn slint_flexbox_layout_info_with_constraint(
         cells_h: Slice<LayoutItemInfo>,
         cells_v: Slice<LayoutItemInfo>,
         spacing: Coord,
         padding: &Padding,
+        orientation: Orientation,
         direction: FlexDirection,
         constraint_size: Coord,
     ) -> LayoutInfo {
@@ -1727,6 +1773,7 @@ pub(crate) mod ffi {
             cells_v,
             spacing,
             padding,
+            orientation,
             direction,
             constraint_size,
         )

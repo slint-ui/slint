@@ -252,69 +252,25 @@ pub(crate) fn compute_flexbox_layout_info(
         })
         .unwrap_or(FlexDirection::Row);
 
-    // Determine if wrapping-aware computation is needed
-    let needs_wrap_aware = match (direction, orientation) {
-        (FlexDirection::Row, Orientation::Vertical) => true, // Row wraps horizontally, affects height
-        (FlexDirection::Column, Orientation::Horizontal) => true, // Column wraps vertically, affects width
+    // Determine if we're on the main axis or cross axis
+    let is_main_axis = match (direction, orientation) {
+        (FlexDirection::Row, Orientation::Horizontal) => true,
+        (FlexDirection::Column, Orientation::Vertical) => true,
         _ => false,
     };
 
-    if needs_wrap_aware {
-        match direction {
-            FlexDirection::Row => {
-                // Vertical info for row direction: width determines height
-                let (padding, spacing) = padding_and_spacing(
-                    &flexbox_layout.geometry,
-                    Orientation::Horizontal,
-                    &expr_eval,
-                );
-                let width_ref = &flexbox_layout.geometry.rect.width_reference;
-                let width = width_ref.as_ref().map(&expr_eval).unwrap_or(0.);
+    let (padding, spacing) = padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
 
-                let runtime_direction = CoreFlexDirection::Row;
-                core_layout::flexbox_layout_info_with_constraint(
-                    i_slint_core::slice::Slice::from(cells_h.as_slice()),
-                    i_slint_core::slice::Slice::from(cells_v.as_slice()),
-                    spacing,
-                    &padding,
-                    runtime_direction,
-                    width,
-                )
-                .into()
-            }
-            FlexDirection::Column => {
-                // Horizontal info for column direction: height determines width
-                let (padding, spacing) = padding_and_spacing(
-                    &flexbox_layout.geometry,
-                    Orientation::Vertical,
-                    &expr_eval,
-                );
-                let height_ref = &flexbox_layout.geometry.rect.height_reference;
-                let height = height_ref.as_ref().map(&expr_eval).unwrap_or(0.);
+    // Convert compiler FlexDirection to runtime FlexDirection
+    let runtime_direction = match direction {
+        FlexDirection::Row => CoreFlexDirection::Row,
+        FlexDirection::Column => CoreFlexDirection::Column,
+    };
 
-                let runtime_direction = CoreFlexDirection::Column;
-                core_layout::flexbox_layout_info_with_constraint(
-                    i_slint_core::slice::Slice::from(cells_h.as_slice()),
-                    i_slint_core::slice::Slice::from(cells_v.as_slice()),
-                    spacing,
-                    &padding,
-                    runtime_direction,
-                    height,
-                )
-                .into()
-            }
-        }
-    } else {
-        // Simple orientation-based info (no wrapping consideration needed)
-        let (padding, spacing) =
-            padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
+    if is_main_axis {
+        // Main axis: use simple layout info (no constraint needed)
+        // This avoids reading the perpendicular dimension and prevents circular dependencies
         let cells = if orientation == Orientation::Horizontal { &cells_h } else { &cells_v };
-
-        // Convert compiler FlexDirection to runtime FlexDirection
-        let runtime_direction = match direction {
-            FlexDirection::Row => CoreFlexDirection::Row,
-            FlexDirection::Column => CoreFlexDirection::Column,
-        };
 
         core_layout::flexbox_layout_info(
             i_slint_core::slice::Slice::from(cells.as_slice()),
@@ -322,6 +278,32 @@ pub(crate) fn compute_flexbox_layout_info(
             &padding,
             to_runtime(orientation),
             runtime_direction,
+        )
+        .into()
+    } else {
+        // Cross axis: need constraint to handle wrapping
+        // Only read the constraint dimension here (the main-axis dimension of the flexbox)
+        let constraint_size = match orientation {
+            Orientation::Horizontal => {
+                // Cross-axis for Column: need height
+                let height_ref = &flexbox_layout.geometry.rect.height_reference;
+                height_ref.as_ref().map(&expr_eval).unwrap_or(0.)
+            }
+            Orientation::Vertical => {
+                // Cross-axis for Row: need width
+                let width_ref = &flexbox_layout.geometry.rect.width_reference;
+                width_ref.as_ref().map(&expr_eval).unwrap_or(0.)
+            }
+        };
+
+        core_layout::flexbox_layout_info_with_constraint(
+            i_slint_core::slice::Slice::from(cells_h.as_slice()),
+            i_slint_core::slice::Slice::from(cells_v.as_slice()),
+            spacing,
+            &padding,
+            to_runtime(orientation),
+            runtime_direction,
+            constraint_size,
         )
         .into()
     }

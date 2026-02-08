@@ -1,0 +1,73 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with runtime direction change
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <bool> use-column: false;
+
+    FlexBoxLayout {
+        flex-direction: use-column ? FlexDirection.column : FlexDirection.row;
+        spacing: 10px;
+
+        r1 := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: green;
+        }
+    }
+
+    // When row: r1 at (0,0), r2 at (60,0) - horizontal arrangement
+    // When column: r1 at (0,0), r2 at (0,60) - vertical arrangement
+    out property <length> r1_x: r1.x;
+    out property <length> r1_y: r1.y;
+    out property <length> r2_x: r2.x;
+    out property <length> r2_y: r2.y;
+
+    out property <bool> test_row: !use-column && r1.x == 0px && r1.y == 0px && r2.x == 60px && r2.y == 0px;
+    out property <bool> test_column: use-column && r1.x == 0px && r1.y == 0px && r2.x == 0px && r2.y == 60px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+// Test row mode (default)
+handle->set_use_column(false);
+assert(handle->get_test_row());
+
+// Switch to column mode at runtime
+handle->set_use_column(true);
+assert(handle->get_test_column());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+// Test row mode (default)
+instance.set_use_column(false);
+assert!(instance.get_test_row());
+
+// Switch to column mode at runtime
+instance.set_use_column(true);
+assert!(instance.get_test_column());
+```
+
+```js
+var instance = new slint.TestCase();
+// Test row mode (default)
+instance.use_column = false;
+assert(instance.test_row);
+
+// Switch to column mode at runtime
+instance.use_column = true;
+assert(instance.test_column);
+```
+*/
