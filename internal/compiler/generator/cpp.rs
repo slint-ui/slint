@@ -3845,6 +3845,20 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
+        Expression::WithFlexBoxLayoutItemInfo {
+            cells_h_variable,
+            cells_v_variable,
+            repeater_indices_var_name,
+            elements,
+            sub_expression,
+        } => generate_with_flexbox_layout_item_info(
+            cells_h_variable,
+            cells_v_variable,
+            repeater_indices_var_name.as_ref().map(SmolStr::as_str),
+            elements.as_ref(),
+            sub_expression,
+            ctx,
+        ),
         Expression::WithGridInputData {
             cells_variable,
             repeater_indices_var_name,
@@ -4532,6 +4546,74 @@ fn generate_with_layout_item_info(
         "[&]{{ {ri} {rs} {push_code} slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
         ident(cells_variable),
         compile_expression(sub_expression, ctx)
+    )
+}
+
+fn generate_with_flexbox_layout_item_info(
+    cells_h_variable: &str,
+    cells_v_variable: &str,
+    repeated_indices_var_name: Option<&str>,
+    elements: &[Either<(llr::Expression, llr::Expression), llr::LayoutRepeatedElement>],
+    sub_expression: &llr::Expression,
+    ctx: &llr_EvaluationContext<CppGeneratorContext>,
+) -> String {
+    let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    let mut push_code =
+        "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_v;".to_owned();
+    let mut repeater_idx = 0usize;
+
+    for item in elements {
+        match item {
+            Either::Left((value_h, value_v)) => {
+                write!(
+                    push_code,
+                    "cells_vector_h.push_back({{ {} }}); cells_vector_v.push_back({{ {} }});",
+                    compile_expression(value_h, ctx),
+                    compile_expression(value_v, ctx)
+                )
+                .unwrap();
+            }
+            Either::Right(repeater) => {
+                let repeater_index = usize::from(repeater.repeater_index);
+                write!(push_code, "self->repeater_{repeater_index}.ensure_updated(self);").unwrap();
+
+                if let Some(ri) = &repeated_indices_var_name {
+                    write!(
+                        push_code,
+                        "{ri}_array[{c}] = cells_vector_h.size();",
+                        c = repeater_idx * 2
+                    )
+                    .unwrap();
+                    write!(
+                        push_code,
+                        "{ri}_array[{c}] = self->repeater_{repeater_index}.len();",
+                        c = repeater_idx * 2 + 1,
+                    )
+                    .unwrap();
+                }
+                repeater_idx += 1;
+                write!(
+                    push_code,
+                    "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ cells_vector_h.push_back(sub_comp->layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); cells_vector_v.push_back(sub_comp->layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }});"
+                )
+                .unwrap();
+            }
+        }
+    }
+
+    let ri = repeated_indices_var_name.as_ref().map_or(String::new(), |ri| {
+        write!(
+            push_code,
+            "slint::cbindgen_private::Slice<int> {ri} = slint::private_api::make_slice(std::span({ri}_array));"
+        )
+        .unwrap();
+        format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
+    });
+    format!(
+        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); return {}; }}()",
+        compile_expression(sub_expression, ctx),
+        cells_h = ident(cells_h_variable),
+        cells_v = ident(cells_v_variable),
     )
 }
 

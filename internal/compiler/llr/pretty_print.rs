@@ -422,6 +422,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 )
             }
             Expression::WithLayoutItemInfo { .. } => write!(f, "WithLayoutItemInfo(TODO)",),
+            Expression::WithFlexBoxLayoutItemInfo { .. } => {
+                write!(f, "WithFlexBoxLayoutItemInfo(TODO)",)
+            }
             Expression::WithGridInputData { .. } => write!(f, "WithGridInputData(TODO)",),
             Expression::MinMax { ty: _, op, lhs, rhs } => match op {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),

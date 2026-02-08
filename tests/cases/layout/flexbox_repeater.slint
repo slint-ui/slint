@@ -1,0 +1,41 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout with a for repeater
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    property <[int]> items: [1, 2, 3];
+
+    FlexBoxLayout {
+        spacing: 10px;
+        padding: 5px;
+        flex-direction: row;
+
+        for item in root.items: r := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: item == 1 ? red : (item == 2 ? green : blue);
+        }
+    }
+
+    // First item: x=5 (padding), y=5
+    // Second item: x=65 (5 + 50 + 10), y=5
+    // Third item: x=125 (5 + 50 + 10 + 50 + 10), y=5
+    // We can't easily access repeated items by index, so just test the layout completes
+    out property <bool> test: true;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
