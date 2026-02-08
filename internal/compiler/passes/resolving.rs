@@ -370,6 +370,9 @@ impl Expression {
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
                     SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
+                    SyntaxKind::SlotReference => {
+                        Some(Self::from_slot_reference_node(node.into(), ctx))
+                    }
                     SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
                         node.clone().into(),
                         ctx,
@@ -519,6 +522,14 @@ impl Expression {
             source_location: Some(node.to_source_location()),
             nine_slice,
         }
+    }
+
+    fn from_slot_reference_node(node: syntax_nodes::SlotReference, ctx: &mut LookupCtx) -> Self {
+        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
+        resolve_slot_reference_element(name.as_str(), ctx, &node, true)
+            .map_or(Expression::Invalid, |element| {
+                Expression::ElementReference(Rc::downgrade(&element))
+            })
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
@@ -1815,6 +1826,16 @@ fn lookup_qualified_name_node(
     let global_lookup = crate::lookup::global_lookup();
     let result = match global_lookup.lookup(ctx, &first_str) {
         None => {
+            if let Some(slot_element) =
+                resolve_slot_reference_element(first_str.as_str(), ctx, &node, false)
+            {
+                return continue_lookup_within_element(&slot_element, &mut it, node, ctx);
+            }
+            if is_declared_slot_in_scope(first_str.as_str(), ctx) {
+                // resolve_slot_reference_element() already emitted a slot-specific diagnostic.
+                return None;
+            }
+
             if let Some(minus_pos) = first.text().find('-') {
                 // Attempt to recover if the user wanted to write "-" for minus
                 let first_str = &first.text()[0..minus_pos];
@@ -1875,6 +1896,67 @@ fn lookup_qualified_name_node(
         }
         result => maybe_lookup_object(result, it, ctx),
     }
+}
+
+fn resolve_slot_reference_element(
+    name: &str,
+    ctx: &mut LookupCtx,
+    node: &dyn Spanned,
+    report_unknown: bool,
+) -> Option<ElementRc> {
+    if name == "children" || name == "_children" {
+        ctx.diag.push_error(
+            "The default slot '@children' cannot be referenced in expressions".into(),
+            node,
+        );
+        return None;
+    }
+
+    for scope_elem in ctx.component_scope.iter().rev() {
+        let scope_elem_ref = scope_elem.borrow();
+        let repeated = scope_elem_ref.repeated.is_some();
+        let mut matches = scope_elem_ref.children.iter().filter(|child| {
+            child.borrow().slot_target.as_ref().is_some_and(|slot| slot.as_str() == name)
+        });
+        if let Some(found) = matches.next() {
+            if matches.next().is_some() {
+                ctx.diag.push_error(format!("Duplicate assignment to slot '{name}'"), node);
+                return None;
+            }
+
+            if repeated {
+                ctx.diag.push_error(
+                    format!(
+                        "Slot '{name}' cannot be referenced inside repeated or conditional elements"
+                    ),
+                    node,
+                );
+                return None;
+            }
+
+            return Some(found.clone());
+        }
+    }
+
+    if is_declared_slot_in_scope(name, ctx) {
+        ctx.diag.push_error(format!("Slot '{name}' is not assigned in this instance"), node);
+        return None;
+    }
+
+    if report_unknown {
+        ctx.diag.push_error(format!("Unknown slot '{name}'"), node);
+    }
+    None
+}
+
+fn is_declared_slot_in_scope(name: &str, ctx: &LookupCtx) -> bool {
+    ctx.component_scope.iter().rev().any(|scope_elem| {
+        let scope_elem_ref = scope_elem.borrow();
+        let ElementType::Component(component) = &scope_elem_ref.base_type else {
+            return false;
+        };
+        component.declared_slots.borrow().iter().any(|slot| slot.name == name)
+    })
 }
 
 fn continue_lookup_within_element(

@@ -5,7 +5,7 @@
     Parse the contents of builtins.slint and fill the builtin type registry
 */
 
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

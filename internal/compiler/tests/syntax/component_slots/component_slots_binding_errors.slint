@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SlotHost inherits Rectangle {
+    slot header;
+
+    VerticalLayout {
+        header {}
+    }
+}
+
+export component UseOk inherits Rectangle {
+    SlotHost {
+        header << Rectangle {
+            background: blue;
+        }
+    }
+}
+
+export component FailDuplicateAssignment inherits Rectangle {
+    SlotHost {
+        header << Rectangle { background: red; }
+        header << Rectangle { background: green; }
+//      >                                        <error{Duplicate assignment to slot 'header'}
+    }
+}
+
+export component FailUnknownSlot inherits Rectangle {
+    SlotHost {
+        footer << Rectangle { }
+//      >                     <error{Unknown slot 'footer' in 'SlotHost'}
+    }
+}
+
+export component ForwardTargetHost inherits Rectangle {
+    slot hostHeader;
+
+    Rectangle {
+        hostHeader {}
+    }
+}
+
+export component FailUnknownForwardTarget inherits Rectangle {
+    slot header;
+
+    ForwardTargetHost {
+        footer << header;
+//      >    <error{Unknown slot 'footer' in 'ForwardTargetHost'}
+    }
+
+    header {}
+}
+
+export component FailDuplicateForwardingTarget inherits Rectangle {
+    slot header;
+
+    ForwardTargetHost {
+        hostHeader << header;
+        hostHeader << header;
+//      >        <error{Duplicate forwarding to slot 'hostHeader'}
+    }
+}
+
+export component FailForwardAndAssignConflict inherits Rectangle {
+    slot header;
+
+    ForwardTargetHost {
+        hostHeader << header;
+        hostHeader << Rectangle { }
+//      >                         <error{Slot 'hostHeader' cannot be both forwarded and assigned}
+    }
+}
+
+export component FailForwardAndPlaceholderConflict inherits Rectangle {
+    slot header;
+
+    ForwardTargetHost {
+        hostHeader << header;
+    }
+
+    header {}
+//  >       <error{The slot 'header' cannot be forwarded and used as a placeholder in the same component}
+}
+
+export component FailForwardUnknownSource inherits Rectangle {
+    ForwardTargetHost {
+        hostHeader << header;
+//                    >    <error{The slot 'header' is used but not declared}
+    }
+}
+
+export component FailForwardInvalidRhs inherits Rectangle {
+    slot header;
+
+    ForwardTargetHost {
+        hostHeader << header + 1;
+//                    >        <error{Slot forwarding requires a slot identifier on the right-hand side}
+    }
+
+    header {}
+}
+
+export component FailUnassignedSlotReference inherits Rectangle {
+    SlotHost {
+        out property <length> header_y: header.absolute-position.y;
+//                                      >                        <error{Slot 'header' is not assigned in this instance}
+    }
+}

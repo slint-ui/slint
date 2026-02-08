@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SlotHost inherits Rectangle {
+    slot header;
+    slot footer;
+    VerticalLayout {
+        spacing: 0px;
+        header {}
+        @children
+        footer {}
+
+
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 60px;
+
+    host := SlotHost {
+        width: 200px;
+        height: 60px;
+
+        header << Rectangle {
+            height: 10px;
+        }
+
+        body_rect := Rectangle {
+            height: 20px;
+        }
+
+        footer << Rectangle {
+            height: 30px;
+        }
+
+        out property <length> header_y: header.absolute-position.y;
+        out property <length> body_y: body_rect.absolute-position.y;
+        out property <length> footer_y: footer.absolute-position.y;
+    }
+
+    out property <bool> test: host.header_y == 0px && host.body_y == 10px && host.footer_y == 30px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

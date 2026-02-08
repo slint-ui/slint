@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component NestedHost inherits Rectangle {
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 2px;
+        }
+
+        @children
+        Rectangle {
+            height: 3px;
+        }
+    }
+}
+
+export component SlotHost inherits Rectangle {
+    slot header;
+    VerticalLayout {
+        spacing: 0px;
+        header {}
+
+
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 60px;
+
+    host := SlotHost {
+        width: 100px;
+        height: 60px;
+
+        header << NestedHost {
+            a := Rectangle {
+                height: 5px;
+            }
+
+            b := Rectangle {
+                height: 7px;
+            }
+
+            c := Rectangle {
+                height: 11px;
+            }
+        }
+
+        out property <length> ay: a.absolute-position.y;
+        out property <length> by: b.absolute-position.y;
+        out property <length> cy: c.absolute-position.y;
+    }
+
+    out property <bool> test: host.ay == 2px && host.by == 7px && host.cy == 14px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

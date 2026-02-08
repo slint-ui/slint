@@ -523,7 +523,7 @@ impl ElementType {
     ) -> Result<ElementType, String> {
         match self {
             Self::Component(component) => {
-                let base_type = match &*component.child_insertion_point.borrow() {
+                let base_type = match component.child_insertion_points.borrow().get("_children") {
                     Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
