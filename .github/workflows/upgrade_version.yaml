@@ -69,7 +69,11 @@ jobs:
               with:
                   branch: wip/version-bump
 
-            # update versions.json
+    # update https://releases.slint.dev/versions.json
+    update_versions_json:
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/master'
+        steps:
             - name: Generate a token
               id: app-token
               uses: actions/create-github-app-token@v2
