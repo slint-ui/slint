@@ -20,5 +20,11 @@ export component SuperSimple {
         @keys(IgnoreShift + "+"), // equivalent to @keys(Plus)
         @keys(Alt + IgnoreShift + Control + Meta + Escape), // supports both Shift+Escape and Escape in a single shortcut
         @keys(Control + IgnoreShift + A),
+
+        // IgnoreAlt
+        // note: this is e.g. needed on MacOS with a French layout:
+        @keys(IgnoreAlt + "{"),
+        @keys(IgnoreAlt + Shift + Control + Meta + Escape),
+        @keys(Control + IgnoreAlt + A),
     ];
 }
