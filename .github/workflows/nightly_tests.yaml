@@ -271,22 +271,8 @@ jobs:
                 xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
 
 
-    bevy_example:
-        strategy:
-            matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
-        runs-on: ${{ matrix.os }}
-        steps:
-            - uses: actions/checkout@v6
-            - uses: ./.github/actions/setup-rust
-            - uses: ./.github/actions/install-linux-dependencies
-              with:
-                  extra-packages: libwayland-dev libasound2-dev
-            - uses: ./.github/actions/install-skia-dependencies
-            - uses: ilammy/msvc-dev-cmd@v1
-            - name: Build Bevy Examples
-              run: cargo build
-              working-directory: examples/bevy
+    bevy_examples:
+        uses: ./.github/workflows/bevy_examples.yaml
 
     android_wgpu:
         runs-on: ubuntu-latest

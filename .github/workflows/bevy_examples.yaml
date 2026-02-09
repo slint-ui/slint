@@ -1,0 +1,26 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Bevy examples
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+    bevy_examples:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: libwayland-dev libasound2-dev
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Build Bevy Examples
+              run: cargo build
+              working-directory: examples/bevy
