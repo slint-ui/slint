@@ -1223,24 +1223,14 @@ pub fn get_layout_info(
     }
 }
 
+// Called for repeated components in a grid layout, to generate code to provide input for organize_grid_layout().
 pub fn get_grid_layout_input_for_repeated(
     ctx: &mut ExpressionLoweringCtx,
     grid_cell: &GridLayoutCell,
 ) -> llr_Expression {
     let mut assignments = Vec::new();
 
-    // grid_cell.new_row is the static information from the slint file.
-    // In practice, for repeated items within a row, whether we should start a new row
-    // is more dynamic (e.g. if the previous item was in "if false"),
-    // and tracked by a local variable "new_row" in the generated code.
-
-    let mut new_row_expr = if grid_cell.child_items.is_some() {
-        llr_Expression::BoolLiteral(true) // repeated Row
-    } else {
-        llr_Expression::ReadLocalVariable { name: SmolStr::new_static("new_row"), ty: Type::Bool }
-    };
-
-    fn convert_row_col_expr(expr: &RowColExpr, ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
+    fn convert_row_col_expr(expr: &RowColExpr, ctx: &ExpressionLoweringCtx) -> llr_Expression {
         match expr {
             RowColExpr::Literal(n) => llr_Expression::NumberLiteral((*n).into()),
             RowColExpr::Named(nr) => {
@@ -1251,26 +1241,51 @@ pub fn get_grid_layout_input_for_repeated(
     }
 
     // Generate assignments to the `result` slice parameter: result[i] = struct { ... }
-    let item_count = grid_cell.child_items.as_ref().map_or(1, |c| c.len());
-    for i in 0..item_count {
-        let value = make_struct(
-            BuiltinPrivateStruct::GridLayoutInputData,
-            [
-                ("new_row", Type::Bool, new_row_expr),
-                ("row", Type::Float32, convert_row_col_expr(&grid_cell.row_expr, ctx)),
-                ("col", Type::Float32, convert_row_col_expr(&grid_cell.col_expr, ctx)),
-                ("rowspan", Type::Float32, convert_row_col_expr(&grid_cell.rowspan_expr, ctx)),
-                ("colspan", Type::Float32, convert_row_col_expr(&grid_cell.colspan_expr, ctx)),
-            ],
-        );
-        // Generate: result[i] = value
-        assignments.push(llr_Expression::SliceIndexAssignment {
-            slice_name: SmolStr::new_static("result"),
-            index: i,
-            value: value.into(),
-        });
-        new_row_expr = llr_Expression::BoolLiteral(false);
+    let mut push_assignment =
+        |i: usize, new_row_expr: &llr_Expression, grid_cell: &GridLayoutCell| {
+            let row = convert_row_col_expr(&grid_cell.row_expr, &*ctx);
+            let col = convert_row_col_expr(&grid_cell.col_expr, &*ctx);
+            let rowspan = convert_row_col_expr(&grid_cell.rowspan_expr, &*ctx);
+            let colspan = convert_row_col_expr(&grid_cell.colspan_expr, &*ctx);
+            let value = make_struct(
+                BuiltinPrivateStruct::GridLayoutInputData,
+                [
+                    ("new_row", Type::Bool, new_row_expr.clone()),
+                    ("row", Type::Float32, row),
+                    ("col", Type::Float32, col),
+                    ("rowspan", Type::Float32, rowspan),
+                    ("colspan", Type::Float32, colspan),
+                ],
+            );
+            assignments.push(llr_Expression::SliceIndexAssignment {
+                slice_name: SmolStr::new_static("result"),
+                index: i,
+                value: value.into(),
+            });
+        };
+
+    if let Some(child_items) = grid_cell.child_items.as_ref() {
+        // Repeated Row
+        let mut new_row_expr = llr_Expression::BoolLiteral(true);
+        for (i, child_item) in child_items.iter().enumerate() {
+            let child_element = child_item.element.borrow();
+            let child_cell = child_element.grid_layout_cell.as_ref().unwrap().borrow();
+            push_assignment(i, &new_row_expr, &child_cell);
+            new_row_expr = llr_Expression::BoolLiteral(false);
+        }
+    } else {
+        // Single repeated item
+        // grid_cell.new_row is the static information from the slint file.
+        // In practice, for repeated items within a row, whether we should start a new row
+        // is more dynamic (e.g. if the previous item was in "if false"),
+        // and tracked by a local variable "new_row" in the generated code.
+        let new_row_expr = llr_Expression::ReadLocalVariable {
+            name: SmolStr::new_static("new_row"),
+            ty: Type::Bool,
+        };
+        push_assignment(0, &new_row_expr, grid_cell);
     }
+
     llr_Expression::CodeBlock(assignments)
 }
 
