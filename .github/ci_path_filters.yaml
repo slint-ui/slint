@@ -116,3 +116,7 @@ updater_test:
 servo_example:
  - 'examples/servo/**'
  - *ci_config
+
+bevy_examples:
+ - 'examples/bevy/**'
+ - *ci_config
