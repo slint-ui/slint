@@ -478,6 +478,33 @@ impl GridLayout {
 
                 let sub_item = create_layout_item(child, diag);
 
+                // Read colspan and rowspan from the child element
+                let propref = |name: &'static str, elem: &ElementRc| -> Option<RowColExpr> {
+                    let nr = crate::layout::binding_reference(elem, name).map(|nr| {
+                        let e = nr.element();
+                        let mut nr = nr.clone();
+                        if e.borrow().repeated.is_some()
+                            && let crate::langtype::ElementType::Component(c) =
+                                e.borrow().base_type.clone()
+                        {
+                            nr = NamedReference::new(&c.root_element, nr.name().clone())
+                        };
+                        nr
+                    });
+                    nr.map(RowColExpr::Named)
+                };
+                let colspan_expr = propref("colspan", child);
+                let rowspan_expr = propref("rowspan", child);
+                let child_grid_cell = Rc::new(RefCell::new(GridLayoutCell {
+                    new_row: false,
+                    col_expr: RowColExpr::Auto,
+                    row_expr: RowColExpr::Auto,
+                    colspan_expr: colspan_expr.unwrap_or(RowColExpr::Literal(1)),
+                    rowspan_expr: rowspan_expr.unwrap_or(RowColExpr::Literal(1)),
+                    child_items: None,
+                }));
+                child.borrow_mut().grid_layout_cell = Some(child_grid_cell);
+
                 // The layout engine will set x,y,width,height,row,col for each of the repeated children
                 set_properties_from_cache(
                     &sub_item.elem,
