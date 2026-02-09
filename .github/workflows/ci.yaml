@@ -44,6 +44,7 @@ jobs:
         slintpad : ${{ steps.filter.outputs.slintpad }}
         updater_test : ${{ steps.filter.outputs.updater_test }}
         servo_example : ${{ steps.filter.outputs.servo_example }}
+        bevy_examples : ${{ steps.filter.outputs.bevy_examples }}
       steps:
         - uses: actions/checkout@v6
         - uses: dorny/paths-filter@v3
@@ -653,3 +654,9 @@ jobs:
         needs: files-changed
         if: needs.files-changed.outputs.servo_example == 'true'
         uses: ./.github/workflows/servo_example.yaml
+
+    bevy_examples:
+        needs: files-changed
+        if: needs.files-changed.outputs.bevy_examples == 'true'
+        uses: ./.github/workflows/bevy_examples.yaml
+
