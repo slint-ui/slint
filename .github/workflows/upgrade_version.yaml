@@ -70,7 +70,7 @@ jobs:
                   branch: wip/version-bump
 
     # update https://releases.slint.dev/versions.json
-    update_verions_json:
+    update_versions_json:
         runs-on: ubuntu-latest
         if: github.ref == 'refs/heads/master'
         steps:
