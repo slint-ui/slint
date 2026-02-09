@@ -173,15 +173,17 @@ impl MemberReference {
     }
 
     pub fn is_function(&self) -> bool {
-        match self {
+        matches!(
+            self,
             MemberReference::Global { member: LocalMemberIndex::Function(..), .. }
-            | MemberReference::Relative {
-                local_reference:
-                    LocalMemberReference { reference: LocalMemberIndex::Function(..), .. },
-                ..
-            } => true,
-            _ => false,
-        }
+                | MemberReference::Relative {
+                    local_reference: LocalMemberReference {
+                        reference: LocalMemberIndex::Function(..),
+                        ..
+                    },
+                    ..
+                }
+        )
     }
 }
 
