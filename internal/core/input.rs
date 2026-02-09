@@ -313,7 +313,7 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
-/// A `KeyboardShortcut` is created by the `@keys(...)` macro and defines
+/// A `KeyboardShortcut` is created by the `@keys(...)` macro and
 /// defines which key events match the given shortcuts.
 ///
 /// See [`Self::matches()`] for details
@@ -412,26 +412,36 @@ impl KeyboardShortcut {
 
 impl Display for KeyboardShortcut {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
         if self.key.is_empty() {
             write!(f, "")
         } else {
-            write!(
-                f,
-                "{}{}{}{}\"{}\"",
-                self.ignore_alt
-                    .then_some("IgnoreAlt+")
-                    .or(self.modifiers.alt.then_some("Alt+"))
-                    .unwrap_or_default(),
-                if self.modifiers.control { "Control+" } else { "" },
-                self.ignore_shift
-                    .then_some("IgnoreShift+")
-                    .or(self.modifiers.shift.then_some("Shift+"))
-                    .unwrap_or_default(),
-                if self.modifiers.meta { "Meta+" } else { "" },
-                // Make sure to escape the key, as it may contain control characters.
-                // TODO: Do a reverse character lookup to pretty-print the control characters (i.e. "Escape")
-                self.key.escape_default(),
-            )
+            let alt = self
+                .ignore_alt
+                .then_some("IgnoreAlt+")
+                .or(self.modifiers.alt.then_some("Alt+"))
+                .unwrap_or_default();
+            let ctrl = if self.modifiers.control { "Control+" } else { "" };
+            let meta = if self.modifiers.meta { "Meta+" } else { "" };
+            let shift = self
+                .ignore_shift
+                .then_some("IgnoreShift+")
+                .or(self.modifiers.shift.then_some("Shift+"))
+                .unwrap_or_default();
+            let keycode: SharedString = self
+                .key
+                .chars()
+                .flat_map(|character| {
+                    let mut escaped = alloc::vec![];
+                    if character.is_control() {
+                        escaped.extend(character.escape_unicode());
+                    } else {
+                        escaped.push(character);
+                    }
+                    escaped
+                })
+                .collect();
+            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
         }
     }
 }

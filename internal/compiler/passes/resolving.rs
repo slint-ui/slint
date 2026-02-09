@@ -1071,44 +1071,6 @@ impl Expression {
     }
 
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
-        #[derive(Clone, Debug)]
-        enum ShiftBehavior {
-            // Keys that change their key code when Shift is pressed, but the shifted value is layout-dependent
-            LocalizedShiftable { shifted_hint: &'static str },
-            // Unshiftable keys have the same key code regardless of the shift state
-            //
-            // (This also currently applies to the letter keys, as we match everything with lowercase)
-            Unshiftable,
-        }
-        macro_rules! key_shift_behavior {
-            ($keycode:literal # $ident:ident # $shifted:ident) => {
-                (
-                    stringify!($ident),
-                    (
-                        $keycode,
-                        ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) },
-                    ),
-                )
-            };
-            ($keycode:literal # $ident:ident # ) => {
-                (stringify!($ident), ($keycode, ShiftBehavior::Unshiftable))
-            };
-        }
-        macro_rules! generate_key_map {
-            [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
-                {
-                    let key_map : HashMap<_, _> = [
-                        $(
-                            key_shift_behavior!($char # $name # $($shifted_char)?$($shifted_ident)?)
-                        ),*
-                    ].into_iter().collect();
-                    key_map
-                }
-            }
-        }
-        // TODO: Make this a thread_local or const somewhere
-        let key_map = for_each_keys!(generate_key_map);
-
         let mut shortcut = langtype::KeyboardShortcut::default();
 
         let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
@@ -1125,18 +1087,18 @@ impl Expression {
                 "Shift" => shortcut.modifiers.shift = true,
                 "IgnoreShift" => shortcut.ignore_shift = true,
                 "IgnoreAlt" => shortcut.ignore_alt = true,
-                s => {
-                    if let Some((key, shiftbehavior)) = key_map.get(s) {
+                key_name => {
+                    if let Some((key, shiftbehavior)) = lookup_key(key_name) {
                         key_code = Some((
-                            SmolStr::from_iter(core::iter::once(*key)),
-                            shiftbehavior.clone(),
+                            SmolStr::from_iter(core::iter::once(key)),
+                            shiftbehavior,
                             identifier.clone(),
                         ))
                     } else {
                         // TODO: This should suggest close matches
                         ctx.diag.push_error(
                             format!(
-                                "`{s}` not defined in the `Keys` namespace\n(Consider using \"{s}\")"
+                                "`{key_name}` not defined in the `Keys` namespace\n(Consider using \"{key_name}\")"
                             ),
                             &identifier,
                         );
@@ -1165,8 +1127,8 @@ impl Expression {
                     if shortcut.modifiers.shift {
                         ctx.diag.push_error(
                                         format!(
-                                            "{name} implies IgnoreShift because it reacts differently to Shift on different keyboard layouts.\n\
-                                Remove Shift or use {shifted_hint} instead (for U.S. Keyboards)",
+                                            "Shortcuts involving {name} ignore Shift to support different keyboard layouts\n\
+                                            Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
                                             name = node.as_token().unwrap().text()
                                         ),
                                         &node,
@@ -1726,6 +1688,52 @@ impl Expression {
             }
         })
     }
+}
+
+/// Shift Behavior relevant for the @keys macro
+#[derive(Clone, Debug)]
+enum ShiftBehavior {
+    // Keys that change their key code when Shift is pressed, but the shifted value is layout-dependent
+    LocalizedShiftable { shifted_hint: &'static str },
+    // Unshiftable keys have the same key code regardless of the shift state
+    //
+    // (This also currently applies to the letter keys, as we match everything with lowercase)
+    Unshiftable,
+}
+
+/// Look up the given key in the Keys namespace, including its shift behavior
+fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
+    macro_rules! key_shift_behavior {
+        ($keycode:literal # $ident:ident # $shifted:ident) => {
+            (
+                stringify!($ident),
+                (
+                    $keycode,
+                    ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) },
+                ),
+            )
+        };
+        ($keycode:literal # $ident:ident # ) => {
+            (stringify!($ident), ($keycode, ShiftBehavior::Unshiftable))
+        };
+    }
+    macro_rules! generate_key_map {
+        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
+            {
+                [
+                    $(
+                        key_shift_behavior!($char # $name # $($shifted_char)?$($shifted_ident)?)
+                    ),*
+                ]
+            }
+        }
+    }
+    thread_local! {
+        pub static KEY_MAP: HashMap<&'static str, (char, ShiftBehavior)> =
+            for_each_keys!(generate_key_map).into_iter().collect();
+    }
+
+    KEY_MAP.with(|map| map.get(keycode).cloned())
 }
 
 /// Return the type that merge two times when they are used in two branch of a condition

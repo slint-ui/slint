@@ -1033,15 +1033,37 @@ impl PartialEq for KeyboardShortcut {
 }
 
 impl std::fmt::Display for KeyboardShortcut {
+    // Make sure to keep this in sync with the implemenation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
             write!(f, "")
         } else {
-            let alt = if self.modifiers.alt { "Alt+" } else { "" };
+            let alt = self
+                .ignore_alt
+                .then_some("IgnoreAlt+")
+                .or(self.modifiers.alt.then_some("Alt+"))
+                .unwrap_or_default();
             let ctrl = if self.modifiers.control { "Control+" } else { "" };
             let meta = if self.modifiers.meta { "Meta+" } else { "" };
-            let shift = if self.modifiers.shift { "shift+" } else { "" };
-            write!(f, "{alt}{ctrl}{meta}{shift}{}", self.key)
+            let shift = self
+                .ignore_shift
+                .then_some("IgnoreShift+")
+                .or(self.modifiers.shift.then_some("Shift+"))
+                .unwrap_or_default();
+            let keycode: String = self
+                .key
+                .chars()
+                .flat_map(|character| {
+                    let mut escaped = vec![];
+                    if character.is_control() {
+                        escaped.extend(character.escape_unicode());
+                    } else {
+                        escaped.push(character);
+                    }
+                    escaped
+                })
+                .collect();
+            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
         }
     }
 }
