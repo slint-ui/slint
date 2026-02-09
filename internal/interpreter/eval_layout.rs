@@ -241,16 +241,14 @@ fn grid_layout_input_data(
                 let sub_comp = erased_sub_comp.as_pin_ref();
                 let sub_instance_ref =
                     unsafe { InstanceRef::from_pin_ref(sub_comp.borrow(), guard) };
-                let row = eval_or_default(&elem.cell.borrow().row_expr, sub_instance_ref);
-                let col = eval_or_default(&elem.cell.borrow().col_expr, sub_instance_ref);
-                let rowspan = eval_or_default(&elem.cell.borrow().rowspan_expr, sub_instance_ref);
-                let colspan = eval_or_default(&elem.cell.borrow().colspan_expr, sub_instance_ref);
-                let repeated_children_count =
-                    elem.cell.borrow().child_items.as_ref().map(|c| c.len());
-                if repeated_children_count.is_some() {
-                    new_row = true;
-                }
-                for _ in 0..repeated_children_count.unwrap_or(1) {
+
+                let mut push_cell = |cell: &i_slint_compiler::layout::GridLayoutCell,
+                                     new_row: bool| {
+                    let row = eval_or_default(&cell.row_expr, sub_instance_ref);
+                    let col = eval_or_default(&cell.col_expr, sub_instance_ref);
+                    let rowspan = eval_or_default(&cell.rowspan_expr, sub_instance_ref);
+                    let colspan = eval_or_default(&cell.colspan_expr, sub_instance_ref);
+
                     result.push(core_layout::GridLayoutInputData {
                         new_row,
                         col,
@@ -258,6 +256,21 @@ fn grid_layout_input_data(
                         colspan,
                         rowspan,
                     });
+                };
+
+                if let Some(children) = elem.cell.borrow().child_items.as_ref() {
+                    // Repeated row
+                    new_row = true;
+                    for child_item in children {
+                        let element_ref = &child_item.element.borrow();
+                        let child_cell = element_ref.grid_layout_cell.as_ref().unwrap().borrow();
+                        push_cell(&child_cell, new_row);
+                        new_row = false;
+                    }
+                } else {
+                    // Single repeated item
+                    let cell = elem.cell.borrow();
+                    push_cell(&cell, new_row);
                     new_row = false;
                 }
             }
