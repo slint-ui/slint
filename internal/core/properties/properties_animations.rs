@@ -45,7 +45,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 AnimationDirection::Normal => false,
                 AnimationDirection::Reverse => true,
                 AnimationDirection::Alternate => iteration % 2 == 1,
-                AnimationDirection::AlternateReverse => iteration % 2 == 0,
+                AnimationDirection::AlternateReverse => iteration.is_multiple_of(2),
             }
         };
 
