@@ -561,33 +561,32 @@ fn lower_sub_component(
     )
     .into();
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
+        let grid_cell_ref = grid_layout_cell.borrow();
         sub_component.grid_layout_input_for_repeated = Some(
-            super::lower_expression::get_grid_layout_input_for_repeated(
-                &mut ctx,
-                &grid_layout_cell.borrow(),
-            )
-            .into(),
+            super::lower_expression::get_grid_layout_input_for_repeated(&mut ctx, &grid_cell_ref)
+                .into(),
         );
+
         // Store constraints for children of the Row
-        let children_constraints =
-            grid_layout_cell.borrow().child_items.clone().unwrap_or_default();
-        for layout_item in children_constraints {
-            let layout_info_h = super::lower_expression::get_layout_info(
-                &layout_item.element,
-                &mut ctx,
-                &layout_item.constraints,
-                crate::layout::Orientation::Horizontal,
-            );
-            let layout_info_v = super::lower_expression::get_layout_info(
-                &layout_item.element,
-                &mut ctx,
-                &layout_item.constraints,
-                crate::layout::Orientation::Vertical,
-            );
-            sub_component.grid_layout_children.push(super::GridLayoutChildLayoutInfo {
-                layout_info_h: layout_info_h.into(),
-                layout_info_v: layout_info_v.into(),
-            });
+        if let Some(children_constraints) = grid_cell_ref.child_items.as_ref() {
+            for layout_item in children_constraints.iter() {
+                let layout_info_h = super::lower_expression::get_layout_info(
+                    &layout_item.element,
+                    &mut ctx,
+                    &layout_item.constraints,
+                    crate::layout::Orientation::Horizontal,
+                );
+                let layout_info_v = super::lower_expression::get_layout_info(
+                    &layout_item.element,
+                    &mut ctx,
+                    &layout_item.constraints,
+                    crate::layout::Orientation::Vertical,
+                );
+                sub_component.grid_layout_children.push(super::GridLayoutChildLayoutInfo {
+                    layout_info_h: layout_info_h.into(),
+                    layout_info_v: layout_info_v.into(),
+                });
+            }
         }
     }
 
