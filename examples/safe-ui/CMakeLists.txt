@@ -32,6 +32,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 set(SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_PIXEL_FORMAT}")
+list(APPEND SLINT_SAFEUI_FEATURES "libm")
 if(SLINT_SAFEUI_PANIC_HANDLER)
     list(APPEND SLINT_SAFEUI_FEATURES "panic-handler")
 endif()
