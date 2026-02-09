@@ -2165,9 +2165,8 @@ fn get_implemented_interface(
 ) -> Option<ImplementedInterface> {
     let parent: syntax_nodes::Component =
         node.parent().filter(|p| p.kind() == SyntaxKind::Component)?.into();
-    let Some(implements_specifier) = parent.ImplementsSpecifier() else {
-        return None;
-    };
+
+    let implements_specifier = parent.ImplementsSpecifier()?;
 
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
@@ -2175,8 +2174,7 @@ fn get_implemented_interface(
     }
 
     let interface_name =
-        QualifiedTypeName::from_node(implements_specifier.QualifiedName().clone().into())
-            .to_smolstr();
+        QualifiedTypeName::from_node(implements_specifier.QualifiedName()).to_smolstr();
 
     match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
         Ok(ElementType::Component(c)) => {
@@ -2280,7 +2278,7 @@ fn validate_function_implementations_for_interface(
             }
         };
 
-        let found_function = e.lookup_property(&function_name);
+        let found_function = e.lookup_property(function_name);
         let function_impl = match found_function.property_type {
             Type::Invalid => {
                 diag.push_error(
@@ -2525,7 +2523,7 @@ fn filter_conflicting_uses_statements(
                     seen_interface_api.insert(prop_name.clone(), interface_name.clone());
                 }
             }
-            return valid;
+            valid
         })
         .collect();
     valid_uses_statements
@@ -2564,7 +2562,7 @@ fn element_implements_interface(
         check(property_name, property_declaration);
     }
 
-    return valid;
+    valid
 }
 
 /// Apply the function from the interface to the element, creating a forwarding bindings to the function on the child

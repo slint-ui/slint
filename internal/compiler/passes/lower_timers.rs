@@ -13,23 +13,22 @@ use std::rc::Rc;
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| {
-            if let Expression::FunctionCall { function, arguments, .. } = e {
-                if let Callable::Builtin(BuiltinFunction::StartTimer | BuiltinFunction::StopTimer) =
+            if let Expression::FunctionCall { function, arguments, .. } = e
+                && let Callable::Builtin(BuiltinFunction::StartTimer | BuiltinFunction::StopTimer) =
                     function
-                    && let [Expression::ElementReference(timer)] = arguments.as_slice()
-                {
-                    *e = Expression::SelfAssignment {
-                        lhs: Box::new(Expression::PropertyReference(NamedReference::new(
-                            &timer.upgrade().unwrap(),
-                            SmolStr::new_static("running"),
-                        ))),
-                        rhs: Box::new(Expression::BoolLiteral(matches!(
-                            function,
-                            Callable::Builtin(BuiltinFunction::StartTimer)
-                        ))),
-                        op: '=',
-                        node: None,
-                    }
+                && let [Expression::ElementReference(timer)] = arguments.as_slice()
+            {
+                *e = Expression::SelfAssignment {
+                    lhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                        &timer.upgrade().unwrap(),
+                        SmolStr::new_static("running"),
+                    ))),
+                    rhs: Box::new(Expression::BoolLiteral(matches!(
+                        function,
+                        Callable::Builtin(BuiltinFunction::StartTimer)
+                    ))),
+                    op: '=',
+                    node: None,
                 }
             }
         });

@@ -294,6 +294,12 @@ declare_builtin_function_types!(
     ParseMarkdown: (Type::String) -> Type::StyledText
 );
 
+impl Default for BuiltinFunctionTypes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BuiltinFunction {
     pub fn ty(&self) -> Rc<Function> {
         thread_local! {
@@ -600,6 +606,7 @@ declare_units! {
     Rad = "rad" -> Angle * 360./std::f32::consts::TAU,
 }
 
+#[allow(clippy::derivable_impls)] // more readable this way
 impl Default for Unit {
     fn default() -> Self {
         Self::None

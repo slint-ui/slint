@@ -1217,7 +1217,7 @@ pub fn get_layout_info(
         for (nr, s) in constraints.for_each_restrictions(orientation) {
             values.insert(
                 s.into(),
-                llr_Expression::PropertyReference(ctx.map_property_reference(&nr)),
+                llr_Expression::PropertyReference(ctx.map_property_reference(nr)),
             );
         }
         llr_Expression::CodeBlock([store, llr_Expression::Struct { ty, values }].into())
