@@ -1273,25 +1273,30 @@ impl QtItemRenderer<'_> {
             let origin = source.size();
             let source: &ImageInner = (&source).into();
 
-            // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let scale_factor = ScaleFactor::new(self.scale_factor());
             let source_size = if source.is_svg() {
                 if source_rect.is_some() {
                     // Source size & clipping is not implemented yet
                     None
                 } else {
-                    Some(
-                        i_slint_core::graphics::fit(
-                            image.image_fit(),
-                            (image.target_size() * scale_factor).cast(),
-                            IntRect::from_size(origin.cast()),
-                            scale_factor,
-                            Default::default(), // We only care about the size, so alignments don't matter
-                            image.tiling(),
-                        )
-                        .size
-                        .cast(),
+                    let scale_factor = ScaleFactor::new(self.scale_factor());
+                    let actual_target_size = i_slint_core::graphics::fit(
+                        image.image_fit(),
+                        // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
+                        (image.target_size() * scale_factor).cast(),
+                        IntRect::from_size(origin.cast()),
+                        scale_factor,
+                        Default::default(), // We only care about the size, so alignments don't matter
+                        image.tiling(),
                     )
+                    .size;
+
+                    // In order to render at the actual size, we need the Qt ratio from the window
+                    let painter: &mut QPainterPtr = &mut self.painter;
+                    let qt_ratio = cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
+                        return (*painter)->device()->devicePixelRatioF();
+                    }} / scale_factor.get();
+
+                    Some((actual_target_size * qt_ratio).cast())
                 }
             } else {
                 None
