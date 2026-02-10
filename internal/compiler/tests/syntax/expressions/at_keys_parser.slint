@@ -7,7 +7,7 @@ export component SuperSimple {
         @keys(AltR + "a"),
 //            >  <error{Right-side modifiers are not supported}
         @keys(AltGr + "a"),
-//            >   <error{AltGr as modifier is unnecessary (remove it)}
+//            >   <error{AltGr cannot be used as a modifier}
         @keys(ControlR + "a"),
 //            >      <error{Right-side modifiers are not supported}
         @keys(MetaR + "a"),
@@ -62,8 +62,12 @@ export component SuperSimple {
 //            >  <error{`Ctrl` is not in the Key namespace (Use `Control` instead)}
         @keys(Command + A),
 //            >     <error{`Command` is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
-        @keys(Cmd + A)
+        @keys(Cmd + A),
 //            > <error{`Cmd` is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
+        @keys(Win + A),
+//            > <error{`Win` is not a cross-platform modifier (Use `Meta` instead)}
+        @keys(Windows + A)
+//            >     <error{`Windows` is not a cross-platform modifier (Use `Meta` instead)}
 
     ];
 }
