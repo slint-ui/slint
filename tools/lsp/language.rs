@@ -842,11 +842,17 @@ pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::
         tracing::trace!("Document not in cache, loading from disk: {url}");
 
         let Some(path) = common::uri_to_file(&url) else {
-            return Err(format!("Failed to locate file: {url}").into());
+            // The file was likely deleted, log and move on
+            tracing::debug!("Failed to locate file: {url}");
+            return Ok(());
         };
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            load_document(ctx, content, url, None, &mut ctx.document_cache.borrow_mut()).await?;
-        }
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                load_document(ctx, content, url, None, &mut ctx.document_cache.borrow_mut()).await?
+            }
+            // The file was likely deleted, log and move on
+            Err(err) => tracing::debug!("Failed to read {} from disk: {err}", path.display()),
+        };
     }
 
     Ok(())
@@ -1585,6 +1591,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
 
 #[cfg(test)]
 pub mod tests {
+    use super::test;
     use super::*;
 
     use crate::language::test::{
@@ -1611,6 +1618,20 @@ pub mod tests {
         assert_eq!(diag.len(), 1); // Only one URL is known
         let diagnostics = diag.get(&url).expect("URL not found in result");
         assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn test_reload_invalid_url() {
+        // An invalid URL may be reloaded if the file has been deleted on disk.
+        //
+        // In that case, make sure we do not return an error, as that would crash the LSP.
+        // The reload_document function is a best-effort anyway.
+        let ctx = Rc::new(test::mock_context());
+        spin_on::spin_on(reload_document(
+            &ctx,
+            Url::parse("file:///non/existent/file.slint").unwrap(),
+        ))
+        .expect("reload_document failed");
     }
 
     #[test]

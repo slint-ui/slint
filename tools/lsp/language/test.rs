@@ -16,6 +16,27 @@ use crate::language::load_document_impl;
 
 use super::Context;
 
+/// Note: Use Rusts .. syntax to extend the context with additional values, e.g.:
+/// ```ignore
+/// let ctx = Rc::new(Context {
+///         document_cache: /**/,
+///         ..mock_context(),
+/// });
+/// ```
+pub fn mock_context() -> Context {
+    crate::language::Context {
+        document_cache: empty_document_cache().into(),
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        to_show: RefCell::new(None),
+        open_urls: RefCell::new(HashSet::new()),
+        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
+    }
+}
+
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> common::DocumentCache {
     let mut config = crate::common::document_cache::CompilerConfiguration::default();
@@ -161,16 +182,9 @@ fn accurate_diagnostics_in_dependencies() {
     assert!(diag[&foo_url][0].message.contains("hello"));
     assert_eq!(diag.len(), 1);
 
-    let ctx = Some(std::rc::Rc::new(crate::language::Context {
-        document_cache: empty_document_cache().into(),
-        preview_config: Default::default(),
-        server_notifier: crate::ServerNotifier::dummy(),
-        init_param: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: Default::default(),
+    let ctx = Some(Rc::new(Context {
         open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
+        ..mock_context()
     }));
 
     let (bar_url, diag) = load(
@@ -216,17 +230,7 @@ fn accurate_diagnostics_in_dependencies() {
 #[test]
 fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     // Test for issue 8064
-    let ctx = std::rc::Rc::new(crate::language::Context {
-        document_cache: empty_document_cache().into(),
-        preview_config: Default::default(),
-        server_notifier: crate::ServerNotifier::dummy(),
-        init_param: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: Default::default(),
-        open_urls: Default::default(),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
-    });
+    let ctx = Rc::new(mock_context());
 
     let (bar_url, diag) = load(
         Some(&ctx),
@@ -299,18 +303,13 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Create context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    let ctx = std::rc::Rc::new(crate::language::Context {
+    let ctx = Rc::new(Context {
         document_cache: cache.into(),
-        preview_config: Default::default(),
-        server_notifier: crate::ServerNotifier::dummy(),
-        init_param: Default::default(),
         to_show: RefCell::new(Some(common::PreviewComponent {
             url: main_url.clone(),
             component: None,
         })),
-        open_urls: RefCell::new(HashSet::new()),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
+        ..mock_context()
     });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
