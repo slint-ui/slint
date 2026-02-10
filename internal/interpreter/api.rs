@@ -8,8 +8,8 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::items::ItemTreeVTable;
 use i_slint_core::input::KeyboardShortcut;
+use i_slint_core::items::ItemTreeVTable;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
