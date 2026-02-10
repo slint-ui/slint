@@ -40,6 +40,14 @@ pub const SCALE_FACTOR: f32 = match option_env!("SAFE_UI_SCALE_FACTOR") {
     None => 2.0,
 };
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum TouchPhase {
+    Start,
+    Move,
+    End,
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_app_main() {
     platform::slint_init_safeui_platform(WIDTH_PIXELS, HEIGHT_PIXELS, SCALE_FACTOR);
@@ -49,6 +57,31 @@ pub extern "C" fn slint_app_main() {
     app.show().unwrap();
 
     app.run().unwrap();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_safeui_inject_touch_event(
+    display_x: f32,
+    display_y: f32,
+    phase: TouchPhase,
+) {
+    let logical_x = display_x / SCALE_FACTOR;
+    let logical_y = display_y / SCALE_FACTOR;
+    let position = slint::LogicalPosition::new(logical_x, logical_y);
+
+    let event = match phase {
+        TouchPhase::Start => slint::platform::WindowEvent::PointerPressed {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        },
+        TouchPhase::Move => slint::platform::WindowEvent::PointerMoved { position },
+        TouchPhase::End => slint::platform::WindowEvent::PointerReleased {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        },
+    };
+
+    platform::dispatch_event(event);
 }
 
 const fn parse_u32(s: &str) -> u32 {

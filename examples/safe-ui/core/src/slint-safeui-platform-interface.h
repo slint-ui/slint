@@ -76,4 +76,37 @@ void slint_safeui_platform_get_screen_size(unsigned int *width, unsigned int *he
  */
 void slint_app_main(void);
 
+/**
+ * Describes the phase of a touch or pointer interaction.
+ *
+ * The phases correspond to a typical touch sequence:
+ *  - START: A new touch begins (finger or pointer pressed).
+ *  - MOVE:  The touch position changes while the touch is active.
+ *  - END:   The touch ends (finger lifted or pointer released).
+ *
+ * These phases are translated internally to Slint pointer events.
+ */
+typedef enum {
+    START = 0,
+    MOVE = 1,
+    END = 2,
+} TouchPhase;
+
+/**
+ * Inject a touch (or pointer) event into the Slint event loop.
+ *
+ * The coordinates are specified in physical display pixels. They are
+ * automatically converted to logical coordinates using the scale factor
+ * configured during platform initialization.
+ *
+ * This function is safe to call from contexts outside the Slint event loop
+ * (for example from input drivers or interrupt-driven tasks). The event is
+ * queued and dispatched asynchronously by the UI thread.
+ *
+ * @param display_x  X position in physical display pixels.
+ * @param display_y  Y position in physical display pixels.
+ * @param phase      The phase of the touch interaction.
+ */
+void slint_safeui_inject_touch_event(float display_x, float display_y, TouchPhase phase);
+
 #endif

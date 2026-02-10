@@ -12,6 +12,20 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 const EVENT_QUEUE_CAPACITY: usize = 16;
 
+static mut GLOBAL_QUEUE: Option<Queue> = None;
+
+pub fn dispatch_event(event: slint::platform::WindowEvent) {
+    unsafe {
+        let global_ptr = &raw const GLOBAL_QUEUE;
+
+        if let Some(queue) = (*global_ptr).as_ref() {
+            if queue.send_window_event(event).is_err() {
+                // Queue full - event dropped.
+            }
+        }
+    }
+}
+
 struct Platform {
     scale_factor: f32,
     window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
@@ -51,6 +65,7 @@ impl slint::platform::Platform for Platform {
                 match event {
                     Event::Quit => return Ok(()),
                     Event::Event(func) => func(),
+                    Event::Window(win_event) => self.window.dispatch_event(win_event),
                 }
             }
 
@@ -127,6 +142,10 @@ pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
 
     let event_queue = Queue::new();
 
+    unsafe {
+        GLOBAL_QUEUE = Some(event_queue.clone());
+    }
+
     let platform = Platform { scale_factor, window, event_queue };
 
     slint::platform::set_platform(Box::new(platform)).unwrap();
@@ -135,6 +154,7 @@ pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
 enum Event {
     Quit,
     Event(Box<dyn FnOnce() + Send>),
+    Window(slint::platform::WindowEvent),
 }
 
 #[derive(Clone)]
@@ -149,6 +169,14 @@ struct Queue {
 impl Queue {
     fn new() -> Self {
         Self { events: Arc::new(critical_section::Mutex::new(RefCell::new(HeaplessVec::new()))) }
+    }
+
+    fn send_window_event(&self, event: slint::platform::WindowEvent) -> Result<(), ()> {
+        critical_section::with(|cs| {
+            self.events.borrow(cs).borrow_mut().push(Event::Window(event)).map_err(|_| ())
+        })?;
+        unsafe { slint_safeui_platform_wake() };
+        Ok(())
     }
 }
 
