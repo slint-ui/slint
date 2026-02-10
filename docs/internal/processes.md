@@ -1,10 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-
 # Internal procedures
 
 ## Repositories
 
-Almost all the developmnent of Slint is done in the https://github.com/slint-ui/slint mono-repository.
+Almost all the development of Slint is done in the https://github.com/slint-ui/slint mono-repository.
 
 There are a few other repositories in the organization, they are either
  - Template repositories which are on their own as user are invited to use them as templates for their own projects
@@ -68,13 +66,7 @@ It will also run a few extra tests (like running `cargo update` to check for bro
 
 New minor releases of Slint are done every couple of months.
 
-About a week before the expected release, create a temporary `pre-release/<major.minor>` branch based on the latest `master`. Use this branch to collect fixes and run testing (apply cherry-picks here).
-
-Once testing is complete and issues are addressed, cut the release from the `pre-release/<major.minor>` branch. Then update or create the `release/<major.minor>` branch that will represent the published release (this branch can be kept for LTS or cherry-picks). Finally, delete the `pre-release/<major.minor>` branch if it is no longer needed.
-
-The process of releasing is done by following the steps in the release_checklist.md file. (currently on our internal wiki)
-
-The ChangeLog is manually updated by looking at the commit history.
+The release process is described in <./release.md>
 
 ## Issues
 
