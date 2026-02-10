@@ -61,13 +61,11 @@ pub extern "C" fn slint_app_main() {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_safeui_inject_touch_event(
-    display_x: f32,
-    display_y: f32,
+    display_x: i32,
+    display_y: i32,
     phase: TouchPhase,
 ) {
-    let logical_x = display_x / SCALE_FACTOR;
-    let logical_y = display_y / SCALE_FACTOR;
-    let position = slint::LogicalPosition::new(logical_x, logical_y);
+    let position = slint::PhysicalPosition::new(display_x, display_y).to_logical(SCALE_FACTOR);
 
     let event = match phase {
         TouchPhase::Start => slint::platform::WindowEvent::PointerPressed {

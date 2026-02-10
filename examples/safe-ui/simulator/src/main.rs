@@ -32,30 +32,34 @@ fn main() {
     let mut buffer: Vec<u32> = vec![0; (SCALED_WIDTH * SCALED_HEIGHT) as usize];
 
     let mut last_mouse_down = false;
-    let mut last_mouse_pos = (0.0f32, 0.0f32);
+    let mut last_mouse_pos = (0, 0);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Handle mouse inputs
         window.get_mouse_pos(minifb::MouseMode::Clamp).map(|(x, y)| {
             let mouse_down = window.get_mouse_down(minifb::MouseButton::Left);
 
+            let ix = x.floor() as i32;
+            let iy = y.floor() as i32;
+            let mouse_pos = (ix, iy);
+
             let phase = if mouse_down && !last_mouse_down {
-                println!("MOUSE DOWN: ({:.1}, {:.1})", x, y);
+                println!("MOUSE DOWN: ({:.1}, {:.1})", ix, iy);
                 Some(TouchPhase::Start)
             } else if !mouse_down && last_mouse_down {
-                println!("MOUSE UP:   ({:.1}, {:.1})", x, y);
+                println!("MOUSE UP:   ({:.1}, {:.1})", ix, iy);
                 Some(TouchPhase::End)
-            } else if mouse_down && (x, y) != last_mouse_pos {
-                println!("MOUSE MOVE: ({:.1}, {:.1})", x, y);
+            } else if mouse_down && mouse_pos != last_mouse_pos {
+                println!("MOUSE MOVE: ({:.1}, {:.1})", ix, iy);
                 Some(TouchPhase::Move)
             } else {
                 None
             };
 
             if let Some(p) = phase {
-                slint_safeui_inject_touch_event(x, y, p);
+                slint_safeui_inject_touch_event(ix, iy, p);
 
-                last_mouse_pos = (x, y);
+                last_mouse_pos = mouse_pos;
             }
 
             last_mouse_down = mouse_down;

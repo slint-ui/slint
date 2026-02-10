@@ -107,6 +107,6 @@ typedef enum {
  * @param display_y  Y position in physical display pixels.
  * @param phase      The phase of the touch interaction.
  */
-void slint_safeui_inject_touch_event(float display_x, float display_y, TouchPhase phase);
+void slint_safeui_inject_touch_event(int display_x, int display_y, TouchPhase phase);
 
 #endif
