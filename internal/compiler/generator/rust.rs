@@ -3820,6 +3820,9 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     let data = embedded_file_tokens(path);
                     quote!(static #symbol: &'static [u8] = #data;)
                 }
+                crate::embedded_resources::EmbeddedResourcesKind::DecodedData(bytes, _) => {
+                    quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
+                }
                 #[cfg(feature = "software-renderer")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,

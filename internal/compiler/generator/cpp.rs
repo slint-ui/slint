@@ -967,6 +967,29 @@ fn embed_resource(
                 ..Default::default()
             }));
         }
+        crate::embedded_resources::EmbeddedResourcesKind::DecodedData(data, _) => {
+            let mut init = "{ ".to_string();
+
+            for (index, byte) in data.iter().enumerate() {
+                if index > 0 {
+                    init.push(',');
+                }
+                write!(&mut init, "0x{byte:x}").unwrap();
+                if index % 16 == 0 {
+                    init.push('\n');
+                }
+            }
+
+            init.push('}');
+
+            declarations.push(Declaration::Var(Var {
+                ty: "const uint8_t".into(),
+                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
+                array_size: Some(data.len()),
+                init: Some(init),
+                ..Default::default()
+            }));
+        }
         #[cfg(feature = "software-renderer")]
         crate::embedded_resources::EmbeddedResourcesKind::TextureData(
             crate::embedded_resources::Texture {

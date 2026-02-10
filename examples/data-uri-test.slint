@@ -1,0 +1,47 @@
+import { VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export component DataUriTest {
+    VerticalBox {
+        padding: 20px;
+        spacing: 15px;
+        
+        Text {
+            text: "Data URI Image Support Test";
+            font-size: 18px;
+        }
+        
+        Text {
+            text: "SVG Data URIs (Base64 encoded):";
+            font-size: 14px;
+        }
+        
+        HorizontalBox {
+            spacing: 20px;
+            
+            VerticalBox {
+                Text { text: "Red Square"; }
+                Image {
+                    // Red square SVG in base64
+                    source: @image-url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0icmVkIi8+PC9zdmc+");
+                    width: 100px;
+                    height: 100px;
+                }
+            }
+            
+            VerticalBox {
+                Text { text: "Blue Circle"; }
+                Image {
+                    // Blue circle SVG in base64
+                    source: @image-url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iYmx1ZSIvPjwvc3ZnPg==");
+                    width: 100px;
+                    height: 100px;
+                }
+            }
+        }
+        
+        Text {
+            text: "If both images render correctly, data URI support is working!";
+            font-size: 12px;
+        }
+    }
+}

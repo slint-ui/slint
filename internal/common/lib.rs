@@ -8,6 +8,7 @@
 pub mod builtin_structs;
 #[cfg(feature = "color-parsing")]
 pub mod color_parsing;
+pub mod data_uri;
 pub mod enums;
 pub mod key_codes;
 

@@ -91,6 +91,17 @@ fn embed_images_from_expression(
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
+        if path.starts_with("data:") {
+            let image_ref = embed_data_uri(
+                global_embedded_resources,
+                path,
+                diag,
+                source_location,
+            );
+            *resource_ref = image_ref;
+            return;
+        }
+
         // used mapped path:
         let mapped_path =
             urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
@@ -436,4 +447,50 @@ fn load_image(
             Size { width: original_width, height: original_height },
         )
     })
+}
+
+fn embed_data_uri(
+    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
+    data_uri: &str,
+    diag: &mut BuildDiagnostics,
+    source_location: &Option<crate::diagnostics::SourceLocation>,
+) -> ImageReference {
+    let (decoded_data, extension) = match i_slint_common::data_uri::decode_data_uri(data_uri) {
+        Ok(result) => result,
+        Err(e) => {
+            diag.push_error(e, source_location);
+            return ImageReference::None;
+        }
+    };
+
+    const MAX_DATA_URL_SIZE: usize = 1024 * 1024;
+    if decoded_data.len() > MAX_DATA_URL_SIZE {
+        diag.push_error(
+            format!(
+                "Data URL is too large ({} bytes > {} bytes). Consider using a file reference instead.",
+                decoded_data.len(),
+                MAX_DATA_URL_SIZE
+            ),
+            source_location,
+        );
+        return ImageReference::None;
+    }
+
+    let mut resources = global_embedded_resources.borrow_mut();
+    let resource_id = resources.len();
+
+    let unique_key: SmolStr = format!("data:{}:{}", resource_id, extension).into();
+
+    resources.insert(
+        unique_key,
+        EmbeddedResources {
+            id: resource_id,
+            kind: EmbeddedResourcesKind::DecodedData(decoded_data, extension.clone()),
+        }
+    );
+
+    ImageReference::EmbeddedData {
+        resource_id,
+        extension,
+    }
 }

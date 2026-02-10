@@ -25,6 +25,7 @@ fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
 [dependencies]
 ttf-parser = { workspace = true, optional = true }
 fontique = { workspace = true, optional = true }
+dataurl = "0.1.2"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
