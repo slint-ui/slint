@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <[keyboard-shortcut]> invalid_shortcuts: [
+        // Right-side modifier keys
+        @keys(AltR + "a"),
+//            >  <error{Right-side modifiers are not supported}
+        @keys(AltGr + "a"),
+//            >   <error{AltGr cannot be used as a modifier}
+        @keys(ControlR + "a"),
+//            >      <error{Right-side modifiers are not supported}
+        @keys(MetaR + "a"),
+//            >   <error{Right-side modifiers are not supported}
+        @keys(ShiftR + "a"),
+//            >    <error{Right-side modifiers are not supported}
+
+
+        // Duplicate modifier or key
+        @keys(Alt + Control + Shift + Meta + Alt + "a"),
+//                                           > <error{Duplicated modifier in keyboard shortcut}
+        @keys(Alt + Control + Shift + Meta + Control + "a"),
+//                                           >     <error{Duplicated modifier in keyboard shortcut}
+        @keys(a + b),
+//                ^error{A keyboard shortcut can only contain one key (with modifiers)}
+        @keys(Alt + Control + Shift + Meta + Meta + "a"),
+//                                           >  <error{Duplicated modifier in keyboard shortcut}
+        @keys(Alt + Control + Shift + Meta + Shift + "a"),
+//                                           >   <error{Duplicated modifier in keyboard shortcut}
+        @keys(IgnoreShift + IgnoreShift + "a"),
+//                          >         <error{Duplicated modifier in keyboard shortcut}
+        @keys(IgnoreAlt + IgnoreAlt + "a"),
+//                        >       <error{Duplicated modifier in keyboard shortcut}
+        @keys(Alt + IgnoreAlt + "a"),
+//                  >       <error{Cannot use both Alt and IgnoreAlt (remove one of them)}
+        @keys(IgnoreAlt + Alt + "a"),
+//                        > <error{Cannot use both Alt and IgnoreAlt (remove one of them)}
+
+        // Conflicting Shift + IgnoreShift
+        @keys(Alt + Control + Shift + Meta + IgnoreShift + "a"),
+//                                           >         <error{Cannot use both Shift and IgnoreShift (remove one of them)}
+        @keys(Alt + Control + IgnoreShift + Meta + Shift + "a"),
+//                                                 >   <error{Cannot use both Shift and IgnoreShift (remove one of them)}
+
+
+        // Invalid syntax
+        @keys(a, b),
+//             ^error{Expected '+', a string literal, or an identifier in the Keys namespace}
+        @keys(Alt Control + Shift + Meta + a),
+//                >     <error{Expected '+' to separate parts of a keyboard shortcut}
+        @keys(Alt + Shift),
+//                       ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
+        @keys(Alt ++ a),
+//                 ^error{Unexpected '+' in keyboard shortcut}
+        @keys("a" +),
+//                 ^error{Expected another identifier or string literal}
+        @keys(Shift +),
+//                   ^error{Expected another identifier or string literal}
+
+        // Hints about common misunderstandings
+        @keys(Ctrl + A),
+//            >  <error{`Ctrl` is not in the Key namespace (Use `Control` instead)}
+        @keys(Command + A),
+//            >     <error{`Command` is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
+        @keys(Cmd + A),
+//            > <error{`Cmd` is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
+        @keys(Win + A),
+//            > <error{`Win` is not a cross-platform modifier (Use `Meta` instead)}
+        @keys(Windows + A)
+//            >     <error{`Windows` is not a cross-platform modifier (Use `Meta` instead)}
+
+    ];
+}

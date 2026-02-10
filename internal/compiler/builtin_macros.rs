@@ -409,7 +409,8 @@ fn to_debug_string(
         | Type::Image
         | Type::Easing
         | Type::StyledText
-        | Type::Array(_) => {
+        | Type::Array(_)
+        | Type::KeyboardShortcutType => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
         }
         Type::Duration

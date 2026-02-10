@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <[keyboard-shortcut]> shortcuts: [
+        @keys(),
+        @keys("a"),
+        @keys(Control + "+"),
+        @keys(Alt + Control + Shift + Meta + "x"),
+
+        // Lookup in Keys namespace
+        @keys(Alt + Control + Shift + Meta + Return),
+        @keys(Escape),
+        @keys(A),
+        @keys(Control + Shift + A),
+        @keys(Plus),
+        @keys(Control + Alt + Plus),
+
+        // IgnoreShift
+        @keys(IgnoreShift + "+"), // equivalent to @keys(Plus)
+        @keys(Alt + IgnoreShift + Control + Meta + Escape), // supports both Shift+Escape and Escape in a single shortcut
+        @keys(Control + IgnoreShift + A),
+
+        // IgnoreAlt
+        // note: this is e.g. needed on MacOS with a French layout:
+        @keys(IgnoreAlt + "{"),
+        @keys(IgnoreAlt + Shift + Control + Meta + Escape),
+        @keys(Control + IgnoreAlt + A),
+    ];
+}

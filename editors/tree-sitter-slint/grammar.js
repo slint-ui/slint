@@ -326,6 +326,7 @@ module.exports = grammar({
     expression: ($) =>
       prec.right(
         choice(
+          $.keys,
           $.parens_op,
           $.index_op,
           $.tr,
@@ -374,6 +375,23 @@ module.exports = grammar({
           "arguments",
           optional(seq(",", commaSep1($.expression), optional(","))),
         ),
+        ")",
+      ),
+
+    // @keys(...)
+    _keys_entry: ($) => choice($.simple_identifier, $.string_value),
+    keys: ($) =>
+      seq(
+        "@keys",
+        "(",
+        optional(
+          seq(
+            $._keys_entry,
+            repeat(seq(
+              "+",
+              $._keys_entry
+            ))
+          )),
         ")",
       ),
 

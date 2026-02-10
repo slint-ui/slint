@@ -28,29 +28,26 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         let type_collection = self.type_collection;
+        use slint_interpreter::Value;
         match self.slint_value {
-            slint_interpreter::Value::Void => ().into_bound_py_any(py),
-            slint_interpreter::Value::Number(num) => num.into_bound_py_any(py),
-            slint_interpreter::Value::String(str) => str.into_bound_py_any(py),
-            slint_interpreter::Value::Bool(b) => b.into_bound_py_any(py),
-            slint_interpreter::Value::Image(image) => {
-                crate::image::PyImage::from(image).into_bound_py_any(py)
-            }
-            slint_interpreter::Value::Model(model) => {
-                crate::models::PyModelShared::rust_into_py_model(&model, py).map_or_else(
+            Value::Void => ().into_bound_py_any(py),
+            Value::Number(num) => num.into_bound_py_any(py),
+            Value::String(str) => str.into_bound_py_any(py),
+            Value::Bool(b) => b.into_bound_py_any(py),
+            Value::Image(image) => crate::image::PyImage::from(image).into_bound_py_any(py),
+            Value::Model(model) => crate::models::PyModelShared::rust_into_py_model(&model, py)
+                .map_or_else(
                     || type_collection.model_to_py(&model).into_bound_py_any(py),
                     |m| Ok(m),
-                )
-            }
-            slint_interpreter::Value::Struct(structval) => {
+                ),
+            Value::Struct(structval) => {
                 type_collection.struct_to_py(structval).into_bound_py_any(py)
             }
-            slint_interpreter::Value::Brush(brush) => {
-                crate::brush::PyBrush::from(brush).into_bound_py_any(py)
-            }
-            slint_interpreter::Value::EnumerationValue(enum_name, enum_value) => {
+            Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
+            Value::EnumerationValue(enum_name, enum_value) => {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
+            Value::KeyboardShortcut(shortcut) => shortcut.to_string().into_bound_py_any(py),
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
@@ -109,7 +106,7 @@ fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(subclass, unsendable)]
+#[pyclass(subclass, unsendable, skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyStruct {
     pub data: slint_interpreter::Struct,
@@ -344,7 +341,7 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
-                let dict = ob.downcast::<PyDict>()?;
+                let dict = ob.cast::<PyDict>()?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {

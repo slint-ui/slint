@@ -64,7 +64,7 @@ impl_stub_type!(PyColorInput = String | RgbaColor | RgbColor);
 ///
 /// Construct colors from a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
 #[gen_stub_pyclass]
-#[pyclass(name = "Color")]
+#[pyclass(name = "Color", from_py_object)]
 #[derive(Clone)]
 pub struct PyColor {
     pub color: slint_interpreter::Color,

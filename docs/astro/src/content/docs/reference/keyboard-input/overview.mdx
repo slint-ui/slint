@@ -7,9 +7,14 @@ description: Key Handling Overview
 import Link from '@slint/common-files/src/components/Link.astro';
 import SpecialKeys from "../../../collections/enums/keys.md"
 
-To handle keyboard input in Slint, use the `FocusScope` or individual `key-pressed` and `key-released` callbacks in various elements. Keyboard
-input is delivered via [`KeyEvent`](#keyevent) data structures. The primary field of this data structure is the `text` property, which holds all affected keys
-encoded in a string. Use the [`Key` namespace](#key-namespace) to identify known named keys.
+To handle keyboard input in Slint, use the `FocusScope` or individual `key-pressed` and `key-released` callbacks in various elements.
+Keyboard input is delivered via [`KeyEvent`](#keyevent) data structures.
+The primary field of this data structure is the `text` property, which holds all affected keys
+encoded in a string.
+Use the [`Key` namespace](#key-namespace) to identify known named keys.
+
+To handle Keyboard shortcuts, Slint uses a built-in <Link type="keyboard-shortcut" label="keyboard-shortcut" /> type, which is constructed from the `@keys` macro.
+See [Keyboard Shortcuts](#keyboard-shortcuts).
 
 ## KeyEvent
 
@@ -19,8 +24,82 @@ encoded in a string. Use the [`Key` namespace](#key-namespace) to identify known
 - **`modifiers`** (_KeyboardModifiers_):  The keyboard modifiers active at the time of the key press event.
 - **`repeat`** (_bool_):  This field is set to true for key press events that are repeated, i.e. the key is held down. It's always false for key release events.
 
+## Keyboard Shortcuts
+
+The `keyboard-shortcut` type is the lowest-level building block for keyboard shortcuts.
+It represents a key, combined with modifiers, and can be matched against [`KeyEvent`](#keyevent).
+`keyboard-shortcut` does not deal with event propagation and capture on its own.
+Higher-level widgets can use `keyboard-shortcut` properties to test whether a given `KeyEvent` should result in a special action.
+
+To construct a `keyboard-shortcut`, use the `@keys(..)` macro.
+
+The `@keys(..)` macro accepts a key from the [`Key` namespace](#key-namespace), combined with any of these modifiers:
+
+- `Meta` (mapped to control ⌃ on MacOS and the Windows key on PC)
+- `Control` (mapped to command ⌘ on MacOS)
+- `Shift`
+- `Alt` (mapped to option ⌥ on MacOS)
+
+You can then use the `matches(..)` function to check whether a given [`KeyEvent`](#keyevent) matches the shortcut.
+
+```slint
+// Example component that implements a custom shortcut
+export component MyComponent inherits Window {
+  in property <keyboard-shortcut> copy-shortcut: @keys(Control + C);
+  callback copy();
+
+  Text { text: "Press Ctrl+C to copy"; }
+
+  FocusScope {
+    key-pressed(event) => {
+      if root.copy-shortcut.matches(event) {
+        debug("Copy shortcut pressed");
+        root.copy();
+        EventResult.accept
+      } else {
+        EventResult.reject
+      }
+    }
+  }
+}
+```
+
+### Different Keyboard Layouts
+
+Using the `@keys(..)` macro with a key from the [`Key` namespace](#key-namespace) will handle different keyboard layouts for you and notify you of the most common issues regarding internationalization.
+
+In general, a `keyboard-shortcut` will match a KeyEvent depending on the symbol that the keypress produces on the current layout, not the keys physical position on the keyboard.
+So to match the `@keys(Control + Plus)` shortcut on a U.S. layout you must press "Control + Shift + `=`".
+On a German layout however, only "Control + `+`" must be pressed, as Shift is not required there.
+
+The `@keys(..)` macro allows you to explicitly control this behavior for Advanced Keyboard shortcuts, if needed.
+
+### Advanced Keyboard Shortcuts
+
+If possible, prefer to use a key from the [`Key` namespace](#key-namespace) inside `@keys(..)`.
+If you absolutely need to define a shortcut to a different key, you can use a string literal inside the `@keys(..)` macro.
+For example: `@keys(Control + "ä")`.
+
+Note though that the `@keys(..)` macro no longer automatically handles different keyboard layouts and Shift behavior in this case.
+The provided string is simply matched against the lowercased `text`, plus the modifiers of the given `KeyEvent`
+
+To prevent issues with characters that entirely change their keycode when `Shift` (or sometimes `Alt` on MacOS) is applied, you can use two additional special modifiers:
+
+- `IgnoreShift`
+- `IgnoreAlt`
+
+When these keywords are added to the `@keys(..)` macro, the `keyboard-shortcut` will ignore the state of the corresponding modifier when matching.
+
+For example, to support keyboard shortcuts that produce a Euro-Sign (€), add both `IgnoreShift` and `IgnoreAlt`: `@keys(Control + IgnoreShift + IgnoreAlt + "€")`.
+This will allow your users to reach the shortcut on almost all keyboard layouts that have a key with this label.
+
+As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + IgnoreShift + "+")`.
 
 ## Key Namespace
-Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character.
+
+The `Key` namespace contains a list of well-known key codes (including any non-printable characters).
+
+Note that alphabetic keys (e.g. Key.A-Key.Z) are represented as lowercase (e.g. "a"-"z").
+Make sure to case-convert the [`KeyEvent`](#keyevent) `text` or the Key as necessary.
 
 <SpecialKeys />

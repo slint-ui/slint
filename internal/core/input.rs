@@ -18,6 +18,7 @@ use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
+use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
 
@@ -187,7 +188,7 @@ pub enum InputEventFilterResult {
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
-       ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|*;)*) => {
+       ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
             $(pub const $name : char = $char;)*
 
             #[allow(missing_docs)]
@@ -227,7 +228,7 @@ pub mod key_codes {
         };
     }
 
-    i_slint_common::for_each_special_keys!(declare_consts_for_special_keys);
+    i_slint_common::for_each_keys!(declare_consts_for_special_keys);
 }
 
 /// Internal struct to maintain the pressed/released state of the keys that
@@ -308,6 +309,139 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
             control: internal_state.control(),
             meta: internal_state.meta(),
             shift: internal_state.shift(),
+        }
+    }
+}
+
+/// A `KeyboardShortcut` is created by the `@keys(...)` macro and
+/// defines which key events match the given shortcuts.
+///
+/// See [`Self::matches()`] for details
+#[derive(Clone, Eq, PartialEq, Default)]
+#[repr(C)]
+pub struct KeyboardShortcut {
+    /// The `key` used to trigger the shortcut
+    ///
+    /// Note: This is currently converted to lowercase when the shortcut is created!
+    key: SharedString,
+    /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
+    modifiers: KeyboardModifiers,
+    /// Whether to ignore shift state when matching the shortcut
+    ignore_shift: bool,
+    /// Whether to ignore alt state when matching the shortcut
+    ignore_alt: bool,
+}
+
+/// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
+pub fn make_keyboard_shortcut(
+    key: SharedString,
+    modifiers: KeyboardModifiers,
+    ignore_shift: bool,
+    ignore_alt: bool,
+) -> KeyboardShortcut {
+    KeyboardShortcut { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
+}
+
+#[cfg(feature = "ffi")]
+#[allow(unsafe_code)]
+pub(crate) mod ffi {
+    use super::*;
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut(
+        key: &SharedString,
+        alt: bool,
+        control: bool,
+        shift: bool,
+        meta: bool,
+        ignore_shift: bool,
+        ignore_alt: bool,
+        out: &mut KeyboardShortcut,
+    ) {
+        *out = make_keyboard_shortcut(
+            key.clone(),
+            KeyboardModifiers { alt, control, shift, meta },
+            ignore_shift,
+            ignore_alt,
+        );
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut_to_string(
+        shortcut: &KeyboardShortcut,
+        out: &mut SharedString,
+    ) {
+        *out = crate::format!("{shortcut}")
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keyboard_shortcut_matches(
+        shortcut: &KeyboardShortcut,
+        key_event: &KeyEvent,
+    ) -> bool {
+        shortcut.matches(key_event)
+    }
+}
+
+impl KeyboardShortcut {
+    /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
+    pub fn matches(&self, key_event: &KeyEvent) -> bool {
+        // An empty KeyboardShortcut is never triggered, even if the modifiers match.
+        if self.key.is_empty() {
+            return false;
+        }
+
+        // TODO: Should this check the event_type and only match on KeyReleased?
+        let mut expected_modifiers = self.modifiers.clone();
+        if self.ignore_shift {
+            expected_modifiers.shift = key_event.modifiers.shift;
+        }
+        if self.ignore_alt {
+            expected_modifiers.alt = key_event.modifiers.alt;
+        }
+        // Note: The constructor of KeyboardShortcut ensures that the shortcut's key is already
+        // in lowercase, so we can just compare it to the lowercased event text.
+        //
+        // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
+        // if caps lock is active, even if shift is not pressed.
+        let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
+
+        event_text.eq(self.key.chars()) && key_event.modifiers == expected_modifiers
+    }
+}
+
+impl Display for KeyboardShortcut {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
+        if self.key.is_empty() {
+            write!(f, "")
+        } else {
+            let alt = self
+                .ignore_alt
+                .then_some("IgnoreAlt+")
+                .or(self.modifiers.alt.then_some("Alt+"))
+                .unwrap_or_default();
+            let ctrl = if self.modifiers.control { "Control+" } else { "" };
+            let meta = if self.modifiers.meta { "Meta+" } else { "" };
+            let shift = self
+                .ignore_shift
+                .then_some("IgnoreShift+")
+                .or(self.modifiers.shift.then_some("Shift+"))
+                .unwrap_or_default();
+            let keycode: SharedString = self
+                .key
+                .chars()
+                .flat_map(|character| {
+                    let mut escaped = alloc::vec![];
+                    if character.is_control() {
+                        escaped.extend(character.escape_unicode());
+                    } else {
+                        escaped.push(character);
+                    }
+                    escaped
+                })
+                .collect();
+            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
         }
     }
 }

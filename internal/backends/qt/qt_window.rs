@@ -2317,12 +2317,12 @@ pub(crate) fn restart_timer() {
 
 mod key_codes {
     macro_rules! define_qt_key_to_string_fn {
-        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
+        ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
             use crate::key_generated;
             pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<i_slint_core::SharedString> {
 
                 let char = match(key) {
-                    $($(key_generated::$qt => $char,)*)*
+                    $($($(key_generated::$qt => $char,)*)?)*
                     _ => return None,
                 };
                 Some(char.into())
@@ -2330,7 +2330,7 @@ mod key_codes {
         };
     }
 
-    i_slint_common::for_each_special_keys!(define_qt_key_to_string_fn);
+    i_slint_common::for_each_keys!(define_qt_key_to_string_fn);
 }
 
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {

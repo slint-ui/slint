@@ -10,12 +10,14 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, Struct, StructName, Type};
+use crate::langtype;
+use crate::langtype::{ElementType, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
+use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -84,6 +86,9 @@ fn resolve_expression(
                     "Two way binding should have been resolved already  (property: {property_name:?})"
                 );
                 Expression::Invalid
+            }
+            SyntaxKind::AtKeys => {
+                Expression::from_at_keys_node(node.clone().into(), &mut lookup_ctx)
             }
             _ => {
                 debug_assert!(diag.has_errors());
@@ -364,6 +369,7 @@ impl Expression {
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
+                    SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
                     SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
                         node.clone().into(),
                         ctx,
@@ -1064,6 +1070,98 @@ impl Expression {
         }
     }
 
+    pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
+        let mut shortcut = langtype::KeyboardShortcut::default();
+
+        let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
+        for identifier in node
+            .children_with_tokens()
+            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier))
+            // The first identifier is always `keys`
+            .skip(1)
+        {
+            match identifier.as_token().unwrap().text() {
+                "Alt" => shortcut.modifiers.alt = true,
+                "Control" => shortcut.modifiers.control = true,
+                "Meta" => shortcut.modifiers.meta = true,
+                "Shift" => shortcut.modifiers.shift = true,
+                "IgnoreShift" => shortcut.ignore_shift = true,
+                "IgnoreAlt" => shortcut.ignore_alt = true,
+                key_name => {
+                    if let Some((key, shiftbehavior)) = lookup_key(key_name) {
+                        key_code = Some((
+                            SmolStr::from_iter(core::iter::once(key)),
+                            shiftbehavior,
+                            identifier.clone(),
+                        ))
+                    } else {
+                        // TODO: This should suggest close matches
+                        ctx.diag.push_error(
+                            format!(
+                                "`{key_name}` not defined in the `Keys` namespace\n(Consider using \"{key_name}\")"
+                            ),
+                            &identifier,
+                        );
+                        shortcut.modifiers = KeyboardModifiers::default();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Handle localization issues regarding shift per-keycode
+        // This only applies to keys that are in the Key namespace
+        if let Some((key_code, shift_behavior, node)) = key_code {
+            match shift_behavior {
+                ShiftBehavior::LocalizedShiftable { shifted_hint } => {
+                    if shortcut.ignore_shift {
+                        ctx.diag.push_warning(
+                            format!(
+                                "{name} already implies IgnoreShift (remove IgnoreShift)",
+                                name = node.as_token().unwrap().text()
+                            ),
+                            &node,
+                        );
+                    }
+                    shortcut.ignore_shift = true;
+                    if shortcut.modifiers.shift {
+                        ctx.diag.push_error(
+                                        format!(
+                                            "Shortcuts involving {name} ignore Shift to support different keyboard layouts\n\
+                                            Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
+                                            name = node.as_token().unwrap().text()
+                                        ),
+                                        &node,
+                                    );
+                    }
+                }
+                // Unshiftable keys ignore the shift state in their key_code
+                // No special action needed
+                ShiftBehavior::Unshiftable => {}
+            }
+            shortcut.key = key_code;
+        }
+
+        // If there is a string literal, use it as the key
+        node.child_token(SyntaxKind::StringLiteral).map(|token| {
+            if let Some(key) = crate::literals::unescape_string(&token.text()) {
+                shortcut.key = key;
+
+                let lowercase = shortcut.key.to_lowercase();
+                if lowercase != shortcut.key {
+                    ctx.diag.push_error(
+                        format!(
+                            "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
+                        ),
+                        &token,
+                    );
+                }
+            }
+        });
+
+        Expression::KeyboardShortcut(shortcut)
+    }
+
     /// Perform the lookup
     fn from_qualified_name_node(
         node: syntax_nodes::QualifiedName,
@@ -1590,6 +1688,52 @@ impl Expression {
             }
         })
     }
+}
+
+/// Shift Behavior relevant for the @keys macro
+#[derive(Clone, Debug)]
+enum ShiftBehavior {
+    // Keys that change their key code when Shift is pressed, but the shifted value is layout-dependent
+    LocalizedShiftable { shifted_hint: &'static str },
+    // Unshiftable keys have the same key code regardless of the shift state
+    //
+    // (This also currently applies to the letter keys, as we match everything with lowercase)
+    Unshiftable,
+}
+
+/// Look up the given key in the Keys namespace, including its shift behavior
+fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
+    macro_rules! key_shift_behavior {
+        ($keycode:literal # $ident:ident # $shifted:ident) => {
+            (
+                stringify!($ident),
+                (
+                    $keycode,
+                    ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) },
+                ),
+            )
+        };
+        ($keycode:literal # $ident:ident # ) => {
+            (stringify!($ident), ($keycode, ShiftBehavior::Unshiftable))
+        };
+    }
+    macro_rules! generate_key_map {
+        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
+            {
+                [
+                    $(
+                        key_shift_behavior!($char # $name # $($shifted_char)?$($shifted_ident)?)
+                    ),*
+                ]
+            }
+        }
+    }
+    thread_local! {
+        pub static KEY_MAP: HashMap<&'static str, (char, ShiftBehavior)> =
+            for_each_keys!(generate_key_map).into_iter().collect();
+    }
+
+    KEY_MAP.with(|map| map.get(keycode).cloned())
 }
 
 /// Return the type that merge two times when they are used in two branch of a condition

@@ -258,10 +258,13 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "markdown" => {
             parse_markdown(p);
         }
+        "keys" => {
+            parse_keys(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'linear-gradient', 'radial-gradient' or 'conic-gradient' after '@'");
+            p.error("Expected 'image-url', 'tr', 'keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }
@@ -477,6 +480,179 @@ fn parse_markdown(p: &mut impl Parser) {
         }
     }
     p.expect(SyntaxKind::RParent);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtKeys
+/// @keys()
+/// @keys("x")
+/// @keys(Control +Shift + Alt+Meta+"A")
+/// @keys(Control +Shift + Alt+Meta+Return)
+/// @keys(Control +IgnoreShift + Alt+Meta+Return)
+/// @keys(Control +Shift + IgnoreAlt+Meta+Return)
+/// ```
+fn parse_keys(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtKeys);
+    p.expect(SyntaxKind::At);
+    debug_assert_eq!(p.peek().as_str(), "keys");
+    p.expect(SyntaxKind::Identifier); //"keys"
+    p.expect(SyntaxKind::LParent);
+
+    // Parse custom syntax here...
+    let mut key_count = 0_u32;
+
+    let mut alt_count = 0_u32;
+    let mut control_count = 0_u32;
+    let mut shift_count = 0_u32;
+    let mut meta_count = 0_u32;
+    let mut ignore_shift_count = 0_u32;
+    let mut ignore_alt_count = 0_u32;
+
+    #[derive(Eq, PartialEq)]
+    enum State {
+        Start,
+        NeedPlus,
+        NeedKey,
+    }
+    let mut state = State::Start;
+
+    fn bail(p: &mut crate::parser::Node<'_, impl Parser>, message: &str) {
+        p.error(message);
+        p.until(SyntaxKind::RParent);
+    }
+
+    loop {
+        match p.peek().kind() {
+            SyntaxKind::RParent => {
+                assert!(key_count <= 1);
+                // Trailing plus
+                if state == State::NeedKey {
+                    p.error("Expected another identifier or string literal");
+                } else if key_count == 0
+                    && (alt_count + control_count + shift_count + meta_count) > 0
+                {
+                    p.error("A keyboard shortcut must be empty or contain exactly one key (with modifiers)");
+                }
+                p.consume();
+                break;
+            }
+            SyntaxKind::Plus => {
+                if state == State::NeedPlus {
+                    state = State::NeedKey;
+                    p.consume();
+                } else {
+                    bail(&mut p, "Unexpected '+' in keyboard shortcut");
+                    break;
+                }
+                continue;
+            }
+            SyntaxKind::Identifier | SyntaxKind::StringLiteral => {
+                if state == State::NeedPlus {
+                    bail(&mut p, "Expected '+' to separate parts of a keyboard shortcut");
+                    break;
+                }
+
+                let token = p.peek();
+                // Modifiers must be identifiers, not string literals
+                if token.kind() == SyntaxKind::Identifier {
+                    let text = token.as_str();
+
+                    match text {
+                        "Alt" => alt_count += 1,
+                        "Ctrl" => {
+                            bail(
+                                &mut p,
+                                "`Ctrl` is not in the Key namespace (Use `Control` instead)",
+                            );
+                            break;
+                        }
+                        "Control" => control_count += 1,
+                        "Meta" => meta_count += 1,
+                        "Shift" => shift_count += 1,
+                        "IgnoreShift" => ignore_shift_count += 1,
+                        "IgnoreAlt" => ignore_alt_count += 1,
+                        "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
+                            bail(&mut p, "Right-side modifiers are not supported");
+                            break;
+                        }
+                        "AltGr" => {
+                            bail(&mut p, "AltGr cannot be used as a modifier");
+                            break;
+                        }
+                        "Command" | "Cmd" => {
+                            bail(
+                                &mut p,
+                                // \x20 equals to a space (needed to avoid the trailing \ eating
+                                // the indentation)
+                                &format!(
+                                    "`{text}` is not a cross-platform modifier\n\
+                                    Use cross-platform modifier names instead:\n\
+                                    \x20   ⌘ command -> Control\n\
+                                    \x20   ⌥ option -> Alt\n\
+                                    \x20   ^ control -> Meta\n\
+                                    \x20   ⇧ shift -> Shift"
+                                ),
+                            );
+                            break;
+                        }
+                        "Win" | "Windows" => {
+                            bail(
+                                &mut p,
+                                &format!(
+                                    "`{text}` is not a cross-platform modifier (Use `Meta` instead)"
+                                ),
+                            );
+                            break;
+                        }
+                        _ => key_count += 1,
+                    }
+                } else {
+                    key_count += 1;
+                }
+
+                state = State::NeedPlus;
+
+                if [
+                    alt_count,
+                    control_count,
+                    meta_count,
+                    shift_count,
+                    ignore_shift_count,
+                    ignore_alt_count,
+                ]
+                .into_iter()
+                .max()
+                .unwrap_or_default()
+                    > 1
+                {
+                    bail(&mut p, "Duplicated modifier in keyboard shortcut");
+                    break;
+                }
+                if shift_count > 0 && ignore_shift_count > 0 {
+                    bail(&mut p, "Cannot use both Shift and IgnoreShift (remove one of them)");
+                    break;
+                }
+                if alt_count > 0 && ignore_alt_count > 0 {
+                    bail(&mut p, "Cannot use both Alt and IgnoreAlt (remove one of them)");
+                    break;
+                }
+                if key_count > 1 {
+                    bail(&mut p, "A keyboard shortcut can only contain one key (with modifiers)");
+                    break;
+                }
+
+                p.consume();
+                continue;
+            }
+            _ => {
+                bail(
+                    &mut p,
+                    "Expected '+', a string literal, or an identifier in the Keys namespace",
+                );
+                break;
+            }
+        }
+    }
 }
 
 #[cfg_attr(test, parser_test)]

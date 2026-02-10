@@ -111,9 +111,7 @@ def test_property_access() -> None:
     assert imageval.size == (36, 36)
     assert "humidity.png" in str(imageval.path)
 
-    with pytest.raises(
-        TypeError, match="'int' object cannot be converted to 'PyString'"
-    ):
+    with pytest.raises(TypeError, match="'int' object is not an instance of 'str'"):
         instance.set_property("structprop", {42: "wrong"})
 
     brushval = instance.get_property("brushprop")
