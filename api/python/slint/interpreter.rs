@@ -93,7 +93,7 @@ impl Compiler {
 
 #[derive(Debug, Clone)]
 #[gen_stub_pyclass]
-#[pyclass(unsendable)]
+#[pyclass(unsendable, from_py_object)]
 pub struct PyDiagnostic(slint_interpreter::Diagnostic);
 
 #[gen_stub_pymethods]

@@ -43,7 +43,7 @@ impl PyModelShared {
 }
 
 #[derive(Clone)]
-#[pyclass(unsendable, weakref, subclass)]
+#[pyclass(unsendable, weakref, subclass, skip_from_py_object)]
 pub struct PyModelBase {
     inner: Rc<PyModelShared>,
 }
