@@ -87,16 +87,19 @@ impl Item for NativeCheckBox {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        if let MouseEvent::Released { position, button, .. } = event {
-            let geo = self_rc.geometry();
-            if *button == PointerEventButton::Left
-                && LogicalRect::new(LogicalPoint::default(), geo.size).contains(*position)
-            {
-                Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
-                Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
+        match event {
+            MouseEvent::Released { position, button, .. } => {
+                let geo = self_rc.geometry();
+                if *button == PointerEventButton::Left
+                    && LogicalRect::new(LogicalPoint::default(), geo.size).contains(*position)
+                {
+                    Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
+                    Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
+                }
+                InputEventResult::EventAccepted
             }
+            _ => InputEventResult::EventIgnored,
         }
-        InputEventResult::EventAccepted
     }
 
     fn capture_key_event(
