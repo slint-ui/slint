@@ -49,7 +49,7 @@ Bugfixes should first get submitted to the `master` branch using the normal proc
 PR and issue that should be backported can be tagged with the `candidate-for-bugfix-release` tag.
 
 The commits can then be cherry-picked into the branch by the release manager with the `-x` option
-to preserve the original sha1.
+to include a reference to the original sha1.
 
 ```sh
 git cherry-pick -x <sha1>
