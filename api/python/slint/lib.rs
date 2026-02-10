@@ -25,7 +25,7 @@ fn handle_unraisable(py: Python<'_>, context: String, err: PyErr) {
     let __notes__ = exception
         .getattr(pyo3::intern!(py, "__notes__"))
         .unwrap_or_else(|_| pyo3::types::PyList::empty(py).into_any());
-    if let Ok(notes_list) = __notes__.downcast::<pyo3::types::PyList>() {
+    if let Ok(notes_list) = __notes__.cast::<pyo3::types::PyList>() {
         let _ = notes_list.append(context);
         let _ = exception.setattr(pyo3::intern!(py, "__notes__"), __notes__);
     }

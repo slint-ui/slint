@@ -341,7 +341,7 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
-                let dict = ob.downcast::<PyDict>()?;
+                let dict = ob.cast::<PyDict>()?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {
