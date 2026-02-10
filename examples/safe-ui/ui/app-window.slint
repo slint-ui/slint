@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { AboutSlint, VerticalBox } from "std-widgets.slint";
+import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     // Window width and height are set here for preview only
@@ -14,6 +14,10 @@ export component MainWindow inherits Window {
     VerticalBox {
         AboutSlint {
             preferred-height: 150px;
+        }
+        Button {
+            text: "Checkable Button";
+            checkable: true;
         }
     }
 

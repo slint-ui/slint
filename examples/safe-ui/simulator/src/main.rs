@@ -5,6 +5,7 @@ mod desktop_platform;
 
 use desktop_platform::{SCALED_HEIGHT, SCALED_WIDTH};
 use minifb::{Key, Window, WindowOptions};
+use slint_safeui_core::{TouchPhase, slint_safeui_inject_touch_event};
 
 fn main() {
     let (pixel_sender, pixel_receiver) = smol::channel::unbounded();
@@ -38,16 +39,26 @@ fn main() {
         window.get_mouse_pos(minifb::MouseMode::Clamp).map(|(x, y)| {
             let mouse_down = window.get_mouse_down(minifb::MouseButton::Left);
 
-            if mouse_down && !last_mouse_down {
+            let phase = if mouse_down && !last_mouse_down {
                 println!("MOUSE DOWN: ({:.1}, {:.1})", x, y);
+                Some(TouchPhase::Start)
             } else if !mouse_down && last_mouse_down {
                 println!("MOUSE UP:   ({:.1}, {:.1})", x, y);
+                Some(TouchPhase::End)
             } else if mouse_down && (x, y) != last_mouse_pos {
                 println!("MOUSE MOVE: ({:.1}, {:.1})", x, y);
+                Some(TouchPhase::Move)
+            } else {
+                None
+            };
+
+            if let Some(p) = phase {
+                slint_safeui_inject_touch_event(x, y, p);
+
+                last_mouse_pos = (x, y);
             }
 
             last_mouse_down = mouse_down;
-            last_mouse_pos = (x, y);
         });
 
         // Perform drain loop dropping all previous frames
