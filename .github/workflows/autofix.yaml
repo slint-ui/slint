@@ -66,3 +66,10 @@ jobs:
             CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
             CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
             READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+
+    done:
+        needs: [ci]
+        name: done
+        runs-on: ubuntu-latest
+        steps:
+            - run: echo "All checks passed."
