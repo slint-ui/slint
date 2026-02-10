@@ -11,7 +11,7 @@ use pyo3_stub_gen::{
 /// Used by the `Timer.start()` function.
 #[derive(Copy, Clone, PartialEq)]
 #[gen_stub_pyclass_enum]
-#[pyclass(name = "TimerMode", eq, eq_int)]
+#[pyclass(name = "TimerMode", eq, eq_int, from_py_object)]
 pub enum PyTimerMode {
     /// A SingleShot timer is fired only once.
     SingleShot,

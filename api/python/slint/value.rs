@@ -106,7 +106,7 @@ fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(subclass, unsendable)]
+#[pyclass(subclass, unsendable, skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyStruct {
     pub data: slint_interpreter::Struct,
