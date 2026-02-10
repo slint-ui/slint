@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for issue #10702: CheckBox should not consume scroll events
+
+import { CheckBox } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    out property <length> flickable_viewport_y: flickable.viewport-y;
+    in-out property <length> checkbox_y: checkbox.absolute-position.y;
+    in-out property <length> checkbox_x: checkbox.absolute-position.x;
+    flickable := Flickable {
+        width: 100%;
+        height: 100%;
+        viewport_height: 1000px;
+        VerticalLayout {
+            // CheckBox that should not consume scroll events
+            checkbox := CheckBox {
+                text: "Test CheckBox";
+            }
+
+            // Add items after to make scrolling necessary
+            Rectangle {
+                height: 800px;
+                background: lightyellow;
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{LogicalPosition, platform::WindowEvent};
+
+let instance = TestCase::new().unwrap();
+
+let initial_y = instance.get_flickable_viewport_y();
+assert_eq!(initial_y, 0.0);
+
+let x = instance.get_checkbox_x();
+let y = instance.get_checkbox_y();
+println!("Dispatching scroll event at CheckBox position: ({x}, {y})");
+instance.window().dispatch_event(WindowEvent::PointerScrolled {
+    position: LogicalPosition::new(x, y),
+    delta_x: 0.0,
+    delta_y: -100.0
+});
+
+let after_y = instance.get_flickable_viewport_y();
+assert!(
+    after_y < initial_y,
+    "CheckBox should not consume scroll events - the Flickable should scroll.\
+     Initial viewport-y: {initial_y}, after scroll over checkbox: {after_y}, expected: < {initial_y}",
+);
+```
+*/
