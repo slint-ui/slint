@@ -8,7 +8,7 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::items::*;
+use i_slint_core::items::ItemTreeVTable;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
@@ -300,21 +300,21 @@ macro_rules! declare_value_struct_conversion {
         }
     )*) => {
         $(
-            impl From<$Name> for Value {
-                fn from(item: $Name) -> Self {
+            impl From<i_slint_core::items::$Name> for Value {
+                fn from(item: i_slint_core::items::$Name) -> Self {
                     let mut struct_ = Struct::default();
                     $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
                     $(handle_private!(SET $Name $pri_field, struct_, item);)*
                     Value::Struct(struct_)
                 }
             }
-            impl TryFrom<Value> for $Name {
+            impl TryFrom<Value> for i_slint_core::items::$Name {
                 type Error = ();
-                fn try_from(v: Value) -> Result<$Name, Self::Error> {
+                fn try_from(v: Value) -> Result<i_slint_core::items::$Name, Self::Error> {
                     #[allow(clippy::field_reassign_with_default)]
                     match v {
                         Value::Struct(x) => {
-                            type Ty = $Name;
+                            type Ty = i_slint_core::items::$Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
                             $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
