@@ -40,7 +40,7 @@ macro_rules! for_each_builtin_structs {
             #[non_exhaustive]
             #[derive(Copy, Eq)]
             struct KeyboardModifiers {
-                @name = BuiltinPrivateStruct::KeyboardModifiers,
+                @name = BuiltinPublicStruct::KeyboardModifiers,
                 export {
                     /// Indicates the Alt key on a keyboard.
                     alt: bool,
