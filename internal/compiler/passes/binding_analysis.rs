@@ -60,9 +60,10 @@ pub fn binding_analysis(
     compiler_config: &CompilerConfiguration,
     diag: &mut BuildDiagnostics,
 ) -> GlobalAnalysis {
-    #[allow(clippy::field_reassign_with_default)]
-    let mut global_analysis = GlobalAnalysis::default();
-    global_analysis.const_scale_factor = compiler_config.const_scale_factor;
+    let mut global_analysis = GlobalAnalysis {
+        const_scale_factor: compiler_config.const_scale_factor,
+        ..Default::default()
+    };
     let mut reverse_aliases = Default::default();
     mark_used_base_properties(doc);
     propagate_is_set_on_aliases(doc, &mut reverse_aliases);
