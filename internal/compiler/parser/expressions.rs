@@ -576,7 +576,7 @@ fn parse_keys(p: &mut impl Parser) {
                             break;
                         }
                         "AltGr" => {
-                            bail(&mut p, "AltGr as modifier is unnecessary (remove it)");
+                            bail(&mut p, "AltGr cannot be used as a modifier");
                             break;
                         }
                         "Command" | "Cmd" => {
@@ -591,6 +591,15 @@ fn parse_keys(p: &mut impl Parser) {
                                     \x20   ⌥ option -> Alt\n\
                                     \x20   ^ control -> Meta\n\
                                     \x20   ⇧ shift -> Shift"
+                                ),
+                            );
+                            break;
+                        }
+                        "Win" | "Windows" => {
+                            bail(
+                                &mut p,
+                                &format!(
+                                    "`{text}` is not a cross-platform modifier (Use `Meta` instead)"
                                 ),
                             );
                             break;
