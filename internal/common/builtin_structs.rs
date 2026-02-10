@@ -37,8 +37,8 @@ macro_rules! for_each_builtin_structs {
             /// Slint maps the Command key to the control modifier, and the Control key to the meta modifier.
             ///
             /// On Windows, the Windows key is mapped to the meta modifier.
-            #[derive(Copy, Eq)]
             #[non_exhaustive]
+            #[derive(Copy, Eq)]
             struct KeyboardModifiers {
                 @name = BuiltinPrivateStruct::KeyboardModifiers,
                 export {
