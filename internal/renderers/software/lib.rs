@@ -1651,24 +1651,6 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         geometry: &PhysicalRect,
         mut f: impl FnMut(i16, &mut [B::TargetPixel], i16, i16),
     ) {
-        self.foreach_region(geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
-            for l in rect.y_range() {
-                f(
-                    l,
-                    &mut buffer.line_slice(l as usize)
-                        [rect.min_x() as usize..rect.max_x() as usize],
-                    extra_left_clip,
-                    extra_right_clip,
-                );
-            }
-        });
-    }
-
-    fn foreach_region(
-        &mut self,
-        geometry: &PhysicalRect,
-        mut f: impl FnMut(&mut B, PhysicalRect, i16, i16),
-    ) {
         let mut line = geometry.min_y();
         while let Some(mut next) =
             region_line_ranges(&self.dirty_region, line, &mut self.dirty_range_cache)
@@ -1691,7 +1673,15 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                     size: PhysicalSize::new(end - begin, next - line),
                 };
 
-                f(self.buffer, region, extra_left_clip, extra_right_clip);
+                for l in region.y_range() {
+                    f(
+                        l,
+                        &mut self.buffer.line_slice(l as usize)
+                            [region.min_x() as usize..region.max_x() as usize],
+                        extra_left_clip,
+                        extra_right_clip,
+                    );
+                }
             }
             if next == geometry.max_y() {
                 break;
