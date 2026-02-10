@@ -6,6 +6,7 @@ use std::cell::{Cell, RefCell};
 use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
 
 mod image;
+mod input;
 mod interpreter;
 use interpreter::{
     CompilationResult, Compiler, ComponentDefinition, ComponentInstance, PyDiagnostic,
@@ -182,6 +183,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<brush::PyBrush>()?;
     m.add_class::<models::PyModelBase>()?;
     m.add_class::<value::PyStruct>()?;
+    m.add_class::<input::PyKeyboardModifiers>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;
     m.add_class::<api_match::PyGeneratedAPI>()?;
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
