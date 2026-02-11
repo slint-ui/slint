@@ -206,7 +206,13 @@ impl RendererSealed for TestingWindow {
         _text_wrap: TextWrap,
     ) -> LogicalSize {
         if let PlainOrStyledText::Plain(text) = text_item.text() {
-            LogicalSize::new(text.len() as f32 * 10., 10.)
+            let (longest_line, lines) = text
+                .lines()
+                .fold((0, 0), |(longest, count), line| (longest.max(line.len()), count + 1));
+            // Always return a height of at least one line
+            let lines = lines.max(1);
+
+            LogicalSize::new(longest_line as f32 * 10., 10. * lines as f32)
         } else {
             Default::default()
         }
