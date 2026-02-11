@@ -34,13 +34,3 @@ uv.lock
 .python-version
 
 MODULE.bazel.lock
-
-perf.data
-perf.data.old
-
-api/cpp/dir
-CMakeFiles
-/cargo
-/corrosion
-api/cpp/libslint_cpp.so
-api/cpp/slint-compiler
