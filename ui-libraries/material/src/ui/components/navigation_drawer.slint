@@ -189,6 +189,16 @@ export component ModalNavigationDrawer inherits ModalDrawer {
     // accessible-label: root.title;
     accessible-item-count: root.groups.length;
 
+    // Workaround for issue #9766
+    close_timer := Timer {
+        interval: 0ms;
+        running: false;
+        triggered => {
+            root.close();
+            self.stop();
+        }
+    }
+
     for group[group_index] in root.groups : NavigationGroupTemplate {
         title: group.title;
         items: group.items;
@@ -207,7 +217,7 @@ export component ModalNavigationDrawer inherits ModalDrawer {
 
         root.current_group = group_index;
         root.current_index = item_index;
-        root.close();
         root.selected(group_index, item_index);
+        close_timer.start();
     }
 }
