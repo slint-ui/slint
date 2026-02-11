@@ -468,7 +468,7 @@ pub struct WindowInner {
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
-    pub(crate) ctx: once_cell::unsync::Lazy<crate::SlintContext>,
+    ctx: core::cell::OnceCell<crate::SlintContext>,
 }
 
 impl Drop for WindowInner {
@@ -527,11 +527,7 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
-            // The ctx is lazy so that a Window can be initialized before the backend.
-            // (for example in test_empty_window)
-            ctx: once_cell::unsync::Lazy::new(|| {
-                crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone())
-            }),
+            ctx: Default::default(),
         }
     }
 
@@ -584,7 +580,7 @@ impl WindowInner {
         crate::animations::update_animations();
 
         // handle multiple press release
-        event = self.click_state.check_repeat(event, self.ctx.platform().click_interval());
+        event = self.click_state.check_repeat(event, self.context().platform().click_interval());
 
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
@@ -744,7 +740,7 @@ impl WindowInner {
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
-            self.click_state.check_repeat(event, self.ctx.platform().click_interval());
+            self.click_state.check_repeat(event, self.context().platform().click_interval());
         }
 
         self.mouse_input_state.set(mouse_input_state);
@@ -885,7 +881,11 @@ impl WindowInner {
             new_blinker
         });
 
-        TextCursorBlinker::set_binding(blinker, prop, self.ctx.platform().cursor_flash_cycle());
+        TextCursorBlinker::set_binding(
+            blinker,
+            prop,
+            self.context().platform().cursor_flash_cycle(),
+        );
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
@@ -1135,7 +1135,7 @@ impl WindowInner {
         if let Some(component) = self.try_component() {
             let was_visible = self.strong_component_ref.replace(Some(component)).is_some();
             if !was_visible {
-                *(self.ctx.0.window_count.borrow_mut()) += 1;
+                *(self.context().0.window_count.borrow_mut()) += 1;
             }
         }
 
@@ -1153,7 +1153,7 @@ impl WindowInner {
             .unwrap_or_default();
         self.set_window_item_safe_area(inset.to_logical(scale_factor));
         self.window_adapter().renderer().resize(size).unwrap();
-        if let Some(hook) = self.ctx.0.window_shown_hook.borrow_mut().as_mut() {
+        if let Some(hook) = self.context().0.window_shown_hook.borrow_mut().as_mut() {
             hook(&self.window_adapter());
         }
         Ok(())
@@ -1164,11 +1164,11 @@ impl WindowInner {
         let result = self.window_adapter().set_visible(false);
         let was_visible = self.strong_component_ref.borrow_mut().take().is_some();
         if was_visible {
-            let mut count = self.ctx.0.window_count.borrow_mut();
+            let mut count = self.context().0.window_count.borrow_mut();
             *count -= 1;
             if *count <= 0 {
                 drop(count);
-                let _ = self.ctx.event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
+                let _ = self.context().event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
             }
         }
         result
@@ -1578,7 +1578,7 @@ impl WindowInner {
 
     /// Returns the (context global) xdg app id for use with wayland and x11.
     pub fn xdg_app_id(&self) -> Option<SharedString> {
-        self.ctx.xdg_app_id()
+        self.context().xdg_app_id()
     }
 
     /// Returns the upgraded window adapter
@@ -1593,7 +1593,15 @@ impl WindowInner {
 
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
-        &self.ctx
+        &self
+            .ctx
+            .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
+    }
+
+    /// Set the SlintContext.
+    /// This needs to be called once before any other functions that would use the context.
+    pub fn set_context(&self, ctx: crate::SlintContext) {
+        self.ctx.set(ctx).map_err(|_| ()).expect("context shouldn't have been set before")
     }
 }
 

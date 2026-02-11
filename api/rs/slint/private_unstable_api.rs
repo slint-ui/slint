@@ -174,6 +174,7 @@ pub mod re_exports {
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
+    pub use i_slint_core::context::SlintContext;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
