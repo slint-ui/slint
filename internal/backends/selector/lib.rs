@@ -16,7 +16,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use i_slint_core::SlintContext;
+pub use i_slint_core::SlintContext;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 

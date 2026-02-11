@@ -18,4 +18,6 @@ pixel-rgb888 = ["slint-safeui-core/pixel-rgb888"]
 bytemuck = "1.24.0"
 slint = { path = "../../../api/rs/slint" }
 slint-safeui-core = { path = "../core", features = ["std"] }
+i-slint-backend-selector = { path = "../../../internal/backends/selector", default-features = false }
+
 smol = "2.0.0"
