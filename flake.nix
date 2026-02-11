@@ -8,28 +8,27 @@
     system = "x86_64-linux";
     pkgs = import nixpkgs {inherit system;};
   in {
-    packages.${system} = with pkgs; {
-    };
     devShells.${system} = {
-      default = with pkgs;
-      let
+      default = with pkgs; let
         runtime-libs = [
           fontconfig
           wayland
           libxkbcommon
           libGL
 
-          xorg.libX11
-          xorg.libXcursor
-          xorg.libXi
-          xorg.libXrandr # To use the x11 feature
+          libx11
+          libxcursor
+          libxi
+          libxrandr
           vulkan-loader
         ];
       in
-
         mkShell {
-          hardeningDisable = [ "fortify" ];
-          nativeBuildInputs = [renderdoc cargo-udeps];
+          nativeBuildInputs = [
+            pkg-config
+            perf
+          ];
+          hardeningDisable = ["fortify"];
           buildInputs = [
             # Not strictly required, but helps with
             # https://github.com/NixOS/nixpkgs/issues/370494
@@ -45,7 +44,6 @@
             })
             libxkbcommon
             openssl
-            pkg-config
             udev
             libGL
             seatd
@@ -55,8 +53,6 @@
             fontconfig
             nodejs
             pnpm
-            perf
-            hotspot
 
             alsa-lib
             fontconfig
