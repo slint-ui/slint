@@ -1,53 +1,44 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout inside another layout
+// Test FlexBoxLayout that's not in a layout, like in the printer demo
 
 export component TestCase inherits Window {
-    background: white;
-    width: 150px;
-    height: 300px;
 
-    VerticalLayout {
+    min-width: 300px;
+    min-height: 300px;
 
-        HorizontalLayout {
+    flex := FlexBoxLayout {
+        spacing: 10px;
+        vertical-stretch: 0;
+        horizontal-stretch: 0;
+        x: 0;
+        width: self.preferred-width;
 
-            FlexBoxLayout {
-                flex-direction: column;
-                spacing: 10px;
-                vertical-stretch: 0;
-                horizontal-stretch: 0;
-
-                r1 := Rectangle {
-                    width: 100px;
-                    height: 50px;
-                    background: red;
-                }
-
-                r2 := Rectangle {
-                    width: 100px;
-                    height: 50px;
-                    background: green;
-                }
-
-                r3 := Rectangle {
-                    width: 100px;
-                    height: 50px;
-                    background: blue;
-                }
-            }
-
-            Text {
-                text: "This is on the right of the flow layout";
-                horizontal-stretch: 0;
-                vertical-stretch: 0;
-            }
+        r1 := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: red;
         }
 
-        Text {
-            text: "This is below the flow layout";
-            vertical-stretch: 0;
+        r2 := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: green;
         }
+
+        r3 := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: blue;
+        }
+    }
+
+    queue-view := Rectangle {
+        x: parent.width - self.width;
+        width: root.width - flex.width;
+        height: root.height;
+        background: yellow;
     }
 
     // flex-direction: column means items should stack vertically

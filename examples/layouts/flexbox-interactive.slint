@@ -1,0 +1,64 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: MIT
+
+import { ComboBox } from "std-widgets.slint";
+
+component Cell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    background: #f0f0f0;
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            text: cell_text;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
+export component MainWindow inherits Window {
+    title: "FlexBox Layout - Direction Test";
+    default-font-size: 20px;
+
+    property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+    property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
+
+    VerticalLayout {
+        padding: 20phx;
+        spacing: 20phx;
+
+        HorizontalLayout {
+            spacing: 10phx;
+            Text {
+                text: "Flex Direction:";
+                vertical-alignment: center;
+            }
+
+            direction_combo := ComboBox {
+                model: direction_options;
+                current-index: 0;
+            }
+        }
+
+        flex_container := Rectangle {
+            border-width: 2phx;
+            border-color: #333;
+            background: white;
+
+            FlexBoxLayout {
+                flex-direction: direction_combo.current-index == 0 ? row : direction_combo.current-index == 1 ? row-reverse : direction_combo.current-index == 2 ? column : column-reverse;
+                padding: 10phx;
+                spacing: 10phx;
+
+                for text in names: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 60phx;
+                }
+            }
+        }
+    }
+}

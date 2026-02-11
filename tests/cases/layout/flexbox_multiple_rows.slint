@@ -7,13 +7,14 @@ export component TestCase inherits Window {
     width: 200px;
     height: 300px;
 
-    FlexBoxLayout {
+    flex := FlexBoxLayout {
+        padding: 2px;
         spacing: 5px;
 
         // Items sized to force specific row breaks:
-        // Row 1: r1(60) + r2(60) + r3(60) = 60+5+60+5+60 = 190 < 200, but r4 won't fit (190+5+60=255)
-        // Row 2: r4(60) + r5(80) = 60+5+80 = 145 < 200, but r6 won't fit (145+5+90=240)
-        // Row 3: r6(90) alone
+        // Row 1: 2 + r1(60) + r2(60) + r3(60) = 2+60+5+60+5+60 = 192 < 200, but r4 won't fit (192+5+60=257)
+        // Row 2: 2 + r4(60) + r5(80) = 2+60+5+80 = 147 < 200, but r6 won't fit (147+5+90=242)
+        // Row 3: 2 + r6(90) alone
         r1 := Rectangle { width: 60px; height: 30px; background: red; }
         r2 := Rectangle { width: 60px; height: 30px; background: green; }
         r3 := Rectangle { width: 60px; height: 40px; background: blue; }
@@ -22,18 +23,23 @@ export component TestCase inherits Window {
         r6 := Rectangle { width: 90px; height: 35px; background: magenta; }
     }
 
-    // Row 1: y=0, height=max(30,30,40)=40
-    // Row 2: y=45 (40+5), height=max(40,25)=40
-    // Row 3: y=90 (45+40+5), height=35
+    // Row 1: y=2+0, height=max(30,30,40)=40
+    // Row 2: y=2+45 (40+5), height=max(40,25)=40
+    // Row 3: y=2+90 (45+40+5), height=35
 
-    out property <bool> test_r1: r1.x == 0px && r1.y == 0px;
-    out property <bool> test_r2: r2.x == 65px && r2.y == 0px;
-    out property <bool> test_r3: r3.x == 130px && r3.y == 0px;
-    out property <bool> test_r4: r4.x == 0px && r4.y == 45px;
-    out property <bool> test_r5: r5.x == 65px && r5.y == 45px;
-    out property <bool> test_r6: r6.x == 0px && r6.y == 90px;
+    out property <bool> test_r1: r1.x == 2px && r1.y == 2px;
+    out property <bool> test_r2: r2.x == 67px && r2.y == 2px;
+    out property <bool> test_r3: r3.x == 132px && r3.y == 2px;
+    out property <bool> test_r4: r4.x == 2px && r4.y == 47px;
+    out property <bool> test_r5: r5.x == 67px && r5.y == 47px;
+    out property <bool> test_r6: r6.x == 2px && r6.y == 92px;
 
-    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4 && test_r5 && test_r6;
+    out property <int> min_w: flex.min-width / 1px;
+    out property <int> preferred_w: flex.preferred-width / 1px;
+    out property <int> max_w: flex.max-width / 1px;
+    out property <bool> flex_minmax_ok: flex.min-width == 94px && flex.preferred-width > 140px && flex.preferred-width < 150px;
+
+    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4 && test_r5 && test_r6 && flex_minmax_ok;
 }
 
 /*

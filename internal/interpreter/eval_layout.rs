@@ -262,8 +262,6 @@ pub(crate) fn compute_flexbox_layout_info(
             | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
     );
 
-    let (padding, spacing) = padding_and_spacing(&flexbox_layout.geometry, orientation, &expr_eval);
-
     let (padding_h, spacing_h) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
     let (padding_v, spacing_v) =
@@ -272,12 +270,13 @@ pub(crate) fn compute_flexbox_layout_info(
     if is_main_axis {
         // Main axis: use simple layout info (no constraint needed)
         // This avoids reading the perpendicular dimension and prevents circular dependencies
-        let cells = if orientation == Orientation::Horizontal { &cells_h } else { &cells_v };
-
         core_layout::flexbox_layout_info(
-            i_slint_core::slice::Slice::from(cells.as_slice()),
-            spacing,
-            &padding,
+            i_slint_core::slice::Slice::from(cells_h.as_slice()),
+            i_slint_core::slice::Slice::from(cells_v.as_slice()),
+            spacing_h,
+            spacing_v,
+            &padding_h,
+            &padding_v,
             to_runtime(orientation),
             direction,
         )
