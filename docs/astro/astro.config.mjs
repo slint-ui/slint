@@ -231,10 +231,6 @@ export default defineConfig({
                                         label: "Timer",
                                         slug: "reference/timer",
                                     },
-                                    {
-                                        label: "Styled Text",
-                                        slug: "reference/styled-text",
-                                    },
                                 ],
                             },
                             {
