@@ -7,21 +7,20 @@ use alloc::rc::Rc;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
+use critical_section::Mutex;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-static mut GLOBAL_QUEUE: Option<Queue> = None;
+static GLOBAL_QUEUE: Mutex<RefCell<Option<Queue>>> = Mutex::new(RefCell::new(None));
 
 pub fn dispatch_event(event: slint::platform::WindowEvent) {
-    unsafe {
-        let global_ptr = &raw const GLOBAL_QUEUE;
-
-        if let Some(queue) = (*global_ptr).as_ref() {
+    critical_section::with(|cs| {
+        if let Some(queue) = GLOBAL_QUEUE.borrow(cs).borrow().as_ref() {
             if queue.send_window_event(event).is_err() {
                 // Queue full - event dropped.
             }
         }
-    }
+    });
 }
 
 struct Platform {
@@ -140,9 +139,9 @@ pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
 
     let event_queue = Queue::new();
 
-    unsafe {
-        GLOBAL_QUEUE = Some(event_queue.clone());
-    }
+    critical_section::with(|cs| {
+        *GLOBAL_QUEUE.borrow(cs).borrow_mut() = Some(event_queue.clone());
+    });
 
     let platform = Platform { scale_factor, window, event_queue };
 
