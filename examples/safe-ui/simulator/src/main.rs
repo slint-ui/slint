@@ -5,7 +5,7 @@ mod desktop_platform;
 
 use desktop_platform::{SCALED_HEIGHT, SCALED_WIDTH};
 use minifb::{Key, Window, WindowOptions};
-use slint_safeui_core::{platform::TouchPhase, slint_safeui_inject_touch_event};
+use slint_safeui_core::{platform::PointerEvent, slint_safeui_inject_pointer_event};
 
 fn main() {
     let (pixel_sender, pixel_receiver) = smol::channel::unbounded();
@@ -43,21 +43,21 @@ fn main() {
             let iy = y.floor() as i32;
             let mouse_pos = (ix, iy);
 
-            let phase = if mouse_down && !last_mouse_down {
+            let event = if mouse_down && !last_mouse_down {
                 println!("MOUSE DOWN: ({:.1}, {:.1})", ix, iy);
-                Some(TouchPhase::START)
+                Some(PointerEvent::START)
             } else if !mouse_down && last_mouse_down {
                 println!("MOUSE UP:   ({:.1}, {:.1})", ix, iy);
-                Some(TouchPhase::END)
+                Some(PointerEvent::END)
             } else if mouse_down && mouse_pos != last_mouse_pos {
                 println!("MOUSE MOVE: ({:.1}, {:.1})", ix, iy);
-                Some(TouchPhase::MOVE)
+                Some(PointerEvent::MOVE)
             } else {
                 None
             };
 
-            if let Some(p) = phase {
-                slint_safeui_inject_touch_event(ix, iy, p);
+            if let Some(p) = event {
+                slint_safeui_inject_pointer_event(ix, iy, p);
 
                 last_mouse_pos = mouse_pos;
             }

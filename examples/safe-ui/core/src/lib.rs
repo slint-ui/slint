@@ -23,7 +23,7 @@ extern crate alloc;
 pub mod pixels;
 pub mod platform;
 
-use crate::platform::TouchPhase;
+use crate::platform::PointerEvent;
 
 slint::include_modules!();
 
@@ -54,26 +54,26 @@ pub extern "C" fn slint_app_main() {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_safeui_inject_touch_event(
+pub extern "C" fn slint_safeui_inject_pointer_event(
     display_x: i32,
     display_y: i32,
-    phase: TouchPhase,
+    event: PointerEvent,
 ) {
     let position = slint::PhysicalPosition::new(display_x, display_y).to_logical(SCALE_FACTOR);
 
-    let event = match phase {
-        TouchPhase::START => slint::platform::WindowEvent::PointerPressed {
+    let window_event = match event {
+        PointerEvent::START => slint::platform::WindowEvent::PointerPressed {
             position,
             button: slint::platform::PointerEventButton::Left,
         },
-        TouchPhase::MOVE => slint::platform::WindowEvent::PointerMoved { position },
-        TouchPhase::END => slint::platform::WindowEvent::PointerReleased {
+        PointerEvent::MOVE => slint::platform::WindowEvent::PointerMoved { position },
+        PointerEvent::END => slint::platform::WindowEvent::PointerReleased {
             position,
             button: slint::platform::PointerEventButton::Left,
         },
     };
 
-    platform::dispatch_event(event);
+    platform::dispatch_event(window_event);
 }
 
 const fn parse_u32(s: &str) -> u32 {
