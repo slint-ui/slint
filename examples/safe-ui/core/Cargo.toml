@@ -15,7 +15,7 @@ path = "src/lib.rs"
 crate-type = ["rlib", "staticlib"]
 
 [features]
-default = ["std"]
+default = []
 libm = ["slint/libm"]
 std = ["slint/std"]
 panic-handler = []
