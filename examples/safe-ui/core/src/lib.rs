@@ -23,6 +23,8 @@ extern crate alloc;
 pub mod pixels;
 pub mod platform;
 
+use crate::platform::TouchPhase;
+
 slint::include_modules!();
 
 pub const WIDTH_PIXELS: u32 = match option_env!("SAFE_UI_WIDTH") {
@@ -39,14 +41,6 @@ pub const SCALE_FACTOR: f32 = match option_env!("SAFE_UI_SCALE_FACTOR") {
     Some(s) => parse_f32(s),
     None => 2.0,
 };
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum TouchPhase {
-    Start,
-    Move,
-    End,
-}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_app_main() {
@@ -68,12 +62,12 @@ pub extern "C" fn slint_safeui_inject_touch_event(
     let position = slint::PhysicalPosition::new(display_x, display_y).to_logical(SCALE_FACTOR);
 
     let event = match phase {
-        TouchPhase::Start => slint::platform::WindowEvent::PointerPressed {
+        TouchPhase::START => slint::platform::WindowEvent::PointerPressed {
             position,
             button: slint::platform::PointerEventButton::Left,
         },
-        TouchPhase::Move => slint::platform::WindowEvent::PointerMoved { position },
-        TouchPhase::End => slint::platform::WindowEvent::PointerReleased {
+        TouchPhase::MOVE => slint::platform::WindowEvent::PointerMoved { position },
+        TouchPhase::END => slint::platform::WindowEvent::PointerReleased {
             position,
             button: slint::platform::PointerEventButton::Left,
         },
