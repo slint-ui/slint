@@ -5,12 +5,10 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::cell::RefCell;
-use heapless::Vec as HeaplessVec;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
-const EVENT_QUEUE_CAPACITY: usize = 16;
 
 static mut GLOBAL_QUEUE: Option<Queue> = None;
 
@@ -159,22 +157,19 @@ enum Event {
 
 #[derive(Clone)]
 struct Queue {
-    // NOTE
-    // Despite using heapless, Events still contain Box<dyn FnOnce() + Send>,
-    // so heap allocation occurs per event. The heapless queue bounds the number
-    // of pending events, not the event payloads themselves.
-    events: Arc<critical_section::Mutex<RefCell<HeaplessVec<Event, EVENT_QUEUE_CAPACITY>>>>,
+    events: Arc<critical_section::Mutex<RefCell<Vec<Event>>>>,
 }
 
 impl Queue {
     fn new() -> Self {
-        Self { events: Arc::new(critical_section::Mutex::new(RefCell::new(HeaplessVec::new()))) }
+        Self { events: Arc::new(critical_section::Mutex::new(RefCell::new(Vec::new()))) }
     }
 
     fn send_window_event(&self, event: slint::platform::WindowEvent) -> Result<(), ()> {
         critical_section::with(|cs| {
-            self.events.borrow(cs).borrow_mut().push(Event::Window(event)).map_err(|_| ())
-        })?;
+            self.events.borrow(cs).borrow_mut().push(Event::Window(event));
+        });
+
         unsafe { slint_safeui_platform_wake() };
         Ok(())
     }
@@ -183,12 +178,8 @@ impl Queue {
 impl slint::platform::EventLoopProxy for Queue {
     fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
         critical_section::with(|cs| {
-            self.events
-                .borrow(cs)
-                .borrow_mut()
-                .push(Event::Quit)
-                .map_err(|_| slint::EventLoopError::EventLoopTerminated)
-        })?;
+            self.events.borrow(cs).borrow_mut().push(Event::Quit);
+        });
 
         unsafe { slint_safeui_platform_wake() };
         Ok(())
@@ -199,12 +190,9 @@ impl slint::platform::EventLoopProxy for Queue {
         event: Box<dyn FnOnce() + Send>,
     ) -> Result<(), slint::EventLoopError> {
         critical_section::with(|cs| {
-            self.events
-                .borrow(cs)
-                .borrow_mut()
-                .push(Event::Event(event))
-                .map_err(|_| slint::EventLoopError::EventLoopTerminated)
-        })?;
+            self.events.borrow(cs).borrow_mut().push(Event::Event(event));
+        });
+
         unsafe { slint_safeui_platform_wake() };
         Ok(())
     }

@@ -26,7 +26,6 @@ pixel-rgb888 = []
 [dependencies]
 bytemuck = "1.24.0"
 critical-section = "1.2.0"
-heapless = "0.9.2"
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "unsafe-single-threaded"] }
 
 [build-dependencies]
