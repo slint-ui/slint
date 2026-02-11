@@ -204,12 +204,16 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxL
 }
 
 inline cbindgen_private::LayoutInfo
-flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells, float spacing,
-                 const cbindgen_private::Padding &padding,
+flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
+                 cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+                 float spacing_h, float spacing_v,
+                 const cbindgen_private::Padding &padding_h,
+                 const cbindgen_private::Padding &padding_v,
                  cbindgen_private::Orientation orientation,
                  cbindgen_private::FlexDirection direction)
 {
-    return cbindgen_private::slint_flexbox_layout_info(cells, spacing, &padding, orientation, direction);
+    return cbindgen_private::slint_flexbox_layout_info_with_constraint(
+        cells_h, cells_v, spacing_h, spacing_v, &padding_h, &padding_v, orientation, direction, std::numeric_limits<float>::max());
 }
 
 inline cbindgen_private::LayoutInfo

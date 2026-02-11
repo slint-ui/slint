@@ -1472,62 +1472,26 @@ pub fn solve_flexbox_layout(
 
 /// Return the LayoutInfo for a FlexBoxLayout with the given cells.
 pub fn flexbox_layout_info(
-    cells: Slice<LayoutItemInfo>,
-    spacing: Coord,
-    padding: &Padding,
+    cells_h: Slice<LayoutItemInfo>,
+    cells_v: Slice<LayoutItemInfo>,
+    spacing_h: Coord,
+    spacing_v: Coord,
+    padding_h: &Padding,
+    padding_v: &Padding,
     orientation: Orientation,
     direction: FlexDirection,
 ) -> LayoutInfo {
-    let count = cells.len();
-    if count < 1 {
-        let mut info = LayoutInfo::default();
-        let pad = padding.begin + padding.end;
-        info.min = pad;
-        info.preferred = pad;
-        return info;
-    }
-
-    let extra_pad = padding.begin + padding.end;
-
-    // Determine if this orientation is the main axis or cross axis
-    let is_main_axis = match (direction, orientation) {
-        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal) => true,
-        (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical) => true,
-        _ => false,
-    };
-
-    if is_main_axis {
-        // Main axis: items are laid out sequentially, so sum their sizes
-        let min =
-            cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
-        let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
-            + spacing * (count - 1) as Coord
-            + extra_pad;
-        let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-        LayoutInfo {
-            min,
-            max: Coord::MAX,
-            min_percent: 0.0,
-            max_percent: 100.0,
-            preferred,
-            stretch,
-        }
-    } else {
-        // Cross axis: items are stacked perpendicular, so use max of their sizes
-        let min =
-            cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
-        let preferred =
-            cells.iter().map(|c| c.constraint.preferred).fold(0.0 as Coord, |a, b| a.max(b))
-                + extra_pad;
-        LayoutInfo {
-            min,
-            max: Coord::MAX,
-            min_percent: 0.0,
-            max_percent: 100.0,
-            preferred,
-            stretch: 1.0,
-        }
-    }
+    return flexbox_layout_info_with_constraint(
+        cells_h,
+        cells_v,
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        orientation,
+        direction,
+        Coord::MAX,
+    );
 }
 
 /// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
@@ -1547,6 +1511,16 @@ pub fn flexbox_layout_info_with_constraint(
     direction: FlexDirection,
     constraint_size: Coord,
 ) -> LayoutInfo {
+    if cells_h.is_empty() {
+        assert!(cells_v.is_empty());
+        let padding = match orientation {
+            Orientation::Horizontal => padding_h,
+            Orientation::Vertical => padding_v,
+        };
+        let pad = padding.begin + padding.end;
+        return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
+    }
+
     // Determine if we're asking for main-axis or cross-axis
     let is_main_axis = matches!(
         (direction, orientation),
@@ -1555,7 +1529,7 @@ pub fn flexbox_layout_info_with_constraint(
     );
 
     if is_main_axis {
-        // Main axis: simple calculation (items flow sequentially)
+        // Main axis: simple calculation
         // NOTE: We don't use constraint_size here
         let cells = match orientation {
             Orientation::Horizontal => &cells_h,
@@ -1570,17 +1544,20 @@ pub fn flexbox_layout_info_with_constraint(
             Orientation::Vertical => spacing_v,
         };
         let count = cells.len();
-        if count < 1 {
-            let pad = padding.begin + padding.end;
-            return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
-        }
 
         let extra_pad = padding.begin + padding.end;
+        // Min size is the maximum of any single item (since they can wrap) plus padding
         let min =
             cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
-        let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
-            + spacing * (count - 1) as Coord
-            + extra_pad;
+        // Preferred is highly arguable: it could be the sum (if we assume no wrapping) or the max (if we assume full wrapping).
+        // Something in between looks better. Let's use the square root of the total area.
+        let total_area = cells_h
+            .iter()
+            .map(|c| c.constraint.preferred_bounded())
+            .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
+            .map(|(h, v)| h * v)
+            .sum::<Coord>();
+        let preferred = total_area.sqrt() + spacing * (count - 1) as Coord + extra_pad;
         let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
         LayoutInfo {
             min,
@@ -1595,20 +1572,10 @@ pub fn flexbox_layout_info_with_constraint(
         // constraint_size is the main-axis dimension that determines wrapping:
         // - Row asking Vertical: constraint_size is width
         // - Column asking Horizontal: constraint_size is height
-        let cell_count = match direction {
-            FlexDirection::Row | FlexDirection::RowReverse => cells_h.len(),
-            FlexDirection::Column | FlexDirection::ColumnReverse => cells_v.len(),
-        };
-
         let padding = match direction {
             FlexDirection::Row | FlexDirection::RowReverse => padding_h,
             FlexDirection::Column | FlexDirection::ColumnReverse => padding_v,
         };
-
-        if cell_count < 1 {
-            let pad = padding.begin + padding.end;
-            return LayoutInfo { min: pad, preferred: pad, ..Default::default() };
-        }
 
         let taffy_direction = match direction {
             FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
@@ -1764,18 +1731,6 @@ pub(crate) mod ffi {
         result: &mut SharedVector<Coord>,
     ) {
         *result = super::solve_flexbox_layout(data, repeater_indices)
-    }
-
-    #[unsafe(no_mangle)]
-    /// Return the LayoutInfo for a FlexBoxLayout with the given cells.
-    pub extern "C" fn slint_flexbox_layout_info(
-        cells: Slice<LayoutItemInfo>,
-        spacing: Coord,
-        padding: &Padding,
-        orientation: Orientation,
-        direction: FlexDirection,
-    ) -> LayoutInfo {
-        super::flexbox_layout_info(cells, spacing, padding, orientation, direction)
     }
 
     #[unsafe(no_mangle)]
