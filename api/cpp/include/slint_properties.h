@@ -377,6 +377,30 @@ private:
     cbindgen_private::PropertyTrackerOpaque inner;
 };
 
+/// RAII guard for initialization scope.
+///
+/// When components are created, change tracker evaluations are deferred until
+/// the initialization scope ends. This prevents recursion when change callbacks
+/// depend on properties computed during layout.
+///
+/// Typically you don't need to use this directly - it's handled automatically
+/// by generated component code.
+struct InitializationScope
+{
+    InitializationScope() : handle(cbindgen_private::slint_initialization_scope_begin()) { }
+    ~InitializationScope()
+    {
+        if (handle != 0) {
+            cbindgen_private::slint_initialization_scope_end(handle);
+        }
+    }
+    InitializationScope(const InitializationScope &) = delete;
+    InitializationScope &operator=(const InitializationScope &) = delete;
+
+private:
+    uint8_t handle;
+};
+
 struct ChangeTracker
 {
     ChangeTracker() { cbindgen_private::slint_change_tracker_construct(&inner); }
@@ -408,6 +432,49 @@ struct ChangeTracker
                     auto inner = reinterpret_cast<Inner *>(d);
                     inner->fn_notify(inner->data, inner->value);
                 });
+    }
+
+    /// Initialize the change tracker with delayed first evaluation.
+    ///
+    /// Same as init(), but the first evaluation is deferred to run_change_handlers().
+    /// This means the change tracker will consider the value as default initialized,
+    /// and the notify function will be called the first time if the initial value
+    /// differs from the default.
+    template<typename Data, typename FnEval, typename FnNotify>
+    void init_delayed(Data data, FnEval fn_eval, FnNotify fn_notify)
+    {
+        using Value = std::invoke_result_t<FnEval, Data>;
+        struct Inner
+        {
+            Data data;
+            FnEval fn_eval;
+            FnNotify fn_notify;
+            Value value;
+        };
+        auto data_ptr =
+                new Inner { std::move(data), std::move(fn_eval), std::move(fn_notify), Value() };
+        cbindgen_private::slint_change_tracker_init_delayed(
+                &inner, data_ptr, [](void *d) { delete reinterpret_cast<Inner *>(d); },
+                [](void *d) {
+                    auto inner = reinterpret_cast<Inner *>(d);
+                    auto v = inner->fn_eval(inner->data);
+                    bool r = v != inner->value;
+                    inner->value = v;
+                    return r;
+                },
+                [](void *d) {
+                    auto inner = reinterpret_cast<Inner *>(d);
+                    inner->fn_notify(inner->data, inner->value);
+                });
+    }
+
+    /// Run all pending change handlers.
+    ///
+    /// This processes any change trackers that have been queued for evaluation,
+    /// including those initialized with init_delayed().
+    static void run_change_handlers()
+    {
+        cbindgen_private::slint_change_tracker_run_change_handlers();
     }
 
 private:
