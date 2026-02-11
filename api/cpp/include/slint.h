@@ -194,7 +194,7 @@ box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> 
 }
 
 inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxLayoutData &data,
-                                             cbindgen_private::Slice<int> repeater_indices)
+                                                cbindgen_private::Slice<int> repeater_indices)
 {
     SharedVector<float> result;
     cbindgen_private::Slice<uint32_t> ri =
@@ -205,28 +205,15 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxL
 
 inline cbindgen_private::LayoutInfo
 flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
-                 cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
-                 float spacing_h, float spacing_v,
-                 const cbindgen_private::Padding &padding_h,
-                 const cbindgen_private::Padding &padding_v,
-                 cbindgen_private::Orientation orientation,
-                 cbindgen_private::FlexDirection direction)
+                    cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+                    float spacing_h, float spacing_v, const cbindgen_private::Padding &padding_h,
+                    const cbindgen_private::Padding &padding_v,
+                    cbindgen_private::Orientation orientation,
+                    cbindgen_private::FlexDirection direction, float constraint_size)
 {
-    return cbindgen_private::slint_flexbox_layout_info_with_constraint(
-        cells_h, cells_v, spacing_h, spacing_v, &padding_h, &padding_v, orientation, direction, std::numeric_limits<float>::max());
-}
-
-inline cbindgen_private::LayoutInfo
-flexbox_layout_info_with_constraint(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
-                                   cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
-                                   float spacing_h, float spacing_v,
-                                   const cbindgen_private::Padding &padding_h,
-                                   const cbindgen_private::Padding &padding_v,
-                                   cbindgen_private::Orientation orientation,
-                                   cbindgen_private::FlexDirection direction, float constraint_size)
-{
-    return cbindgen_private::slint_flexbox_layout_info(
-        cells_h, cells_v, spacing_h, spacing_v, &padding_h, &padding_v, orientation, direction, constraint_size);
+    return cbindgen_private::slint_flexbox_layout_info(cells_h, cells_v, spacing_h, spacing_v,
+                                                       &padding_h, &padding_v, orientation,
+                                                       direction, constraint_size);
 }
 
 /// Access the layout cache of an item within a repeater
