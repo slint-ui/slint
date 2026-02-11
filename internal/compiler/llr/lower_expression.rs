@@ -1084,14 +1084,14 @@ fn compute_flexbox_layout_info_for_direction(
                     repeater_indices_var_name: None,
                     elements,
                     sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "flexbox_layout_info_with_constraint".into(),
+                        function: "flexbox_layout_info".into(),
                         arguments,
                         return_ty: crate::typeregister::layout_info_type().into(),
                     }),
                 }
             }
             None => llr_Expression::ExtraBuiltinFunctionCall {
-                function: "flexbox_layout_info_with_constraint".into(),
+                function: "flexbox_layout_info".into(),
                 arguments,
                 return_ty: crate::typeregister::layout_info_type().into(),
             },
@@ -1110,6 +1110,7 @@ fn compute_flexbox_layout_info_for_direction(
                 enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
             }),
             fld.direction,
+            llr_Expression::NumberLiteral(f32::MAX.into()),
         ];
 
         match fld.compute_cells {

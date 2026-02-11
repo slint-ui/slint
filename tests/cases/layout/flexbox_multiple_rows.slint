@@ -37,9 +37,10 @@ export component TestCase inherits Window {
     out property <int> min_w: flex.min-width / 1px;
     out property <int> preferred_w: flex.preferred-width / 1px;
     out property <int> max_w: flex.max-width / 1px;
-    out property <bool> flex_minmax_ok: flex.min-width == 94px && flex.preferred-width > 140px && flex.preferred-width < 150px;
+    out property <bool> flex_minmax_width_ok: flex.min-width == 94px && flex.preferred-width > 140px && flex.preferred-width < 150px;
+    out property <bool> flex_minmax_height_ok: flex.min-height == 44px && flex.preferred-height > 128px && flex.preferred-height < 130px;
 
-    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4 && test_r5 && test_r6 && flex_minmax_ok;
+    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4 && test_r5 && test_r6 && flex_minmax_width_ok && flex_minmax_height_ok;
 }
 
 /*
