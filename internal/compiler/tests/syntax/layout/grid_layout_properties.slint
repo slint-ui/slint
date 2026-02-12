@@ -81,6 +81,19 @@ export X := Rectangle {
 //           ><error{col used outside of a GridLayout's cell}
     }
 
+    flex := FlexBoxLayout {
+        Text {
+            colspan: 1 + 1;
+//                   >    <error{colspan used outside of a GridLayout's cell}
+            rowspan: 2;
+//                   ><error{rowspan used outside of a GridLayout's cell}
+            row: 3;
+//               ><error{row used outside of a GridLayout's cell}
+            col: 2;
+//               ><error{col used outside of a GridLayout's cell}
+        }
+    }
+
     lay4 := GridLayout {
         for _ in 5: Text {
             // Using row/col properties here is allowed, to be able to get row and col from a model
