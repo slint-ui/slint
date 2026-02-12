@@ -186,7 +186,7 @@ pub fn create(
             if let Ok(contents) = &contents {
                 to_preview.send(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url, None),
-                    contents: contents.clone(),
+                    contents: contents.clone().into(),
                 });
             }
             Some(contents.map(|c| (None, c)))
