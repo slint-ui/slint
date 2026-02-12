@@ -90,8 +90,38 @@ pub struct StyledText {
 impl StyledText {
     /// Parse a markdown string as styled text
     pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
+        Self::parse_fragments(&[string])
+    }
+
+    /// Parse a series of text fragments as styled text
+    ///
+    /// For the purposes of escaping interpolated values, the fragments are
+    /// interweaved like so: [literal, interpolated, literal, interpolated]...
+    pub fn parse_fragments<'a>(fragments: &[&'a str]) -> Result<Self, StyledTextError<'a>> {
+        let mut string = alloc::string::String::new();
+        let mut inside_code_block = false;
+
+        for (i, fragment) in fragments.iter().enumerate() {
+            let is_literal = i % 2 == 0;
+
+            if is_literal {
+                for c in fragment.chars() {
+                    if c == '`' {
+                        inside_code_block = !inside_code_block;
+                    }
+                }
+                string.push_str(fragment);
+            } else {
+                string.push_str(&if inside_code_block {
+                    escape_markdown_in_code_block(fragment)
+                } else {
+                    escape_markdown(fragment)
+                });
+            }
+        }
+
         let parser =
-            pulldown_cmark::Parser::new_ext(string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+            pulldown_cmark::Parser::new_ext(&string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
 
         let mut paragraphs = alloc::vec::Vec::new();
         let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
@@ -188,7 +218,7 @@ impl StyledText {
                         | pulldown_cmark::Tag::BlockQuote(_)
                         | pulldown_cmark::Tag::CodeBlock(_)
                         | pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                            return Err(StyledTextError::UnimplementedTag(tag));
+                            return Err(StyledTextError::UnimplementedTag(tag.into_static()));
                         }
                     };
 
@@ -348,7 +378,7 @@ impl StyledText {
                 | pulldown_cmark::Event::InlineMath(_)
                 | pulldown_cmark::Event::DisplayMath(_)
                 | pulldown_cmark::Event::Html(_) => {
-                    return Err(StyledTextError::UnimplementedEvent(event));
+                    return Err(StyledTextError::UnimplementedEvent(event.into_static()));
                 }
             }
         }
@@ -553,6 +583,34 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
     }
 }
 
+#[test]
+fn markdown_parsing_interpolated() {
+    assert_eq!(
+        StyledText::parse_fragments(&["Bold text: *", "bold", "*"]).unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "Bold text: bold".into(),
+            formatting: alloc::vec![FormattedSpan { range: 11..15, style: Style::Emphasis }],
+            links: alloc::vec![]
+        }]
+    );
+    assert_eq!(
+        StyledText::parse_fragments(&["Escaped text: ", "*bold*"]).unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "Escaped text: *bold*".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![]
+        }]
+    );
+    assert_eq!(
+        StyledText::parse_fragments(&["Code block text: `", "*bold*", "`"]).unwrap().paragraphs,
+        [StyledTextParagraph {
+            text: "Code block text: *bold*".into(),
+            formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
+            links: alloc::vec![]
+        }]
+    );
+}
+
 /// Bindings for cbindgen
 #[cfg(feature = "ffi")]
 pub mod ffi {
@@ -609,10 +667,23 @@ pub fn escape_markdown(text: &str) -> alloc::string::String {
     out
 }
 
+pub fn escape_markdown_in_code_block(text: &str) -> alloc::string::String {
+    let mut out = alloc::string::String::with_capacity(text.len());
+
+    for c in text.chars() {
+        match c {
+            '`' => out.push_str("\\`"),
+            _ => out.push(c),
+        }
+    }
+
+    out
+}
+
 pub fn parse_markdown(_text: &str) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse(_text).unwrap()
+        StyledText::parse_fragments(&[_text]).unwrap()
     }
     #[cfg(not(feature = "std"))]
     Default::default()
