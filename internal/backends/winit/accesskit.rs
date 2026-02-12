@@ -20,7 +20,6 @@ use i_slint_core::window::{PopupWindowLocation, WindowInner};
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
-use crate::SlintEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 
 /// The AccessKit adapter tries to keep the given window adapter's item tree in sync with accesskit's node tree.

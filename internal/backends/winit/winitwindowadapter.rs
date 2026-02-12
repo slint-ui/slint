@@ -33,8 +33,6 @@ use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
-#[cfg(any(enable_accesskit, muda))]
-use crate::SlintEvent;
 use crate::{EventResult, SharedBackendData};
 use corelib::Property;
 use corelib::api::PhysicalSize;
@@ -419,6 +417,7 @@ impl WinitWindowAdapter {
 
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
+            #[cfg(todo)]
             if let Some(xdg_app_id) = WindowInner::from_pub(self.window()).xdg_app_id() {
                 #[cfg(feature = "wayland")]
                 {
@@ -564,6 +563,7 @@ impl WinitWindowAdapter {
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
+                #[cfg(todo)]
                 if let Some(last_instance) = Arc::into_inner(last_window_rc) {
                     // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
                     // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
@@ -1324,7 +1324,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             MouseCursor::NsResize => CursorIcon::NsResize,
             MouseCursor::NeswResize => CursorIcon::NeswResize,
             MouseCursor::NwseResize => CursorIcon::NwseResize,
-            _ => winit::window::CursorIcon::Default,
+            _ => CursorIcon::Default,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             winit_window.set_cursor_visible(cursor != MouseCursor::None);
@@ -1485,6 +1485,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         };
     }
 
+    #[cfg(todo)]
     #[cfg(feature = "raw-window-handle-06")]
     fn window_handle_06_rc(
         &self,
@@ -1495,6 +1496,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
     }
 
+    #[cfg(todo)]
     #[cfg(feature = "raw-window-handle-06")]
     fn display_handle_06_rc(
         &self,

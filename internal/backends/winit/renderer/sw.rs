@@ -186,7 +186,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                     "Error creating native window for software rendering: {winit_os_error}"
                 ))
             })?;
-        let winit_window = Arc::new(*winit_window);
+        let winit_window: Arc<dyn winit::window::Window> = winit_window.into();
 
         let context = softbuffer::Context::new(winit_window.clone())
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
