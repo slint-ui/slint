@@ -158,6 +158,12 @@
     "ScrollView": {
         "href": "reference/std-widgets/views/scrollview/"
     },
+    "StyledText": {
+        "href": "reference/elements/styled-text/"
+    },
+    "styled_text": {
+        "href": "reference/primitive-types/#styled-text"
+    },
     "Flickable": {
         "href": "reference/gestures/flickable/"
     },
