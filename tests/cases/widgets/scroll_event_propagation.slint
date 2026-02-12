@@ -1,0 +1,172 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for issue #10702: CheckBox should not consume scroll events
+// This tests all widgets that may accept mouse input to
+// make sure they have sane behavior if put into a Flickable/ScrollView, etc.
+
+import { CheckBox, Button, ComboBox, Slider, SpinBox, Switch, LineEdit, TextEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 800px;
+    out property <length> flickable_viewport_y: flickable.viewport-y;
+    out property <string> style: Platform.style-name;
+
+    public function focus_combobox(focus: bool) {
+        if focus {
+            combobox.focus();
+        } else {
+            combobox.clear-focus();
+        }
+    }
+
+    public function set_text_edit(text: string) {
+        text-edit.text = text;
+    }
+
+    flickable := Flickable {
+        width: 100%;
+        height: 100%;
+        viewport_height: 1000px;
+        // Test scroll behavior for all widgets in here
+        VerticalLayout {
+            checkbox := CheckBox {
+                text: "CheckBox";
+            }
+
+            button := Button {
+                text: "Button";
+            }
+
+            combobox := ComboBox {
+                model: ["Combo", "Box"];
+            }
+
+            slider := Slider { }
+
+            switch := Switch { text: "Switch"; }
+
+            spin-box := SpinBox {}
+
+            line-edit := LineEdit {
+                text: "LineEdit";
+            }
+
+            text-edit := TextEdit {
+                height: 60px;
+                text: "TextEdit";
+            }
+
+            focus-scope := FocusScope {
+                height: 30px;
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    background: green;
+                }
+            }
+
+            text-input := TextInput {
+                text: "TextInput";
+            }
+
+            context-menu := ContextMenuArea {
+                height: 30px;
+                Menu {
+                    MenuItem {
+                        title: "hello";
+                    }
+                }
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    background: blue;
+                }
+            }
+
+            // Add items after to make scrolling necessary
+            Rectangle {
+                height: 8000px;
+                background: lightyellow;
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use i_slint_backend_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+
+let flickable = ElementHandle::find_by_element_id(&instance, "TestCase::flickable").next().unwrap();
+
+let reset = || {
+    flickable.scroll(0., 100.);
+    assert_eq!(instance.get_flickable_viewport_y(), 0.0);
+};
+
+reset();
+
+let assert_scrolls = |id: &str| {
+    let element = ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+    element.scroll(0., -100.);
+
+    let after_y = instance.get_flickable_viewport_y();
+    assert!(
+        after_y < 0.0,
+        "Element {id} should not consume scroll events - the Flickable should scroll.\
+         Initial viewport-y: 0.0, after scroll: {after_y}",
+    );
+    reset();
+};
+let assert_does_not_scroll = |id: &str| {
+    let element = ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+    element.scroll(0., -100.);
+
+    let after_y = instance.get_flickable_viewport_y();
+    assert_eq!(
+        after_y, 0.0,
+        "Element {id} should consume scroll events - the Flickable should not scroll.\
+         Initial viewport-y: 0.0, after scroll: {after_y}",
+    );
+};
+
+let scrolls = [
+    "TestCase::checkbox",
+    "TestCase::button",
+    "TestCase::focus-scope",
+    "TestCase::text-input",
+    "TestCase::context-menu",
+    "TestCase::combobox",
+    "TestCase::slider",
+    "TestCase::switch",
+    "TestCase::line-edit",
+    "TestCase::text-edit",
+];
+
+for scroll in scrolls {
+    assert_scrolls(scroll);
+}
+
+instance.invoke_focus_combobox(true);
+// cupertino style does not use scrolling to trigger combobox switching
+if instance.get_style() == "cupertino" {
+    assert_scrolls("TestCase::combobox");
+} else {
+    assert_does_not_scroll("TestCase::combobox");
+}
+instance.invoke_focus_combobox(false);
+
+assert_does_not_scroll("TestCase::spin-box");
+
+// TextEdit only consumes scroll events if it needs to
+instance.invoke_set_text_edit("Multi\nLine\nText\nThat\nScrolls".into());
+
+assert_does_not_scroll("TestCase::text-edit");
+
+
+```
+*/
