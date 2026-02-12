@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 #[gen_stub_pyclass]
-#[pyclass(name = "KeyboardModifiers")]
+#[pyclass(name = "KeyboardModifiers", from_py_object)]
 #[derive(Clone)]
 pub struct PyKeyboardModifiers {
     pub inner: slint_interpreter::KeyboardModifiers,
