@@ -15,14 +15,14 @@ pub mod test;
 use crate::common::uri_to_file;
 use crate::{common, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use itertools::Itertools;
+#[cfg(target_arch = "wasm32")]
+use lsp_protocol::wasm_prelude::*;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
@@ -121,9 +121,11 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
         config: ctx.preview_config.borrow().clone(),
     });
 
-    if let Some(c) = ctx.to_show.borrow().as_ref().cloned() {
+    if let Some(c) = ctx.to_show.get() {
         tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(
+            lsp_protocol::PreviewComponent::clone(&c),
+        ));
     } else {
         tracing::debug!(
             "Sending state to preview: {} documents, showing default component",
@@ -173,7 +175,7 @@ pub struct Context {
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: tokio::sync::watch::Sender<Option<common::PreviewComponent>>,
+    pub to_show: std::sync::Arc<common::watcher::Watcher<common::PreviewComponent>>,
     /// File currently open in the editor
     pub open_urls: RefCell<HashSet<lsp_types::Url>>,
     pub to_preview: Rc<dyn common::LspToPreview>,
@@ -616,7 +618,7 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let c = common::PreviewComponent { url, component };
-    let _ = ctx.to_show.send(Some(c.clone()));
+    ctx.to_show.set(c.clone());
     ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
 
     Ok(())
