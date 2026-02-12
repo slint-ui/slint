@@ -306,6 +306,9 @@ fn preview_file_recompiled_when_dependency_changes() {
         r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
     );
 
+    let watcher = common::watcher::Watcher::new();
+    watcher.set(common::PreviewComponent { url: main_url.clone(), component: None });
+
     // Create context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)

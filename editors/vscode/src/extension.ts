@@ -414,14 +414,14 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
     const remoteViewerStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Right, 100
     );
-    remoteViewerStatusBarItem.text = `$(debug-disconnect) Stop Slint Remote Preview`;
-    remoteViewerStatusBarItem.color = "statusBarItem.prominentForeground";
-    remoteViewerStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-    remoteViewerStatusBarItem.command = 'slint.disableRemotePreview';
+    remoteViewerStatusBarItem.text = `$(debug-disconnect) Slint Remote Preview`;
+    // remoteViewerStatusBarItem.color = "statusBarItem.prominentForeground";
+    // remoteViewerStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    remoteViewerStatusBarItem.command = 'slint.selectRemotePreview';
     remoteViewerStatusBarItem.show();
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("slint.disableRemotePreview", () => {
+        vscode.commands.registerCommand("slint.selectRemotePreview", () => {
             vscode.window.showInformationMessage("TODO!");
         }),
         // vscode.commands.registerCommand("slint.showRemotePreview", async () => {

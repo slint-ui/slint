@@ -365,7 +365,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                     if let Ok(contents) = &contents {
                         to_preview.send(&common::LspToPreviewMessage::SetContents {
                             url: common::VersionedUrl::new(url, None),
-                            contents: contents.clone(),
+                            contents: contents.clone().into(),
                         });
                     } else {
                         to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });

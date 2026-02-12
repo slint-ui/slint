@@ -111,7 +111,7 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
 
         ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
             url: common::VersionedUrl::new(url, version),
-            contents: node.text().to_string(),
+            contents: node.text().to_string().into(),
         });
     }
 
@@ -790,7 +790,7 @@ pub(crate) async fn load_document_impl(
             if let Some(ctx) = ctx {
                 ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
                     url: common::VersionedUrl::new(url.clone(), version),
-                    contents: content.clone(),
+                    contents: content.as_bytes().to_owned(),
                 });
             }
             let dependencies = document_cache.invalidate_url(&url);
@@ -946,7 +946,7 @@ fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<
     ctx.pending_recompile.borrow_mut().extend(open_dependencies);
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    if let Some(preview_url) = ctx.to_show.borrow().as_ref().map(|c| c.url.clone()) {
+    if let Some(preview_url) = ctx.to_show.get().as_ref().map(|s| s.url.clone()) {
         // The external preview only has access to the files the LSP recompiles, so we need to
         // ensure the preview file is recompiled if anything it depends on changes, even if it's
         // not in the open_urls.

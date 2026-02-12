@@ -149,6 +149,10 @@ export function activate(
 
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
+        cl?.onNotification("slint/updateRemoteViewers", async (params) => {
+            // TODO
+            cl.outputChannel.appendLine(`Received update for remote viewers: ${JSON.stringify(params)}`);
+        });
     });
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {

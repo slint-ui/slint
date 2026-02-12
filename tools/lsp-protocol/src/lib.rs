@@ -115,8 +115,6 @@ pub enum PreviewToLspMessage {
     SendShowMessage { message: lsp_types::ShowMessageParams },
     /// Send a telemetry event
     TelemetryEvent(serde_json::Map<String, serde_json::Value>),
-    /// Request a file from the LSP server
-    RequestFile { file: Url },
 }
 
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
