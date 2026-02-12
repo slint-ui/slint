@@ -2378,14 +2378,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(
                     sp::make_keyboard_shortcut(
                         #key.into(),
-                        sp::KeyboardModifiers {
-                            alt: #alt,
-                            control: #control,
-                            shift: #shift,
-                            meta: #meta
-                        },
-                        #ignore_shift,
-                        #ignore_alt))
+                    sp::make_keyboard_modifiers(
+                        #alt,
+                        #control,
+                        #shift,
+                        #meta
+                    ),
+                    #ignore_shift,
+                    #ignore_alt))
         },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
