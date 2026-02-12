@@ -6,11 +6,11 @@ use std::{
     thread::JoinHandle,
 };
 
-use futures_util::{stream::StreamExt, SinkExt};
+use futures_util::{SinkExt, stream::StreamExt};
 use tokio::sync;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::common;
+use crate::common::{self, watcher::Watcher};
 
 #[derive(Default)]
 enum ServeTask {
@@ -27,14 +27,14 @@ enum ServeTask {
 }
 
 pub struct RemoteLspToPreview {
-    to_show: sync::watch::Receiver<Option<common::PreviewComponent>>,
+    to_show: Arc<Watcher<common::PreviewComponent>>,
     sender: sync::broadcast::Sender<common::LspToPreviewMessage>,
     serve_task: RefCell<ServeTask>,
 }
 
 impl RemoteLspToPreview {
     pub fn new(
-        to_show: sync::watch::Receiver<Option<common::PreviewComponent>>,
+        to_show: Arc<Watcher<common::PreviewComponent>>,
         preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
         _server_notifier: crate::ServerNotifier,
     ) -> Self {
@@ -77,7 +77,7 @@ impl RemoteLspToPreview {
     }
 
     fn serve(
-        to_show: sync::watch::Receiver<Option<common::PreviewComponent>>,
+        to_show: Arc<Watcher<common::PreviewComponent>>,
         preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
         lsp_to_preview_channel: sync::broadcast::Receiver<common::LspToPreviewMessage>,
         notify_stop: Arc<sync::Notify>,
@@ -101,7 +101,7 @@ impl RemoteLspToPreview {
             let mdns = if announce {
                 #[cfg(target_vendor = "apple")]
                 {
-                    use zeroconf_tokio::{prelude::*, MdnsService, MdnsServiceAsync, ServiceType};
+                    use zeroconf_tokio::{MdnsService, MdnsServiceAsync, ServiceType, prelude::*};
 
                     let mut service = MdnsService::new(
                         ServiceType::new("slint-preview", "tcp").map_err(Box::new)?,
@@ -175,7 +175,7 @@ impl RemoteLspToPreview {
     }
 
     async fn handle_client(
-        to_show: sync::watch::Receiver<Option<common::PreviewComponent>>,
+        to_show: Arc<Watcher<common::PreviewComponent>>,
         addr: SocketAddr,
         stream: tokio::net::TcpStream,
         preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
@@ -185,26 +185,22 @@ impl RemoteLspToPreview {
             .await
             .expect("Error during the websocket handshake occurred");
         eprintln!("WebSocket connection established: {addr}");
-        let standard_config = bincode::config::standard();
         let (mut write, mut read) = ws_stream.split();
 
         // Initial setup: send the component to preview
         {
-            let to_show = { to_show.borrow().as_ref().cloned() };
-            if let Some(to_show) = to_show {
-                if let Err(e) = write
+            if let Some(to_show) = to_show.get()
+                && let Err(e) = write
                     .send(Message::binary(
-                        bincode::serde::encode_to_vec(
-                            common::LspToPreviewMessage::ShowPreview(to_show),
-                            standard_config,
-                        )
+                        postcard::to_allocvec(&common::LspToPreviewMessage::ShowPreview(
+                            lsp_protocol::PreviewComponent::clone(&to_show),
+                        ))
                         .unwrap(),
                     ))
                     .await
-                {
-                    eprintln!("DISCONNECTING: Failed sending message to {addr}: {e}");
-                    return;
-                }
+            {
+                eprintln!("DISCONNECTING: Failed sending message to {addr}: {e}");
+                return;
             }
         }
 
@@ -215,8 +211,8 @@ impl RemoteLspToPreview {
                         None => break,
                         Some(Ok(msg)) => {
                             if let tokio_tungstenite::tungstenite::Message::Binary(bytes) = msg {
-                                match bincode::serde::decode_from_slice(&bytes, standard_config) {
-                                    Ok((msg, _)) => {
+                                match postcard::from_bytes(&bytes) {
+                                    Ok(msg) => {
                                         if let Err(e) = preview_to_lsp_channel.send(msg) {
                                             eprintln!("Error receiving message from {addr}: {e}");
                                         }
@@ -235,11 +231,24 @@ impl RemoteLspToPreview {
                         }
                     }
                 }
+                to_show = to_show.listener() => {
+                    if let Some(to_show) = to_show && let Err(e) = write
+                        .send(Message::binary(
+                            postcard::to_allocvec(&common::LspToPreviewMessage::ShowPreview(
+                                lsp_protocol::PreviewComponent::clone(&to_show),
+                            ))
+                            .unwrap(),
+                        ))
+                        .await
+                    {
+                        eprintln!("Error sending message to {addr}: {e}");
+                    }
+                }
                 message = lsp_to_preview_channel.recv() => {
                     match message {
                         Ok(msg) => {
                             if let Err(err) = write.send(tokio_tungstenite::tungstenite::Message::binary(
-                                bincode::serde::encode_to_vec(&msg, standard_config).unwrap(),
+                                postcard::to_allocvec(&msg).unwrap(),
                             )).await {
                                 eprintln!("Error sending message to {addr}: {err}");
                             }

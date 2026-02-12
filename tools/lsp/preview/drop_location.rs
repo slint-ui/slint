@@ -20,7 +20,7 @@ use crate::util;
 use crate::preview::ext::ElementRcNodeExt;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 pub fn placeholder() -> String {
     format!(

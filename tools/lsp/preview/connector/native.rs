@@ -131,8 +131,9 @@ impl EmbeddedLspToPreview {
 
 impl common::LspToPreview for EmbeddedLspToPreview {
     fn send(&self, message: &common::LspToPreviewMessage) {
-        let _ =
-            self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone());
+        let _ = self
+            .server_notifier
+            .send_notification::<lsp_protocol::LspToPreviewMessage>(message.clone());
     }
 
     fn preview_target(&self) -> common::PreviewTarget {

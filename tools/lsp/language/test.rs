@@ -182,7 +182,13 @@ fn accurate_diagnostics_in_dependencies() {
     assert!(diag[&foo_url][0].message.contains("hello"));
     assert_eq!(diag.len(), 1);
 
-    let ctx = Some(Rc::new(Context {
+    let ctx = Some(std::rc::Rc::new(crate::language::Context {
+        document_cache: empty_document_cache().into(),
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        to_show: std::sync::Arc::default(),
         open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
         ..mock_context()
     }));

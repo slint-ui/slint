@@ -12,7 +12,7 @@ use lsp_types::Url;
 use smol_str::SmolStr;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 pub fn main_identifier(input: &SyntaxNode) -> Option<SyntaxToken> {
     input.child_token(SyntaxKind::Identifier)
