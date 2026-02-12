@@ -4,20 +4,19 @@
 fn extract_extension_from_media_type(media_type: &str) -> String {
     let subtype = media_type.strip_prefix("image/").unwrap_or(media_type);
     let subtype = subtype.split(';').next().unwrap_or(subtype);
-    if subtype.starts_with("svg") {
-        "svg".to_string()
-    } else {
-        subtype.to_string()
-    }
+    if subtype.starts_with("svg") { "svg".to_string() } else { subtype.to_string() }
 }
 
 pub fn decode_data_uri(data_uri: &str) -> Result<(Vec<u8>, String), String> {
-    let data_url = dataurl::DataUrl::parse(data_uri)
-        .map_err(|e| format!("Invalid data URI: {:?}", e))?;
+    let data_url =
+        dataurl::DataUrl::parse(data_uri).map_err(|e| format!("Invalid data URI: {:?}", e))?;
 
     let media_type = data_url.get_media_type();
     if !media_type.starts_with("image/") {
-        return Err(format!("Unsupported media type: {}. Only image/* data URLs are supported", media_type));
+        return Err(format!(
+            "Unsupported media type: {}. Only image/* data URLs are supported",
+            media_type
+        ));
     }
 
     let extension = extract_extension_from_media_type(media_type);

@@ -478,19 +478,16 @@ fn embed_data_uri(
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
         let data_buffer = decoded_data.clone();
-        match image::load_from_memory(&data_buffer)
-            .map_err(|e| e.to_string())
-            .and_then(|image| {
-                let original_width = image.width();
-                let original_height = image.height();
-                
-                Ok((
-                    image.to_rgba8(),
-                    SourceFormat::Rgba,
-                    Size { width: original_width, height: original_height },
-                ))
-            })
-        {
+        match image::load_from_memory(&data_buffer).map_err(|e| e.to_string()).and_then(|image| {
+            let original_width = image.width();
+            let original_height = image.height();
+
+            Ok((
+                image.to_rgba8(),
+                SourceFormat::Rgba,
+                Size { width: original_width, height: original_height },
+            ))
+        }) {
             Ok((img, source_format, original_size)) => {
                 kind = EmbeddedResourcesKind::TextureData(generate_texture(
                     img,
@@ -499,30 +496,18 @@ fn embed_data_uri(
                 ));
             }
             Err(err) => {
-                diag.push_error(
-                    format!("Cannot load data URI image: {err}"),
-                    source_location,
-                );
+                diag.push_error(format!("Cannot load data URI image: {err}"), source_location);
                 return ImageReference::None;
             }
         }
     }
 
-    resources.insert(
-        unique_key,
-        EmbeddedResources {
-            id: resource_id,
-            kind,
-        }
-    );
+    resources.insert(unique_key, EmbeddedResources { id: resource_id, kind });
 
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
         return ImageReference::EmbeddedTexture { resource_id };
     }
 
-    ImageReference::EmbeddedData {
-        resource_id,
-        extension,
-    }
+    ImageReference::EmbeddedData { resource_id, extension }
 }
