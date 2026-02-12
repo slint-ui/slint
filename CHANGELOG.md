@@ -11,22 +11,32 @@ All notable changes to this project are documented in this file.
 ### Slint
 
  - Fixed empty GridLayout not taking padding into account
+ - Added `keyboard-shortcut` type and `@keys(...)` macro
+ - Added printer charachter in the `Key` namespace
+
+### Widgets
+
+ - CheckBox no longer intercepts the scroll event with the Qt style
 
 ### Rust
 
  - Added `slint::platform::femtovg_renderer::FemtoVGWGPURenderer`
+ - Added variants for printable keys in the `slint::platform::Key` enum
 
-## [1.15.1] - Unreleased
+### C++
 
- - Fixed text rendering eliding when not required or not showing text due to rounding differences
- - GridLayout: honor colspan and rowspan in repeated Rows (#10727)
- - Rust: Fix cross-compilation when the target environment doens't provide a host fontconfig via pkg-config
- - Interpreter: Fix two way binding with property in a parent scope (#10704)
- - Winit: Fixed the "redo" (Ctrl+Shift+Z) shortcut with winit
- - Qt backend: Fixed blurry svg with a scale factor (#10726)
- - LivePreview: properly close when the LSP exits instead of killing
- - LSP: fixed error when the loaded file is deleted on disk
- - Various docs edits
+ - Added contant for printable keys in the `slint::platform::key_codes` namespace
+
+## [1.15.1] - 2026-02-12
+
+ - Fixed text rendering eliding when not required or not showing text due to rounding differences.
+ - `GridLayout`: Honor colspan and rowspan in repeated rows. (#10727)
+ - Rust: Fix cross-compilation when the target environment doens't provide a host fontconfig via pkg-config.
+ - Interpreter: Fix two way bindings with properties in a parent scope. (#10704)
+ - Winit: Fixed the "redo" (Ctrl+Shift+Z) shortcut.
+ - Qt backend: Fixed blurry svg rendering with a scale factor. (#10726)
+ - live-preview: Properly close the preview when the LSP exits instead of killing the process.
+ - LSP: Fixed error when the loaded file is deleted on disk.
 
 ## [1.15.0] - 2026-02-04
 

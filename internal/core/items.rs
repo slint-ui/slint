@@ -1489,7 +1489,7 @@ impl Item for ContextMenu {
                 timer.start(
                     crate::timers::TimerMode::SingleShot,
                     WindowInner::from_pub(_window_adapter.window())
-                        .ctx
+                        .context()
                         .platform()
                         .long_press_interval(crate::InternalToken),
                     move || {

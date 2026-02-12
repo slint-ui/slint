@@ -1917,7 +1917,7 @@ impl TextInput {
         let text = self.text();
 
         WindowInner::from_pub(window_adapter.window())
-            .ctx
+            .context()
             .platform()
             .set_clipboard_text(&text[anchor..cursor], clipboard);
     }
@@ -1932,8 +1932,10 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        if let Some(text) =
-            WindowInner::from_pub(window_adapter.window()).ctx.platform().clipboard_text(clipboard)
+        if let Some(text) = WindowInner::from_pub(window_adapter.window())
+            .context()
+            .platform()
+            .clipboard_text(clipboard)
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

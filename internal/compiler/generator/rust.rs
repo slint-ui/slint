@@ -207,7 +207,7 @@ pub fn generate(
         .map(|sub_compo| generate_sub_component(*sub_compo, &llr, None, None, false))
         .collect::<Vec<_>>();
     let public_components =
-        llr.public_components.iter().map(|p| generate_public_component(p, &llr));
+        llr.public_components.iter().map(|p| generate_public_component(p, &llr, compiler_config));
 
     let popup_menu =
         llr.popup_menu.as_ref().map(|p| generate_item_tree(&p.item_tree, &llr, None, None, true));
@@ -315,6 +315,7 @@ pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
 fn generate_public_component(
     llr: &llr::PublicComponent,
     unit: &llr::CompilationUnit,
+    compiler_config: &CompilerConfiguration,
 ) -> TokenStream {
     let public_component_id = ident(&llr.name);
     let inner_component_id = inner_component_id(&unit.sub_components[llr.item_tree.root]);
@@ -345,16 +346,30 @@ fn generate_public_component(
     #[cfg(not(feature = "bundle-translations"))]
     let init_bundle_translations = quote!();
 
+    let experimental = compiler_config.enable_experimental;
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
+                slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
+                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                ::core::result::Result::Ok(Self(inner))
+            }
+
+            #[cfg(#experimental)]
+            pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
+                let inner = #inner_component_id::new()?;
+                #init_bundle_translations
+
+                inner.globals.get().unwrap().create_window_from_context(ctx)?;
+
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 ::core::result::Result::Ok(Self(inner))
             }
@@ -384,7 +399,7 @@ fn generate_public_component(
 
             fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.show()?;
-                slint::run_event_loop()?;
+                sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
                 self.hide()?;
                 ::core::result::Result::Ok(())
             }
@@ -449,6 +464,8 @@ fn generate_shared_globals(
         .collect::<Vec<_>>();
     let pub_token = if compiler_config.library_name.is_some() { quote!(pub) } else { quote!() };
 
+    let experimental = compiler_config.enable_experimental;
+
     let (library_shared_globals_names, library_shared_globals_types): (Vec<_>, Vec<_>) = doc
         .imports
         .iter()
@@ -506,6 +523,17 @@ fn generate_shared_globals(
                     #apply_constant_scale_factor
                     ::core::result::Result::Ok(adapter)
                 })
+            }
+
+            #[cfg(#experimental)]
+            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
+                let adapter = ctx.platform().create_window_adapter()?;
+                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+                sp::Ok(())
             }
 
             fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
@@ -1742,7 +1770,6 @@ fn generate_item_tree(
         impl #inner_component_id {
             fn new(#(parent: #parent_component_type,)* #globals_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
-                slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = sp::VRc::new(_self);

@@ -96,7 +96,18 @@ assert_eq!(bbb.accessible_checked(), Some(false));
 // a is still focused
 assert_eq!(instance.get_a_focused(), true);
 
+instance.set_clicked("".into());
+slint_testing::block_on(async {
+    bbb.single_click(slint::platform::PointerEventButton::Left).await;
+    assert_eq!(instance.get_clicked(), SharedString::from("b"));
+    aaa.double_click(slint::platform::PointerEventButton::Left).await;
+    assert_eq!(instance.get_clicked(), SharedString::from("baa"));
 
+    bbb.single_click(slint::platform::PointerEventButton::Right).await;
+    assert_eq!(instance.get_clicked(), SharedString::from("baa"));
+    bbb.single_click(slint::platform::PointerEventButton::Middle).await;
+    assert_eq!(instance.get_clicked(), SharedString::from("baa"));
+});
 ```
 
 ```cpp
