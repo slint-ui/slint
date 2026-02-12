@@ -92,13 +92,15 @@ impl StyledText {
     ///
     /// For the purposes of escaping interpolated values, the fragments are
     /// interweaved like so: [literal, interpolated, literal, interpolated]...
-    pub fn parse_fragments<'a, I: Iterator<Item = &'a str>>(
+    pub fn parse_fragments<S: AsRef<str>, I: Iterator<Item = S>>(
         fragments: I,
-    ) -> Result<Self, StyledTextError<'a>> {
+    ) -> Result<Self, StyledTextError<'static>> {
         let mut string = alloc::string::String::new();
         let mut inside_code_block = false;
 
         for (i, fragment) in fragments.enumerate() {
+            let fragment = fragment.as_ref();
+
             let is_literal = i % 2 == 0;
 
             if is_literal {
@@ -684,10 +686,10 @@ pub fn escape_markdown(text: &str) -> alloc::string::String {
     out
 }
 
-pub fn parse_markdown(_text: &str) -> StyledText {
+pub fn parse_markdown<'a, S: AsRef<str>, I: Iterator<Item = S>>(_fragments: I) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse_fragments(std::iter::once(_text)).unwrap()
+        StyledText::parse_fragments(_fragments).unwrap()
     }
     #[cfg(not(feature = "std"))]
     Default::default()

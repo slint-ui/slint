@@ -291,7 +291,7 @@ declare_builtin_function_types!(
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
     EscapeMarkdown: (Type::String) -> Type::String,
-    ParseMarkdown: (Type::String) -> Type::StyledText
+    ParseMarkdown: (Type::Array(Type::String.into())) -> Type::StyledText
 );
 
 impl Default for BuiltinFunctionTypes {

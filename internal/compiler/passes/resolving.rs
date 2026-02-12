@@ -775,7 +775,7 @@ impl Expression {
         });
         let values = subs.collect::<Vec<_>>();
 
-        let mut expr = None;
+        let mut fragments: Vec<Expression> = Vec::new();
 
         // check format string
         {
@@ -845,39 +845,14 @@ impl Expression {
                     break;
                 };
 
-                let add = Expression::BinaryExpression {
-                    lhs: Box::new(Expression::StringLiteral(
-                        (&string[literal_start_pos..p]).into(),
-                    )),
-                    op: '+',
-                    rhs: Box::new(Expression::FunctionCall {
-                        function: BuiltinFunction::EscapeMarkdown.into(),
-                        arguments: vec![value],
-                        source_location: Some(node.to_source_location()),
-                    }),
-                };
-                expr = Some(match expr {
-                    None => add,
-                    Some(expr) => Expression::BinaryExpression {
-                        lhs: Box::new(expr),
-                        op: '+',
-                        rhs: Box::new(add),
-                    },
-                });
+                fragments.push(Expression::StringLiteral((&string[literal_start_pos..p]).into()));
+                fragments.push(value);
                 pos = end + 1;
                 literal_start_pos = pos;
             }
             let trailing = &string[literal_start_pos..];
             if !trailing.is_empty() {
-                let trailing = Expression::StringLiteral(trailing.into());
-                expr = Some(match expr {
-                    None => trailing,
-                    Some(expr) => Expression::BinaryExpression {
-                        lhs: Box::new(expr),
-                        op: '+',
-                        rhs: Box::new(trailing),
-                    },
-                });
+                fragments.push(Expression::StringLiteral(trailing.into()));
             }
             if arg_idx > 0 && pos_max > 0 {
                 ctx.diag.push_error(
@@ -898,9 +873,7 @@ impl Expression {
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
-            arguments: vec![
-                expr.unwrap_or_else(|| Expression::default_value_for_type(&Type::String)),
-            ],
+            arguments: vec![Expression::Array { element_ty: Type::String, values: fragments }],
             source_location: Some(node.to_source_location()),
         }
     }

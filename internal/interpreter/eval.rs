@@ -1592,9 +1592,9 @@ fn call_builtin_function(
             Value::String(corelib::styled_text::escape_markdown(&text).into())
         }
         BuiltinFunction::ParseMarkdown => {
-            let text: SharedString =
+            let fragments: ModelRc<SharedString> =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::styled_text::parse_markdown(&text))
+            Value::StyledText(corelib::styled_text::parse_markdown(fragments.iter()))
         }
     }
 }

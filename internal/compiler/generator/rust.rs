@@ -3610,8 +3610,8 @@ fn compile_builtin_function_call(
             quote!(sp::escape_markdown(&#text))
         }
         BuiltinFunction::ParseMarkdown => {
-            let text = a.next().unwrap();
-            quote!(sp::parse_markdown(&#text))
+            let fragments = a.next().unwrap();
+            quote!(sp::parse_markdown(#fragments.iter()))
         }
     }
 }
