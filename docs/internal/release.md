@@ -78,7 +78,8 @@ In the mean time, the version in the master branch can be updated
  - **Publish to npm:** Trigger a build on https://github.com/slint-ui/slint/actions/workflows/publish_npm_package.yaml
     Select the right `pre-release/x.y` branch, and choose false for private and true for release.
 
- - **Publish to PyPi:** Trigger a build on the following workflows on the right branch and choose `true` for release:
+ - **Publish to PyPi:** Trigger a build on the following workflows on the right branch and choose `true` for release.
+   The deployments will also need to be approved
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi.yaml
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi_briefcase.yaml
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi_slint_compiler.yaml
@@ -95,7 +96,7 @@ In the mean time, the version in the master branch can be updated
    - Edit the discussion text to remove links to artifacts
 
 - **Publish to https://components.espressif.com**: Trigger a build of https://github.com/slint-ui/slint/actions/workflows/upload_esp_idf_component.yaml from the right branch and choose false for private and true for release.
-   (This needs to be done after the creation of the tag)
+   (This needs to be done after the creation of the tag, otherwise th build would be broken for users until the tag is created)
 
 - Update the `release/x` and `release/x.y` branches
   ```bash
@@ -104,9 +105,10 @@ In the mean time, the version in the master branch can be updated
   git push origin v1.y.z:refs/heads/release/1
   ```
 
-- Create a new release in `meta-slint`
+- Ask Simon to create a new release in `meta-slint`
 
 - Publish the **figma extension**: https://github.com/slint-ui/slint/blob/master/tools/figma-inspector/PUBLISH.md
+  (If there was changes in the figma extension)
 
 - Release the **zed extension**:
   Fork the repository https://github.com/zed-industries/extensions (need to be in your personal account because PR from organization won't allow maintainer to update it)
