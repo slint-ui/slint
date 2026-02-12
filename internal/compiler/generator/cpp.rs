@@ -4443,8 +4443,8 @@ fn compile_builtin_function_call(
             format!("slint::private_api::escape_markdown({})", text)
         }
         BuiltinFunction::ParseMarkdown => {
-            let text = a.next().unwrap();
-            format!("slint::private_api::parse_markdown({})", text)
+            let fragments = a.next().unwrap();
+            format!("slint::private_api::parse_markdown({})", fragments)
         }
     }
 }

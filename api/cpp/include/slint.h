@@ -301,10 +301,10 @@ inline SharedString escape_markdown(const SharedString &text)
     return result;
 }
 
-inline StyledText parse_markdown(const SharedString &text)
+inline StyledText parse_markdown(cbindgen_private::Slice<SharedString> fragments)
 {
     StyledText result;
-    cbindgen_private::slint_parse_markdown(&text, &result);
+    cbindgen_private::slint_parse_markdown(fragments, &result);
     return result;
 }
 
