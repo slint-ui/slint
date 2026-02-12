@@ -76,6 +76,23 @@ pub enum StyledTextError<'a> {
     /// Closing html tag doesn't match the opening tag
     #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
     ClosingTagMismatch(&'a str, alloc::string::String),
+    /// Unexpected trailing '{' in format string
+    #[error("Unexpected '{{' in format string. Escape '{{' with '{{{{'")]
+    UnexpectedTrailingBrace,
+    /// Unexpected '}' in format string
+    #[error("Unexpected '}}' in format string. Escape '}}' with '}}}}'")]
+    UnexpectedClosingBrace,
+    /// Unterminated placeholder in format string
+    #[error("Unterminated placeholder in format string. '{{' must be escaped with '{{{{'")]
+    UnterminatedPlaceholder,
+    /// Invalid placeholder in format string
+    #[error(
+        "Invalid '{{...}}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'"
+    )]
+    InvalidPlaceholder,
+    /// Argument index out of range
+    #[error("Argument index {} out of range: {} arguments provided", .0, .1)]
+    ArgumentOutOfRange(usize, usize),
 }
 
 /// Styled text that has been parsed and seperated into paragraphs
@@ -131,65 +148,66 @@ impl StyledText {
             });
         };
 
-        let mut substitute = |string: &str| {
-            let mut pos = 0;
-            let mut literal_start_pos = 0;
-            let mut output = std::string::String::new();
-            while let Some(mut p) = string[pos..].find(['{', '}']) {
-                if string.len() - pos < p + 1 {
-                    panic!("Unescaped trailing '{{' in format string. Escape '{{' with '{{{{'");
-                }
-                p += pos;
+        let mut substitute =
+            |string: &str| -> Result<std::string::String, StyledTextError<'static>> {
+                let mut pos = 0;
+                let mut literal_start_pos = 0;
+                let mut output = std::string::String::new();
+                while let Some(mut p) = string[pos..].find(['{', '}']) {
+                    if string.len() - pos < p + 1 {
+                        return Err(StyledTextError::UnexpectedTrailingBrace);
+                    }
+                    p += pos;
 
-                // Skip escaped }
-                if string.get(p..=p) == Some("}") {
-                    if string.get(p + 1..=p + 1) == Some("}") {
+                    // Skip escaped }
+                    if string.get(p..=p) == Some("}") {
+                        if string.get(p + 1..=p + 1) == Some("}") {
+                            pos = p + 2;
+                            continue;
+                        } else {
+                            return Err(StyledTextError::UnexpectedClosingBrace);
+                        }
+                    }
+
+                    // Skip escaped {
+                    if string.get(p + 1..=p + 1) == Some("{") {
                         pos = p + 2;
                         continue;
-                    } else {
-                        panic!("Unescaped '}}' in format string. Escape '}}' with '}}}}'");
                     }
+
+                    // Find the argument
+                    let end = if let Some(end) = string[p..].find('}') {
+                        end + p
+                    } else {
+                        return Err(StyledTextError::UnterminatedPlaceholder);
+                    };
+
+                    let inner_arg_string = &string[p + 1..end];
+                    let arg_index = if inner_arg_string.is_empty() {
+                        let arg_index = implicit_arg_index;
+                        implicit_arg_index += 1;
+                        arg_index
+                    } else if let Ok(n) = inner_arg_string.parse::<u16>() {
+                        n as usize
+                    } else {
+                        return Err(StyledTextError::InvalidPlaceholder);
+                    };
+
+                    output.push_str(&string[literal_start_pos..p]);
+
+                    if let Some(arg) = args.get(arg_index) {
+                        output.push_str(arg.as_ref());
+                    } else {
+                        return Err(StyledTextError::ArgumentOutOfRange(arg_index, args.len()));
+                    }
+
+                    pos = end + 1;
+                    literal_start_pos = pos;
                 }
+                output.push_str(&string[literal_start_pos..]);
 
-                // Skip escaped {
-                if string.get(p + 1..=p + 1) == Some("{") {
-                    pos = p + 2;
-                    continue;
-                }
-
-                // Find the argument
-                let end = if let Some(end) = string[p..].find('}') {
-                    end + p
-                } else {
-                    panic!(
-                        "Unterminated placeholder in format string. '{{' must be escaped with '{{{{'"
-                    );
-                };
-
-                let inner_arg_string = &string[p + 1..end];
-                let arg_index = if inner_arg_string.is_empty() {
-                    let arg_index = implicit_arg_index;
-                    implicit_arg_index += 1;
-                    arg_index
-                } else if let Ok(n) = inner_arg_string.parse::<u16>() {
-                    //pos_max = pos_max.max(n as usize + 1);
-                    n as usize
-                } else {
-                    panic!();
-                    //ctx.diag
-                    //    .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
-                };
-
-                output.push_str(&string[literal_start_pos..p]);
-                output.push_str(&args[arg_index].as_ref());
-
-                pos = end + 1;
-                literal_start_pos = pos;
-            }
-            output.push_str(&string[literal_start_pos..]);
-
-            output
-        };
+                Ok(output)
+            };
 
         for event in parser {
             let indentation = list_state_stack.len().saturating_sub(1) as _;
@@ -268,7 +286,7 @@ impl StyledText {
                         .last_mut()
                         .ok_or(StyledTextError::ParagraphNotStarted)?
                         .text
-                        .push_str(&substitute(&text));
+                        .push_str(&substitute(&text)?);
                 }
                 pulldown_cmark::Event::End(_) => {
                     let (style, start) = if let Some(value) = style_stack.pop() {
@@ -292,7 +310,7 @@ impl StyledText {
                         paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
                     let start = paragraph.text.len();
 
-                    paragraph.text.push_str(&substitute(&text));
+                    paragraph.text.push_str(&substitute(&text)?);
                     paragraph.formatting.push(FormattedSpan {
                         range: start..paragraph.text.len(),
                         style: Style::Code,
