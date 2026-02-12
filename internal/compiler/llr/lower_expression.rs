@@ -157,7 +157,7 @@ pub fn lower_expression(
                     }
                 }
                 if *f == BuiltinFunction::ParseMarkdown {
-                    if let Some(llr_Expression::Array { output, .. }) = &mut arguments.first_mut() {
+                    if let Some(llr_Expression::Array { output, .. }) = &mut arguments.get_mut(1) {
                         *output = llr_ArrayOutput::Slice;
                     }
                 }

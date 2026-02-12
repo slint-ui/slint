@@ -294,10 +294,10 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
-inline StyledText parse_markdown(cbindgen_private::Slice<SharedString> fragments)
+inline StyledText parse_markdown(SharedString format_string, cbindgen_private::Slice<SharedString> args)
 {
     StyledText result;
-    cbindgen_private::slint_parse_markdown(fragments, &result);
+    cbindgen_private::slint_parse_markdown(format_string, args, &result);
     return result;
 }
 

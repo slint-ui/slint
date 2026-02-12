@@ -4439,8 +4439,9 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ParseMarkdown => {
-            let fragments = a.next().unwrap();
-            format!("slint::private_api::parse_markdown({})", fragments)
+            let format_string = a.next().unwrap();
+            let args = a.next().unwrap();
+            format!("slint::private_api::parse_markdown({}, {})", format_string, args)
         }
     }
 }

@@ -1587,9 +1587,14 @@ fn call_builtin_function(
             }
         }
         BuiltinFunction::ParseMarkdown => {
-            let fragments: ModelRc<SharedString> =
+            let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::styled_text::parse_markdown(fragments.iter()))
+            let args: ModelRc<SharedString> =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::parse_markdown(
+                &format_string,
+                &args.iter().collect::<Vec<_>>(),
+            ))
         }
     }
 }

@@ -3606,8 +3606,9 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ParseMarkdown => {
-            let fragments = a.next().unwrap();
-            quote!(sp::parse_markdown(#fragments.iter()))
+            let format_string = a.next().unwrap();
+            let args = a.next().unwrap();
+            quote!(sp::parse_markdown(#format_string, #args))
         }
     }
 }
