@@ -30,7 +30,7 @@ pub fn mock_context() -> Context {
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: RefCell::new(None),
+        to_show: std::sync::Arc::new(crate::common::watcher::Watcher::new()),
         open_urls: RefCell::new(HashSet::new()),
         to_preview: Rc::new(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
@@ -314,10 +314,7 @@ fn preview_file_recompiled_when_dependency_changes() {
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
     let ctx = Rc::new(Context {
         document_cache: cache.into(),
-        to_show: RefCell::new(Some(common::PreviewComponent {
-            url: main_url.clone(),
-            component: None,
-        })),
+        to_show: std::sync::Arc::new(watcher),
         ..mock_context()
     });
 
