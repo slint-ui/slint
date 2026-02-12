@@ -88,42 +88,21 @@ pub struct StyledText {
 
 #[cfg(feature = "std")]
 impl StyledText {
-    /// Parse a series of text fragments as styled text
-    ///
-    /// For the purposes of escaping interpolated values, the fragments are
-    /// interweaved like so: [literal, interpolated, literal, interpolated]...
-    pub fn parse_fragments<S: AsRef<str>, I: Iterator<Item = S>>(
-        fragments: I,
+    /// Parse a markdown string with interpolated arguments as styled text
+    pub fn parse_interpolated<S: AsRef<str>>(
+        format_string: &str,
+        args: &[S],
     ) -> Result<Self, StyledTextError<'static>> {
-        let mut string = alloc::string::String::new();
-        let mut inside_code_block = false;
-
-        for (i, fragment) in fragments.enumerate() {
-            let fragment = fragment.as_ref();
-
-            let is_literal = i % 2 == 0;
-
-            if is_literal {
-                for c in fragment.chars() {
-                    if c == '`' {
-                        inside_code_block = !inside_code_block;
-                    }
-                }
-                string.push_str(fragment);
-            } else if inside_code_block {
-                escape_markdown_in_code_block(&mut string, fragment)
-            } else {
-                escape_markdown(&mut string, fragment)
-            }
-        }
-
-        let parser =
-            pulldown_cmark::Parser::new_ext(&string, pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+        let parser = pulldown_cmark::Parser::new_ext(
+            format_string,
+            pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
+        );
 
         let mut paragraphs = alloc::vec::Vec::new();
         let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
         let mut style_stack = alloc::vec::Vec::new();
         let mut current_url = None;
+        let mut implicit_arg_index = 0;
 
         let begin_paragraph = |paragraphs: &mut alloc::vec::Vec<StyledTextParagraph>,
                                indentation: u32,
@@ -150,6 +129,66 @@ impl StyledText {
                 formatting: Default::default(),
                 links: Default::default(),
             });
+        };
+
+        let mut substitute = |string: &str| {
+            let mut pos = 0;
+            let mut literal_start_pos = 0;
+            let mut output = std::string::String::new();
+            while let Some(mut p) = string[pos..].find(['{', '}']) {
+                if string.len() - pos < p + 1 {
+                    panic!("Unescaped trailing '{{' in format string. Escape '{{' with '{{{{'");
+                }
+                p += pos;
+
+                // Skip escaped }
+                if string.get(p..=p) == Some("}") {
+                    if string.get(p + 1..=p + 1) == Some("}") {
+                        pos = p + 2;
+                        continue;
+                    } else {
+                        panic!("Unescaped '}}' in format string. Escape '}}' with '}}}}'");
+                    }
+                }
+
+                // Skip escaped {
+                if string.get(p + 1..=p + 1) == Some("{") {
+                    pos = p + 2;
+                    continue;
+                }
+
+                // Find the argument
+                let end = if let Some(end) = string[p..].find('}') {
+                    end + p
+                } else {
+                    panic!(
+                        "Unterminated placeholder in format string. '{{' must be escaped with '{{{{'"
+                    );
+                };
+
+                let inner_arg_string = &string[p + 1..end];
+                let arg_index = if inner_arg_string.is_empty() {
+                    let arg_index = implicit_arg_index;
+                    implicit_arg_index += 1;
+                    arg_index
+                } else if let Ok(n) = inner_arg_string.parse::<u16>() {
+                    //pos_max = pos_max.max(n as usize + 1);
+                    n as usize
+                } else {
+                    panic!();
+                    //ctx.diag
+                    //    .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                };
+
+                output.push_str(&string[literal_start_pos..p]);
+                output.push_str(&args[arg_index].as_ref());
+
+                pos = end + 1;
+                literal_start_pos = pos;
+            }
+            output.push_str(&string[literal_start_pos..]);
+
+            output
         };
 
         for event in parser {
@@ -229,7 +268,7 @@ impl StyledText {
                         .last_mut()
                         .ok_or(StyledTextError::ParagraphNotStarted)?
                         .text
-                        .push_str(&text);
+                        .push_str(&substitute(&text));
                 }
                 pulldown_cmark::Event::End(_) => {
                     let (style, start) = if let Some(value) = style_stack.pop() {
@@ -252,7 +291,8 @@ impl StyledText {
                     let paragraph =
                         paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
                     let start = paragraph.text.len();
-                    paragraph.text.push_str(&text);
+
+                    paragraph.text.push_str(&substitute(&text));
                     paragraph.formatting.push(FormattedSpan {
                         range: start..paragraph.text.len(),
                         style: Style::Code,
@@ -391,7 +431,7 @@ impl StyledText {
 #[test]
 fn markdown_parsing() {
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once("hello *world*")).unwrap().paragraphs,
+        StyledText::parse_interpolated::<&str>("hello *world*", &[]).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
@@ -400,12 +440,13 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once(
+        StyledText::parse_interpolated::<&str>(
             "
 - line 1
 - line 2
-            "
-        ))
+            ",
+            &[]
+        )
         .unwrap()
         .paragraphs,
         [
@@ -423,13 +464,14 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once(
+        StyledText::parse_interpolated::<&str>(
             "
 1. a
 2. b
 4. c
-        "
-        ))
+        ",
+            &[]
+        )
         .unwrap()
         .paragraphs,
         [
@@ -452,12 +494,13 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once(
+        StyledText::parse_interpolated::<&str>(
             "
 Normal _italic_ **strong** ~~strikethrough~~ `code`
 new *line*
-"
-        ))
+",
+            &[]
+        )
         .unwrap()
         .paragraphs,
         [
@@ -480,14 +523,15 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once(
+        StyledText::parse_interpolated::<&str>(
             "
 - root
   - child
     - grandchild
       - great grandchild
-"
-        ))
+",
+            &[]
+        )
         .unwrap()
         .paragraphs,
         [
@@ -515,7 +559,7 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once("hello [*world*](https://example.com)"))
+        StyledText::parse_interpolated::<&str>("hello [*world*](https://example.com)", &[])
             .unwrap()
             .paragraphs,
         [StyledTextParagraph {
@@ -529,7 +573,7 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once("<u>hello world</u>")).unwrap().paragraphs,
+        StyledText::parse_interpolated::<&str>("<u>hello world</u>", &[]).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
@@ -538,7 +582,7 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once(r#"<font color="blue">hello world</font>"#))
+        StyledText::parse_interpolated::<&str>(r#"<font color="blue">hello world</font>"#, &[])
             .unwrap()
             .paragraphs,
         [StyledTextParagraph {
@@ -552,9 +596,10 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_fragments(std::iter::once(
-            r#"<u><font color="red">hello world</font></u>"#
-        ))
+        StyledText::parse_interpolated::<&str>(
+            r#"<u><font color="red">hello world</font></u>"#,
+            &[]
+        )
         .unwrap()
         .paragraphs,
         [StyledTextParagraph {
@@ -591,15 +636,15 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
 #[test]
 fn markdown_parsing_interpolated() {
     assert_eq!(
-        StyledText::parse_fragments(["Bold text: *", "bold", "*"].into_iter()).unwrap().paragraphs,
+        StyledText::parse_interpolated("Text: *{}*", &["italic"]).unwrap().paragraphs,
         [StyledTextParagraph {
-            text: "Bold text: bold".into(),
-            formatting: alloc::vec![FormattedSpan { range: 11..15, style: Style::Emphasis }],
+            text: "Text: italic".into(),
+            formatting: alloc::vec![FormattedSpan { range: 6..12, style: Style::Emphasis }],
             links: alloc::vec![]
         }]
     );
     assert_eq!(
-        StyledText::parse_fragments(["Escaped text: ", "*bold*"].into_iter()).unwrap().paragraphs,
+        StyledText::parse_interpolated("Escaped text: {}", &["*bold*"]).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "Escaped text: *bold*".into(),
             formatting: alloc::vec![],
@@ -607,9 +652,7 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_fragments(["Code block text: `", "*bold*", "`"].into_iter())
-            .unwrap()
-            .paragraphs,
+        StyledText::parse_interpolated("Code block text: `{}`", &["*bold*"]).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "Code block text: *bold*".into(),
             formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
@@ -654,37 +697,10 @@ pub mod ffi {
     }
 }
 
-#[cfg(feature = "std")]
-fn escape_markdown(out: &mut alloc::string::String, text: &str) {
-    for c in text.chars() {
-        match c {
-            '*' => out.push_str("\\*"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '_' => out.push_str("\\_"),
-            '#' => out.push_str("\\#"),
-            '-' => out.push_str("\\-"),
-            '`' => out.push_str("\\`"),
-            '&' => out.push_str("\\&"),
-            _ => out.push(c),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-fn escape_markdown_in_code_block(out: &mut alloc::string::String, text: &str) {
-    for c in text.chars() {
-        match c {
-            '`' => out.push_str("\\`"),
-            _ => out.push(c),
-        }
-    }
-}
-
-pub fn parse_markdown<'a, S: AsRef<str>, I: Iterator<Item = S>>(_fragments: I) -> StyledText {
+pub fn parse_markdown<S: AsRef<str>>(format_string: &str, args: &[S]) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse_fragments(_fragments).unwrap()
+        StyledText::parse_interpolated(format_string, args).unwrap()
     }
     #[cfg(not(feature = "std"))]
     Default::default()
