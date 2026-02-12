@@ -164,6 +164,9 @@
     "styled_text": {
         "href": "reference/primitive-types/#styled-text"
     },
+    "callback": {
+        "href": "guide/language/coding/functions-and-callbacks/#callbacks"
+    },
     "Flickable": {
         "href": "reference/gestures/flickable/"
     },
