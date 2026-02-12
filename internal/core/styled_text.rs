@@ -697,10 +697,10 @@ pub mod ffi {
     }
 }
 
-pub fn parse_markdown<S: AsRef<str>>(format_string: &str, args: &[S]) -> StyledText {
+pub fn parse_markdown<S: AsRef<str>>(_format_string: &str, _args: &[S]) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse_interpolated(format_string, args).unwrap()
+        StyledText::parse_interpolated(_format_string, _args).unwrap()
     }
     #[cfg(not(feature = "std"))]
     Default::default()
