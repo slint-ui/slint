@@ -16,6 +16,7 @@ pixel-rgb888 = ["slint-safeui-core/pixel-rgb888"]
 
 [dependencies]
 bytemuck = "1.24.0"
+critical-section = { version = "1.2.0", features = ["std"] }
 minifb = "0.28.0"
 slint-safeui-core = { path = "../core", features = ["std"] }
 smol = "2.0.0"

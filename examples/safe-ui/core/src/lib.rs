@@ -23,6 +23,8 @@ extern crate alloc;
 pub mod pixels;
 pub mod platform;
 
+use crate::platform::PointerEvent;
+
 slint::include_modules!();
 
 pub const WIDTH_PIXELS: u32 = match option_env!("SAFE_UI_WIDTH") {
@@ -49,6 +51,29 @@ pub extern "C" fn slint_app_main() {
     app.show().unwrap();
 
     app.run().unwrap();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_safeui_inject_pointer_event(
+    display_x: i32,
+    display_y: i32,
+    event: PointerEvent,
+) {
+    let position = slint::PhysicalPosition::new(display_x, display_y).to_logical(SCALE_FACTOR);
+
+    let window_event = match event {
+        PointerEvent::START => slint::platform::WindowEvent::PointerPressed {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        },
+        PointerEvent::MOVE => slint::platform::WindowEvent::PointerMoved { position },
+        PointerEvent::END => slint::platform::WindowEvent::PointerReleased {
+            position,
+            button: slint::platform::PointerEventButton::Left,
+        },
+    };
+
+    platform::dispatch_event(window_event);
 }
 
 const fn parse_u32(s: &str) -> u32 {

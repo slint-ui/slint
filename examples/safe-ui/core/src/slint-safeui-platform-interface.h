@@ -76,4 +76,37 @@ void slint_safeui_platform_get_screen_size(unsigned int *width, unsigned int *he
  */
 void slint_app_main(void);
 
+/**
+ * Describes the event of a pointer interaction.
+ *
+ * The events correspond to a typical pointer sequence:
+ *  - START: Finger or pointer pressed.
+ *  - MOVE:  Finger or pointer position changes while pressed.
+ *  - END:   Finger lifted or pointer released.
+ *
+ * These events are translated internally to Slint pointer events.
+ */
+typedef enum {
+    START = 0,
+    MOVE = 1,
+    END = 2,
+} PointerEvent;
+
+/**
+ * Inject a pointer event into the Slint event loop.
+ *
+ * The coordinates are specified in physical display pixels. They are
+ * automatically converted to logical coordinates using the scale factor
+ * configured during platform initialization.
+ *
+ * This function is safe to call from contexts outside the Slint event loop
+ * (for example from input drivers or interrupt-driven tasks). The event is
+ * queued and dispatched asynchronously by the UI thread.
+ *
+ * @param display_x  X position in physical display pixels.
+ * @param display_y  Y position in physical display pixels.
+ * @param event      The event type of the pointer interaction.
+ */
+void slint_safeui_inject_pointer_event(int display_x, int display_y, PointerEvent event);
+
 #endif
