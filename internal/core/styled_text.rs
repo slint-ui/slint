@@ -88,20 +88,17 @@ pub struct StyledText {
 
 #[cfg(feature = "std")]
 impl StyledText {
-    /// Parse a markdown string as styled text
-    pub fn parse(string: &str) -> Result<Self, StyledTextError<'_>> {
-        Self::parse_fragments(&[string])
-    }
-
     /// Parse a series of text fragments as styled text
     ///
     /// For the purposes of escaping interpolated values, the fragments are
     /// interweaved like so: [literal, interpolated, literal, interpolated]...
-    pub fn parse_fragments<'a>(fragments: &[&'a str]) -> Result<Self, StyledTextError<'a>> {
+    pub fn parse_fragments<'a, I: Iterator<Item = &'a str>>(
+        fragments: I,
+    ) -> Result<Self, StyledTextError<'a>> {
         let mut string = alloc::string::String::new();
         let mut inside_code_block = false;
 
-        for (i, fragment) in fragments.iter().enumerate() {
+        for (i, fragment) in fragments.enumerate() {
             let is_literal = i % 2 == 0;
 
             if is_literal {
@@ -111,12 +108,10 @@ impl StyledText {
                     }
                 }
                 string.push_str(fragment);
+            } else if inside_code_block {
+                escape_markdown_in_code_block(&mut string, fragment)
             } else {
-                string.push_str(&if inside_code_block {
-                    escape_markdown_in_code_block(fragment)
-                } else {
-                    escape_markdown(fragment)
-                });
+                escape_markdown(&mut string, fragment)
             }
         }
 
@@ -394,7 +389,7 @@ impl StyledText {
 #[test]
 fn markdown_parsing() {
     assert_eq!(
-        StyledText::parse("hello *world*").unwrap().paragraphs,
+        StyledText::parse_fragments(std::iter::once("hello *world*")).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
@@ -403,12 +398,12 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse(
+        StyledText::parse_fragments(std::iter::once(
             "
 - line 1
 - line 2
             "
-        )
+        ))
         .unwrap()
         .paragraphs,
         [
@@ -426,13 +421,13 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse(
+        StyledText::parse_fragments(std::iter::once(
             "
 1. a
 2. b
 4. c
         "
-        )
+        ))
         .unwrap()
         .paragraphs,
         [
@@ -455,12 +450,12 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse(
+        StyledText::parse_fragments(std::iter::once(
             "
 Normal _italic_ **strong** ~~strikethrough~~ `code`
 new *line*
 "
-        )
+        ))
         .unwrap()
         .paragraphs,
         [
@@ -483,14 +478,14 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse(
+        StyledText::parse_fragments(std::iter::once(
             "
 - root
   - child
     - grandchild
       - great grandchild
 "
-        )
+        ))
         .unwrap()
         .paragraphs,
         [
@@ -518,7 +513,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse("hello [*world*](https://example.com)").unwrap().paragraphs,
+        StyledText::parse_fragments(std::iter::once("hello [*world*](https://example.com)"))
+            .unwrap()
+            .paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![
@@ -530,7 +527,7 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse("<u>hello world</u>").unwrap().paragraphs,
+        StyledText::parse_fragments(std::iter::once("<u>hello world</u>")).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
@@ -539,7 +536,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse(r#"<font color="blue">hello world</font>"#).unwrap().paragraphs,
+        StyledText::parse_fragments(std::iter::once(r#"<font color="blue">hello world</font>"#))
+            .unwrap()
+            .paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan {
@@ -551,7 +550,11 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse(r#"<u><font color="red">hello world</font></u>"#).unwrap().paragraphs,
+        StyledText::parse_fragments(std::iter::once(
+            r#"<u><font color="red">hello world</font></u>"#
+        ))
+        .unwrap()
+        .paragraphs,
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![
@@ -586,7 +589,7 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
 #[test]
 fn markdown_parsing_interpolated() {
     assert_eq!(
-        StyledText::parse_fragments(&["Bold text: *", "bold", "*"]).unwrap().paragraphs,
+        StyledText::parse_fragments(["Bold text: *", "bold", "*"].into_iter()).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "Bold text: bold".into(),
             formatting: alloc::vec![FormattedSpan { range: 11..15, style: Style::Emphasis }],
@@ -594,7 +597,7 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_fragments(&["Escaped text: ", "*bold*"]).unwrap().paragraphs,
+        StyledText::parse_fragments(["Escaped text: ", "*bold*"].into_iter()).unwrap().paragraphs,
         [StyledTextParagraph {
             text: "Escaped text: *bold*".into(),
             formatting: alloc::vec![],
@@ -602,7 +605,9 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_fragments(&["Code block text: `", "*bold*", "`"]).unwrap().paragraphs,
+        StyledText::parse_fragments(["Code block text: `", "*bold*", "`"].into_iter())
+            .unwrap()
+            .paragraphs,
         [StyledTextParagraph {
             text: "Code block text: *bold*".into(),
             formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
@@ -647,9 +652,7 @@ pub mod ffi {
     }
 }
 
-pub fn escape_markdown(text: &str) -> alloc::string::String {
-    let mut out = alloc::string::String::with_capacity(text.len());
-
+pub fn escape_markdown(out: &mut alloc::string::String, text: &str) {
     for c in text.chars() {
         match c {
             '*' => out.push_str("\\*"),
@@ -663,27 +666,21 @@ pub fn escape_markdown(text: &str) -> alloc::string::String {
             _ => out.push(c),
         }
     }
-
-    out
 }
 
-pub fn escape_markdown_in_code_block(text: &str) -> alloc::string::String {
-    let mut out = alloc::string::String::with_capacity(text.len());
-
+pub fn escape_markdown_in_code_block(out: &mut alloc::string::String, text: &str) {
     for c in text.chars() {
         match c {
             '`' => out.push_str("\\`"),
             _ => out.push(c),
         }
     }
-
-    out
 }
 
 pub fn parse_markdown(_text: &str) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse_fragments(&[_text]).unwrap()
+        StyledText::parse_fragments(std::iter::once(_text)).unwrap()
     }
     #[cfg(not(feature = "std"))]
     Default::default()
