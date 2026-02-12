@@ -10,7 +10,7 @@ use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 pub fn goto_definition(
     document_cache: &mut common::DocumentCache,

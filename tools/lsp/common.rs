@@ -7,13 +7,16 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 pub mod component_catalog;
 pub mod document_cache;
-pub use document_cache::{DocumentCache, SourceFileVersion};
+pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
+pub use lsp_protocol::SourceFileVersion;
 pub mod rename_component;
 pub mod rename_element_id;
 #[cfg(test)]
@@ -21,28 +24,21 @@ pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
 pub mod text_edit;
 pub mod token_info;
+pub mod watcher;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum PreviewTarget {
-    #[allow(dead_code)]
-    ChildProcess,
-    #[allow(dead_code)]
-    EmbeddedWasm,
-    #[allow(dead_code)]
-    Remote,
-    #[allow(dead_code)]
-    Dummy,
-}
+pub use lsp_protocol::{
+    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewTarget, PreviewToLspMessage,
+    VersionedUrl, file_to_uri, uri_to_file,
+};
 
 #[allow(dead_code)]
 pub trait LspToPreview {
@@ -118,24 +114,6 @@ pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
             .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
             .unwrap_or(false)
     })
-}
-
-pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
-    if ["builtin", "vscode-remote"].contains(&uri.scheme()) {
-        Some(PathBuf::from(uri.to_string()))
-    } else {
-        let path = uri.to_file_path().ok()?;
-        let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
-        Some(cleaned_path)
-    }
-}
-
-pub fn file_to_uri(path: &Path) -> Option<Url> {
-    if ["builtin:/", "vscode-remote:/"].iter().any(|prefix| path.starts_with(prefix)) {
-        Url::parse(path.to_str()?).ok()
-    } else {
-        Url::from_file_path(path).ok()
-    }
 }
 
 pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
@@ -454,36 +432,6 @@ pub fn create_workspace_edit_from_single_text_edits(
 }
 
 /// A versioned file
-#[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub struct VersionedUrl {
-    /// The file url
-    url: Url,
-    // The file version
-    version: SourceFileVersion,
-}
-
-impl VersionedUrl {
-    pub fn new(url: Url, version: SourceFileVersion) -> Self {
-        VersionedUrl { url, version }
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn version(&self) -> &SourceFileVersion {
-        &self.version
-    }
-}
-
-impl std::fmt::Debug for VersionedUrl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let version = self.version.map(|v| format!("v{v}")).unwrap_or_else(|| "none".to_string());
-        write!(f, "{}@{}", self.url, version)
-    }
-}
-
-/// A versioned file
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Position {
     /// The file url
@@ -535,44 +483,6 @@ impl VersionedPosition {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
-pub struct PreviewConfig {
-    pub hide_ui: Option<bool>,
-    pub style: String,
-    pub include_paths: Vec<PathBuf>,
-    pub library_paths: HashMap<String, PathBuf>,
-    pub format_utf8: bool,
-    pub enable_experimental: bool,
-}
-
-/// The Component to preview
-#[allow(unused)]
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct PreviewComponent {
-    /// The file name to preview
-    pub url: Url,
-    /// The name of the component within that file.
-    /// If None, then the last component is going to be shown.
-    pub component: Option<String>,
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum LspToPreviewMessage {
-    InvalidateContents { url: lsp_types::Url },
-    ForgetFile { url: lsp_types::Url },
-    SetContents { url: VersionedUrl, contents: String },
-    SetConfiguration { config: PreviewConfig },
-    ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
-    Quit,
-}
-
-impl lsp_types::notification::Notification for LspToPreviewMessage {
-    type Params = Self;
-    const METHOD: &'static str = "slint/lsp_to_preview";
-}
-
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Diagnostic {
@@ -595,26 +505,6 @@ impl PropertyChange {
     pub fn new(name: &str, value: String) -> Self {
         PropertyChange { name: name.to_string(), value }
     }
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum PreviewToLspMessage {
-    /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
-    /// Show a document in the editor.
-    ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
-    /// Switch between native, WASM, and remote preview (if supported)
-    PreviewTypeChanged { target: PreviewTarget },
-    /// Request all documents and configuration to be sent from the LSP to the
-    /// Preview.
-    RequestState { unused: bool },
-    /// Pass a `WorkspaceEdit` on to the editor
-    SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
-    /// Pass a `ShowMessage` notification on to the editor
-    SendShowMessage { message: lsp_types::ShowMessageParams },
-    /// Send a telemetry event
-    TelemetryEvent(serde_json::Map<String, serde_json::Value>),
 }
 
 /// Information on the Element types available
@@ -771,6 +661,7 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_uri_conversion_of_builtins() {
