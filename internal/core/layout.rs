@@ -10,6 +10,7 @@ use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use num_traits::Float;
 
 pub use crate::items::Orientation;
 
@@ -1207,15 +1208,15 @@ mod flexbox_taffy {
                     // Use preferred_bounded() which clamps preferred to min/max bounds
                     let preferred_width = h_constraint.preferred_bounded();
                     let preferred_height =
-                        v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0.0);
+                        v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0 as Coord);
 
                     // flex_basis depends on direction
                     let flex_basis = match flex_direction {
                         TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                            Dimension::Length(preferred_width)
+                            Dimension::Length(preferred_width as _)
                         }
                         TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
-                            Dimension::Length(preferred_height)
+                            Dimension::Length(preferred_height as _)
                         }
                     };
 
@@ -1226,8 +1227,8 @@ mod flexbox_taffy {
                                 width: match flex_direction {
                                     TaffyFlexDirection::Column
                                     | TaffyFlexDirection::ColumnReverse => {
-                                        if preferred_width > 0.0 {
-                                            Dimension::Length(preferred_width)
+                                        if preferred_width > 0 as Coord {
+                                            Dimension::Length(preferred_width as _)
                                         } else {
                                             Dimension::Auto
                                         }
@@ -1236,8 +1237,8 @@ mod flexbox_taffy {
                                 },
                                 height: match flex_direction {
                                     TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                                        if preferred_height > 0.0 {
-                                            Dimension::Length(preferred_height)
+                                        if preferred_height > 0 as Coord {
+                                            Dimension::Length(preferred_height as _)
                                         } else {
                                             Dimension::Auto
                                         }
@@ -1246,20 +1247,20 @@ mod flexbox_taffy {
                                 },
                             },
                             min_size: Size {
-                                width: Dimension::Length(h_constraint.min),
+                                width: Dimension::Length(h_constraint.min as _),
                                 height: Dimension::Length(
-                                    v_constraint.map(|vc| vc.min).unwrap_or(0.0),
+                                    v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
                                 ),
                             },
                             max_size: Size {
                                 width: if h_constraint.max < Coord::MAX {
-                                    Dimension::Length(h_constraint.max)
+                                    Dimension::Length(h_constraint.max as _)
                                 } else {
                                     Dimension::Auto
                                 },
                                 height: if let Some(vc) = v_constraint {
                                     if vc.max < Coord::MAX {
-                                        Dimension::Length(vc.max)
+                                        Dimension::Length(vc.max as _)
                                     } else {
                                         Dimension::Auto
                                     }
@@ -1285,21 +1286,21 @@ mod flexbox_taffy {
                         align_items: Some(AlignItems::FlexStart),
                         align_content: Some(AlignContent::FlexStart),
                         gap: Size {
-                            width: LengthPercentage::Length(spacing_h),
-                            height: LengthPercentage::Length(spacing_v),
+                            width: LengthPercentage::Length(spacing_h as _),
+                            height: LengthPercentage::Length(spacing_v as _),
                         },
                         padding: Rect {
-                            left: LengthPercentage::Length(padding_h.begin),
-                            right: LengthPercentage::Length(padding_h.end),
-                            top: LengthPercentage::Length(padding_v.begin),
-                            bottom: LengthPercentage::Length(padding_v.end),
+                            left: LengthPercentage::Length(padding_h.begin as _),
+                            right: LengthPercentage::Length(padding_h.end as _),
+                            top: LengthPercentage::Length(padding_v.begin as _),
+                            bottom: LengthPercentage::Length(padding_v.end as _),
                         },
                         size: Size {
                             width: container_width
-                                .map(Dimension::Length)
+                                .map(|w| Dimension::Length(w as _))
                                 .unwrap_or(Dimension::Auto),
                             height: container_height
-                                .map(Dimension::Length)
+                                .map(|h| Dimension::Length(h as _))
                                 .unwrap_or(Dimension::Auto),
                         },
                         ..Default::default()
@@ -1318,12 +1319,12 @@ mod flexbox_taffy {
                     self.container,
                     taffy::prelude::Size {
                         width: if available_width < Coord::MAX {
-                            AvailableSpace::Definite(available_width)
+                            AvailableSpace::Definite(available_width as _)
                         } else {
                             AvailableSpace::MaxContent
                         },
                         height: if available_height < Coord::MAX {
-                            AvailableSpace::Definite(available_height)
+                            AvailableSpace::Definite(available_height as _)
                         } else {
                             AvailableSpace::MaxContent
                         },
@@ -1337,13 +1338,18 @@ mod flexbox_taffy {
         /// Get the computed container size
         pub fn container_size(&self) -> (Coord, Coord) {
             let layout = self.taffy.layout(self.container).unwrap();
-            (layout.size.width, layout.size.height)
+            (layout.size.width as Coord, layout.size.height as Coord)
         }
 
         /// Get the geometry for a specific child
         pub fn child_geometry(&self, idx: usize) -> (Coord, Coord, Coord, Coord) {
             let layout = self.taffy.layout(self.children[idx]).unwrap();
-            (layout.location.x, layout.location.y, layout.size.width, layout.size.height)
+            (
+                layout.location.x as Coord,
+                layout.location.y as Coord,
+                layout.size.width as Coord,
+                layout.size.height as Coord,
+            )
         }
     }
 }
@@ -1530,14 +1536,15 @@ pub fn flexbox_layout_info(
             .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
             .map(|(h, v)| h * v)
             .sum::<Coord>();
-        let preferred = total_area.sqrt() + spacing * (count - 1) as Coord + extra_pad;
+        let preferred =
+            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad;
         let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
         LayoutInfo {
             min,
             max: Coord::MAX, // TODO?
-            min_percent: 0.0,
-            max_percent: 100.0,
-            preferred,
+            min_percent: 0 as _,
+            max_percent: 100 as _,
+            preferred: preferred as _,
             stretch,
         }
     } else {
@@ -1582,8 +1589,8 @@ pub fn flexbox_layout_info(
         LayoutInfo {
             min,
             max: Coord::MAX, // TODO?
-            min_percent: 0.0,
-            max_percent: 100.0,
+            min_percent: 0 as _,
+            max_percent: 100 as _,
             preferred: computed_size,
             stretch: 0.0,
         }
