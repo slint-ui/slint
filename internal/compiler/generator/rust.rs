@@ -3847,9 +3847,12 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 &crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {
                     quote!()
                 },
-                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                crate::embedded_resources::EmbeddedResourcesKind::FileData => {
                     let data = embedded_file_tokens(path);
                     quote!(static #symbol: &'static [u8] = #data;)
+                }
+                crate::embedded_resources::EmbeddedResourcesKind::DecodedData(bytes, _) => {
+                    quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
                 }
                 #[cfg(feature = "software-renderer")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {

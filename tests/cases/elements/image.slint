@@ -17,13 +17,23 @@ TestCase := Rectangle {
         source: @image-url("image.slint");
     }
 
+    img4 := Image {
+        source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
+    }
+
+    img5 := Image {
+        source: @image-url("data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%2295%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpolygon%20fill%3D%22%23231815%22%20points%3D%2250%2C0%2065.451%2C31.271%20100%2C36.287%2075%2C60.729%2081.902%2C95%2050%2C78.361%2018.098%2C95%2025%2C60.729%200%2C36.287%2034.549%2C31.271%22%2F%3E%3C%2Fsvg%3E");
+    }
+
     out property <image> with-border: @image-url("dog.jpg", nine-slice(12 13 14 15));
 
     property <length> img_width: img.width;
     property <length> img_height: img.height;
     in-out property <float> test_no_overflow: (21 - img.source.width) / 2; // (21 - 320)/2 = -149.5
     property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
-         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5;
+         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5 &&
+         img4.source.width == 1 && img4.source.height == 1 &&
+         img5.source.width > 0 && img5.source.height > 0;
 }
 
 /*

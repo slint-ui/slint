@@ -91,6 +91,19 @@ fn embed_images_from_expression(
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
+        if path.starts_with("data:") {
+            let image_ref = embed_data_uri(
+                global_embedded_resources,
+                path,
+                embed_files,
+                scale_factor,
+                diag,
+                source_location,
+            );
+            *resource_ref = image_ref;
+            return;
+        }
+
         // used mapped path:
         let mapped_path =
             urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
@@ -145,7 +158,7 @@ fn embed_image(
                 return ImageReference::None;
             } else if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
                 #[allow(unused_mut)]
-                let mut kind = EmbeddedResourcesKind::RawData;
+                let mut kind = EmbeddedResourcesKind::FileData;
                 #[cfg(feature = "software-renderer")]
                 if embed_files == EmbedResourcesKind::EmbedTextures {
                     match load_image(_file, _scale_factor) {
@@ -436,4 +449,80 @@ fn load_image(
             Size { width: original_width, height: original_height },
         )
     })
+}
+
+fn embed_data_uri(
+    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
+    data_uri: &str,
+    _embed_files: EmbedResourcesKind,
+    _scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    source_location: &Option<crate::diagnostics::SourceLocation>,
+) -> ImageReference {
+    let (decoded_data, extension) = match crate::data_uri::decode_data_uri(data_uri) {
+        Ok(result) => result,
+        Err(e) => {
+            diag.push_error(e, source_location);
+            return ImageReference::None;
+        }
+    };
+
+    let mut resources = global_embedded_resources.borrow_mut();
+    let resource_id = resources.len();
+
+    let unique_key: SmolStr = format!("data:{}:{}", resource_id, extension).into();
+
+    #[allow(unused_mut)]
+    let mut kind = EmbeddedResourcesKind::DecodedData(decoded_data.clone(), extension.clone());
+
+    #[cfg(feature = "software-renderer")]
+    if _embed_files == EmbedResourcesKind::EmbedTextures {
+        let data_buffer = decoded_data.clone();
+        match image::load_from_memory(&data_buffer)
+            .map_err(|e| e.to_string())
+            .and_then(|image| {
+                let original_width = image.width();
+                let original_height = image.height();
+                
+                Ok((
+                    image.to_rgba8(),
+                    SourceFormat::Rgba,
+                    Size { width: original_width, height: original_height },
+                ))
+            })
+        {
+            Ok((img, source_format, original_size)) => {
+                kind = EmbeddedResourcesKind::TextureData(generate_texture(
+                    img,
+                    source_format,
+                    original_size,
+                ));
+            }
+            Err(err) => {
+                diag.push_error(
+                    format!("Cannot load data URI image: {err}"),
+                    source_location,
+                );
+                return ImageReference::None;
+            }
+        }
+    }
+
+    resources.insert(
+        unique_key,
+        EmbeddedResources {
+            id: resource_id,
+            kind,
+        }
+    );
+
+    #[cfg(feature = "software-renderer")]
+    if _embed_files == EmbedResourcesKind::EmbedTextures {
+        return ImageReference::EmbeddedTexture { resource_id };
+    }
+
+    ImageReference::EmbeddedData {
+        resource_id,
+        extension,
+    }
 }
