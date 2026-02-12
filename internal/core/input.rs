@@ -342,6 +342,16 @@ pub fn make_keyboard_shortcut(
     KeyboardShortcut { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
 }
 
+/// Re-exported in private_unstable_api to create a KeyboardModifers struct.
+pub fn make_keyboard_modifiers(
+    alt: bool,
+    control: bool,
+    shift: bool,
+    meta: bool,
+) -> KeyboardModifiers {
+    KeyboardModifiers { alt, control, shift, meta }
+}
+
 #[cfg(feature = "ffi")]
 #[allow(unsafe_code)]
 pub(crate) mod ffi {
