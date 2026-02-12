@@ -250,10 +250,11 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
                 *EVENTLOOP_PROXY.lock().unwrap() = Some(proxy);
             }
         }
-        instance
-            .set(crate::SlintContext::new(platform))
-            .map_err(|_| SetPlatformError::AlreadySet)
-            .unwrap();
+        let ctx = crate::SlintContext::new(platform);
+        if let Ok(timers) = crate::timers::DEFAULT_GLOBAL_TIMERS.try_with(|x| x.take()) {
+            *ctx.0.timers.borrow_mut() = timers;
+        }
+        instance.set(ctx).map_err(|_| SetPlatformError::AlreadySet).unwrap();
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
@@ -267,7 +268,16 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 /// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
     crate::animations::update_animations();
-    crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
+    crate::context::GLOBAL_CONTEXT
+        .try_with(|x| {
+            if let Some(ctx) = x.get() {
+                crate::timers::TimerList::maybe_activate_timers(
+                    &ctx.0.timers,
+                    ctx.platform().duration_since_start(),
+                );
+            }
+        })
+        .ok();
     crate::properties::ChangeTracker::run_change_handlers();
 }
 

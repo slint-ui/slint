@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use core::ops::ControlFlow;
-use i_slint_core::SharedString;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
 use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity};
 use i_slint_core::window::WindowInner;
+use i_slint_core::{SharedString, SlintContext};
 
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!(
@@ -834,7 +834,8 @@ impl ElementHandle {
             button,
         });
 
-        wait_for(std::time::Duration::from_millis(50)).await;
+        let ctx = WindowInner::from_pub(window).context();
+        wait_for(std::time::Duration::from_millis(50), ctx).await;
 
         window_adapter.window().dispatch_event(
             i_slint_core::platform::WindowEvent::PointerReleased { position, button },
@@ -843,12 +844,11 @@ impl ElementHandle {
 
     /// Simulates a double click (or touch tap) on the element at its center point.
     pub async fn double_click(&self, button: i_slint_core::platform::PointerEventButton) {
-        let Ok(click_interval) = i_slint_core::with_global_context(
-            || Err(i_slint_core::platform::PlatformError::NoPlatform),
-            |ctx| ctx.platform().click_interval(),
-        ) else {
-            return;
-        };
+        let Some(item) = self.item.upgrade() else { return };
+        let Some(window_adapter) = item.window_adapter() else { return };
+        let window = window_adapter.window();
+        let ctx = WindowInner::from_pub(window).context();
+        click_interval = ctx.platform().click_interval();
         let Some(duration_recognized_as_double_click) =
             click_interval.checked_sub(std::time::Duration::from_millis(10))
         else {
@@ -858,10 +858,6 @@ impl ElementHandle {
         let Some(single_click_duration) = duration_recognized_as_double_click.checked_div(2) else {
             return;
         };
-
-        let Some(item) = self.item.upgrade() else { return };
-        let Some(window_adapter) = item.window_adapter() else { return };
-        let window = window_adapter.window();
 
         let item_pos = self.absolute_position();
         let item_size = self.size();
@@ -876,7 +872,7 @@ impl ElementHandle {
             button,
         });
 
-        wait_for(single_click_duration).await;
+        wait_for(single_click_duration, ctx).await;
 
         window.dispatch_event(i_slint_core::platform::WindowEvent::PointerReleased {
             position,
@@ -887,7 +883,7 @@ impl ElementHandle {
             button,
         });
 
-        wait_for(single_click_duration).await;
+        wait_for(single_click_duration, ctx).await;
 
         window_adapter.window().dispatch_event(
             i_slint_core::platform::WindowEvent::PointerReleased { position, button },
@@ -912,7 +908,7 @@ impl ElementHandle {
     }
 }
 
-async fn wait_for(duration: std::time::Duration) {
+async fn wait_for(duration: std::time::Duration, ctx: &SlintContext) {
     enum AsyncTimerState {
         Starting,
         Waiting(std::task::Waker),

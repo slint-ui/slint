@@ -80,13 +80,13 @@ impl Timer {
         interval: core::time::Duration,
         callback: impl FnMut() + 'static,
     ) {
-        let _ = CURRENT_TIMERS.try_with(|timers| {
-            let mut timers = timers.borrow_mut();
+        with_global_timers(|timers, now| {
             let id = timers.start_or_restart_timer(
                 self.id(),
                 mode,
                 interval,
                 CallbackVariant::MultiFire(Box::new(callback)),
+                now,
             );
             self.set_id(Some(id));
         });
@@ -108,13 +108,13 @@ impl Timer {
     /// });
     /// ```
     pub fn single_shot(duration: core::time::Duration, callback: impl FnOnce() + 'static) {
-        let _ = CURRENT_TIMERS.try_with(|timers| {
-            let mut timers = timers.borrow_mut();
+        with_global_timers(|timers, now| {
             timers.start_or_restart_timer(
                 None,
                 TimerMode::SingleShot,
                 duration,
                 CallbackVariant::SingleShot(Box::new(callback)),
+                now,
             );
         });
     }
@@ -122,8 +122,8 @@ impl Timer {
     /// Stops the previously started timer. Does nothing if the timer has never been started.
     pub fn stop(&self) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
-                timers.borrow_mut().deactivate_timer(id);
+            with_global_timers(|timers, _| {
+                timers.deactivate_timer(id);
             });
         }
     }
@@ -135,9 +135,9 @@ impl Timer {
     /// Does nothing if the timer was never started.
     pub fn restart(&self) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
-                timers.borrow_mut().deactivate_timer(id);
-                timers.borrow_mut().activate_timer(id);
+            with_global_timers(|timers, now| {
+                timers.deactivate_timer(id);
+                timers.activate_timer(id, now);
             });
         }
     }
@@ -145,9 +145,7 @@ impl Timer {
     /// Returns true if the timer is running; false otherwise.
     pub fn running(&self) -> bool {
         self.id()
-            .and_then(|timer_id| {
-                CURRENT_TIMERS.try_with(|timers| timers.borrow().timers[timer_id].running).ok()
-            })
+            .and_then(|timer_id| with_global_timers(|timers, _| timers.timers[timer_id].running))
             .unwrap_or(false)
     }
 
@@ -160,8 +158,8 @@ impl Timer {
     ///    for [`Repeated`](TimerMode::Repeated) timers.
     pub fn set_interval(&self, interval: core::time::Duration) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
-                timers.borrow_mut().set_interval(id, interval);
+            with_global_timers(|timers, now| {
+                timers.set_interval(id, interval, now);
             });
         }
     }
@@ -169,9 +167,7 @@ impl Timer {
     /// Returns the interval of the timer. If the timer was never started, the returned duration is 0ms.
     pub fn interval(&self) -> core::time::Duration {
         self.id()
-            .and_then(|timer_id| {
-                CURRENT_TIMERS.try_with(|timers| timers.borrow().timers[timer_id].duration).ok()
-            })
+            .and_then(|timer_id| with_global_timers(|timers, _| timers.timers[timer_id].duration))
             .unwrap_or_default()
     }
 
@@ -187,14 +183,14 @@ impl Timer {
 impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
+            with_global_timers(|timers, _| {
                 #[cfg(target_os = "android")]
-                if timers.borrow().timers.is_empty() {
+                if timers.timers.is_empty() {
                     // There seems to be a bug in android thread_local where try_with recreates the already thread local.
                     // But we are called from the drop of another thread local, just ignore the drop then
                     return;
                 }
-                let callback = timers.borrow_mut().remove_timer(id);
+                let callback = timers.remove_timer(id);
                 // drop the callback without having CURRENT_TIMERS borrowed
                 drop(callback);
             });
@@ -239,109 +235,101 @@ pub struct TimerList {
 impl TimerList {
     /// Returns the timeout of the timer that should fire the soonest, or None if there
     /// is no timer active.
-    pub fn next_timeout() -> Option<Instant> {
-        CURRENT_TIMERS.with(|timers| {
-            timers
-                .borrow()
-                .active_timers
-                .first()
-                .map(|first_active_timer| first_active_timer.timeout)
-        })
+    pub fn next_timeout(&self) -> Option<Instant> {
+        self.active_timers.first().map(|first_active_timer| first_active_timer.timeout)
     }
 
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
     /// activated; false otherwise.
-    pub fn maybe_activate_timers(now: Instant) -> bool {
+    pub fn maybe_activate_timers(timers: &RefCell<Self>, now: Instant) -> bool {
         // Shortcut: Is there any timer worth activating?
-        if TimerList::next_timeout().map(|timeout| now < timeout).unwrap_or(false) {
+        if timers.borrow().next_timeout().map(|timeout| now < timeout).unwrap_or(false) {
             return false;
         }
 
-        CURRENT_TIMERS.with(|timers| {
-            assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
+        assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
 
-            // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
-            // done in one shot to ensure a consistent state by the time the callbacks are invoked.
-            let expired_timers = {
-                let mut timers = timers.borrow_mut();
+        // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
+        // done in one shot to ensure a consistent state by the time the callbacks are invoked.
+        let expired_timers = {
+            let mut timers = timers.borrow_mut();
 
-                // Empty active_timers and rebuild it, to preserve insertion order across expired and not expired timers.
-                let mut active_timers = core::mem::take(&mut timers.active_timers);
+            // Empty active_timers and rebuild it, to preserve insertion order across expired and not expired timers.
+            let mut active_timers = core::mem::take(&mut timers.active_timers);
 
-                let expired_vs_remaining_timers_partition_point =
-                    active_timers.partition_point(|active_timer| active_timer.timeout <= now);
+            let expired_vs_remaining_timers_partition_point =
+                active_timers.partition_point(|active_timer| active_timer.timeout <= now);
 
-                let (expired_timers, timers_not_activated_this_time) =
-                    active_timers.split_at(expired_vs_remaining_timers_partition_point);
+            let (expired_timers, timers_not_activated_this_time) =
+                active_timers.split_at(expired_vs_remaining_timers_partition_point);
 
-                for expired_timer in expired_timers {
-                    let timer = &mut timers.timers[expired_timer.id];
-                    assert!(!timer.being_activated);
-                    timer.being_activated = true;
+            for expired_timer in expired_timers {
+                let timer = &mut timers.timers[expired_timer.id];
+                assert!(!timer.being_activated);
+                timer.being_activated = true;
 
-                    if matches!(timers.timers[expired_timer.id].mode, TimerMode::Repeated) {
-                        timers.activate_timer(expired_timer.id);
-                    } else {
-                        timers.timers[expired_timer.id].running = false;
-                    }
-                }
-
-                for future_timer in timers_not_activated_this_time.iter() {
-                    timers.register_active_timer(*future_timer);
-                }
-
-                // turn `expired_timers` slice into a truncated vec.
-                active_timers.truncate(expired_vs_remaining_timers_partition_point);
-                active_timers
-            };
-
-            let any_activated = !expired_timers.is_empty();
-
-            for active_timer in expired_timers.into_iter() {
-                let mut callback = {
-                    let mut timers = timers.borrow_mut();
-
-                    timers.callback_active = Some(active_timer.id);
-
-                    // have to release the borrow on `timers` before invoking the callback,
-                    // so here we temporarily move the callback out of its permanent place
-                    core::mem::replace(
-                        &mut timers.timers[active_timer.id].callback,
-                        CallbackVariant::Empty,
-                    )
-                };
-
-                match callback {
-                    CallbackVariant::Empty => (),
-                    CallbackVariant::MultiFire(ref mut cb) => cb(),
-                    CallbackVariant::SingleShot(cb) => {
-                        cb();
-                        timers.borrow_mut().callback_active = None;
-                        timers.borrow_mut().timers.remove(active_timer.id);
-                        continue;
-                    }
-                };
-
-                let mut timers = timers.borrow_mut();
-
-                let callback_register = &mut timers.timers[active_timer.id].callback;
-
-                // only emplace back the callback if its permanent store is still Empty:
-                // if not, it means the invoked callback has restarted its own timer with a new callback
-                if matches!(callback_register, CallbackVariant::Empty) {
-                    *callback_register = callback;
-                }
-
-                timers.callback_active = None;
-                let t = &mut timers.timers[active_timer.id];
-                if t.removed {
-                    timers.timers.remove(active_timer.id);
+                if matches!(timers.timers[expired_timer.id].mode, TimerMode::Repeated) {
+                    timers.activate_timer(expired_timer.id, now);
                 } else {
-                    t.being_activated = false;
+                    timers.timers[expired_timer.id].running = false;
                 }
             }
-            any_activated
-        })
+
+            for future_timer in timers_not_activated_this_time.iter() {
+                timers.register_active_timer(*future_timer);
+            }
+
+            // turn `expired_timers` slice into a truncated vec.
+            active_timers.truncate(expired_vs_remaining_timers_partition_point);
+            active_timers
+        };
+
+        let any_activated = !expired_timers.is_empty();
+
+        for active_timer in expired_timers.into_iter() {
+            let mut callback = {
+                let mut timers = timers.borrow_mut();
+
+                timers.callback_active = Some(active_timer.id);
+
+                // have to release the borrow on `timers` before invoking the callback,
+                // so here we temporarily move the callback out of its permanent place
+                core::mem::replace(
+                    &mut timers.timers[active_timer.id].callback,
+                    CallbackVariant::Empty,
+                )
+            };
+
+            match callback {
+                CallbackVariant::Empty => (),
+                CallbackVariant::MultiFire(ref mut cb) => cb(),
+                CallbackVariant::SingleShot(cb) => {
+                    cb();
+                    timers.borrow_mut().callback_active = None;
+                    timers.borrow_mut().timers.remove(active_timer.id);
+                    continue;
+                }
+            };
+
+            let mut timers = timers.borrow_mut();
+
+            let callback_register = &mut timers.timers[active_timer.id].callback;
+
+            // only emplace back the callback if its permanent store is still Empty:
+            // if not, it means the invoked callback has restarted its own timer with a new callback
+            if matches!(callback_register, CallbackVariant::Empty) {
+                *callback_register = callback;
+            }
+
+            timers.callback_active = None;
+            let t = &mut timers.timers[active_timer.id];
+            if t.removed {
+                timers.timers.remove(active_timer.id);
+            } else {
+                t.being_activated = false;
+            }
+        }
+        any_activated
     }
 
     fn start_or_restart_timer(
@@ -350,6 +338,7 @@ impl TimerList {
         mode: TimerMode,
         duration: core::time::Duration,
         callback: CallbackVariant,
+        now: Instant,
     ) -> usize {
         let mut timer_data = TimerData {
             duration,
@@ -367,7 +356,7 @@ impl TimerList {
         } else {
             self.timers.insert(timer_data)
         };
-        self.activate_timer(inactive_timer_id);
+        self.activate_timer(inactive_timer_id, now);
         inactive_timer_id
     }
 
@@ -385,11 +374,8 @@ impl TimerList {
         }
     }
 
-    fn activate_timer(&mut self, id: usize) {
-        self.register_active_timer(ActiveTimer {
-            id,
-            timeout: Instant::now() + self.timers[id].duration,
-        });
+    fn activate_timer(&mut self, id: usize, now: Instant) {
+        self.register_active_timer(ActiveTimer { id, timeout: now + self.timers[id].duration });
     }
 
     fn register_active_timer(&mut self, new_active_timer: ActiveTimer) {
@@ -412,19 +398,39 @@ impl TimerList {
         }
     }
 
-    fn set_interval(&mut self, id: usize, duration: core::time::Duration) {
+    fn set_interval(&mut self, id: usize, duration: core::time::Duration, now: Instant) {
         let timer = &self.timers[id];
         if timer.running {
             self.deactivate_timer(id);
             self.timers[id].duration = duration;
-            self.activate_timer(id);
+            self.activate_timer(id, now);
         } else {
             self.timers[id].duration = duration;
         }
     }
 }
 
-crate::thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
+fn with_global_timers<R>(f: impl FnOnce(&mut TimerList, Instant) -> R) -> Option<R> {
+    crate::context::GLOBAL_CONTEXT
+        .try_with(|ctx| match ctx.get() {
+            Some(ctx) => Some(f(
+                &mut *ctx.0.timers.borrow_mut(),
+                Instant(ctx.platform().duration_since_start().as_millis() as _),
+            )),
+            None => {
+                DEFAULT_GLOBAL_TIMERS.try_with(|x| f(&mut *x.borrow_mut(), Instant::default())).ok()
+            }
+        })
+        .ok()
+        .flatten()
+}
+
+crate::thread_local!(
+    /// These are the timers that are created before the global context is created
+    ///
+    /// FIXME: this shouldn't be necessary and creating timer should create a default context
+    pub(crate) static DEFAULT_GLOBAL_TIMERS : RefCell<TimerList> = RefCell::default()
+);
 
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {

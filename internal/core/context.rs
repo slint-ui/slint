@@ -6,6 +6,7 @@ use crate::api::PlatformError;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use core::cell::RefCell;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
@@ -14,19 +15,19 @@ crate::thread_local! {
 
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
-    pub(crate) window_count: core::cell::RefCell<isize>,
+    pub(crate) window_count: RefCell<isize>,
     /// This property is read by all translations, and marked dirty when the language changes,
     /// so that every translated string gets re-translated. The property's value is the current selected
     /// language when bundling translations.
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
-    pub(crate) translations_bundle_languages:
-        core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
+    pub(crate) translations_bundle_languages: RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) window_shown_hook:
-        core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+        RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    pub(crate) timers: RefCell<crate::timers::TimerList>,
     #[cfg(all(unix, not(target_os = "macos")))]
-    xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
+    xdg_app_id: RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
-    external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
+    external_translator: RefCell<Option<Box<dyn tr::Translator>>>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -44,6 +45,7 @@ impl SlintContext {
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
             window_shown_hook: Default::default(),
+            timers: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "tr")]

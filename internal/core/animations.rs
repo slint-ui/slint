@@ -210,14 +210,8 @@ impl Instant {
 
     /// Wrapper around [`std::time::Instant::now()`] that delegates to the backend
     /// and allows working in no_std environments.
-    pub fn now() -> Self {
-        Self(Self::duration_since_start().as_millis() as u64)
-    }
-
-    fn duration_since_start() -> core::time::Duration {
-        crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
-            .unwrap_or_default()
+    pub fn now(ctx: &crate::SlintContext) -> Self {
+        Self(ctx.platform().duration_since_start().as_millis() as u64)
     }
 
     /// Return the number of milliseconds this `Instant` is after the backend has started
@@ -414,7 +408,11 @@ fn easing_test() {
 pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         #[allow(unused_mut)]
-        let mut duration = Instant::duration_since_start().as_millis() as u64;
+        let mut duration = crate::context::GLOBAL_CONTEXT
+            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
+            .unwrap_or_default()
+            .as_millis() as u64;
+
         #[cfg(feature = "std")]
         if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
             let factor = val.parse().unwrap_or(2);

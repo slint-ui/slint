@@ -21,7 +21,11 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
         driver.update_animations(tick);
         tick
     });
-    crate::timers::TimerList::maybe_activate_timers(tick);
+    crate::context::GLOBAL_CONTEXT.try_with(|ctx|
+        if let Some(ctx) = ctx.get() {
+            crate::timers::TimerList::maybe_activate_timers(tick);
+        }
+    )
     crate::properties::ChangeTracker::run_change_handlers();
 }
 
