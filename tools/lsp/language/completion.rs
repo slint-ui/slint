@@ -7,8 +7,6 @@ use crate::common::component_catalog::all_exported_components;
 use crate::common::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -17,6 +15,8 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
 use i_slint_compiler::typeregister::TypeRegister;
 use itertools::Itertools;
+#[cfg(target_arch = "wasm32")]
+use lsp_protocol::wasm_prelude::*;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,

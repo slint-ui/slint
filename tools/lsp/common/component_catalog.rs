@@ -4,7 +4,7 @@
 // cSpell: ignore descr rfind unindented
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
 #[cfg(feature = "preview-engine")]
