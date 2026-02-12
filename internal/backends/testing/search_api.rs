@@ -7,6 +7,7 @@ use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty}
 use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity};
+use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::WindowInner;
 
 fn warn_missing_debug_info() {
@@ -821,12 +822,7 @@ impl ElementHandle {
         let Some(window_adapter) = item.window_adapter() else { return };
         let window = window_adapter.window();
 
-        let item_pos = self.absolute_position();
-        let item_size = self.size();
-        let position = LogicalPosition::new(
-            item_pos.x + item_size.width / 2.,
-            item_pos.y + item_size.height / 2.,
-        );
+        let position = self.absolute_center();
 
         window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
         window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
@@ -863,12 +859,7 @@ impl ElementHandle {
         let Some(window_adapter) = item.window_adapter() else { return };
         let window = window_adapter.window();
 
-        let item_pos = self.absolute_position();
-        let item_size = self.size();
-        let position = LogicalPosition::new(
-            item_pos.x + item_size.width / 2.,
-            item_pos.y + item_size.height / 2.,
-        );
+        let position = self.absolute_center();
 
         window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
         window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
@@ -892,6 +883,23 @@ impl ElementHandle {
         window_adapter.window().dispatch_event(
             i_slint_core::platform::WindowEvent::PointerReleased { position, button },
         );
+    }
+
+    fn absolute_center(&self) -> LogicalPosition {
+        let item_pos = self.absolute_position();
+        let item_size = self.size();
+        LogicalPosition::new(item_pos.x + item_size.width / 2., item_pos.y + item_size.height / 2.)
+    }
+
+    pub fn scroll(&self, delta_x: f32, delta_y: f32) {
+        let Some(window_adapter) = self.item.upgrade().and_then(|item| item.window_adapter())
+        else {
+            return;
+        };
+        let window = window_adapter.window();
+
+        let center = self.absolute_center();
+        window.dispatch_event(WindowEvent::PointerScrolled { position: center, delta_x, delta_y });
     }
 
     fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {
