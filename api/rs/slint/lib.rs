@@ -650,9 +650,9 @@ pub mod wgpu_28 {
     pub use i_slint_core::graphics::wgpu_28::api::*;
 }
 
-#[cfg(feature = "unstable-winit-030")]
-pub mod winit_030 {
-    //! Winit 0.30.x specific types and re-exports.
+#[cfg(feature = "unstable-winit-031")]
+pub mod winit_031 {
+    //! Winit 0.31.x specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Winit releases become available.
@@ -664,13 +664,13 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.16", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.16", features = ["unstable-winit-031"] }
     //! ```
     //!
     //! `main.rs`:
     //! ```rust,no_run
     //! // Bring winit and accessor traits into scope.
-    //! use slint::winit_030::{WinitWindowAccessor, winit};
+    //! use slint::winit_031::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
     //!     import { VerticalBox, Button } from "std-widgets.slint";
@@ -711,8 +711,7 @@ pub mod winit_030 {
     //! and [`BackendSelector::with_winit_window_attributes_hook()`](crate::BackendSelector::with_winit_window_attributes_hook()).
 
     pub use i_slint_backend_winit::{
-        CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent, WinitWindowAccessor,
-        winit,
+        CustomApplicationHandler, EventResult, WinitWindowAccessor, winit,
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]

@@ -237,9 +237,9 @@ unstable-wgpu-28 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-winit-030"] }
+## slint = { version = "~1.16", features = ["unstable-winit-031"] }
 ## ```
-unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
+unstable-winit-031 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-031"]
 
 
 ## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
@@ -328,7 +328,7 @@ features = [
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-28",
-  "unstable-winit-030",
+  "unstable-winit-031",
   "unstable-libinput-09",
   "unstable-fontique-07",
 ]

@@ -921,7 +921,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     ///
     /// ```rust,no_run
     /// // Bring winit and accessor traits into scope.
-    /// use slint::winit_030::{WinitWindowAccessor, winit};
+    /// use slint::winit_031::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
     ///     import { VerticalBox, Button } from "std-widgets.slint";

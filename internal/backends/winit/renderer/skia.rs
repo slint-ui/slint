@@ -168,23 +168,25 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
 
     fn resume(
         &self,
-        active_event_loop: &winit::event_loop::ActiveEventLoop,
+        active_event_loop: &dyn winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
-        let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
-            |winit_os_error| {
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
+        let winit_window =
+            active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 PlatformError::from(format!(
                     "Error creating native window for Skia rendering: {}",
                     winit_os_error
                 ))
-            },
-        )?);
+            })?;
+        let winit_window: Arc<dyn winit::window::Window> = winit_window.into();
 
-        let size = winit_window.inner_size();
+        let size = winit_window.surface_size();
+
+        let arc_of_arc = Arc::new(winit_window.clone());
 
         self.renderer.set_window_handle(
-            winit_window.clone(),
-            winit_window.clone(),
+            arc_of_arc.clone(),
+            arc_of_arc,
             physical_size_to_slint(&size),
             self.requested_graphics_api.clone(),
         )?;

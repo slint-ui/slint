@@ -35,7 +35,7 @@ pub struct BackendSelector {
     backend: Option<String>,
     renderer: Option<String>,
     selected: bool,
-    #[cfg(feature = "unstable-winit-030")]
+    #[cfg(feature = "unstable-winit-031")]
     winit_window_attributes_hook: Option<
         Box<
             dyn Fn(
@@ -43,9 +43,9 @@ pub struct BackendSelector {
             ) -> i_slint_backend_winit::winit::window::WindowAttributes,
         >,
     >,
-    #[cfg(feature = "unstable-winit-030")]
-    winit_event_loop_builder: Option<i_slint_backend_winit::EventLoopBuilder>,
-    #[cfg(feature = "unstable-winit-030")]
+    #[cfg(feature = "unstable-winit-031")]
+    winit_event_loop_builder: Option<i_slint_backend_winit::winit::event_loop::EventLoopBuilder>,
+    #[cfg(feature = "unstable-winit-031")]
     winit_custom_application_handler:
         Option<Box<dyn i_slint_backend_winit::CustomApplicationHandler>>,
     #[cfg(all(target_os = "linux", feature = "unstable-libinput-09"))]
@@ -162,12 +162,12 @@ impl BackendSelector {
     ///     .unwrap();
     /// ```
     ///
-    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    /// *Note*: This function is behind the [`unstable-winit-031` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
     ///
-    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
+    /// See also the [`slint::winit_031`](slint:rust:slint/winit_031) module
     #[must_use]
-    #[cfg(feature = "unstable-winit-030")]
+    #[cfg(feature = "unstable-winit-031")]
     pub fn with_winit_window_attributes_hook(
         mut self,
         hook: impl Fn(
@@ -183,15 +183,15 @@ impl BackendSelector {
     /// Configures this builder to use the specified winit event loop builder when creating the event
     /// loop.
     ///
-    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    /// *Note*: This function is behind the [`unstable-winit-031` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
     ///
-    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
+    /// See also the [`slint::winit_031`](slint:rust:slint/winit_031) module
     #[must_use]
-    #[cfg(feature = "unstable-winit-030")]
+    #[cfg(feature = "unstable-winit-031")]
     pub fn with_winit_event_loop_builder(
         mut self,
-        event_loop_builder: i_slint_backend_winit::EventLoopBuilder,
+        event_loop_builder: i_slint_backend_winit::winit::event_loop::EventLoopBuilder,
     ) -> Self {
         self.winit_event_loop_builder = Some(event_loop_builder);
         self
@@ -201,12 +201,12 @@ impl BackendSelector {
     /// Configures this builder to invoke the functions on the supplied application handler whenever winit wakes up the
     /// event loop.
     ///
-    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    /// *Note*: This function is behind the [`unstable-winit-031` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
     ///
-    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
+    /// See also the [`slint::winit_031`](slint:rust:slint/winit_031) module
     #[must_use]
-    #[cfg(feature = "unstable-winit-030")]
+    #[cfg(feature = "unstable-winit-031")]
     pub fn with_winit_custom_application_handler(
         mut self,
         custom_application_handler: impl i_slint_backend_winit::CustomApplicationHandler + 'static,
@@ -332,19 +332,19 @@ impl BackendSelector {
                     None => builder,
                 };
 
-                #[cfg(feature = "unstable-winit-030")]
+                #[cfg(feature = "unstable-winit-031")]
                 let builder = match self.winit_window_attributes_hook.take() {
                     Some(hook) => builder.with_window_attributes_hook(hook),
                     None => builder,
                 };
 
-                #[cfg(feature = "unstable-winit-030")]
+                #[cfg(feature = "unstable-winit-031")]
                 let builder = match self.winit_event_loop_builder.take() {
                     Some(event_loop_builder) => builder.with_event_loop_builder(event_loop_builder),
                     None => builder,
                 };
 
-                #[cfg(feature = "unstable-winit-030")]
+                #[cfg(feature = "unstable-winit-031")]
                 let builder = match self.winit_custom_application_handler.take() {
                     Some(custom_application_handler) => {
                         builder.with_custom_application_handler(custom_application_handler)

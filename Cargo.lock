@@ -4862,6 +4862,8 @@ dependencies = [
  "web-sys",
  "windows 0.62.2",
  "winit 0.31.0-beta.2",
+ "winit-wayland",
+ "winit-x11",
  "zbus",
 ]
 

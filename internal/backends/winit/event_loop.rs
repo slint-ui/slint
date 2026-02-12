@@ -8,9 +8,9 @@
     aspects of windows on the screen.
 */
 use crate::EventResult;
+use crate::SharedBackendData;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WindowVisibility;
-use crate::SharedBackendData;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
 use corelib::items::{ColorScheme, PointerEventButton};

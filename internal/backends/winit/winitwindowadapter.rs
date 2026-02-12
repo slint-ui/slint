@@ -416,19 +416,19 @@ impl WinitWindowAdapter {
         };
 
         #[cfg(all(unix, not(target_vendor = "apple")))]
-        {
-            #[cfg(todo)]
-            if let Some(xdg_app_id) = WindowInner::from_pub(self.window()).xdg_app_id() {
-                #[cfg(feature = "wayland")]
-                {
-                    use winit::platform::wayland::WindowAttributesExtWayland;
-                    window_attributes = window_attributes.with_name(xdg_app_id.clone(), "");
-                }
-                #[cfg(feature = "x11")]
-                {
-                    use winit::platform::x11::WindowAttributesExtX11;
-                    window_attributes = window_attributes.with_name(xdg_app_id.clone(), "");
-                }
+        if let Some(xdg_app_id) = WindowInner::from_pub(self.window()).xdg_app_id() {
+            #[cfg(feature = "wayland")]
+            if winit_wayland::ActiveEventLoopExtWayland::is_wayland(active_event_loop) {
+                window_attributes = window_attributes.with_platform_attributes(Box::new(
+                    winit_wayland::WindowAttributesWayland::default()
+                        .with_name(xdg_app_id.as_str(), ""),
+                ));
+            }
+            #[cfg(feature = "x11")]
+            if winit_x11::ActiveEventLoopExtX11::is_x11(active_event_loop) {
+                window_attributes = window_attributes.with_platform_attributes(Box::new(
+                    winit_x11::WindowAttributesX11::default().with_name(xdg_app_id.as_str(), ""),
+                ));
             }
         }
 
@@ -563,14 +563,7 @@ impl WinitWindowAdapter {
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
-                #[cfg(todo)]
-                if let Some(last_instance) = Arc::into_inner(last_window_rc) {
-                    // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
-                    // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
-                    // that's not visible.
-                    self.shared_backend_data.unregister_window(Some(last_instance.id()));
-                    drop(last_instance);
-                } else {
+                if Arc::strong_count(&last_window_rc) > 1 {
                     i_slint_core::debug_log!(
                         "Slint winit backend: request to hide window failed because references to the window still exist. This could be an application issue, make sure that there are no slint::WindowHandle instances left"
                     );
@@ -1485,7 +1478,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         };
     }
 
-    #[cfg(todo)]
     #[cfg(feature = "raw-window-handle-06")]
     fn window_handle_06_rc(
         &self,
@@ -1493,10 +1485,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         self.winit_window_or_none
             .borrow()
             .as_window()
-            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
+            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(Arc::new(window)))
     }
 
-    #[cfg(todo)]
     #[cfg(feature = "raw-window-handle-06")]
     fn display_handle_06_rc(
         &self,
@@ -1504,7 +1495,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         self.winit_window_or_none
             .borrow()
             .as_window()
-            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
+            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(Arc::new(window)))
     }
 
     fn bring_to_front(&self) -> Result<(), PlatformError> {

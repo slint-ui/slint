@@ -28,6 +28,7 @@ wayland = [
   "i-slint-renderer-skia?/wayland",
   "softbuffer?/wayland",
   "softbuffer?/wayland-dlopen",
+  "dep:winit-wayland",
 ]
 x11 = [
   "winit/x11",
@@ -39,6 +40,7 @@ x11 = [
   "i-slint-renderer-skia?/x11",
   "softbuffer?/x11",
   "softbuffer?/x11-dlopen",
+  "dep:winit-x11",
 ]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-28"]
@@ -75,6 +77,8 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
 winit = { version = "0.31.0-beta.2", default-features = false }
+winit-wayland = { version = "0.31.0-beta.2", optional = true}
+winit-x11 = { version = "0.31.0-beta.2", optional = true}
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
@@ -135,7 +139,7 @@ windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging"] }
 cfg_aliases = { workspace = true }
 
 [dev-dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-030"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-031"] }
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]
