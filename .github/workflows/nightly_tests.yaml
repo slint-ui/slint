@@ -308,3 +308,15 @@ jobs:
         with:
             name: "Node.js ${{ matrix.os }}"
             os: ${{ matrix.os }}
+
+    miri:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: nightly
+                  key: miri
+                  components: miri
+            - name: Run Miri
+              run: cargo miri test -p vtable -p const-field-offset -p i-slint-common

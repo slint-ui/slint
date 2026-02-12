@@ -588,20 +588,6 @@ jobs:
             - name: Build usecases demo
               run: cargo apk build -p usecases --target aarch64-linux-android --lib
 
-    miri:
-        needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true'
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v6
-            - uses: ./.github/actions/setup-rust
-              with:
-                  toolchain: nightly
-                  key: miri
-                  components: miri
-            - name: Run Miri
-              run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
-
     test-figma-inspector:
         needs: files-changed
         if: needs.files-changed.outputs.figma_inspector == 'true'
