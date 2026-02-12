@@ -242,12 +242,6 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedString {
-    *text = i_slint_core::styled_text::escape_markdown(text).into();
-    text
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_parse_markdown(fragments: Slice<SharedString>, out: &mut StyledText) {
     *out = i_slint_core::styled_text::parse_markdown(fragments.iter());
 }

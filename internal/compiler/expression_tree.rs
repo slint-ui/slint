@@ -117,7 +117,6 @@ pub enum BuiltinFunction {
     StopTimer,
     RestartTimer,
     ParseMarkdown,
-    EscapeMarkdown,
 }
 
 #[derive(Debug, Clone)]
@@ -290,7 +289,6 @@ declare_builtin_function_types!(
     StartTimer: (Type::ElementReference) -> Type::Void,
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
-    EscapeMarkdown: (Type::String) -> Type::String,
     ParseMarkdown: (Type::Array(Type::String.into())) -> Type::StyledText
 );
 
@@ -396,7 +394,7 @@ impl BuiltinFunction {
             BuiltinFunction::StartTimer => false,
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
-            BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => false,
+            BuiltinFunction::ParseMarkdown => false,
         }
     }
 
@@ -477,7 +475,7 @@ impl BuiltinFunction {
             BuiltinFunction::StartTimer => false,
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
-            BuiltinFunction::ParseMarkdown | BuiltinFunction::EscapeMarkdown => true,
+            BuiltinFunction::ParseMarkdown => true,
         }
     }
 }
