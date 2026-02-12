@@ -73,8 +73,12 @@ async fn main() -> anyhow::Result<()> {
                         continue;
                     };
 
-                    if let Err(err) = component.create().and_then(|instance| instance.show()) {
+                    if let Err(err) = component.create().and_then(|instance| {
+                        inner_window.hide()?;
+                        instance.show()
+                    }) {
                         inner_window.set_errors(format!("{err}").into());
+                        let _ = inner_window.show();
                     }
                 }
                 connection::ConnectionMessage::HighlightFromEditor { url, offset } => {}

@@ -10049,7 +10049,6 @@ dependencies = [
  "lsp-protocol",
  "lsp-server",
  "lsp-types",
- "mdns-sd",
  "muda",
  "nucleo-matcher",
  "objc2-foundation 0.3.2",
