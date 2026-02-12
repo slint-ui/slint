@@ -146,11 +146,14 @@ impl super::Surface for OpenGLSurface {
     fn import_opengl_texture(
         &self,
         canvas: &skia_safe::Canvas,
-        BorrowedOpenGLTexture { texture_id, size, origin, .. }: &BorrowedOpenGLTexture,
+        BorrowedOpenGLTexture { texture_id, size, origin, external, .. }: &BorrowedOpenGLTexture,
     ) -> Option<skia_safe::Image> {
+        // https://registry.khronos.org/OpenGL/extensions/OES/OES_EGL_image_external.txt
+        const TEXTURE_EXTERNAL_OES: u32 = 0x8D65;
+
         unsafe {
             let mut texture_info = skia_safe::gpu::gl::TextureInfo::from_target_and_id(
-                glow::TEXTURE_2D,
+                if *external { TEXTURE_EXTERNAL_OES } else { glow::TEXTURE_2D },
                 texture_id.get(),
             );
             texture_info.format = glow::RGBA8;
