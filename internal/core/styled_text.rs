@@ -111,7 +111,7 @@ impl StyledText {
             } else if inside_code_block {
                 escape_markdown_in_code_block(&mut string, fragment)
             } else {
-                escape_markdown(&mut string, fragment)
+                escape_markdown_inner(&mut string, fragment)
             }
         }
 
@@ -652,7 +652,8 @@ pub mod ffi {
     }
 }
 
-pub fn escape_markdown(out: &mut alloc::string::String, text: &str) {
+
+fn escape_markdown_inner(out: &mut alloc::string::String, text: &str) {
     for c in text.chars() {
         match c {
             '*' => out.push_str("\\*"),
@@ -668,13 +669,19 @@ pub fn escape_markdown(out: &mut alloc::string::String, text: &str) {
     }
 }
 
-pub fn escape_markdown_in_code_block(out: &mut alloc::string::String, text: &str) {
+fn escape_markdown_in_code_block(out: &mut alloc::string::String, text: &str) {
     for c in text.chars() {
         match c {
             '`' => out.push_str("\\`"),
             _ => out.push(c),
         }
     }
+}
+
+pub fn escape_markdown(text: &str) -> alloc::string::String{
+    let mut out = alloc::string::String::new();
+    escape_markdown_inner(&mut out, text);
+    out
 }
 
 pub fn parse_markdown(_text: &str) -> StyledText {
