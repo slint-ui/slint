@@ -652,7 +652,6 @@ pub mod ffi {
     }
 }
 
-
 fn escape_markdown_inner(out: &mut alloc::string::String, text: &str) {
     for c in text.chars() {
         match c {
@@ -678,7 +677,7 @@ fn escape_markdown_in_code_block(out: &mut alloc::string::String, text: &str) {
     }
 }
 
-pub fn escape_markdown(text: &str) -> alloc::string::String{
+pub fn escape_markdown(text: &str) -> alloc::string::String {
     let mut out = alloc::string::String::new();
     escape_markdown_inner(&mut out, text);
     out
