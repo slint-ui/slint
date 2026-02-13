@@ -267,6 +267,10 @@ fn accessible_parent_for_item_rc(mut item: ItemRc) -> ItemRc {
     item
 }
 
+const NODE_ID_INDEX_BITS: u32 = 16;
+const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
+const NODE_ID_COMPONENT_MASK: u64 = (1 << 22) - 1; // 0x3FFFFF
+
 struct NodeCollection {
     next_component_id: u32,
     components_by_id: HashMap<u32, ItemTreeWeak>,
@@ -315,8 +319,8 @@ impl NodeCollection {
     }
 
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
-        let component_id: u32 = (id.0 >> u32::BITS) as _;
-        let index: u32 = (id.0 & u32::MAX as u64) as _;
+        let component_id: u32 = ((id.0 >> NODE_ID_INDEX_BITS) & NODE_ID_COMPONENT_MASK) as _;
+        let index: u32 = (id.0 & NODE_ID_INDEX_MASK) as _;
         let component = self.components_by_id.get(&component_id)?.upgrade()?;
         Some(ItemRc::new(component, index))
     }
@@ -342,7 +346,7 @@ impl NodeCollection {
         };
 
         let index = item.index();
-        NodeId((component_id as u64) << u32::BITS | (index as u64 & u32::MAX as u64))
+        NodeId((component_id as u64) << NODE_ID_INDEX_BITS | (index as u64 & NODE_ID_INDEX_MASK))
     }
 
     fn build_node_for_item_recursively(
