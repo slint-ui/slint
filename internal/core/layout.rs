@@ -1021,6 +1021,7 @@ pub struct FlexBoxLayoutData<'a> {
     pub spacing_v: Coord,
     pub padding_h: Padding,
     pub padding_v: Padding,
+    pub alignment: LayoutAlignment,
     pub direction: FlexDirection,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, LayoutItemInfo>,
@@ -1166,7 +1167,7 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
-    use super::{Coord, LayoutItemInfo, Padding, Slice};
+    use super::{Coord, LayoutAlignment, LayoutItemInfo, Padding, Slice};
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
     use taffy::prelude::{
@@ -1190,6 +1191,7 @@ mod flexbox_taffy {
             spacing_v: Coord,
             padding_h: &Padding,
             padding_v: &Padding,
+            alignment: LayoutAlignment,
             flex_direction: TaffyFlexDirection,
             container_width: Option<Coord>,
             container_height: Option<Coord>,
@@ -1283,6 +1285,17 @@ mod flexbox_taffy {
                         display: Display::Flex,
                         flex_direction,
                         flex_wrap: FlexWrap::Wrap,
+                        justify_content: Some(match alignment {
+                            // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
+                            // AlignContent::Start/End would ignore direction and always use writing mode
+                            LayoutAlignment::Start => AlignContent::FlexStart,
+                            LayoutAlignment::End => AlignContent::FlexEnd,
+                            LayoutAlignment::Center => AlignContent::Center,
+                            LayoutAlignment::Stretch => AlignContent::Stretch,
+                            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
+                            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
+                            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
+                        }),
                         align_items: Some(AlignItems::FlexStart),
                         align_content: Some(AlignContent::FlexStart),
                         gap: Size {
@@ -1454,6 +1467,7 @@ pub fn solve_flexbox_layout(
         data.spacing_v,
         &data.padding_h,
         &data.padding_v,
+        data.alignment,
         taffy_direction,
         container_width,
         container_height,
@@ -1568,6 +1582,7 @@ pub fn flexbox_layout_info(
             spacing_v,
             padding_h,
             padding_v,
+            LayoutAlignment::Start,
             taffy_direction,
             container_width,
             container_height,
