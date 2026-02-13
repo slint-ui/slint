@@ -7,7 +7,7 @@ import SlintProperty from '@slint/common-files/src/components/SlintProperty.astr
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
-The `StyledText` type renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
+The `StyledText` element renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
 
 <CodeSnippetMD imagePath="/src/assets/generated/styled-text-example.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Styled Text Example'>
 ```slint
@@ -123,7 +123,7 @@ The width of the text outline. If the width is zero, then a hairline stroke (1 p
 
 ### link-clicked
 <SlintProperty propName="link-clicked" typeName="callback" >
-A callback that fires when a link in the text is clicked. The parameter contains the clicked link as a string.
+A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
 </SlintProperty>
 
 
@@ -131,10 +131,3 @@ A callback that fires when a link in the text is clicked. The parameter contains
 <SlintProperty propName="link-color" typeName="color" defaultValue="#00f">
 The color used for rendering links in the text.
 </SlintProperty>
-
-## Accessibility
-
-By default, `StyledText` elements have the following accessibility properties set:
-
- - `accessible-role: text;`
- - `accessible-label: text;`

@@ -98,7 +98,9 @@ export component StringToFloat {
 
 A property that is used with the <Link type="StyledText" label="StyledText element"/>.
 
-Text can be interpolated into strings for styled text with the `@markdown` macro. For example, `@markdown("Hello *{}*", "World")` becomes `"Hello *World*"`.
+Create styled text with the `@markdown()` macro. For example: `@markdown("Hello **Bold**")`.
+
+`@markdown()` supports interpolation1: For example, `@markdown("Hello *{}*", "World")` becomes `"Hello *World*"`.
 
 Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello {}", "*World*")` will become `"Hello \*World\*"`.
 
