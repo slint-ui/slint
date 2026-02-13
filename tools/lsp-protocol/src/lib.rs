@@ -18,6 +18,8 @@ pub type SourceFileVersion = Option<i32>;
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 
+pub const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";
+
 /// A versioned file
 #[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct VersionedUrl {
@@ -115,6 +117,8 @@ pub enum PreviewToLspMessage {
     SendShowMessage { message: lsp_types::ShowMessageParams },
     /// Send a telemetry event
     TelemetryEvent(serde_json::Map<String, serde_json::Value>),
+    /// Request the content of a file from the LSP.
+    RequestFile { file: Url },
 }
 
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
