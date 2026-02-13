@@ -186,6 +186,16 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
                 href: linkMap.StringType.href,
                 defaultValue: '""',
             };
+        case "styled-text":
+            return {
+                href: linkMap.styled_text.href,
+                defaultValue: '""',
+            };
+        case "callback":
+            return {
+                href: linkMap.callback.href,
+                defaultValue: '""',
+            };
         case "struct":
             return {
                 href: linkMap.StructType.href,

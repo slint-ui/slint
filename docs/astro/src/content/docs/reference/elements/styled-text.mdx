@@ -1,0 +1,133 @@
+---
+title: Styled Text
+description: Styled Text
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+
+The `StyledText` element renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
+
+<CodeSnippetMD imagePath="/src/assets/generated/styled-text-example.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Styled Text Example'>
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 200px;
+    StyledText {
+      text: @markdown("This is a piece of <u>Styled Text</u>\nwith a red value inserted: <font color=\"red\">{}</font>", 55);
+    }
+}
+```
+</CodeSnippetMD>
+
+
+## Features
+
+Styled Text supports the following features:
+
+Feature        | Method
+---------------|-------
+Italics        | Builtin
+Strikethroughs | Builtin
+Inline code    | Builtin
+Links          | Builtin
+Ordered and unordered lists | Builtin
+Underlines     | `<u>` HTML tag
+Text Colors    |`<font color="...">` HTML tags
+
+### Currently Unsupported
+
+Feature          |
+-----------------|
+Headings         |
+Images           |
+Tables           |
+Block Quotes     |
+Subscripts       |
+Superscripts     |
+Horizontal Rules |
+Footnotes        |
+Math expressions |
+Other HTML tags  |
+
+## Properties
+
+### color
+
+<SlintProperty propName="color" typeName="brush" defaultValue="<depends on theme>">
+The color of the text.
+</SlintProperty>
+
+### font-family
+<SlintProperty propName="font-family" typeName="string" >
+The name of the font family selected for rendering the text.
+
+:::note[Note]
+  Make sure the font is loaded before using it in a `StyledText` element.
+  See <Link type="FontHandling" /> for more.
+:::
+</SlintProperty>
+
+### font-size
+<SlintProperty propName="font-size" typeName="length">
+The font size of the text.
+</SlintProperty>
+
+### font-weight
+<SlintProperty propName="font-weight" typeName="int">
+The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+</SlintProperty>
+
+### font-italic
+<SlintProperty propName="font-italic" typeName="bool" defaultValue="false" >
+Whether or not the font face should be drawn italicized or not.
+</SlintProperty>
+
+### horizontal-alignment
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' >
+</SlintProperty>
+
+### letter-spacing
+<SlintProperty propName="letter-spacing" typeName="length">
+The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
+</SlintProperty>
+
+### overflow
+<SlintProperty propName="overflow" typeName="enum" enumName="TextOverflow"/>
+
+### text
+<SlintProperty propName="text" typeName="styled-text" defaultValue='""' >
+The styled text rendered, using CommonMark markup with additional HTML tags for styling.
+
+</SlintProperty>
+
+### vertical-alignment
+<SlintProperty propName="vertical-alignment" typeName="enum" enumName="TextVerticalAlignment"/>
+
+### wrap
+<SlintProperty propName="wrap" typeName="enum" enumName="TextWrap"/>
+
+### stroke
+<SlintProperty propName="stroke" typeName="brush">
+The brush used for the text outline.
+</SlintProperty>
+
+###  stroke-width
+<SlintProperty propName="stroke-width" typeName="length" >
+The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
+</SlintProperty>
+
+###  stroke-style
+<SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle"/>
+
+### link-clicked
+<SlintProperty propName="link-clicked" typeName="callback" >
+A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
+</SlintProperty>
+
+
+### link-color
+<SlintProperty propName="link-color" typeName="color" defaultValue="#00f">
+The color used for rendering links in the text.
+</SlintProperty>

@@ -20,7 +20,7 @@
 macro_rules! for_each_enums {
     ($macro:ident) => {
         $macro![
-            /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` element.
+            /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
                 /// The text will be aligned with the left edge of the containing box.
@@ -31,7 +31,7 @@ macro_rules! for_each_enums {
                 Right,
             }
 
-            /// This enum describes the different types of alignment of text along the vertical axis of a `Text` element.
+            /// This enum describes the different types of alignment of text along the vertical axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextVerticalAlignment {
                 /// The text will be aligned to the top of the containing box.
@@ -42,7 +42,7 @@ macro_rules! for_each_enums {
                 Bottom,
             }
 
-            /// This enum describes the how the text wrap if it is too wide to fit in the `Text` width.
+            /// This enum describes the how the text wraps if it is too wide to fit in the width of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextWrap {
                 /// The text won't wrap, but instead will overflow.
@@ -53,7 +53,7 @@ macro_rules! for_each_enums {
                 CharWrap,
             }
 
-            /// This enum describes the how the text appear if it is too wide to fit in the `Text` width.
+            /// This enum describes the how the text appears if it is too wide to fit in the width of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextOverflow {
                 /// The text will simply be clipped.
@@ -62,7 +62,7 @@ macro_rules! for_each_enums {
                 Elide,
             }
 
-            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text`.
+            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextStrokeStyle {
                 /// The inside edge of the stroke is at the outer edge of the text.
