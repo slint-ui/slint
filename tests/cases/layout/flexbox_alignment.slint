@@ -1,0 +1,155 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout alignment (justify-content) property
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 500px;
+
+    // Test 1: alignment: center - items centered along main axis
+    Rectangle {
+        y: 0px;
+        width: 300px;
+        height: 100px;
+        FlexBoxLayout {
+            alignment: center;
+            r1 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: red;
+            }
+
+            r2 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: green;
+            }
+        }
+    }
+
+    // Test 2: alignment: end - items packed at end
+    Rectangle {
+        y: 100px;
+        width: 300px;
+        height: 100px;
+        FlexBoxLayout {
+            alignment: end;
+            r3 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: red;
+            }
+
+            r4 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: green;
+            }
+        }
+    }
+
+    // Test 3: alignment: space-between - first/last at edges, even gaps
+    Rectangle {
+        y: 200px;
+        width: 300px;
+        height: 100px;
+        FlexBoxLayout {
+            alignment: space-between;
+            r5 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: red;
+            }
+
+            r6 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: green;
+            }
+
+            r7 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: blue;
+            }
+        }
+    }
+
+    // Test 4: alignment: space-around
+    Rectangle {
+        y: 300px;
+        width: 300px;
+        height: 100px;
+        FlexBoxLayout {
+            alignment: space-around;
+            r8 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: red;
+            }
+
+            r9 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: green;
+            }
+        }
+    }
+
+    // Test 5: alignment: space-evenly
+    Rectangle {
+        y: 400px;
+        width: 300px;
+        height: 100px;
+        FlexBoxLayout {
+            alignment: space-evenly;
+            r10 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: red;
+            }
+
+            r11 := Rectangle {
+                width: 50px;
+                height: 30px;
+                background: green;
+            }
+        }
+    }
+
+    // Test 1: center - two 50px items in 300px => 100px total, 100px gap on each side
+    // Items at x=100, x=150
+    out property <bool> test_center: r1.x == 100px && r2.x == 150px;
+
+    // Test 2: end - two 50px items in 300px => packed at right
+    // Items at x=200, x=250
+    out property <bool> test_end: r3.x == 200px && r4.x == 250px;
+
+    // Test 3: space-between - three 50px items in 300px => 150px remaining, 75px between each
+    // Items at x=0, x=125, x=250
+    out property <bool> test_space_between: r5.x == 0px && r6.x == 125px && r7.x == 250px;
+
+    // Test 4: space-around - two 50px items in 300px => 200px remaining, 50px unit
+    // Each item gets 50px on each side: first at x=50, second at x=200
+    out property <bool> test_space_around: r8.x == 50px && r9.x == 200px;
+
+    // Test 5: space-evenly - two 50px items in 300px => 200px remaining / 3 gaps = 66.67px
+    // We compare approximately (within 1px)
+    out property <bool> test_space_evenly_approx:
+        r10.x > 66px && r10.x < 68px && r11.x > 182px && r11.x < 184px;
+
+    out property <bool> test: test_center && test_end && test_space_between && test_space_around && test_space_evenly_approx;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

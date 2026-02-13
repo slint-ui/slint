@@ -315,6 +315,12 @@ pub(super) fn solve_flexbox_layout(
             ("padding_h", padding_h.ty(ctx), padding_h),
             ("padding_v", padding_v.ty(ctx), padding_v),
             (
+                "alignment",
+                crate::typeregister::BUILTIN
+                    .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
+                fld.alignment,
+            ),
+            (
                 "direction",
                 crate::typeregister::BUILTIN
                     .with(|e| Type::Enumeration(e.enums.FlexDirection.clone())),
@@ -542,6 +548,7 @@ fn compute_flexbox_layout_info_for_direction(
 
 #[derive(Clone)]
 struct FlexBoxLayoutDataResult {
+    alignment: llr_Expression,
     direction: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
@@ -558,6 +565,16 @@ fn flexbox_layout_data(
     layout: &crate::layout::FlexBoxLayout,
     ctx: &mut ExpressionLoweringCtx,
 ) -> FlexBoxLayoutDataResult {
+    let alignment = if let Some(expr) = &layout.geometry.alignment {
+        llr_Expression::PropertyReference(ctx.map_property_reference(expr))
+    } else {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignment.clone());
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: e.default_value,
+            enumeration: e,
+        })
+    };
+
     let direction = if let Some(expr) = &layout.direction {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
@@ -600,7 +617,7 @@ fn flexbox_layout_data(
             element_ty,
             output: llr_ArrayOutput::Slice,
         };
-        FlexBoxLayoutDataResult { direction, cells_h, cells_v, compute_cells: None }
+        FlexBoxLayoutDataResult { alignment, direction, cells_h, cells_v, compute_cells: None }
     } else {
         let mut elements = Vec::new();
         for item in &layout.elems {
@@ -635,6 +652,7 @@ fn flexbox_layout_data(
             ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
         };
         FlexBoxLayoutDataResult {
+            alignment,
             direction,
             cells_h,
             cells_v,

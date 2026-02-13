@@ -1917,7 +1917,7 @@ impl Element {
                 match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != ElementType::Error {
-                                let msg = if let Some(suggestion) = css_gap_property_suggestion(&unresolved_name, &self.base_type) {
+                                let msg = if let Some(suggestion) = css_property_suggestion(&unresolved_name, &self.base_type) {
                                     suggestion
                                 } else if self.base_type.to_smolstr() == "Empty" {
                                     format!( "Unknown property {unresolved_name}")
@@ -2101,8 +2101,8 @@ impl Element {
     }
 }
 
-/// For FlexBoxLayout, suggest Slint property names for CSS gap properties.
-fn css_gap_property_suggestion(property_name: &str, base_type: &ElementType) -> Option<String> {
+/// For FlexBoxLayout, suggest Slint property names for CSS properties.
+fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Option<String> {
     let base_name = base_type.to_smolstr();
     if base_name != "FlexBoxLayout" {
         return None;
@@ -2111,6 +2111,7 @@ fn css_gap_property_suggestion(property_name: &str, base_type: &ElementType) -> 
         "gap" => Some("Use spacing instead of gap".into()),
         "row-gap" => Some("Use spacing-vertical instead of row-gap".into()),
         "column-gap" => Some("Use spacing-horizontal instead of column-gap".into()),
+        "justify-content" => Some("Use alignment instead of justify-content".into()),
         _ => None,
     }
 }
