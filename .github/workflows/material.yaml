@@ -130,13 +130,21 @@ jobs:
           packageManager: pnpm
           workingDirectory: ui-libraries/material/docs
 
-      - name: Deploy to material-staging (Workers)
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true'
+      - name: Deploy to material-staging (Workers production)
+        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
-          command: deploy --branch=${{ github.ref_name }}
+          command: deploy
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           packageManager: pnpm
           workingDirectory: ui-libraries/material/docs
+
+      - name: Deploy preview to material-staging (Workers)
+        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref != 'refs/heads/master'
+        run: pnpm dlx wrangler@3 versions upload
+        working-directory: ui-libraries/material/docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
