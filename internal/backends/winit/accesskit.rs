@@ -65,6 +65,7 @@ impl AccessKitAdapter {
             window_adapter_weak: window_adapter_weak.clone(),
             nodes: NodeCollection {
                 next_component_id: 1,
+                free_component_ids: Default::default(),
                 root_node_id: NodeId(0),
                 components_by_id: Default::default(),
                 component_ids: Default::default(),
@@ -188,6 +189,7 @@ impl AccessKitAdapter {
         let component_ptr = ItemTreeRef::as_ptr(component);
         if let Some(component_id) = self.nodes.component_ids.remove(&component_ptr) {
             self.nodes.components_by_id.remove(&component_id);
+            self.nodes.free_component_ids.push(component_id);
         }
         self.reload_tree();
     }
@@ -273,6 +275,7 @@ const NODE_ID_COMPONENT_MASK: u64 = (1 << 22) - 1; // 0x3FFFFF
 
 struct NodeCollection {
     next_component_id: u32,
+    free_component_ids: Vec<u32>,
     components_by_id: HashMap<u32, ItemTreeWeak>,
     component_ids: HashMap<NonNull<u8>, u32>,
     all_nodes: Vec<CachedNode>,
@@ -331,14 +334,21 @@ impl NodeCollection {
         self.encode_item_node_id(&item)
     }
 
+    fn alloc_component_id(&mut self) -> u32 {
+        self.free_component_ids.pop().unwrap_or_else(|| {
+            let id = self.next_component_id;
+            self.next_component_id += 1;
+            id
+        })
+    }
+
     fn encode_item_node_id(&mut self, item: &ItemRc) -> NodeId {
         let component = item.item_tree();
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
         let component_id = match self.component_ids.get(&component_ptr) {
             Some(&component_id) => component_id,
             None => {
-                let component_id = self.next_component_id;
-                self.next_component_id += 1;
+                let component_id = self.alloc_component_id();
                 self.component_ids.insert(component_ptr, component_id);
                 self.components_by_id.insert(component_id, ItemTreeRc::downgrade(component));
                 component_id
