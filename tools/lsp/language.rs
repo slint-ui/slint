@@ -13,6 +13,7 @@ mod signature_help;
 pub mod test;
 
 use crate::common::uri_to_file;
+use crate::preview::connector::SwitchableLspToPreview;
 use crate::{common, util};
 
 use i_slint_compiler::object_tree::ElementRc;
@@ -47,15 +48,13 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
-pub const SHOW_REMOTE_PREVIEW_COMMAND: &str = "slint/showRemotePreview";
+pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
-        #[cfg(feature = "preview-remote")]
-        SHOW_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -68,19 +67,6 @@ fn create_show_preview_command(
     Command::new(
         title,
         SHOW_PREVIEW_COMMAND.into(),
-        Some(vec![file.as_str().into(), component_name.into()]),
-    )
-}
-
-fn create_show_remote_preview_command(
-    pretty: bool,
-    file: &lsp_types::Url,
-    component_name: &str,
-) -> Command {
-    let title = format!("{}Remote Preview", if pretty { &"▶ " } else { &"" });
-    Command::new(
-        title,
-        SHOW_REMOTE_PREVIEW_COMMAND.into(),
         Some(vec![file.as_str().into(), component_name.into()]),
     )
 }
@@ -119,10 +105,8 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
         config: ctx.preview_config.borrow().clone(),
     });
 
-    if let Some(c) = ctx.to_show.get() {
-        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(
-            lsp_protocol::PreviewComponent::clone(&c),
-        ));
+    if let Some(c) = ctx.to_show.borrow().clone() {
+        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
     }
 }
 
@@ -167,10 +151,10 @@ pub struct Context {
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: std::sync::Arc<common::watcher::Watcher<common::PreviewComponent>>,
+    pub to_show: RefCell<Option<common::PreviewComponent>>,
     /// File currently open in the editor
     pub open_urls: RefCell<HashSet<lsp_types::Url>>,
-    pub to_preview: Rc<dyn common::LspToPreview>,
+    pub to_preview: Rc<SwitchableLspToPreview>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: RefCell<HashSet<lsp_types::Url>>,
@@ -389,11 +373,6 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             show_preview_command(&params.arguments, &ctx)?;
             return Ok(None::<serde_json::Value>);
         }
-        if params.command.as_str() == SHOW_REMOTE_PREVIEW_COMMAND {
-            #[cfg(feature = "preview-remote")]
-            show_remote_preview_command(&params.arguments, &ctx)?;
-            return Ok(None::<serde_json::Value>);
-        }
         if params.command.as_str() == POPULATE_COMMAND {
             populate_command(&params.arguments, &ctx).await?;
             return Ok(None::<serde_json::Value>);
@@ -609,20 +588,43 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     let c = common::PreviewComponent { url, component };
-    ctx.to_show.set(c.clone());
+    ctx.to_show.replace(Some(c.clone()));
     ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
 
     Ok(())
 }
 
 #[cfg(feature = "preview-remote")]
-pub fn show_remote_preview_command(
+pub async fn connect_remote_preview_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<(), LspError> {
     let _ = ctx.to_preview.set_preview_target(common::PreviewTarget::Remote);
 
-    show_preview_command(params, ctx)
+    let host = params.first().and_then(serde_json::Value::as_str).ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "Host parameter is missing or not a string".into(),
+    })?;
+    let port = params.get(1).and_then(serde_json::Value::as_u64).ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "Port parameter is missing or not a number".into(),
+    })?;
+
+    ctx.to_preview
+        .with_preview_target_async::<crate::preview::connector::remote::RemoteLspToPreview, Result<(), LspError>>(
+            async |remote| {
+                remote.connect(host.to_owned(), port as u16).await.map_err(|err| {
+                    LspError {
+                        code: LspErrorCode::RequestFailed,
+                        message: format!("Failed to connect to remote preview: {err}"),
+                    }
+                })?;
+                Ok(())
+            },
+        )
+        .await.unwrap()?;
+
+    show_preview_command(&params[2..], ctx)
 }
 
 fn populate_command_range(
@@ -946,7 +948,7 @@ fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<
     ctx.pending_recompile.borrow_mut().extend(open_dependencies);
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    if let Some(preview_url) = ctx.to_show.get().as_ref().map(|s| s.url.clone()) {
+    if let Some(preview_url) = ctx.to_show.borrow().as_ref().map(|c| c.url.clone()) {
         // The external preview only has access to the files the LSP recompiles, so we need to
         // ensure the preview file is recompiled if anything it depends on changes, even if it's
         // not in the open_urls.
@@ -1451,39 +1453,18 @@ fn get_code_lenses(
         let inner_components = doc.inner_components.clone();
 
         // Handle preview lens
-        result.extend(
-            inner_components
-                .iter()
-                .filter(|c| !c.is_global())
-                .filter_map(|c| {
-                    let component_node = c.root_element.borrow().debug.first()?.node.parent()?;
-                    let range = match component_node.parent() {
-                        Some(parent) if parent.kind() == SyntaxKind::ExportsList => {
-                            util::node_to_lsp_range(&parent, document_cache.format)
-                        }
-                        _ => util::node_to_lsp_range(&component_node, document_cache.format),
-                    };
-                    let preview_command =
-                        Some(create_show_preview_command(true, &text_document.uri, c.id.as_str()));
-                    #[cfg(feature = "preview-remote")]
-                    {
-                        let remote_preview_command = Some(create_show_remote_preview_command(
-                            true,
-                            &text_document.uri,
-                            c.id.as_str(),
-                        ));
-                        Some([
-                            CodeLens { range, command: preview_command, data: None },
-                            CodeLens { range, command: remote_preview_command, data: None },
-                        ])
-                    }
-                    #[cfg(not(feature = "preview-remote"))]
-                    {
-                        Some([CodeLens { range, command: preview_command, data: None }])
-                    }
-                })
-                .flatten(),
-        );
+        result.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
+            let component_node = c.root_element.borrow().debug.first()?.node.parent()?;
+            let range = match component_node.parent() {
+                Some(parent) if parent.kind() == SyntaxKind::ExportsList => {
+                    util::node_to_lsp_range(&parent, document_cache.format)
+                }
+                _ => util::node_to_lsp_range(&component_node, document_cache.format),
+            };
+            let command =
+                Some(create_show_preview_command(true, &text_document.uri, c.id.as_str()));
+            Some(CodeLens { range, command, data: None })
+        }));
     }
 
     if let Some(node) = &doc.node {

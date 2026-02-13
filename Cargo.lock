@@ -360,15 +360,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
-name = "arc-swap"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d03449bb8ca2cc2ef70869af31463d1ae5ccc8fa3e334b307203fbf815207e"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
 name = "arg_enum_proc_macro"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -864,7 +855,7 @@ dependencies = [
  "bitflags 2.10.0",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -6242,6 +6233,7 @@ dependencies = [
  "fastrand",
  "flume",
  "if-addrs",
+ "log",
  "mio",
  "socket-pktinfo",
  "socket2 0.6.2",
@@ -9596,7 +9588,6 @@ dependencies = [
 name = "slint-lsp"
 version = "1.16.0"
 dependencies = [
- "arc-swap",
  "by_address",
  "clap",
  "clru",
@@ -9605,7 +9596,6 @@ dependencies = [
  "dissimilar",
  "event-listener 5.4.1",
  "futures-util",
- "hostname",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
  "i-slint-backend-winit",
@@ -9617,6 +9607,7 @@ dependencies = [
  "lsp-protocol",
  "lsp-server",
  "lsp-types",
+ "mdns-sd",
  "muda",
  "nucleo-matcher",
  "objc2-foundation 0.3.2",
@@ -9631,14 +9622,12 @@ dependencies = [
  "smol_str 0.3.2",
  "spin_on",
  "tikv-jemallocator",
- "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite-wasm",
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "zeroconf-tokio",
 ]
 
 [[package]]
@@ -10589,6 +10578,25 @@ dependencies = [
  "rustls",
  "tokio",
  "tungstenite",
+]
+
+[[package]]
+name = "tokio-tungstenite-wasm"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e501f4c45ccd240d6ba3d5e191ef4658a7d98ac47091b25a1b0474a5e2aacfd9"
+dependencies = [
+ "bytes",
+ "futures-channel",
+ "futures-util",
+ "http 1.4.0",
+ "httparse",
+ "js-sys",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

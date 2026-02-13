@@ -24,7 +24,6 @@ pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
 pub mod text_edit;
 pub mod token_info;
-pub mod watcher;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -41,10 +40,10 @@ pub use lsp_protocol::{
 };
 
 #[allow(dead_code)]
-pub trait LspToPreview {
+pub trait LspToPreview: 'static {
     fn send(&self, message: &LspToPreviewMessage);
-    fn set_preview_target(&self, target: PreviewTarget) -> Result<()>;
     fn preview_target(&self) -> PreviewTarget;
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[derive(Default, Clone)]
@@ -58,8 +57,8 @@ impl LspToPreview for DummyLspToPreview {
         PreviewTarget::Dummy
     }
 
-    fn set_preview_target(&self, _: PreviewTarget) -> Result<()> {
-        Err("Can not change the preview target".into())
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

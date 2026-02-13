@@ -30,9 +30,19 @@ pub fn mock_context() -> Context {
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: std::sync::Arc::new(crate::common::watcher::Watcher::new()),
+        to_show: RefCell::new(None),
         open_urls: RefCell::new(HashSet::new()),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        to_preview: Rc::new(
+            crate::preview::connector::SwitchableLspToPreview::new(
+                std::iter::once((
+                    common::PreviewTarget::Dummy,
+                    Box::new(common::DummyLspToPreview {}) as Box<dyn common::LspToPreview>,
+                ))
+                .collect(),
+                common::PreviewTarget::Dummy,
+            )
+            .unwrap(),
+        ),
         pending_recompile: Default::default(),
     }
 }
@@ -187,8 +197,6 @@ fn accurate_diagnostics_in_dependencies() {
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: std::sync::Arc::default(),
         open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
         ..mock_context()
     }));
@@ -306,17 +314,10 @@ fn preview_file_recompiled_when_dependency_changes() {
         r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
     );
 
-    let watcher = common::watcher::Watcher::new();
-    watcher.set(common::PreviewComponent { url: main_url.clone(), component: None });
-
     // Create context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    let ctx = Rc::new(Context {
-        document_cache: cache.into(),
-        to_show: std::sync::Arc::new(watcher),
-        ..mock_context()
-    });
+    let ctx = Rc::new(Context { document_cache: cache.into(), ..mock_context() });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &ctx,

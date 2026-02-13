@@ -4,7 +4,6 @@
 use crate::{common, preview};
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::io::{BufRead as _, Write as _};
 
 pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
@@ -114,8 +113,8 @@ impl common::LspToPreview for ChildProcessLspToPreview {
         common::PreviewTarget::ChildProcess
     }
 
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -140,45 +139,8 @@ impl common::LspToPreview for EmbeddedLspToPreview {
         common::PreviewTarget::EmbeddedWasm
     }
 
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
-    }
-}
-
-pub struct SwitchableLspToPreview {
-    lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-    current_target: RefCell<common::PreviewTarget>,
-}
-
-impl SwitchableLspToPreview {
-    pub fn new(
-        lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-        current_target: common::PreviewTarget,
-    ) -> common::Result<Self> {
-        if lsp_to_previews.contains_key(&current_target) {
-            Ok(Self { lsp_to_previews, current_target: RefCell::new(current_target) })
-        } else {
-            Err("No such target".into())
-        }
-    }
-}
-
-impl common::LspToPreview for SwitchableLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) {
-        let _ = self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
-    }
-
-    fn preview_target(&self) -> common::PreviewTarget {
-        self.current_target.borrow().clone()
-    }
-
-    fn set_preview_target(&self, target: common::PreviewTarget) -> common::Result<()> {
-        if self.lsp_to_previews.contains_key(&target) {
-            *self.current_target.borrow_mut() = target;
-            Ok(())
-        } else {
-            Err("Target not found".into())
-        }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

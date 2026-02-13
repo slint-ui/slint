@@ -17,9 +17,6 @@ mod connection;
 
 slint::include_modules!();
 
-#[allow(unused)]
-const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry().with(fmt::layer()).with(EnvFilter::from_default_env()).init();
