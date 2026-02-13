@@ -258,8 +258,12 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
+            MouseEvent::Wheel { delta_x, delta_y, in_flickable, .. } => {
                 // Same heuristic as SliderBase
+                if *in_flickable {
+                    return InputEventResult::EventIgnored;
+                }
+
                 let delta = (delta_x + delta_y) / 60. * self.step();
                 let new_value = self.value() + delta;
                 let updated = self.set_value(new_value);

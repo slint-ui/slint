@@ -152,6 +152,9 @@ let scrolls = [
     "TestCase::switch",
     "TestCase::line-edit",
     "TestCase::text-edit",
+    // Special Case: These widgets do not accept scroll events
+    // when placed inside a Flickable, but will accept them outside
+    "TestCase::slider",
 ];
 
 for scroll in scrolls {
@@ -173,12 +176,5 @@ assert_does_not_scroll("TestCase::spin-box");
 instance.invoke_set_text_edit("Multi\nLine\nText\nThat\nScrolls".into());
 
 assert_does_not_scroll("TestCase::text-edit");
-
-// Sliders should accept scroll events, as long as their value is not at the end of the range
-assert_does_not_scroll("TestCase::slider");
-
-instance.set_slider_value(0.0);
-
-assert_scrolls("TestCase::slider");
 ```
 */
