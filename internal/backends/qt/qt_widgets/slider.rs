@@ -260,16 +260,16 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let new_val = self.value() + delta_x + delta_y;
-                self.set_value(new_val);
-                InputEventResult::EventAccepted
-            }
             MouseEvent::Pressed { button, .. } | MouseEvent::Released { button, .. } => {
                 debug_assert_ne!(*button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            // Note: The Qt slider used to accept scroll events, however the other styles do not.
+            // As the scroll event handling is problematic when a slider is placed in a Flickable,
+            // ignore scroll events for now.
+            // Users can add a surrounding TouchArea that adds scrolling to the slider if they want to support that.
+            MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
         };
         data.active_controls = new_control;
 
