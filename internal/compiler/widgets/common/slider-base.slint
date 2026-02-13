@@ -57,6 +57,27 @@ export component SliderBase {
             root.handle-pressed = true;
         }
 
+        scroll-event(event) => {
+            // FIXME: Ideally the delta should be by exactly the step for each scrolled mouse "line".
+            // For touchpads, it should be smooth.
+            // However, currently the PointerScrollEvent does not tell us whether the scroll
+            // is discrete (in lines) or not, so we just apply the delta directly, with some
+            // heuristics to "fake" line scrolling by the step.
+
+            // heuristic: the winit backend uses 60px for each line step, Qt uses 120 per 15 degree increment,
+            // so 60px is a decent trade-off.
+            let delta = (event.delta-x / 60px + event.delta-y / 60px) * step;
+
+            let old-value = root.value;
+            root.set-value(old-value + delta);
+
+            if old-value != root.value {
+                EventResult.accept
+            } else {
+                EventResult.reject
+            }
+        }
+
         moved => {
             if (!self.enabled) {
                 return;

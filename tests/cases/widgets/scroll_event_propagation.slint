@@ -12,6 +12,7 @@ export component TestCase inherits Window {
     height: 800px;
     out property <length> flickable_viewport_y: flickable.viewport-y;
     out property <string> style: Platform.style-name;
+    in-out property <float> slider-value <=> slider.value;
 
     public function focus_combobox(focus: bool) {
         if focus {
@@ -28,9 +29,11 @@ export component TestCase inherits Window {
     flickable := Flickable {
         width: 100%;
         height: 100%;
-        viewport_height: 1000px;
+
         // Test scroll behavior for all widgets in here
         VerticalLayout {
+            alignment: LayoutAlignment.start;
+
             checkbox := CheckBox {
                 text: "CheckBox";
             }
@@ -43,7 +46,12 @@ export component TestCase inherits Window {
                 model: ["Combo", "Box"];
             }
 
-            slider := Slider { }
+            slider := Slider {
+                minimum: 0;
+                maximum: 100;
+                value: 50;
+                step: 10;
+            }
 
             switch := Switch { text: "Switch"; }
 
@@ -141,7 +149,6 @@ let scrolls = [
     "TestCase::text-input",
     "TestCase::context-menu",
     "TestCase::combobox",
-    "TestCase::slider",
     "TestCase::switch",
     "TestCase::line-edit",
     "TestCase::text-edit",
@@ -167,6 +174,11 @@ instance.invoke_set_text_edit("Multi\nLine\nText\nThat\nScrolls".into());
 
 assert_does_not_scroll("TestCase::text-edit");
 
+// Sliders should accept scroll events, as long as their value is not at the end of the range
+assert_does_not_scroll("TestCase::slider");
 
+instance.set_slider_value(0.0);
+
+assert_scrolls("TestCase::slider");
 ```
 */
