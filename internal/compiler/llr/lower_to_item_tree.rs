@@ -546,14 +546,14 @@ fn lower_sub_component(
         .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
         .collect();
 
-    sub_component.layout_info_h = super::lower_expression::get_layout_info(
+    sub_component.layout_info_h = super::lower_layout_expression::get_layout_info(
         &component.root_element,
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
     )
     .into();
-    sub_component.layout_info_v = super::lower_expression::get_layout_info(
+    sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
         &component.root_element,
         &mut ctx,
         &component.root_constraints.borrow(),
@@ -563,20 +563,23 @@ fn lower_sub_component(
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
         let grid_cell_ref = grid_layout_cell.borrow();
         sub_component.grid_layout_input_for_repeated = Some(
-            super::lower_expression::get_grid_layout_input_for_repeated(&mut ctx, &grid_cell_ref)
-                .into(),
+            super::lower_layout_expression::get_grid_layout_input_for_repeated(
+                &mut ctx,
+                &grid_cell_ref,
+            )
+            .into(),
         );
 
         // Store constraints for children of the Row
         if let Some(children_constraints) = grid_cell_ref.child_items.as_ref() {
             for layout_item in children_constraints.iter() {
-                let layout_info_h = super::lower_expression::get_layout_info(
+                let layout_info_h = super::lower_layout_expression::get_layout_info(
                     &layout_item.element,
                     &mut ctx,
                     &layout_item.constraints,
                     crate::layout::Orientation::Horizontal,
                 );
-                let layout_info_v = super::lower_expression::get_layout_info(
+                let layout_info_v = super::lower_layout_expression::get_layout_info(
                     &layout_item.element,
                     &mut ctx,
                     &layout_item.constraints,

@@ -25,7 +25,7 @@ Layout types:
 | `internal/compiler/layout.rs` | Compiler-side layout data structures |
 | `internal/compiler/passes/lower_layout.rs` | Lowers layout elements to expressions |
 | `internal/compiler/passes/default_geometry.rs` | Sets default width/height (runs after layout lowering) |
-| `internal/compiler/llr/lower_expression.rs` | Converts layout expressions to LLR (`compute_*_layout_info` and `solve_*_layout` functions) |
+| `internal/compiler/llr/lower_layout_expression.rs` | Converts layout expressions to LLR |
 
 ## Constraint System
 

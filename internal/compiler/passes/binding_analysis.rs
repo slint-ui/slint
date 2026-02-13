@@ -555,7 +555,7 @@ fn recurse_expression(
                 // or a dependency on height for the horizontal orientation (for Columns/ColumnsReverse).
                 // But since the flex direction, which can be changed at runtime, we don't know which one will apply.
                 // And doing both leads to binding loops...
-                // We could detect the case of a constant flex direction (like in lower_expression.rs) but
+                // We could detect the case of a constant flex direction (like in lower_layout_expression.rs) but
                 // that still wouldn't fix the case of runtime direction changes...
                 /*if *orientation == Orientation::Vertical
                     && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
