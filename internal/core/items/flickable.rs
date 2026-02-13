@@ -288,7 +288,7 @@ impl Flickable {
         Self::FIELD_OFFSETS.viewport_y.apply_pin(self).set(euclid::Length::new(-new_vy));
     }
 
-    fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
+    pub fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
         let mut geometry = self_rc.geometry();
 
         // subtract keyboard rect if needed

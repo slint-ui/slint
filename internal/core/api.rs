@@ -669,6 +669,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     delta_x: delta_x as _,
                     delta_y: delta_y as _,
+                    in_flickable: false,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {

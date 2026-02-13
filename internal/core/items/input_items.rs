@@ -188,13 +188,14 @@ impl Item for TouchArea {
                     InputEventResult::EventAccepted
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
+            MouseEvent::Wheel { delta_x, delta_y, in_flickable, .. } => {
                 let modifiers = window_adapter.window().0.modifiers.get().into();
                 let r =
                     Self::FIELD_OFFSETS.scroll_event.apply_pin(self).call(&(PointerScrollEvent {
                         delta_x: *delta_x,
                         delta_y: *delta_y,
                         modifiers,
+                        in_flickable: *in_flickable,
                     },));
                 if self.grabbed.get() {
                     InputEventResult::GrabMouse

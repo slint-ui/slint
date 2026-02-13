@@ -334,6 +334,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     position: self.cursor_pos,
                     delta_x,
                     delta_y,
+                    in_flickable: false,
                 });
             }
             WindowEvent::MouseInput { state, button, .. } => {

@@ -258,10 +258,20 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let new_val = self.value() + delta_x + delta_y;
-                self.set_value(new_val);
-                InputEventResult::EventAccepted
+            MouseEvent::Wheel { delta_x, delta_y, in_flickable, .. } => {
+                // Same heuristic as SliderBase
+                if *in_flickable {
+                    return InputEventResult::EventIgnored;
+                }
+
+                let delta = (delta_x + delta_y) / 60. * self.step();
+                let new_value = self.value() + delta;
+                let updated = self.set_value(new_value);
+                if updated {
+                    InputEventResult::EventAccepted
+                } else {
+                    InputEventResult::EventIgnored
+                }
             }
             MouseEvent::Pressed { button, .. } | MouseEvent::Released { button, .. } => {
                 debug_assert_ne!(*button, PointerEventButton::Left);
@@ -409,10 +419,12 @@ impl Item for NativeSlider {
 }
 
 impl NativeSlider {
-    fn set_value(self: Pin<&Self>, new_val: f32) {
+    fn set_value(self: Pin<&Self>, new_val: f32) -> bool {
         let new_val = new_val.max(self.minimum()).min(self.maximum());
+        let updated = new_val != self.value();
         self.value.set(new_val);
         Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
+        updated
     }
 }
 

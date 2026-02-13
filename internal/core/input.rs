@@ -8,9 +8,9 @@
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
-use crate::items::{DropEvent, ItemRef, TextCursorDirection};
+use crate::items::{DropEvent, Flickable, ItemRef, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
-use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector, RectLengths};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
@@ -21,6 +21,7 @@ use core::cell::Cell;
 use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
+use vtable::VRef;
 
 /// A mouse or touch event
 ///
@@ -46,7 +47,7 @@ pub enum MouseEvent {
     /// `pos` is the position of the mouse when the event happens.
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
     /// `delta_y` is the amount of pixels to scroll in vertical direction.
-    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
+    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, in_flickable: bool },
     /// The mouse is being dragged over this item.
     /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
     /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
@@ -1015,6 +1016,14 @@ fn send_mouse_event_to_item(
 
     result.item_stack.push((item_rc.downgrade(), filter_result));
     if forward_to_children {
+        if let MouseEvent::Wheel { in_flickable, .. } = &mut event_for_children {
+            if let Some(flickable) = VRef::downcast_pin::<crate::items::Flickable>(item) {
+                let geo = Flickable::geometry_without_virtual_keyboard(&item_rc);
+                *in_flickable |= flickable.viewport_width() > geo.width_length()
+                    || flickable.viewport_height() > geo.height_length();
+            }
+        }
+
         let mut actual_visitor =
             |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
                 send_mouse_event_to_item(

@@ -138,6 +138,21 @@ slider_element.set_accessible_value("75");
 assert_eq!(instance.get_value(), 75f32);
 assert_eq!(changes.borrow().clone(), vec![75f32]);
 
+// Scrolling the slider in any direction should update the value
+let test_scroll = || {
+    instance.set_step(10.);
+    instance.set_value(75.);
+    changes.borrow_mut().clear();
+    // heuristic: 60 pixels is one step. (see comment in SliderBase)
+    // Test both horzontal and vertical scroll to verify that the slider is responding to both
+    slider_element.scroll(0., -60.);
+    assert_eq!(instance.get_value(), 65f32);
+    slider_element.scroll(30., 30.);
+    assert_eq!(instance.get_value(), 75f32);
+    assert_eq!(changes.borrow().clone(), vec![65f32, 75f32]);
+};
+test_scroll();
+
 // Test vertical slider
 edits.borrow_mut().clear();
 changes.borrow_mut().clear();
@@ -220,8 +235,11 @@ for y in (position.y as usize..200).step_by(10) {
 instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
 assert_eq!(edits.borrow().clone(), vec![0f32]);
 
+test_scroll();
+
 // Test that when disabled, the slider does not change value
 instance.set_value(10.);
+instance.set_step(1.);
 instance.set_enabled(false);
 slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
 assert_eq!(instance.get_value(), 10f32);

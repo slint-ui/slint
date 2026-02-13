@@ -83,6 +83,9 @@ macro_rules! for_each_builtin_structs {
                     delta_y: Coord,
                     /// The keyboard modifiers pressed during the event
                     modifiers: KeyboardModifiers,
+                    /// Whether the PointerScrollEvent has passed through a scroll view or
+                    /// flickable before reaching the callback.
+                    in_flickable: bool,
                 }
                 private {
                 }

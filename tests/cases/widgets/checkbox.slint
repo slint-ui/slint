@@ -5,12 +5,12 @@ import { CheckBox } from "std-widgets.slint";
 export component TestCase inherits Window {
 
     in-out property <string> toggled;
-    in-out property <bool> checked <=> a.checked;
-    in-out property <bool> enabled <=> a.enabled;
+    in-out property <bool> checked <=> checkbox.checked;
+    in-out property <bool> enabled <=> checkbox.enabled;
 
     HorizontalLayout {
         alignment: start;
-        a := CheckBox {
+        checkbox := CheckBox {
             text: "Aaa";
             toggled => {
                 root.toggled += "a";
@@ -21,60 +21,70 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::{SharedString};
+use slint::{SharedString, platform::PointerEventButton};
+
+// i_slint_backend_testing::init_integration_test_with_system_time();
 
 let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_checked(), false);
 
-let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::a").collect::<Vec<_>>();
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::checkbox").collect::<Vec<_>>();
 assert_eq!(result.len(), 1);
-let aaa = result.pop().unwrap();
-assert_eq!(aaa.accessible_label().unwrap(), "Aaa");
-assert_eq!(aaa.accessible_value(), None);
-assert_eq!(aaa.accessible_value_maximum(), None);
-assert_eq!(aaa.accessible_value_minimum(), None);
-assert_eq!(aaa.accessible_value_step(), None);
-assert_eq!(aaa.accessible_checked(), Some(false));
-assert_eq!(aaa.accessible_checkable(), Some(true));
-assert_eq!(aaa.accessible_enabled(), Some(true));
-aaa.invoke_accessible_default_action();
+let checkbox = result.pop().unwrap();
+assert_eq!(checkbox.accessible_label().unwrap(), "Aaa");
+assert_eq!(checkbox.accessible_value(), None);
+assert_eq!(checkbox.accessible_value_maximum(), None);
+assert_eq!(checkbox.accessible_value_minimum(), None);
+assert_eq!(checkbox.accessible_value_step(), None);
+assert_eq!(checkbox.accessible_checked(), Some(false));
+assert_eq!(checkbox.accessible_checkable(), Some(true));
+assert_eq!(checkbox.accessible_enabled(), Some(true));
+
+// accessible action can toggle
+checkbox.invoke_accessible_default_action();
 assert_eq!(instance.get_checked(), true, "CheckBox a was not checked");
-assert_eq!(aaa.accessible_checked(), Some(true));
+assert_eq!(checkbox.accessible_checked(), Some(true));
 assert_eq!(instance.get_toggled(), SharedString::from("a"));
 
+// single_click can toggle
+checkbox.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_checked(), false, "CheckBox a was checked");
+assert_eq!(checkbox.accessible_checked(), Some(false));
+assert_eq!(instance.get_toggled(), SharedString::from("aa"));
+
+// Cannot toggle when disabled
 instance.set_enabled(false);
-assert_eq!(aaa.accessible_enabled(), Some(false));
-assert_eq!(instance.get_toggled(), SharedString::from("a"));
-
-aaa.invoke_accessible_default_action();
-assert_eq!(instance.get_toggled(), SharedString::from("a"));
+assert_eq!(checkbox.accessible_enabled(), Some(false));
+checkbox.mock_single_click(PointerEventButton::Left);
+checkbox.invoke_accessible_default_action();
+assert_eq!(instance.get_toggled(), SharedString::from("aa"));
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-auto label_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::a");
+auto label_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::checkbox");
 assert(label_search.size() == 1);
-auto aaa = label_search[0];
-assert_eq(aaa.accessible_label().value(), "Aaa");
-assert(!aaa.accessible_value());
-assert(!aaa.accessible_value_maximum());
-assert(!aaa.accessible_value_minimum());
-assert(!aaa.accessible_value_step());
-assert_eq(aaa.accessible_checked().value(), false);
-assert_eq(aaa.accessible_checkable().value(), true);
-aaa.invoke_accessible_default_action();
+auto checkbox = label_search[0];
+assert_eq(checkbox.accessible_label().value(), "Aaa");
+assert(!checkbox.accessible_value());
+assert(!checkbox.accessible_value_maximum());
+assert(!checkbox.accessible_value_minimum());
+assert(!checkbox.accessible_value_step());
+assert_eq(checkbox.accessible_checked().value(), false);
+assert_eq(checkbox.accessible_checkable().value(), true);
+checkbox.invoke_accessible_default_action();
 assert_eq(instance.get_checked(), true);
-assert_eq(aaa.accessible_checked().value(), true);
+assert_eq(checkbox.accessible_checked().value(), true);
 assert_eq(instance.get_toggled(), "a");
-assert_eq(aaa.accessible_enabled().value(), true);
+assert_eq(checkbox.accessible_enabled().value(), true);
 
 instance.set_enabled(false);
-assert_eq(aaa.accessible_enabled().value(), false);
+assert_eq(checkbox.accessible_enabled().value(), false);
 assert_eq(instance.get_toggled(), "a");
-aaa.invoke_accessible_default_action();
+checkbox.invoke_accessible_default_action();
 assert_eq(instance.get_toggled(), "a");
 ```
 
