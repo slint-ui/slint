@@ -9,6 +9,15 @@ pub struct StyledText {
     pub(crate) paragraphs: crate::SharedVector<i_slint_common::styled_text::StyledTextParagraph>,
 }
 
+impl StyledText {
+    pub fn parse_interpolated<S: AsRef<str>>(
+        format_string: &str,
+        args: &[S],
+    ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
+        Ok(i_slint_common::styled_text::StyledText::parse_interpolated(format_string, args)?.into())
+    }
+}
+
 impl From<i_slint_common::styled_text::StyledText> for StyledText {
     fn from(styled_text: i_slint_common::styled_text::StyledText) -> Self {
         Self { paragraphs: (&styled_text.paragraphs[..]).into() }
@@ -71,9 +80,7 @@ pub mod ffi {
 pub fn parse_markdown<S: AsRef<str>>(_format_string: &str, _args: &[S]) -> StyledText {
     #[cfg(feature = "std")]
     {
-        i_slint_common::styled_text::StyledText::parse_interpolated(_format_string, _args)
-            .unwrap()
-            .into()
+        StyledText::parse_interpolated(_format_string, _args).unwrap()
     }
     #[cfg(not(feature = "std"))]
     Default::default()

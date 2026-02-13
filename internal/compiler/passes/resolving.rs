@@ -775,6 +775,14 @@ impl Expression {
         });
         let values = subs.collect::<Vec<_>>();
 
+        // Validate the markdown format string with dummy values
+        if let Err(e) = i_slint_common::styled_text::StyledText::parse_interpolated(
+            &string,
+            &vec!["dummy value"; values.len()],
+        ) {
+            ctx.diag.push_error(e.to_string(), &node);
+        }
+
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
