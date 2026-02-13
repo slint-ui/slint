@@ -226,10 +226,10 @@ impl LayoutWithoutLineBreaksBuilder {
         &self,
         text: &str,
         selection: Option<(Range<usize>, Color)>,
-        formatting: impl IntoIterator<Item = crate::styled_text::FormattedSpan>,
+        formatting: impl IntoIterator<Item = i_slint_common::styled_text::FormattedSpan>,
         link_color: Option<Color>,
     ) -> parley::Layout<Brush> {
-        use crate::styled_text::Style;
+        use i_slint_common::styled_text::Style;
 
         CONTEXTS.with_borrow_mut(|contexts| {
             let mut builder = self.ranged_builder(contexts.as_mut(), text);
@@ -291,7 +291,7 @@ impl LayoutWithoutLineBreaksBuilder {
                     Style::Color(color) => {
                         builder.push(
                             parley::StyleProperty::Brush(Brush {
-                                override_fill_color: Some(color),
+                                override_fill_color: Some(crate::Color::from_argb_encoded(color)),
                                 stroke: self.stroke,
                                 link_color: None,
                             }),
@@ -315,7 +315,7 @@ fn create_text_paragraphs(
     let paragraph_from_text =
         |text: &str,
          range: std::ops::Range<usize>,
-         formatting: Vec<crate::styled_text::FormattedSpan>,
+         formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>| {
             let selection = selection.clone().and_then(|(selection, selection_color)| {
                 let sel_start = selection.start.max(range.start);

@@ -4876,6 +4876,9 @@ name = "i-slint-common"
 version = "1.16.0"
 dependencies = [
  "fontique",
+ "htmlparser",
+ "pulldown-cmark",
+ "thiserror 2.0.18",
  "ttf-parser 0.25.1",
 ]
 
@@ -4933,7 +4936,6 @@ dependencies = [
  "euclid",
  "fontique",
  "gettext-rs",
- "htmlparser",
  "i-slint-backend-testing",
  "i-slint-common",
  "i-slint-core-macros",
@@ -4948,7 +4950,6 @@ dependencies = [
  "pin-project",
  "pin-weak",
  "portable-atomic",
- "pulldown-cmark",
  "raw-window-handle",
  "resvg",
  "rgb",
@@ -4965,7 +4966,6 @@ dependencies = [
  "sys-locale",
  "taffy",
  "tempfile",
- "thiserror 2.0.18",
  "tiny-skia",
  "tokio",
  "tr",
