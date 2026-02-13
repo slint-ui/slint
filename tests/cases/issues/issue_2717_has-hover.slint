@@ -65,8 +65,7 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 assert!(!instance.get_has_hover1());
 assert!(instance.get_has_hover2());
 assert!(!instance.get_has_hover3());
-//FIXME: it currently takes two events for the mouse cursor to change when going from one MouseArea to another
-//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Alias);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Alias);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(330.0, 150.0) });
 assert!(!instance.get_has_hover1());
 assert!(instance.get_has_hover2());

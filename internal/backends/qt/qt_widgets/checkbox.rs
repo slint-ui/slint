@@ -1,10 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::{
-    input::{FocusEventResult, KeyEventType},
-    platform::PointerEventButton,
-};
+use i_slint_core::input::{FocusEventResult, KeyEventType};
+use i_slint_core::platform::PointerEventButton;
 
 use super::*;
 
@@ -70,6 +68,7 @@ impl Item for NativeCheckBox {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardEvent
@@ -80,6 +79,7 @@ impl Item for NativeCheckBox {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);

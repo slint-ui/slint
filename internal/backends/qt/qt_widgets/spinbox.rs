@@ -132,6 +132,7 @@ impl Item for NativeSpinBox {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -141,6 +142,7 @@ impl Item for NativeSpinBox {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();

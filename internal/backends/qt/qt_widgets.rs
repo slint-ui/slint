@@ -26,7 +26,9 @@ use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
-use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult, VoidArg};
+use i_slint_core::items::{
+    Item, ItemConsts, ItemRc, ItemVTable, MouseCursor, RenderingResult, VoidArg,
+};
 use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]

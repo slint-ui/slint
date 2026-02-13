@@ -579,26 +579,26 @@ impl WindowInner {
     pub fn process_mouse_input(&self, mut event: MouseEvent) {
         crate::animations::update_animations();
 
+        let Some(item_tree) = self.try_component() else { return };
+
         // handle multiple press release
         event = self.click_state.check_repeat(event, self.context().platform().click_interval());
 
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
+
+        let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
+
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::Default);
-                    }
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
                 }
                 MouseEvent::Moved { position, .. } => {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
-                    }
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
+                    mouse_input_state.cursor = MouseCursor::NoDrop;
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
@@ -616,8 +616,6 @@ impl WindowInner {
             mouse_input_state =
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
-
-        let Some(item_tree) = self.try_component() else { return };
 
         // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
         let mut root_adapter = None;
@@ -741,6 +739,12 @@ impl WindowInner {
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
             self.click_state.check_repeat(event, self.context().platform().click_interval());
+        }
+
+        if old_cursor != mouse_input_state.cursor
+            && let Some(window_adapter) = window_adapter.internal(crate::InternalToken)
+        {
+            window_adapter.set_mouse_cursor(mouse_input_state.cursor);
         }
 
         self.mouse_input_state.set(mouse_input_state);
