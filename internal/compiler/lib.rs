@@ -19,6 +19,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub mod builtin_macros;
+pub mod data_uri;
 pub mod diagnostics;
 pub mod embedded_resources;
 pub mod expression_tree;

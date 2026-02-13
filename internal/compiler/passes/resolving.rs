@@ -461,25 +461,30 @@ impl Expression {
             };
         }
 
-        let absolute_source_path = {
-            let path = std::path::Path::new(&s);
-            if crate::pathutils::is_absolute(path) {
-                s
-            } else {
-                ctx.type_loader
-                    .and_then(|loader| {
-                        loader.resolve_import_path(Some(&(*node).clone().into()), &s)
-                    })
-                    .map(|i| i.0.to_string_lossy().into())
-                    .unwrap_or_else(|| {
-                        crate::pathutils::join(
-                            &crate::pathutils::dirname(node.source_file.path()),
-                            path,
-                        )
-                        .map(|p| p.to_string_lossy().into())
-                        .unwrap_or(s.clone())
-                    })
-            }
+        let resource_ref = if s.starts_with("data:") {
+            ImageReference::AbsolutePath(s)
+        } else {
+            let absolute_source_path = {
+                let path = std::path::Path::new(&s);
+                if crate::pathutils::is_absolute(path) {
+                    s
+                } else {
+                    ctx.type_loader
+                        .and_then(|loader| {
+                            loader.resolve_import_path(Some(&(*node).clone().into()), &s)
+                        })
+                        .map(|i| i.0.to_string_lossy().into())
+                        .unwrap_or_else(|| {
+                            crate::pathutils::join(
+                                &crate::pathutils::dirname(node.source_file.path()),
+                                path,
+                            )
+                            .map(|p| p.to_string_lossy().into())
+                            .unwrap_or(s.clone())
+                        })
+                }
+            };
+            ImageReference::AbsolutePath(absolute_source_path)
         };
 
         let nine_slice = node
@@ -515,7 +520,7 @@ impl Expression {
         };
 
         Expression::ImageReference {
-            resource_ref: ImageReference::AbsolutePath(absolute_source_path),
+            resource_ref,
             source_location: Some(node.to_source_location()),
             nine_slice,
         }

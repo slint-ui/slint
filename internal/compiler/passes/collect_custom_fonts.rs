@@ -40,7 +40,8 @@ pub fn collect_custom_fonts<'a>(
                                 font_path.clone(),
                                 crate::embedded_resources::EmbeddedResources {
                                     id,
-                                    kind: crate::embedded_resources::EmbeddedResourcesKind::RawData,
+                                    kind:
+                                        crate::embedded_resources::EmbeddedResourcesKind::FileData,
                                 },
                             );
                             id

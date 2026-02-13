@@ -335,20 +335,35 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = std::path::Path::new(path);
-                    if path.starts_with("builtin:/") {
-                        i_slint_compiler::fileaccess::load_file(path)
-                            .and_then(|virtual_file| virtual_file.builtin_contents)
-                            .map(|virtual_file| {
-                                let extension = path.extension().unwrap().to_str().unwrap();
-                                corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(virtual_file),
-                                    corelib::slice::Slice::from_slice(extension.as_bytes()),
-                                )
-                            })
-                            .ok_or_else(Default::default)
+                    if path.starts_with("data:") {
+                        match i_slint_compiler::data_uri::decode_data_uri(path) {
+                            Ok((data, extension)) => {
+                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
+                                let ext_bytes: &'static [u8] =
+                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
+                                Ok(corelib::graphics::load_image_from_embedded_data(
+                                    corelib::slice::Slice::from_slice(data),
+                                    corelib::slice::Slice::from_slice(ext_bytes),
+                                ))
+                            }
+                            Err(_) => Err(Default::default()),
+                        }
                     } else {
-                        corelib::graphics::Image::load_from_path(path)
+                        let path = std::path::Path::new(path);
+                        if path.starts_with("builtin:/") {
+                            i_slint_compiler::fileaccess::load_file(path)
+                                .and_then(|virtual_file| virtual_file.builtin_contents)
+                                .map(|virtual_file| {
+                                    let extension = path.extension().unwrap().to_str().unwrap();
+                                    corelib::graphics::load_image_from_embedded_data(
+                                        corelib::slice::Slice::from_slice(virtual_file),
+                                        corelib::slice::Slice::from_slice(extension.as_bytes()),
+                                    )
+                                })
+                                .ok_or_else(Default::default)
+                        } else {
+                            corelib::graphics::Image::load_from_path(path)
+                        }
                     }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
