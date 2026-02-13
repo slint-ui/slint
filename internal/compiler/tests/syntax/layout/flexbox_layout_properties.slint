@@ -7,5 +7,11 @@ export component X inherits Rectangle {
         alignment: center;
 //      >       <error{Unknown property alignment in FlexBoxLayout}
 //                 >    <^error{Unknown unqualified identifier 'center'}
+        gap: 10px;
+//      > <error{Use spacing instead of gap}
+        row-gap: 5px;
+//      >     <error{Use spacing-vertical instead of row-gap}
+        column-gap: 8px;
+//      >        <error{Use spacing-horizontal instead of column-gap}
     }
 }
