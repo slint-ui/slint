@@ -70,6 +70,7 @@ impl Item for TouchArea {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        cursor: &mut MouseCursor,
     ) -> InputEventFilterResult {
         if !self.enabled() {
             self.has_hover.set(false);
@@ -95,9 +96,7 @@ impl Item for TouchArea {
         let hovering = !matches!(event, MouseEvent::Exit);
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
         if hovering {
-            if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                x.set_mouse_cursor(self.mouse_cursor());
-            }
+            *cursor = self.mouse_cursor();
         }
         InputEventFilterResult::ForwardAndInterceptGrab
     }
@@ -107,17 +106,14 @@ impl Item for TouchArea {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
-            if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                x.set_mouse_cursor(MouseCursor::Default);
-            }
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-
         match event {
             MouseEvent::Pressed { position, button, is_touch, .. } => {
                 self.grabbed.set(true);
@@ -310,6 +306,7 @@ impl Item for FocusScope {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -319,6 +316,7 @@ impl Item for FocusScope {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         if self.enabled()
             && self.focus_on_click()
@@ -490,6 +488,7 @@ impl Item for SwipeGestureHandler {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         if !self.enabled() {
             if self.pressed.get() {
@@ -548,6 +547,7 @@ impl Item for SwipeGestureHandler {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,

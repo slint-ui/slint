@@ -133,6 +133,7 @@ impl Item for NativeLineEdit {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -142,6 +143,7 @@ impl Item for NativeLineEdit {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

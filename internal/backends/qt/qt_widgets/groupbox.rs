@@ -164,6 +164,7 @@ impl Item for NativeGroupBox {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -173,6 +174,7 @@ impl Item for NativeGroupBox {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

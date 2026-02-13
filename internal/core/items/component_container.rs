@@ -185,6 +185,7 @@ impl Item for ComponentContainer {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut super::MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -194,6 +195,7 @@ impl Item for ComponentContainer {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut super::MouseCursor,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

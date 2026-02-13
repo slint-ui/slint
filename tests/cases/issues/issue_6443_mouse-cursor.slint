@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    HorizontalLayout {
+        Rectangle {
+            width: 50%;
+            background: ta.has-hover ? #ffff00 : #c0c000;
+            TextInput {
+                text: "Left";
+                ta := TouchArea {
+                    mouse-cursor: pointer;
+                }
+            }
+        }
+
+        TouchArea {
+            mouse-cursor: crosshair;
+            Rectangle {
+                background: parent.has-hover ? #00b000 : #009000;
+            }
+
+            TextInput {
+                height: 50%;
+                width: 50%;
+                text: "Right";
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
+use slint::private_unstable_api::re_exports::MouseCursor;
+let instance = TestCase::new().unwrap();
+// The cursor is not on the window
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+// On the left
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Pointer);
+// Press (grabs, pointer don't change)
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Pointer);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 250.0) });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Pointer);
+
+// Release on the right (pointer change)
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(250.0, 250.0), button: PointerEventButton::Left });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
+
+// go over the text input
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(210.0, 150.0) });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+
+// press on the text input with several buttons doesn't change the cursor
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(210.0, 150.0), button: PointerEventButton::Left });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(210.0, 150.0), button: PointerEventButton::Left });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(210.0, 150.0), button: PointerEventButton::Right });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(210.0, 150.0), button: PointerEventButton::Right });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(210.0, 150.0), delta_x: 10., delta_y: 0. });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+
+// move around change the cursor appropriately
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Pointer);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 250.0) });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(210.0, 150.0) });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text);
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(250.0, 250.0), delta_x: 10., delta_y: 0. });
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
+
+```
+*/

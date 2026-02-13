@@ -248,6 +248,7 @@ impl Item for NativeTabWidget {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -257,6 +258,7 @@ impl Item for NativeTabWidget {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -444,6 +446,7 @@ impl Item for NativeTab {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -453,6 +456,7 @@ impl Item for NativeTab {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {

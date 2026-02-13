@@ -7,9 +7,8 @@
 
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
-pub use crate::items::PointerEventButton;
-use crate::items::{DropEvent, ItemRef, TextCursorDirection};
-pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
+use crate::items::{DropEvent, ItemRef, MouseCursor, TextCursorDirection};
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -736,6 +735,7 @@ pub struct MouseInputState {
     pub(crate) drag_data: Option<DropEvent>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
+    pub(crate) cursor: MouseCursor,
 }
 
 impl MouseInputState {
@@ -778,7 +778,12 @@ pub(crate) fn handle_mouse_grab(
             return false;
         };
         if intercept {
-            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+            item.borrow().as_ref().input_event(
+                &MouseEvent::Exit,
+                window_adapter,
+                &item,
+                &mut mouse_input_state.cursor,
+            );
             return false;
         }
         let g = item.geometry();
@@ -800,6 +805,7 @@ pub(crate) fn handle_mouse_grab(
                 &event,
                 window_adapter,
                 &item,
+                &mut mouse_input_state.cursor,
             ) == InputEventFilterResult::Intercept
         {
             intercept = true;
@@ -811,7 +817,12 @@ pub(crate) fn handle_mouse_grab(
     }
 
     let grabber = mouse_input_state.top_item().unwrap();
-    let input_result = grabber.borrow().as_ref().input_event(&event, window_adapter, &grabber);
+    let input_result = grabber.borrow().as_ref().input_event(
+        &event,
+        window_adapter,
+        &grabber,
+        &mut mouse_input_state.cursor,
+    );
     match input_result {
         InputEventResult::GrabMouse => None,
         InputEventResult::StartDrag => {
@@ -841,9 +852,12 @@ pub(crate) fn send_exit_events(
     mut pos: Option<LogicalPoint>,
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
+    // Note that exit events can't actually change the cursor from default so we'll ignore the result
+    let cursor = &mut MouseCursor::Default;
+
     for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
         let Some(item) = it.upgrade() else { continue };
-        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
     }
 
     let mut clipped = false;
@@ -863,13 +877,18 @@ pub(crate) fn send_exit_events(
             if item.borrow().as_ref().clips_children() {
                 clipped = true;
             }
-            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
         } else if new_input_state.item_stack.get(idx).is_none_or(|(x, _)| *x != it.0) {
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
             } else {
-                item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+                item.borrow().as_ref().input_event(
+                    &MouseEvent::Exit,
+                    window_adapter,
+                    &item,
+                    cursor,
+                );
             }
         }
     }
@@ -884,8 +903,11 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    let mut result =
-        MouseInputState { drag_data: mouse_input_state.drag_data.clone(), ..Default::default() };
+    let mut result = MouseInputState {
+        drag_data: mouse_input_state.drag_data.clone(),
+        cursor: mouse_input_state.cursor,
+        ..Default::default()
+    };
     let r = send_mouse_event_to_item(
         mouse_event,
         root.clone(),
@@ -982,6 +1004,7 @@ fn send_mouse_event_to_item(
             &event_for_children,
             window_adapter,
             &item_rc,
+            &mut result.cursor,
         )
     } else {
         InputEventFilterResult::ForwardAndIgnore
@@ -1045,7 +1068,7 @@ fn send_mouse_event_to_item(
         if last_top_item.is_none_or(|x| *x != item_rc) {
             event.set_click_count(0);
         }
-        item.as_ref().input_event(&event, window_adapter, &item_rc)
+        item.as_ref().input_event(&event, window_adapter, &item_rc, &mut result.cursor)
     };
     match r {
         InputEventResult::EventAccepted => VisitChildrenResult::abort(item_rc.index(), 0),
