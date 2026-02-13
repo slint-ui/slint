@@ -147,4 +147,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy . --project-name=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true' && 'materialui' || 'material-staging' }} --branch=${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true') || github.ref == 'refs/heads/master' && 'production' || github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          packageManager: pnpm
           workingDirectory: ui-libraries/material/docs/dist
