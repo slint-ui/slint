@@ -91,31 +91,6 @@ jobs:
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Set deploy target
-        id: deploy_target
-        run: |
-          if [ "${IS_PRODUCTION_DEPLOY}" = "true" ]; then
-            echo "project_name=materialui" >> $GITHUB_OUTPUT
-            echo "site_url=https://material.slint.dev" >> $GITHUB_OUTPUT
-            echo "deploy_mode=production" >> $GITHUB_OUTPUT
-          elif [ "${IS_PREVIEW_DEPLOY}" = "true" ]; then
-            echo "project_name=material-staging" >> $GITHUB_OUTPUT
-            echo "site_url=https://material-staging.slint.dev" >> $GITHUB_OUTPUT
-            echo "deploy_mode=preview" >> $GITHUB_OUTPUT
-            if [ -n "${PREVIEW_BRANCH}" ]; then
-              echo "preview_branch=${PREVIEW_BRANCH}" >> $GITHUB_OUTPUT
-            else
-              echo "preview_branch=preview" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "project_name=material-staging" >> $GITHUB_OUTPUT
-            echo "site_url=https://material-staging.slint.dev" >> $GITHUB_OUTPUT
-            echo "deploy_mode=staging" >> $GITHUB_OUTPUT
-          fi
-      - name: Set site URL for deploy target
-        working-directory: ui-libraries/material
-        run: |
-          sed -i "s|^  site: .*|  site: '${{ steps.deploy_target.outputs.site_url }}'|" docs/src/config.yaml
       - name: Build
         run: pnpm build
       - uses: actions/download-artifact@v7
