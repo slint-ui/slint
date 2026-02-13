@@ -625,17 +625,21 @@ jobs:
                   path: tools/figma-inspector/zip
 
     material-components:
-        needs: files-changed
-        if: needs.files-changed.outputs.material_components == 'true'
-        permissions:
-            contents: read
-            deployments: write
-        uses: ./.github/workflows/material.yaml
-        secrets:
-            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      needs: files-changed
+      if: needs.files-changed.outputs.material_components == 'true'
+      permissions:
+        contents: read
+        deployments: write
+      uses: ./.github/workflows/material.yaml
+      with:
+        deploy_preview: ${{ github.event_name == 'pull_request' }}
+        deploy_staging: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        preview_branch: ${{ github.head_ref }}
+      secrets:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
     servo_example:
         needs: files-changed
