@@ -179,7 +179,7 @@ mod date_picker {
 
     // returns true if the given date is valid.
     fn valid_date(date: &str, format: &str) -> bool {
-        return parse_date(date, format).is_some();
+        parse_date(date, format).is_some()
     }
 
     // returns the current date as list of day, month and year.

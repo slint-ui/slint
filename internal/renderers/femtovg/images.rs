@@ -331,7 +331,7 @@ pub fn base_image_flags(
     scaling: ImageRendering,
     tiling: (ImageTiling, ImageTiling),
 ) -> femtovg::ImageFlags {
-    let image_flags = match scaling {
+    (match scaling {
         ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
         ImageRendering::Smooth | _ => femtovg::ImageFlags::empty(),
     } | match tiling.0 {
@@ -340,6 +340,5 @@ pub fn base_image_flags(
     } | match tiling.1 {
         ImageTiling::Repeat | ImageTiling::Round => femtovg::ImageFlags::REPEAT_Y,
         ImageTiling::None | _ => femtovg::ImageFlags::empty(),
-    };
-    image_flags
+    })
 }
