@@ -1,260 +1,169 @@
-use std::{
-    cell::RefCell,
-    net::{Ipv6Addr, SocketAddr, SocketAddrV6},
-    str::FromStr,
-    sync::Arc,
-    thread::JoinHandle,
+use std::{sync::Arc, thread::JoinHandle};
+
+use futures_util::{
+    SinkExt as _,
+    lock::Mutex,
+    stream::{SplitSink, SplitStream, StreamExt as _},
 };
+use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
-use futures_util::{SinkExt, stream::StreamExt};
-use tokio::sync;
-use tokio_tungstenite::tungstenite::Message;
-
-use crate::common::{self, watcher::Watcher};
-
-#[derive(Default)]
-enum ServeTask {
-    #[default]
-    Stopped,
-    Waiting {
-        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
-        lsp_to_preview_channel: sync::broadcast::Receiver<common::LspToPreviewMessage>,
-    },
-    Running {
-        join_handle: JoinHandle<()>,
-        notify_stop: Arc<sync::Notify>,
-    },
+struct RemoteLspConnection {
+    sender: SplitSink<WebSocketStream, Message>,
+    task: slint::JoinHandle<()>,
 }
 
 pub struct RemoteLspToPreview {
-    to_show: Arc<Watcher<common::PreviewComponent>>,
-    sender: sync::broadcast::Sender<common::LspToPreviewMessage>,
-    serve_task: RefCell<ServeTask>,
+    #[cfg(not(target_arch = "wasm32"))]
+    browse_task: Option<JoinHandle<()>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    mdns: Option<mdns_sd::ServiceDaemon>,
+    preview_to_lsp_channel: crossbeam_channel::Sender<lsp_protocol::PreviewToLspMessage>,
+    connection: Arc<Mutex<Option<RemoteLspConnection>>>,
 }
 
 impl RemoteLspToPreview {
     pub fn new(
-        to_show: Arc<Watcher<common::PreviewComponent>>,
-        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
-        _server_notifier: crate::ServerNotifier,
+        preview_to_lsp_channel: crossbeam_channel::Sender<lsp_protocol::PreviewToLspMessage>,
+        server_notifier: crate::ServerNotifier,
     ) -> Self {
-        let (sender, lsp_to_preview_channel) = sync::broadcast::channel(128);
+        #[cfg(not(target_arch = "wasm32"))]
+        let mdns = mdns_sd::ServiceDaemon::new()
+            .inspect_err(|err| tracing::error!("Failed creating MDNS service daemon: {err}"))
+            .ok();
+
         Self {
-            to_show,
-            sender,
-            serve_task: RefCell::new(ServeTask::Waiting {
-                preview_to_lsp_channel,
-                lsp_to_preview_channel,
-            }),
+            #[cfg(not(target_arch = "wasm32"))]
+            browse_task: mdns.as_ref().and_then(|mdns| Self::browse_task(mdns, server_notifier)),
+            #[cfg(not(target_arch = "wasm32"))]
+            mdns,
+            preview_to_lsp_channel,
+            connection: Arc::default(),
         }
     }
 
-    fn ensure_task(&self) {
-        match self.serve_task.take() {
-            ServeTask::Waiting { preview_to_lsp_channel, lsp_to_preview_channel } => {
-                let notify_stop = Arc::new(sync::Notify::new());
-                let inner_notify_stop = notify_stop.clone();
-                let to_show = self.to_show.clone();
+    #[cfg(not(target_arch = "wasm32"))]
+    fn browse_task(
+        mdns: &mdns_sd::ServiceDaemon,
+        server_notifier: crate::ServerNotifier,
+    ) -> Option<JoinHandle<()>> {
+        let receiver = mdns
+            .browse(lsp_protocol::SERVICE_TYPE)
+            .inspect_err(|err| tracing::error!("Failed to start mDNS browsing: {err}"))
+            .ok()?;
 
-                self.serve_task.replace(ServeTask::Running {
-                    join_handle: std::thread::spawn(move || {
-                        if let Err(err) = Self::serve(
-                            to_show,
-                            preview_to_lsp_channel,
-                            lsp_to_preview_channel,
-                            inner_notify_stop,
-                        ) {
-                            eprintln!("WebSocket thread failed: {err}");
-                        }
-                    }),
-                    notify_stop,
-                });
-            }
-            other => {
-                self.serve_task.replace(other);
-            }
-        }
-    }
-
-    fn serve(
-        to_show: Arc<Watcher<common::PreviewComponent>>,
-        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
-        lsp_to_preview_channel: sync::broadcast::Receiver<common::LspToPreviewMessage>,
-        notify_stop: Arc<sync::Notify>,
-    ) -> common::Result<()> {
-        let address: Option<String> = None;
-        let announce = true;
-
-        tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
-            eprintln!("Hello world");
-            let listen_address = address
-                .as_deref()
-                .map(SocketAddr::from_str)
-                .unwrap_or(
-                    const { Ok(SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))) },
-                )
-                .map_err(Box::new)?;
-            let listener = tokio::net::TcpListener::bind(listen_address).await.map_err(Box::new)?;
-            let local_addr = listener.local_addr().map_err(Box::new)?;
-            eprintln!("Listening on {}", local_addr);
-
-            let mdns = if announce {
-                #[cfg(target_vendor = "apple")]
-                {
-                    use zeroconf_tokio::{MdnsService, MdnsServiceAsync, ServiceType, prelude::*};
-
-                    let mut service = MdnsService::new(
-                        ServiceType::new("slint-preview", "tcp").map_err(Box::new)?,
-                        local_addr.port(),
-                    );
-                    service.set_name("lsp");
-                    let mut service = MdnsServiceAsync::new(service)?;
-                    service.start().await.map_err(Box::new)?;
-
-                    Some(service)
-                }
-                #[cfg(not(target_vendor = "apple"))]
-                {
-                    let mdns = mdns_sd::ServiceDaemon::new().map_err(Box::new)?;
-
-                    let service = mdns_sd::ServiceInfo::new(
-                        "_slint-preview._tcp.local.",
-                        "lsp",
-                        &format!(
-                            "slint.{}.",
-                            hostname::get().map_err(Box::new)?.to_str().unwrap_or_default()
-                        ),
-                        local_addr.ip(),
-                        local_addr.port(),
-                        None,
-                    )
-                    .map_err(Box::new)?
-                    .enable_addr_auto();
-
-                    mdns.register(service).map_err(Box::new)?;
-
-                    Some(mdns)
-                }
-            } else {
-                None
-            };
-
-            loop {
-                tokio::select! {
-                    conn = listener.accept() => {
-                        match conn {
-                            Ok((stream, addr)) => {
-                                eprintln!("New connection from {addr}");
-                                tokio::spawn(Self::handle_client(
-                                    to_show.clone(),
-                                    addr,
-                                    stream,
-                                    preview_to_lsp_channel.clone(),
-                                    lsp_to_preview_channel.resubscribe(),
-                                ));
-                            }
-                            Err(err) => {
-                                return Err(Box::new(err) as Box<dyn std::error::Error>);
-                            }
+        let server_notifier = server_notifier.clone();
+        Some(std::thread::spawn(move || {
+            while let Ok(event) = receiver.recv() {
+                match event {
+                    mdns_sd::ServiceEvent::SearchStarted(_) => {
+                        tracing::debug!("mDNS browsing started");
+                    }
+                    mdns_sd::ServiceEvent::ServiceFound(_, fullname) => {
+                        tracing::debug!("mDNS service found: {fullname}");
+                    }
+                    mdns_sd::ServiceEvent::ServiceResolved(resolved_service) => {
+                        tracing::debug!("mDNS service resolved: {resolved_service:?}");
+                        if let Err(err) = server_notifier
+                            .send_notification::<RemoteViewerDiscoveredMessage>(
+                                RemoteViewerDiscoveredMessage {
+                                    host: resolved_service.host,
+                                    port: resolved_service.port,
+                                    addresses: resolved_service
+                                        .addresses
+                                        .into_iter()
+                                        .map(|addr| addr.to_string())
+                                        .collect(),
+                                },
+                            )
+                        {
+                            tracing::error!(
+                                "Failed sending remote viewer discovered notification: {err}"
+                            );
                         }
                     }
-                    _ = notify_stop.notified() => {
-                        #[cfg(target_vendor = "apple")]
-                        if let Some(mut mdns) = mdns {
-                            mdns.shutdown().await.map_err(Box::new)?;
-                        }
-                        #[cfg(not(target_vendor = "apple"))]
-                        if let Some(mdns) = mdns {
-                            mdns.shutdown().map_err(Box::new)?;
-                        }
-                        return Ok(());
+                    mdns_sd::ServiceEvent::ServiceRemoved(_, fullname) => {
+                        tracing::debug!("mDNS service removed: {fullname}");
+                    }
+                    mdns_sd::ServiceEvent::SearchStopped(_) => {
+                        tracing::debug!("mDNS browsing stopped");
+                    }
+                    _ => {
+                        tracing::warn!("Received unexpected mDNS event: {event:?}");
                     }
                 }
             }
-        })
+        }))
     }
 
-    async fn handle_client(
-        to_show: Arc<Watcher<common::PreviewComponent>>,
-        addr: SocketAddr,
-        stream: tokio::net::TcpStream,
-        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
-        mut lsp_to_preview_channel: sync::broadcast::Receiver<common::LspToPreviewMessage>,
+    pub async fn connect(&self, host: String, port: u16) -> crate::common::Result<()> {
+        tracing::info!("Attempting to connect to remote preview server at {host}:{port}");
+        // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
+        let stream = tokio_tungstenite_wasm::connect(format!("ws://{host}:{port}")).await?;
+        tracing::info!("Connected to remote preview server at {host}:{port}");
+
+        let (socket_sender, socket_receiver) = stream.split();
+
+        let Some(old) = self.connection.lock().await.replace(RemoteLspConnection {
+            sender: socket_sender,
+            task: slint::spawn_local(Self::receive_task(
+                socket_receiver,
+                self.preview_to_lsp_channel.clone(),
+            ))?,
+        }) else {
+            return Ok(());
+        };
+
+        tracing::info!("Closing previous connection to remote preview server");
+        old.task.abort();
+
+        Ok(())
+    }
+
+    async fn receive_task(
+        mut socket_receiver: SplitStream<WebSocketStream>,
+        preview_to_lsp_channel: crossbeam_channel::Sender<lsp_protocol::PreviewToLspMessage>,
     ) {
-        let ws_stream = tokio_tungstenite::accept_async(stream)
-            .await
-            .expect("Error during the websocket handshake occurred");
-        eprintln!("WebSocket connection established: {addr}");
-        let (mut write, mut read) = ws_stream.split();
-
-        // Initial setup: send the component to preview
-        {
-            if let Some(to_show) = to_show.get()
-                && let Err(e) = write
-                    .send(Message::binary(
-                        postcard::to_allocvec(&common::LspToPreviewMessage::ShowPreview(
-                            lsp_protocol::PreviewComponent::clone(&to_show),
-                        ))
-                        .unwrap(),
-                    ))
-                    .await
-            {
-                eprintln!("DISCONNECTING: Failed sending message to {addr}: {e}");
-                return;
-            }
-        }
-
-        loop {
-            tokio::select! {
-                message = read.next() => {
-                    match message {
-                        None => break,
-                        Some(Ok(msg)) => {
-                            if let tokio_tungstenite::tungstenite::Message::Binary(bytes) = msg {
-                                match postcard::from_bytes(&bytes) {
-                                    Ok(msg) => {
-                                        if let Err(e) = preview_to_lsp_channel.send(msg) {
-                                            eprintln!("Error receiving message from {addr}: {e}");
-                                        }
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed decoding message from {addr}: {e}");
+        // TODO: implement a timer to send a ping every once in a while, and close the connection if we don't receive a pong in time
+        while let Some(msg) = socket_receiver.next().await {
+            match msg {
+                Ok(msg) => {
+                    tracing::debug!("Received WebSocket message: {msg:?}");
+                    match msg {
+                        Message::Text(utf8_bytes) => {
+                            tracing::warn!(
+                                "Received unexpected text message from remote preview server: {utf8_bytes}"
+                            );
+                        }
+                        Message::Binary(bytes) => {
+                            match postcard::from_bytes::<lsp_protocol::PreviewToLspMessage>(&bytes)
+                            {
+                                Ok(msg) => {
+                                    if let Err(e) = preview_to_lsp_channel.send(msg) {
+                                        tracing::error!(
+                                            "Error sending message from remote preview server to LSP server: {e}"
+                                        );
                                     }
                                 }
-                            } else {
-                                eprintln!("Received non-binary message from {addr}: {msg:?}");
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed decoding message from remote preview server: {e}"
+                                    );
+                                }
                             }
                         }
-                        Some(Err(e)) => {
-                            eprintln!("Error receiving message from {addr}: {e}");
-                            break;
+                        Message::Close(_) => {
+                            tracing::info!("WebSocket connection closed by remote server");
+                            return;
                         }
                     }
                 }
-                to_show = to_show.listener() => {
-                    if let Some(to_show) = to_show && let Err(e) = write
-                        .send(Message::binary(
-                            postcard::to_allocvec(&common::LspToPreviewMessage::ShowPreview(
-                                lsp_protocol::PreviewComponent::clone(&to_show),
-                            ))
-                            .unwrap(),
-                        ))
-                        .await
-                    {
-                        eprintln!("Error sending message to {addr}: {e}");
-                    }
+                Err(tokio_tungstenite_wasm::Error::ConnectionClosed)
+                | Err(tokio_tungstenite_wasm::Error::AlreadyClosed) => {
+                    tracing::info!("WebSocket connection closed by remote server");
+                    return;
                 }
-                message = lsp_to_preview_channel.recv() => {
-                    match message {
-                        Ok(msg) => {
-                            if let Err(err) = write.send(tokio_tungstenite::tungstenite::Message::binary(
-                                postcard::to_allocvec(&msg).unwrap(),
-                            )).await {
-                                eprintln!("Error sending message to {addr}: {err}");
-                            }
-                        }
-                        Err(_) => break,
-                    }
+                Err(err) => {
+                    tracing::error!("WebSocket error: {err}");
                 }
             }
         }
@@ -263,41 +172,64 @@ impl RemoteLspToPreview {
 
 impl Drop for RemoteLspToPreview {
     fn drop(&mut self) {
-        if let ServeTask::Running { join_handle, notify_stop } = self.serve_task.take() {
-            notify_stop.notify_waiters();
-            let _ = join_handle.join();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if let Some(mdns) = self.mdns.take() {
+                let _ = mdns.shutdown().inspect_err(|err| {
+                    tracing::error!("Failed shutting down mDNS service daemon: {err}");
+                });
+            }
+            if let Some(join_handle) = self.browse_task.take()
+                && let Err(err) = join_handle.join()
+            {
+                tracing::error!("Failed joining mDNS thread: {err:?}");
+            }
+        }
+        if let Some(connection) = self.connection.try_lock().unwrap().take() {
+            tracing::info!("Closing connection to remote preview server");
+            connection.task.abort();
         }
     }
 }
 
-impl common::LspToPreview for RemoteLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) {
-        self.ensure_task();
-        eprintln!("Sending websocket message {message:?}");
-        if let Err(err) = self.sender.send(message.clone()) {
-            eprintln!("Failed sending message to WebSocket thread: {err}");
-        }
+impl crate::common::LspToPreview for RemoteLspToPreview {
+    fn send(&self, message: &lsp_protocol::LspToPreviewMessage) {
+        tracing::debug!("Sending websocket message {message:?}");
+        let connection = Arc::downgrade(&self.connection);
+        let message = postcard::to_allocvec(message).unwrap();
+        let _ = slint::spawn_local(async move {
+            let Some(connection) = connection.upgrade() else {
+                tracing::warn!("Not connected to remote preview server, dropping message");
+                return;
+            };
+            let mut connection = connection.lock().await;
+            let Some(connection) = connection.as_mut() else {
+                tracing::warn!("Not connected to remote preview server, dropping message");
+                return;
+            };
+            if let Err(err) = connection.sender.send(Message::binary(message)).await {
+                tracing::error!("Error sending message to remote preview server: {err}");
+            }
+        });
     }
 
-    fn set_preview_target(&self, _target: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
+    fn preview_target(&self) -> lsp_protocol::PreviewTarget {
+        lsp_protocol::PreviewTarget::Remote
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::Remote
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
-// pub struct WebSocketControlledPreviewToLsp {}
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct RemoteViewerDiscoveredMessage {
+    pub host: String,
+    pub port: u16,
+    pub addresses: Vec<String>,
+}
 
-// impl Default for WebSocketControlledPreviewToLsp {
-//     fn default() -> Self {
-//         Self {}
-//     }
-// }
-
-// impl common::PreviewToLsp for WebSocketControlledPreviewToLsp {
-//     fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
-//         todo!()
-//     }
-// }
+impl lsp_types::notification::Notification for RemoteViewerDiscoveredMessage {
+    type Params = Self;
+    const METHOD: &'static str = "slint/remote_viewer_discovered";
+}

@@ -179,6 +179,9 @@ impl Connection {
                                         offset,
                                     });
                                 }
+                                lsp_protocol::LspToPreviewMessage::Quit => {
+                                    break;
+                                }
                             }
                         }
                         Err(err) => {
@@ -246,7 +249,7 @@ impl Connection {
     pub fn service(&self) -> anyhow::Result<ServiceInfo> {
         let local_addr = self.local_addr();
         ServiceInfo::new(
-            crate::SERVICE_TYPE,
+            lsp_protocol::SERVICE_TYPE,
             "viewer",
             hostname::get()?.to_str().unwrap(),
             local_addr.ip(),
