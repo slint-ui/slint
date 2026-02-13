@@ -12,27 +12,7 @@ on:
         default: false
         required: false
   workflow_call:
-    inputs:
-      deploy_preview:
-        type: boolean
-        required: false
-        default: false
-        description: "Deploy preview for pull requests to material-staging"
-      deploy_staging:
-        type: boolean
-        required: false
-        default: false
-        description: "Deploy merged master to material-staging"
-      deploy_production:
-        type: boolean
-        required: false
-        default: false
-        description: "Deploy production to material.slint.dev"
-      preview_branch:
-        type: string
-        required: false
-        default: ""
-        description: "Preview branch name for Pages preview deployment"
+
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -83,17 +63,13 @@ jobs:
             run: cargo test -p material-gallery
 
   deploy:
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true') || (github.event_name == 'workflow_call' && (inputs.deploy_preview || inputs.deploy_staging || inputs.deploy_production)) }}
     runs-on: ubuntu-latest
     needs: [material_wasm_demo, material_apk_demo]
     permissions:
       contents: read
       deployments: write
     name: Deploy to Cloudflare Pages
-    env:
-      IS_PREVIEW_DEPLOY: ${{ github.event.inputs.deploy_production == 'false' branc }}
-      IS_PRODUCTION_DEPLOY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true' }}
-      PREVIEW_BRANCH: ${{ inputs.preview_branch }}
+
     defaults:
       run:
         working-directory: ui-libraries/material/docs
@@ -169,6 +145,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: ${{ steps.deploy_target.outputs.deploy_mode == 'preview' && format('pages deploy docs/dist --project-name={0} --branch={1}', steps.deploy_target.outputs.project_name, steps.deploy_target.outputs.preview_branch) || format('pages deploy docs/dist --project-name={0}', steps.deploy_target.outputs.project_name) }}
+          command: pages deploy . --project-name=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true' && 'materialui' || 'material-staging' }} --branch=${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true') || github.ref == 'refs/heads/master' && 'production' || github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          workingDirectory: ui-libraries/material
+          workingDirectory: ui-libraries/material/docs/dist

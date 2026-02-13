@@ -631,10 +631,6 @@ jobs:
         contents: read
         deployments: write
       uses: ./.github/workflows/material.yaml
-      with:
-        deploy_preview: ${{ github.event_name == 'pull_request' }}
-        deploy_staging: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        preview_branch: ${{ github.head_ref }}
       secrets:
         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
