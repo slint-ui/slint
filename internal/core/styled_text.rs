@@ -93,6 +93,12 @@ pub enum StyledTextError<'a> {
     /// Argument index out of range
     #[error("Argument index {} out of range: {} arguments provided", .0, .1)]
     ArgumentOutOfRange(usize, usize),
+    /// Format string placeholders count mismatch
+    #[error("Format string contains {} placeholders, but {} arguments were provided", .0, .1)]
+    PlaceholderCountMismatch(usize, usize),
+    /// Mixed placeholder types
+    #[error("Cannot mix positional and non-positional placeholder in format string")]
+    MixedPlaceholders,
 }
 
 /// Styled text that has been parsed and seperated into paragraphs
@@ -120,6 +126,7 @@ impl StyledText {
         let mut style_stack = alloc::vec::Vec::new();
         let mut current_url = None;
         let mut implicit_arg_index = 0;
+        let mut positioned_arg_index_max = 0;
 
         let begin_paragraph = |paragraphs: &mut alloc::vec::Vec<StyledTextParagraph>,
                                indentation: u32,
@@ -188,7 +195,10 @@ impl StyledText {
                         implicit_arg_index += 1;
                         arg_index
                     } else if let Ok(n) = inner_arg_string.parse::<u16>() {
-                        n as usize
+                        let positioned_arg_index = n as usize;
+                        positioned_arg_index_max =
+                            positioned_arg_index_max.max(positioned_arg_index + 1);
+                        positioned_arg_index
                     } else {
                         return Err(StyledTextError::InvalidPlaceholder);
                     };
@@ -436,6 +446,19 @@ impl StyledText {
                     return Err(StyledTextError::UnimplementedEvent(event.into_static()));
                 }
             }
+        }
+
+        if implicit_arg_index > 0 && positioned_arg_index_max > 0 {
+            return Err(StyledTextError::MixedPlaceholders);
+        }
+
+        if (positioned_arg_index_max == 0 && implicit_arg_index != args.len())
+            || positioned_arg_index_max > args.len()
+        {
+            return Err(StyledTextError::PlaceholderCountMismatch(
+                implicit_arg_index.max(positioned_arg_index_max),
+                args.len(),
+            ));
         }
 
         if !style_stack.is_empty() {
