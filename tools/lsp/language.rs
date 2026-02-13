@@ -13,16 +13,17 @@ mod signature_help;
 pub mod test;
 
 use crate::common::uri_to_file;
+use crate::preview::connector::SwitchableLspToPreview;
 use crate::{common, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use itertools::Itertools;
+#[cfg(target_arch = "wasm32")]
+use lsp_protocol::wasm_prelude::*;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
@@ -47,6 +48,7 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
+pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
@@ -95,7 +97,7 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
 
         ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
             url: common::VersionedUrl::new(url, version),
-            contents: node.text().to_string(),
+            contents: node.text().to_string().into(),
         });
     }
 
@@ -152,7 +154,7 @@ pub struct Context {
     pub to_show: RefCell<Option<common::PreviewComponent>>,
     /// File currently open in the editor
     pub open_urls: RefCell<HashSet<lsp_types::Url>>,
-    pub to_preview: Rc<dyn common::LspToPreview>,
+    pub to_preview: Rc<SwitchableLspToPreview>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: RefCell<HashSet<lsp_types::Url>>,
@@ -592,6 +594,39 @@ pub fn show_preview_command(
     Ok(())
 }
 
+#[cfg(feature = "preview-remote")]
+pub async fn connect_remote_preview_command(
+    params: &[serde_json::Value],
+    ctx: &Rc<Context>,
+) -> Result<(), LspError> {
+    let _ = ctx.to_preview.set_preview_target(common::PreviewTarget::Remote);
+
+    let host = params.first().and_then(serde_json::Value::as_str).ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "Host parameter is missing or not a string".into(),
+    })?;
+    let port = params.get(1).and_then(serde_json::Value::as_u64).ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "Port parameter is missing or not a number".into(),
+    })?;
+
+    ctx.to_preview
+        .with_preview_target_async::<crate::preview::connector::remote::RemoteLspToPreview, Result<(), LspError>>(
+            async |remote| {
+                remote.connect(host.to_owned(), port as u16).await.map_err(|err| {
+                    LspError {
+                        code: LspErrorCode::RequestFailed,
+                        message: format!("Failed to connect to remote preview: {err}"),
+                    }
+                })?;
+                Ok(())
+            },
+        )
+        .await.unwrap()?;
+
+    show_preview_command(&params[2..], ctx)
+}
+
 fn populate_command_range(
     node: &SyntaxNode,
     format: common::ByteFormat,
@@ -757,7 +792,7 @@ pub(crate) async fn load_document_impl(
             if let Some(ctx) = ctx {
                 ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
                     url: common::VersionedUrl::new(url.clone(), version),
-                    contents: content.clone(),
+                    contents: content.as_bytes().to_owned(),
                 });
             }
             let dependencies = document_cache.invalidate_url(&url);

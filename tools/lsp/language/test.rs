@@ -32,7 +32,17 @@ pub fn mock_context() -> Context {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: RefCell::new(None),
         open_urls: RefCell::new(HashSet::new()),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        to_preview: Rc::new(
+            crate::preview::connector::SwitchableLspToPreview::new(
+                std::iter::once((
+                    common::PreviewTarget::Dummy,
+                    Box::new(common::DummyLspToPreview {}) as Box<dyn common::LspToPreview>,
+                ))
+                .collect(),
+                common::PreviewTarget::Dummy,
+            )
+            .unwrap(),
+        ),
         pending_recompile: Default::default(),
     }
 }
@@ -182,7 +192,11 @@ fn accurate_diagnostics_in_dependencies() {
     assert!(diag[&foo_url][0].message.contains("hello"));
     assert_eq!(diag.len(), 1);
 
-    let ctx = Some(Rc::new(Context {
+    let ctx = Some(std::rc::Rc::new(crate::language::Context {
+        document_cache: empty_document_cache().into(),
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
         open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
         ..mock_context()
     }));
@@ -303,14 +317,7 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Create context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    let ctx = Rc::new(Context {
-        document_cache: cache.into(),
-        to_show: RefCell::new(Some(common::PreviewComponent {
-            url: main_url.clone(),
-            component: None,
-        })),
-        ..mock_context()
-    });
+    let ctx = Rc::new(Context { document_cache: cache.into(), ..mock_context() });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &ctx,

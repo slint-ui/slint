@@ -21,3 +21,7 @@ import * as vscode from "vscode";
 export function showPreview(url: LspURI, component: string): Thenable<unknown> {
     return vscode.commands.executeCommand("slint/showPreview", url, component);
 }
+
+export function showRemotePreview(url: LspURI, component: string): Thenable<unknown> {
+    return vscode.commands.executeCommand("slint/showRemotePreview", url, component);
+}
