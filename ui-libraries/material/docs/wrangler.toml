@@ -5,6 +5,7 @@
 # materialui (production) uses Pages and is deployed via "pages deploy".
 name = "material-staging"
 compatibility_date = "2025-02-13"
+preview_urls = true
 
 [assets]
 directory = "./dist"

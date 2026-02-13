@@ -136,7 +136,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
-          command: deploy
+          command: deploy --branch=${{ github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           packageManager: pnpm
           workingDirectory: ui-libraries/material/docs
