@@ -11,6 +11,10 @@ on:
           required: true
         CLOUDFLARE_ACCOUNT_ID:
           required: true
+        CLOUDFLARE_API_TOKEN_2:
+          required: true
+        CLOUDFLARE_ACCOUNT_ID_2:
+          required: true
         ANDROID_KEYSTORE_PASSWORD:
           required: true
         ANDROID_KEYSTORE_BASE64:
