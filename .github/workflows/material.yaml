@@ -16,7 +16,11 @@ on:
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
+      CLOUDFLARE_API_TOKEN_2:
+        required: true
       CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID_2:
         required: true
       ANDROID_KEYSTORE_PASSWORD:
         required: true
@@ -130,8 +134,8 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
           command: deploy
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           packageManager: pnpm
