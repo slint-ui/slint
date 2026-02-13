@@ -167,7 +167,7 @@ export component NavigationDrawer inherits Drawer {
         }
     }
 
-    function select(group_index: int, item_index: int) {
+    public function select(group_index: int, item_index: int) {
         if group_index < 0 || group_index >= root.groups.length || item_index < 0 || item_index >= root.groups[group_index].items.length {
             return;
         }
@@ -180,6 +180,7 @@ export component NavigationDrawer inherits Drawer {
 
 export component ModalNavigationDrawer inherits ModalDrawer {
     callback selected(group-index: int, item-index: int);
+    callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
     in_out property <int> current_index;
@@ -208,9 +209,12 @@ export component ModalNavigationDrawer inherits ModalDrawer {
         select(index) => {
             root.select(group_index, index);
         }
+        item_pointer_event(index, event, position) => {
+            root.item_pointer_event(group_index, index, event, { x: self.x + position.x, y: self.y + position.y });
+        }
     }
 
-    function select(group_index: int, item_index: int) {
+    public function select(group_index: int, item_index: int) {
         if group_index < 0 || group_index >= root.groups.length || item_index < 0 || item_index >= root.groups[group_index].items.length {
             return;
         }
