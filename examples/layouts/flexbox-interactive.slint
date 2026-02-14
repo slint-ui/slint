@@ -25,6 +25,7 @@ export component MainWindow inherits Window {
 
     property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
+    property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
 
     VerticalLayout {
         padding: 20phx;
@@ -41,6 +42,16 @@ export component MainWindow inherits Window {
                 model: direction_options;
                 current-index: 0;
             }
+
+            Text {
+                text: "Alignment:";
+                vertical-alignment: center;
+            }
+
+            alignment_combo := ComboBox {
+                model: alignment_options;
+                current-index: 0;
+            }
         }
 
         flex_container := Rectangle {
@@ -50,6 +61,7 @@ export component MainWindow inherits Window {
 
             FlexBoxLayout {
                 flex-direction: direction_combo.current-index == 0 ? row : direction_combo.current-index == 1 ? row-reverse : direction_combo.current-index == 2 ? column : column-reverse;
+                alignment: alignment_combo.current-index == 0 ? start : alignment_combo.current-index == 1 ? end : alignment_combo.current-index == 2 ? center : alignment_combo.current-index == 3 ? space-between : alignment_combo.current-index == 4 ? space-around : space-evenly;
                 padding: 10phx;
                 spacing: 10phx;
 
