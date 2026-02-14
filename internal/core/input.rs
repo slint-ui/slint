@@ -1013,7 +1013,7 @@ fn deliver_pinch_to_item(
     // Apply inverse child transform (rotation, scaling) if the renderer supports it
     if window_adapter.renderer().supports_transformations() {
         if let Some(inverse_transform) = item_rc.inverse_children_transform() {
-            local_pos = inverse_transform.transform_point(local_pos);
+            local_pos = inverse_transform.transform_point(local_pos.cast()).cast();
         }
     }
 
