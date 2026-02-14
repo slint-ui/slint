@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Board-specific overlay for FRDM-MCXN947 with LCD-PAR-S035
+// The LCD-PAR-S035 shield provides display and touch configuration
+
+// Touch coordinate transform: the GT911 raw axes don't match the display
+// orientation. On Zephyr >= v4.4.0 (which includes GT911 touchscreen-common
+// support, upstream 0f07faa14b3), uncomment the following and remove the
+// workaround in slint-zephyr.cpp:
+//
+// &gt911_lcd_par_s035 {
+// 	swapped-x-y;
+// 	inverted-x;
+// 	screen-width = <320>;
+// };
