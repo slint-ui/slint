@@ -65,6 +65,11 @@ pub struct EventLoopState {
     pressed: bool,
     current_touch_id: Option<u64>,
 
+    /// Accumulated pinch scale factor for platform gesture events (macOS/iOS).
+    /// Reset to 1.0 on gesture start, multiplied by (1 + delta) on each update.
+    /// Stored as f64 to avoid precision loss from repeated multiplication.
+    accumulated_pinch_scale: f64,
+
     loop_error: Option<PlatformError>,
     current_resize_direction: Option<ResizeDirection>,
 
@@ -84,6 +89,7 @@ impl EventLoopState {
             cursor_pos: Default::default(),
             pressed: Default::default(),
             current_touch_id: Default::default(),
+            accumulated_pinch_scale: 1.0f64,
             loop_error: Default::default(),
             current_resize_direction: Default::default(),
             pumping_events_instantly: Default::default(),
@@ -432,6 +438,35 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
                 // In addition to the hack done for WindowEvent::Resize, also do it for Occluded so we handle Minimized change
                 window.window_state_event();
+            }
+            // Note: winit's PinchGesture does not carry a position; we use the last
+            // known cursor position as the best available approximation. On macOS
+            // trackpads, CursorMoved events typically precede gesture events.
+            WindowEvent::PinchGesture { delta, phase, .. } => {
+                let phase = match phase {
+                    winit::event::TouchPhase::Started => {
+                        self.accumulated_pinch_scale = 1.0;
+                        corelib::input::TouchPhase::Started
+                    }
+                    winit::event::TouchPhase::Moved
+                    | winit::event::TouchPhase::Ended => {
+                        self.accumulated_pinch_scale *= 1.0 + delta;
+                        if matches!(phase, winit::event::TouchPhase::Ended) {
+                            corelib::input::TouchPhase::Ended
+                        } else {
+                            corelib::input::TouchPhase::Moved
+                        }
+                    }
+                    winit::event::TouchPhase::Cancelled => {
+                        self.accumulated_pinch_scale = 1.0;
+                        corelib::input::TouchPhase::Cancelled
+                    }
+                };
+                runtime_window.process_gesture_input(corelib::input::PinchGestureEvent {
+                    scale: self.accumulated_pinch_scale as f32,
+                    center: self.cursor_pos,
+                    phase,
+                });
             }
             _ => {}
         }
