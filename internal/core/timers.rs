@@ -67,12 +67,13 @@ pub struct Timer {
 
 impl Timer {
     /// Starts the timer with the given mode and interval, in order for the callback to called when the
-    /// timer fires. If the timer has been started previously and not fired yet, then it will be restarted.
+    /// timer fires. If the timer has been started previously, then it will be restarted, no matter if
+    /// it has already been fired or not.
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
     /// * `interval`: The duration from now until when the timer should fire the first time, and subsequently
-    ///    for repeated [`Repeated`](TimerMode::Repeated) timers.
+    ///   for repeated [`Repeated`](TimerMode::Repeated) timers.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     pub fn start(
         &self,
