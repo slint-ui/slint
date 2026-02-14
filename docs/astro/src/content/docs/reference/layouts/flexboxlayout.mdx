@@ -98,7 +98,8 @@ To target specific sides with different values use the following properties:
 
 ### alignment
 <SlintProperty propName="alignment" typeName="enum" enumName="LayoutAlignment">
-Set the alignment. Matches the CSS flex box.
+Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
+Note that the `stretch` value has no effect on FlexBoxLayout (main-axis stretching in CSS Flexbox is controlled by `flex-grow`).
 </SlintProperty>
 
 ## Direction Properties
