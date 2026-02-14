@@ -996,7 +996,6 @@ fn deliver_pinch_to_item(
 ) -> bool {
     use crate::items::PinchGestureHandler;
 
-    let item = item_rc.borrow();
     let geom = item_rc.geometry();
     let contains = geom.contains(position);
 
@@ -1004,6 +1003,9 @@ fn deliver_pinch_to_item(
     if clipped && !contains {
         return false;
     }
+
+    // Extract clips_children before any recursive calls to avoid holding the borrow
+    let clips = item_rc.borrow().as_ref().clips_children();
 
     // Translate position to item-local coordinates
     let mut local_pos = position - geom.origin.to_vector();
@@ -1015,7 +1017,7 @@ fn deliver_pinch_to_item(
         }
     }
 
-    let child_clipped = clipped || item.as_ref().clips_children();
+    let child_clipped = clipped || clips;
 
     // Visit children front-to-back (visually topmost first), innermost handler wins
     let mut consumed = false;
@@ -1049,10 +1051,11 @@ fn deliver_pinch_to_item(
         return false;
     }
 
-    // Check if this item is a PinchGestureHandler
+    // Check if this item is a PinchGestureHandler.
+    // Deliver if enabled OR if the handler is active (so a disable-while-active can cancel).
     if let Some(handler) = item_rc.downcast::<PinchGestureHandler>() {
         let handler = handler.as_pin_ref();
-        if handler.enabled() {
+        if handler.enabled() || handler.active() {
             handler.handle_platform_pinch(event);
             return true;
         }

@@ -300,6 +300,7 @@ fn gen_corelib(
         "TouchArea",
         "FocusScope",
         "SwipeGestureHandler",
+        "PinchGestureHandler",
         "Flickable",
         "SimpleText",
         "StyledTextItem",

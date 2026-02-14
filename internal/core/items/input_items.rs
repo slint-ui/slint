@@ -685,3 +685,185 @@ pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
         s.cancel(window_adapter, &self_rc);
     }
 }
+
+/// The implementation of the `PinchGestureHandler` element.
+///
+/// Handles platform-recognized pinch gestures (Path A: macOS/iOS trackpad, Qt)
+/// by receiving pre-classified `PinchGestureEvent`s directly from the backend.
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct PinchGestureHandler {
+    pub enabled: Property<bool>,
+
+    // Output properties
+    pub active: Property<bool>,
+    pub scale: Property<f32>,
+    pub center: Property<LogicalPosition>,
+
+    // Callbacks
+    pub pinch_started: Callback<VoidArg>,
+    pub pinch_updated: Callback<VoidArg>,
+    pub pinch_ended: Callback<VoidArg>,
+    pub pinch_cancelled: Callback<VoidArg>,
+
+    /// FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for PinchGestureHandler {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        // While a pinch gesture is active, intercept mouse/touch events to
+        // prevent Flickable and other items from processing them concurrently.
+        if self.active() {
+            InputEventFilterResult::Intercept
+        } else {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        // Grab mouse during active pinch to maintain exclusivity over Flickable.
+        if self.active() {
+            InputEventResult::GrabMouse
+        } else {
+            InputEventResult::EventIgnored
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _event: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        mut geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for PinchGestureHandler {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+impl PinchGestureHandler {
+    /// Handle a platform-recognized pinch gesture event (Path A).
+    /// Called directly from process_pinch_gesture_input — no recognition needed.
+    pub fn handle_platform_pinch(self: Pin<&Self>, event: &crate::input::PinchGestureEvent) {
+        use crate::input::TouchPhase;
+
+        if !self.enabled() {
+            // If disabled while a gesture is in progress, cancel it
+            if self.active() {
+                self.cancel_impl();
+            }
+            return;
+        }
+
+        let center = crate::lengths::logical_position_to_api(event.center);
+
+        match event.phase {
+            TouchPhase::Started => {
+                // If a gesture is already active (double-start without intervening end),
+                // cancel the previous one before starting the new gesture.
+                if self.active() {
+                    self.cancel_impl();
+                }
+                Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
+                Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
+                Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                Self::FIELD_OFFSETS.pinch_started.apply_pin(self).call(&());
+            }
+            TouchPhase::Moved => {
+                if !self.active() {
+                    return;
+                }
+                Self::FIELD_OFFSETS.scale.apply_pin(self).set(event.scale);
+                Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                Self::FIELD_OFFSETS.pinch_updated.apply_pin(self).call(&());
+            }
+            TouchPhase::Ended => {
+                if !self.active() {
+                    return;
+                }
+                Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+                Self::FIELD_OFFSETS.pinch_ended.apply_pin(self).call(&());
+            }
+            TouchPhase::Cancelled => {
+                self.cancel_impl();
+            }
+        }
+    }
+
+    fn cancel_impl(self: Pin<&Self>) {
+        if !self.active() {
+            return;
+        }
+        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.pinch_cancelled.apply_pin(self).call(&());
+    }
+}
