@@ -7,6 +7,7 @@ use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
 use i_slint_core::platform::WindowEvent;
+pub use i_slint_core::input::TouchPhase;
 pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 use i_slint_core::window::WindowInner;
@@ -84,6 +85,30 @@ pub fn set_window_scale_factor<
     factor: f32,
 ) {
     component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
+}
+
+/// Send a platform pinch gesture event to the component's window.
+///
+/// This bypasses the public `WindowEvent` API (which doesn't have gesture events yet)
+/// and calls `WindowInner::process_gesture_input` directly.
+pub fn send_pinch_gesture<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    scale: f32,
+    center_x: f32,
+    center_y: f32,
+    phase: i_slint_core::input::TouchPhase,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.process_gesture_input(i_slint_core::input::PinchGestureEvent {
+        scale,
+        center: i_slint_core::lengths::logical_point_from_api(
+            i_slint_core::api::LogicalPosition::new(center_x, center_y),
+        ),
+        phase,
+    });
 }
 
 pub fn access_testing_window<R>(
