@@ -1021,20 +1021,21 @@ fn deliver_pinch_to_item(
 
     // Visit children front-to-back (visually topmost first), innermost handler wins
     let mut consumed = false;
-    let mut visitor = |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
-        if deliver_pinch_to_item(
-            ItemRc::new(component.clone(), index),
-            event,
-            window_adapter,
-            local_pos,
-            child_clipped,
-        ) {
-            consumed = true;
-            VisitChildrenResult::abort(index, 0)
-        } else {
-            VisitChildrenResult::CONTINUE
-        }
-    };
+    let mut visitor =
+        |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+            if deliver_pinch_to_item(
+                ItemRc::new(component.clone(), index),
+                event,
+                window_adapter,
+                local_pos,
+                child_clipped,
+            ) {
+                consumed = true;
+                VisitChildrenResult::abort(index, 0)
+            } else {
+                VisitChildrenResult::CONTINUE
+            }
+        };
     vtable::new_vref!(let mut visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut visitor);
     vtable::VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
         item_rc.index() as isize,

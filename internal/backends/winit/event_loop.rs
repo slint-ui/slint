@@ -448,8 +448,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         self.accumulated_pinch_scale = 1.0;
                         corelib::input::TouchPhase::Started
                     }
-                    winit::event::TouchPhase::Moved
-                    | winit::event::TouchPhase::Ended => {
+                    winit::event::TouchPhase::Moved | winit::event::TouchPhase::Ended => {
                         self.accumulated_pinch_scale *= 1.0 + delta;
                         if matches!(phase, winit::event::TouchPhase::Ended) {
                             corelib::input::TouchPhase::Ended

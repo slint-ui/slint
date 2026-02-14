@@ -747,11 +747,7 @@ impl Item for PinchGestureHandler {
         _: &mut MouseCursor,
     ) -> InputEventResult {
         // Grab mouse during active pinch to maintain exclusivity over Flickable.
-        if self.active() {
-            InputEventResult::GrabMouse
-        } else {
-            InputEventResult::EventIgnored
-        }
+        if self.active() { InputEventResult::GrabMouse } else { InputEventResult::EventIgnored }
     }
 
     fn capture_key_event(

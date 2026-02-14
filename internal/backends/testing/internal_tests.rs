@@ -6,8 +6,8 @@
 use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
-use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::input::TouchPhase;
+use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 use i_slint_core::window::WindowInner;

@@ -783,8 +783,7 @@ impl WindowInner {
         let mut offset = crate::lengths::LogicalPoint::default();
         for popup in active_popups.borrow().iter().rev() {
             if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
-                let geom =
-                    ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
+                let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                 if geom.contains(event.center - coordinates.to_vector()) {
                     target_tree = Some(popup.component.clone());
                     offset = *coordinates;
