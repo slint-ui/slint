@@ -9,9 +9,9 @@
     "lint": "pnpm --stream -r lint",
     "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check",
-    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' -r type-check"
+    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' -r type-check"
   },
-  "packageManager": "pnpm@10.18.2",
+  "packageManager": "pnpm@10.29.3",
   "pnpm": {
     "onlyBuiltDependencies": [
       "@biomejs/biome",
