@@ -15,7 +15,7 @@
 "ubi:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "20"
-pnpm = "10.18.2"
+pnpm = "10.29.3"
 taplo = "0.9.3"
 "ubi:drager/wasm-pack" = "0.13.1"
 
