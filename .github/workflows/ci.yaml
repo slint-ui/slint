@@ -11,6 +11,10 @@ on:
           required: true
         CLOUDFLARE_ACCOUNT_ID:
           required: true
+        CLOUDFLARE_API_TOKEN_2:
+          required: true
+        CLOUDFLARE_ACCOUNT_ID_2:
+          required: true
         ANDROID_KEYSTORE_PASSWORD:
           required: true
         ANDROID_KEYSTORE_BASE64:
@@ -625,17 +629,19 @@ jobs:
                   path: tools/figma-inspector/zip
 
     material-components:
-        needs: files-changed
-        if: needs.files-changed.outputs.material_components == 'true'
-        permissions:
-            contents: read
-            deployments: write
-        uses: ./.github/workflows/material.yaml
-        secrets:
-            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      needs: files-changed
+      if: needs.files-changed.outputs.material_components == 'true'
+      permissions:
+        contents: read
+        deployments: write
+      uses: ./.github/workflows/material.yaml
+      secrets:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
     servo_example:
         needs: files-changed

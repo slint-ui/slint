@@ -1,0 +1,12 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# Cloudflare Worker config for material-staging (preview/staging deployments).
+# materialui (production) uses Pages and is deployed via "pages deploy".
+name = "material-staging"
+compatibility_date = "2025-02-13"
+preview_urls = true
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
