@@ -1,0 +1,123 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component HeaderComponent inherits Rectangle {
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 1px;
+        }
+
+        @children
+        Rectangle {
+            height: 2px;
+        }
+    }
+}
+
+export component ContentBlock inherits Rectangle {
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 1px;
+        }
+
+        @children
+        Rectangle {
+            height: 2px;
+        }
+    }
+}
+
+export component FooterComponent inherits Rectangle {
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 1px;
+        }
+
+        @children
+        Rectangle {
+            height: 2px;
+        }
+    }
+}
+
+export component Panel inherits Rectangle {
+    slot header;
+    slot footer;
+    VerticalLayout {
+        spacing: 0px;
+        header {}
+        @children
+        footer {}
+
+
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 160px;
+
+    panel := Panel {
+        width: 200px;
+        height: 160px;
+
+        header << HeaderComponent {
+            h1 := Rectangle {
+                height: 5px;
+            }
+
+            h2 := Rectangle {
+                height: 7px;
+            }
+        }
+
+        ContentBlock {
+            b1 := Rectangle {
+                height: 11px;
+            }
+        }
+
+        ContentBlock {
+            b2 := Rectangle {
+                height: 13px;
+            }
+        }
+
+        ContentBlock {
+            b3 := Rectangle {
+                height: 17px;
+            }
+        }
+
+        footer << FooterComponent {
+            f1 := Rectangle {
+                height: 19px;
+            }
+
+            f2 := Rectangle {
+                height: 23px;
+            }
+        }
+
+        out property <length> h1y: h1.absolute-position.y;
+        out property <length> h2y: h2.absolute-position.y;
+        out property <length> b1y: b1.absolute-position.y;
+        out property <length> b2y: b2.absolute-position.y;
+        out property <length> b3y: b3.absolute-position.y;
+        out property <length> f1y: f1.absolute-position.y;
+        out property <length> f2y: f2.absolute-position.y;
+    }
+
+    out property <bool> test:
+        panel.h1y == 1px && panel.h2y == 6px && panel.b1y == 16px && panel.b2y == 30px && panel.b3y == 46px && panel.f1y == 66px && panel.f2y == 85px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
