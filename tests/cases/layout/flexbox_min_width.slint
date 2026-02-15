@@ -49,8 +49,9 @@ export component TestCase inherits Window {
     out property <bool> test_r2: r2.x == 85px && r2.y == 0px && r2.width == 60px;
 
     // Row 2: r3 clamped to max-width (80px) + r4 (respects min/max)
-    out property <bool> test_r3: r3.x == 0px && r3.y == 55px && r3.width == 80px;
-    out property <bool> test_r4: r4.x == 85px && r4.y == 55px && r4.width >= 40px && r4.width <= 60px;
+    // With align-content: stretch (CSS default), rows are stretched to fill the 300px height.
+    out property <bool> test_r3: r3.x == 0px && r3.y == 153px && r3.width == 80px;
+    out property <bool> test_r4: r4.x == 85px && r4.y == 153px && r4.width >= 40px && r4.width <= 60px;
 
     out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4;
 }

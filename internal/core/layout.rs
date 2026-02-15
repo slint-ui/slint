@@ -5,7 +5,7 @@
 
 // cspell:ignore coord
 
-use crate::items::{DialogButtonRole, FlexDirection, LayoutAlignment};
+use crate::items::{DialogButtonRole, FlexAlignContent, FlexDirection, LayoutAlignment};
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
 use alloc::string::String;
@@ -1023,6 +1023,7 @@ pub struct FlexBoxLayoutData<'a> {
     pub padding_v: Padding,
     pub alignment: LayoutAlignment,
     pub direction: FlexDirection,
+    pub align_content: FlexAlignContent,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, LayoutItemInfo>,
     /// Vertical constraints (height) for each cell
@@ -1167,7 +1168,7 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
-    use super::{Coord, LayoutAlignment, LayoutItemInfo, Padding, Slice};
+    use super::{Coord, FlexAlignContent, LayoutAlignment, LayoutItemInfo, Padding, Slice};
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
     use taffy::prelude::{
@@ -1184,6 +1185,7 @@ mod flexbox_taffy {
         pub padding_h: &'a Padding,
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
+        pub align_content: FlexAlignContent,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
@@ -1301,7 +1303,12 @@ mod flexbox_taffy {
                             LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         align_items: Some(AlignItems::FlexStart),
-                        align_content: Some(AlignContent::FlexStart),
+                        align_content: Some(match params.align_content {
+                            FlexAlignContent::Stretch => AlignContent::Stretch,
+                            FlexAlignContent::Start => AlignContent::FlexStart,
+                            FlexAlignContent::End => AlignContent::FlexEnd,
+                            FlexAlignContent::Center => AlignContent::Center,
+                        }),
                         gap: Size {
                             width: LengthPercentage::Length(params.spacing_h as _),
                             height: LengthPercentage::Length(params.spacing_v as _),
@@ -1461,10 +1468,10 @@ pub fn solve_flexbox_layout(
         FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
     };
 
-    let (container_width, container_height) = match data.direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (Some(data.width), None),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(data.height)),
-    };
+    let (container_width, container_height) = (
+        if data.width > 0 as Coord { Some(data.width) } else { None },
+        if data.height > 0 as Coord { Some(data.height) } else { None },
+    );
 
     let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
         cells_h: &data.cells_h,
@@ -1474,6 +1481,7 @@ pub fn solve_flexbox_layout(
         padding_h: &data.padding_h,
         padding_v: &data.padding_v,
         alignment: data.alignment,
+        align_content: data.align_content,
         flex_direction: taffy_direction,
         container_width,
         container_height,
@@ -1590,6 +1598,7 @@ pub fn flexbox_layout_info(
                 padding_h,
                 padding_v,
                 alignment: LayoutAlignment::Start,
+                align_content: FlexAlignContent::Stretch,
                 flex_direction: taffy_direction,
                 container_width,
                 container_height,
