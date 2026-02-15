@@ -528,7 +528,7 @@ fn gen_corelib(
             "",
         ),
         (
-            vec!["MouseEvent", "KeyboardShortcut"],
+            vec!["MouseEvent", "TouchPhase", "KeyboardShortcut"],
             "slint_events_internal.h",
             "#include \"slint_point.h\"
             namespace slint::cbindgen_private {

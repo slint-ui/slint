@@ -144,6 +144,7 @@ impl MouseEvent {
 }
 
 /// Phase of a touch or gesture event.
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TouchPhase {
     /// The gesture began (e.g., first finger touched or platform gesture started).
