@@ -382,6 +382,19 @@ macro_rules! for_each_enums {
                 Center,
             }
 
+            /// Controls the alignment of individual items along the cross axis within each flex line.
+            #[non_exhaustive]
+            enum FlexAlignItems {
+                /// Items are stretched to fill the line along the cross axis.
+                Stretch,
+                /// Items are placed at the start of the cross axis.
+                Start,
+                /// Items are placed at the end of the cross axis.
+                End,
+                /// Items are centered along the cross axis.
+                Center,
+            }
+
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is
             /// generated at compile time from a higher-level description, such as SVG commands.
             #[non_exhaustive]

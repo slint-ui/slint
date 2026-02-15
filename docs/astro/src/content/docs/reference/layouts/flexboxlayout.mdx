@@ -120,6 +120,16 @@ Set the distribution of flex lines along the cross axis.
 The default value is `stretch`.
 </SlintProperty>
 
+### align-items
+<SlintProperty propName="align-items" typeName="enum" enumName="FlexAlignItems">
+Set the alignment of individual items along the cross axis within each flex line.
+- `stretch`: Items are stretched to fill the line along the cross axis (default). Items without an explicit cross-axis size stretch to the line height (row) or line width (column).
+- `start`: Items are placed at the start of the cross axis.
+- `end`: Items are placed at the end of the cross axis.
+- `center`: Items are centered along the cross axis.
+The default value is `stretch`.
+</SlintProperty>
+
 ## Layout Behavior
 
 The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
