@@ -1175,6 +1175,20 @@ mod flexbox_taffy {
         NodeId, Rect, Size, Style, TaffyTree,
     };
 
+    /// Parameters for FlexboxTaffyBuilder::new
+    pub struct FlexBoxLayoutParams<'a> {
+        pub cells_h: &'a Slice<'a, LayoutItemInfo>,
+        pub cells_v: &'a Slice<'a, LayoutItemInfo>,
+        pub spacing_h: Coord,
+        pub spacing_v: Coord,
+        pub padding_h: &'a Padding,
+        pub padding_v: &'a Padding,
+        pub alignment: LayoutAlignment,
+        pub flex_direction: TaffyFlexDirection,
+        pub container_width: Option<Coord>,
+        pub container_height: Option<Coord>,
+    }
+
     /// Build a taffy tree from Slint layout constraints
     pub struct FlexboxTaffyBuilder {
         pub taffy: TaffyTree<()>,
@@ -1184,26 +1198,16 @@ mod flexbox_taffy {
 
     impl FlexboxTaffyBuilder {
         /// Create a new flexbox layout tree from item constraints
-        pub fn new(
-            cells_h: &Slice<LayoutItemInfo>,
-            cells_v: &Slice<LayoutItemInfo>,
-            spacing_h: Coord,
-            spacing_v: Coord,
-            padding_h: &Padding,
-            padding_v: &Padding,
-            alignment: LayoutAlignment,
-            flex_direction: TaffyFlexDirection,
-            container_width: Option<Coord>,
-            container_height: Option<Coord>,
-        ) -> Self {
+        pub fn new(params: FlexBoxLayoutParams) -> Self {
             let mut taffy = TaffyTree::<()>::new();
 
             // Create child nodes from Slint constraints
-            let children: Vec<NodeId> = cells_h
+            let children: Vec<NodeId> = params
+                .cells_h
                 .iter()
                 .enumerate()
                 .map(|(idx, cell_h)| {
-                    let cell_v = cells_v.get(idx);
+                    let cell_v = params.cells_v.get(idx);
                     let h_constraint = &cell_h.constraint;
                     let v_constraint = cell_v.map(|c| &c.constraint);
 
@@ -1213,7 +1217,7 @@ mod flexbox_taffy {
                         v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0 as Coord);
 
                     // flex_basis depends on direction
-                    let flex_basis = match flex_direction {
+                    let flex_basis = match params.flex_direction {
                         TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
                             Dimension::Length(preferred_width as _)
                         }
@@ -1226,7 +1230,7 @@ mod flexbox_taffy {
                         .new_leaf(Style {
                             flex_basis,
                             size: Size {
-                                width: match flex_direction {
+                                width: match params.flex_direction {
                                     TaffyFlexDirection::Column
                                     | TaffyFlexDirection::ColumnReverse => {
                                         if preferred_width > 0 as Coord {
@@ -1237,7 +1241,7 @@ mod flexbox_taffy {
                                     }
                                     _ => Dimension::Auto,
                                 },
-                                height: match flex_direction {
+                                height: match params.flex_direction {
                                     TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
                                         if preferred_height > 0 as Coord {
                                             Dimension::Length(preferred_height as _)
@@ -1283,9 +1287,9 @@ mod flexbox_taffy {
                 .new_with_children(
                     Style {
                         display: Display::Flex,
-                        flex_direction,
+                        flex_direction: params.flex_direction,
                         flex_wrap: FlexWrap::Wrap,
-                        justify_content: Some(match alignment {
+                        justify_content: Some(match params.alignment {
                             // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
                             // AlignContent::Start/End would ignore direction and always use writing mode
                             LayoutAlignment::Start => AlignContent::FlexStart,
@@ -1299,20 +1303,22 @@ mod flexbox_taffy {
                         align_items: Some(AlignItems::FlexStart),
                         align_content: Some(AlignContent::FlexStart),
                         gap: Size {
-                            width: LengthPercentage::Length(spacing_h as _),
-                            height: LengthPercentage::Length(spacing_v as _),
+                            width: LengthPercentage::Length(params.spacing_h as _),
+                            height: LengthPercentage::Length(params.spacing_v as _),
                         },
                         padding: Rect {
-                            left: LengthPercentage::Length(padding_h.begin as _),
-                            right: LengthPercentage::Length(padding_h.end as _),
-                            top: LengthPercentage::Length(padding_v.begin as _),
-                            bottom: LengthPercentage::Length(padding_v.end as _),
+                            left: LengthPercentage::Length(params.padding_h.begin as _),
+                            right: LengthPercentage::Length(params.padding_h.end as _),
+                            top: LengthPercentage::Length(params.padding_v.begin as _),
+                            bottom: LengthPercentage::Length(params.padding_v.end as _),
                         },
                         size: Size {
-                            width: container_width
+                            width: params
+                                .container_width
                                 .map(|w| Dimension::Length(w as _))
                                 .unwrap_or(Dimension::Auto),
-                            height: container_height
+                            height: params
+                                .container_height
                                 .map(|h| Dimension::Length(h as _))
                                 .unwrap_or(Dimension::Auto),
                         },
@@ -1460,18 +1466,18 @@ pub fn solve_flexbox_layout(
         FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(data.height)),
     };
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
-        &data.cells_h,
-        &data.cells_v,
-        data.spacing_h,
-        data.spacing_v,
-        &data.padding_h,
-        &data.padding_v,
-        data.alignment,
-        taffy_direction,
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+        cells_h: &data.cells_h,
+        cells_v: &data.cells_v,
+        spacing_h: data.spacing_h,
+        spacing_v: data.spacing_v,
+        padding_h: &data.padding_h,
+        padding_v: &data.padding_v,
+        alignment: data.alignment,
+        flex_direction: taffy_direction,
         container_width,
         container_height,
-    );
+    });
 
     let (available_width, available_height) = match data.direction {
         FlexDirection::Row | FlexDirection::RowReverse => (data.width, Coord::MAX),
@@ -1575,18 +1581,19 @@ pub fn flexbox_layout_info(
             FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(constraint_size)),
         };
 
-        let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(
-            &cells_h,
-            &cells_v,
-            spacing_h,
-            spacing_v,
-            padding_h,
-            padding_v,
-            LayoutAlignment::Start,
-            taffy_direction,
-            container_width,
-            container_height,
-        );
+        let mut builder =
+            flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+                cells_h: &cells_h,
+                cells_v: &cells_v,
+                spacing_h,
+                spacing_v,
+                padding_h,
+                padding_v,
+                alignment: LayoutAlignment::Start,
+                flex_direction: taffy_direction,
+                container_width,
+                container_height,
+            });
 
         let (available_width, available_height) = match direction {
             FlexDirection::Row | FlexDirection::RowReverse => (constraint_size, Coord::MAX),
