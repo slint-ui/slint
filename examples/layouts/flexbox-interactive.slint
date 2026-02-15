@@ -26,6 +26,7 @@ export component MainWindow inherits Window {
     property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
     property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
+    property <[string]> align_content_options: ["Stretch", "Start", "End", "Center"];
 
     VerticalLayout {
         padding: 20phx;
@@ -54,14 +55,29 @@ export component MainWindow inherits Window {
             }
         }
 
+        HorizontalLayout {
+            spacing: 10phx;
+            Text {
+                text: "Align Content:";
+                vertical-alignment: center;
+            }
+
+            align_content_combo := ComboBox {
+                model: align_content_options;
+                current-index: 0;
+            }
+        }
+
         flex_container := Rectangle {
             border-width: 2phx;
             border-color: #333;
             background: white;
+            vertical-stretch: 1;
 
             FlexBoxLayout {
                 flex-direction: direction_combo.current-index == 0 ? row : direction_combo.current-index == 1 ? row-reverse : direction_combo.current-index == 2 ? column : column-reverse;
                 alignment: alignment_combo.current-index == 0 ? start : alignment_combo.current-index == 1 ? end : alignment_combo.current-index == 2 ? center : alignment_combo.current-index == 3 ? space-between : alignment_combo.current-index == 4 ? space-around : space-evenly;
+                align-content: align_content_combo.current-index == 0 ? stretch : align_content_combo.current-index == 1 ? start : align_content_combo.current-index == 2 ? end : center;
                 padding: 10phx;
                 spacing: 10phx;
 

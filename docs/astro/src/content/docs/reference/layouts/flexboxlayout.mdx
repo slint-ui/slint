@@ -110,6 +110,16 @@ The primary direction in which items are placed. Set to `row` to place items hor
 It also supports `row-reverse` and `column-reverse` which invert the flow: `row-reverse` places items right-to-left (starting at the right edge), and `column-reverse` places items bottom-to-top (starting at the bottom edge).
 </SlintProperty>
 
+### align-content
+<SlintProperty propName="align-content" typeName="enum" enumName="FlexAlignContent">
+Set the distribution of flex lines along the cross axis.
+- `stretch`: Lines are stretched to fill the container along the cross axis (default).
+- `start`: Lines are placed at the start of the cross axis.
+- `end`: Lines are placed at the end of the cross axis.
+- `center`: Lines are centered along the cross axis.
+The default value is `stretch`.
+</SlintProperty>
+
 ## Layout Behavior
 
 The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>

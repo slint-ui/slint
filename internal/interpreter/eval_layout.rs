@@ -198,6 +198,12 @@ pub(crate) fn solve_flexbox_layout(
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
+    let align_content = flexbox_layout
+        .align_content
+        .as_ref()
+        .map_or(i_slint_core::items::FlexAlignContent::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
 
     let (padding_h, spacing_h) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
@@ -214,6 +220,7 @@ pub(crate) fn solve_flexbox_layout(
             padding_v,
             alignment,
             direction,
+            align_content,
             cells_h: Slice::from(cells_h.as_slice()),
             cells_v: Slice::from(cells_v.as_slice()),
         },

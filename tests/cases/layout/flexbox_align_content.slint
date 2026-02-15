@@ -1,0 +1,344 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout align-content property for row and column directions
+// align-content controls how flex lines are distributed along the cross axis.
+
+component VisibleRect inherits Rectangle {
+    border-width: 1px;
+    border-color: black;
+}
+
+// === Row direction tests ===
+
+// Test 1: align-content: start (row) — rows packed at top
+component TestAlignContentStartRow inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+    FlexBoxLayout {
+        align-content: start;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: green;
+        }
+        // Row 1: r1 + r2 = 165 < 200, fits
+        r3 := Rectangle {
+            width: 150px;
+            height: 30px;
+            background: blue;
+        }
+        // Row 2: r3 alone
+    }
+
+    // With align-content: start, rows pack at y=0
+    // Row 1: y=0, Row 2: y=35 (30+5)
+    out property <bool> test: r1.y == 0px && r2.y == 0px && r3.y == 35px;
+}
+
+    // Test 2: align-content: end (row) — rows packed at bottom
+component TestAlignContentEndRow inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        align-content: end;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 150px;
+            height: 30px;
+            background: blue;
+        }
+    }
+
+    // With align-content: end, rows pack at the bottom
+    // Total content height: 30+5+30 = 65
+    // Offset: 200-65 = 135
+    out property <bool> test: r1.y == 135px && r2.y == 135px && r3.y == 170px;
+}
+
+    // Test 3: align-content: center (row) — rows centered vertically
+component TestAlignContentCenterRow inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        align-content: center;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 150px;
+            height: 30px;
+            background: blue;
+        }
+    }
+
+    // With align-content: center, rows centered
+    // Total content height: 30+5+30 = 65
+    // Offset: (200-65)/2 = 67.5 ≈ 68
+    out property <bool> test_r1: r1.y >= 67px && r1.y <= 68px;
+    out property <bool> test_r3: r3.y >= 102px && r3.y <= 103px;
+    out property <bool> test: test_r1 && test_r3;
+}
+
+    // Test 4: align-content: stretch (row, the default) — rows stretched to fill
+component TestAlignContentStretchRow inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        align-content: stretch;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 150px;
+            height: 30px;
+            background: blue;
+        }
+    }
+
+    // With align-content: stretch, rows are stretched to fill the 200px height.
+    // Row 2 starts well below row 1 since the remaining 135px is distributed.
+    out property <bool> test: r1.y == 0px && r3.y > 35px;
+}
+
+    // === Column direction tests ===
+
+// Test 5: align-content: start (column) — columns packed at left
+component TestAlignContentStartCol inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        flex-direction: column;
+        align-content: start;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: green;
+        }
+        // Col 1: r1 + r2 = 165 < 200, fits
+        r3 := Rectangle {
+            width: 30px;
+            height: 150px;
+            background: blue;
+        }
+        // Col 2: r3 alone
+    }
+
+    // With align-content: start, columns pack at x=0
+    // Col 1: x=0, Col 2: x=35 (30+5)
+    out property <bool> test: r1.x == 0px && r2.x == 0px && r3.x == 35px;
+}
+
+    // Test 6: align-content: end (column) — columns packed at right
+component TestAlignContentEndCol inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        flex-direction: column;
+        align-content: end;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 30px;
+            height: 150px;
+            background: blue;
+        }
+    }
+
+    // With align-content: end, columns pack at the right
+    // Total content width: 30+5+30 = 65
+    // Offset: 200-65 = 135
+    out property <bool> test: r1.x == 135px && r2.x == 135px && r3.x == 170px;
+}
+
+    // Test 7: align-content: center (column) — columns centered horizontally
+component TestAlignContentCenterCol inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        flex-direction: column;
+        align-content: center;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 30px;
+            height: 150px;
+            background: blue;
+        }
+    }
+
+    // With align-content: center, columns centered
+    // Total content width: 30+5+30 = 65
+    // Offset: (200-65)/2 = 67.5 ≈ 68
+    out property <bool> test_r1: r1.x >= 67px && r1.x <= 68px;
+    out property <bool> test_r3: r3.x >= 102px && r3.x <= 103px;
+    out property <bool> test: test_r1 && test_r3;
+}
+
+    // Test 8: align-content: stretch (column, the default) — columns stretched to fill
+component TestAlignContentStretchCol inherits VisibleRect {
+    width: 200px;
+    height: 200px;
+
+    FlexBoxLayout {
+        flex-direction: column;
+        align-content: stretch;
+        spacing: 5px;
+
+        r1 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 30px;
+            height: 80px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 30px;
+            height: 150px;
+            background: blue;
+        }
+    }
+
+    // With align-content: stretch, columns are stretched to fill the 200px width.
+    // Column 2 starts well to the right of column 1 since the remaining 135px is distributed.
+    out property <bool> test: r1.x == 0px && r3.x > 35px;
+}
+
+export component TestCase inherits Window {
+    width: 450px;
+    height: 860px;
+
+    HorizontalLayout {
+        spacing: 10px;
+        padding: 10px;
+        VerticalLayout {
+            spacing: 10px;
+            padding: 10px;
+            t1 := TestAlignContentStartRow { }
+
+            t2 := TestAlignContentEndRow { }
+
+            t3 := TestAlignContentCenterRow { }
+
+            t4 := TestAlignContentStretchRow { }
+        }
+
+        VerticalLayout {
+            spacing: 10px;
+            padding: 10px;
+
+            t5 := TestAlignContentStartCol { }
+
+            t6 := TestAlignContentEndCol { }
+
+            t7 := TestAlignContentCenterCol { }
+
+            t8 := TestAlignContentStretchCol { }
+        }
+    }
+
+    out property <bool> test: t1.test && t2.test && t3.test && t4.test && t5.test && t6.test && t7.test && t8.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

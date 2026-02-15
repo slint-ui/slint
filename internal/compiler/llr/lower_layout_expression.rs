@@ -326,6 +326,12 @@ pub(super) fn solve_flexbox_layout(
                     .with(|e| Type::Enumeration(e.enums.FlexDirection.clone())),
                 fld.direction,
             ),
+            (
+                "align_content",
+                crate::typeregister::BUILTIN
+                    .with(|e| Type::Enumeration(e.enums.FlexAlignContent.clone())),
+                fld.align_content,
+            ),
             ("cells_h", fld.cells_h.ty(ctx), fld.cells_h),
             ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
         ],
@@ -550,6 +556,7 @@ fn compute_flexbox_layout_info_for_direction(
 struct FlexBoxLayoutDataResult {
     alignment: llr_Expression,
     direction: llr_Expression,
+    align_content: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
     /// When there are repeaters involved, we need to do a WithFlexBoxLayoutItemInfo with the
@@ -579,6 +586,16 @@ fn flexbox_layout_data(
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
         let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexDirection.clone());
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: e.default_value,
+            enumeration: e,
+        })
+    };
+
+    let align_content = if let Some(expr) = &layout.align_content {
+        llr_Expression::PropertyReference(ctx.map_property_reference(expr))
+    } else {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexAlignContent.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -617,7 +634,14 @@ fn flexbox_layout_data(
             element_ty,
             output: llr_ArrayOutput::Slice,
         };
-        FlexBoxLayoutDataResult { alignment, direction, cells_h, cells_v, compute_cells: None }
+        FlexBoxLayoutDataResult {
+            alignment,
+            direction,
+            align_content,
+            cells_h,
+            cells_v,
+            compute_cells: None,
+        }
     } else {
         let mut elements = Vec::new();
         for item in &layout.elems {
@@ -654,6 +678,7 @@ fn flexbox_layout_data(
         FlexBoxLayoutDataResult {
             alignment,
             direction,
+            align_content,
             cells_h,
             cells_v,
             compute_cells: Some(("cells_h".into(), "cells_v".into(), elements)),
