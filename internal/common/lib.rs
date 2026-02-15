@@ -5,6 +5,9 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(any(feature = "shared-fontique", feature = "color-parsing")), no_std)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 pub mod builtin_structs;
 #[cfg(feature = "color-parsing")]
 pub mod color_parsing;
@@ -13,6 +16,9 @@ pub mod key_codes;
 
 #[cfg(feature = "shared-fontique")]
 pub mod sharedfontique;
+
+#[cfg(all(feature = "alloc", feature = "color-parsing"))]
+pub mod styled_text;
 
 /// Detect the native style depending on the platform
 pub fn get_native_style(has_qt: bool, target: &str) -> &'static str {

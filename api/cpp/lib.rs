@@ -12,6 +12,7 @@ use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
 use i_slint_core::items::OperatingSystemType;
+use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
@@ -241,12 +242,10 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_escape_markdown(text: &mut SharedString) -> &SharedString {
-    *text = i_slint_core::styled_text::escape_markdown(text).into();
-    text
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_parse_markdown(text: &SharedString, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::parse_markdown(text);
+pub extern "C" fn slint_parse_markdown(
+    format_string: SharedString,
+    args: Slice<SharedString>,
+    out: &mut StyledText,
+) {
+    *out = i_slint_core::styled_text::parse_markdown(&format_string, &args);
 }

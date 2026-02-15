@@ -1586,15 +1586,15 @@ fn call_builtin_function(
                 panic!("internal error: argument to RestartTimer must be an element")
             }
         }
-        BuiltinFunction::EscapeMarkdown => {
-            let text: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::String(corelib::styled_text::escape_markdown(&text).into())
-        }
         BuiltinFunction::ParseMarkdown => {
-            let text: SharedString =
+            let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::styled_text::parse_markdown(&text))
+            let args: ModelRc<SharedString> =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::parse_markdown(
+                &format_string,
+                &args.iter().collect::<Vec<_>>(),
+            ))
         }
     }
 }

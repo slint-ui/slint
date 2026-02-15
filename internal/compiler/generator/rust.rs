@@ -3605,13 +3605,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
-        BuiltinFunction::EscapeMarkdown => {
-            let text = a.next().unwrap();
-            quote!(sp::escape_markdown(&#text))
-        }
         BuiltinFunction::ParseMarkdown => {
-            let text = a.next().unwrap();
-            quote!(sp::parse_markdown(&#text))
+            let format_string = a.next().unwrap();
+            let args = a.next().unwrap();
+            quote!(sp::parse_markdown::<sp::SharedString>(&#format_string, &#args))
         }
     }
 }

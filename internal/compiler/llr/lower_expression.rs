@@ -155,6 +155,11 @@ pub fn lower_expression(
                         return translation_builder.lower_translate_call(arguments);
                     }
                 }
+                if *f == BuiltinFunction::ParseMarkdown {
+                    if let Some(llr_Expression::Array { output, .. }) = &mut arguments.get_mut(1) {
+                        *output = llr_ArrayOutput::Slice;
+                    }
+                }
                 llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
             }
             Callable::Callback(nr) => {
