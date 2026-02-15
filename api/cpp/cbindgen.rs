@@ -128,6 +128,10 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
             writeln!(structs_priv, "using slint::StandardListViewItem;")?;
             &mut structs_pub
         }};
+        (KeyboardModifiers) => {{
+            writeln!(structs_priv, "using slint::KeyboardModifiers;")?;
+            &mut structs_pub
+        }};
         ($_:ident) => {
             &mut structs_priv
         };
