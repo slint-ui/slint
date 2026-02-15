@@ -10,6 +10,7 @@ export component TestCase inherits Window {
     // Test with wide items (one per row)
     FlexBoxLayout {
         spacing: 5px;
+        align-content: start;
 
         w1 := Rectangle { width: 100px; height: 30px; background: red; }
         w2 := Rectangle { width: 100px; height: 30px; background: green; }
