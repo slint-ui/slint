@@ -369,6 +369,46 @@ impl ItemRc {
             && clip.min.y <= geometry.max.y
     }
 
+    /// Returns true if this item is visible or only clipped away by a `Flickable`.
+    pub(crate) fn is_visible_or_clipped_by_flickable(&self) -> bool {
+        if self.is_visible() {
+            return true;
+        }
+
+        let (_, geometry) = self.absolute_clip_rect_and_geometry();
+        let geometry = geometry.to_box2d();
+
+        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
+        let mut ancestors = Vec::new();
+        let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
+        while let Some(item_rc) = parent {
+            parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
+            ancestors.push(item_rc);
+        }
+
+        for ancestor in ancestors.into_iter().rev() {
+            let clips_children = ancestor.borrow().as_ref().clips_children();
+            if !clips_children {
+                continue;
+            }
+
+            let ancestor_geometry = ancestor.absolute_clip_rect_and_geometry().1;
+            clip = ancestor_geometry.intersection(&clip).unwrap_or_default();
+            let clip = clip.to_box2d();
+
+            let is_visible = !clip.is_empty()
+                && clip.max.x >= geometry.min.x
+                && clip.max.y >= geometry.min.y
+                && clip.min.x <= geometry.max.x
+                && clip.min.y <= geometry.max.y;
+            if !is_visible {
+                return ancestor.downcast::<crate::items::Flickable>().is_some();
+            }
+        }
+
+        false
+    }
+
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the
     /// item's (unclipped) geometry (also in window coordinates).
     fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {

@@ -993,7 +993,12 @@ impl WindowInner {
         let mut visited = Vec::new();
 
         loop {
-            if (current_item.is_visible() || reason == FocusReason::Programmatic)
+            let can_receive_focus = match reason {
+                FocusReason::Programmatic => true,
+                FocusReason::TabNavigation => current_item.is_visible_or_clipped_by_flickable(),
+                _ => current_item.is_visible(),
+            };
+            if can_receive_focus
                 && self.publish_focus_item(&Some(current_item.clone()), reason)
                     == crate::input::FocusEventResult::FocusAccepted
             {

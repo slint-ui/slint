@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 120px;
+    height: 110px;
+
+    out property <int> focused-index: -1;
+
+    flick := Flickable {
+        width: 100%;
+        height: 100%;
+        viewport-height: 420px;
+
+        FocusScope {
+            y: 0px;
+            width: parent.width;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 0; }
+        }
+        FocusScope {
+            y: 70px;
+            width: parent.width;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 1; }
+        }
+        FocusScope {
+            y: 140px;
+            width: parent.width;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 2; }
+        }
+        FocusScope {
+            y: 210px;
+            width: parent.width;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 3; }
+        }
+        FocusScope {
+            y: 280px;
+            width: parent.width;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 4; }
+        }
+        FocusScope {
+            y: 350px;
+            width: parent.width;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 5; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_focused_index(), -1);
+
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 2);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 3);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 4);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 5);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 0);
+```
+*/
