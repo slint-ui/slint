@@ -433,6 +433,22 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // In addition to the hack done for WindowEvent::Resize, also do it for Occluded so we handle Minimized change
                 window.window_state_event();
             }
+            // Note: winit's PinchGesture does not carry a position; we use the last
+            // known cursor position as the best available approximation. On macOS
+            // trackpads, CursorMoved events typically precede gesture events.
+            WindowEvent::PinchGesture { delta, phase, .. } => {
+                let phase = match phase {
+                    winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
+                    winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
+                    winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
+                    winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
+                };
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::PinchGesture {
+                    position: self.cursor_pos,
+                    delta: delta as f32,
+                    phase,
+                });
+            }
             _ => {}
         }
 

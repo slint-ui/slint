@@ -6,6 +6,7 @@
 use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
+pub use i_slint_core::input::TouchPhase;
 use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
@@ -84,6 +85,30 @@ pub fn set_window_scale_factor<
     factor: f32,
 ) {
     component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
+}
+
+/// Send a platform pinch gesture event to the component's window.
+///
+/// `delta` is the incremental scale change (e.g. 0.0 for start, 0.5 for 50% increase).
+/// The PinchGestureHandler accumulates deltas: `scale *= (1.0 + delta)`.
+pub fn send_pinch_gesture<
+    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    delta: f32,
+    center_x: f32,
+    center_y: f32,
+    phase: i_slint_core::input::TouchPhase,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.process_mouse_input(i_slint_core::input::MouseEvent::PinchGesture {
+        position: i_slint_core::lengths::logical_point_from_api(
+            i_slint_core::api::LogicalPosition::new(center_x, center_y),
+        ),
+        delta,
+        phase,
+    });
 }
 
 pub fn access_testing_window<R>(

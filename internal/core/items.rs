@@ -686,6 +686,10 @@ declare_item_vtable! {
     fn slint_get_SwipeGestureHandlerVTable() -> SwipeGestureHandlerVTable for SwipeGestureHandler
 }
 
+declare_item_vtable! {
+    fn slint_get_PinchGestureHandlerVTable() -> PinchGestureHandlerVTable for PinchGestureHandler
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]

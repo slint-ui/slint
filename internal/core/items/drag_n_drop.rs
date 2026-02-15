@@ -95,6 +95,7 @@ impl Item for DragArea {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::PinchGesture { .. } => InputEventFilterResult::ForwardAndIgnore,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -135,6 +136,7 @@ impl Item for DragArea {
                 }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }

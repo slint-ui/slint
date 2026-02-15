@@ -474,6 +474,7 @@ impl Item for NativeTab {
                 };
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } => return InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 return InputEventResult::EventIgnored;
             }
