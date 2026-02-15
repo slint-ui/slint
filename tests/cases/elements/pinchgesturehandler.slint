@@ -36,24 +36,27 @@ assert_eq!(instance.get_r(), "");
 assert_eq!(instance.get_active(), false);
 
 // === Test 1: Basic gesture lifecycle (Started → Moved → Ended) ===
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+// delta=0.0 on start → scale=1.0
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_scale(), 1.0);
 assert_eq!(instance.get_r(), "started;");
 
-slint_testing::send_pinch_gesture(&instance, 1.5, 310.0, 290.0, TouchPhase::Moved);
+// delta=0.5 → scale = 1.0 * (1 + 0.5) = 1.5
+slint_testing::send_pinch_gesture(&instance, 0.5, 310.0, 290.0, TouchPhase::Moved);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_scale(), 1.5);
 assert_eq!(instance.get_r(), "started;updated(1.5);");
 
-slint_testing::send_pinch_gesture(&instance, 2.0, 320.0, 280.0, TouchPhase::Moved);
+// delta=1.0 → scale = 1.5 * (1 + 1.0) = 3.0
+slint_testing::send_pinch_gesture(&instance, 1.0, 320.0, 280.0, TouchPhase::Moved);
 assert_eq!(instance.get_active(), true);
-assert_eq!(instance.get_scale(), 2.0);
-assert_eq!(instance.get_r(), "started;updated(1.5);updated(2);");
+assert_eq!(instance.get_scale(), 3.0);
+assert_eq!(instance.get_r(), "started;updated(1.5);updated(3);");
 
-slint_testing::send_pinch_gesture(&instance, 2.0, 320.0, 280.0, TouchPhase::Ended);
+slint_testing::send_pinch_gesture(&instance, 0.0, 320.0, 280.0, TouchPhase::Ended);
 assert_eq!(instance.get_active(), false);
-assert_eq!(instance.get_r(), "started;updated(1.5);updated(2);ended;");
+assert_eq!(instance.get_r(), "started;updated(1.5);updated(3);ended;");
 
 // === Test 2: Center position tracking ===
 let center = instance.get_center();
@@ -67,20 +70,21 @@ let instance = TestCase::new().unwrap();
 use slint_testing::TouchPhase;
 
 // === Test 3: Cancellation ===
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_r(), "started;");
 
-slint_testing::send_pinch_gesture(&instance, 1.3, 300.0, 300.0, TouchPhase::Moved);
+// delta=0.3 → scale = 1.0 * 1.3 = 1.3
+slint_testing::send_pinch_gesture(&instance, 0.3, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_r(), "started;updated(1.3);");
 
-slint_testing::send_pinch_gesture(&instance, 1.3, 300.0, 300.0, TouchPhase::Cancelled);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Cancelled);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "started;updated(1.3);cancelled;");
 
 // === Test 4: Spurious cancel when not active does nothing ===
 instance.set_r("".into());
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Cancelled);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Cancelled);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 ```
@@ -92,15 +96,15 @@ use slint_testing::TouchPhase;
 // === Test 5: Disabled from start — no callbacks fire ===
 instance.set_enabled(false);
 
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 
-slint_testing::send_pinch_gesture(&instance, 1.5, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 
-slint_testing::send_pinch_gesture(&instance, 1.5, 300.0, 300.0, TouchPhase::Ended);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 ```
@@ -110,24 +114,24 @@ let instance = TestCase::new().unwrap();
 use slint_testing::TouchPhase;
 
 // === Test 6: Disable while active cancels the gesture ===
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_r(), "started;");
 
 instance.set_enabled(false);
 // Next event delivery triggers the cancel
-slint_testing::send_pinch_gesture(&instance, 1.5, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "started;cancelled;");
 
 // Re-enable; subsequent gestures should work
 instance.set_enabled(true);
 instance.set_r("".into());
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_r(), "started;");
 
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Ended);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "started;ended;");
 ```
@@ -137,7 +141,7 @@ let instance = TestCase::new().unwrap();
 use slint_testing::TouchPhase;
 
 // === Test 7: Gesture outside window bounds is ignored ===
-slint_testing::send_pinch_gesture(&instance, 1.0, -50.0, -50.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, -50.0, -50.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 ```
@@ -147,11 +151,11 @@ let instance = TestCase::new().unwrap();
 use slint_testing::TouchPhase;
 
 // === Test 8: Moved/Ended without prior Started are ignored ===
-slint_testing::send_pinch_gesture(&instance, 1.5, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 
-slint_testing::send_pinch_gesture(&instance, 1.5, 300.0, 300.0, TouchPhase::Ended);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "");
 ```
@@ -161,23 +165,25 @@ let instance = TestCase::new().unwrap();
 use slint_testing::TouchPhase;
 
 // === Test 9: Double Started cancels the first gesture ===
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_r(), "started;");
 
-slint_testing::send_pinch_gesture(&instance, 1.5, 300.0, 300.0, TouchPhase::Moved);
+// delta=0.5 → scale=1.5
+slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_r(), "started;updated(1.5);");
 
 // Second Started without Ended — should cancel then restart
-slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_scale(), 1.0);
 assert_eq!(instance.get_r(), "started;updated(1.5);cancelled;started;");
 
-slint_testing::send_pinch_gesture(&instance, 2.0, 300.0, 300.0, TouchPhase::Moved);
+// delta=1.0 → scale = 1.0 * 2.0 = 2.0
+slint_testing::send_pinch_gesture(&instance, 1.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_r(), "started;updated(1.5);cancelled;started;updated(2);");
 
-slint_testing::send_pinch_gesture(&instance, 2.0, 300.0, 300.0, TouchPhase::Ended);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "started;updated(1.5);cancelled;started;updated(2);ended;");
 ```

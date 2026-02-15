@@ -52,6 +52,9 @@ pub enum MouseEvent {
     DragMove(DropEvent),
     /// The mouse is released while dragging over this item.
     Drop(DropEvent),
+    /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
+    /// `delta` is the incremental scale change; PinchGestureHandler accumulates it.
+    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
     /// The mouse exited the item or component
     Exit,
 }
@@ -64,6 +67,7 @@ impl MouseEvent {
             MouseEvent::Released { is_touch, .. } => Some(*is_touch),
             MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
             MouseEvent::Wheel { .. } => None,
+            MouseEvent::PinchGesture { .. } => None,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
             MouseEvent::Exit => None,
         }
@@ -76,6 +80,7 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(*position),
             MouseEvent::Moved { position, .. } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
+            MouseEvent::PinchGesture { position, .. } => Some(*position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 Some(crate::lengths::logical_point_from_api(e.position))
             }
@@ -90,6 +95,7 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     crate::lengths::logical_point_from_api(e.position) + vec,
@@ -110,6 +116,7 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     transform
@@ -147,20 +154,6 @@ pub enum TouchPhase {
     Ended,
     /// The gesture was cancelled (e.g., interrupted by the system).
     Cancelled,
-}
-
-/// A platform-recognized pinch gesture event (Path A: macOS/iOS trackpad, Qt).
-///
-/// The OS has already recognized this as a pinch — no further gesture recognition is needed.
-/// `scale` is always cumulative relative to gesture start (1.0 = no change).
-#[derive(Debug, Clone, Copy)]
-pub struct PinchGestureEvent {
-    /// Cumulative scale factor: 1.0 = no change, 2.0 = doubled, 0.5 = halved.
-    pub scale: f32,
-    /// Center point of the gesture in logical coordinates.
-    pub center: LogicalPoint,
-    /// Current phase of the gesture.
-    pub phase: TouchPhase,
 }
 
 /// This value is returned by the `input_event` function of an Item
@@ -966,103 +959,6 @@ pub fn process_mouse_input(
     }
 
     result
-}
-
-/// Route a platform-recognized pinch gesture to PinchGestureHandler items.
-///
-/// Walks the item tree depth-first at the gesture center position. When a
-/// PinchGestureHandler is found and enabled, the event is delivered to it and
-/// traversal stops. No grab semantics or delay forwarding — the OS has already
-/// recognized this as a pinch gesture.
-pub(crate) fn process_pinch_gesture_input(
-    root: ItemRc,
-    event: &PinchGestureEvent,
-    window_adapter: &Rc<dyn WindowAdapter>,
-) {
-    deliver_pinch_to_item(root, event, window_adapter, event.center, false);
-}
-
-/// Recursively walk items looking for PinchGestureHandler at the given position.
-/// Returns true if the event was consumed.
-///
-/// Mirrors the hit-testing logic of `send_mouse_event_to_item`: handles geometry
-/// translation, child transforms, and clip boundaries.
-fn deliver_pinch_to_item(
-    item_rc: ItemRc,
-    event: &PinchGestureEvent,
-    window_adapter: &Rc<dyn WindowAdapter>,
-    position: LogicalPoint,
-    clipped: bool,
-) -> bool {
-    use crate::items::PinchGestureHandler;
-
-    let geom = item_rc.geometry();
-    let contains = geom.contains(position);
-
-    // Respect clip boundaries: if an ancestor clips and we're outside, skip this subtree
-    if clipped && !contains {
-        return false;
-    }
-
-    // Extract clips_children before any recursive calls to avoid holding the borrow
-    let clips = item_rc.borrow().as_ref().clips_children();
-
-    // Translate position to item-local coordinates
-    let mut local_pos = position - geom.origin.to_vector();
-
-    // Apply inverse child transform (rotation, scaling) if the renderer supports it
-    if window_adapter.renderer().supports_transformations() {
-        if let Some(inverse_transform) = item_rc.inverse_children_transform() {
-            local_pos = inverse_transform.transform_point(local_pos.cast()).cast();
-        }
-    }
-
-    let child_clipped = clipped || clips;
-
-    // Visit children front-to-back (visually topmost first), innermost handler wins
-    let mut consumed = false;
-    let mut visitor =
-        |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
-            if deliver_pinch_to_item(
-                ItemRc::new(component.clone(), index),
-                event,
-                window_adapter,
-                local_pos,
-                child_clipped,
-            ) {
-                consumed = true;
-                VisitChildrenResult::abort(index, 0)
-            } else {
-                VisitChildrenResult::CONTINUE
-            }
-        };
-    vtable::new_vref!(let mut visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut visitor);
-    vtable::VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
-        item_rc.index() as isize,
-        crate::item_tree::TraversalOrder::FrontToBack,
-        visitor,
-    );
-
-    if consumed {
-        return true;
-    }
-
-    // Only deliver to this item if the gesture center is within its geometry
-    if !contains {
-        return false;
-    }
-
-    // Check if this item is a PinchGestureHandler.
-    // Deliver if enabled OR if the handler is active (so a disable-while-active can cancel).
-    if let Some(handler) = item_rc.downcast::<PinchGestureHandler>() {
-        let handler = handler.as_pin_ref();
-        if handler.enabled() || handler.active() {
-            handler.handle_platform_pinch(event);
-            return true;
-        }
-    }
-
-    false
 }
 
 pub(crate) fn process_delayed_event(

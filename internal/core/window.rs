@@ -764,49 +764,6 @@ impl WindowInner {
         ));
     }
 
-    /// Receive a platform-recognized pinch gesture event and route it to
-    /// PinchGestureHandler items in the component tree.
-    pub fn process_gesture_input(&self, event: crate::input::PinchGestureEvent) {
-        crate::animations::update_animations();
-
-        let Some(item_tree) = self.try_component() else { return };
-        let window_adapter = self.window_adapter();
-
-        // Check if the gesture should be routed to a popup instead of the main tree.
-        // Mirrors the popup routing logic in process_mouse_input.
-        let mut root_adapter = None;
-        ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut root_adapter);
-        let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
-        let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
-
-        let mut target_tree = Some(item_tree);
-        let mut offset = crate::lengths::LogicalPoint::default();
-        for popup in active_popups.borrow().iter().rev() {
-            if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
-                let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
-                if geom.contains(event.center - coordinates.to_vector()) {
-                    target_tree = Some(popup.component.clone());
-                    offset = *coordinates;
-                    break;
-                }
-            }
-            // A non-menu popup blocks gestures to items behind it
-            if !popup.is_menu {
-                target_tree = None;
-                break;
-            }
-        }
-
-        if let Some(tree) = target_tree {
-            let mut event = event;
-            event.center -= offset.to_vector();
-            let root = ItemRc::new(tree, 0);
-            crate::input::process_pinch_gesture_input(root, &event, &window_adapter);
-        }
-
-        crate::properties::ChangeTracker::run_change_handlers();
-    }
-
     /// Receive a key event and pass it to the items of the component to
     /// change their state.
     ///
