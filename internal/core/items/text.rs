@@ -304,6 +304,7 @@ impl Item for StyledTextItem {
                     self_rc,
                     LogicalSize::from_lengths(self.width(), self.height()),
                     *position * scale_factor,
+                    None, // No cache available from item event handler
                 ) {
                     Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
                 }

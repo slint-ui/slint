@@ -164,6 +164,7 @@ pub struct SkiaRenderer {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     layer_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+    text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     surface: RefCell<Option<Box<dyn Surface>>>,
@@ -190,6 +191,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -211,6 +213,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -245,6 +248,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -279,6 +283,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -313,6 +318,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -347,6 +353,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -381,6 +388,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -414,6 +422,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
@@ -464,6 +473,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             surface: RefCell::new(Some(surface)),
@@ -482,6 +492,7 @@ impl SkiaRenderer {
     pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+        self.text_layout_cache.clear_all();
         self.rendering_first_time.set(true);
         *self.surface.borrow_mut() = Some(surface);
     }
@@ -513,6 +524,7 @@ impl SkiaRenderer {
     pub fn suspend(&self) -> Result<(), PlatformError> {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+        self.text_layout_cache.clear_all();
         // Destroy the old surface before allocating the new one, to work around
         // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
         // trying to create a second synchronization object and that's not allowed.
@@ -652,6 +664,7 @@ impl SkiaRenderer {
 
         self.image_cache.clear_cache_if_scale_factor_changed(window);
         self.path_cache.clear_cache_if_scale_factor_changed(window);
+        self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
         let mut skia_item_renderer = itemrenderer::SkiaItemRenderer::new(
             skia_canvas,
@@ -660,6 +673,7 @@ impl SkiaRenderer {
             &self.image_cache,
             &self.layer_cache,
             &self.path_cache,
+            &self.text_layout_cache,
             &mut box_shadow_cache,
         );
 
@@ -837,7 +851,15 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap).unwrap_or_default()
+        sharedparley::text_size(
+            self,
+            text_item,
+            item_rc,
+            max_width,
+            text_wrap,
+            Some(&self.text_layout_cache),
+        )
+        .unwrap_or_default()
     }
 
     fn char_size(
@@ -927,6 +949,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.image_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
+        self.text_layout_cache.component_destroyed(component);
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.free_graphics_resources(items);
@@ -939,6 +962,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+        self.text_layout_cache.clear_all();
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.clear_cache();

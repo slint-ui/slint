@@ -443,6 +443,8 @@ pub struct SoftwareRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn i_slint_core::window::WindowAdapter>>>,
     rotation: Cell<RenderingRotation>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    #[cfg(feature = "systemfonts")]
+    text_layout_cache: sharedparley::TextLayoutCache,
 }
 
 impl Default for SoftwareRenderer {
@@ -454,7 +456,17 @@ impl Default for SoftwareRenderer {
             rotation: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new("software"),
             repaint_buffer_type: Default::default(),
+            #[cfg(feature = "systemfonts")]
+            text_layout_cache: Default::default(),
         }
+    }
+}
+
+#[cfg(feature = "testing")]
+impl SoftwareRenderer {
+    /// Returns a reference to the text layout cache for testing purposes.
+    pub fn text_layout_cache(&self) -> &sharedparley::TextLayoutCache {
+        &self.text_layout_cache
     }
 }
 
@@ -547,6 +559,8 @@ impl SoftwareRenderer {
             return Default::default();
         };
         let window_inner = WindowInner::from_pub(window.window());
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.clear_cache_if_scale_factor_changed(window.window());
         let factor = ScaleFactor::new(window_inner.scale_factor());
         let rotation = self.rotation.get();
         let (size, background) = if let Some(window_item) =
@@ -591,6 +605,8 @@ impl SoftwareRenderer {
                 dirty_region: Default::default(),
             },
             rotation,
+            #[cfg(feature = "systemfonts")]
+            &self.text_layout_cache,
         );
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
         let window_adapter = renderer.window_adapter.clone();
@@ -733,6 +749,8 @@ impl SoftwareRenderer {
             return Default::default();
         };
         let window_inner = WindowInner::from_pub(window.window());
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.clear_cache_if_scale_factor_changed(window.window());
         let component_rc = window_inner.component();
         let component = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&component_rc);
         if let Some(window_item) = i_slint_core::items::ItemRef::downcast_pin::<
@@ -784,8 +802,15 @@ impl RendererSealed for SoftwareRenderer {
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
             drop(font_ctx);
-            return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
-                .unwrap_or_default();
+            return sharedparley::text_size(
+                self,
+                text_item,
+                item_rc,
+                max_width,
+                text_wrap,
+                Some(&self.text_layout_cache),
+            )
+            .unwrap_or_default();
         }
 
         let content = text_item.text();
@@ -1120,6 +1145,8 @@ impl RendererSealed for SoftwareRenderer {
         _component: i_slint_core::item_tree::ItemTreeRef,
         items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.component_destroyed(_component);
         self.partial_rendering_state.free_graphics_resources(items);
         Ok(())
     }
@@ -1162,6 +1189,8 @@ impl RendererSealed for SoftwareRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.clear_all();
         self.partial_rendering_state.clear_cache();
     }
 
@@ -1368,6 +1397,8 @@ fn prepare_scene(
         window,
         PrepareScene::default(),
         software_renderer.rotation.get(),
+        #[cfg(feature = "systemfonts")]
+        &software_renderer.text_layout_cache,
     );
     let mut renderer =
         software_renderer.partial_rendering_state.create_partial_renderer(prepare_scene);
@@ -2057,6 +2088,8 @@ struct SceneBuilder<'a, T> {
     scale_factor: ScaleFactor,
     window: &'a WindowInner,
     rotation: RotationInfo,
+    #[cfg(feature = "systemfonts")]
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
 }
 
 impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
@@ -2066,6 +2099,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         window: &'a WindowInner,
         processor: T,
         orientation: RenderingRotation,
+        #[cfg(feature = "systemfonts")] text_layout_cache: &'a sharedparley::TextLayoutCache,
     ) -> Self {
         Self {
             processor,
@@ -2081,6 +2115,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             scale_factor,
             window,
             rotation: RotationInfo { orientation, screen_size },
+            #[cfg(feature = "systemfonts")]
+            text_layout_cache,
         }
     }
 
@@ -2644,7 +2680,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
             drop(font_ctx);
-            sharedparley::draw_text(self, text, Some(self_rc), size);
+            sharedparley::draw_text(self, text, Some(self_rc), size, Some(&self.text_layout_cache));
             return;
         }
 
@@ -3123,6 +3159,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     std::pin::pin!((i_slint_core::SharedString::from(string), Brush::from(color))),
                     None,
                     self.current_state.clip.size.cast(),
+                    None,
                 );
             }
             #[cfg(feature = "systemfonts")]
