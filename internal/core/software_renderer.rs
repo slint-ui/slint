@@ -558,7 +558,7 @@ impl SoftwareRenderer {
             size,
             factor,
             window_inner,
-            RenderToBuffer { buffer, dirty_range_cache: vec![], dirty_region: Default::default() },
+            RenderToBuffer { buffer, dirty_range_cache: vec![], dirty_region: Default::default(), current_rounded_clip: Default::default() },
             rotation,
         );
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
@@ -972,8 +972,21 @@ fn render_window_frame_by_line(
                         if span.pos.x >= r.end {
                             continue;
                         }
-                        let begin = r.start.max(span.pos.x);
-                        let end = r.end.min(span.pos.x + span.size.width);
+                        let mut begin = r.start.max(span.pos.x);
+                        let mut end = r.end.min(span.pos.x + span.size.width);
+
+                        // Apply rounded clip if present
+                        if let Some(clip_index) = span.rounded_clip_index {
+                            let rounded_clip = &scene.vectors.rounded_clips[clip_index as usize];
+                            if let Some((clip_begin, clip_end)) = rounded_clip.clip_range_for_line(scene.current_line.get()) {
+                                begin = begin.max(clip_begin);
+                                end = end.min(clip_end);
+                            } else {
+                                // Line is outside the rounded clip region
+                                continue;
+                            }
+                        }
+
                         if begin >= end {
                             continue;
                         }
@@ -1144,18 +1157,57 @@ fn prepare_scene(
     Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
 }
 
+/// Represents the current rounded clip state to pass to ProcessScene methods
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct CurrentRoundedClip {
+    /// Physical bounds of the rounded clip region
+    pub bounds: Option<PhysicalRect>,
+    /// Physical border radius
+    pub radius: Option<PhysicalBorderRadius>,
+}
+
+impl CurrentRoundedClip {
+    fn is_active(&self) -> bool {
+        self.bounds.is_some() && self.radius.map_or(false, |r| !r.is_zero())
+    }
+}
+
 trait ProcessScene {
-    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
+    /// Set the current rounded clip state.
+    /// This will be used by subsequent process_X calls.
+    fn set_current_rounded_clip(&mut self, clip: CurrentRoundedClip);
+
+    fn process_scene_texture(
+        &mut self,
+        geometry: PhysicalRect,
+        texture: SceneTexture<'static>,
+    );
     fn process_target_texture(
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
     );
-    fn process_rectangle(&mut self, _: &target_pixel_buffer::DrawRectangleArgs, clip: PhysicalRect);
+    fn process_rectangle(
+        &mut self,
+        _: &target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+    );
 
-    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
-    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
-    fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
+    fn process_simple_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        color: PremultipliedRgbaColor,
+    );
+    fn process_rounded_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        data: RoundedRectangle,
+    );
+    fn process_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: GradientCommand,
+    );
 }
 
 fn process_rectangle_impl(
@@ -1271,8 +1323,7 @@ fn process_rectangle_impl(
         // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
         // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
         // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
-        // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
-        // N being the equivalent color of the border that mixes the background and the border
+        // with N being the equivalent color of the border that mixes the background and the border
         // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
         let b = border_color;
         let b_alpha_16 = b.alpha as u16;
@@ -1340,6 +1391,7 @@ struct RenderToBuffer<'a, TargetPixelBuffer> {
     buffer: &'a mut TargetPixelBuffer,
     dirty_range_cache: Vec<core::ops::Range<i16>>,
     dirty_region: PhysicalRegion,
+    current_rounded_clip: CurrentRoundedClip,
 }
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
@@ -1412,7 +1464,15 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
 }
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<'_, B> {
-    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+    fn set_current_rounded_clip(&mut self, clip: CurrentRoundedClip) {
+        self.current_rounded_clip = clip;
+    }
+
+    fn process_scene_texture(
+        &mut self,
+        geometry: PhysicalRect,
+        texture: SceneTexture<'static>,
+    ) {
         self.process_texture_impl(geometry, texture);
     }
 
@@ -1444,7 +1504,11 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         process_rectangle_impl(self, args, &clip);
     }
 
-    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
+    fn process_rounded_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        rr: RoundedRectangle,
+    ) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
             draw_functions::draw_rounded_rectangle_line(
                 &geometry,
@@ -1457,13 +1521,21 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         });
     }
 
-    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
+    fn process_simple_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        color: PremultipliedRgbaColor,
+    ) {
         self.foreach_ranges(&geometry, |_line, buffer, _extra_left_clip, _extra_right_clip| {
             <B::TargetPixel>::blend_slice(buffer, color)
         });
     }
 
-    fn process_gradient(&mut self, geometry: PhysicalRect, g: GradientCommand) {
+    fn process_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        g: GradientCommand,
+    ) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
             draw_functions::draw_gradient_line(
                 &geometry,
@@ -1480,17 +1552,51 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
 struct PrepareScene {
     items: Vec<SceneItem>,
     vectors: SceneVectors,
+    current_rounded_clip: CurrentRoundedClip,
+}
+
+impl PrepareScene {
+    /// Get or create a rounded clip index for the current rounded clip state
+    fn get_current_rounded_clip_index(&mut self) -> Option<u16> {
+        if !self.current_rounded_clip.is_active() {
+            return None;
+        }
+        let bounds = self.current_rounded_clip.bounds?;
+        let radius = self.current_rounded_clip.radius?;
+
+        // Check if we already have this exact clip region
+        for (i, existing) in self.vectors.rounded_clips.iter().enumerate() {
+            if existing.bounds == bounds && existing.radius == radius {
+                return Some(i as u16);
+            }
+        }
+
+        // Create new rounded clip region
+        let index = self.vectors.rounded_clips.len() as u16;
+        self.vectors.rounded_clips.push(RoundedClipRegion { bounds, radius });
+        Some(index)
+    }
 }
 
 impl ProcessScene for PrepareScene {
-    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+    fn set_current_rounded_clip(&mut self, clip: CurrentRoundedClip) {
+        self.current_rounded_clip = clip;
+    }
+
+    fn process_scene_texture(
+        &mut self,
+        geometry: PhysicalRect,
+        texture: SceneTexture<'static>,
+    ) {
         let texture_index = self.vectors.textures.len() as u16;
         self.vectors.textures.push(texture);
+        let rounded_clip_index = self.get_current_rounded_clip_index();
         self.items.push(SceneItem {
             pos: geometry.origin,
             size: geometry.size,
             z: self.items.len() as u16,
             command: SceneCommand::Texture { texture_index },
+            rounded_clip_index,
         });
     }
 
@@ -1502,6 +1608,7 @@ impl ProcessScene for PrepareScene {
         let Some((extra, geometry)) = SceneTextureExtra::from_target_texture(texture, &clip) else {
             return;
         };
+        let rounded_clip_index = self.get_current_rounded_clip_index();
         match &texture.data {
             target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
                 let texture_index = self.vectors.textures.len() as u16;
@@ -1518,6 +1625,7 @@ impl ProcessScene for PrepareScene {
                     size: geometry.size,
                     z: self.items.len() as u16,
                     command: SceneCommand::Texture { texture_index },
+                    rounded_clip_index,
                 });
             }
             target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
@@ -1532,6 +1640,7 @@ impl ProcessScene for PrepareScene {
                     size: geometry.size,
                     z: self.items.len() as u16,
                     command: SceneCommand::SharedBuffer { shared_buffer_index },
+                    rounded_clip_index,
                 });
             }
         }
@@ -1545,39 +1654,62 @@ impl ProcessScene for PrepareScene {
         process_rectangle_impl(self, args, &clip);
     }
 
-    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
+    fn process_simple_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        color: PremultipliedRgbaColor,
+    ) {
         let size = geometry.size;
         if !size.is_empty() {
             let z = self.items.len() as u16;
             let pos = geometry.origin;
-            self.items.push(SceneItem { pos, size, z, command: SceneCommand::Rectangle { color } });
+            let rounded_clip_index = self.get_current_rounded_clip_index();
+            self.items.push(SceneItem {
+                pos,
+                size,
+                z,
+                command: SceneCommand::Rectangle { color },
+                rounded_clip_index,
+            });
         }
     }
 
-    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle) {
+    fn process_rounded_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        data: RoundedRectangle,
+    ) {
         let size = geometry.size;
         if !size.is_empty() {
             let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
             self.vectors.rounded_rectangles.push(data);
+            let rounded_clip_index = self.get_current_rounded_clip_index();
             self.items.push(SceneItem {
                 pos: geometry.origin,
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::RoundedRectangle { rectangle_index },
+                rounded_clip_index,
             });
         }
     }
 
-    fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand) {
+    fn process_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: GradientCommand,
+    ) {
         let size = geometry.size;
         if !size.is_empty() {
             let gradient_index = self.vectors.gradients.len() as u16;
             self.vectors.gradients.push(gradient);
+            let rounded_clip_index = self.get_current_rounded_clip_index();
             self.items.push(SceneItem {
                 pos: geometry.origin,
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::Gradient { gradient_index },
+                rounded_clip_index,
             });
         }
     }
@@ -1610,6 +1742,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     LogicalPoint::default(),
                     (screen_size.cast() / scale_factor).cast(),
                 ),
+                rounded_clip: None,
             },
             scale_factor,
             window,
@@ -1621,6 +1754,39 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         !rect.size.is_empty()
             && self.current_state.alpha > 0.01
             && self.current_state.clip.intersects(rect)
+    }
+
+    /// Get the current rounded clip info in physical coordinates
+    fn current_rounded_clip(&self) -> CurrentRoundedClip {
+        match self.current_state.rounded_clip {
+            Some((clip_rect, radius)) => {
+                // clip_rect is already maintained in "current local coordinates" by translate(),
+                // but we need to convert to physical screen coordinates.
+                // The current_state.offset is the accumulated offset from screen origin to current local origin.
+                // Since clip_rect is in current local coordinates (already adjusted by translate()),
+                // we need to add back the current offset to get screen coordinates.
+                let physical_rect = (clip_rect
+                    .translate(self.current_state.offset.to_vector())
+                    .cast()
+                    * self.scale_factor)
+                    .round()
+                    .cast()
+                    .transformed(self.rotation);
+                let physical_radius = (radius.cast() * self.scale_factor)
+                    .transformed(self.rotation);
+                CurrentRoundedClip {
+                    bounds: Some(physical_rect),
+                    radius: Some(PhysicalBorderRadius {
+                        top_left: physical_radius.top_left as i16,
+                        top_right: physical_radius.top_right as i16,
+                        bottom_right: physical_radius.bottom_right as i16,
+                        bottom_left: physical_radius.bottom_left as i16,
+                        _unit: Default::default(),
+                    }),
+                }
+            }
+            None => CurrentRoundedClip::default(),
+        }
     }
 
     fn draw_image_impl(
@@ -1737,7 +1903,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         tiling,
                     };
 
-                    self.processor.process_target_texture(&t, clipped_target.cast());
+                    self.processor
+                        .process_target_texture(&t, clipped_target.cast());
                 }
             }
 
@@ -1799,7 +1966,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         tiling,
                     };
 
-                    self.processor.process_target_texture(&t, clipped_target.cast());
+                    self.processor
+                        .process_target_texture(&t, clipped_target.cast());
                 } else {
                     unimplemented!("The image cannot be rendered")
                 }
@@ -1963,7 +2131,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             tiling: None,
                         };
 
-                        self.processor.process_target_texture(&t, clipped_target.cast());
+                        self.processor
+                            .process_target_texture(&t, clipped_target.cast());
                     }
                     core::ops::ControlFlow::Continue(())
                 },
@@ -2053,6 +2222,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     fonts::text_layout_for_font(pixel_font, &font_request, self.scale_factor);
                 self.render_text_to_alpha_map(&text, &string, max_size, font_layout)
             }
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vector_font) => {
                 let font_layout =
                     fonts::text_layout_for_font(vector_font, &font_request, self.scale_factor);
@@ -2103,6 +2273,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     pr.count = 1;
                     pr
                 },
+                current_rounded_clip: Default::default(),
             },
             RenderingRotation::NoRotation,
         );
@@ -2156,6 +2327,9 @@ struct RenderState {
     alpha: f32,
     offset: LogicalPoint,
     clip: LogicalRect,
+    /// Optional rounded clip info. When Some, contains (clip_rect, radius) for per-scanline clipping.
+    /// The clip_rect here is in logical coordinates relative to the current offset.
+    rounded_clip: Option<(LogicalRect, LogicalBorderRadius)>,
 }
 
 impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
@@ -2315,7 +2489,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         let font_request = text.font_request(self_rc);
 
         let color = self.alpha_color(text.color().color());
-        let max_size = (size * self.scale_factor).cast();
+        let max_size = (size * self.scale_factor).cast::<f32>();
         #[cfg(feature = "std")]
         if let Some(cache_key) =
             paragraph_cache::ParagraphCacheKey::new(&text, &font_request, size, self.scale_factor)
@@ -2350,8 +2524,8 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                 let paragraph = TextParagraphLayout {
                     string: &string,
                     layout,
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
+                    max_width: max_size.width_length().cast(),
+                    max_height: max_size.height_length().cast(),
                     horizontal_alignment,
                     vertical_alignment,
                     wrap: text.wrap(),
@@ -2369,8 +2543,8 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                 let paragraph = TextParagraphLayout {
                     string: &string,
                     layout,
-                    max_width: max_size.width_length(),
-                    max_height: max_size.height_length(),
+                    max_width: max_size.width_length().cast(),
+                    max_height: max_size.height_length().cast(),
                     horizontal_alignment,
                     vertical_alignment,
                     wrap: text.wrap(),
@@ -2513,20 +2687,28 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     fn combine_clip(
         &mut self,
         other: LogicalRect,
-        _radius: LogicalBorderRadius,
+        radius: LogicalBorderRadius,
         _border_width: LogicalLength,
     ) -> bool {
         match self.current_state.clip.intersection(&other) {
             Some(r) => {
                 self.current_state.clip = r;
+                // Store rounded clip info if radius is non-zero
+                if !radius.is_zero() {
+                    self.current_state.rounded_clip = Some((other, radius));
+                }
+                // Sync to processor
+                self.processor.set_current_rounded_clip(self.current_rounded_clip());
                 true
             }
             None => {
                 self.current_state.clip = LogicalRect::default();
+                self.current_state.rounded_clip = None;
+                // Sync to processor
+                self.processor.set_current_rounded_clip(CurrentRoundedClip::default());
                 false
             }
         }
-        // TODO: handle radius and border
     }
 
     fn get_current_clip(&self) -> LogicalRect {
@@ -2535,7 +2717,11 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
     fn translate(&mut self, distance: LogicalVector) {
         self.current_state.offset += distance;
-        self.current_state.clip = self.current_state.clip.translate(-distance)
+        self.current_state.clip = self.current_state.clip.translate(-distance);
+        // Also translate the rounded clip region if present
+        if let Some((ref mut clip_rect, _)) = self.current_state.rounded_clip {
+            *clip_rect = clip_rect.translate(-distance);
+        }
     }
 
     fn translation(&self) -> LogicalVector {
@@ -2556,6 +2742,8 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
     fn restore_state(&mut self) {
         self.current_state = self.state_stack.pop().unwrap();
+        // Sync rounded clip state to processor after restoring
+        self.processor.set_current_rounded_clip(self.current_rounded_clip());
     }
 
     fn scale_factor(&self) -> f32 {

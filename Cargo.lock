@@ -8820,6 +8820,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rounded_clip_demo"
+version = "0.1.0"
+dependencies = [
+ "slint",
+]
+
+[[package]]
 name = "rowan"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

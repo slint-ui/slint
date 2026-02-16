@@ -14,12 +14,86 @@ use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 
+/// A rounded clip region that items can reference for per-scanline clipping
+#[derive(Clone, Copy, Debug)]
+pub struct RoundedClipRegion {
+    /// The bounds of the clip region in physical coordinates
+    pub bounds: PhysicalRect,
+    /// Border radius for each corner
+    pub radius: PhysicalBorderRadius,
+}
+
+impl RoundedClipRegion {
+    /// Compute the valid x-range for a given y-coordinate within this rounded clip region.
+    /// Returns (left_x, right_x) - the valid horizontal range for this scanline.
+    /// The y coordinate is in absolute screen coordinates.
+    pub fn clip_range_for_line(&self, line_y: i16) -> Option<(i16, i16)> {
+        let bounds = self.bounds;
+
+        // Check if line is within bounds
+        if line_y < bounds.min_y() || line_y >= bounds.max_y() {
+            return None;
+        }
+
+        let mut left_x = bounds.min_x();
+        let mut right_x = bounds.max_x();
+
+        // Distance from top/bottom of bounds
+        let y_from_top = line_y - bounds.min_y();
+        let y_from_bottom = bounds.max_y() - 1 - line_y;
+
+        // Check top-left corner
+        let tl_radius = self.radius.top_left;
+        if y_from_top < tl_radius && tl_radius > 0 {
+            let r = tl_radius as f32;
+            let dy = r - y_from_top as f32 - 0.5; // distance from center of circle
+            let dx = r - (r * r - dy * dy).sqrt();
+            left_x = left_x.max(bounds.min_x() + dx.ceil() as i16);
+        }
+
+        // Check top-right corner
+        let tr_radius = self.radius.top_right;
+        if y_from_top < tr_radius && tr_radius > 0 {
+            let r = tr_radius as f32;
+            let dy = r - y_from_top as f32 - 0.5;
+            let dx = r - (r * r - dy * dy).sqrt();
+            right_x = right_x.min(bounds.max_x() - dx.ceil() as i16);
+        }
+
+        // Check bottom-left corner
+        let bl_radius = self.radius.bottom_left;
+        if y_from_bottom < bl_radius && bl_radius > 0 {
+            let r = bl_radius as f32;
+            let dy = r - y_from_bottom as f32 - 0.5;
+            let dx = r - (r * r - dy * dy).sqrt();
+            left_x = left_x.max(bounds.min_x() + dx.ceil() as i16);
+        }
+
+        // Check bottom-right corner
+        let br_radius = self.radius.bottom_right;
+        if y_from_bottom < br_radius && br_radius > 0 {
+            let r = br_radius as f32;
+            let dy = r - y_from_bottom as f32 - 0.5;
+            let dx = r - (r * r - dy * dy).sqrt();
+            right_x = right_x.min(bounds.max_x() - dx.ceil() as i16);
+        }
+
+        if left_x < right_x {
+            Some((left_x, right_x))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct SceneVectors {
     pub textures: Vec<SceneTexture<'static>>,
     pub rounded_rectangles: Vec<RoundedRectangle>,
     pub shared_buffers: Vec<SharedBufferCommand>,
     pub gradients: Vec<GradientCommand>,
+    /// Rounded clip regions that items can reference
+    pub rounded_clips: Vec<RoundedClipRegion>,
 }
 
 pub struct Scene {
@@ -242,6 +316,16 @@ impl Scene {
     }
 }
 
+/// A scene item to be rendered.
+///
+/// The item's geometry is defined by `pos` and `size`, which have already been
+/// clipped to the rectangular clip region during scene preparation.
+///
+/// Note: Some commands (like `RoundedRectangle` and `Gradient`) have their own
+/// internal clipping fields (`left_clip`, `right_clip`, etc.) which encode how
+/// much of the shape's geometry was clipped during preparation. This is distinct
+/// from `rounded_clip_index`, which provides an additional per-scanline rounded
+/// clip that is applied uniformly to ALL command types during rendering.
 #[derive(Clone, Copy, Debug)]
 pub struct SceneItem {
     pub pos: PhysicalPoint,
@@ -249,6 +333,8 @@ pub struct SceneItem {
     // this is the order of the item from which it is in the item tree
     pub z: u16,
     pub command: SceneCommand,
+    /// Optional index into SceneVectors::rounded_clips for per-scanline rounded clipping
+    pub rounded_clip_index: Option<u16>,
 }
 
 fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {

@@ -22,6 +22,7 @@ members = [
   'examples/ffmpeg',
   'examples/gstreamer-player',
   'examples/plotter',
+  'examples/rounded_clip_demo',
   'demos/printerdemo/rust',
   'demos/printerdemo_mcu',
   'examples/slide_puzzle',

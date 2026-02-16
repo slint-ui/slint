@@ -1,0 +1,11 @@
+[package]
+name = "rounded_clip_demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+
+[[bin]]
+name = "rounded_clip_demo"
+path = "main.rs"
