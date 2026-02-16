@@ -316,6 +316,16 @@ impl Scene {
     }
 }
 
+/// A scene item to be rendered.
+///
+/// The item's geometry is defined by `pos` and `size`, which have already been
+/// clipped to the rectangular clip region during scene preparation.
+///
+/// Note: Some commands (like `RoundedRectangle` and `Gradient`) have their own
+/// internal clipping fields (`left_clip`, `right_clip`, etc.) which encode how
+/// much of the shape's geometry was clipped during preparation. This is distinct
+/// from `rounded_clip_index`, which provides an additional per-scanline rounded
+/// clip that is applied uniformly to ALL command types during rendering.
 #[derive(Clone, Copy, Debug)]
 pub struct SceneItem {
     pub pos: PhysicalPoint,
