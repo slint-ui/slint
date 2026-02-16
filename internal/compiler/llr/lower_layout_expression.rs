@@ -671,7 +671,7 @@ fn flexbox_layout_data(
                     };
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
-                    repeated_children_count: None,
+                    row_child_templates: None,
                 }))
             } else {
                 // For static elements, we need both orientations
@@ -766,7 +766,7 @@ fn box_layout_data(
                     };
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
-                    repeated_children_count: None,
+                    row_child_templates: None,
                 }))
             } else {
                 let layout_info =
@@ -828,10 +828,10 @@ fn grid_layout_cell_constraints(
                     _ => panic!(),
                 };
                 let cell = item.cell.borrow();
-                let repeated_children_count = cell.child_items.as_ref().map(|c| c.len());
+                let row_child_templates = get_row_child_templates(&cell, &item.item.element, ctx);
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
-                    repeated_children_count,
+                    row_child_templates,
                 }));
             } else {
                 let layout_info =
@@ -922,9 +922,9 @@ fn grid_layout_input_data(
                     _ => panic!(),
                 };
                 let cell = item.cell.borrow();
-                let repeated_children_count = cell.child_items.as_ref().map(|c| c.len());
+                let row_child_templates = get_row_child_templates(&cell, &item.item.element, ctx);
                 let repeated_element =
-                    GridLayoutRepeatedElement { new_row, repeater_index, repeated_children_count };
+                    GridLayoutRepeatedElement { new_row, repeater_index, row_child_templates };
                 elements.push(Either::Right(repeated_element));
                 after_repeater_in_same_row = true;
             } else {
@@ -1088,13 +1088,23 @@ pub fn get_grid_layout_input_for_repeated(
         };
 
     if let Some(child_items) = grid_cell.child_items.as_ref() {
-        // Repeated Row
+        // Repeated Row: only handle static children here;
+        // inner repeater children are handled by the code generators at runtime
         let mut new_row_expr = llr_Expression::BoolLiteral(true);
-        for (i, child_item) in child_items.iter().enumerate() {
-            let child_element = child_item.element.borrow();
-            let child_cell = child_element.grid_layout_cell.as_ref().unwrap().borrow();
-            push_assignment(i, &new_row_expr, &child_cell);
-            new_row_expr = llr_Expression::BoolLiteral(false);
+        let mut i = 0;
+        for child_item in child_items.iter() {
+            match child_item {
+                crate::layout::RowChildTemplate::Static(layout_item) => {
+                    let child_element = layout_item.element.borrow();
+                    let child_cell = child_element.grid_layout_cell.as_ref().unwrap().borrow();
+                    push_assignment(i, &new_row_expr, &child_cell);
+                    new_row_expr = llr_Expression::BoolLiteral(false);
+                    i += 1;
+                }
+                crate::layout::RowChildTemplate::Repeated { .. } => {
+                    // Inner repeater children are filled at runtime by the code generators
+                }
+            }
         }
     } else {
         // Single repeated item
@@ -1110,4 +1120,70 @@ pub fn get_grid_layout_input_for_repeated(
     }
 
     llr_Expression::CodeBlock(assignments)
+}
+
+/// If the grid cell contains a nested repeater child, returns the
+/// (static_child_count, inner_repeater_index) pair.
+/// The inner_repeater_index is relative to the Row's sub-component.
+///
+/// Note: This is called during the parent component's expression lowering, before
+/// the Row component has been lowered. So we cannot look up the Row's lowered mapping
+/// in `sub_component_mapping`. Instead, we compute the repeater index by walking the
+/// Row component's element tree directly, matching the order used by `lower_sub_component`.
+/// Build the row child template list for a repeated Row cell.
+///
+/// Returns `None` if there are no child_items (column-repeater, not a Row sub-component).
+/// Otherwise returns `Some(vec)` with one entry per child in declaration order,
+/// each either `Static { child_index }` or `Repeated { repeater_index }`.
+/// Returns `Some([])` for an empty `Row {}` — 0 cells per sub-component.
+///
+/// Note: This is called during the parent component's expression lowering, before
+/// the Row component has been lowered. Repeater indices are computed by walking
+/// the Row element tree, mirroring the order used by `lower_sub_component`.
+fn get_row_child_templates(
+    cell: &GridLayoutCell,
+    outer_element: &ElementRc,
+    _ctx: &ExpressionLoweringCtx,
+) -> Option<Vec<super::RowChildTemplateInfo>> {
+    let child_items = cell.child_items.as_ref()?;
+    let comp = outer_element.borrow().base_type.as_component().clone();
+    let mut templates = Vec::new();
+    let mut static_idx: usize = 0;
+
+    for child in child_items {
+        match child {
+            crate::layout::RowChildTemplate::Static(_) => {
+                templates.push(super::RowChildTemplateInfo::Static { child_index: static_idx });
+                static_idx += 1;
+            }
+            crate::layout::RowChildTemplate::Repeated { repeated_element, .. } => {
+                // Walk the Row component's element tree to find this repeater's index
+                // among all repeated elements. This mirrors the order that
+                // `lower_sub_component` assigns indices during `recurse_elem`.
+                let mut rep_idx: usize = 0;
+                let mut found = false;
+                crate::object_tree::recurse_elem(&comp.root_element, &(), &mut |element, _| {
+                    if found {
+                        return;
+                    }
+                    if element.borrow().repeated.is_some() {
+                        if Rc::ptr_eq(element, repeated_element) {
+                            found = true;
+                        } else {
+                            rep_idx += 1;
+                        }
+                    }
+                });
+                if found {
+                    templates.push(super::RowChildTemplateInfo::Repeated {
+                        repeater_index: super::RepeatedElementIdx::from(rep_idx),
+                    });
+                }
+            }
+        }
+    }
+
+    // Return Some even if empty: Some([]) means "Row sub-component with 0 children" (distinct
+    // from None which means "column-repeater"). An empty Row contributes 0 cells per instance.
+    Some(templates)
 }

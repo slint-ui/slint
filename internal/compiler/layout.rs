@@ -57,6 +57,34 @@ pub struct LayoutItem {
     pub constraints: LayoutConstraints,
 }
 
+/// A child within a repeated Row in a GridLayout.
+/// Can be either a static item or a nested repeater (`for y in model: ...`).
+#[derive(Debug, Clone)]
+pub enum RowChildTemplate {
+    Static(LayoutItem),
+    Repeated {
+        item: LayoutItem,
+        /// The repeated element (the `for y in ...` element inside the Row)
+        repeated_element: ElementRc,
+    },
+}
+
+impl RowChildTemplate {
+    pub fn layout_item(&self) -> &LayoutItem {
+        match self {
+            RowChildTemplate::Static(item) => item,
+            RowChildTemplate::Repeated { item, .. } => item,
+        }
+    }
+
+    pub fn layout_item_mut(&mut self) -> &mut LayoutItem {
+        match self {
+            RowChildTemplate::Static(item) => item,
+            RowChildTemplate::Repeated { item, .. } => item,
+        }
+    }
+}
+
 impl LayoutItem {
     pub fn rect(&self) -> LayoutRect {
         let p = |unresolved_name: &str| {
@@ -283,7 +311,7 @@ pub struct GridLayoutCell {
     pub row_expr: RowColExpr,
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
-    pub child_items: Option<Vec<LayoutItem>>, // for repeated rows
+    pub child_items: Option<Vec<RowChildTemplate>>, // for repeated rows
 }
 
 impl GridLayoutCell {
@@ -302,7 +330,7 @@ impl GridLayoutCell {
         }
         if let Some(children) = &mut self.child_items {
             for child in children {
-                child.constraints.visit_named_references(visitor);
+                child.layout_item_mut().constraints.visit_named_references(visitor);
             }
         }
     }
@@ -522,7 +550,7 @@ impl GridLayout {
             layout_elem.item.constraints.visit_named_references(visitor);
             if let Some(child_items) = &mut layout_elem.cell.borrow_mut().child_items {
                 for child in child_items {
-                    child.constraints.visit_named_references(visitor);
+                    child.layout_item_mut().constraints.visit_named_references(visitor);
                 }
             }
         }

@@ -131,7 +131,8 @@ Child x/y/width/height bound to cache access expressions
 | `SolveGridLayout`    | Compute positions and sizes for items in a grid layout |
 | `SolveFlexBoxLayout` | Compute positions and sizes for items in a flexbox layout |
 | `ComputeLayoutInfo`  | Calculate combined constraints |
-| `LayoutCacheAccess`  | Read position/size from cache |
+| `LayoutCacheAccess`  | Standard cache read |
+| `GridRowCacheAccess` | Strided cache read (for nested repeaters in grids) |
 
 ## Key Data Structures
 
@@ -179,12 +180,139 @@ pub struct BoxLayoutData<'a> {
 }
 ```
 
-## Repeaters in Layouts
+## Layout Cache Formats
 
-Repeaters (dynamic item lists) in layouts use indirection:
-- `repeater_indices`: Maps repeater to starting cell index
-- Layout cache uses jump tables for repeated items
-- Allows compile-time cache structure with runtime item counts
+The layout cache is a flat `SharedVector<Coord>` (i.e. `SharedVector<f32>`) storing solved
+positions and sizes for all children of a layout. Each child occupies 2 slots: `[pos, size]`
+(e.g. `[x, width]` for horizontal, `[y, height]` for vertical). There are separate caches
+for horizontal and vertical axes.
+
+### Static-only layout (no repeaters)
+
+When all children are known at compile time, the cache is a simple flat array.
+
+```
+cache = [pos0, size0, pos1, size1, ..., posN, sizeN]
+```
+
+Access: `cache[index]` where `index = child_idx * 2` for pos, `child_idx * 2 + 1` for size.
+
+### Standard cache (box layouts)
+
+Used by `HorizontalLayout`/`VerticalLayout`/`FlexBoxLayout` (via `LayoutCacheGenerator`).
+Static children occupy a fixed slot; each repeater instance contributes exactly one cell (one pos +
+one size). When repeaters are present, their instances are stored in a contiguous block at
+the end of the cache, with a jump cell in the static region pointing to the start of that
+block.
+
+**`repeater_indices`**: Pairs of `(start_cell_index, instance_count)` — one pair per repeater.
+
+**Example**: 1 fixed cell, then a repeater with 3 instances
+
+```
+repeater_indices = [1, 3]  // repeater starts at cell 1, has 3 instances
+
+cache = [
+  0., 50.,         // fixed cell: pos=0, size=50
+  4., 5.,          // jump cell: points to offset 4 (first dynamic slot)
+  80., 50.,        // repeated instance 0
+  160., 50.,       // repeated instance 1
+  240., 50.,       // repeated instance 2
+]
+```
+
+**Access**: `cache[cache[jump_index] + repeater_index * entries_per_item]`
+
+- `jump_index`: the cache index of the jump cell (compile-time known)
+- `repeater_index`: which instance (0..count), runtime value
+- `entries_per_item`: 2 for the coordinate cache (pos + size), compile-time known
+
+### Strided cache (grid layouts with repeated rows)
+
+Used by `GridLayout` (via `GridLayoutCacheGenerator`). When a repeater produces **Rows** —
+i.e. each instance contributes **multiple children** at different column positions — accessing a
+value requires **two indices**: the row instance index and the child offset within that row.
+Each instance occupies a uniform stride of `step * entries_per_item` slots. The jump cell
+stores both the data base offset and the stride.
+
+**`repeater_steps`**: One entry per repeater — how many children each instance contributes.
+
+
+**Example**: 1 repeater with 3 row instances, each having 2 children (step=2):
+
+```
+repeater_indices = [0, 3]   // starts at cell 0, 3 instances
+repeater_steps   = [2]      // 2 children per instance
+
+cache = [
+  2., 4.,                    // [0-1] jump cell: data_base=2, stride=4 (step*2)
+  0., 50., 0., 50.,          // [2-5] row 0 data: child0=(pos=0,size=50), child1=(pos=0,size=50)
+  50., 50., 50., 50.,        // [6-9] row 1 data
+  100., 50., 100., 50.,      // [10-13] row 2 data
+]
+```
+
+If rows have different numbers of children (jagged), the stride is based on the maximum number
+of children across all rows, and shorter rows are padded to match that stride.
+
+**Access**: `cache[cache[jump_index] + ri * stride + child_offset]`
+
+- `jump_index`: compile-time known (index of the jump cell, always `jump_cell_pos * 2`)
+- `ri`: row instance index (0..count), runtime value from `$repeater_index`
+- `stride`: `step * 2` — either a compile-time literal or read from `cache[jump_index + 1]` for rows containing inner repeaters
+- `child_offset`: which child within the row (0, 2, 4, ...), compile-time known per child
+
+### Multiple repeaters in one grid
+
+Each repeater gets its own jump cell in the static region, and its own packed data block
+in the dynamic region:
+
+```
+Example: 2 repeaters
+  Repeater 0: 3 instances × 2 children (step=2), starts at cell 0
+  Repeater 1: 2 instances × 3 children (step=3), starts at cell 6
+
+repeater_indices = [0, 3, 6, 2]
+repeater_steps   = [2, 3]
+
+cache = [
+  4., 4.,                                  // [0-1] rep 0 jump: data_base=4, stride=4 (step*2)
+  16., 6.,                                 // [2-3] rep 1 jump: data_base=16, stride=6 (step*2)
+  0., 50., 0., 50.,                        // [4-7]  rep 0 row 0 data
+  50., 50., 50., 50.,                      // [8-11] rep 0 row 1 data
+  100., 50., 100., 50.,                    // [12-15] rep 0 row 2 data
+  150., 50., 150., 50., 150., 50.,         // [16-21] rep 1 row 0 data
+  200., 50., 200., 50., 200., 50.,         // [22-27] rep 1 row 1 data
+]
+```
+
+### Cache size formula
+
+**Box layout (standard)**: `cells * 2 + repeater_indices.len()`
+
+**Grid layout (strided)**: `(non_repeated_cells + num_repeaters) * 2 + sum(instance_count[i] * step[i] * 2)`
+
+### How children read from the cache
+
+During compile-time lowering (`lower_layout.rs`), each child element gets bindings like:
+
+```
+// Static child in a grid:
+x: layout_cache_h[4]           // direct index, compile-time known
+
+// Repeated child in box layout — standard cache:
+x: layout_cache_h[cache[2] + $repeater_index * 2]
+
+// Child of a repeated Row in grid — GridRow stride-based:
+x: layout_cache_h[cache[jump_cell] + $repeater_index * stride + 0]
+
+// width uses child_offset + 1:
+width: layout_cache_h[cache[jump_cell] + $repeater_index * stride + 1]
+```
+
+These are represented as `Expression::LayoutCacheAccess` (standard) or
+`Expression::GridRowCacheAccess` (grid repeated rows) in the expression tree, which
+the code generators compile to the appropriate runtime access pattern.
 
 ## Common Modification Patterns
 

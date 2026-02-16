@@ -2530,6 +2530,170 @@ fn generate_sub_component(
     }
 }
 
+/// Generates the `layout_item_info` member function for a repeated component struct.
+/// Dispatches by `child_index` to per-child layout info queries, supporting static children
+/// and inner repeaters within a row child template.
+fn generate_layout_item_info_decl(
+    root_sc: &llr::SubComponent,
+    ctx: &EvaluationContext,
+) -> Declaration {
+    const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::LayoutItemInfo";
+
+    if root_sc.row_child_templates.is_none()
+        || (root_sc.grid_layout_children.is_empty()
+            && !llr::has_inner_repeaters(&root_sc.row_child_templates))
+    {
+        return Declaration::Function(Function {
+            name: "layout_item_info".into(),
+            signature: SIGNATURE.to_owned(),
+            statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
+            ..Function::default()
+        });
+    }
+
+    let templates = root_sc.row_child_templates.as_ref().unwrap();
+
+    // Generate a sequential scan through all templates in declaration order.
+    let mut body = String::from(
+        "[[maybe_unused]] auto self = this;\n\
+         if (child_index.has_value()) {\n\
+             size_t remaining = *child_index;\n",
+    );
+    for entry in templates {
+        match entry {
+            llr::RowChildTemplateInfo::Static { child_index } => {
+                let child = &root_sc.grid_layout_children[*child_index];
+                let layout_info_h_code = compile_expression(&child.layout_info_h.borrow(), ctx);
+                let layout_info_v_code = compile_expression(&child.layout_info_v.borrow(), ctx);
+                write!(
+                    body,
+                    "if (remaining == 0) {{\n\
+                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};\n\
+                     }}\n\
+                     remaining -= 1;\n",
+                )
+                .unwrap();
+            }
+            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+                write!(
+                    body,
+                    "{{\n\
+                     size_t inner_len = {inner_rep_id}.len();\n\
+                     if (remaining < inner_len) {{\n\
+                         auto vref = {inner_rep_id}.item_at(remaining);\n\
+                         return {{ vref.vtable->layout_info(vref, o) }};\n\
+                     }}\n\
+                     remaining -= inner_len;\n\
+                     }}\n",
+                )
+                .unwrap();
+            }
+        }
+    }
+    body.push_str(
+        // Phantom cell: return "unconstrained" info (matches Rust's LayoutInfo::default()).
+        // field order: max, max_percent, min, min_percent, preferred, stretch
+        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 } };\n\
+         }\n\
+         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };",
+    );
+    Declaration::Function(Function {
+        name: "layout_item_info".into(),
+        signature: SIGNATURE.to_owned(),
+        statements: Some(vec![body]),
+        ..Function::default()
+    })
+}
+
+/// Generates the `grid_layout_input_for_repeated` member function for a repeated component struct,
+/// or returns `None` if the sub-component doesn't participate in a grid layout as a repeated row.
+fn generate_grid_layout_input_decl(
+    root_sc: &llr::SubComponent,
+    ctx: &EvaluationContext,
+) -> Option<Declaration> {
+    let expr = root_sc.grid_layout_input_for_repeated.as_ref()?;
+    let compiled_expr = compile_expression(&expr.borrow(), ctx);
+    // Ensure the expression is terminated as a statement (CodeBlock with 1 item doesn't add semicolon)
+    let statement =
+        if compiled_expr.is_empty() || compiled_expr.ends_with(';') || compiled_expr.ends_with('}')
+        {
+            compiled_expr
+        } else {
+            format!("{compiled_expr};")
+        };
+
+    // Generate fill code for all template children in declaration order
+    let fn_body: Vec<String> = if llr::has_inner_repeaters(&root_sc.row_child_templates) {
+        let templates = root_sc.row_child_templates.as_ref().unwrap();
+        let static_count = llr::static_child_count(templates);
+        let auto_val = i_slint_common::ROW_COL_AUTO;
+        // Fill statics into a temp array, then do the interleaved write
+        let statics_init = format!(
+            "std::array<slint::cbindgen_private::GridLayoutInputData, {static_count}> statics{{}};\n\
+             {{\n\
+                 // Intentionally shadows the outer `result` so the compiled statement fills `statics`.\n\
+                 auto result = std::span<slint::cbindgen_private::GridLayoutInputData>{{statics.data(), statics.size()}};\n\
+                 {statement}\n\
+             }}\n\
+             size_t static_idx = 0;\n\
+             size_t write_idx = 0;\n"
+        );
+        let mut fill_code = statics_init;
+        for entry in templates {
+            match entry {
+                llr::RowChildTemplateInfo::Static { .. } => {
+                    write!(
+                        fill_code,
+                        "if (write_idx < result.size()) {{\n\
+                             auto data = statics[static_idx];\n\
+                             data.new_row = (write_idx == 0) && new_row;\n\
+                             result[write_idx] = data;\n\
+                         }}\n\
+                         ++write_idx; ++static_idx;\n"
+                    )
+                    .unwrap();
+                }
+                llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                    let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+                    write!(
+                        fill_code,
+                        "this->{inner_rep_id}.ensure_updated(this);\n\
+                         {inner_rep_id}.for_each([&]([[maybe_unused]] const auto &) {{\n\
+                             if (write_idx < result.size()) {{\n\
+                                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ (write_idx == 0) && new_row, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                             }}\n\
+                             ++write_idx;\n\
+                         }});\n"
+                    )
+                    .unwrap();
+                }
+            }
+        }
+        // Padding loop: fill remaining slots with sentinel values. C++ zero-initializes
+        // result (col=0, row=0), so we need to specify auto explicitly.
+        write!(
+            fill_code,
+            "while (write_idx < result.size()) {{\n\
+                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                 ++write_idx;\n\
+             }}\n"
+        )
+        .unwrap();
+        vec!["[[maybe_unused]] auto self = this;".into(), fill_code]
+    } else {
+        vec!["[[maybe_unused]] auto self = this;".into(), statement]
+    };
+
+    Some(Declaration::Function(Function {
+        name: "grid_layout_input_for_repeated".into(),
+        signature: "([[maybe_unused]] bool new_row, [[maybe_unused]] std::span<slint::cbindgen_private::GridLayoutInputData> result) const -> void"
+            .to_owned(),
+        statements: Some(fn_body),
+        ..Function::default()
+    }))
+}
+
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
     unit: &llr::CompilationUnit,
@@ -2622,70 +2786,13 @@ fn generate_repeated_component(
             }),
         ));
     } else {
-        // Generate layout_item_info with child_index support if there are grid_layout_children
-        let layout_item_info_fn = if !root_sc.grid_layout_children.is_empty() {
-            let num_children = root_sc.grid_layout_children.len();
-            let mut child_match_arms = String::from(
-                "[[maybe_unused]] auto self = this;\n
-                if (child_index.has_value()) {\n
-                    switch (*child_index) {\n",
-            );
-            for (idx, child) in root_sc.grid_layout_children.iter().enumerate() {
-                let layout_info_h_code = compile_expression(&child.layout_info_h.borrow(), &ctx);
-                let layout_info_v_code = compile_expression(&child.layout_info_v.borrow(), &ctx);
-                write!(
-                            child_match_arms,
-                            "        case {idx}: return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};\n",
-                        ).unwrap();
-            }
-            write!(
-                child_match_arms,
-                "        default: std::abort(); // child_index out of bounds (max {num_children})\n",
-            )
-            .unwrap();
-            child_match_arms.push_str("}}\n
-            return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };");
-            Declaration::Function(Function {
-                name: "layout_item_info".into(),
-                signature: "(slint::cbindgen_private::Orientation o, std::optional<size_t> child_index) const -> slint::cbindgen_private::LayoutItemInfo".to_owned(),
-                statements: Some(vec![child_match_arms]),
-                ..Function::default()
-            })
-        } else {
-            Declaration::Function(Function {
-                name: "layout_item_info".into(),
-                signature: "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::LayoutItemInfo".to_owned(),
-                statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
-                ..Function::default()
-            })
-        };
         repeater_struct.members.push((
             Access::Public, // Because Repeater accesses it
-            layout_item_info_fn,
+            generate_layout_item_info_decl(root_sc, &ctx),
         ));
-        root_sc.grid_layout_input_for_repeated.as_ref().map(|expr| {
-            let compiled_expr = compile_expression(&expr.borrow(), &ctx);
-            // Ensure the expression is terminated as a statement (CodeBlock with 1 item doesn't add semicolon)
-            let statement = if compiled_expr.is_empty() || compiled_expr.ends_with(';') || compiled_expr.ends_with('}') {
-                compiled_expr
-            } else {
-                format!("{compiled_expr};")
-            };
-            repeater_struct.members.push((
-                Access::Public, // Because Repeater accesses it
-                Declaration::Function(Function {
-                    name: "grid_layout_input_for_repeated".into(),
-                    signature:
-                        "([[maybe_unused]] bool new_row, [[maybe_unused]] std::span<slint::cbindgen_private::GridLayoutInputData> result) const -> void"
-                            .to_owned(),
-                    statements: Some(vec![
-                        "[[maybe_unused]] auto self = this;".into(),
-                        statement,
-                    ]),
-                    ..Function::default()
-                }),
-            ));
-        });
+        if let Some(decl) = generate_grid_layout_input_decl(root_sc, &ctx) {
+            repeater_struct.members.push((Access::Public, decl));
+        }
     }
 
     if let Some(index_prop) = repeated.index_prop {
@@ -3839,6 +3946,38 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
             })
         }
+        Expression::GridRowCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => {
+            let cache = access_member(layout_cache_prop, ctx);
+            cache.map_or_default(|cache| {
+                let stride_val = compile_expression(stride, ctx);
+                let col_offset = if let Some(inner_ri) = inner_repeater_index {
+                    format!(
+                        "{} + {} * {}",
+                        child_offset,
+                        compile_expression(inner_ri, ctx),
+                        entries_per_item
+                    )
+                } else {
+                    child_offset.to_string()
+                };
+                format!(
+                    "slint::private_api::layout_cache_grid_row_access({}.get(), {}, {}, {}, {})",
+                    cache,
+                    index,
+                    compile_expression(repeater_index, ctx),
+                    stride_val,
+                    col_offset
+                )
+            })
+        }
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,
@@ -4460,6 +4599,24 @@ fn compile_builtin_function_call(
     }
 }
 
+/// Builds the C++ snippet that, for each inner repeater in `templates`, calls
+/// `ensure_updated` on the sub-component and updates `max_total`.
+fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count: usize) -> String {
+    templates
+        .iter()
+        .filter_map(|e| match e {
+            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+                Some(format!(
+                    "sub_comp->{inner_rep_id}.ensure_updated(&*sub_comp);\n\
+                     max_total = std::max(max_total, {static_count} + sub_comp->{inner_rep_id}.len());\n"
+                ))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 fn generate_with_layout_item_info(
     cells_variable: &str,
     repeated_indices_var_name: Option<&str>,
@@ -4503,34 +4660,60 @@ fn generate_with_layout_item_info(
                     )
                     .unwrap();
                 }
-                if let Some(rs) = &repeater_steps_var_name {
-                    let repeated_item_count = repeater.repeated_children_count.unwrap_or(1);
-                    write!(push_code, "{rs}_array[{repeater_idx}] = {repeated_item_count};")
-                        .unwrap();
-                }
-                repeater_idx += 1;
-                match repeater.repeated_children_count {
-                    None => {
-                        write!(
+                let has_inner_repeaters = llr::has_inner_repeaters(&repeater.row_child_templates);
+
+                if has_inner_repeaters {
+                    let templates = repeater.row_child_templates.as_ref().unwrap();
+                    let static_count = llr::static_child_count(templates);
+                    let inner_ensure = build_inner_ensure_code(templates, static_count);
+                    let rs_init = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
+                        format!("{rs}_array[{}] = max_total;", repeater_idx)
+                    });
+                    write!(
                         push_code,
-                        "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});",
+                        "{{
+                            size_t max_total = {static_count};
+                            self->repeater_{repeater_index}.for_each([&](const auto &sub_comp) {{
+                                {inner_ensure}
+                            }});
+                            {rs_init}
+                            self->repeater_{repeater_index}.for_each([&](const auto &sub_comp) {{
+                                for (size_t child_idx = 0; child_idx < max_total; ++child_idx) {{
+                                    cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
+                                }}
+                            }});
+                        }}",
                         o = to_cpp_orientation(orientation),
                     )
                     .unwrap();
+                    repeater_idx += 1;
+                } else {
+                    let step = repeater.row_child_templates.as_deref().map_or(1, |t| t.len());
+                    if let Some(rs) = &repeater_steps_var_name {
+                        write!(push_code, "{rs}_array[{repeater_idx}] = {step};").unwrap();
                     }
-                    Some(count) => {
-                        if count > 0 {
-                            write!(
-                                push_code,
-                                "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{
-                                    for (size_t child_idx = 0; child_idx < {count}; ++child_idx) {{
-                                        cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
-                                    }}
-                                }});",
-                                o = to_cpp_orientation(orientation),
-                            )
-                            .unwrap();
-                        }
+                    repeater_idx += 1;
+                    if step == 0 {
+                        // nothing
+                    } else if step == 1 && repeater.row_child_templates.is_none() {
+                        // Column-repeater: each sub-component IS a cell; nullopt returns its own layout_info
+                        write!(
+                            push_code,
+                            "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});",
+                            o = to_cpp_orientation(orientation),
+                        )
+                        .unwrap();
+                    } else {
+                        write!(
+                            push_code,
+                            "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{
+                                for (size_t child_idx = 0; child_idx < {step}; ++child_idx) {{
+                                    cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
+                                }}
+                            }});",
+                            o = to_cpp_orientation(orientation),
+                        )
+                        .unwrap();
                     }
                 }
             }
@@ -4667,34 +4850,65 @@ fn generate_with_grid_input_data(
                     )
                     .unwrap();
                 }
-                if let Some(rs) = &repeater_steps_var_name {
+                let has_inner_repeaters = llr::has_inner_repeaters(&repeater.row_child_templates);
+                let step = repeater.row_child_templates.as_deref().map_or(1, |t| t.len());
+
+                if has_inner_repeaters {
+                    let templates = repeater.row_child_templates.as_ref().unwrap();
+                    let static_count = llr::static_child_count(templates);
+                    let inner_ensure = build_inner_ensure_code(templates, static_count);
+                    let rs_init = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
+                        format!("{rs}_array[{repeater_idx}] = total_item_count;")
+                    });
                     write!(
                         push_code,
-                        "{rs}_array[{repeater_idx}] = {};",
-                        repeater.repeated_children_count.unwrap_or(1)
+                        "{maybe_bool} new_row = {new_row};
+                        {{
+                            size_t max_total = {static_count};
+                            self->{repeater_id}.for_each([&](const auto &sub_comp) {{
+                                {inner_ensure}
+                            }});
+                            size_t total_item_count = max_total;
+                            {rs_init}
+                            auto start_offset = cells_vector.size();
+                            cells_vector.resize(start_offset + self->{repeater_id}.len() * total_item_count);
+                            std::size_t i = 0;
+                            self->{repeater_id}.for_each([&](const auto &sub_comp) {{
+                                auto offset = start_offset + i * total_item_count;
+                                sub_comp->grid_layout_input_for_repeated(new_row, std::span(cells_vector).subspan(offset, total_item_count));
+                                ++i;
+                            }});
+                        }}",
+                        new_row = repeater.new_row,
+                        maybe_bool = if has_new_row_bool { "" } else { "bool " },
                     )
                     .unwrap();
+                    repeater_idx += 1;
+                } else {
+                    if let Some(rs) = &repeater_steps_var_name {
+                        write!(push_code, "{rs}_array[{repeater_idx}] = {step};").unwrap();
+                    }
+                    write!(
+                        push_code,
+                        "{maybe_bool} new_row = {new_row};
+                        {{
+                            auto start_offset = cells_vector.size();
+                            cells_vector.resize(start_offset + self->{repeater_id}.len() * {step});
+                            std::size_t i = 0;
+                            self->{repeater_id}.for_each([&](const auto &sub_comp) {{
+                                auto offset = start_offset + i * {step};
+                                sub_comp->grid_layout_input_for_repeated(new_row, std::span(cells_vector).subspan(offset, {step}));
+                                {reset_new_row}
+                                ++i;
+                            }});
+                        }}",
+                        new_row = repeater.new_row,
+                        maybe_bool = if has_new_row_bool { "" } else { "bool " },
+                        reset_new_row = if repeater.row_child_templates.is_none() { "new_row = false;" } else { "" },
+                    )
+                    .unwrap();
+                    repeater_idx += 1;
                 }
-                repeater_idx += 1;
-                write!(
-                    push_code,
-                    "{maybe_bool} new_row = {new_row};
-                    {{
-                        auto start_offset = cells_vector.size();
-                        cells_vector.resize(start_offset + self->{repeater_id}.len() * {repeated_item_count});
-                        std::size_t i = 0;
-                        self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                            auto offset = start_offset + i * {repeated_item_count};
-                            sub_comp->grid_layout_input_for_repeated(new_row, std::span(cells_vector).subspan(offset, {repeated_item_count}));
-                            new_row = false;
-                            ++i;
-                        }});
-                    }}",
-                    new_row = repeater.new_row,
-                    maybe_bool = if has_new_row_bool { "" } else { "bool " },
-                    repeated_item_count = repeater.repeated_children_count.unwrap_or(1),
-                )
-                .unwrap();
                 has_new_row_bool = true;
             }
         }

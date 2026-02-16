@@ -198,7 +198,7 @@ fn lower_grid_layout(
     let mut collected_children = Vec::new();
     let mut new_row = false; // true until the first child of a Row, or the first item after an empty Row
     let mut numbering_type: Option<RowColExpressionType> = None;
-    let mut num_cached_items: usize = 0;
+    let mut counters = GridCacheCounters { coord: 0, org: 0 };
     for layout_child in layout_children {
         let is_repeated_row = {
             if layout_child.borrow().repeated.is_some()
@@ -219,7 +219,7 @@ fn lower_grid_layout(
                 &layout_cache_prop_v,
                 &layout_organized_data_prop,
                 diag,
-                &mut num_cached_items,
+                &mut counters,
             );
             collected_children.push(layout_child);
             new_row = true;
@@ -241,7 +241,7 @@ fn lower_grid_layout(
                     &layout_organized_data_prop,
                     &mut numbering_type,
                     diag,
-                    &mut num_cached_items,
+                    &mut counters,
                 );
                 collected_children.push(row_child);
                 new_row = false;
@@ -263,7 +263,7 @@ fn lower_grid_layout(
                 &layout_organized_data_prop,
                 &mut numbering_type,
                 diag,
-                &mut num_cached_items,
+                &mut counters,
             );
             collected_children.push(layout_child);
             new_row = false;
@@ -346,7 +346,7 @@ impl GridLayout {
         organized_data_prop: &NamedReference,
         numbering_type: &mut Option<RowColExpressionType>,
         diag: &mut BuildDiagnostics,
-        num_cached_items: &mut usize,
+        counters: &mut GridCacheCounters,
     ) {
         // Some compile-time checks
         {
@@ -428,7 +428,7 @@ impl GridLayout {
             layout_cache_prop_v,
             organized_data_prop,
             diag,
-            num_cached_items,
+            counters,
         );
     }
 
@@ -441,7 +441,7 @@ impl GridLayout {
         layout_cache_prop_v: &NamedReference,
         organized_data_prop: &NamedReference,
         diag: &mut BuildDiagnostics,
-        num_cached_items: &mut usize,
+        counters: &mut GridCacheCounters,
     ) {
         self.add_element_with_coord_as_expr(
             item_element,
@@ -452,7 +452,7 @@ impl GridLayout {
             layout_cache_prop_v,
             organized_data_prop,
             diag,
-            num_cached_items,
+            counters,
         )
     }
 
@@ -463,20 +463,73 @@ impl GridLayout {
         layout_cache_prop_v: &NamedReference,
         organized_data_prop: &NamedReference,
         diag: &mut BuildDiagnostics,
-        num_cached_items: &mut usize,
+        counters: &mut GridCacheCounters,
     ) {
         let layout_item = create_layout_item(item_element, diag);
         if let ElementType::Component(comp) = &item_element.borrow().base_type {
-            let repeated_children_count = comp.root_element.borrow().children.len();
             let mut children_layout_items = Vec::new();
-            for child in &comp.root_element.borrow().children {
-                if child.borrow().repeated.is_some() {
-                    diag.push_error(
-                        "'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)".into(),
-                        &*child.borrow(),
-                    );
-                };
+            let coord_jump_pos = counters.coord;
+            let org_jump_pos = counters.org;
 
+            // Determine whether any child is an inner repeater (dynamic stride)
+            let children_ref = comp.root_element.borrow().children.clone();
+            let has_inner_repeaters = children_ref.iter().any(|c| c.borrow().repeated.is_some());
+
+            // Compute stride expressions for H/V coord caches and org-data cache.
+            // For non-inner rows: stride is compile-time (step * entries_per_item).
+            // For inner-repeater rows: stride is runtime, stored at cache[index+1] by
+            // the layout solver (GridLayoutCacheGenerator / OrganizedDataGenerator).
+            let step = children_ref.len();
+            let (stride_h_expr, stride_v_expr, stride_org_expr): (
+                Expression,
+                Expression,
+                Expression,
+            ) = if has_inner_repeaters {
+                // stride = step * entries_per_item, computed at runtime and stored at
+                // cache[coord_jump_pos*2+1] (coord) or cache[org_jump_pos*4+1] (org)
+                (
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: layout_cache_prop_h.clone(),
+                        index: coord_jump_pos * 2 + 1,
+                        repeater_index: None,
+                        entries_per_item: 1,
+                    },
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: layout_cache_prop_v.clone(),
+                        index: coord_jump_pos * 2 + 1,
+                        repeater_index: None,
+                        entries_per_item: 1,
+                    },
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: organized_data_prop.clone(),
+                        index: org_jump_pos * 4 + 1,
+                        repeater_index: None,
+                        entries_per_item: 1,
+                    },
+                )
+            } else {
+                // stride = step * 2 for coord (pos+size per child), step * 4 for org (4 u16)
+                (
+                    Expression::NumberLiteral(step as f64 * 2.0, Unit::None),
+                    Expression::NumberLiteral(step as f64 * 2.0, Unit::None),
+                    Expression::NumberLiteral(step as f64 * 4.0, Unit::None),
+                )
+            };
+
+            // Track the cumulative position (as an Expression) of each child in the
+            // flattened stride. For static children the position increments by 1; for
+            // inner repeaters it increments by the model length (dynamic).
+            //
+            // Each child's position in the stride determines where its data lives in
+            // the coordinate/organized-data caches. We encode this via
+            // inner_repeater_index in GridRowCacheAccess:
+            //   data_idx = data_start + row_idx * stride + child_offset + inner_rep_idx * epi
+            // Using child_offset=0 (for pos) / 1 (for size) and
+            // inner_rep_idx = cumulative_position (+ model_index for inner items).
+            let mut cumulative_pos: Option<Expression> = None;
+
+            for child in children_ref.iter() {
+                let is_nested_repeater = child.borrow().repeated.is_some();
                 let sub_item = create_layout_item(child, diag);
 
                 // Read colspan and rowspan from the child element
@@ -506,23 +559,101 @@ impl GridLayout {
                 }));
                 child.borrow_mut().grid_layout_cell = Some(child_grid_cell);
 
-                // The layout engine will set x,y,width,height,row,col for each of the repeated children
-                set_properties_from_cache(
+                // Compute the effective inner_rep_idx for this child:
+                // - For inner repeater items: cumulative_pos + model_index
+                // - For static children: cumulative_pos (their fixed position in stride)
+                // When cumulative_pos is None (= 0), we simplify to avoid unnecessary
+                // BinaryExpression nodes.
+                let effective_inner_rep_idx = if is_nested_repeater {
+                    // Inner repeater: position = cumulative_pos + model_index
+                    let model_idx = sub_item.repeater_index.clone().unwrap();
+                    Some(if let Some(ref base) = cumulative_pos {
+                        Expression::BinaryExpression {
+                            lhs: Box::new(base.clone()),
+                            rhs: Box::new(model_idx),
+                            op: '+',
+                        }
+                    } else {
+                        model_idx
+                    })
+                } else {
+                    // Static child: position = cumulative_pos
+                    cumulative_pos.clone()
+                };
+
+                // The layout engine will set x,y,width,height for each of the repeated children
+                set_coord_from_cache(
                     &sub_item.elem,
                     &sub_item.item.constraints,
-                    layout_cache_prop_h,
-                    layout_cache_prop_v,
-                    organized_data_prop,
-                    *num_cached_items,
-                    &layout_item.repeater_index,
-                    repeated_children_count,
-                    (&None::<RowColExpr>, &None::<RowColExpr>),
+                    &CoordCacheParams {
+                        layout_cache_prop_h,
+                        layout_cache_prop_v,
+                        index: coord_jump_pos,
+                        rep_idx: &layout_item.repeater_index,
+                        child_offset: 0,
+                        stride_h: Some(&stride_h_expr),
+                        stride_v: Some(&stride_v_expr),
+                        inner_rep_idx: &effective_inner_rep_idx,
+                    },
                     diag,
                 );
-                children_layout_items.push(sub_item.item);
+                // ... and here the row,col,rowspan,colspan for each of the repeated children
+                set_org_from_cache(
+                    &sub_item.elem,
+                    organized_data_prop,
+                    org_jump_pos,
+                    &layout_item.repeater_index,
+                    0,
+                    Some(&stride_org_expr),
+                    (&None::<RowColExpr>, &None::<RowColExpr>),
+                    &effective_inner_rep_idx,
+                    diag,
+                );
 
-                *num_cached_items += 1;
+                // Update cumulative position for the next child
+                if is_nested_repeater {
+                    // Inner repeater: adds model.length() items to the position
+                    let model_expr = child.borrow().repeated.as_ref().unwrap().model.clone();
+                    let len_expr = Expression::FunctionCall {
+                        function: Callable::Builtin(BuiltinFunction::ArrayLength),
+                        arguments: vec![model_expr],
+                        source_location: None,
+                    };
+                    cumulative_pos = Some(if let Some(prev) = cumulative_pos.take() {
+                        Expression::BinaryExpression {
+                            lhs: Box::new(prev),
+                            rhs: Box::new(len_expr),
+                            op: '+',
+                        }
+                    } else {
+                        len_expr
+                    });
+                } else {
+                    // Static child: adds 1 to the position
+                    cumulative_pos = Some(if let Some(prev) = cumulative_pos.take() {
+                        Expression::BinaryExpression {
+                            lhs: Box::new(prev),
+                            rhs: Box::new(Expression::NumberLiteral(1., Unit::None)),
+                            op: '+',
+                        }
+                    } else {
+                        Expression::NumberLiteral(1., Unit::None)
+                    });
+                }
+
+                if is_nested_repeater {
+                    children_layout_items.push(RowChildTemplate::Repeated {
+                        item: sub_item.item,
+                        repeated_element: child.clone(),
+                    });
+                } else {
+                    children_layout_items.push(RowChildTemplate::Static(sub_item.item));
+                }
             }
+
+            // In GridRow mode, 1 jump cell per repeater (not per child)
+            counters.org += 1;
+            counters.coord += 1;
             // Add a single GridLayoutElement for the repeated Row
             let grid_layout_cell = Rc::new(RefCell::new(GridLayoutCell {
                 new_row: true,
@@ -551,20 +682,38 @@ impl GridLayout {
         layout_cache_prop_v: &NamedReference,
         organized_data_prop: &NamedReference,
         diag: &mut BuildDiagnostics,
-        num_cached_items: &mut usize,
+        counters: &mut GridCacheCounters,
     ) {
         let layout_item = create_layout_item(item_element, diag);
 
-        set_properties_from_cache(
+        let rjt_mode = layout_item.repeater_index.is_some();
+        // For repeated single elements (step=1): stride=2 for coord, stride=4 for org
+        let stride_coord = rjt_mode.then(|| Expression::NumberLiteral(2.0, Unit::None));
+        let stride_org = rjt_mode.then(|| Expression::NumberLiteral(4.0, Unit::None));
+        set_coord_from_cache(
             &layout_item.elem,
             &layout_item.item.constraints,
-            layout_cache_prop_h,
-            layout_cache_prop_v,
+            &CoordCacheParams {
+                layout_cache_prop_h,
+                layout_cache_prop_v,
+                index: counters.coord,
+                rep_idx: &layout_item.repeater_index,
+                child_offset: 0,
+                stride_h: stride_coord.as_ref(),
+                stride_v: stride_coord.as_ref(),
+                inner_rep_idx: &None,
+            },
+            diag,
+        );
+        set_org_from_cache(
+            &layout_item.elem,
             organized_data_prop,
-            *num_cached_items,
+            counters.org,
             &layout_item.repeater_index,
-            1,
+            0, // child_offset
+            stride_org.as_ref(),
             (row_expr, col_expr),
+            &None,
             diag,
         );
 
@@ -589,7 +738,8 @@ impl GridLayout {
             GridLayoutElement { cell: grid_layout_cell.clone(), item: layout_item.item.clone() };
         layout_item.elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell);
         self.elems.push(grid_layout_element);
-        *num_cached_items += 1;
+        counters.coord += 1;
+        counters.org += 1;
     }
 }
 
@@ -660,10 +810,31 @@ fn lower_box_layout(
             }
         };
         let actual_elem = &item.elem;
-        // step=1 for box layout items (single element per repeater iteration)
-        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, 2, diag);
+        set_prop_from_cache(
+            actual_elem,
+            pos,
+            &layout_cache_prop,
+            index,
+            rep_idx,
+            2,
+            None,
+            None,
+            2,
+            diag,
+        );
         if !fixed_size {
-            set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx, 2, diag);
+            set_prop_from_cache(
+                actual_elem,
+                size,
+                &layout_cache_prop,
+                index + 1,
+                rep_idx,
+                2,
+                None,
+                None,
+                2,
+                diag,
+            );
         }
         if let Some(pad_expr) = pad_expr.clone() {
             actual_elem.borrow_mut().bindings.insert(pad.into(), RefCell::new(pad_expr.into()));
@@ -759,9 +930,31 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let actual_elem = &item.elem;
 
         // Set x from cache[index]
-        set_prop_from_cache(actual_elem, "x", &layout_cache_prop, index, rep_idx, 4, diag);
+        set_prop_from_cache(
+            actual_elem,
+            "x",
+            &layout_cache_prop,
+            index,
+            rep_idx,
+            4,
+            None,
+            None,
+            2,
+            diag,
+        );
         // Set y from cache[index + 1]
-        set_prop_from_cache(actual_elem, "y", &layout_cache_prop, index + 1, rep_idx, 4, diag);
+        set_prop_from_cache(
+            actual_elem,
+            "y",
+            &layout_cache_prop,
+            index + 1,
+            rep_idx,
+            4,
+            None,
+            None,
+            2,
+            diag,
+        );
         // Set width from cache[index + 2] if not fixed
         if !item.item.constraints.fixed_width {
             set_prop_from_cache(
@@ -771,6 +964,9 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 index + 2,
                 rep_idx,
                 4,
+                None,
+                None,
+                2,
                 diag,
             );
         }
@@ -783,6 +979,9 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 index + 3,
                 rep_idx,
                 4,
+                None,
+                None,
+                2,
                 diag,
             );
         }
@@ -881,7 +1080,7 @@ fn lower_dialog_layout(
     let mut main_widget = None;
     let mut button_roles = Vec::new();
     let mut seen_buttons = HashSet::new();
-    let mut num_cached_items: usize = 0;
+    let mut counters = GridCacheCounters { coord: 0, org: 0 };
     let layout_children = std::mem::take(&mut dialog_element.borrow_mut().children);
     for layout_child in &layout_children {
         let dialog_button_role_binding =
@@ -996,7 +1195,7 @@ fn lower_dialog_layout(
                 &layout_cache_prop_v,
                 &layout_organized_data_prop,
                 diag,
-                &mut num_cached_items,
+                &mut counters,
             );
         } else if main_widget.is_some() {
             diag.push_error(
@@ -1018,7 +1217,7 @@ fn lower_dialog_layout(
             &layout_cache_prop_v,
             &layout_organized_data_prop,
             diag,
-            &mut num_cached_items,
+            &mut counters,
         );
     } else {
         diag.push_error(
@@ -1164,18 +1363,39 @@ fn set_prop_from_cache(
     layout_cache_prop: &NamedReference,
     index: usize,
     repeater_index: &Option<Expression>,
+    child_offset: usize,
+    // If Some, use GridRowCacheAccess (stride-based). None = LayoutCacheAccess.
+    stride_expr: Option<&Expression>,
+    inner_repeater_index: Option<Expression>,
     entries_per_item: usize,
     diag: &mut BuildDiagnostics,
 ) {
+    let repeater_index_boxed = repeater_index.as_ref().map(|x| Box::new(x.clone()));
+    let expr = if let Some(stride) = stride_expr {
+        // GridRow stride-based mode: cache[cache[index] + ri * stride + child_offset]
+        Expression::GridRowCacheAccess {
+            layout_cache_prop: layout_cache_prop.clone(),
+            index,
+            repeater_index: repeater_index_boxed.unwrap(),
+            stride: Box::new(stride.clone()),
+            child_offset,
+            inner_repeater_index: inner_repeater_index.map(Box::new),
+            entries_per_item,
+        }
+    } else {
+        // Standard mode
+        Expression::LayoutCacheAccess {
+            layout_cache_prop: layout_cache_prop.clone(),
+            index,
+            repeater_index: repeater_index_boxed,
+            entries_per_item,
+        }
+    };
+
     let old = elem.borrow_mut().bindings.insert(
         prop.into(),
         BindingExpression::new_with_span(
-            Expression::LayoutCacheAccess {
-                layout_cache_prop: layout_cache_prop.clone(),
-                index,
-                repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
-                entries_per_item,
-            },
+            expr,
             layout_cache_prop.element().borrow().to_source_location(),
         )
         .into(),
@@ -1188,37 +1408,154 @@ fn set_prop_from_cache(
     }
 }
 
-/// Helper function to set grid layout properties (x, y, width, height, col, row)
-fn set_properties_from_cache(
+/// Counters for grid layout cache positions.
+struct GridCacheCounters {
+    coord: usize,
+    org: usize,
+}
+
+/// Cache-access configuration for `set_coord_from_cache`.
+struct CoordCacheParams<'a> {
+    layout_cache_prop_h: &'a NamedReference,
+    layout_cache_prop_v: &'a NamedReference,
+    /// Logical index into the coordinate cache (multiplied by 2 internally).
+    index: usize,
+    rep_idx: &'a Option<Expression>,
+    child_offset: usize,
+    /// Some = GridRow stride-based mode (H cache stride). None = LayoutCacheAccess mode.
+    stride_h: Option<&'a Expression>,
+    /// Some = GridRow stride-based mode (V cache stride). None = LayoutCacheAccess mode.
+    stride_v: Option<&'a Expression>,
+    inner_rep_idx: &'a Option<Expression>,
+}
+
+/// Set coordinate properties (x, y, width, height) from the coordinate cache.
+fn set_coord_from_cache(
     elem: &ElementRc,
     constraints: &LayoutConstraints,
-    layout_cache_prop_h: &NamedReference,
-    layout_cache_prop_v: &NamedReference,
-    organized_data_prop: &NamedReference,
-    num_cached_items: usize,
-    rep_idx: &Option<Expression>,
-    repeated_children_count: usize,
-    (row_expr, col_expr): (&Option<RowColExpr>, &Option<RowColExpr>),
+    params: &CoordCacheParams<'_>,
     diag: &mut BuildDiagnostics,
 ) {
-    let cache_idx = num_cached_items * 2;
-    let nr = 2 * repeated_children_count; // number of entries per repeated item
-    set_prop_from_cache(elem, "x", layout_cache_prop_h, cache_idx, rep_idx, nr, diag);
-    if !constraints.fixed_width {
-        set_prop_from_cache(elem, "width", layout_cache_prop_h, cache_idx + 1, rep_idx, nr, diag);
-    }
-    set_prop_from_cache(elem, "y", layout_cache_prop_v, cache_idx, rep_idx, nr, diag);
-    if !constraints.fixed_height {
-        set_prop_from_cache(elem, "height", layout_cache_prop_v, cache_idx + 1, rep_idx, nr, diag);
-    }
+    let grid_row_mode = params.stride_h.is_some();
+    let cache_idx = params.index * 2;
+    let pos_offset = params.child_offset;
+    let size_offset = params.child_offset + 1;
+    let inner_idx_clone = params.inner_rep_idx.clone();
 
-    let org_index = num_cached_items * 4;
-    let org_nr = 4 * repeated_children_count; // number of entries per repeated item
+    // In GridRow mode, width/height use the same cache_idx; in stride mode, they use cache_idx + 1
+    let width_cache_idx = if grid_row_mode { cache_idx } else { cache_idx + 1 };
+    let height_cache_idx = if grid_row_mode { cache_idx } else { cache_idx + 1 };
+
+    set_prop_from_cache(
+        elem,
+        "x",
+        params.layout_cache_prop_h,
+        cache_idx,
+        params.rep_idx,
+        pos_offset,
+        params.stride_h,
+        inner_idx_clone.clone(),
+        2,
+        diag,
+    );
+    if !constraints.fixed_width {
+        set_prop_from_cache(
+            elem,
+            "width",
+            params.layout_cache_prop_h,
+            width_cache_idx,
+            params.rep_idx,
+            size_offset,
+            params.stride_h,
+            inner_idx_clone.clone(),
+            2,
+            diag,
+        );
+    }
+    set_prop_from_cache(
+        elem,
+        "y",
+        params.layout_cache_prop_v,
+        cache_idx,
+        params.rep_idx,
+        pos_offset,
+        params.stride_v,
+        inner_idx_clone.clone(),
+        2,
+        diag,
+    );
+    if !constraints.fixed_height {
+        set_prop_from_cache(
+            elem,
+            "height",
+            params.layout_cache_prop_v,
+            height_cache_idx,
+            params.rep_idx,
+            size_offset,
+            params.stride_v,
+            inner_idx_clone,
+            2,
+            diag,
+        );
+    }
+}
+
+/// Set organized-data properties (col, row) from the organized data cache.
+/// `child_offset_in_row`: index of this child within the repeater's step (0 for non-nested)
+/// `stride`: Some = GridRow stride-based mode. None = LayoutCacheAccess mode.
+fn set_org_from_cache(
+    elem: &ElementRc,
+    organized_data_prop: &NamedReference,
+    org_index: usize,
+    rep_idx: &Option<Expression>,
+    child_offset_in_row: usize,
+    stride: Option<&Expression>,
+    (row_expr, col_expr): (&Option<RowColExpr>, &Option<RowColExpr>),
+    inner_rep_idx: &Option<Expression>,
+    diag: &mut BuildDiagnostics,
+) {
+    let grid_row_mode = stride.is_some();
+    let org_cache_idx = org_index * 4;
+    let inner_idx_clone = inner_rep_idx.clone();
+
+    // In GridRow mode, both col and row use the same cache_idx but different offsets
+    // In stride mode, they use different cache_idx values with zero offsets
+    let (col_cache_idx, col_offset) =
+        if grid_row_mode { (org_cache_idx, child_offset_in_row * 4) } else { (org_cache_idx, 0) };
+
+    let (row_cache_idx, row_offset) = if grid_row_mode {
+        (org_cache_idx, child_offset_in_row * 4 + 2)
+    } else {
+        (org_cache_idx + 2, 0)
+    };
+
     if col_expr.is_none() {
-        set_prop_from_cache(elem, "col", organized_data_prop, org_index, rep_idx, org_nr, diag);
+        set_prop_from_cache(
+            elem,
+            "col",
+            organized_data_prop,
+            col_cache_idx,
+            rep_idx,
+            col_offset,
+            stride,
+            inner_idx_clone.clone(),
+            4,
+            diag,
+        );
     }
     if row_expr.is_none() {
-        set_prop_from_cache(elem, "row", organized_data_prop, org_index + 2, rep_idx, org_nr, diag);
+        set_prop_from_cache(
+            elem,
+            "row",
+            organized_data_prop,
+            row_cache_idx,
+            rep_idx,
+            row_offset,
+            stride,
+            inner_idx_clone,
+            4,
+            diag,
+        );
     }
 }
 
