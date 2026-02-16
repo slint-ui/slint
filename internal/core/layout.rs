@@ -1563,137 +1563,93 @@ pub fn flexbox_layout_info(
             | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
     );
 
-    if is_main_axis {
-        // Main axis
-        // NOTE: We don't use constraint_size here
-        //
-        // Compute preferred size by performing a taffy layout
-        // with a square root approximation as the initial container constraint.
-        let count = cells.len();
-
-        // First approximation: square root of total area of all items
+    // The main-axis constraint determines how items wrap.
+    // For main-axis queries, use sqrt of total item area as an approximation.
+    // For cross-axis queries, use the provided constraint_size.
+    let main_axis_constraint = if is_main_axis {
+        // constraint_size is not used for the main axis
         let total_area = cells_h
             .iter()
             .map(|c| c.constraint.preferred_bounded())
             .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
             .map(|(h, v)| h * v)
             .sum::<Coord>();
-        let approx_preferred =
-            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad;
+        let count = cells.len();
+        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    } else {
+        constraint_size
+    };
 
-        // Perform an actual taffy layout with the approximate size as the
-        // container constraint, then measure the actual content extent.
-        // This yields a tighter preferred size that matches the real wrapping.
-        let taffy_direction = match direction {
-            FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-            FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
-            FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-            FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
-        };
+    let taffy_direction = match direction {
+        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+    };
 
-        let (container_width, container_height) = match direction {
-            FlexDirection::Row | FlexDirection::RowReverse => (Some(approx_preferred), None),
-            FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(approx_preferred)),
-        };
+    let (container_width, container_height) = match direction {
+        FlexDirection::Row | FlexDirection::RowReverse => (Some(main_axis_constraint), None),
+        FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(main_axis_constraint)),
+    };
 
-        let mut builder =
-            flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
-                cells_h: &cells_h,
-                cells_v: &cells_v,
-                spacing_h,
-                spacing_v,
-                padding_h,
-                padding_v,
-                alignment: LayoutAlignment::Start,
-                align_content: FlexAlignContent::Stretch,
-                align_items: FlexAlignItems::Stretch,
-                flex_direction: taffy_direction,
-                container_width,
-                container_height,
-            });
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+        cells_h: &cells_h,
+        cells_v: &cells_v,
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        alignment: LayoutAlignment::Start,
+        align_content: FlexAlignContent::Stretch,
+        align_items: FlexAlignItems::Stretch,
+        flex_direction: taffy_direction,
+        container_width,
+        container_height,
+    });
 
-        let (available_width, available_height) = match direction {
-            FlexDirection::Row | FlexDirection::RowReverse => (approx_preferred, Coord::MAX),
-            FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, approx_preferred),
-        };
+    let (available_width, available_height) = match direction {
+        FlexDirection::Row | FlexDirection::RowReverse => (main_axis_constraint, Coord::MAX),
+        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, main_axis_constraint),
+    };
 
-        builder.compute_layout(available_width, available_height);
+    builder.compute_layout(available_width, available_height);
 
-        // Determine actual content extent from child positions.
-        // The preferred size is the span of the widest row plus padding.
+    let preferred = if is_main_axis {
+        // For main-axis, container_size() returns max(content, available_space) for
+        // multi-line layouts, giving back our approximation unchanged. Scan child
+        // positions to find the actual extent of the widest row.
         let mut min_pos = Coord::MAX;
         let mut max_end = 0.0 as Coord;
         for i in 0..cells_h.len() {
             let (x, y, w, h) = builder.child_geometry(i);
-            let (pos, size) = match direction {
-                FlexDirection::Row | FlexDirection::RowReverse => (x, w),
-                FlexDirection::Column | FlexDirection::ColumnReverse => (y, h),
+            let (pos, size) = match orientation {
+                Orientation::Horizontal => (x, w),
+                Orientation::Vertical => (y, h),
             };
             min_pos = min_pos.min(pos);
             max_end = max_end.max(pos + size);
         }
-        let preferred = (max_end - min_pos) + padding.begin + padding.end;
-
-        let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-        LayoutInfo {
-            min,
-            max: Coord::MAX, // TODO?
-            min_percent: 0 as _,
-            max_percent: 100 as _,
-            preferred: preferred as _,
-            stretch,
-        }
+        (max_end - min_pos) + padding.begin + padding.end
     } else {
-        // Cross-axis: constraint-based calculation (wrapping affects this dimension)
-        let taffy_direction = match direction {
-            FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-            FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
-            FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-            FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
-        };
-
-        let (container_width, container_height) = match direction {
-            FlexDirection::Row | FlexDirection::RowReverse => (Some(constraint_size), None),
-            FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(constraint_size)),
-        };
-
-        let mut builder =
-            flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
-                cells_h: &cells_h,
-                cells_v: &cells_v,
-                spacing_h,
-                spacing_v,
-                padding_h,
-                padding_v,
-                alignment: LayoutAlignment::Start,
-                align_content: FlexAlignContent::Stretch,
-                align_items: FlexAlignItems::Stretch,
-                flex_direction: taffy_direction,
-                container_width,
-                container_height,
-            });
-
-        let (available_width, available_height) = match direction {
-            FlexDirection::Row | FlexDirection::RowReverse => (constraint_size, Coord::MAX),
-            FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, constraint_size),
-        };
-
-        builder.compute_layout(available_width, available_height);
+        // For cross-axis, the queried dimension is Auto so container_size() returns
+        // the content-based size directly.
         let (total_width, total_height) = builder.container_size();
-
-        let computed_size = match direction {
-            FlexDirection::Row | FlexDirection::RowReverse => total_height,
-            FlexDirection::Column | FlexDirection::ColumnReverse => total_width,
-        };
-
-        LayoutInfo {
-            min,
-            max: Coord::MAX, // TODO?
-            min_percent: 0 as _,
-            max_percent: 100 as _,
-            preferred: computed_size,
-            stretch: 0.0,
+        match orientation {
+            Orientation::Horizontal => total_width,
+            Orientation::Vertical => total_height,
         }
+    };
+
+    let stretch =
+        if is_main_axis { cells.iter().map(|c| c.constraint.stretch).sum::<f32>() } else { 0.0 };
+
+    LayoutInfo {
+        min,
+        max: Coord::MAX, // TODO?
+        min_percent: 0 as _,
+        max_percent: 100 as _,
+        preferred,
+        stretch,
     }
 }
 
