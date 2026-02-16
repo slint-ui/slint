@@ -4,19 +4,14 @@
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { StateLayer } from "components.slint";
 
-export component Button {
-    in property <string> text;
-    in property <image> icon;
-    in property <length> icon-size: 20px;
-    in property <bool> primary;
-    in property <bool> enabled <=> state-layer.enabled;
-    in property <bool> checkable;
-    in property <bool> colorize-icon;
-    out property <bool> has-focus: state-layer.has-focus;
-    out property <bool> pressed: self.enabled && state-layer.pressed;
-    in-out property <bool> checked <=> state-layer.checked;
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 
-    callback clicked;
+export component Button implements ButtonInterface {
+    icon-size: 20px;
+    enabled <=> state-layer.enabled;
+    has-focus: state-layer.has-focus;
+    pressed: self.enabled && state-layer.pressed;
+    checked <=> state-layer.checked;
 
     private property <brush> text-color: primary ? CosmicPalette.accent-foreground : CosmicPalette.control-foreground;
 
