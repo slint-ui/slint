@@ -43,7 +43,7 @@ std = [
   "dep:sys-locale",
   "shared-fontique",
   "i-slint-common/color-parsing",
-  "i-slint-common/alloc",
+  "i-slint-common/markdown",
   "taffy/std",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.

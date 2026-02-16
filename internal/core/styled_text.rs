@@ -9,6 +9,7 @@ pub struct StyledText {
     pub(crate) paragraphs: crate::SharedVector<i_slint_common::styled_text::StyledTextParagraph>,
 }
 
+#[cfg(feature = "std")]
 impl StyledText {
     pub fn parse_interpolated<S: AsRef<str>>(
         format_string: &str,

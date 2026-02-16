@@ -21,7 +21,7 @@ default = []
 shared-fontique = ["dep:fontique", "dep:ttf-parser"]
 color-parsing = []
 fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
-alloc = ["dep:pulldown-cmark", "dep:htmlparser", "dep:thiserror"]
+markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:thiserror", "color-parsing"]
 
 [dependencies]
 ttf-parser = { workspace = true, optional = true }

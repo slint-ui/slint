@@ -24,6 +24,7 @@ pub struct FormattedSpan {
     pub style: Style,
 }
 
+#[cfg(feature = "markdown")]
 #[derive(Clone, Debug)]
 enum ListItemType {
     Ordered(u64),
@@ -42,6 +43,7 @@ pub struct StyledTextParagraph {
 }
 
 /// Error type returned by `StyledText::parse`
+#[cfg(feature = "markdown")]
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum StyledTextError<'a> {
@@ -108,6 +110,7 @@ pub struct StyledText {
     pub paragraphs: alloc::vec::Vec<StyledTextParagraph>,
 }
 
+#[cfg(feature = "markdown")]
 impl StyledText {
     /// Parse a markdown string with interpolated arguments as styled text
     pub fn parse_interpolated<S: AsRef<str>>(
