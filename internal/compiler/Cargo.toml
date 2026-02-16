@@ -42,7 +42,7 @@ experimental-library-module = []
 default = []
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default", "color-parsing"] }
+i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
 
 num_enum = "0.7"
 strum = { workspace = true }

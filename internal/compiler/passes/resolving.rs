@@ -775,131 +775,19 @@ impl Expression {
         });
         let values = subs.collect::<Vec<_>>();
 
-        let mut expr = None;
-
-        // check format string
-        {
-            let mut arg_idx = 0;
-            let mut pos_max = 0;
-            let mut pos = 0;
-            let mut literal_start_pos = 0;
-            while let Some(mut p) = string[pos..].find(['{', '}']) {
-                if string.len() - pos < p + 1 {
-                    ctx.diag.push_error(
-                        "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
-                        &node,
-                    );
-                    break;
-                }
-                p += pos;
-
-                // Skip escaped }
-                if string.get(p..=p) == Some("}") {
-                    if string.get(p + 1..=p + 1) == Some("}") {
-                        pos = p + 2;
-                        continue;
-                    } else {
-                        ctx.diag.push_error(
-                            "Unescaped '}' in format string. Escape '}' with '}}'".into(),
-                            &node,
-                        );
-                        break;
-                    }
-                }
-
-                // Skip escaped {
-                if string.get(p + 1..=p + 1) == Some("{") {
-                    pos = p + 2;
-                    continue;
-                }
-
-                // Find the argument
-                let end = if let Some(end) = string[p..].find('}') {
-                    end + p
-                } else {
-                    ctx.diag.push_error(
-                        "Unterminated placeholder in format string. '{' must be escaped with '{{'"
-                            .into(),
-                        &node,
-                    );
-                    break;
-                };
-                let argument = &string[p + 1..end];
-                let argument_index = if argument.is_empty() {
-                    let argument_index = arg_idx;
-                    arg_idx += 1;
-                    argument_index
-                } else if let Ok(n) = argument.parse::<u16>() {
-                    pos_max = pos_max.max(n as usize + 1);
-                    n as usize
-                } else {
-                    ctx.diag
-                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
-                    break;
-                };
-
-                let value = if let Some(value) = values.get(argument_index).cloned() {
-                    value
-                } else {
-                    // Will result in a `Format string contains {num} placeholders, but only {} extra arguments were given` error later
-                    break;
-                };
-
-                let add = Expression::BinaryExpression {
-                    lhs: Box::new(Expression::StringLiteral(
-                        (&string[literal_start_pos..p]).into(),
-                    )),
-                    op: '+',
-                    rhs: Box::new(Expression::FunctionCall {
-                        function: BuiltinFunction::EscapeMarkdown.into(),
-                        arguments: vec![value],
-                        source_location: Some(node.to_source_location()),
-                    }),
-                };
-                expr = Some(match expr {
-                    None => add,
-                    Some(expr) => Expression::BinaryExpression {
-                        lhs: Box::new(expr),
-                        op: '+',
-                        rhs: Box::new(add),
-                    },
-                });
-                pos = end + 1;
-                literal_start_pos = pos;
-            }
-            let trailing = &string[literal_start_pos..];
-            if !trailing.is_empty() {
-                let trailing = Expression::StringLiteral(trailing.into());
-                expr = Some(match expr {
-                    None => trailing,
-                    Some(expr) => Expression::BinaryExpression {
-                        lhs: Box::new(expr),
-                        op: '+',
-                        rhs: Box::new(trailing),
-                    },
-                });
-            }
-            if arg_idx > 0 && pos_max > 0 {
-                ctx.diag.push_error(
-                    "Cannot mix positional and non-positional placeholder in format string".into(),
-                    &node,
-                );
-            } else if (pos_max == 0 && arg_idx != values.len()) || pos_max > values.len() {
-                let num = arg_idx.max(pos_max);
-                ctx.diag.push_error(
-                    format!(
-                        "Format string contains {num} placeholders, but {} values were given",
-                        values.len()
-                    ),
-                    &node,
-                );
-            }
+        // Validate the markdown format string with dummy values
+        if let Err(e) = i_slint_common::styled_text::StyledText::parse_interpolated(
+            &string,
+            &vec!["dummy value"; values.len()],
+        ) {
+            ctx.diag.push_error(e.to_string(), &node);
         }
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                expr.unwrap_or_else(|| Expression::default_value_for_type(&Type::String)),
+                Expression::StringLiteral(string.into()),
+                Expression::Array { element_ty: Type::String, values },
             ],
             source_location: Some(node.to_source_location()),
         }

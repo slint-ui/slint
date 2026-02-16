@@ -4438,13 +4438,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RetartTimer {arguments:?}")
             }
         }
-        BuiltinFunction::EscapeMarkdown => {
-            let text = a.next().unwrap();
-            format!("slint::private_api::escape_markdown({})", text)
-        }
         BuiltinFunction::ParseMarkdown => {
-            let text = a.next().unwrap();
-            format!("slint::private_api::parse_markdown({})", text)
+            let format_string = a.next().unwrap();
+            let args = a.next().unwrap();
+            format!("slint::private_api::parse_markdown({}, {})", format_string, args)
         }
     }
 }

@@ -163,7 +163,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
-    pub use i_slint_core::styled_text::{StyledText, escape_markdown, parse_markdown};
+    pub use i_slint_core::styled_text::{StyledText, parse_markdown};
     // This one is empty when Qt is not available, which triggers a warning
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]

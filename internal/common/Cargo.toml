@@ -21,10 +21,14 @@ default = []
 shared-fontique = ["dep:fontique", "dep:ttf-parser"]
 color-parsing = []
 fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
+markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:thiserror", "color-parsing"]
 
 [dependencies]
 ttf-parser = { workspace = true, optional = true }
 fontique = { workspace = true, optional = true }
+pulldown-cmark = { version = "0.13.0", optional = true }
+htmlparser = { version = "0.2.1", optional = true }
+thiserror = { version = "2.0.17", optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

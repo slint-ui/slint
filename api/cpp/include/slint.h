@@ -294,17 +294,11 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
-inline SharedString escape_markdown(const SharedString &text)
-{
-    SharedString result = text;
-    cbindgen_private::slint_escape_markdown(&result);
-    return result;
-}
-
-inline StyledText parse_markdown(const SharedString &text)
+inline StyledText parse_markdown(SharedString format_string,
+                                 cbindgen_private::Slice<SharedString> args)
 {
     StyledText result;
-    cbindgen_private::slint_parse_markdown(&text, &result);
+    cbindgen_private::slint_parse_markdown(format_string, args, &result);
     return result;
 }
 
