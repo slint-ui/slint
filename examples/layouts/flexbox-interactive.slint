@@ -10,6 +10,7 @@ component Cell inherits Rectangle {
     HorizontalLayout {
         padding: 10phx;
         Text {
+            color: #000000;
             text: cell_text;
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -25,9 +26,35 @@ export component MainWindow inherits Window {
 
     property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
+    property <[FlexDirection]> direction_values: [
+        FlexDirection.row,
+        FlexDirection.row-reverse,
+        FlexDirection.column,
+        FlexDirection.column-reverse
+    ];
     property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
+    property <[LayoutAlignment]> alignment_values: [
+        LayoutAlignment.start,
+        LayoutAlignment.end,
+        LayoutAlignment.center,
+        LayoutAlignment.space-between,
+        LayoutAlignment.space-around,
+        LayoutAlignment.space-evenly
+    ];
     property <[string]> align_content_options: ["Stretch", "Start", "End", "Center"];
+    property <[FlexAlignContent]> align_content_values: [
+        FlexAlignContent.stretch,
+        FlexAlignContent.start,
+        FlexAlignContent.end,
+        FlexAlignContent.center
+    ];
     property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
+    property <[FlexAlignItems]> align_items_values: [
+        FlexAlignItems.stretch,
+        FlexAlignItems.start,
+        FlexAlignItems.end,
+        FlexAlignItems.center
+    ];
 
     VerticalLayout {
         padding: 20phx;
@@ -86,10 +113,10 @@ export component MainWindow inherits Window {
             vertical-stretch: 1;
 
             FlexBoxLayout {
-                flex-direction: direction_combo.current-index == 0 ? row : direction_combo.current-index == 1 ? row-reverse : direction_combo.current-index == 2 ? column : column-reverse;
-                alignment: alignment_combo.current-index == 0 ? start : alignment_combo.current-index == 1 ? end : alignment_combo.current-index == 2 ? center : alignment_combo.current-index == 3 ? space-between : alignment_combo.current-index == 4 ? space-around : space-evenly;
-                align-content: align_content_combo.current-index == 0 ? stretch : align_content_combo.current-index == 1 ? start : align_content_combo.current-index == 2 ? end : center;
-                align-items: align_items_combo.current-index == 0 ? stretch : align_items_combo.current-index == 1 ? start : align_items_combo.current-index == 2 ? end : center;
+                flex-direction: direction_values[direction_combo.current-index];
+                alignment: alignment_values[alignment_combo.current-index];
+                align-content: align_content_values[align_content_combo.current-index];
+                align-items: align_items_values[align_items_combo.current-index];
                 padding: 10phx;
                 spacing: 10phx;
 
