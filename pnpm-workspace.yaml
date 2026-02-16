@@ -19,7 +19,7 @@ packages:
 catalog:
   '@astrojs/check': 0.9.6
   '@astrojs/starlight': 0.37.6
-  '@biomejs/biome': 2.3.14
+  '@biomejs/biome': 2.4.0
   '@expressive-code/plugin-line-numbers': 0.41.6
   '@playwright/test': 1.58.2
   '@types/node': 20.16.10
