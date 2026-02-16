@@ -30,9 +30,7 @@ https://github.com/slint-ui/material-python-template
 </TabItem>
 </Tabs>
 
-To use the components in your existing project, download the source code of the material component from
-https://material.slint.dev/zip/material-1.0.zip
-and extract it into your repository.
+To use the components in your existing project, download the [material component source](/zip/material-1.0.1.zip) and extract it into your repository.
 Then follow the [documentation to configure the use of `@material` as a library](https://docs.slint.dev/latest/docs/slint/guide/language/coding/file/#component-libraries).
 
 Here's an example of how to configure it for different languages:
@@ -45,7 +43,7 @@ In your `CMakeLists.txt` file, use `LIBRARY_PATHS` in the `slint_target_sources`
 slint_target_sources(my_application
     ui/main.slint
     LIBRARY_PATHS
-        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
+    material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0.1/material.slint
 )
 ```
 </TabItem>
@@ -59,7 +57,7 @@ fn main() {
         std::collections::HashMap::from([(
             "material".to_string(),
             std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
-                .join("material-1.0/material.slint"),
+                .join("material-1.0.1/material.slint"),
         )]),
     );
     slint_build::compile_with_config("ui/main.slint", config).unwrap();
@@ -72,7 +70,7 @@ Provide the `libraryPaths` map with `loadFile`:
 ```javascript
 let ui = slint.loadFile("ui/main.slint", {
     libraryPaths: {
-        "material": path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "material-1.0", "material.slint")
+        "material": path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "material-1.0.1", "material.slint")
     }
 });
 ```
@@ -84,7 +82,7 @@ Provide the `library_paths` dict with `load_file`:
 ui = slint.load_file(
     Path(__file__).parent / "ui" / "main.slint",
     library_paths={
-        "material": Path(__file__).parent / "material-1.0" / "material.slint"
+        "material": Path(__file__).parent / "material-1.0.1" / "material.slint"
     },
 )
 ```

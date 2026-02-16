@@ -82,7 +82,11 @@ export default defineConfig({
                     autogenerate: { directory: "components" },
                 },
             ],
-            plugins: [starlightLinksValidator()],
+            plugins: [
+                starlightLinksValidator({
+                    exclude: ["/zip/**"],
+                }),
+            ],
             social: [
                 {
                     icon: "github",

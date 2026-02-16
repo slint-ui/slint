@@ -6,22 +6,21 @@ name: Material - Build, test and publish
 on:
   workflow_dispatch:
     inputs:
-      publish:
+      deploy_production:
         type: boolean
-        description: "Publish master to Cloudflare Pages"
+        description: "Deploy to material.slint.dev \n Only tick this box if you want to deploy the current state of the master branch to material.slint.dev."
         default: false
         required: false
   workflow_call:
-    inputs:
-      publish:
-        type: boolean
-        required: false
-        default: false
-        description: "Tick the box to publish master to material.slint.dev"
+
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
+      CLOUDFLARE_API_TOKEN_2:
+        required: true
       CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID_2:
         required: true
       ANDROID_KEYSTORE_PASSWORD:
         required: true
@@ -30,6 +29,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  MATERIAL_ZIP_VERSION: "1.0.1"
 
 jobs:
   material_wasm_demo:
@@ -65,13 +67,13 @@ jobs:
             run: cargo test -p material-gallery
 
   deploy:
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') || (github.event_name == 'workflow_call' && inputs.publish == true) || github.ref != 'refs/heads/master' }}
     runs-on: ubuntu-latest
     needs: [material_wasm_demo, material_apk_demo]
     permissions:
       contents: read
       deployments: write
     name: Deploy to Cloudflare Pages
+
     defaults:
       run:
         working-directory: ui-libraries/material/docs
@@ -104,20 +106,77 @@ jobs:
         with:
           name: material_gallery
           path: ui-libraries/material/docs/dist/apk
-      - name: prepare zip archive
+      - name: Normalize APK names
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         working-directory: ui-libraries/material
         run: |
-            cp -a src material-1.0
-      - name: zip up material library
+          if [ -f docs/dist/apk/material-gallery.apk ]; then mv docs/dist/apk/material-gallery.apk docs/dist/apk/slint_material.apk; fi
+          if [ -f docs/dist/apk/material-gallery.aab ]; then mv docs/dist/apk/material-gallery.aab docs/dist/apk/slint_material.aab; fi
+      - name: Zip material library
         working-directory: ui-libraries/material
         run: |
+            cp -a src material-${MATERIAL_ZIP_VERSION}
             mkdir -p docs/dist/zip
-            zip -r docs/dist/zip/material-1.0.zip material-1.0
-      - name: Deploy
+            zip -r docs/dist/zip/material-${MATERIAL_ZIP_VERSION}.zip material-${MATERIAL_ZIP_VERSION}
+            rm -rf material-${MATERIAL_ZIP_VERSION}
+      - name: Deploy to materialui (Pages)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy docs/dist --project-name=materialui
+          command: pages deploy dist --project-name=materialui --branch=master
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          workingDirectory: ui-libraries/material
+          packageManager: pnpm
+          workingDirectory: ui-libraries/material/docs
+
+      - name: Deploy to material-staging (Workers production)
+        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref == 'refs/heads/master'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+          command: deploy
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          packageManager: pnpm
+          workingDirectory: ui-libraries/material/docs
+
+      - name: Deploy preview to material-staging (Workers)
+        id: preview
+        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref != 'refs/heads/master'
+        run: |
+          OUTPUT=$(pnpm dlx wrangler@3 versions upload 2>&1)
+          echo "$OUTPUT"
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
+          echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+        working-directory: ui-libraries/material/docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+
+      - name: Create GitHub deployment for PR
+        if: steps.preview.outputs.url != '' && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        with:
+          script: |
+            const ref = context.payload.pull_request.head.sha;
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref,
+              environment: 'preview',
+              auto_merge: false,
+              required_contexts: []
+            });
+            if (deployment.data.id) {
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.data.id,
+                state: 'success',
+                environment_url: process.env.PREVIEW_URL,
+                log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              });
+            }
