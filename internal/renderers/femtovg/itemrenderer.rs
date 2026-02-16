@@ -101,6 +101,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     textures_to_delete_after_flush: RefCell<Vec<Rc<super::images::Texture<R>>>>,
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
     metrics: RenderingMetrics,
@@ -346,7 +347,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        sharedparley::draw_text(self, text, Some(self_rc), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
     }
 
     fn draw_text_input(
@@ -803,6 +804,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
             logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            None,
         );
     }
 
@@ -1025,6 +1027,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         canvas: &CanvasRc<R>,
         graphics_cache: &'a ItemGraphicsCache<R>,
         texture_cache: &'a RefCell<super::images::TextureCache<R>>,
+        text_layout_cache: &'a sharedparley::TextLayoutCache,
         window: &'a i_slint_core::api::Window,
         width: u32,
         height: u32,
@@ -1038,6 +1041,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             textures_to_delete_after_flush: Default::default(),
             window,
             scale_factor,
+            text_layout_cache,
             state: vec![State {
                 scissor: LogicalRect::new(
                     LogicalPoint::default(),

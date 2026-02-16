@@ -621,6 +621,7 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_w
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
     cache: &'a ItemCache<qttypes::QPixmap>,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     window: &'a i_slint_core::api::Window,
     metrics: RenderingMetrics,
 }
@@ -690,7 +691,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     ) {
         self.save_state();
         self.pixel_align_origin();
-        sharedparley::draw_text(self, text, Some(self_rc), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         self.restore_state();
     }
 
@@ -984,6 +985,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
             logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            None,
         );
     }
 
@@ -1599,6 +1601,7 @@ pub struct QtWindow {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
     cache: ItemCache<qttypes::QPixmap>,
+    text_layout_cache: sharedparley::TextLayoutCache,
 
     tree_structure_changed: RefCell<bool>,
 
@@ -1638,6 +1641,7 @@ impl QtWindow {
                 self_weak: self_weak.clone(),
                 rendering_metrics_collector: Default::default(),
                 cache: Default::default(),
+                text_layout_cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
                 color_scheme: Default::default(),
                 window_icon_cache_key: Default::default(),
@@ -1662,9 +1666,12 @@ impl QtWindow {
         let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components| {
             i_slint_core::animations::update_animations();
+            self.text_layout_cache.clear_cache_if_scale_factor_changed(&self.window);
+
             let mut renderer = QtItemRenderer {
                 painter,
                 cache: &self.cache,
+                text_layout_cache: &self.text_layout_cache,
                 window: &self.window,
                 metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
             };
@@ -2168,7 +2175,15 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap).unwrap_or_default()
+        sharedparley::text_size(
+            self,
+            text_item,
+            item_rc,
+            max_width,
+            text_wrap,
+            Some(&self.text_layout_cache),
+        )
+        .unwrap_or_default()
     }
 
     fn char_size(
@@ -2252,6 +2267,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         // Invalidate caches:
         self.cache.component_destroyed(component);
+        self.text_layout_cache.component_destroyed(component);
         Ok(())
     }
 

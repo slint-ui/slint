@@ -226,7 +226,7 @@ impl RendererSealed for TestingWindow {
             let height = num_lines as f32 * pixel_size;
             LogicalSize::new(width, height)
         } else {
-            sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+            sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)
                 .unwrap_or_default()
         }
     }

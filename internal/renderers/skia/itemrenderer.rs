@@ -41,6 +41,7 @@ pub struct SkiaItemRenderer<'a> {
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
     layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
 }
 
@@ -52,6 +53,7 @@ impl<'a> SkiaItemRenderer<'a> {
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
         layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+        text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
         Self {
@@ -64,6 +66,7 @@ impl<'a> SkiaItemRenderer<'a> {
             image_cache,
             layer_cache,
             path_cache,
+            text_layout_cache,
             box_shadow_cache,
         }
     }
@@ -375,6 +378,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 self.image_cache,
                 self.layer_cache,
                 self.path_cache,
+                self.text_layout_cache,
                 self.box_shadow_cache,
             );
             sub_renderer.translate(-bounding_rect.origin.to_vector());
@@ -566,7 +570,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         _cache: &CachedRenderingData,
     ) {
         let restore = self.save_canvas_and_pixel_align_origin();
-        sharedparley::draw_text(self, text, Some(self_rc), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         if restore {
             self.canvas.restore();
         }
@@ -869,6 +873,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
             logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            None,
         );
     }
 

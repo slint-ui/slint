@@ -318,6 +318,7 @@ serde = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util"] }
 async-compat = { version = "0.2.4" }
 bytemuck = { workspace = true }
+i-slint-renderer-software = { path = "../../../internal/renderers/software", features = ["testing"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux

@@ -85,6 +85,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
     canvas: RefCell<Option<CanvasRc<B::Renderer>>>,
     graphics_cache: itemrenderer::ItemGraphicsCache<B::Renderer>,
     texture_cache: RefCell<images::TextureCache<B::Renderer>>,
+    text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     // Last field, so that it's dropped last and for example the OpenGL context exists and is current when destroying the FemtoVG canvas
@@ -100,6 +101,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             canvas: RefCell::new(None),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             graphics_backend,
@@ -208,11 +210,13 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 }
 
                 self.graphics_cache.clear_cache_if_scale_factor_changed(window);
+                self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
                 let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                     &canvas,
                     &self.graphics_cache,
                     &self.texture_cache,
+                    &self.text_layout_cache,
                     window,
                     width.get(),
                     height.get(),
@@ -304,7 +308,15 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap).unwrap_or_default()
+        sharedparley::text_size(
+            self,
+            text_item,
+            item_rc,
+            max_width,
+            text_wrap,
+            Some(&self.text_layout_cache),
+        )
+        .unwrap_or_default()
     }
 
     fn char_size(
@@ -392,6 +404,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         component: i_slint_core::item_tree::ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.text_layout_cache.component_destroyed(component);
         if !self.graphics_cache.is_empty() {
             self.graphics_backend.with_graphics_api(|_| {
                 self.graphics_cache.component_destroyed(component);
@@ -402,6 +415,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
+        self.text_layout_cache.clear_all();
         self.graphics_backend
             .with_graphics_api(|_| {
                 self.graphics_cache.clear_all();
@@ -493,6 +507,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             canvas: RefCell::new(None),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
+            text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             graphics_backend: B::new_suspended(),
@@ -515,6 +530,8 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             self.graphics_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
         })?;
+
+        self.text_layout_cache.clear_all();
 
         if let Some(canvas) = self.canvas.borrow_mut().take() {
             if Rc::strong_count(&canvas) != 1 {
