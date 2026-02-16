@@ -23,15 +23,15 @@ export component X {
     property <styled-text> t12: @markdown("{0");
 //                              >             <error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
     property <styled-text> t13: @markdown("> quote");
-//                              >                  <error{Unimplemented: BlockQuote(None)}
+//                              >                  <error{Unimplemented tag: BlockQuote(None)}
     property <styled-text> t14: @markdown("![alt](image.png)");
-//                              >                            <error{Unimplemented: Image { link_type: Inline, dest_url: Inlined(InlineStr { inner: [105, 109, 97, 103, 101, 46, 112, 110, 103, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 9 }), title: Inlined(InlineStr { inner: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 0 }), id: Inlined(InlineStr { inner: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 0 }) }}
+//                              >                            <error{Unimplemented tag: Image}
     property <styled-text> t15: @markdown("---");
-//                              >              <error{Unimplemented: Rule}
+//                              >              <error{Unimplemented event: Rule}
     property <styled-text> t16: @markdown("<span>text</span>");
 //                              >                            <error{Unimplemented html tag: span}
     property <styled-text> t17: @markdown("<div>text</div>");
-//                              >                          <error{Unimplemented: HtmlBlock}
+//                              >                          <error{Unimplemented tag: HtmlBlock}
     property <styled-text> t18: @markdown("<u>unclosed");
 //                              >                      <error{Spans are unbalanced: stack contained items at end of function}
     property <styled-text> t19: @markdown("<font color='red'>unclosed");

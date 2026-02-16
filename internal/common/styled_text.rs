@@ -57,13 +57,13 @@ pub enum StyledTextError<'a> {
     #[error("Paragraph not started")]
     ParagraphNotStarted,
     /// Unimplemented markdown tag
-    #[error("Unimplemented: {:?}", .0)]
+    #[error("Unimplemented tag: {:?}", .0.to_end())]
     UnimplementedTag(pulldown_cmark::Tag<'a>),
     /// Unimplemented markdown event
-    #[error("Unimplemented: {:?}", .0)]
+    #[error("Unimplemented event: {:?}", .0)]
     UnimplementedEvent(pulldown_cmark::Event<'a>),
     /// Unimplemented html event
-    #[error("Unimplemented: {}", .0)]
+    #[error("Unimplemented html: {}", .0)]
     UnimplementedHtmlEvent(alloc::string::String),
     /// Unimplemented html tag
     #[error("Unimplemented html tag: {}", .0)]
