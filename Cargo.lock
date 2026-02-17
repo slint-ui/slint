@@ -10151,6 +10151,7 @@ dependencies = [
 name = "test-driver-rust"
 version = "1.16.0"
 dependencies = [
+ "i-slint-backend-qt",
  "i-slint-backend-testing",
  "i-slint-compiler",
  "slint",
