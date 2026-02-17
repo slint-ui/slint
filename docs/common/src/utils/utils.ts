@@ -150,7 +150,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap["keyboard-shortcut"].href,
                 defaultValue: "@keys()",
-            }
+            };
         case "int":
             return {
                 href: linkMap.int.href,
