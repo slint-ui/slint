@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -40,15 +39,8 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
 
     let mut all_styles = vec!["fluent", "material", "cupertino", "cosmic"];
 
-    // It is in the target/xxx/build directory
-    if std::env::var_os("OUT_DIR").is_some_and(|path| {
-        // Same logic as in i-slint-backend-selector's build script to get the path
-        let mut path: PathBuf = path.into();
-        path.pop();
-        path.pop();
-        path.push("SLINT_DEFAULT_STYLE.txt");
-        std::fs::read_to_string(path).is_ok_and(|style| style.trim().contains("qt"))
-    }) {
+    println!("cargo:rerun-if-env-changed=DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE");
+    if std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1" {
         all_styles.push("qt");
     }
 
