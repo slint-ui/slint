@@ -7,6 +7,7 @@ use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
 pub use i_slint_core::input::TouchPhase;
+use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
@@ -14,8 +15,8 @@ use i_slint_core::window::WindowInner;
 
 /// Simulate a mouse click at `(x, y)` and release after a while at the same position
 pub fn send_mouse_click<
-    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,
-    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    X: vtable::HasStaticVTable<ItemTreeVTable> + 'static,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     x: f32,
@@ -30,8 +31,8 @@ pub fn send_mouse_click<
 
 /// Simulate entering a keyboard shortcut or other "nested" character sequence
 pub fn send_keyboard_shortcut<
-    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
-    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     keys: impl IntoIterator<Item = impl Into<char>>,
@@ -47,8 +48,8 @@ pub fn send_keyboard_shortcut<
 
 /// Simulate entering a sequence of ascii characters key by (pressed or released).
 pub fn send_keyboard_char<
-    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
-    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     string: char,
@@ -63,8 +64,8 @@ pub fn send_keyboard_char<
 
 /// Simulate entering a sequence of ascii characters key by key.
 pub fn send_keyboard_string_sequence<
-    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
-    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     sequence: &str,
@@ -78,8 +79,8 @@ pub fn send_keyboard_string_sequence<
 /// Applies the specified scale factor to the window that's associated with the given component.
 /// This overrides the value provided by the windowing system.
 pub fn set_window_scale_factor<
-    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
-    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     factor: f32,
@@ -92,8 +93,8 @@ pub fn set_window_scale_factor<
 /// `delta` is the incremental scale change (e.g. 0.0 for start, 0.5 for 50% increase).
 /// The PinchGestureHandler accumulates deltas: `scale *= (1.0 + delta)`.
 pub fn send_pinch_gesture<
-    X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
-    Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     delta: f32,
