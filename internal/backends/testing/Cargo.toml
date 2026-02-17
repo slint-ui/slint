@@ -18,13 +18,14 @@ path = "lib.rs"
 
 [features]
 # Internal feature that is only enabled for Slint's own tests
-internal = []
+internal = ["include_dir"]
 # ffi for C++ bindings
 ffi = []
 system-testing = ["quick-protobuf", "pb-rs", "generational-arena", "async-net", "futures-lite", "byteorder", "image"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["std"] }
+i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
+i-slint-common = { workspace = true, features = ["shared-fontique"] }
 vtable = { workspace = true }
 quick-protobuf = { version = "0.8.1", optional = true }
 generational-arena = { version = "0.2.9", optional = true }
@@ -32,6 +33,7 @@ async-net = { version = "2.0.0", optional = true }
 futures-lite = { version = "2.3.0", optional = true }
 byteorder = { version = "1.5.0", optional = true }
 image = { workspace = true, optional = true, features = ["png"] }
+include_dir = { version = "0.7", optional = true }
 
 [build-dependencies]
 pb-rs = { version = "0.10.0", optional = true, default-features = false }
