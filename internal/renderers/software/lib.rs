@@ -768,10 +768,22 @@ impl RendererSealed for SoftwareRenderer {
             return LogicalSize::default();
         };
         let font_request = text_item.font_request(item_rc);
-        let font = fonts::match_font(&font_request, scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            drop(font_ctx);
             return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap);
         }
 
@@ -814,12 +826,23 @@ impl RendererSealed for SoftwareRenderer {
             return LogicalSize::default();
         };
         let font_request = text_item.font_request(item_rc);
-        let font = fonts::match_font(&font_request, scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
-                sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
             }
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
@@ -848,11 +871,24 @@ impl RendererSealed for SoftwareRenderer {
         let Some(scale_factor) = self.scale_factor() else {
             return i_slint_core::items::FontMetrics::default();
         };
-        let font = fonts::match_font(&font_request, scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
-            (fonts::Font::VectorFont(_), false) => sharedparley::font_metrics(font_request),
+            (fonts::Font::VectorFont(_), false) => {
+                sharedparley::font_metrics(&mut font_ctx, font_request)
+            }
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(font), true) => {
                 let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
@@ -893,11 +929,23 @@ impl RendererSealed for SoftwareRenderer {
             return 0;
         };
         let font_request = text_input.font_request(item_rc);
-        let font = fonts::match_font(&font_request, scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
+                drop(font_ctx);
                 sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
             }
             #[cfg(feature = "systemfonts")]
@@ -970,11 +1018,23 @@ impl RendererSealed for SoftwareRenderer {
             return LogicalRect::default();
         };
         let font_request = text_input.font_request(item_rc);
-        let font = fonts::match_font(&font_request, scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
+                drop(font_ctx);
                 sharedparley::text_input_cursor_rect_for_byte_offset(
                     self,
                     text_input,
@@ -1076,7 +1136,11 @@ impl RendererSealed for SoftwareRenderer {
         &self,
         data: &'static [u8],
     ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
-        self::fonts::systemfonts::register_font_from_memory(data)
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        self::fonts::systemfonts::register_font_from_memory(
+            &mut ctx.font_context().borrow_mut().collection,
+            data,
+        )
     }
 
     #[cfg(all(feature = "systemfonts", not(target_arch = "wasm32")))]
@@ -1084,7 +1148,11 @@ impl RendererSealed for SoftwareRenderer {
         &self,
         path: &std::path::Path,
     ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
-        self::fonts::systemfonts::register_font_from_path(path)
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        self::fonts::systemfonts::register_font_from_path(
+            &mut ctx.font_context().borrow_mut().collection,
+            path,
+        )
     }
 
     fn default_font_size(&self) -> LogicalLength {
@@ -2560,10 +2628,18 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
     ) {
         let font_request = text.font_request(self_rc);
 
-        let font = fonts::match_font(&font_request, self.scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = self.window.context().font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            self.scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            drop(font_ctx);
             sharedparley::draw_text(self, text, Some(self_rc), size);
             return;
         }
@@ -2645,11 +2721,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         size: LogicalSize,
     ) {
         let font_request = text_input.font_request(self_rc);
-        let font = fonts::match_font(&font_request, self.scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = self.window.context().font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            self.scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
+                drop(font_ctx);
                 sharedparley::draw_text_input(self, text_input, self_rc, size, None);
             }
             #[cfg(feature = "systemfonts")]
@@ -3016,12 +3100,20 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
     fn draw_string(&mut self, string: &str, color: Color) {
         let font_request = Default::default();
-        let font = fonts::match_font(&font_request, self.scale_factor);
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = self.window.context().font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            self.scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut *font_ctx,
+        );
         let clip = self.current_state.clip.cast() * self.scale_factor;
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
+                drop(font_ctx);
                 sharedparley::draw_text(
                     self,
                     std::pin::pin!((i_slint_core::SharedString::from(string), Brush::from(color))),

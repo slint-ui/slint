@@ -11,7 +11,6 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontique;
 use i_slint_core::Brush;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::SharedPixelBuffer;
@@ -314,14 +313,22 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
-        sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+        let Some(ctx) = self.slint_context() else {
+            return LogicalSize::default();
+        };
+        let mut font_ctx = ctx.font_context().borrow_mut();
+        sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
     }
 
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
     ) -> i_slint_core::items::FontMetrics {
-        sharedparley::font_metrics(font_request)
+        let Some(ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        let mut font_ctx = ctx.font_context().borrow_mut();
+        sharedparley::font_metrics(&mut font_ctx, font_request)
     }
 
     fn text_input_byte_offset_for_position(
@@ -346,7 +353,8 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
         Ok(())
     }
 
@@ -356,7 +364,8 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
         let contents = std::fs::read(requested_path)?;
-        sharedfontique::get_collection().register_fonts(contents.into(), None);
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
         Ok(())
     }
 

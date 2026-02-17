@@ -7,7 +7,6 @@ use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
 use euclid::num::Zero;
-use std::boxed::Box;
 use std::cell::RefCell;
 
 use crate::{
@@ -78,25 +77,8 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
 
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 
-struct Contexts {
-    layout: parley::LayoutContext<Brush>,
-    font: parley::FontContext,
-}
-
-impl Default for Contexts {
-    fn default() -> Self {
-        Self {
-            font: parley::FontContext {
-                collection: sharedfontique::COLLECTION.inner.clone(),
-                source_cache: sharedfontique::COLLECTION.source_cache.clone(),
-            },
-            layout: Default::default(),
-        }
-    }
-}
-
 std::thread_local! {
-    static CONTEXTS: RefCell<Box<Contexts>> = Default::default();
+    static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
 }
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
@@ -156,11 +138,11 @@ impl LayoutWithoutLineBreaksBuilder {
 
     fn ranged_builder<'a>(
         &self,
-        contexts: &'a mut Contexts,
+        layout_ctx: &'a mut parley::LayoutContext<Brush>,
+        font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        let mut builder =
-            contexts.layout.ranged_builder(&mut contexts.font, text, self.scale_factor.get(), true);
+        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
@@ -224,6 +206,7 @@ impl LayoutWithoutLineBreaksBuilder {
 
     fn build(
         &self,
+        font_context: &mut parley::FontContext,
         text: &str,
         selection: Option<(Range<usize>, Color)>,
         formatting: impl IntoIterator<Item = i_slint_common::styled_text::FormattedSpan>,
@@ -231,8 +214,8 @@ impl LayoutWithoutLineBreaksBuilder {
     ) -> parley::Layout<Brush> {
         use i_slint_common::styled_text::Style;
 
-        CONTEXTS.with_borrow_mut(|contexts| {
-            let mut builder = self.ranged_builder(contexts.as_mut(), text);
+        LAYOUT_CONTEXT.with_borrow_mut(|layout_ctx| {
+            let mut builder = self.ranged_builder(layout_ctx, font_context, text);
 
             if let Some((selection_range, selection_color)) = selection {
                 {
@@ -308,12 +291,14 @@ impl LayoutWithoutLineBreaksBuilder {
 
 fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
+    font_context: &mut parley::FontContext,
     text: PlainOrStyledText,
     selection: Option<(Range<usize>, Color)>,
     link_color: Color,
 ) -> Vec<TextParagraph> {
     let paragraph_from_text =
-        |text: &str,
+        |font_context: &mut parley::FontContext,
+         text: &str,
          range: std::ops::Range<usize>,
          formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>| {
@@ -329,8 +314,13 @@ fn create_text_paragraphs(
                 }
             });
 
-            let layout =
-                layout_builder.build(text, selection, formatting.into_iter(), Some(link_color));
+            let layout = layout_builder.build(
+                font_context,
+                text,
+                selection,
+                formatting.into_iter(),
+                Some(link_color),
+            );
 
             TextParagraph { range, y: PhysicalLength::default(), layout, links }
         };
@@ -362,6 +352,7 @@ fn create_text_paragraphs(
 
             for range in paragraph_ranges {
                 paragraphs.push(paragraph_from_text(
+                    font_context,
                     &text[range.clone()],
                     range,
                     Default::default(),
@@ -375,6 +366,7 @@ fn create_text_paragraphs(
             #[cfg(feature = "experimental-rich-text")]
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
+                    font_context,
                     &paragraph.text,
                     0..0,
                     paragraph.formatting,
@@ -389,6 +381,7 @@ fn create_text_paragraphs(
 
 fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
+    font_context: &mut parley::FontContext,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
     options: LayoutOptions,
@@ -397,8 +390,8 @@ fn layout(
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
     // Returned None if failed to get the elipsis glyph for some rare reason.
-    let get_elipsis_glyph = || {
-        let mut layout = layout_builder.build("…", None, None, None);
+    let get_elipsis_glyph = |font_context: &mut parley::FontContext| {
+        let mut layout = layout_builder.build(font_context, "…", None, None, None);
         layout.break_all_lines(None);
         let line = layout.lines().next()?;
         let item = line.items().next()?;
@@ -410,17 +403,16 @@ fn layout(
         Some((glyph, run.run().font().clone()))
     };
 
-    let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
-        (options.text_overflow, max_physical_width)
-    {
-        get_elipsis_glyph().map(|(elipsis_glyph, font_for_elipsis_glyph)| ElisionInfo {
-            elipsis_glyph,
-            font_for_elipsis_glyph,
-            max_physical_width,
-        })
-    } else {
-        None
-    };
+    let elision_info =
+        if let (TextOverflow::Elide, Some(max_physical_width)) =
+            (options.text_overflow, max_physical_width)
+        {
+            get_elipsis_glyph(font_context).map(|(elipsis_glyph, font_for_elipsis_glyph)| {
+                ElisionInfo { elipsis_glyph, font_for_elipsis_glyph, max_physical_width }
+            })
+        } else {
+            None
+        };
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
@@ -931,14 +923,22 @@ pub fn draw_text(
         scale_factor,
     );
 
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, text.text(), None, text.link_color());
+    let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
+
+    let paragraphs_without_linebreaks = create_text_paragraphs(
+        &layout_builder,
+        &mut font_ctx,
+        text.text(),
+        None,
+        text.link_color(),
+    );
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
 
     let layout = layout(
         &layout_builder,
+        &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions {
@@ -949,6 +949,8 @@ pub fn draw_text(
             text_overflow: text.overflow(),
         },
     );
+
+    drop(font_ctx);
 
     let render = if text_overflow == TextOverflow::Clip {
         item_renderer.save_state();
@@ -980,6 +982,7 @@ pub fn draw_text(
 
 #[cfg(feature = "experimental-rich-text")]
 pub fn link_under_cursor(
+    font_context: &mut parley::FontContext,
     scale_factor: ScaleFactor,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     item_rc: &crate::item_tree::ItemRc,
@@ -996,12 +999,13 @@ pub fn link_under_cursor(
     let layout_text = text.text();
 
     let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, layout_text, None, text.link_color());
+        create_text_paragraphs(&layout_builder, font_context, layout_text, None, text.link_color());
 
     let (horizontal_align, vertical_align) = text.alignment();
 
     let layout = layout(
         &layout_builder,
+        font_context,
         paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions {
@@ -1095,8 +1099,11 @@ pub fn draw_text_input(
         None
     };
 
+    let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
+
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
+        &mut font_ctx,
         PlainOrStyledText::Plain(text),
         selection_and_color,
         Color::default(),
@@ -1104,10 +1111,13 @@ pub fn draw_text_input(
 
     let layout = layout(
         &layout_builder,
+        &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
+
+    drop(font_ctx);
 
     layout.selection_geometry(selection_range, |selection_rect| {
         item_renderer
@@ -1155,6 +1165,11 @@ pub fn text_size(
         return LogicalSize::default();
     };
 
+    let Some(ctx) = renderer.slint_context() else {
+        return LogicalSize::default();
+    };
+    let mut font_ctx = ctx.font_context().borrow_mut();
+
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(text_item.font_request(item_rc)),
         text_wrap,
@@ -1165,10 +1180,11 @@ pub fn text_size(
     let text = text_item.text();
 
     let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, text, None, Color::default());
+        create_text_paragraphs(&layout_builder, &mut font_ctx, text, None, Color::default());
 
     let layout = layout(
         &layout_builder,
+        &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions {
@@ -1183,12 +1199,13 @@ pub fn text_size(
 }
 
 pub fn char_size(
+    font_ctx: &mut parley::FontContext,
     text_item: Pin<&dyn crate::item_rendering::HasFont>,
     item_rc: &crate::item_tree::ItemRc,
     ch: char,
 ) -> Option<LogicalSize> {
     let font_request = text_item.font_request(item_rc);
-    let font = font_request.query_fontique()?;
+    let font = font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
 
     let char_map = font.charmap()?;
 
@@ -1218,10 +1235,15 @@ pub fn char_size(
     ))
 }
 
-pub fn font_metrics(font_request: FontRequest) -> crate::items::FontMetrics {
+pub fn font_metrics(
+    font_ctx: &mut parley::FontContext,
+    font_request: FontRequest,
+) -> crate::items::FontMetrics {
     let logical_pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).get();
 
-    let Some(font) = font_request.query_fontique() else {
+    let Some(font) =
+        font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)
+    else {
         return crate::items::FontMetrics::default();
     };
     let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
@@ -1253,6 +1275,11 @@ pub fn text_input_byte_offset_for_position(
         return 0;
     }
 
+    let Some(ctx) = renderer.slint_context() else {
+        return 0;
+    };
+    let mut font_ctx = ctx.font_context().borrow_mut();
+
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(text_input.font_request(item_rc)),
         text_input.wrap(),
@@ -1263,6 +1290,7 @@ pub fn text_input_byte_offset_for_position(
     let text = text_input.text();
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
+        &mut font_ctx,
         PlainOrStyledText::Plain(text),
         None,
         Color::default(),
@@ -1270,6 +1298,7 @@ pub fn text_input_byte_offset_for_position(
 
     let layout = layout(
         &layout_builder,
+        &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
@@ -1305,9 +1334,15 @@ pub fn text_input_cursor_rect_for_byte_offset(
         );
     }
 
+    let Some(ctx) = renderer.slint_context() else {
+        return LogicalRect::default();
+    };
+    let mut font_ctx = ctx.font_context().borrow_mut();
+
     let text = text_input.text();
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
+        &mut font_ctx,
         PlainOrStyledText::Plain(text),
         None,
         Color::default(),
@@ -1315,6 +1350,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
 
     let layout = layout(
         &layout_builder,
+        &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),

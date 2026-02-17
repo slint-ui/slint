@@ -87,7 +87,7 @@ pub fn embed_glyphs<'a>(
     let mut custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
     let mut font_paths: HashMap<fontique::FamilyId, std::path::PathBuf> = Default::default();
 
-    let mut collection = sharedfontique::get_collection();
+    let mut collection = sharedfontique::create_collection(false);
 
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
@@ -271,7 +271,7 @@ pub fn embed_glyphs<'a>(
 fn get_fallback_fonts(compiler_config: &CompilerConfiguration) -> Vec<Font> {
     let mut fallback_fonts = Vec::new();
 
-    let mut collection = sharedfontique::get_collection();
+    let mut collection = sharedfontique::create_collection(false);
     let mut query = collection.query();
     query.set_families(
         sharedfontique::FALLBACK_FAMILIES.into_iter().map(fontique::QueryFamily::Generic).chain(
