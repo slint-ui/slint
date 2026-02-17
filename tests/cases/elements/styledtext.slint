@@ -2,20 +2,43 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component TestCase inherits Window {
-
     st := StyledText {
         text: @markdown("Hello **World**: {}", "_abc_");
         font-size: 24px;
         color: red;
     }
 
+    st_link := StyledText {
+        y: 50px;
+        width: 100%;
+        height: 100%;
+        text: @markdown("Click [this link](https://slint.dev)");
+        font-size: 24px;
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
     out property <bool> test: true;
+    out property <string> clicked_link_url: "";
 }
 
 /*
 ```rust
+use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
+
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed {
+    position: LogicalPosition::new(65.0, 65.0),
+    button: PointerEventButton::Left
+});
+instance.window().dispatch_event(WindowEvent::PointerReleased {
+    position: LogicalPosition::new(65.0, 65.0),
+    button: PointerEventButton::Left
+});
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev");
 ```
 
 ```cpp
