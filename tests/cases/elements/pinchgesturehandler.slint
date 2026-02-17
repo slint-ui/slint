@@ -12,16 +12,16 @@ export component TestCase inherits Window {
     out property <Point> center <=> pinch.center;
 
     pinch := PinchGestureHandler {
-        pinch-started => {
+        started => {
             r += "started;";
         }
-        pinch-updated => {
+        updated => {
             r += "updated(" + round(self.scale * 100) / 100 + ");";
         }
-        pinch-ended => {
+        ended => {
             r += "ended;";
         }
-        pinch-cancelled => {
+        cancelled => {
             r += "cancelled;";
         }
     }

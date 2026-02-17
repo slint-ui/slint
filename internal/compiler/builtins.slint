@@ -227,10 +227,10 @@ export component PinchGestureHandler {
     out property <float> scale;       // Cumulative factor: 1.0 = no change
     out property <Point> center;
 
-    callback pinch-started();
-    callback pinch-updated();
-    callback pinch-ended();
-    callback pinch-cancelled();
+    callback started();
+    callback updated();
+    callback ended();
+    callback cancelled();
 
     //-default_size_binding:expands_to_parent_geometry
 }

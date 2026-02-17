@@ -691,9 +691,10 @@ pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
 
 /// The implementation of the `PinchGestureHandler` element.
 ///
-/// Handles platform-recognized pinch gestures (macOS/iOS trackpad, Qt)
-/// by processing `MouseEvent::PinchGesture` events through the normal mouse
-/// event tree-walk path. Scale is accumulated from incremental deltas.
+/// Provides the API surface for the `PinchGestureHandler` element.
+///
+/// Receives `MouseEvent::PinchGesture` events via the normal mouse event
+/// tree-walk and exposes cumulative scale, center position, and lifecycle callbacks.
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -709,10 +710,10 @@ pub struct PinchGestureHandler {
     pub center: Property<LogicalPosition>,
 
     // Callbacks
-    pub pinch_started: Callback<VoidArg>,
-    pub pinch_updated: Callback<VoidArg>,
-    pub pinch_ended: Callback<VoidArg>,
-    pub pinch_cancelled: Callback<VoidArg>,
+    pub started: Callback<VoidArg>,
+    pub updated: Callback<VoidArg>,
+    pub ended: Callback<VoidArg>,
+    pub cancelled: Callback<VoidArg>,
 
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -774,7 +775,7 @@ impl Item for PinchGestureHandler {
                         Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
                         Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
                         Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
-                        Self::FIELD_OFFSETS.pinch_started.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
                     TouchPhase::Moved => {
@@ -784,7 +785,7 @@ impl Item for PinchGestureHandler {
                         let new_scale = self.scale() * (1.0 + delta);
                         Self::FIELD_OFFSETS.scale.apply_pin(self).set(new_scale);
                         Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
-                        Self::FIELD_OFFSETS.pinch_updated.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
                     TouchPhase::Ended => {
@@ -792,7 +793,7 @@ impl Item for PinchGestureHandler {
                             return InputEventResult::EventIgnored;
                         }
                         Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
-                        Self::FIELD_OFFSETS.pinch_ended.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
                         InputEventResult::EventAccepted
                     }
                     TouchPhase::Cancelled => {
@@ -869,6 +870,6 @@ impl PinchGestureHandler {
             return;
         }
         Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
-        Self::FIELD_OFFSETS.pinch_cancelled.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
     }
 }

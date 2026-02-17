@@ -10,10 +10,10 @@ export component TestCase inherits Window {
     out property <bool> inner-active <=> inner.active;
 
     outer := PinchGestureHandler {
-        pinch-started => { r += "outer-started;"; }
-        pinch-updated => { r += "outer-updated;"; }
-        pinch-ended => { r += "outer-ended;"; }
-        pinch-cancelled => { r += "outer-cancelled;"; }
+        started => { r += "outer-started;"; }
+        updated => { r += "outer-updated;"; }
+        ended => { r += "outer-ended;"; }
+        cancelled => { r += "outer-cancelled;"; }
 
         Rectangle {
             x: 100px;
@@ -22,10 +22,10 @@ export component TestCase inherits Window {
             height: 200px;
 
             inner := PinchGestureHandler {
-                pinch-started => { r += "inner-started;"; }
-                pinch-updated => { r += "inner-updated;"; }
-                pinch-ended => { r += "inner-ended;"; }
-                pinch-cancelled => { r += "inner-cancelled;"; }
+                started => { r += "inner-started;"; }
+                updated => { r += "inner-updated;"; }
+                ended => { r += "inner-ended;"; }
+                cancelled => { r += "inner-cancelled;"; }
             }
         }
     }
