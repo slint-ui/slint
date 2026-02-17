@@ -2177,11 +2177,12 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
-        let Some(ctx) = self.slint_context() else {
-            return LogicalSize::default();
-        };
-        let mut font_ctx = ctx.font_context().borrow_mut();
-        sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
+        self.slint_context()
+            .and_then(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+            })
+            .unwrap_or_default()
     }
 
     fn font_metrics(
