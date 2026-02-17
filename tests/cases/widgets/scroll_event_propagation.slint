@@ -28,7 +28,6 @@ export component TestCase inherits Window {
     flickable := Flickable {
         width: 100%;
         height: 100%;
-        viewport_height: 1000px;
         // Test scroll behavior for all widgets in here
         VerticalLayout {
             checkbox := CheckBox {
@@ -54,7 +53,7 @@ export component TestCase inherits Window {
             }
 
             text-edit := TextEdit {
-                height: 60px;
+                height: 100px;
                 text: "TextEdit";
             }
 
@@ -87,6 +86,18 @@ export component TestCase inherits Window {
 
             // Add items after to make scrolling necessary
             Rectangle {
+                height: 400px;
+                background: lightyellow;
+            }
+
+            // add another "stumbling block" to test that we can scroll "over" this text edit when scroll events are cpatured
+            // by the flickable.
+            lower-text := TextEdit {
+                height: 100px;
+                text: "many\nlines\nof\ntext\nthat\nscrolls\nfoo\nbar\nbarfoo\nmore\nlines";
+            }
+
+            Rectangle {
                 height: 8000px;
                 background: lightyellow;
             }
@@ -104,7 +115,7 @@ let instance = TestCase::new().unwrap();
 let flickable = ElementHandle::find_by_element_id(&instance, "TestCase::flickable").next().unwrap();
 
 let reset = || {
-    flickable.scroll(0., 100.);
+    flickable.scroll(0., 10_000.);
     assert_eq!(instance.get_flickable_viewport_y(), 0.0);
 };
 
@@ -147,8 +158,13 @@ let scrolls = [
     "TestCase::text-edit",
 ];
 
+// The Flickable will start capturing scroll events, make sure to time this out.
+const SCROLL_CAPTURE_TIMEOUT_MS: u64 = 1_500;
+let timeout_scroll_capture = || slint_testing::mock_elapsed_time(SCROLL_CAPTURE_TIMEOUT_MS);
+
 for scroll in scrolls {
     assert_scrolls(scroll);
+    timeout_scroll_capture();
 }
 
 instance.invoke_focus_combobox(true);
@@ -163,8 +179,39 @@ instance.invoke_focus_combobox(false);
 assert_does_not_scroll("TestCase::spin-box");
 
 // TextEdit only consumes scroll events if it needs to
-instance.invoke_set_text_edit("Multi\nLine\nText\nThat\nScrolls".into());
-
+assert_scrolls("TestCase::text-edit");
+instance.invoke_set_text_edit("Multi\nLine\nText\nThat\nScrolls\nfoo\nbar\nmany\nlines".into());
 assert_does_not_scroll("TestCase::text-edit");
+
+// Test that we can scroll over the lower text edit if the scroll events are within the timeout
+// Also needs to ensure that the mouse position does not change -> always fire the scroll event in the
+// center of the flickable.
+for _ in 0..100 {
+    let before = instance.get_flickable_viewport_y();
+    flickable.scroll(0., -10.);
+    let after = instance.get_flickable_viewport_y();
+    assert!(
+        after < before,
+        "Should be able to scroll over the lower text edit if the scroll events are within the timeout.\
+         Before viewport-y: {before}, after scroll: {after}"
+    );
+}
+
+reset();
+
+// If scrolling with a slow timeout, the lower textedit will start consuming scroll events
+let mut found = false;
+for _ in 0..100 {
+    let before = instance.get_flickable_viewport_y();
+    timeout_scroll_capture();
+    flickable.scroll(0., -10.);
+    let after = instance.get_flickable_viewport_y();
+    eprintln!("{before} -> {after}");
+    if after == before {
+        found = true;
+        break;
+    }
+}
+assert!(found, "With a timeout, the lower text edit should start consuming scroll events, preventing the flickable from scrolling further.");
 ```
 */
