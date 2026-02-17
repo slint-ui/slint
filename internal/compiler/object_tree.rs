@@ -2553,21 +2553,45 @@ fn element_implements_interface(
     uses_statement: &UsesStatement,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    let property_matches_interface =
-        |property: &PropertyLookupResult, interface_declaration: &PropertyDeclaration| -> bool {
-            property.property_type == interface_declaration.property_type
-                && property.property_visibility == interface_declaration.visibility
-                && property.declared_pure == interface_declaration.pure
-        };
+    let property_matches_interface = |property: &PropertyLookupResult,
+                                      interface_declaration: &PropertyDeclaration|
+     -> Result<(), String> {
+        if property.property_type == Type::Invalid {
+            return Err("not found".into());
+        }
+
+        let mut errors = Vec::new();
+
+        if property.property_type != interface_declaration.property_type {
+            errors.push(format!("type: '{}'", interface_declaration.property_type));
+        }
+
+        if property.property_visibility != interface_declaration.visibility {
+            errors.push(format!("visibility: '{}'", interface_declaration.visibility));
+        }
+
+        if property.declared_pure != interface_declaration.pure {
+            errors.push(format!(
+                "purity declaration: '{}'",
+                interface_declaration.pure.unwrap_or(false)
+            ));
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("expected {}", errors.into_iter().join(", ")))
+        }
+    };
 
     let mut valid = true;
     let mut check = |property_name: &SmolStr, property_declaration: &PropertyDeclaration| {
         let lookup_result = element.borrow().lookup_property(property_name);
-        if !property_matches_interface(&lookup_result, property_declaration) {
+        if let Err(e) = property_matches_interface(&lookup_result, property_declaration) {
             diag.push_error(
                 format!(
-                    "'{}' does not implement '{}' from '{}'",
-                    uses_statement.child_id, property_name, uses_statement.interface_name
+                    "'{}' does not implement '{}' from '{}' - {}",
+                    uses_statement.child_id, property_name, uses_statement.interface_name, e
                 ),
                 &uses_statement.child_id_node(),
             );
