@@ -2570,7 +2570,7 @@ fn element_implements_interface(
             errors.push(format!("visibility: '{}'", interface_declaration.visibility));
         }
 
-        if property.declared_pure != interface_declaration.pure {
+        if property.declared_pure.unwrap_or(false) != interface_declaration.pure.unwrap_or(false) {
             errors.push(format!(
                 "purity declaration: '{}'",
                 interface_declaration.pure.unwrap_or(false)

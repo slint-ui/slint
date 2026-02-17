@@ -96,7 +96,7 @@ component IncorrectSpeakType {
 }
 
 export component ChildDoesNotImplementInterfaceCallback uses { ValidInterface from impl } {
-//                                                                                 >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'input output', purity declaration: 'false'}
+//                                                                                 >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'input output'}
     impl := IncorrectSpeakType { }
 }
 
