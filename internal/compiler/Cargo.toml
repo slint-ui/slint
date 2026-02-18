@@ -52,7 +52,7 @@ derive_more = { workspace = true }
 annotate-snippets = { version = "0.12.9", optional = true }
 quote = { version = "1.0", optional = true }
 proc-macro2 = { version = "1.0.17", optional = true }
-lyon_path = { version = "1.0" }
+lyon_path = { workspace = true, features = ["std"] }
 lyon_extra = "1.0.1"
 by_address = { workspace = true }
 itertools = { workspace = true }

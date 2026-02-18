@@ -428,7 +428,7 @@ pub trait ItemRenderer {
         _self_rc: &ItemRc,
         _size: LogicalSize,
     );
-    #[cfg(feature = "std")]
+    #[cfg(feature = "path")]
     fn draw_path(&mut self, path: Pin<&Path>, _self_rc: &ItemRc, _size: LogicalSize);
     fn draw_box_shadow(
         &mut self,

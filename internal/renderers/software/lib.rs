@@ -2918,7 +2918,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // Path rendering is disabled without the path feature
     }
 
-    #[cfg(all(feature = "std", feature = "path"))]
+    #[cfg(feature = "path")]
     fn draw_path(
         &mut self,
         path: Pin<&i_slint_core::items::Path>,

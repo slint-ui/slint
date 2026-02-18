@@ -56,7 +56,7 @@ vtable = { workspace = true }
 
 cfg-if = "1"
 derive_more = { workspace = true }
-lyon_path = "1.0"
+lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
