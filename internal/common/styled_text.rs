@@ -220,7 +220,7 @@ impl StyledText {
 
                 if let Some(arg) = args.get(arg_index) {
                     let arg_paragraphs = arg.as_ref();
-                    if paragraphs.len() != 1 {
+                    if arg_paragraphs.len() != 1 {
                         return Err(StyledTextError::MultiParagraphInterpolation);
                     }
                     let arg_paragraph = &arg_paragraphs[0];
