@@ -3612,7 +3612,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToStyledText => {
             let string = a.next().unwrap();
-            quote!(sp::string_to_styled_text(&#string))
+            quote!(sp::string_to_styled_text(#string.to_string()))
         }
     }
 }
