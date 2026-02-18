@@ -78,7 +78,6 @@ jobs:
                       rust_version: "stable"
                       save_if: ${{ github.ref == 'refs/heads/master' }}
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                      qt_test_extra_args: "--skip widgets_scrollview_qt"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
@@ -86,7 +85,6 @@ jobs:
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }} --exclude material-gallery
             save_if: ${{ matrix.save_if }}
-            qt_test_extra_args: ${{ matrix.qt_test_extra_args }}
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
