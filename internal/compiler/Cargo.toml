@@ -61,7 +61,7 @@ linked_hash_set = "0.1.4"
 typed-index-collections = { workspace = true }
 
 # for processing and embedding the rendered image (texture)
-image = { workspace = true, optional = true, features = ["default"] }
+image = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true, features = ["parallel"] }
