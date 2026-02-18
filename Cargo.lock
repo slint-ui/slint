@@ -9197,9 +9197,9 @@ dependencies = [
 
 [[package]]
 name = "skia-bindings"
-version = "0.90.0"
+version = "0.93.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f6f96e00735f14a781aac8a6870c862b8cc831df6d8e4ad77ab78e11411b9af"
+checksum = "cbb363ec9c62e2b0f48c7f62f1cb53ede1a4fcaec4640205197e27e8bfad07d2"
 dependencies = [
  "bindgen",
  "cc",
@@ -9214,11 +9214,18 @@ dependencies = [
 
 [[package]]
 name = "skia-safe"
-version = "0.90.0"
+version = "0.93.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a71c01d325d40b1031dee67d251a5e0132e79e2a9ec272149a4f4a0d4b8b3be"
+checksum = "f5b1e4737fcde38a2bbe414ba4fbdaaec9e925f13642e4a81941225d399b007c"
 dependencies = [
  "bitflags 2.10.0",
+ "objc2 0.6.3",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-metal 0.3.2",
+ "objc2-quartz-core 0.3.2",
+ "objc2-ui-kit 0.3.2",
+ "raw-window-handle",
  "skia-bindings",
  "windows 0.62.2",
 ]
