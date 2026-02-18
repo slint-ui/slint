@@ -273,6 +273,12 @@ jobs:
 
     bevy_examples:
         uses: ./.github/workflows/bevy_examples.yaml
+        with:
+            # In the nightly CI run, run cargo update to test if any downstream dependency broke our build
+            # Do not update the cache though, as that would trash the cache for the next runner, which uses the non-updated
+            # lockfile.
+            update: true
+            save_if: false
 
     android_wgpu:
         runs-on: ubuntu-latest
