@@ -69,4 +69,42 @@ send_keyboard_shortcut(&instance, [Key::Control, Key::C]);
 send_keyboard_shortcut(&instance, [Key::Control, Key::D]);
 assert_matches(4);
 ```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_has_focus());
+
+auto assert_matches = [&instance](int matches) {
+    assert_eq(instance.get_matches(), matches);
+};
+assert_matches(0);
+
+using namespace slint::platform;
+using slint::private_api::testing::send_keyboard_shortcut;
+
+slint::SharedString control(key_codes::Control);
+
+send_keyboard_shortcut(&instance, {control, "A"});
+assert_matches(1);
+
+assert(!instance.get_condition());
+send_keyboard_shortcut(&instance, {control, "B"});
+assert_matches(1);
+
+instance.set_condition(true);
+send_keyboard_shortcut(&instance, {control, "B"});
+assert_matches(2);
+
+send_keyboard_shortcut(&instance, {control, "C"});
+send_keyboard_shortcut(&instance, {control, "D"});
+assert_matches(4);
+
+// TODO: Make KeyboardShortcut public API in C++
+instance.set_shortcuts(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::KeyboardShortcut>>());
+
+send_keyboard_shortcut(&instance, {control, "C"});
+send_keyboard_shortcut(&instance, {control, "D"});
+assert_matches(4);
+```
 */
