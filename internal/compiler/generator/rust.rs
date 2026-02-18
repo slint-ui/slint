@@ -2378,12 +2378,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(
                     sp::make_keyboard_shortcut(
                         #key.into(),
-                    sp::make_keyboard_modifiers(
-                        #alt,
-                        #control,
-                        #shift,
-                        #meta
-                    ),
+                        {
+                            let mut m = sp::KeyboardModifiers::default();
+                            m.alt = #alt;
+                            m.control = #control;
+                            m.shift = #shift;
+                            m.meta = #meta;
+                            m
+                        }
                     #ignore_shift,
                     #ignore_alt))
         },
