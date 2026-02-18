@@ -86,3 +86,12 @@ pub fn parse_markdown<S: AsRef<str>>(_format_string: &str, _args: &[S]) -> Style
     #[cfg(not(feature = "std"))]
     Default::default()
 }
+
+pub fn string_to_styled_text(_string: alloc::string::String) -> StyledText {
+    #[cfg(feature = "std")]
+    {
+        i_slint_common::styled_text::StyledText::from_plain_text(_string).into()
+    }
+    #[cfg(not(feature = "std"))]
+    Default::default()
+}

@@ -249,3 +249,8 @@ pub extern "C" fn slint_parse_markdown(
 ) {
     *out = i_slint_core::styled_text::parse_markdown(&format_string, &args);
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut StyledText) {
+    *out = i_slint_core::styled_text::string_to_styled_text(&text);
+}

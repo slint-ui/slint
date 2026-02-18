@@ -112,6 +112,16 @@ pub struct StyledText {
 
 #[cfg(feature = "markdown")]
 impl StyledText {
+    pub fn from_plain_text(text: alloc::string::String) -> Self {
+        Self {
+            paragraphs: alloc::vec![StyledTextParagraph {
+                text,
+                formatting: Default::default(),
+                links: Default::default()
+            }],
+        }
+    }
+
     /// Parse a markdown string with interpolated arguments as styled text
     pub fn parse_interpolated<S: AsRef<str>>(
         format_string: &str,

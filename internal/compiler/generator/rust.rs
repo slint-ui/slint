@@ -3610,6 +3610,10 @@ fn compile_builtin_function_call(
             let args = a.next().unwrap();
             quote!(sp::parse_markdown::<sp::SharedString>(&#format_string, &#args))
         }
+        BuiltinFunction::StringToStyledText => {
+            let string = a.next().unwrap();
+            quote!(sp::string_to_styled_text(&#string))
+        }
     }
 }
 

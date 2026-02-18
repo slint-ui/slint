@@ -1596,6 +1596,11 @@ fn call_builtin_function(
                 &args.iter().collect::<Vec<_>>(),
             ))
         }
+        BuiltinFunction::StringToStyledText => {
+            let string: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::string_to_styled_text(string.to_string()))
+        }
     }
 }
 
