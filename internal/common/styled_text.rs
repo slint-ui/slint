@@ -755,4 +755,20 @@ fn markdown_parsing_interpolated() {
             links: alloc::vec![]
         }]
     );
+    assert_eq!(
+        StyledText::parse_interpolated(
+            "<u>{}</u>",
+            &[StyledText::parse_interpolated::<StyledText>("*underline_and_italic*", &[]).unwrap()]
+        )
+        .unwrap()
+        .paragraphs,
+        [StyledTextParagraph {
+            text: "underline_and_italic".into(),
+            formatting: alloc::vec![
+                FormattedSpan { range: 0..20, style: Style::Emphasis },
+                FormattedSpan { range: 0..20, style: Style::Underline },
+            ],
+            links: alloc::vec![]
+        }]
+    );
 }
