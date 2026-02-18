@@ -837,7 +837,7 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
@@ -856,13 +856,13 @@ impl Item for TextInput {
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { button: PointerEventButton::Middle, .. } => {
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
@@ -1310,10 +1310,10 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::DownArrow => Self::NextLine,
             key_codes::PageUp => Self::PageUp,
             key_codes::PageDown => Self::PageDown,
-            // On macos this scrolls to the top or the bottom of the page
-            #[cfg(not(target_os = "macos"))]
+            // On macOS and iOS this scrolls to the top or the bottom of the page
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::Home => Self::StartOfLine,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
