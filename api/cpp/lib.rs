@@ -252,5 +252,5 @@ pub extern "C" fn slint_parse_markdown(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::string_to_styled_text(&text);
+    *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
