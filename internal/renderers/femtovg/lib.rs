@@ -325,11 +325,12 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         font_request: i_slint_core::graphics::FontRequest,
     ) -> i_slint_core::items::FontMetrics {
-        let Some(ctx) = self.slint_context() else {
-            return Default::default();
-        };
-        let mut font_ctx = ctx.font_context().borrow_mut();
-        sharedparley::font_metrics(&mut font_ctx, font_request)
+        self.slint_context()
+            .map(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                sharedparley::font_metrics(&mut font_ctx, font_request)
+            })
+            .unwrap_or_default()
     }
 
     fn text_input_byte_offset_for_position(
