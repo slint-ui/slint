@@ -186,6 +186,7 @@ read-fonts = { version = "0.35" }
 skrifa = { version = "0.37" }
 windows = { version = "0.62" }
 windows-core = { version = "0.62.0" }
+lyon_path = { version = "1.0", default-features = false }
 
 [profile.release]
 lto = true

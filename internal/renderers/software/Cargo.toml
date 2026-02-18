@@ -25,7 +25,7 @@ systemfonts = [
   "std",
   "dep:clru",
 ]
-path = ["dep:zeno", "dep:lyon_path"]
+path = ["dep:zeno", "dep:lyon_path", "i-slint-core/path"]
 std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", "systemfonts"]
 libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm"]
 
@@ -44,7 +44,7 @@ num-traits = { version = "0.2", default-features = false }
 skrifa = { workspace = true, optional = true }
 fontdue = { workspace = true, optional = true }
 zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
-lyon_path = { version = "1.0", optional = true }
+lyon_path = { workspace = true, optional = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(cbindgen)", "cfg(slint_nightly_test)"] }

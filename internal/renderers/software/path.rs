@@ -12,7 +12,6 @@ use zeno::{Fill, Mask, Stroke};
 pub use zeno::Command;
 
 /// Convert Slint's PathDataIterator to zeno's Command format
-#[cfg(feature = "std")]
 pub fn convert_path_data_to_zeno(
     path_data: i_slint_core::graphics::PathDataIterator,
     rotation: crate::RotationInfo,

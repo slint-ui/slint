@@ -70,7 +70,7 @@ i-slint-common = { workspace = true, features = ["default"] }
 
 cfg-if = "1"
 derive_more = { workspace = true }
-lyon_path = "1.0"
+lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }

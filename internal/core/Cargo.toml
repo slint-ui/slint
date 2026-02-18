@@ -28,14 +28,11 @@ std = [
   "euclid/std",
   "once_cell/std",
   "dep:scoped-tls-hkt",
-  "dep:lyon_path",
-  "dep:lyon_algorithms",
-  "dep:lyon_geom",
-  "dep:lyon_extra",
-  "dep:auto_enums",
   "dep:web-time",
+  "dep:lyon_extra",
   "image-decoders",
   "svg",
+  "path",
   "raw-window-handle-06?/std",
   "chrono/std",
   "chrono/wasmbind",
@@ -75,6 +72,8 @@ default = ["std", "unicode", "shared-parley"]
 
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]
 
+path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms"]
+
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
@@ -87,10 +86,10 @@ auto_enums = { version = "0.8.0", optional = true }
 cfg-if = "1"
 derive_more = { workspace = true, features = ["error"] }
 euclid = { workspace = true }
-lyon_algorithms = { version = "1.0", optional = true }
-lyon_geom = { version = "1.0", optional = true }
-lyon_path = { version = "1.0", optional = true }
-lyon_extra = { version = "1.0.1", optional = true }
+lyon_algorithms = { version = "1.0", optional = true, default-features = false }
+lyon_geom = { version = "1.0", optional = true, default-features = false }
+lyon_path = { workspace = true, optional = true, default-features = false }
+lyon_extra = { version = "1.0.1", optional = true, default-features = false }
 num-traits = { version = "0.2", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 pin-project = "1"
