@@ -351,6 +351,9 @@
                     "include": "#callback-setup"
                 },
                 {
+                    "include": "#function-call"
+                },
+                {
                     "include": "#expression"
                 },
                 {
