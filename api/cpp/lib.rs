@@ -9,6 +9,7 @@ extern crate alloc;
 extern crate std;
 
 use alloc::rc::Rc;
+use alloc::string::ToString;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
 use i_slint_core::items::OperatingSystemType;
