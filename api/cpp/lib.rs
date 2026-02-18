@@ -244,7 +244,7 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_parse_markdown(
     format_string: SharedString,
-    args: Slice<SharedString>,
+    args: Slice<StyledText>,
     out: &mut StyledText,
 ) {
     *out = i_slint_core::styled_text::parse_markdown(&format_string, &args);

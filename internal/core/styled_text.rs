@@ -11,11 +11,17 @@ pub struct StyledText {
 
 #[cfg(feature = "std")]
 impl StyledText {
-    pub fn parse_interpolated<S: AsRef<str>>(
+    pub fn parse_interpolated<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
         format_string: &str,
         args: &[S],
     ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
         Ok(i_slint_common::styled_text::StyledText::parse_interpolated(format_string, args)?.into())
+    }
+}
+
+impl AsRef<[i_slint_common::styled_text::StyledTextParagraph]> for StyledText {
+    fn as_ref(&self) -> &[i_slint_common::styled_text::StyledTextParagraph] {
+        &self.paragraphs
     }
 }
 
@@ -78,7 +84,10 @@ pub mod ffi {
     }
 }
 
-pub fn parse_markdown<S: AsRef<str>>(_format_string: &str, _args: &[S]) -> StyledText {
+pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
+    _format_string: &str,
+    _args: &[S],
+) -> StyledText {
     #[cfg(feature = "std")]
     {
         StyledText::parse_interpolated(_format_string, _args).unwrap()

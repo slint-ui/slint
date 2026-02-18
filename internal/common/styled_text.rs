@@ -123,7 +123,7 @@ impl StyledText {
     }
 
     /// Parse a markdown string with interpolated arguments as styled text
-    pub fn parse_interpolated<S: AsRef<str>>(
+    pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
         format_string: &str,
         args: &[S],
     ) -> Result<Self, StyledTextError<'static>> {
@@ -217,7 +217,9 @@ impl StyledText {
                     output.push_str(&string[literal_start_pos..p]);
 
                     if let Some(arg) = args.get(arg_index) {
-                        output.push_str(arg.as_ref());
+                        let paragraphs = arg.as_ref();
+                        assert_eq!(paragraphs.len(), 1);
+                        output.push_str(&paragraphs[0].text);
                     } else {
                         return Err(StyledTextError::ArgumentOutOfRange(arg_index, args.len()));
                     }
@@ -479,6 +481,12 @@ impl StyledText {
 }
 
 #[cfg(feature = "markdown")]
+impl AsRef<[StyledTextParagraph]> for StyledText {
+    fn as_ref(&self) -> &[StyledTextParagraph] {
+        &self.paragraphs
+    }
+}
+
 #[test]
 fn markdown_parsing() {
     assert_eq!(

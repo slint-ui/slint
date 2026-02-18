@@ -290,7 +290,7 @@ declare_builtin_function_types!(
     StartTimer: (Type::ElementReference) -> Type::Void,
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
-    ParseMarkdown: (Type::String, Type::Array(Type::String.into())) -> Type::StyledText,
+    ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
     StringToStyledText: (Type::String) -> Type::StyledText
 );
 

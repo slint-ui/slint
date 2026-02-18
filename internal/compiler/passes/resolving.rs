@@ -766,19 +766,29 @@ impl Expression {
             return Expression::Invalid;
         };
 
-        let subs = node.Expression().map(|n| {
-            Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
-                Type::String,
-                &n,
-                ctx.diag,
-            )
-        });
-        let values = subs.collect::<Vec<_>>();
+        let values: Vec<Expression> = node
+            .Expression()
+            .map(|node| {
+                let expr = Expression::from_expression_node(node.clone(), ctx);
+                if expr.ty() == Type::StyledText {
+                    expr
+                } else {
+                    Expression::FunctionCall {
+                        function: BuiltinFunction::StringToStyledText.into(),
+                        arguments: vec![expr.maybe_convert_to(Type::String, &node, ctx.diag)],
+                        source_location: Some(node.to_source_location()),
+                    }
+                }
+            })
+            .collect();
+
+        let dummy_value =
+            i_slint_common::styled_text::StyledText::from_plain_text("dummy value".into());
 
         // Validate the markdown format string with dummy values
         if let Err(e) = i_slint_common::styled_text::StyledText::parse_interpolated(
             &string,
-            &vec!["dummy value"; values.len()],
+            &vec![&dummy_value; values.len()],
         ) {
             ctx.diag.push_error(e.to_string(), &node);
         }
@@ -787,7 +797,7 @@ impl Expression {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
                 Expression::StringLiteral(string.into()),
-                Expression::Array { element_ty: Type::String, values },
+                Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
         }
