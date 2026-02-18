@@ -66,6 +66,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
         .unwrap();
     ui.window().set_fullscreen(config.fullscreen);
 
+    tracing::debug!("Preview: requesting state from LSP");
     to_lsp.send(&common::PreviewToLspMessage::RequestState { unused: true }).unwrap();
 
     let ui_clone = PREVIEW_STATE.with(move |preview_state| {
@@ -1267,6 +1268,7 @@ async fn reload_timer_function() {
         match reload_preview_impl(preview_component, behavior, style, config).await {
             Ok(()) => {}
             Err(e) => {
+                tracing::debug!("Preview reload failed: {}", e);
                 PREVIEW_STATE.with_borrow_mut(|preview_state| {
                     preview_state.loading_state = PreviewFutureState::Pending;
                 });
@@ -1332,6 +1334,12 @@ async fn reload_timer_function() {
 }
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
+    tracing::debug!(
+        "Preview: load url={}, component={:?}, behavior={:?}",
+        preview_component.url,
+        preview_component.component,
+        behavior
+    );
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         match behavior {
             LoadBehavior::Reload => {}
@@ -1450,6 +1458,10 @@ async fn reload_preview_impl(
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let (version, source) = get_url_from_cache(&component.url);
 
+    if source.is_empty() {
+        tracing::debug!("Preview: source is empty for {}", component.url);
+    }
+
     let format =
         if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
 
@@ -1473,8 +1485,15 @@ async fn reload_preview_impl(
     .await;
 
     let success = compiled.is_some();
-
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+
+    tracing::debug!(
+        "Preview: compiled url={}, component={:?}, success={}, diagnostics={}",
+        component.url,
+        loaded_component_name,
+        success,
+        diagnostics.len()
+    );
 
     let lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(ui) = &preview_state.ui {

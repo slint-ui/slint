@@ -87,6 +87,7 @@ fn create_populate_command(
 pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
+    let mut doc_count = 0;
     for (url, node) in document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
@@ -97,6 +98,7 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
             url: common::VersionedUrl::new(url, version),
             contents: node.text().to_string(),
         });
+        doc_count += 1;
     }
 
     ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration {
@@ -104,7 +106,13 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
     });
 
     if let Some(c) = ctx.to_show.borrow().clone() {
+        tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
         ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+    } else {
+        tracing::debug!(
+            "Sending state to preview: {} documents, showing default component",
+            doc_count
+        );
     }
 }
 
@@ -585,6 +593,7 @@ pub fn show_preview_command(
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
+    tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let c = common::PreviewComponent { url, component };
     ctx.to_show.replace(Some(c.clone()));
     ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
