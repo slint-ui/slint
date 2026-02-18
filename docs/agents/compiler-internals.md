@@ -120,3 +120,20 @@ The interpreter (`internal/interpreter/`) compiles `.slint` at runtime and uses 
 3. **Handle in relevant passes** (type checking, lowering)
 4. **Add runtime support** in `internal/core/` if needed
 5. **Update code generators** in `internal/compiler/generator/`
+
+## Debugging Tips
+
+### Inspecting Generated Code
+
+To see the Rust code that the compiler generates from a `.slint` file:
+
+```sh
+cargo run -p slint-compiler -- -f rust path/to/file.slint | rustfmt > path/to/file.slint.rs
+```
+
+To see the generated C++ code:
+```sh
+cargo run -p slint-compiler -- -f cpp path/to/file.slint > path/to/file.slint.cpp
+```
+
+This is invaluable when debugging code generation issues — you can see exactly what the generators emit without running a full build of an application.
