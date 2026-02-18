@@ -100,6 +100,8 @@ pub enum StyledTextError<'a> {
     /// Mixed placeholder types
     #[error("Cannot mix positional and non-positional placeholder in format string")]
     MixedPlaceholders,
+    #[error("Interpolating multiple styled text paragraphs is not currently implemented")]
+    MultiParagraphInterpolation,
 }
 
 /// Styled text that has been parsed and seperated into paragraphs
@@ -217,18 +219,22 @@ impl StyledText {
                 paragraph.text.push_str(&string[literal_start_pos..p]);
 
                 if let Some(arg) = args.get(arg_index) {
-                    let paragraphs = arg.as_ref();
-                    assert_eq!(paragraphs.len(), 1);
+                    let arg_paragraphs = arg.as_ref();
+                    if paragraphs.len() != 1 {
+                        return Err(StyledTextError::MultiParagraphInterpolation);
+                    }
+                    let arg_paragraph = &arg_paragraphs[0];
+
                     let offset = paragraph.text.len();
-                    paragraph.text.push_str(&paragraphs[0].text);
-                    paragraph.formatting.extend(paragraphs[0].formatting.iter().cloned().map(
+                    paragraph.text.push_str(&arg_paragraph.text);
+                    paragraph.formatting.extend(arg_paragraph.formatting.iter().cloned().map(
                         |mut f| {
                             f.range.start += offset;
                             f.range.end += offset;
                             f
                         },
                     ));
-                    paragraph.links.extend(paragraphs[0].links.iter().cloned().map(
+                    paragraph.links.extend(arg_paragraph.links.iter().cloned().map(
                         |(mut range, link)| {
                             range.start += offset;
                             range.end += offset;
