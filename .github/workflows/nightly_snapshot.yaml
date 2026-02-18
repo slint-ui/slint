@@ -728,7 +728,7 @@ jobs:
             # Do not update the cache though, as that would trash the cache for the next runner, which uses the non-updated
             # lockfile.
             update: true
-            cache: false
+            save_if: false
 
     android:
         env:

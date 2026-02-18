@@ -4,8 +4,30 @@
 name: Bevy examples
 
 on:
-  workflow_dispatch:
-  workflow_call:
+    workflow_dispatch:
+        inputs:
+            update:
+                description: 'Whether to run cargo update before testing'
+                required: false
+                type: boolean
+                default: false
+            save_if:
+                description: 'Condition to save the cache'
+                required: false
+                type: boolean
+                default: true
+    workflow_call:
+        inputs:
+            update:
+                description: 'Whether to run cargo update before testing'
+                required: false
+                type: boolean
+                default: false
+            save_if:
+                description: 'Condition to save the cache'
+                required: false
+                type: boolean
+                default: true
 
 jobs:
     bevy_examples:
@@ -16,11 +38,16 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
+              with:
+                  save_if: ${{ inputs.save_if }}
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: libwayland-dev libasound2-dev
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
+            - name: Cargo update
+              if: ${{ inputs.update }}
+              run: cargo update
             - name: Build Bevy Examples
-              run: cargo build
+              run: cargo build --locked
               working-directory: examples/bevy
