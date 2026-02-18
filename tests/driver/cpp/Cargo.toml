@@ -18,7 +18,7 @@ path = "main.rs"
 name = "test-driver-cpp"
 
 [dependencies]
-slint-cpp = { workspace = true, features = ["testing", "std", "experimental"] }
+slint-cpp = { workspace = true, features = ["testing", "std", "experimental", "backend-qt"] }
 
 [dev-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "cpp", "display-diagnostics", "bundle-translations"] }
