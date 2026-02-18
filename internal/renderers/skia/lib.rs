@@ -839,7 +839,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap).unwrap_or_default()
     }
 
     fn char_size(
