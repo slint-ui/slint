@@ -2730,14 +2730,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data())
                 {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
-                } else if ty.name.slint_name().as_deref() == Some("KeyboardModifiers")
-                {
-                    // KeyboardModifiers is non_exhaustive, so we can't use the struct literal syntax
-                    let args = ["alt", "control", "shift", "meta"].iter().map(|k| {
-                        let e = values.get(*k).unwrap();
-                        compile_expression(e, ctx)
-                    });
-                    quote!(sp::make_keyboard_modifiers(#(#args),*))
                 } else {
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
                 }
