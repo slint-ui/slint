@@ -25,7 +25,11 @@ pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
             preview::config_changed(config);
         }
         M::ShowPreview(pc) => {
-            tracing::debug!("Preview: ShowPreview for url={}, component={:?}", pc.url, pc.component);
+            tracing::debug!(
+                "Preview: ShowPreview for url={}, component={:?}",
+                pc.url,
+                pc.component
+            );
             preview::load_preview(pc, preview::LoadBehavior::BringWindowToFront);
         }
         M::HighlightFromEditor { url, offset } => {
