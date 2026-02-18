@@ -28,6 +28,8 @@ See [Keyboard Shortcuts](#keyboard-shortcuts).
 
 Use the <Link type="Shortcut" label="Shortcut element"/> inside a `FocusScope` to declare Keyboard shortcuts.
 The Shortcuts `keys` property takes a `keyboard-shortcut` and provides an `activated` callback when the shortcut is detected.
+Note that only one shortcut can be activated by a given key event.
+If two shortcuts share the same key event, it is undefined which one is activated.
 
 The `keyboard-shortcut` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
 

@@ -32,8 +32,8 @@ export component Example inherits Window {
 }
 ```
 
-The `FocusScope` exposes callbacks to handle key events. Note that `FocusScope`
-will only invoke them when it `has-focus`.
+The `FocusScope` can react to <Link type="KeyboardShortcuts" label="keyboard shortcuts"/> using the <Link type="Shortcut" label="Shortcut element"/>, and exposes callbacks to handle key events manually.
+Note that `FocusScope` will only invoke them when it either `has-focus`, or when it surrounds another FocusScope that `has-focus`.
 
 The <Link type="KeyEvent" /> has a text property, which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,

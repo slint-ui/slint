@@ -440,41 +440,39 @@ pub struct FocusScope {
 }
 
 impl FocusScope {
-    fn for_each_shortcut<'a>(
-        self: Pin<&'a Self>,
+    fn visit_shortcuts<R>(
+        self: Pin<&Self>,
         self_rc: &ItemRc,
-        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, Shortcut>),
-    ) {
+        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, Shortcut>) -> Option<R>,
+    ) -> Option<R> {
         let list = Self::FIELD_OFFSETS.shortcuts.apply_pin(self);
         let list = list.deref_pin();
 
-        list.project_ref()
-            .property_tracker
-            .evaluate_if_dirty(|| {
-                let mut found = list.found.borrow_mut();
-                found.clear();
+        list.project_ref().property_tracker.evaluate_if_dirty(|| {
+            let mut found = list.found.borrow_mut();
+            found.clear();
 
-                let mut next = self_rc.first_child();
-                while let Some(child) = next {
-                    if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child) {
-                        fun(&shortcut);
+            let mut next = self_rc.first_child();
+            while let Some(child) = next {
+                if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child) {
+                    found.push(VRcMapped::downgrade(&shortcut));
+                }
+                next = child.next_sibling();
+            }
+        });
 
-                        found.push(VRcMapped::downgrade(&shortcut));
-                    }
-                    next = child.next_sibling();
-                }
-            })
-            .or_else(|| {
-                let list = list.found.borrow();
-                for shortcut in &*list {
-                    let Some(shortcut) = shortcut.upgrade() else {
-                        crate::debug_log!("Warning: Found a dropped shortcut");
-                        continue;
-                    };
-                    fun(&shortcut)
-                }
-                None
-            });
+        let list = list.found.borrow();
+        for shortcut in &*list {
+            let Some(shortcut) = shortcut.upgrade() else {
+                crate::debug_log!("Warning: Found a dropped shortcut");
+                continue;
+            };
+            if let Some(result) = fun(&shortcut) {
+                return Some(result);
+            }
+        }
+
+        None
     }
 }
 
@@ -557,20 +555,13 @@ impl Item for FocusScope {
                 Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
             }
             KeyEventType::KeyReleased => {
-                let mut shortcut_activated = false;
-                self.for_each_shortcut(self_rc, |shortcut| {
-                    // TODO: Should this stop early if a shortcut matches?
+                let shortcut = self.visit_shortcuts(self_rc, |shortcut| {
                     let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
-                    if keys.matches(&event) {
-                        Shortcut::FIELD_OFFSETS
-                            .activated
-                            .apply_pin(shortcut.as_pin_ref())
-                            .call(&());
-                        shortcut_activated = true;
-                    }
+                    if keys.matches(&event) { Some(VRcMapped::clone(shortcut)) } else { None }
                 });
 
-                if shortcut_activated {
+                if let Some(shortcut) = shortcut {
+                    Shortcut::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
                     EventResult::Accept
                 } else {
                     Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
