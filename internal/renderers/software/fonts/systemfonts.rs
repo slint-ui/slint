@@ -7,7 +7,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use std::collections::HashMap;
 
-use i_slint_common::sharedfontique::{self, HashedBlob, fontique};
+use i_slint_common::sharedfontique::{HashedBlob, fontique};
 use i_slint_core::lengths::ScaleFactor;
 
 use super::super::PhysicalLength;
@@ -54,12 +54,14 @@ fn get_or_create_fontdue_font(font: &fontique::QueryFont) -> Rc<fontdue::Font> {
 pub fn match_font(
     request: &super::FontRequest,
     scale_factor: super::ScaleFactor,
+    collection: &mut fontique::Collection,
+    source_cache: &mut fontique::SourceCache,
 ) -> Option<VectorFont> {
     if request.family.is_some() {
         let requested_pixel_size: PhysicalLength =
             (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-        if let Some(font) = request.query_fontique() {
+        if let Some(font) = request.query_fontique(collection, source_cache) {
             let fontdue_font = get_or_create_fontdue_font(&font);
             Some(VectorFont::new(font, fontdue_font, requested_pixel_size))
         } else {
@@ -70,24 +72,35 @@ pub fn match_font(
     }
 }
 
-pub fn fallbackfont(font_request: &super::FontRequest, scale_factor: ScaleFactor) -> VectorFont {
+pub fn fallbackfont(
+    font_request: &super::FontRequest,
+    scale_factor: ScaleFactor,
+    collection: &mut fontique::Collection,
+    source_cache: &mut fontique::SourceCache,
+) -> VectorFont {
     let requested_pixel_size: PhysicalLength =
         (font_request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-    let font = font_request.query_fontique().unwrap();
+    let font = font_request.query_fontique(collection, source_cache).unwrap();
     let fontdue_font = get_or_create_fontdue_font(&font);
     VectorFont::new(font, fontdue_font, requested_pixel_size)
 }
 
-pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
+pub fn register_font_from_memory(
+    collection: &mut fontique::Collection,
+    data: &'static [u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    collection.register_fonts(data.to_vec().into(), None);
     Ok(())
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+pub fn register_font_from_path(
+    collection: &mut fontique::Collection,
+    path: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
     let contents = std::fs::read(requested_path)?;
-    sharedfontique::get_collection().register_fonts(contents.into(), None);
+    collection.register_fonts(contents.into(), None);
     Ok(())
 }

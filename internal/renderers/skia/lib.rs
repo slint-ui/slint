@@ -13,7 +13,6 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
-use i_slint_common::sharedfontique;
 use i_slint_core::Brush;
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
@@ -849,14 +848,24 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
-        sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+        self.slint_context()
+            .and_then(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+            })
+            .unwrap_or_default()
     }
 
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
     ) -> i_slint_core::items::FontMetrics {
-        sharedparley::font_metrics(font_request)
+        self.slint_context()
+            .map(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                sharedparley::font_metrics(&mut font_ctx, font_request)
+            })
+            .unwrap_or_default()
     }
 
     fn text_input_byte_offset_for_position(
@@ -881,7 +890,8 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
         Ok(())
     }
 
@@ -891,7 +901,8 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
         let contents = std::fs::read(requested_path)?;
-        sharedfontique::get_collection().register_fonts(contents.into(), None);
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
         Ok(())
     }
 

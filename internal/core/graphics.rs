@@ -34,6 +34,8 @@ pub use color::*;
 
 #[cfg(feature = "std")]
 mod path;
+#[cfg(feature = "shared-fontique")]
+use i_slint_common::sharedfontique::{self, fontique};
 #[cfg(feature = "std")]
 pub use path::*;
 
@@ -103,12 +105,12 @@ pub struct FontRequest {
 #[cfg(feature = "shared-fontique")]
 impl FontRequest {
     /// Attempts to query the fontique font collection for a matching font.
-    pub fn query_fontique(&self) -> Option<i_slint_common::sharedfontique::fontique::QueryFont> {
-        use i_slint_common::sharedfontique::{self, fontique};
-
-        let mut collection = sharedfontique::get_collection();
-
-        let mut query = collection.query();
+    pub fn query_fontique(
+        &self,
+        collection: &mut fontique::Collection,
+        source_cache: &mut fontique::SourceCache,
+    ) -> Option<fontique::QueryFont> {
+        let mut query = collection.query(source_cache);
         query.set_families(
             self.family
                 .as_ref()

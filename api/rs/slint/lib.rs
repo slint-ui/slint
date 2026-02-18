@@ -768,6 +768,10 @@ pub mod fontique_07 {
     /// }
     /// ```
     pub fn shared_collection() -> fontique::Collection {
-        i_slint_common::sharedfontique::COLLECTION.inner.clone()
+        i_slint_core::with_global_context(
+            || panic!("slint platform not initialized"),
+            |ctx| ctx.font_context().borrow().collection.clone(),
+        )
+        .unwrap()
     }
 }
