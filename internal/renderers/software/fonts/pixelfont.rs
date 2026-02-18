@@ -25,7 +25,11 @@ impl PixelFont {
 }
 
 impl GlyphRenderer for PixelFont {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph> {
+    fn render_glyph(
+        &self,
+        glyph_id: core::num::NonZeroU16,
+        _slint_context: &i_slint_core::SlintContext,
+    ) -> Option<RenderableGlyph> {
         let glyph_index = Self::glyph_id_to_glyph_index(glyph_id);
         let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
         if bitmap_glyph.data.is_empty() {

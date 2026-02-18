@@ -72,6 +72,8 @@ default = ["std", "unicode", "shared-parley"]
 
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]
 
+shared-swash = ["dep:swash"]
+
 path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms"]
 
 [dependencies]
@@ -118,6 +120,7 @@ bitflags = { version = "2.4.2" }
 
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
+swash = { workspace = true, optional = true, features = ["scale"] }
 
 wgpu-27 = { workspace = true, optional = true }
 wgpu-28 = { workspace = true, optional = true }

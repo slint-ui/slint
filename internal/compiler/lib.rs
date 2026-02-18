@@ -15,8 +15,6 @@ use core::pin::Pin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-#[cfg(feature = "software-renderer")]
-use std::sync::Arc;
 
 pub mod builtin_macros;
 pub mod diagnostics;
@@ -98,16 +96,6 @@ pub enum ComponentSelection {
     Named(String),
 }
 
-#[cfg(feature = "software-renderer")]
-pub type FontCache = Rc<
-    RefCell<
-        std::collections::HashMap<
-            (i_slint_common::sharedfontique::fontique::FamilyId, usize),
-            fontdue::FontResult<Arc<fontdue::Font>>,
-        >,
-    >,
->;
-
 /// Type alias for the callback to open files mentioned in `import` statements
 ///
 /// This is a dyn-compatible version of:
@@ -188,9 +176,6 @@ pub struct CompilerConfiguration {
     pub debug_hooks: Option<std::hash::RandomState>,
 
     pub components_to_generate: ComponentSelection,
-
-    #[cfg(feature = "software-renderer")]
-    pub font_cache: FontCache,
 
     /// The name of the library when compiling as a library.
     pub library_name: Option<String>,
@@ -277,8 +262,6 @@ impl CompilerConfiguration {
             debug_info,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
-            #[cfg(feature = "software-renderer")]
-            font_cache: Default::default(),
             #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
@@ -288,28 +271,6 @@ impl CompilerConfiguration {
             library_name: None,
             rust_module: None,
         }
-    }
-
-    #[cfg(feature = "software-renderer")]
-    fn load_font_by_id(
-        &self,
-        font: &i_slint_common::sharedfontique::fontique::QueryFont,
-    ) -> fontdue::FontResult<Arc<fontdue::Font>> {
-        self.font_cache
-            .borrow_mut()
-            .entry(font.family)
-            .or_insert_with(|| {
-                fontdue::Font::from_bytes(
-                    font.blob.data(),
-                    fontdue::FontSettings {
-                        collection_index: font.index,
-                        scale: 40.,
-                        ..Default::default()
-                    },
-                )
-                .map(Arc::new)
-            })
-            .clone()
     }
 }
 
