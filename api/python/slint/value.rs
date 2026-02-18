@@ -342,7 +342,7 @@ impl TypeCollection {
             })
             .or_else(|_| {
                 let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
-                let dict = asdict.downcast::<PyDict>()?;
+                let dict = asdict.cast::<PyDict>()?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {
@@ -357,7 +357,7 @@ impl TypeCollection {
                 ))
             })
             .or_else(|_| {
-                let dict = ob.downcast::<PyDict>()?;
+                let dict = ob.cast::<PyDict>()?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {
