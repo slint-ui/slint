@@ -67,6 +67,7 @@ struct RotationInfo
     using RenderingRotation = slint::platform::SoftwareRenderer::RenderingRotation;
     RenderingRotation rotation = RenderingRotation::NoRotation;
     slint::PhysicalSize size;
+    bool software_rotation = false;
 
     bool is_transpose() const
     {
@@ -75,11 +76,19 @@ struct RotationInfo
 
     bool mirror_width() const
     {
+        if (software_rotation) {
+            return rotation == RenderingRotation::Rotate180
+                    || rotation == RenderingRotation::Rotate90;
+        }
         return rotation == RenderingRotation::Rotate180 || rotation == RenderingRotation::Rotate270;
     }
 
     bool mirror_height() const
     {
+        if (software_rotation) {
+            return rotation == RenderingRotation::Rotate270
+                    || rotation == RenderingRotation::Rotate180;
+        }
         return rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate180;
     }
 };
@@ -150,7 +159,8 @@ private:
 
     const struct device *m_display;
     const RotationInfo m_rotationInfo;
-    const slint::PhysicalSize m_size;
+    const slint::PhysicalSize m_physicalSize;
+    const slint::PhysicalSize m_logicalSize;
 
     bool m_needs_redraw = true;
     std::vector<slint::platform::Rgb565Pixel> m_buffer;
@@ -228,6 +238,10 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
         info.rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate180;
     else if (IS_ENABLED(CONFIG_MCUX_ELCDIF_PXP_ROTATE_270))
         info.rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate90;
+#ifdef CONFIG_BOARD_RZA3M_EK
+    info.rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate90;
+    info.software_rotation = true;
+#endif
 
     const auto rotatedSize = transformed(info.size, info);
     LOG_INF("Rotated screen size: %u x %u", rotatedSize.width, rotatedSize.height);
@@ -239,14 +253,19 @@ ZephyrWindowAdapter::ZephyrWindowAdapter(const device *display, RepaintBufferTyp
     : m_renderer(buffer_type),
       m_display(display),
       m_rotationInfo(info),
-      m_size(transformed(m_rotationInfo.size, m_rotationInfo))
+      m_physicalSize(info.size),
+      m_logicalSize(transformed(info.size, info))
 {
-    m_buffer.resize(m_size.width * m_size.height);
+    m_buffer.resize(m_physicalSize.width * m_physicalSize.height);
 
     m_buffer_descriptor.buf_size = sizeof(m_buffer[0]) * m_buffer.size();
-    m_buffer_descriptor.width = m_size.width;
-    m_buffer_descriptor.height = m_size.height;
-    m_buffer_descriptor.pitch = m_size.width;
+    m_buffer_descriptor.width = m_physicalSize.width;
+    m_buffer_descriptor.height = m_physicalSize.height;
+    m_buffer_descriptor.pitch = m_physicalSize.width;
+
+    if (m_rotationInfo.software_rotation) {
+        m_renderer.set_rendering_rotation(m_rotationInfo.rotation);
+    }
 }
 
 void ZephyrWindowAdapter::request_redraw()
@@ -256,7 +275,7 @@ void ZephyrWindowAdapter::request_redraw()
 
 slint::PhysicalSize ZephyrWindowAdapter::size()
 {
-    return m_size;
+    return m_logicalSize;
 }
 
 slint::platform::AbstractRenderer &ZephyrWindowAdapter::renderer()
@@ -270,16 +289,16 @@ void ZephyrWindowAdapter::maybe_redraw()
         return;
 
     auto start = k_uptime_get();
-    auto region = m_renderer.render(m_buffer, m_size.width);
+    auto region = m_renderer.render(m_buffer, m_physicalSize.width);
     const auto slintRenderDelta = k_uptime_delta(&start);
     LOG_DBG("Rendering %d dirty regions:", std::ranges::size(region.rectangles()));
     for (auto [o, s] : region.rectangles()) {
-#ifndef CONFIG_SHIELD_RK055HDMIPI4MA0
+#if !defined(CONFIG_SHIELD_RK055HDMIPI4MA0) && !defined(CONFIG_BOARD_RZA3M_EK)
         // Convert to big endian pixel data for Zephyr, unless we are using the RK055HDMIPI4MA0
-        // shield. See is_supported_pixel_format above.
+        // shield or rza3m_ek board. See is_supported_pixel_format above.
         for (int y = o.y; y < o.y + s.height; y++) {
             for (int x = o.x; x < o.x + s.width; x++) {
-                auto px = reinterpret_cast<uint16_t *>(&m_buffer[y * m_size.width + x]);
+                auto px = reinterpret_cast<uint16_t *>(&m_buffer[y * m_physicalSize.width + x]);
                 *px = (*px << 8) | (*px >> 8);
             }
         }
@@ -292,7 +311,7 @@ void ZephyrWindowAdapter::maybe_redraw()
         m_buffer_descriptor.height = s.height;
 
         if (const auto ret = display_write(m_display, o.x, o.y, &m_buffer_descriptor,
-                                           m_buffer.data() + ((o.y * m_size.width) + o.x))
+                                           m_buffer.data() + ((o.y * m_physicalSize.width) + o.x))
                     != 0) {
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
@@ -391,7 +410,10 @@ void ZephyrPlatform::run_event_loop()
         }
 
         if (auto next_timer_update = slint::platform::duration_until_next_timer_update()) {
-            const auto wait_time_ms = next_timer_update.value().count();
+            auto wait_time_ms = next_timer_update.value().count();
+#ifdef CONFIG_BOARD_RZA3M_EK
+            wait_time_ms = std::min(wait_time_ms, static_cast<decltype(wait_time_ms)>(10000));
+#endif
             LOG_DBG("Sleeping for %llims", wait_time_ms);
             k_sem_take(&SLINT_SEM, K_MSEC(wait_time_ms));
         } else {
@@ -483,7 +505,9 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
     }
 }
 
+#if DT_HAS_CHOSEN(zephyr_touch)
 INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_CHOSEN(zephyr_touch)), zephyr_process_input_event, NULL);
+#endif
 
 void slint_zephyr_init(const struct device *display)
 {

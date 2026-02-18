@@ -14,6 +14,10 @@ if(BOARD STREQUAL "native_sim/native/64")
 elseif(BOARD STREQUAL "mimxrt1170_evk@B/mimxrt1176/cm7")
     set(Rust_CARGO_TARGET "thumbv7em-none-eabihf")
     set(BOARD_CONF_NAME "mimxrt1170_evk_mimxrt1176_cm7")
+elseif(BOARD STREQUAL "rza3m_ek")
+    set(Rust_CARGO_TARGET "aarch64-unknown-none")
+    set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
+    set(BOARD_CONF_NAME "rza3m_ek")
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
     # https://docs.zephyrproject.org/latest/boards
@@ -33,10 +37,10 @@ endif()
 find_package(Zephyr)
 project(slint_zephyr_printer_demo_mcu LANGUAGES CXX)
 
-set(SLINT_FEATURE_FREESTANDING ON)
-set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
-# set(CMAKE_BUILD_TYPE Release)
+set(SLINT_FEATURE_FREESTANDING ON CACHE BOOL "" FORCE)
+set(SLINT_FEATURE_RENDERER_SOFTWARE ON CACHE BOOL "" FORCE)
+set(SLINT_FEATURE_SDF_FONTS ON CACHE BOOL "" FORCE)
+set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer-with-sdf" CACHE STRING "")
 set(BUILD_SHARED_LIBS OFF)
 
 # Work around gcc_s linker issue?
