@@ -15,7 +15,15 @@ import typing
 from typing import Any
 import pathlib
 from .models import ListModel, Model
-from .slint import Image, Color, Brush, Timer, TimerMode, KeyboardModifiers
+from .slint import (
+    Image,
+    Color,
+    Brush,
+    Timer,
+    TimerMode,
+    KeyboardModifiers,
+    StandardListViewItem,
+)
 from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
@@ -633,4 +641,5 @@ __all__ = [
     "quit_event_loop",
     "init_translations",
     "KeyboardModifiers",
+    "StandardListViewItem",
 ]
