@@ -268,3 +268,8 @@ class KeyboardModifiers:
         meta: bool = False,
     ) -> "KeyboardModifiers": ...
     def __eq__(self, other: object) -> bool: ...
+
+class StandardListViewItem(typing.NamedTuple):
+    """Represents an item in a StandardListView and a StandardTableView."""
+
+    text: str = ""
