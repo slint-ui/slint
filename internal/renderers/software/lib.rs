@@ -784,7 +784,8 @@ impl RendererSealed for SoftwareRenderer {
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
             drop(font_ctx);
-            return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap);
+            return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+                .unwrap_or_default();
         }
 
         let content = text_item.text();

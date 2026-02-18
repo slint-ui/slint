@@ -1160,14 +1160,10 @@ pub fn text_size(
     item_rc: &crate::item_tree::ItemRc,
     max_width: Option<LogicalLength>,
     text_wrap: TextWrap,
-) -> LogicalSize {
-    let Some(scale_factor) = renderer.scale_factor() else {
-        return LogicalSize::default();
-    };
+) -> Option<LogicalSize> {
+    let scale_factor = renderer.scale_factor()?;
 
-    let Some(ctx) = renderer.slint_context() else {
-        return LogicalSize::default();
-    };
+    let ctx = renderer.slint_context()?;
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
@@ -1195,7 +1191,7 @@ pub fn text_size(
             text_overflow: TextOverflow::Clip,
         },
     );
-    PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor
+    Some(PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor)
 }
 
 pub fn char_size(
