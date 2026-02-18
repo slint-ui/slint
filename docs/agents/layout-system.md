@@ -226,7 +226,7 @@ Repeaters (dynamic item lists) in layouts use indirection:
 cargo test -p test-driver-rust --test layout
 cargo test -p test-driver-interpreter layout
 
-# Run a specific test case (filtered by substring)
+# Run a specific test case, filtered by substring (don't prepend sh/bash, run_tests.sh is executable)
 tests/run_tests.sh rust grid_conditional_row
 tests/run_tests.sh interpreter grid_conditional_row
 tests/run_tests.sh cpp grid_conditional_row
