@@ -479,7 +479,7 @@ def _callback_decorator(
 
         if inspect.iscoroutinefunction(callable):
 
-            def run_as_task(*args, **kwargs) -> None:  # type: ignore
+            def run_as_task(*args, **kwargs) -> None:
                 loop = asyncio.get_event_loop()
                 loop.create_task(callable(*args, **kwargs))
 
