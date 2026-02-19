@@ -4,7 +4,7 @@
 export component TestCase inherits Window {
 
     st := StyledText {
-        text: @markdown("Hello **World**: {}", "_abc_");
+        text: @markdown("Hello **World**: {} *{}*", "_abc_", @markdown("<u>xyz</u>"));
         font-size: 24px;
         color: red;
     }
