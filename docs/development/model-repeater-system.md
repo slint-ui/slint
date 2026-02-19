@@ -1,5 +1,6 @@
 # Model & Repeater System
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/model.rs`,
 > `internal/core/model/adapters.rs`, repeater-related code generation,
 > list views, or debugging data binding issues in `for` loops.

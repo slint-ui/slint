@@ -1,5 +1,6 @@
 # Text Layout System
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/textlayout.rs`,
 > `internal/core/textlayout/`, `internal/core/styled_text.rs`,
 > text rendering, line breaking, or font handling.

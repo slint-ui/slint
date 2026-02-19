@@ -1,5 +1,6 @@
 # Compiler & Runtime Internals
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on compiler passes, code generation,
 > property bindings, the reactive system, or adding new language features.
 > For general build commands and project structure, see `/AGENTS.md`.

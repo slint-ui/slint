@@ -1,5 +1,6 @@
 # Layout System Internals
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/layout.rs`,
 > `internal/compiler/passes/lower_layout.rs`, debugging sizing/positioning issues,
 > or implementing new layout features.

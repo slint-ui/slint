@@ -1,5 +1,6 @@
 # Property Binding & Reactivity Deep Dive
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/properties.rs`,
 > debugging binding issues, implementing new property types, or understanding
 > how Slint's reactive system works under the hood.

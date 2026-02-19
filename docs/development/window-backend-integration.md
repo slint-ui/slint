@@ -1,5 +1,6 @@
 # Window & Backend Integration
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/window.rs`,
 > `internal/core/platform.rs`, `internal/backends/`, window management,
 > platform integration, or implementing custom backends.

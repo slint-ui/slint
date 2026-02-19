@@ -1,5 +1,6 @@
 # LSP Server Architecture
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `tools/lsp/`, language server features,
 > code completion, hover, go-to-definition, semantic tokens, live preview integration,
 > or IDE tooling.

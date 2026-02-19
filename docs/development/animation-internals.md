@@ -1,5 +1,6 @@
 # Animation System Internals
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/animations.rs`,
 > debugging animation timing issues, or optimizing animation performance.
 > For general build commands and project structure, see `/AGENTS.md`.

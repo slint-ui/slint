@@ -1,5 +1,6 @@
 # FFI & Language Bindings
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `api/cpp/`, `api/node/`, `api/python/`,
 > language bindings, cbindgen, FFI modules in `internal/`, or adding new cross-language APIs.
 > For general build commands and project structure, see `/AGENTS.md`.
