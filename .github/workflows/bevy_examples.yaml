@@ -48,6 +48,7 @@ jobs:
             - name: Cargo update
               if: ${{ inputs.update }}
               run: cargo update
+              working-directory: examples/bevy
             - name: Build Bevy Examples
               run: cargo build --locked
               working-directory: examples/bevy
