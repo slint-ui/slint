@@ -409,8 +409,7 @@ fn to_debug_string(
         | Type::Image
         | Type::Easing
         | Type::StyledText
-        | Type::Array(_)
-        | Type::KeyboardShortcutType => {
+        | Type::Array(_) => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
         }
         Type::Duration
@@ -486,7 +485,9 @@ fn to_debug_string(
                 ]),
             }
         }
-        Type::Enumeration(_) => Expression::Cast { from: Box::new(expr), to: (Type::String) },
+        Type::Enumeration(_) | Type::KeyboardShortcutType => {
+            Expression::Cast { from: Box::new(expr), to: (Type::String) }
+        }
     }
 }
 

@@ -12,6 +12,11 @@ export component TestCase inherits Window {
     // For access from NodeJS
     out property <keyboard-shortcut> first_shortcut: shortcuts[0];
 
+    // Test conversion from keyboard-shortcut to string
+    out property <string> shortcut_as_string: shortcuts[0];
+    out property <string> shortcut_a_as_string: shortcuts[1];
+    out property <string> shortcut_plus_as_string: shortcuts[2];
+
     out property <int> matches: 0;
 
     Text {
@@ -27,13 +32,22 @@ export component TestCase inherits Window {
             debug("Pressed: ", event);
             EventResult.reject
         }
+        function log_matches(shortcut: keyboard-shortcut, event: KeyEvent) -> bool {
+            if shortcut.matches(event) {
+                debug("MATCH: ", shortcut);
+                true
+            } else {
+                false
+            }
+        }
+
         key-released(event) => {
             debug("Released: ", event);
             let old-matches = root.matches;
 
-            if root.shortcuts[0].matches(event) { matches += 1; }
-            if root.shortcuts[1].matches(event) { matches += 1; }
-            if root.shortcuts[2].matches(event) { matches += 1; }
+            if log_matches(root.shortcuts[0], event) { matches += 1; }
+            if log_matches(root.shortcuts[1], event) { matches += 1; }
+            if log_matches(root.shortcuts[2], event) { matches += 1; }
 
             if old-matches != root.matches {
                 debug("MATCHES");
@@ -54,7 +68,7 @@ const TestCase &instance = *handle;
 const auto shortcuts = instance.get_shortcuts();
 const auto shortcut = shortcuts->row_data(0).value();
 slint::SharedString shortcut_string;
-slint::cbindgen_private::slint_keyboard_shortcut_to_string(&shortcut, &shortcut_string);
+slint::cbindgen_private::slint_keyboard_shortcut_debug_string(&shortcut, &shortcut_string);
 assert_eq(shortcut_string, "Control+Shift+\"\\u{1b}\"");
 
 using namespace slint::platform;
@@ -103,7 +117,7 @@ let expected = [
     "Control+IgnoreShift+\"+\"",
 ];
 for (shortcut, expected) in shortcuts.iter().zip(expected) {
-    assert_eq!(shortcut.to_string(), expected);
+    assert_eq!(format!("{:?}", shortcut), expected);
 }
 
 use slint::private_unstable_api::re_exports::Key;
@@ -129,6 +143,33 @@ slint_testing::send_keyboard_shortcut(&instance, [Key::Control, Key::Alt, Key::P
 slint_testing::send_keyboard_shortcut(&instance, [char::from(Key::Control), 'A']);
 slint_testing::send_keyboard_shortcut(&instance, [char::from(Key::Control), 'a']);
 assert_eq!(instance.get_matches(), 5);
+
+// Test platform string conversion - explicit comparison with expected values
+let shortcut_string = instance.get_shortcut_as_string();
+let shortcut_a_string = instance.get_shortcut_a_as_string();
+let shortcut_plus_string = instance.get_shortcut_plus_as_string();
+
+#[cfg(target_os = "macos")]
+{
+    assert_eq!(shortcut_string.as_str(), "⇧⌘Escape");
+    assert_eq!(shortcut_a_string.as_str(), "⇧⌘A");
+    assert_eq!(shortcut_plus_string.as_str(), "⌘+");
+}
+
+#[cfg(target_os = "windows")]
+{
+    assert_eq!(shortcut_string.as_str(), "Ctrl+Shift+Escape");
+    assert_eq!(shortcut_a_string.as_str(), "Ctrl+Shift+A");
+    assert_eq!(shortcut_plus_string.as_str(), "Ctrl++");
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+{
+    assert_eq!(shortcut_string.as_str(), "Ctrl+Shift+Escape");
+    assert_eq!(shortcut_a_string.as_str(), "Ctrl+Shift+A");
+    assert_eq!(shortcut_plus_string.as_str(), "Ctrl++");
+}
+
 ```
 
 ```js
