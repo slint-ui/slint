@@ -41,7 +41,7 @@ impl SlintContext {
     /// Create a new context with a given platform
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
-        let collection = i_slint_common::sharedfontique::create_collection(true, true);
+        let collection = i_slint_common::sharedfontique::create_collection(true);
 
         Self(Rc::new(SlintContextInner {
             platform,
