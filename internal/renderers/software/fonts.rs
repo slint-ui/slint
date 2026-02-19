@@ -48,7 +48,7 @@ pub struct RenderableVectorGlyph {
     pub height: PhysicalLength,
     pub alpha_map: Rc<[u8]>,
     pub pixel_stride: u16,
-    pub bounds: fontdue::OutlineBounds,
+    pub glyph_origin_x: f32,
 }
 
 #[cfg(feature = "systemfonts")]
@@ -59,7 +59,11 @@ impl RenderableVectorGlyph {
 }
 
 pub trait GlyphRenderer {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph>;
+    fn render_glyph(
+        &self,
+        glyph_id: core::num::NonZeroU16,
+        slint_context: &i_slint_core::SlintContext,
+    ) -> Option<RenderableGlyph>;
     /// The amount of pixel in the original image that correspond to one pixel in the rendered image
     fn scale_delta(&self) -> Fixed<u16, 8>;
 }

@@ -3396,17 +3396,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fontdue"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e57e16b3fe8ff4364c0661fdaac543fb38b29ea9bc9c2f45612d90adf931d2b"
-dependencies = [
- "hashbrown 0.15.5",
- "rayon",
- "ttf-parser 0.21.1",
-]
-
-[[package]]
 name = "fontique"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4470,10 +4459,7 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "allocator-api2 0.2.21",
- "equivalent",
  "foldhash 0.1.5",
- "rayon",
 ]
 
 [[package]]
@@ -4894,7 +4880,6 @@ dependencies = [
  "fdsm",
  "fdsm-ttf-parser",
  "flate2",
- "fontdue",
  "i-slint-common",
  "i-slint-parser-test-macro",
  "image",
@@ -4914,9 +4899,11 @@ dependencies = [
  "rspolib",
  "serde",
  "serde_json",
+ "skrifa",
  "smol_str 0.3.2",
  "spin_on",
  "strum",
+ "swash",
  "typed-index-collections",
  "url",
 ]
@@ -4963,6 +4950,7 @@ dependencies = [
  "slint",
  "static_assertions",
  "strum",
+ "swash",
  "sys-locale",
  "taffy",
  "tempfile",
@@ -5072,13 +5060,13 @@ dependencies = [
  "clru",
  "derive_more",
  "euclid",
- "fontdue",
  "i-slint-common",
  "i-slint-core",
  "integer-sqrt",
  "lyon_path",
  "num-traits",
  "skrifa",
+ "swash",
  "zeno",
 ]
 
@@ -9230,6 +9218,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c31071dedf532758ecf3fed987cdb4bd9509f900e026ab684b4ecb81ea49841"
 dependencies = [
  "bytemuck",
+ "core_maths",
  "read-fonts",
 ]
 
@@ -9910,6 +9899,7 @@ version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47846491253e976bdd07d0f9cc24b7daf24720d11309302ccbbc6e6b6e53550a"
 dependencies = [
+ "core_maths",
  "skrifa",
  "yazi",
  "zeno",
@@ -10638,12 +10628,6 @@ name = "ttf-parser"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17f77d76d837a7830fe1d4f12b7b4ba4192c1888001c7164257e4bc6d21d96b4"
-
-[[package]]
-name = "ttf-parser"
-version = "0.21.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c591d83f69777866b9126b24c6dd9a18351f177e49d625920d19f989fd31cf8"
 
 [[package]]
 name = "ttf-parser"

@@ -20,14 +20,15 @@ systemfonts = [
   "i-slint-core/shared-fontique",
   "i-slint-common/shared-fontique",
   "dep:skrifa",
-  "dep:fontdue",
+  "dep:swash",
   "i-slint-core/shared-parley",
+  "i-slint-core/shared-swash",
   "std",
   "dep:clru",
 ]
 path = ["dep:zeno", "dep:lyon_path", "i-slint-core/path"]
-std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", "systemfonts"]
-libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm"]
+std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", "systemfonts", "swash?/std"]
+libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm", "swash?/libm"]
 
 experimental = []
 default = ["std"]
@@ -42,7 +43,7 @@ euclid = { workspace = true }
 integer-sqrt = { version = "0.1.5" }
 num-traits = { version = "0.2", default-features = false }
 skrifa = { workspace = true, optional = true }
-fontdue = { workspace = true, optional = true }
+swash = { workspace = true, optional = true, features = ["scale", "render"] }
 zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
 lyon_path = { workspace = true, optional = true }
 

@@ -29,6 +29,8 @@ pub(crate) struct SlintContextInner {
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[cfg(feature = "shared-parley")]
     pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
+    #[cfg(feature = "shared-swash")]
+    pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -61,6 +63,8 @@ impl SlintContext {
                 };
                 core::cell::RefCell::new(font_context)
             },
+            #[cfg(feature = "shared-swash")]
+            swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
         }))
     }
 
@@ -73,6 +77,12 @@ impl SlintContext {
     #[cfg(feature = "shared-parley")]
     pub fn font_context(&self) -> &core::cell::RefCell<parley::FontContext> {
         &self.0.font_context
+    }
+
+    /// Return a reference to the swash scale context
+    #[cfg(feature = "shared-swash")]
+    pub fn swash_scale_context(&self) -> &core::cell::RefCell<swash::scale::ScaleContext> {
+        &self.0.swash_scale_context
     }
 
     /// Return an event proxy
