@@ -1,5 +1,6 @@
 # Input & Event System
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/input.rs`,
 > `internal/core/item_focus.rs`, `internal/core/window.rs` event handling,
 > mouse/keyboard/touch processing, or focus management.

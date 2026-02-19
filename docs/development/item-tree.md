@@ -1,5 +1,6 @@
 # Item Tree & Component Model
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/core/item_tree.rs`,
 > component instantiation, event handling, focus management, or understanding
 > how compiled/interpreted Slint runs at runtime.

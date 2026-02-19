@@ -1,5 +1,6 @@
 # Slint Type System
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/compiler/langtype.rs`,
 > `internal/compiler/lookup.rs`, `internal/compiler/typeregister.rs`,
 > type checking passes, or debugging type inference issues.

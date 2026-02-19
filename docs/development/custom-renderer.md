@@ -1,5 +1,6 @@
 # Custom Renderer Implementation Guide
 
+> Note for AI coding assistants (agents):
 > **When to load this document:** Working on `internal/renderers/`, adding
 > rendering backends, fixing drawing bugs, or implementing custom graphics output.
 > For general build commands and project structure, see `/AGENTS.md`.
