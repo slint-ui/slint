@@ -52,6 +52,9 @@ pub enum MouseEvent {
     DragMove(DropEvent),
     /// The mouse is released while dragging over this item.
     Drop(DropEvent),
+    /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
+    /// `delta` is the incremental scale change; PinchGestureHandler accumulates it.
+    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
     /// The mouse exited the item or component
     Exit,
 }
@@ -64,6 +67,7 @@ impl MouseEvent {
             MouseEvent::Released { is_touch, .. } => Some(*is_touch),
             MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
             MouseEvent::Wheel { .. } => None,
+            MouseEvent::PinchGesture { .. } => None,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
             MouseEvent::Exit => None,
         }
@@ -76,6 +80,7 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(*position),
             MouseEvent::Moved { position, .. } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
+            MouseEvent::PinchGesture { position, .. } => Some(*position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 Some(crate::lengths::logical_point_from_api(e.position))
             }
@@ -90,6 +95,7 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     crate::lengths::logical_point_from_api(e.position) + vec,
@@ -110,6 +116,7 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     transform
@@ -134,6 +141,20 @@ impl MouseEvent {
             _ => (),
         }
     }
+}
+
+/// Phase of a touch or gesture event.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TouchPhase {
+    /// The gesture began (e.g., first finger touched or platform gesture started).
+    Started,
+    /// The gesture is ongoing (e.g., fingers moved or platform gesture updated).
+    Moved,
+    /// The gesture completed normally.
+    Ended,
+    /// The gesture was cancelled (e.g., interrupted by the system).
+    Cancelled,
 }
 
 /// This value is returned by the `input_event` function of an Item

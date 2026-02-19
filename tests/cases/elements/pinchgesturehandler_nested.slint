@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+
+    in-out property <string> r;
+    out property <bool> outer-active <=> outer.active;
+    out property <bool> inner-active <=> inner.active;
+
+    outer := PinchGestureHandler {
+        started => { r += "outer-started;"; }
+        updated => { r += "outer-updated;"; }
+        ended => { r += "outer-ended;"; }
+        cancelled => { r += "outer-cancelled;"; }
+
+        Rectangle {
+            x: 100px;
+            y: 100px;
+            width: 200px;
+            height: 200px;
+
+            inner := PinchGestureHandler {
+                started => { r += "inner-started;"; }
+                updated => { r += "inner-updated;"; }
+                ended => { r += "inner-ended;"; }
+                cancelled => { r += "inner-cancelled;"; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+use slint_testing::TouchPhase;
+
+// === Test: Inner handler receives events within its bounds ===
+// Gesture at (200, 200) is inside the inner Rectangle (100..300, 100..300)
+slint_testing::send_pinch_gesture(&instance, 0.0, 200.0, 200.0, TouchPhase::Started);
+assert_eq!(instance.get_inner_active(), true);
+assert_eq!(instance.get_outer_active(), false);
+assert_eq!(instance.get_r(), "inner-started;");
+
+slint_testing::send_pinch_gesture(&instance, 0.5, 200.0, 200.0, TouchPhase::Moved);
+assert_eq!(instance.get_r(), "inner-started;inner-updated;");
+
+slint_testing::send_pinch_gesture(&instance, 0.0, 200.0, 200.0, TouchPhase::Ended);
+assert_eq!(instance.get_inner_active(), false);
+assert_eq!(instance.get_r(), "inner-started;inner-updated;inner-ended;");
+
+// === Test: Outer handler receives events outside inner bounds ===
+instance.set_r("".into());
+// Gesture at (50, 50) is inside outer (0..600, 0..600) but outside inner (100..300, 100..300)
+slint_testing::send_pinch_gesture(&instance, 0.0, 50.0, 50.0, TouchPhase::Started);
+assert_eq!(instance.get_outer_active(), true);
+assert_eq!(instance.get_inner_active(), false);
+assert_eq!(instance.get_r(), "outer-started;");
+
+slint_testing::send_pinch_gesture(&instance, 0.0, 50.0, 50.0, TouchPhase::Ended);
+assert_eq!(instance.get_outer_active(), false);
+assert_eq!(instance.get_r(), "outer-started;outer-ended;");
+```
+*/

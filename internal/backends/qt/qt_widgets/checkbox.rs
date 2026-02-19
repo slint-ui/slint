@@ -100,9 +100,10 @@ impl Item for NativeCheckBox {
             }
             // Ignore scroll events, so that surrounding Flickables/ScrollViews can react to them
             // Ignore Drag Events, as CheckBox doesn't accept drags/drop.
-            MouseEvent::Drop(_) | MouseEvent::Wheel { .. } | MouseEvent::DragMove(_) => {
-                InputEventResult::EventIgnored
-            }
+            MouseEvent::Drop(_)
+            | MouseEvent::Wheel { .. }
+            | MouseEvent::PinchGesture { .. }
+            | MouseEvent::DragMove(_) => InputEventResult::EventIgnored,
             // Make sure that generally mouse events are accepted, so that the hover state is
             // correctly updated
             MouseEvent::Exit | MouseEvent::Moved { .. } | MouseEvent::Pressed { .. } => {

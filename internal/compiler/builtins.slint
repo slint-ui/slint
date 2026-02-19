@@ -220,6 +220,21 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export component PinchGestureHandler {
+    in property <bool> enabled: true;
+
+    out property <bool> active;
+    out property <float> scale;       // Cumulative factor: 1.0 = no change
+    out property <Point> center;
+
+    callback started();
+    callback updated();
+    callback ended();
+    callback cancelled();
+
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 export component DragArea {
     in property <bool> enabled: true;
     //out property <bool> dragging;

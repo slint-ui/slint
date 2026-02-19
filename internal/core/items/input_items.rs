@@ -207,6 +207,7 @@ impl Item for TouchArea {
                     }
                 }
             }
+            MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -536,6 +537,7 @@ impl Item for SwipeGestureHandler {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::PinchGesture { .. } => InputEventFilterResult::ForwardAndIgnore,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -583,6 +585,7 @@ impl Item for SwipeGestureHandler {
                 if swiping { InputEventResult::GrabMouse } else { InputEventResult::EventAccepted }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -683,5 +686,189 @@ pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         s.cancel(window_adapter, &self_rc);
+    }
+}
+
+/// The implementation of the `PinchGestureHandler` element.
+///
+/// Provides an API surface for platform-recognized pinch gesture events.
+/// Receives `MouseEvent::PinchGesture` events via the normal mouse event
+/// tree-walk and exposes cumulative scale, center position, and lifecycle callbacks.
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct PinchGestureHandler {
+    pub enabled: Property<bool>,
+
+    // Output properties
+    pub active: Property<bool>,
+    /// Cumulative scale factor relative to gesture start. Always 1.0 when the
+    /// gesture starts, then updated as the gesture progresses (e.g., 2.0 means
+    /// doubled, 0.5 means halved).
+    pub scale: Property<f32>,
+    pub center: Property<LogicalPosition>,
+
+    // Callbacks
+    pub started: Callback<VoidArg>,
+    pub updated: Callback<VoidArg>,
+    pub ended: Callback<VoidArg>,
+    pub cancelled: Callback<VoidArg>,
+
+    /// FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for PinchGestureHandler {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        match event {
+            // Forward pinch gestures so inner handlers get first shot
+            MouseEvent::PinchGesture { .. } if self.enabled() => {
+                InputEventFilterResult::ForwardEvent
+            }
+            // While a pinch gesture is active, intercept non-pinch events to
+            // prevent Flickable and other items from processing them concurrently.
+            _ if self.active() => InputEventFilterResult::Intercept,
+            _ => InputEventFilterResult::ForwardAndIgnore,
+        }
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        use crate::input::TouchPhase;
+        match event {
+            MouseEvent::PinchGesture { delta, phase, position } => {
+                if !self.enabled() {
+                    if self.active() {
+                        self.cancel_impl();
+                    }
+                    return InputEventResult::EventIgnored;
+                }
+                let center = crate::lengths::logical_position_to_api(*position);
+                match phase {
+                    TouchPhase::Started => {
+                        if self.active() {
+                            self.cancel_impl();
+                        }
+                        Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
+                        Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
+                        Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                        Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
+                        InputEventResult::GrabMouse
+                    }
+                    TouchPhase::Moved => {
+                        if !self.active() {
+                            return InputEventResult::EventIgnored;
+                        }
+                        let new_scale = self.scale() * (1.0 + delta);
+                        Self::FIELD_OFFSETS.scale.apply_pin(self).set(new_scale);
+                        Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                        Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
+                        InputEventResult::GrabMouse
+                    }
+                    TouchPhase::Ended => {
+                        if !self.active() {
+                            return InputEventResult::EventIgnored;
+                        }
+                        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+                        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
+                        InputEventResult::EventAccepted
+                    }
+                    TouchPhase::Cancelled => {
+                        self.cancel_impl();
+                        InputEventResult::EventAccepted
+                    }
+                }
+            }
+            // Grab mouse during active pinch to maintain exclusivity.
+            _ if self.active() => InputEventResult::GrabMouse,
+            _ => InputEventResult::EventIgnored,
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _event: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        mut geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for PinchGestureHandler {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+impl PinchGestureHandler {
+    fn cancel_impl(self: Pin<&Self>) {
+        if !self.active() {
+            return;
+        }
+        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
     }
 }
