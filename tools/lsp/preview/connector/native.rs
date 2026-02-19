@@ -45,6 +45,8 @@ impl ChildProcessLspToPreview {
         .stdout(std::process::Stdio::piped())
         .spawn()?;
 
+        tracing::debug!("Preview process spawned (PID {:?})", child.id());
+
         let from_child = child.stdout.take().expect("Child has no stdout");
         let to_child = child.stdin.take().expect("Child has no stdin");
 
@@ -102,10 +104,12 @@ impl common::LspToPreview for ChildProcessLspToPreview {
             let mut inner = self.inner.borrow_mut();
             let inner = inner.as_mut().unwrap();
             let Ok(message) = serde_json::to_string(message) else {
+                tracing::debug!("Failed to serialize message to preview");
                 return;
             };
             let _ = writeln!(inner.to_child, "{message}");
         } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
+            tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
         }
     }
@@ -207,6 +211,7 @@ impl RemoteControlledPreviewToLsp {
             let reader = std::io::BufReader::new(std::io::stdin().lock());
             for line in reader.lines() {
                 let Ok(line) = line else {
+                    tracing::debug!("Preview: stdin closed, quitting");
                     let _ = slint::quit_event_loop();
                     return Ok(());
                 };
@@ -217,6 +222,7 @@ impl RemoteControlledPreviewToLsp {
                     .map_err(|e| e.to_string())?;
                 }
             }
+            tracing::debug!("Preview: stdin EOF, quitting");
             let _ = slint::quit_event_loop();
             Ok(())
         })

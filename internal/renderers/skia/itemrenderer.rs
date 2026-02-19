@@ -598,7 +598,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
                     path.fitted_path_events(item_rc)?;
 
-                let mut skpath = skia_safe::PathBuilder::new();
+                let mut skpath = skia_safe::Path::new();
 
                 for x in path_events.iter() {
                     match x {
@@ -638,7 +638,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                     }
                 }
 
-                (logical_offset * self.scale_factor, skpath.snapshot()).into()
+                (logical_offset * self.scale_factor, skpath).into()
             }) {
                 Some(offset_and_path) => offset_and_path,
                 None => return,

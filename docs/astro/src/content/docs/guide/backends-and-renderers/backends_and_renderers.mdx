@@ -83,7 +83,7 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
   * No support for `border-radius` in combination with `clip: true`.
   * No text stroking/outlining.
 - Text rendering currently limited to western scripts.
-- `Path` elements only available with the `std` feature.
+- `Path` elements in `no_std` environments requires enabling the `software-renderer-path` feature.
 - Available in `no_std` environments as well as in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.
 - Public <LangRefLink lang="rust-slint" relpath="platform/software_renderer/">Rust</LangRefLink> and <LangRefLink lang="cpp" relpath="api/classslint_1_1platform_1_1SoftwareRenderer">C++</LangRefLink> API.
 

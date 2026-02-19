@@ -107,7 +107,7 @@ impl Item for Flickable {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
         _: &mut super::MouseCursor,
     ) -> InputEventFilterResult {
@@ -126,7 +126,7 @@ impl Item for Flickable {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
             return InputEventFilterResult::ForwardAndIgnore;
         }
-        self.data.handle_mouse_filter(self, event, self_rc)
+        self.data.handle_mouse_filter(self, event, window_adapter, self_rc)
     }
 
     fn input_event(
@@ -336,6 +336,17 @@ pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
 pub(super) const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 /// The delay to which press are forwarded to the inner item
 pub(super) const FORWARD_DELAY: Duration = Duration::from_millis(100);
+/// Duration to filter scroll events from children after receiving a scroll event
+/// Note: This needs to be rather long, as that makes it more intuitive when scrolling with the
+/// mouse in concrete steps.
+/// The user can always override this by moving the mouse
+/// The value was tuned by hand, could be adjusted with further user feedback
+pub(super) const SCROLL_FILTER_DURATION: Duration = Duration::from_millis(800);
+/// Short duration for scroll event filtering, used when the end of the flickable is reached.
+pub(super) const SHORT_SCROLL_FILTER_DURATION: Duration =
+    Duration::from_millis(SCROLL_FILTER_DURATION.as_millis() as u64 / 2);
+/// How far the user has to move the mouse to stop filtering scroll event from children after receiving a scroll event
+pub(super) const SCROLL_FILTER_DISTANCE_SQUARED: LogicalLength = LogicalLength::new(4 as _);
 
 #[derive(Default, Debug)]
 struct FlickableDataInner {
@@ -346,6 +357,73 @@ struct FlickableDataInner {
     pressed_viewport_size: LogicalSize,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: bool,
+    /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
+    /// We want to filter those to prevent the case where the user scrolls with the mouse wheel,
+    /// but the mouse now moves over a child item, and that item captures the scroll event.
+    /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
+    /// stop filtering scroll event until the next scroll event.
+    last_scroll_event: Option<(Instant, LogicalPoint)>,
+}
+
+impl FlickableDataInner {
+    fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
+        self.last_scroll_event.is_some_and(|(last_time, last_position)| {
+            // Note: Squared length for MCU support, which use i32 coords.
+            crate::animations::current_tick() - last_time < timeout
+                && LogicalLength::new((last_position - position).square_length().abs())
+                    < SCROLL_FILTER_DISTANCE_SQUARED
+        })
+    }
+
+    /// Whether the delta is a scroll in a orthogonal direction than what is allowed by the Flickable
+    fn is_allowed_scroll_direction(
+        flick: Pin<&Flickable>,
+        delta: LogicalVector,
+        flick_rc: &ItemRc,
+    ) -> bool {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        !(delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
+            && !(delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
+    }
+
+    fn process_wheel_event(
+        &mut self,
+        flick: Pin<&Flickable>,
+        delta: LogicalVector,
+        position: LogicalPoint,
+        flick_rc: &ItemRc,
+    ) -> InputEventResult {
+        if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+            // Release the capture immediately, this event is not meant for this Flickable.
+            self.last_scroll_event = None;
+            return InputEventResult::EventIgnored;
+        }
+
+        let old_pos = LogicalPoint::from_lengths(
+            (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
+            (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+        );
+        let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
+
+        let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+        let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+        let old_pos = (viewport_x.get(), viewport_y.get());
+        viewport_x.set(new_pos.x_length());
+        viewport_y.set(new_pos.y_length());
+        let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
+        if flicked {
+            (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+            self.last_scroll_event = Some((crate::animations::current_tick(), position));
+            InputEventResult::EventAccepted
+        } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
+            // After reaching the end, keep accepting the input event for a while longer, then time
+            // out (by not updating the last_scroll_event)
+            InputEventResult::EventAccepted
+        } else {
+            self.last_scroll_event = None;
+            InputEventResult::EventIgnored
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -356,10 +434,25 @@ pub struct FlickableData {
 }
 
 impl FlickableData {
+    fn scroll_delta(
+        window_adapter: &Rc<dyn WindowAdapter>,
+        delta_x: Coord,
+        delta_y: Coord,
+    ) -> LogicalVector {
+        if window_adapter.window().0.modifiers.get().shift() && !cfg!(target_os = "macos") {
+            // Shift invert coordinate for the purpose of scrolling.
+            // But not on macOs because there the OS already take care of the change
+            LogicalVector::new(delta_y, delta_x)
+        } else {
+            LogicalVector::new(delta_x, delta_y)
+        }
+    }
+
     fn handle_mouse_filter(
         &self,
         flick: Pin<&Flickable>,
         event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
@@ -418,11 +511,24 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardEvent,
+            MouseEvent::Wheel { position, delta_x, delta_y } => {
+                // If we recently handled a wheel event, intercept it to prevent children from grabbing
+                // the scroll event
+                let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
+                if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
+                    && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                {
+                    InputEventFilterResult::Intercept
+                } else {
+                    inner.last_scroll_event = None;
+                    InputEventFilterResult::ForwardEvent
+                }
+            }
             // Not the left button
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::PinchGesture { .. } => InputEventFilterResult::ForwardEvent,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -515,41 +621,12 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let delta = if window_adapter.window().0.modifiers.get().shift()
-                    && !cfg!(target_os = "macos")
-                {
-                    // Shift invert coordinate for the purpose of scrolling. But not on macOs because there the OS already take care of the change
-                    LogicalVector::new(*delta_y, *delta_x)
-                } else {
-                    LogicalVector::new(*delta_x, *delta_y)
-                };
+            MouseEvent::Wheel { delta_x, delta_y, position } => {
+                let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
 
-                let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-
-                if (delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
-                    || (delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
-                {
-                    // Scroll in a orthogonal direction than what is allowed by the flickable
-                    return InputEventResult::EventIgnored;
-                }
-
-                let old_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
-                );
-                let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
-
-                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let old_pos = (viewport_x.get(), viewport_y.get());
-                viewport_x.set(new_pos.x_length());
-                viewport_y.set(new_pos.y_length());
-                if old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length() {
-                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
-                }
-                InputEventResult::EventAccepted
+                inner.process_wheel_event(flick, delta, *position, flick_rc)
             }
+            MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }

@@ -32,9 +32,9 @@ const-field-offset = { version = "0.1", path = "../../../helper_crates/const-fie
 
 cfg-if = "1"
 derive_more = { workspace = true }
-lyon_path = "1.0"
+lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.20.1", default-features = false, features = ["image-loading"] }
+femtovg = { version = "0.20.3", default-features = false, features = ["swash"] }
 ttf-parser = { workspace = true }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }

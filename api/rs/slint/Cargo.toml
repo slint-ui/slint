@@ -56,6 +56,10 @@ serde = ["i-slint-core/serde"]
 # Deprecated feature, this is now automatically enabled when the `renderer-software` and `std` features are enabled
 software-renderer-systemfonts = ["renderer-software"]
 
+# Enable support for Path element rendering with the software renderer. This is implicitly enabled by the
+# `std` feature, but can be enabled without `std` if you want to use the software renderer in a `#![no_std]` environment and need support for Path elements.
+software-renderer-path = ["i-slint-renderer-software/path"]
+
 ## Slint uses internally some `thread_local` state.
 ##
 ## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`

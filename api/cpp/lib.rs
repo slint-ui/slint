@@ -9,6 +9,7 @@ extern crate alloc;
 extern crate std;
 
 use alloc::rc::Rc;
+use alloc::string::ToString;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
 use i_slint_core::items::OperatingSystemType;
@@ -244,8 +245,13 @@ pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_parse_markdown(
     format_string: SharedString,
-    args: Slice<SharedString>,
+    args: Slice<StyledText>,
     out: &mut StyledText,
 ) {
     *out = i_slint_core::styled_text::parse_markdown(&format_string, &args);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut StyledText) {
+    *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }

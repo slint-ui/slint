@@ -49,6 +49,7 @@ path = [
   "Cargo.lock",
   "flake.nix",
   "flake.lock",
+  "examples/bevy/Cargo.lock",
   "examples/servo/Cargo.lock",
   "REUSE.toml",
   "biome.json",

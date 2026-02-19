@@ -784,7 +784,8 @@ impl RendererSealed for SoftwareRenderer {
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
             drop(font_ctx);
-            return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap);
+            return sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+                .unwrap_or_default();
         }
 
         let content = text_item.text();
@@ -2285,6 +2286,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>
             + GlyphRenderer,
     {
+        let slint_context = self.window.context();
         paragraph
             .layout_lines::<()>(
                 |glyphs, line_x, line_y, _, sel| {
@@ -2308,8 +2310,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     }
                     let scale_delta = paragraph.layout.font.scale_delta();
                     for positioned_glyph in glyphs {
-                        let Some(glyph) =
-                            paragraph.layout.font.render_glyph(positioned_glyph.glyph_id)
+                        let Some(glyph) = paragraph
+                            .layout
+                            .font
+                            .render_glyph(positioned_glyph.glyph_id, slint_context)
                         else {
                             continue;
                         };
@@ -2918,7 +2922,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // Path rendering is disabled without the path feature
     }
 
-    #[cfg(all(feature = "std", feature = "path"))]
+    #[cfg(feature = "path")]
     fn draw_path(
         &mut self,
         path: Pin<&i_slint_core::items::Path>,
@@ -3230,13 +3234,14 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
-        let fontdue_font = fonts::systemfonts::get_or_create_fontdue_font_from_blob_and_index(
-            &font.data, font.index,
-        );
+        let slint_context = self.window.context();
+        let (swash_key, swash_offset) =
+            fonts::systemfonts::get_swash_font_info(&font.data, font.index);
         let font = fonts::vectorfont::VectorFont::new_from_blob_and_index(
             font.data.clone(),
             font.index,
-            fontdue_font,
+            swash_key,
+            swash_offset,
             font_size.cast(),
         );
 
@@ -3245,7 +3250,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
         for positioned_glyph in glyphs_it {
             let Some(glyph) = std::num::NonZero::new(positioned_glyph.id as u16)
-                .and_then(|id| font.render_vector_glyph(id))
+                .and_then(|id| font.render_vector_glyph(id, slint_context))
             else {
                 continue;
             };
@@ -3262,7 +3267,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                     + global_offset
                     + glyph_offset)
                     .cast()
-                    + euclid::vec2(glyph.bounds.xmin, 0.0),
+                    + euclid::vec2(glyph.glyph_origin_x, 0.0),
                 glyph.size().cast(),
             )
             .cast()

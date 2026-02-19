@@ -4443,6 +4443,10 @@ fn compile_builtin_function_call(
             let args = a.next().unwrap();
             format!("slint::private_api::parse_markdown({}, {})", format_string, args)
         }
+        BuiltinFunction::StringToStyledText => {
+            let string = a.next().unwrap();
+            format!("slint::private_api::string_to_styled_text({})", string)
+        }
     }
 }
 
