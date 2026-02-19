@@ -77,7 +77,7 @@ pub fn configure_test_fonts() {
     static FONTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../../tests/screenshots/fonts");
 
     i_slint_core::with_global_context(
-        || unreachable!("platform was just set"),
+        || panic!("platform not set, initialize the testing backend first"),
         |ctx| {
             let mut fc = ctx.font_context().borrow_mut();
             fc.collection = fontique::Collection::new(fontique::CollectionOptions {
