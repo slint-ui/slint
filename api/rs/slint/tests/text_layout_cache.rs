@@ -20,6 +20,7 @@ impl slint::platform::Platform for TestPlatform {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Default)]
 struct TestPixel(bool);
 
