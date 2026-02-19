@@ -5,6 +5,7 @@
 
 export component TestCase inherits Window {
     default-font-size: 24px;
+    default-font-family: "FixedTestFont";
     HorizontalLayout {
         cont := ComponentContainer { }
     }
@@ -28,6 +29,7 @@ let factory = slint::ComponentFactory::new(move |ctx| {
         // This is the same test as font_size_propagation.slint
         r#"export component Inner inherits Window {
                 default-font-size: 34px;
+                default-font-family: "FixedTestFont";
                 preferred-height: t.font-metrics.ascent - t.font-metrics.descent;
                 t := Text {
                     text: "Hello 🌍";

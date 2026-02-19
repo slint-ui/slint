@@ -28,6 +28,12 @@ inline void init()
     cbindgen_private::slint_testing_init_backend();
 }
 
+/// Replace the font collection with embedded NotoSans fonts for deterministic test results.
+inline void configure_test_fonts()
+{
+    cbindgen_private::slint_testing_configure_test_fonts();
+}
+
 /// A handle to an element for querying accessible properties, intended for testing purposes.
 class ElementHandle
 {

@@ -19,7 +19,7 @@ name = "test-driver-interpreter"
 
 [dev-dependencies]
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "backend-qt"] }
-i-slint-backend-testing = { workspace = true }
+i-slint-backend-testing = { workspace = true, features = ["internal"] }
 i-slint-core = { workspace = true }
 
 itertools = { workspace = true }

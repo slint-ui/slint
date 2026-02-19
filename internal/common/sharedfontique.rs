@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// so that clones share the underlying data and mutations are visible across clones.
 pub fn create_collection(shared: bool) -> Collection {
     let mut collection =
-        fontique::Collection::new(fontique::CollectionOptions { shared, ..Default::default() });
+        fontique::Collection::new(fontique::CollectionOptions { shared, system_fonts: true });
     let mut source_cache =
         if shared { fontique::SourceCache::new_shared() } else { fontique::SourceCache::default() };
 

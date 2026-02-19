@@ -22,6 +22,12 @@ pub extern "C" fn slint_testing_init_backend() {
     crate::init_integration_test_with_mock_time();
 }
 
+#[cfg(feature = "internal")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_configure_test_fonts() {
+    crate::configure_test_fonts();
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_testing_element_visit_elements(
     root: &ItemTreeRc,
