@@ -44,18 +44,10 @@ let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_focused_index(), -1);
 
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 0);
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 1);
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 2);
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 3);
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 4);
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 5);
+for i in 0..=5 {
+    slint_testing::send_keyboard_string_sequence(&instance, "\t");
+    assert_eq!(instance.get_focused_index(), i);
+}
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq!(instance.get_focused_index(), 0);
 ```

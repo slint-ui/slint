@@ -379,19 +379,19 @@ impl ItemRc {
         let geometry = geometry.to_box2d();
 
         let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
-        let mut clipping_ancestors = Vec::new();
+        let mut ancestors = Vec::new();
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(item_rc) = parent {
             parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
-            let clips_children = item_rc.borrow().as_ref().clips_children();
-            if clips_children {
-                let is_flickable = item_rc.downcast::<crate::items::Flickable>().is_some();
-                clipping_ancestors.push((item_rc, is_flickable));
-            }
+            ancestors.push(item_rc);
         }
 
-        let mut clipped_by_flickable = false;
-        for (ancestor, is_flickable) in clipping_ancestors.into_iter().rev() {
+        for ancestor in ancestors.into_iter().rev() {
+            let clips_children = ancestor.borrow().as_ref().clips_children();
+            if !clips_children {
+                continue;
+            }
+
             let ancestor_geometry = ancestor.absolute_clip_rect_and_geometry().1;
             clip = ancestor_geometry.intersection(&clip).unwrap_or_default();
             let clip = clip.to_box2d();
@@ -402,14 +402,11 @@ impl ItemRc {
                 && clip.min.x <= geometry.max.x
                 && clip.min.y <= geometry.max.y;
             if !is_visible {
-                if !is_flickable {
-                    return false;
-                }
-                clipped_by_flickable = true;
+                return ancestor.downcast::<crate::items::Flickable>().is_some();
             }
         }
 
-        clipped_by_flickable
+        false
     }
 
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the
