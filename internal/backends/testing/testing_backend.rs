@@ -227,6 +227,7 @@ impl RendererSealed for TestingWindow {
             LogicalSize::new(width, height)
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+                .unwrap_or_default()
         }
     }
 
