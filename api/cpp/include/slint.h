@@ -302,6 +302,13 @@ inline StyledText parse_markdown(SharedString format_string,
     return result;
 }
 
+inline StyledText string_to_styled_text(SharedString text)
+{
+    StyledText result;
+    cbindgen_private::slint_string_to_styled_text(text, &result);
+    return result;
+}
+
 inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
                                           cbindgen_private::Slice<SharedString> arguments)
 {
