@@ -229,6 +229,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
                 (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+                (Value::KeyboardShortcut(shortcut), Type::String) => {
+                    Value::String(shortcut.to_platform_string())
+                }
                 (v, _) => v,
             }
         }

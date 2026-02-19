@@ -2516,6 +2516,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     });
                     quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
                 }
+                (Type::KeyboardShortcutType, Type::String) => {
+                    quote!(#f.to_platform_string())
+                }
                 (_, Type::Void) => {
                     quote!({#f;})
                 }

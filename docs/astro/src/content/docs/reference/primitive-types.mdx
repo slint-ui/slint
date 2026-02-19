@@ -339,6 +339,7 @@ The following conversions are possible:
     but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
     these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
 -   The literal `0` can be converted to any of these types that have associated unit.
+-   A `keyboard-shortcut` can be converted to `string`, which will return a platform-native description of the shortcut.
 -   Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.
@@ -364,5 +365,6 @@ export component Example {
     property<float> xxx1: xxx.to-float(); // 42.1
     property<bool> xxx2: xxx.is-float(); // true
     property<int> xxx3: 45.8; // 45
+    property<string> xxx4: @keys(Control + A); // "⌘A" on macOS, "Ctrl+A" on other platforms, etc.
 }
 ```

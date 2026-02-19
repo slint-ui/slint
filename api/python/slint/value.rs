@@ -47,7 +47,7 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
             Value::EnumerationValue(enum_name, enum_value) => {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
-            Value::KeyboardShortcut(shortcut) => shortcut.to_string().into_bound_py_any(py),
+            Value::KeyboardShortcut(shortcut) => format!("{shortcut:?}").into_bound_py_any(py),
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"

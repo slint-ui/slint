@@ -220,7 +220,7 @@ impl std::fmt::Debug for Value {
             Value::ArrayOfU16(data) => {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
-            Value::KeyboardShortcut(ks) => write!(f, "Value::KeyboardShortcut({ks})"),
+            Value::KeyboardShortcut(ks) => write!(f, "Value::KeyboardShortcut({ks:?})"),
         }
     }
 }
