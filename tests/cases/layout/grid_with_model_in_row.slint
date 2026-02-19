@@ -3,7 +3,7 @@
 
 export component TestCase inherits Window {
     default-font-size: 20px;
-    width: 600phx;
+    width: 1000phx;
     height: 300phx;
 
     property <[{ name: string, colspan: int}]> model_with_colspan: [
@@ -52,7 +52,7 @@ export component TestCase inherits Window {
                     }
                     // This element exists to test whether the conditional Text above is created or absent (end.col changes accordingly)
                     end := Text {
-                        text: "(end)";
+                        text: "end is at row " + end.row + ", col " + end.col;
                     }
                 }
             }
@@ -61,11 +61,11 @@ export component TestCase inherits Window {
         Rectangle {
             GridLayout {
                 before1 := Text {
-                    text: "Cell before a repeater";
+                    text: "Static1";
                 }
                 // This one will have new_row=false, and shouldn't use a new_row local variable in the generated code
                 before2 := Text {
-                    text: "Another cell before a repeater";
+                    text: "Static2";
                 }
 
                 for entry in model_with_colspan: repeated := Text {
@@ -74,7 +74,7 @@ export component TestCase inherits Window {
                 }
                 // This tests that a variable colspan (different between repeated items) works correctly
                 after := Text {
-                    text: "Cell after the repeater";
+                    text: "Static-After";
                 }
             }
         }
@@ -82,6 +82,7 @@ export component TestCase inherits Window {
 
     out property <bool> before_cells_ok: before1.row == 0 && before1.col == 0 && before2.row == 0 && before2.col == 1;
     out property <bool> after_cell_ok: after.row == 0 && after.col == 6;
+    out property <int> end_row: end.row;
     out property <bool> test: end.row == 2 && end.col == 0 && before_cells_ok && after_cell_ok;
     out property <bool> test_after_clicked: end.row == 2 && end.col == 2 && clicked && before_cells_ok && after_cell_ok;
 }
@@ -106,6 +107,7 @@ assert_eq(instance.get_clicked_text(), "1, 2");
 let instance = TestCase::new().unwrap();
 assert!(instance.get_before_cells_ok());
 assert!(instance.get_after_cell_ok());
+assert_eq!(instance.get_end_row(), 2);
 assert!(instance.get_test());
 slint_testing::send_mouse_click(&instance, 10. + 5., 75.);
 assert_eq!(instance.get_clicked_text(), "1, 0");
