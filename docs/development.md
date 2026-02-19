@@ -73,7 +73,7 @@ Some manual tests
 
 ## Documentation
 
-There are some documentations comments in the code.
+There are some documentation comments in the code.
 HTML documentation can be generated with something like
 
 ```sh
@@ -82,6 +82,8 @@ cargo doc --document-private-items --no-deps --open
 
 The documentation that lives on <https://docs.slint.dev> is rendered with Astro Starlight.
 See the ./astro/README.md file for details.
+
+For a deep dive into certain aspects of slint's architecture and implementation, see the files in the **`development`** subdirectory.
 
 ## Rust to C++ bindings
 
