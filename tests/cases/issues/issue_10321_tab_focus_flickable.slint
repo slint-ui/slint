@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: live-preview
+
+export component TestCase inherits Window {
+    width: 120px;
+    height: 110px;
+
+    out property <int> focused-index: -1;
+
+    flick := Flickable {
+        width: 100%;
+        height: 100%;
+        viewport-height: 420px;
+
+        VerticalLayout {
+            width: parent.width;
+            spacing: 10px;
+
+            for _[index] in [0, 1, 2, 3, 4, 5] : FocusScope {
+                width: 100%;
+                height: 60px;
+                focus-gained(_) => { root.focused-index = index; }
+
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    background: index == 0 ? red
+                        : index == 1 ? orange
+                        : index == 2 ? yellow
+                        : index == 3 ? green
+                        : index == 4 ? blue
+                        : purple;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_focused_index(), -1);
+
+for i in 0..=5 {
+    slint_testing::send_keyboard_string_sequence(&instance, "\t");
+    assert_eq!(instance.get_focused_index(), i);
+}
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 0);
+```
+*/
