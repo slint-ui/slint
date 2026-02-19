@@ -52,10 +52,8 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                             "This `Shortcut` element has the same keys as an existing shortcut - it is undefined which shortcut activates".into(),
                             &span,
                         );
-                        diagnostics.push_warning(
-                            "Another `Shortcut` element has the same keys (possibly in a usage of this component elsewhere)".into(),
-                            first.get(),
-                        );
+                        diagnostics
+                            .push_note("First duplicate Shorcut defined here".into(), first.get());
                     }
                 }
             }
