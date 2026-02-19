@@ -468,7 +468,7 @@ impl StyledText {
     }
 }
 
-#[test]
+#[cfg(all(feature = "markdown", test))]
 fn markdown_parsing() {
     assert_eq!(
         StyledText::parse_interpolated::<&str>("hello *world*", &[]).unwrap().paragraphs,
@@ -653,7 +653,7 @@ new *line*
     );
 }
 
-#[test]
+#[cfg(all(feature = "markdown", test))]
 fn markdown_parsing_interpolated() {
     assert_eq!(
         StyledText::parse_interpolated("Text: *{}*", &["italic"]).unwrap().paragraphs,
