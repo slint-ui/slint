@@ -11,10 +11,10 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-//use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::private_unstable_api::re_exports::StyledText;
 let instance = TestCase::new().unwrap();
-assert_eq!(instance.get_t1(), slint::private_unstable_api::re_exports::StyledText::parse_interpolated::<slint::SharedString>("Hello World", &[]).unwrap());
-assert_eq!(instance.get_t2(), slint::private_unstable_api::re_exports::StyledText::parse_interpolated::<slint::SharedString>("Hello \\*World\\*", &[]).unwrap());
-assert_eq!(instance.get_t3(), slint::private_unstable_api::re_exports::StyledText::parse_interpolated::<slint::SharedString>("Hello *World*", &[]).unwrap());
+assert_eq!(instance.get_t1(), StyledText::parse_interpolated::<StyledText>("Hello World", &[]).unwrap());
+assert_eq!(instance.get_t2(), StyledText::parse_interpolated::<StyledText>("Hello \\*World\\*", &[]).unwrap());
+assert_eq!(instance.get_t3(), StyledText::parse_interpolated::<StyledText>("Hello *World*", &[]).unwrap());
 ```
 */
