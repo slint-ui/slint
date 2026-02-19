@@ -691,8 +691,7 @@ pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
 
 /// The implementation of the `PinchGestureHandler` element.
 ///
-/// Provides the API surface for the `PinchGestureHandler` element.
-///
+/// Provides an API surface for platform-recognized pinch gesture events.
 /// Receives `MouseEvent::PinchGesture` events via the normal mouse event
 /// tree-walk and exposes cumulative scale, center position, and lifecycle callbacks.
 #[repr(C)]
