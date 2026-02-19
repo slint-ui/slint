@@ -79,18 +79,19 @@ pub fn configure_test_fonts() {
     i_slint_core::with_global_context(
         || panic!("platform not set, initialize the testing backend first"),
         |ctx| {
-            let mut fc = ctx.font_context().borrow_mut();
-            fc.collection = fontique::Collection::new(fontique::CollectionOptions {
+            let mut font_context = ctx.font_context().borrow_mut();
+            font_context.collection = fontique::Collection::new(fontique::CollectionOptions {
                 shared: true,
                 system_fonts: false,
             });
-            fc.source_cache = fontique::SourceCache::new_shared();
+            font_context.source_cache = fontique::SourceCache::new_shared();
             for file in
                 FONTS_DIR.files().filter(|f| f.path().extension().is_some_and(|ext| ext == "ttf"))
             {
-                let fonts = fc.collection.register_fonts(file.contents().to_vec().into(), None);
+                let fonts =
+                    font_context.collection.register_fonts(file.contents().to_vec().into(), None);
                 for generic_family in FALLBACK_FAMILIES {
-                    fc.collection.set_generic_families(
+                    font_context.collection.set_generic_families(
                         generic_family,
                         fonts.iter().map(|(family_id, _)| *family_id),
                     );
