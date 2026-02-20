@@ -5,7 +5,7 @@ description: PinchGestureHandler element api.
 import SlintProperty  from '@slint/common-files/src/components/SlintProperty.astro';
 
 
-Use the `PinchGestureHandler` to handle pinch-to-zoom gestures from trackpads or touchscreens.
+Use the `PinchGestureHandler` to handle pinch, rotation, and smart-magnify gestures from trackpads or touchscreens.
 Recognition is limited to the element's geometry.
 
 ```slint playground
@@ -14,27 +14,31 @@ export component Example inherits Window {
     height: 400px;
 
     property <float> start-scale;
+    property <angle> start-rotation;
 
     pinch := PinchGestureHandler {
         started => {
-            start-scale = rect.scale;
+            start-scale = rect.current-scale;
+            start-rotation = rect.current-rotation;
         }
         updated => {
-            rect.scale = start-scale * self.scale;
+            rect.current-scale = start-scale * self.scale;
+            rect.current-rotation = start-rotation + self.rotation;
         }
 
         rect := Rectangle {
             background: @radial-gradient(circle, #4488ff, #224488);
             border-radius: 8px;
 
-            property <float> scale: 1.0;
-            width: 200px * self.scale;
-            height: 200px * self.scale;
+            property <float> current-scale: 1.0;
+            property <angle> current-rotation: 0deg;
+            width: 200px * self.current-scale;
+            height: 200px * self.current-scale;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
 
             Text {
-                text: "Pinch to zoom";
+                text: "Pinch & rotate";
                 color: white;
             }
         }
@@ -43,10 +47,11 @@ export component Example inherits Window {
 ```
 
 The `scale` property provides a cumulative scale factor relative to the start of the gesture (starting at `1.0`).
-Use the `started` callback to capture your initial state, then multiply by `scale` in the `updated` callback to apply the gesture.
+The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
+Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
 
-On macOS and iOS, the handler responds to trackpad pinch gestures (platform gesture events).
-On other platforms, it processes raw two-finger touch input.
+On macOS and iOS, the handler responds to trackpad pinch, rotation, and smart-magnify gestures (platform gesture events).
+On other platforms, it processes raw two-finger touch input for pinch and rotation.
 
 ## Properties
 
@@ -57,7 +62,7 @@ When disabled, the `PinchGestureHandler` doesn't recognize any gestures and any 
 
 ### active
 <SlintProperty propName="active" typeName="bool" propertyVisibility="out">
-`true` while a pinch gesture is being recognized, `false` otherwise.
+`true` while a gesture is being recognized, `false` otherwise.
 </SlintProperty>
 
 ### scale
@@ -67,22 +72,23 @@ A value greater than `1.0` means zooming in, less than `1.0` means zooming out.
 </SlintProperty>
 
 ### rotation
-<SlintProperty propName="rotation" typeName="float" propertyVisibility="out">
-The cumulative rotation angle of the gesture in degrees. Always starts at `0.0` when the gesture begins.
+<SlintProperty propName="rotation" typeName="angle" propertyVisibility="out">
+The cumulative rotation angle of the gesture. Always starts at `0deg` when the gesture begins.
 Positive values indicate clockwise rotation, negative values indicate counter-clockwise rotation.
-On platforms that don't support rotation gestures yet, this property remains `0.0`.
+On platforms that don't support rotation gestures yet, this property remains `0deg`.
 </SlintProperty>
 
 ### center
 <SlintProperty propName="center" typeName="struct" structName="Point" propertyVisibility="out">
-The center point of the pinch gesture, in the coordinate system of the `PinchGestureHandler`.
+The center point of the gesture, in the coordinate system of the `PinchGestureHandler`.
 For two-finger touch input, this is the midpoint between the two fingers.
 For trackpad gestures, this is the mouse cursor position.
 </SlintProperty>
 
 ## Callbacks
 
--   **`started()`**: Invoked when a pinch gesture begins. Use this to capture the initial state you want to scale.
--   **`updated()`**: Invoked whenever the `scale` or `center` changes during the gesture.
--   **`ended()`**: Invoked when the pinch gesture completes normally (fingers lifted).
+-   **`started()`**: Invoked when a gesture begins. Use this to capture the initial state you want to transform.
+-   **`updated()`**: Invoked whenever the `scale`, `rotation`, or `center` changes during the gesture.
+-   **`ended()`**: Invoked when the gesture completes normally (fingers lifted).
 -   **`cancelled()`**: Invoked when the gesture is cancelled, for example when the handler is disabled during an active gesture or the window loses focus.
+-   **`smart-magnify()`**: Invoked on a platform "smart magnify" gesture (two-finger double-tap on macOS/iOS trackpads). This does not activate the gesture or change `scale`/`rotation`.

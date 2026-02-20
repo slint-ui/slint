@@ -238,7 +238,9 @@ impl Item for NativeSpinBox {
                     }
                     true
                 }
-                MouseEvent::PinchGesture { .. } => false,
+                MouseEvent::PinchGesture { .. }
+                | MouseEvent::RotationGesture { .. }
+                | MouseEvent::DoubleTapGesture { .. } => false,
                 MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
             };
         data.active_controls = new_control;

@@ -225,12 +225,14 @@ export component PinchGestureHandler {
 
     out property <bool> active;
     out property <float> scale;       // Cumulative factor: 1.0 = no change
+    out property <angle> rotation;    // Cumulative rotation: 0deg = no change
     out property <Point> center;
 
     callback started();
     callback updated();
     callback ended();
     callback cancelled();
+    callback smart-magnify();
 
     //-default_size_binding:expands_to_parent_geometry
 }

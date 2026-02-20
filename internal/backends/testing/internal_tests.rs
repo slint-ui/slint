@@ -112,6 +112,48 @@ pub fn send_pinch_gesture<
     });
 }
 
+/// Send a platform rotation gesture event to the component's window.
+///
+/// `delta` is the incremental rotation in degrees using the platform's sign convention
+/// (positive = counterclockwise on macOS). PinchGestureHandler negates this internally
+/// so that its `rotation` property uses positive = clockwise (CSS convention).
+pub fn send_rotation_gesture<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    delta: f32,
+    center_x: f32,
+    center_y: f32,
+    phase: i_slint_core::input::TouchPhase,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.process_mouse_input(i_slint_core::input::MouseEvent::RotationGesture {
+        position: i_slint_core::lengths::logical_point_from_api(
+            i_slint_core::api::LogicalPosition::new(center_x, center_y),
+        ),
+        delta,
+        phase,
+    });
+}
+
+/// Send a platform double-tap gesture ("smart magnify") event to the component's window.
+pub fn send_double_tap_gesture<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    center_x: f32,
+    center_y: f32,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.process_mouse_input(i_slint_core::input::MouseEvent::DoubleTapGesture {
+        position: i_slint_core::lengths::logical_point_from_api(
+            i_slint_core::api::LogicalPosition::new(center_x, center_y),
+        ),
+    });
+}
+
 pub fn access_testing_window<R>(
     window: &i_slint_core::api::Window,
     callback: impl FnOnce(&TestingWindow) -> R,
