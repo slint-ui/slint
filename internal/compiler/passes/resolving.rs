@@ -993,11 +993,16 @@ impl Expression {
                             identifier.clone(),
                         ))
                     } else {
-                        // TODO: This should suggest close matches
+                        // TODO: This should suggest more kinds of close matches
+                        let uppercased = key_name.to_uppercase();
+                        let hint = if lookup_key(&uppercased).is_some() {
+                            // common case: @keys(Control+a) instead of @keys(Control+A)
+                            format!("Use uppercase {uppercased} instead")
+                        } else {
+                            format!("Consider using \"{key_name}\"")
+                        };
                         ctx.diag.push_error(
-                            format!(
-                                "`{key_name}` not defined in the `Keys` namespace\n(Consider using \"{key_name}\")"
-                            ),
+                            format!("{key_name} not defined in the Keys namespace\n({hint})"),
                             &identifier,
                         );
                         shortcut.modifiers = KeyboardModifiers::default();

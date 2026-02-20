@@ -541,7 +541,10 @@ fn parse_keys(p: &mut impl Parser) {
                     state = State::NeedKey;
                     p.consume();
                 } else {
-                    bail(&mut p, "Unexpected '+' in keyboard shortcut");
+                    bail(
+                        &mut p,
+                        "Unexpected '+' in keyboard shortcut (use Plus to refer to the key)",
+                    );
                     break;
                 }
                 continue;
@@ -560,10 +563,7 @@ fn parse_keys(p: &mut impl Parser) {
                     match text {
                         "Alt" => alt_count += 1,
                         "Ctrl" => {
-                            bail(
-                                &mut p,
-                                "`Ctrl` is not in the Key namespace (Use `Control` instead)",
-                            );
+                            bail(&mut p, "Ctrl is not in the Key namespace (Use Control instead)");
                             break;
                         }
                         "Control" => control_count += 1,
@@ -585,7 +585,7 @@ fn parse_keys(p: &mut impl Parser) {
                                 // \x20 equals to a space (needed to avoid the trailing \ eating
                                 // the indentation)
                                 &format!(
-                                    "`{text}` is not a cross-platform modifier\n\
+                                    "{text} is not a cross-platform modifier\n\
                                     Use cross-platform modifier names instead:\n\
                                     \x20   ⌘ command -> Control\n\
                                     \x20   ⌥ option -> Alt\n\
@@ -599,7 +599,7 @@ fn parse_keys(p: &mut impl Parser) {
                             bail(
                                 &mut p,
                                 &format!(
-                                    "`{text}` is not a cross-platform modifier (Use `Meta` instead)"
+                                    "{text} is not a cross-platform modifier (Use `Meta` instead)"
                                 ),
                             );
                             break;
@@ -645,9 +645,16 @@ fn parse_keys(p: &mut impl Parser) {
                 continue;
             }
             _ => {
+                let hint = if state == State::NeedKey {
+                    format!("\n(Consider using \"{}\")", p.peek().as_str())
+                } else {
+                    "".into()
+                };
                 bail(
                     &mut p,
-                    "Expected '+', a string literal, or an identifier in the Keys namespace",
+                    &format!(
+                        "Expected '+', a string literal, or an identifier in the Keys namespace{hint}"
+                    ),
                 );
                 break;
             }

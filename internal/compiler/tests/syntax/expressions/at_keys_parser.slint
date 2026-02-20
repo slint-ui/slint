@@ -51,7 +51,7 @@ export component SuperSimple {
         @keys(Alt + Shift),
 //                       ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
         @keys(Alt ++ a),
-//                 ^error{Unexpected '+' in keyboard shortcut}
+//                 ^error{Unexpected '+' in keyboard shortcut (use Plus to refer to the key)}
         @keys("a" +),
 //                 ^error{Expected another identifier or string literal}
         @keys(Shift +),
@@ -59,15 +59,21 @@ export component SuperSimple {
 
         // Hints about common misunderstandings
         @keys(Ctrl + A),
-//            >  <error{`Ctrl` is not in the Key namespace (Use `Control` instead)}
+//            >  <error{Ctrl is not in the Key namespace (Use Control instead)}
         @keys(Command + A),
-//            >     <error{`Command` is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
+//            >     <error{Command is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
         @keys(Cmd + A),
-//            > <error{`Cmd` is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
+//            > <error{Cmd is not a cross-platform modifier↵Use cross-platform modifier names instead:↵    ⌘ command -> Control↵    ⌥ option -> Alt↵    ^ control -> Meta↵    ⇧ shift -> Shift}
         @keys(Win + A),
-//            > <error{`Win` is not a cross-platform modifier (Use `Meta` instead)}
-        @keys(Windows + A)
-//            >     <error{`Windows` is not a cross-platform modifier (Use `Meta` instead)}
+//            > <error{Win is not a cross-platform modifier (Use `Meta` instead)}
+        @keys(Windows + A),
+//            >     <error{Windows is not a cross-platform modifier (Use `Meta` instead)}
 
+
+        // Hints about weird characters
+        @keys(Control + €),
+//                      > <error{Expected '+', a string literal, or an identifier in the Keys namespace↵(Consider using "€")}
+        @keys(Control + +),
+//                      ^error{Unexpected '+' in keyboard shortcut (use Plus to refer to the key)}
     ];
 }
