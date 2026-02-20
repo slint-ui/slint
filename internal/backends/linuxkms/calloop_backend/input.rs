@@ -4,6 +4,7 @@
 //! This module contains the code to receive input events from libinput
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 #[cfg(feature = "libseat")]
 use std::collections::HashMap;
 #[cfg(not(feature = "libseat"))]
@@ -18,14 +19,13 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::input::MouseEvent;
 use i_slint_core::lengths::logical_point_from_api;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
-use input::event::touch::TouchEventPosition;
+use input::event::touch::{TouchEventPosition, TouchEventSlot};
 use xkbcommon::*;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
@@ -117,7 +117,7 @@ pub struct LibInputHandler<'a> {
     libinput: input::Libinput,
     token: Option<calloop::Token>,
     mouse_pos: Pin<Rc<Property<Option<LogicalPosition>>>>,
-    last_touch_pos: LogicalPosition,
+    last_touch_positions: BTreeMap<u64, LogicalPosition>,
     window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
     libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
@@ -141,7 +141,7 @@ impl<'a> LibInputHandler<'a> {
             libinput,
             token: Default::default(),
             mouse_pos: mouse_pos_property.clone(),
-            last_touch_pos: Default::default(),
+            last_touch_positions: BTreeMap::new(),
             window,
             keystate: Default::default(),
             libinput_event_hook,
@@ -241,34 +241,50 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                 }
                 input::Event::Touch(touch_event) => match touch_event {
                     input::event::TouchEvent::Down(touch_down_event) => {
-                        self.last_touch_pos = LogicalPosition::new(
+                        let pos = LogicalPosition::new(
                             touch_down_event.x_transformed(screen_size.width as u32) as _,
                             touch_down_event.y_transformed(screen_size.height as u32) as _,
                         );
-                        WindowInner::from_pub(window).process_mouse_input(MouseEvent::Pressed {
-                            position: logical_point_from_api(self.last_touch_pos),
-                            button: i_slint_core::input::PointerEventButton::Left,
-                            click_count: 0,
-                            is_touch: true,
-                        });
+                        let slot = touch_down_event.slot().unwrap_or(0) as u64;
+                        self.last_touch_positions.insert(slot, pos);
+                        WindowInner::from_pub(window).process_touch_input(
+                            slot,
+                            logical_point_from_api(pos),
+                            i_slint_core::input::TouchPhase::Started,
+                        );
                     }
-                    input::event::TouchEvent::Up(_touch_up_event) => {
-                        WindowInner::from_pub(window).process_mouse_input(MouseEvent::Released {
-                            position: logical_point_from_api(self.last_touch_pos),
-                            button: i_slint_core::input::PointerEventButton::Left,
-                            click_count: 0,
-                            is_touch: true,
-                        });
+                    input::event::TouchEvent::Up(touch_up_event) => {
+                        let slot = touch_up_event.slot().unwrap_or(0) as u64;
+                        let pos = self.last_touch_positions.remove(&slot)
+                            .unwrap_or_default();
+                        WindowInner::from_pub(window).process_touch_input(
+                            slot,
+                            logical_point_from_api(pos),
+                            i_slint_core::input::TouchPhase::Ended,
+                        );
                     }
                     input::event::TouchEvent::Motion(touch_motion_event) => {
-                        self.last_touch_pos = LogicalPosition::new(
+                        let pos = LogicalPosition::new(
                             touch_motion_event.x_transformed(screen_size.width as u32) as _,
                             touch_motion_event.y_transformed(screen_size.height as u32) as _,
                         );
-                        WindowInner::from_pub(window).process_mouse_input(MouseEvent::Moved {
-                            position: logical_point_from_api(self.last_touch_pos),
-                            is_touch: true,
-                        });
+                        let slot = touch_motion_event.slot().unwrap_or(0) as u64;
+                        self.last_touch_positions.insert(slot, pos);
+                        WindowInner::from_pub(window).process_touch_input(
+                            slot,
+                            logical_point_from_api(pos),
+                            i_slint_core::input::TouchPhase::Moved,
+                        );
+                    }
+                    input::event::TouchEvent::Cancel(touch_cancel_event) => {
+                        let slot = touch_cancel_event.slot().unwrap_or(0) as u64;
+                        let pos = self.last_touch_positions.remove(&slot)
+                            .unwrap_or_default();
+                        WindowInner::from_pub(window).process_touch_input(
+                            slot,
+                            logical_point_from_api(pos),
+                            i_slint_core::input::TouchPhase::Cancelled,
+                        );
                     }
                     _ => {}
                 },

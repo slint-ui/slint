@@ -6397,6 +6397,7 @@ dependencies = [
 name = "native-gestures"
 version = "1.16.0"
 dependencies = [
+ "android_logger",
  "slint",
  "slint-build",
 ]

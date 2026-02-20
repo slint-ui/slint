@@ -62,8 +62,9 @@ pub struct EventLoopState {
     shared_backend_data: Rc<SharedBackendData>,
     // last seen cursor position
     cursor_pos: LogicalPoint,
+    /// Whether a *mouse* button is currently pressed. Touch input is handled
+    /// separately via `process_touch_input` and does not affect this flag.
     pressed: bool,
-    current_touch_id: Option<u64>,
 
     loop_error: Option<PlatformError>,
     current_resize_direction: Option<ResizeDirection>,
@@ -83,7 +84,6 @@ impl EventLoopState {
             shared_backend_data,
             cursor_pos: Default::default(),
             pressed: Default::default(),
-            current_touch_id: Default::default(),
             loop_error: Default::default(),
             current_resize_direction: Default::default(),
             pumping_events_instantly: Default::default(),
@@ -378,38 +378,15 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 runtime_window.process_mouse_input(ev);
             }
             WindowEvent::Touch(touch) => {
-                if Some(touch.id) == self.current_touch_id || self.current_touch_id.is_none() {
-                    let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
-                    let position = euclid::point2(location.x, location.y);
-                    let ev = match touch.phase {
-                        winit::event::TouchPhase::Started => {
-                            self.pressed = true;
-                            if self.current_touch_id.is_none() {
-                                self.current_touch_id = Some(touch.id);
-                            }
-                            MouseEvent::Pressed {
-                                position,
-                                button: PointerEventButton::Left,
-                                click_count: 0,
-                                is_touch: true,
-                            }
-                        }
-                        winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                            self.pressed = false;
-                            self.current_touch_id = None;
-                            MouseEvent::Released {
-                                position,
-                                button: PointerEventButton::Left,
-                                click_count: 0,
-                                is_touch: true,
-                            }
-                        }
-                        winit::event::TouchPhase::Moved => {
-                            MouseEvent::Moved { position, is_touch: true }
-                        }
-                    };
-                    runtime_window.process_mouse_input(ev);
-                }
+                let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
+                let position = euclid::point2(location.x, location.y);
+                let phase = match touch.phase {
+                    winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
+                    winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
+                    winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
+                    winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
+                };
+                runtime_window.process_touch_input(touch.id, position, phase);
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
