@@ -1018,7 +1018,7 @@ impl Enumeration {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct KeyboardModifiers {
     pub alt: bool,
     pub control: bool,
@@ -1026,18 +1026,12 @@ pub struct KeyboardModifiers {
     pub shift: bool,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct KeyboardShortcut {
     pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
     pub ignore_shift: bool,
     pub ignore_alt: bool,
-}
-
-impl PartialEq for KeyboardShortcut {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
 }
 
 impl std::fmt::Display for KeyboardShortcut {

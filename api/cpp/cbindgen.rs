@@ -299,6 +299,7 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "FocusScope",
+        "Shortcut",
         "SwipeGestureHandler",
         "PinchGestureHandler",
         "Flickable",
@@ -725,6 +726,11 @@ fn gen_corelib(
     ~WindowEvent() {}"
             .into(),
     );
+    config
+        .export
+        .body
+        .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
+    config.export.pre_body.insert("MaybeShortcutList".to_owned(), "struct ShortcutList;".into());
     config
         .export
         .body

@@ -682,6 +682,10 @@ declare_item_vtable! {
     fn slint_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
 }
 
+crate::declare_item_vtable! {
+    fn slint_get_ShortcutVTable() -> ShortcutVTable for Shortcut
+}
+
 declare_item_vtable! {
     fn slint_get_SwipeGestureHandlerVTable() -> SwipeGestureHandlerVTable for SwipeGestureHandler
 }

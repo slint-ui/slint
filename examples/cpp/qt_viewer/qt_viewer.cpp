@@ -20,7 +20,9 @@ void show_diagnostics(QWidget *root,
     for (auto diagnostic : diags) {
         text += (diagnostic.level == slint::interpreter::DiagnosticLevel::Warning
                          ? QApplication::translate("qt_viewer", "warning: %1\n")
-                         : QApplication::translate("qt_viewer", "error: %1\n"))
+                         : (diagnostic.level == slint::interpreter::DiagnosticLevel::Note
+                                    ? QApplication::translate("qt_viewer", "note: %1")
+                                    : QApplication::translate("qt_viewer", "error: %1\n")))
                         .arg(QString::fromUtf8(diagnostic.message.data()));
 
         text += QApplication::translate("qt_viewer", "location: %1")

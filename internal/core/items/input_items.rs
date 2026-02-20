@@ -9,20 +9,23 @@ use super::{
 use crate::api::LogicalPosition;
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, MouseEvent,
+    KeyEventResult, KeyEventType, KeyboardShortcut, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
+use crate::items::ItemTreeVTable;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
+use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property};
-use alloc::rc::Rc;
+use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+use vtable::{VRcMapped, VWeakMapped};
 
 /// The implementation of the `TouchArea` element
 #[repr(C)]
@@ -270,7 +273,153 @@ impl ItemConsts for TouchArea {
     > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-/// A runtime item that exposes key
+impl ItemConsts for Shortcut {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Shortcut,
+        CachedRenderingData,
+    > = Shortcut::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct Shortcut {
+    pub keys: Property<KeyboardShortcut>,
+    pub activated: Callback<VoidArg>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Shortcut {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: crate::items::Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::layout::LayoutInfo {
+        Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: &crate::input::MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut crate::items::MouseCursor,
+    ) -> crate::input::InputEventFilterResult {
+        Default::default()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: &crate::input::MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut crate::items::MouseCursor,
+    ) -> crate::input::InputEventResult {
+        Default::default()
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &crate::input::KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::KeyEventResult {
+        crate::input::KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &crate::input::KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::KeyEventResult {
+        Default::default()
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &crate::input::FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::FocusEventResult {
+        Default::default()
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut &mut dyn crate::item_rendering::ItemRenderer,
+        _self_rc: &ItemRc,
+        _size: crate::lengths::LogicalSize,
+    ) -> crate::items::RenderingResult {
+        Default::default()
+    }
+
+    fn bounding_rect(
+        self: Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: crate::lengths::LogicalRect,
+    ) -> crate::lengths::LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+/// An optimized ShortcutList that is only initialized when it is
+/// first accessed.
+#[repr(C)]
+pub struct MaybeShortcutList(Cell<*const ShortcutList>);
+
+impl MaybeShortcutList {
+    fn ensure_init(&self) {
+        // This would be a race condition in Multi-threaded code, but
+        // this type isn't Sync, so this function cannot race with another thread.
+        if self.0.get().is_null() {
+            self.0.set(Box::leak(Box::default()));
+        }
+    }
+}
+
+impl Drop for MaybeShortcutList {
+    fn drop(&mut self) {
+        let ptr = self.0.replace(core::ptr::null());
+        if !ptr.is_null() {
+            // SAFETY: Must be a pointer returned by `Box::leak`, which is guaranteed by `ensure_init`.
+            drop(unsafe { Box::from_raw(ptr as *mut ShortcutList) });
+        }
+    }
+}
+
+impl Default for MaybeShortcutList {
+    fn default() -> Self {
+        // results in a null pointer, which we will initialize on first access
+        Self(Default::default())
+    }
+}
+
+impl MaybeShortcutList {
+    fn deref_pin(self: Pin<&Self>) -> Pin<&ShortcutList> {
+        self.ensure_init();
+        // SAFETY: Must be non-null and properly aligned, which is guaranteed by `ensure_init`.
+        unsafe { Pin::new_unchecked(&*self.get_ref().0.get()) }
+    }
+}
+
+#[derive(Default)]
+#[pin_project::pin_project]
+pub struct ShortcutList {
+    found: core::cell::RefCell<Vec<VWeakMapped<ItemTreeVTable, Shortcut>>>,
+    #[pin]
+    property_tracker: PropertyTracker,
+}
+
+/// A runtime item that exposes key events
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -286,8 +435,46 @@ pub struct FocusScope {
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
+    pub shortcuts: MaybeShortcutList,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
+}
+
+impl FocusScope {
+    fn visit_shortcuts<R>(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, Shortcut>) -> Option<R>,
+    ) -> Option<R> {
+        let list = Self::FIELD_OFFSETS.shortcuts.apply_pin(self);
+        let list = list.deref_pin();
+
+        list.project_ref().property_tracker.evaluate_if_dirty(|| {
+            let mut found = list.found.borrow_mut();
+            found.clear();
+
+            let mut next = self_rc.first_child();
+            while let Some(child) = next {
+                if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child) {
+                    found.push(VRcMapped::downgrade(&shortcut));
+                }
+                next = child.next_sibling();
+            }
+        });
+
+        let list = list.found.borrow();
+        for shortcut in &*list {
+            let Some(shortcut) = shortcut.upgrade() else {
+                crate::debug_log!("Warning: Found a dropped shortcut");
+                continue;
+            };
+            if let Some(result) = fun(&shortcut) {
+                return Some(result);
+            }
+        }
+
+        None
+    }
 }
 
 impl Item for FocusScope {
@@ -362,14 +549,24 @@ impl Item for FocusScope {
         self: Pin<&Self>,
         event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
                 Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
             }
             KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
+                let shortcut = self.visit_shortcuts(self_rc, |shortcut| {
+                    let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
+                    if keys.matches(&event) { Some(VRcMapped::clone(shortcut)) } else { None }
+                });
+
+                if let Some(shortcut) = shortcut {
+                    Shortcut::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
+                    EventResult::Accept
+                } else {
+                    Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
+                }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 EventResult::Reject
@@ -675,17 +872,38 @@ impl SwipeGestureHandler {
 }
 
 #[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
-    s: Pin<&SwipeGestureHandler>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        s.cancel(window_adapter, &self_rc);
+mod ffi {
+    use super::*;
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
+        s: Pin<&SwipeGestureHandler>,
+        window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+        self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        self_index: u32,
+    ) {
+        unsafe {
+            let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+            let self_rc = ItemRc::new(self_component.clone(), self_index);
+            s.cancel(window_adapter, &self_rc);
+        }
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+    /// hold a MaybeShortcutList
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_maybe_shortcut_list_init(list: *mut MaybeShortcutList) {
+        unsafe {
+            core::ptr::write(list, MaybeShortcutList::default());
+        }
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointer pointing to an initialized MaybeShortcutList
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_maybe_shortcut_list_free(list: *mut MaybeShortcutList) {
+        unsafe { core::ptr::drop_in_place(list) };
     }
 }
 

@@ -176,6 +176,14 @@ export component FocusScope {
     callback focus_lost(reason: FocusReason);
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
+
+    Shortcut { }
+}
+
+component Shortcut {
+    in property <keyboard-shortcut> keys;
+    callback activated();
+    //-is_non_item_type
 }
 
 export component Flickable inherits Empty {

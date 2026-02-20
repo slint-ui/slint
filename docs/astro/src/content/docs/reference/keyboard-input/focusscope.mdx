@@ -21,12 +21,19 @@ export component Example inherits Window {
             }
             accept
         }
+
+        Shortcut {
+            keys: @keys(Control + X);
+            activated => {
+                debug("Control + X pressed")
+            }
+        }
     }
 }
 ```
 
-The `FocusScope` exposes callbacks to handle key events. Note that `FocusScope`
-will only invoke them when it `has-focus`.
+The `FocusScope` can react to <Link type="KeyboardShortcuts" label="keyboard shortcuts"/> using the <Link type="Shortcut" label="Shortcut element"/>, and exposes callbacks to handle key events manually.
+Note that `FocusScope` will only handle key events when it either `has-focus`, or when it surrounds another FocusScope that `has-focus` (see [Key Event Delivery](#key-event-delivery))
 
 The <Link type="KeyEvent" /> has a text property, which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
@@ -107,3 +114,23 @@ Invoked when the `FocusScope` gains focus. The argument is a a <Link type="Focus
 
 ### focus-lost(FocusReason)
 Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
+
+## `Shortcut`
+
+Place `Shortcut` elements inside a `FocusScope` to declare keyboard shortcuts.
+
+See <Link type="KeyboardShortcuts" label="Keyboard Shortcuts"/> for details.
+
+### Properties of `Shortcut`
+
+#### keys
+
+<SlintProperty propName="keys" typeName="keyboard-shortcut">
+The <Link type="keyboard-shortcut" label="keyboard-shortcut" /> to match against incoming key events.
+</SlintProperty>
+
+### Callbacks of `Shortcut`
+
+#### activated()
+
+Invoked when the parent `FocusScope` receives a key event that matches the `keys` of this `Shortcut`.

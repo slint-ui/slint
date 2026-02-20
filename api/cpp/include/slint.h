@@ -389,6 +389,15 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
+cbindgen_private::FocusScope::FocusScope()
+{
+    slint_maybe_shortcut_list_init(&shortcuts);
+}
+cbindgen_private::FocusScope::~FocusScope()
+{
+    slint_maybe_shortcut_list_free(&shortcuts);
+}
+
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)
 {
     slint_native_style_metrics_init(this);

@@ -423,10 +423,12 @@ fn to_range(start: (usize, usize), end: (usize, usize)) -> lsp_types::Range {
 }
 
 fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
+    use lsp_types::DiagnosticSeverity;
     match level {
-        DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
-        DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
-        _ => lsp_types::DiagnosticSeverity::INFORMATION,
+        DiagnosticLevel::Error => DiagnosticSeverity::ERROR,
+        DiagnosticLevel::Warning => DiagnosticSeverity::WARNING,
+        DiagnosticLevel::Note => DiagnosticSeverity::HINT,
+        _ => DiagnosticSeverity::INFORMATION,
     }
 }
 

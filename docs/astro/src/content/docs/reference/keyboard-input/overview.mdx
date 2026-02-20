@@ -13,7 +13,7 @@ The primary field of this data structure is the `text` property, which holds all
 encoded in a string.
 Use the [`Key` namespace](#key-namespace) to identify known named keys.
 
-To handle Keyboard shortcuts, Slint uses a built-in <Link type="keyboard-shortcut" label="keyboard-shortcut" /> type, which is constructed from the `@keys` macro.
+To handle keyboard shortcuts, Slint uses a built-in <Link type="keyboard-shortcut" label="keyboard-shortcut" /> type, which is constructed from the `@keys` macro.
 See [Keyboard Shortcuts](#keyboard-shortcuts).
 
 ## KeyEvent
@@ -26,24 +26,48 @@ See [Keyboard Shortcuts](#keyboard-shortcuts).
 
 ## Keyboard Shortcuts
 
-The `keyboard-shortcut` type is the lowest-level building block for keyboard shortcuts.
-It represents a key, combined with modifiers, and can be matched against [`KeyEvent`](#keyevent).
-`keyboard-shortcut` does not deal with event propagation and capture on its own.
-Higher-level widgets can use `keyboard-shortcut` properties to test whether a given `KeyEvent` should result in a special action.
+Use the <Link type="Shortcut" label="Shortcut element"/> inside a `FocusScope` to declare Keyboard shortcuts.
+The Shortcut's `keys` property takes a `keyboard-shortcut` and invokes the `activated` callback when the shortcut is detected.
+Note that only one shortcut can be activated by a given key event.
+If two shortcuts share the same key event, it is undefined which one is activated.
 
-To construct a `keyboard-shortcut`, use the `@keys(..)` macro.
+The `keyboard-shortcut` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
 
 The `@keys(..)` macro accepts a key from the [`Key` namespace](#key-namespace), combined with any of these modifiers:
 
-- `Meta` (mapped to control ⌃ on MacOS and the Windows key on PC)
-- `Control` (mapped to command ⌘ on MacOS)
+- `Meta` (⌃ control on macOS and Windows key on PC)
+- `Control` (⌘ command on macOS)
 - `Shift`
-- `Alt` (mapped to option ⌥ on MacOS)
+- `Alt` (⌥ option on macOS)
 
-You can then use the `matches(..)` function to check whether a given [`KeyEvent`](#keyevent) matches the shortcut.
+```slint playground
+export component Example inherits Window {
+    forward-focus: scope;
+
+    scope := FocusScope {
+        Shortcut {
+            keys: @keys(Control + Q);
+            activated => { debug("Quit shortcut activated"); }
+        }
+
+        Shortcut {
+            keys: @keys(Control + S);
+            activated => { debug("Save shortcut activated"); }
+        }
+
+        Text {
+            text: "Press Control + Q or Control + S";
+        }
+    }
+}
+```
+
+Use the `matches(..)` function on a `keyboard-shortcut` to check whether a given [`KeyEvent`](#keyevent) matches the shortcut.
+Note that `keyboard-shortcut` does not deal with event propagation and capture on its own.
+For ease-of-use prefer using a <Link type="Shortcut" label="Shortcut element"/> instead of manually matching against key events.
 
 ```slint
-// Example component that implements a custom shortcut
+// Example component with custom event handling
 export component MyComponent inherits Window {
   in property <keyboard-shortcut> copy-shortcut: @keys(Control + C);
   callback copy();
@@ -81,9 +105,9 @@ If you absolutely need to define a shortcut to a different key, you can use a st
 For example: `@keys(Control + "ä")`.
 
 Note though that the `@keys(..)` macro no longer automatically handles different keyboard layouts and Shift behavior in this case.
-The provided string is simply matched against the lowercased `text`, plus the modifiers of the given `KeyEvent`
+The provided string is simply matched against the **lowercased** `text`, plus the modifiers of the given `KeyEvent`
 
-To prevent issues with characters that entirely change their keycode when `Shift` (or sometimes `Alt` on MacOS) is applied, you can use two additional special modifiers:
+To prevent issues with characters that entirely change their keycode when `Shift` (or sometimes `Alt` on macOS) is applied, you can use two additional special modifiers:
 
 - `IgnoreShift`
 - `IgnoreAlt`

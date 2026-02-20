@@ -11,13 +11,18 @@ pub enum JsDiagnosticLevel {
 
     /// The diagnostic found is a warning.
     Warning,
+
+    /// The diagnostic is a note to further help with the error or warning.
+    Note,
 }
 
 impl From<DiagnosticLevel> for JsDiagnosticLevel {
     fn from(diagnostic_level: DiagnosticLevel) -> Self {
         match diagnostic_level {
+            DiagnosticLevel::Error => JsDiagnosticLevel::Error,
             DiagnosticLevel::Warning => JsDiagnosticLevel::Warning,
-            _ => JsDiagnosticLevel::Error,
+            DiagnosticLevel::Note => JsDiagnosticLevel::Note,
+            _ => unimplemented!(),
         }
     }
 }

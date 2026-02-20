@@ -98,6 +98,12 @@
     "KeyboardInput": {
         "href": "reference/keyboard-input/overview/"
     },
+    "KeyboardShortcuts": {
+        "href": "reference/keyboard-input/overview/#keyboard-shortcuts"
+    },
+    "Shortcut": {
+        "href": "reference/keyboard-input/focusscope/#shortcut"
+    },
     "keyboard-shortcut": {
         "href": "reference/primitive-types/#keyboard-shortcut"
     },

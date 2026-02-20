@@ -58,6 +58,7 @@ macro_rules! declare_ValueType_2 {
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
+            crate::input::KeyboardShortcut,
             $(crate::items::$Name,)*
         ];
     };

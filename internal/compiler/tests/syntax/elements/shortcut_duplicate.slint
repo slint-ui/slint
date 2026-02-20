@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Test inherits FocusScope {
+    Shortcut {
+        keys: @keys(A);
+//            >       <note{First duplicate Shorcut defined here}
+//            >       <^note{First duplicate Shorcut defined here}
+    }
+    Shortcut {
+        keys: @keys(A);
+//            >       <warning{This `Shortcut` element has the same keys as an existing shortcut - it is undefined which shortcut activates}
+    }
+
+    // We may want to warn here in the future, but this requires smarter analysis
+    // to detect that the two shortcuts are actually enabled at the same time.
+    property <bool> condition: true;
+    if condition: Shortcut {
+        keys: @keys(A);
+    }
+
+    property <[int]> list: [1, 2, 3];
+    for i in list: Shortcut {
+        keys: @keys(A);
+    }
+}
+
+export component Outer inherits Window {
+    Test {
+        Shortcut {
+            keys: @keys(A);
+//                >       <warning{This `Shortcut` element has the same keys as an existing shortcut - it is undefined which shortcut activates}
+        }
+    }
+}

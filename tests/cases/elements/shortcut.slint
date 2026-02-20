@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <int> matches: 0;
+    in-out property <bool> condition: false;
+    in-out property <[keyboard-shortcut]> shortcuts: [
+        @keys(Control + C),
+        @keys(Control + D),
+    ];
+    out property has-focus <=> scope.has-focus;
+
+    forward-focus: scope;
+
+    Rectangle {
+        background: scope.has-focus ? blue : red;
+
+        scope := FocusScope {
+            Shortcut {
+                keys: @keys(Control + A);
+                activated => { matches += 1; }
+            }
+
+            if condition: Shortcut {
+                keys: @keys(Control + B);
+                activated => { matches += 1; }
+            }
+
+            for shortcut in shortcuts: Shortcut {
+                keys: shortcut;
+                activated => { matches += 1; }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_has_focus());
+
+let assert_matches = |matches| {
+    assert_eq!(instance.get_matches(), matches);
+};
+assert_matches(0);
+
+use slint::private_unstable_api::re_exports::Key;
+use slint_testing::send_keyboard_shortcut;
+
+send_keyboard_shortcut(&instance, [Key::Control, Key::A]);
+assert_matches(1);
+
+assert!(!instance.get_condition());
+send_keyboard_shortcut(&instance, [Key::Control, Key::B]);
+assert_matches(1);
+
+instance.set_condition(true);
+send_keyboard_shortcut(&instance, [Key::Control, Key::B]);
+assert_matches(2);
+
+send_keyboard_shortcut(&instance, [Key::Control, Key::C]);
+send_keyboard_shortcut(&instance, [Key::Control, Key::D]);
+assert_matches(4);
+
+instance.set_shortcuts([].into());
+
+send_keyboard_shortcut(&instance, [Key::Control, Key::C]);
+send_keyboard_shortcut(&instance, [Key::Control, Key::D]);
+assert_matches(4);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_has_focus());
+
+auto assert_matches = [&instance](int matches) {
+    assert_eq(instance.get_matches(), matches);
+};
+assert_matches(0);
+
+using namespace slint::platform;
+using slint::private_api::testing::send_keyboard_shortcut;
+
+slint::SharedString control(key_codes::Control);
+
+send_keyboard_shortcut(&instance, {control, "A"});
+assert_matches(1);
+
+assert(!instance.get_condition());
+send_keyboard_shortcut(&instance, {control, "B"});
+assert_matches(1);
+
+instance.set_condition(true);
+send_keyboard_shortcut(&instance, {control, "B"});
+assert_matches(2);
+
+send_keyboard_shortcut(&instance, {control, "C"});
+send_keyboard_shortcut(&instance, {control, "D"});
+assert_matches(4);
+
+// TODO: Make KeyboardShortcut public API in C++
+instance.set_shortcuts(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::KeyboardShortcut>>());
+
+send_keyboard_shortcut(&instance, {control, "C"});
+send_keyboard_shortcut(&instance, {control, "D"});
+assert_matches(4);
+```
+*/

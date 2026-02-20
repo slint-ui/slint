@@ -175,6 +175,7 @@ class ValueType(Enum):
 class DiagnosticLevel(Enum):
     Error = auto()
     Warning = auto()
+    Note = auto()
 
 class PyDiagnostic:
     level: DiagnosticLevel
