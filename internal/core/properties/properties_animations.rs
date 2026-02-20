@@ -245,7 +245,7 @@ impl InterpolatedPropertyValue for LogicalLength {
     }
 }
 
-impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
+impl<T: Clone + InterpolatedPropertyValue + 'static + PartialEq> Property<T> {
     /// Change the value of this property, by animating (interpolating) from the current property's value
     /// to the specified parameter value. The animation is done according to the parameters described by
     /// the PropertyAnimation object.
@@ -254,6 +254,12 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     /// be marked as dirty.
     pub fn set_animated_value(&self, value: T, animation_data: PropertyAnimation) {
         // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
+        unsafe {
+            if *self.value.get() == value {
+                self.handle.remove_binding();
+                return;
+            }
+        }
         let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
             self.get_internal(),
             value,
@@ -355,6 +361,40 @@ mod animation_tests {
     // Helper just for testing
     fn get_prop_value<T: Clone>(prop: &Property<T>) -> T {
         unsafe { Pin::new_unchecked(prop).get() }
+    }
+
+    /// If the actual value is equal to the target value, it is not required
+    /// to run an animation
+    #[test]
+    fn properties_test_animation_end_value_equal_actual_value() {
+        let compo = Component::new_test_component();
+
+        let animation_details = PropertyAnimation {
+            delay: -25,
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(100);
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false);
+        let start_time = crate::animations::current_tick();
+        compo.width.set_animated_value(200, animation_details.clone());
+        assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), true);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        compo.width.set_animated_value(150, animation_details);
+        assert_eq!(PropertyHandle::pointer_to_binding(compo.width.handle.handle.get()), false); // We stopped the previous binding and did not add a new one, because the values are equal
+
+        // run all animations
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 150); // If we still have a binding, this value would be 200
     }
 
     #[test]
