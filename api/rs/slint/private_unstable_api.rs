@@ -211,7 +211,9 @@ pub mod re_exports {
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
     };
-    pub use i_slint_core::{Color, Coord, SharedString, SharedVector, format};
+    pub use i_slint_core::{
+        Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
+    };
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;
     pub use num_traits::ops::euclid::Euclid;

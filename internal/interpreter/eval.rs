@@ -22,6 +22,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
+use i_slint_core::api::ToSharedString;
 use i_slint_core::items::KeyEvent;
 use smol_str::SmolStr;
 use std::collections::HashMap;
@@ -230,7 +231,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
                 (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
                 (Value::KeyboardShortcut(shortcut), Type::String) => {
-                    Value::String(shortcut.to_platform_string())
+                    Value::String(shortcut.to_shared_string())
                 }
                 (v, _) => v,
             }

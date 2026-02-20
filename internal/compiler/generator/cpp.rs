@@ -3550,14 +3550,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     )
                 }
                 (Type::KeyboardShortcutType, Type::String) => {
-                    format!(
-                        "[&](){{\
-                            slint::SharedString s;
-                            auto shortcut = {f};
-                            slint::cbindgen_private::slint_keyboard_shortcut_to_platform_string(&shortcut, &s);
-                            return s;
-                        }}()"
-                    )
+                    format!("slint::private_api::keyboard_shortcut_to_string({f})")
                 }
                 _ => f,
             }
