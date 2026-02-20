@@ -830,7 +830,7 @@ impl From<Color> for PremultipliedRgbaColor {
 
 impl PremultipliedRgbaColor {
     /// Convert a non premultiplied color to a premultiplied one
-    fn premultiply(col: Color) -> Self {
+    pub fn premultiply(col: Color) -> Self {
         let a = col.alpha() as u16;
         Self {
             alpha: col.alpha(),

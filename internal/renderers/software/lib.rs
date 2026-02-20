@@ -1759,17 +1759,141 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         }
     }
 
+    fn process_texture_fast(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
+        let x_range = geometry.min_x() as usize..geometry.max_x() as usize;
+        let y_range = geometry.min_y() as usize..geometry.max_y() as usize;
+
+        let stride = texture.pixel_stride as usize * texture.format.bpp();
+
+        let source_lines = std::iter::repeat(texture.data.chunks(stride)).flatten();
+
+        match (texture.format, texture.extra.alpha) {
+            (TexturePixelFormat::Rgb, 255) => {
+                for (output_y, source_line) in y_range.zip(source_lines) {
+                    let output_line = self.buffer.line_slice(output_y);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line.as_chunks::<3>().0).flatten();
+
+                    for (pixel, &[r, g, b]) in line_pixels.into_iter().zip(source_values) {
+                        *pixel = TargetPixel::from_rgb(r, g, b);
+                    }
+                }
+            }
+            (TexturePixelFormat::Rgba, 255) => {
+                for (output_y, source_line) in y_range.zip(source_lines) {
+                    let output_line = self.buffer.line_slice(output_y);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line.as_chunks::<4>().0).flatten();
+
+                    for (pixel, &[red, green, blue, alpha]) in
+                        line_pixels.into_iter().zip(source_values)
+                    {
+                        pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha, red, green, blue,
+                        )));
+                    }
+                }
+            }
+            (TexturePixelFormat::Rgba, 1..255) => {
+                for (output_y, source_line) in y_range.zip(source_lines) {
+                    let output_line = self.buffer.line_slice(output_y);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line.as_chunks::<4>().0).flatten();
+
+                    for (pixel, &[red, green, blue, alpha]) in
+                        line_pixels.into_iter().zip(source_values)
+                    {
+                        pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            ((alpha as u16 * texture.extra.alpha as u16) / 255) as _,
+                            red,
+                            green,
+                            blue,
+                        )));
+                    }
+                }
+            }
+            (TexturePixelFormat::RgbaPremultiplied, 255) => {
+                for (output_y, source_line) in y_range.zip(source_lines) {
+                    let output_line = self.buffer.line_slice(output_y);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line.as_chunks::<4>().0).flatten();
+
+                    for (pixel, &[red, green, blue, alpha]) in
+                        line_pixels.into_iter().zip(source_values)
+                    {
+                        pixel.blend(PremultipliedRgbaColor { red, green, blue, alpha });
+                    }
+                }
+            }
+            (TexturePixelFormat::AlphaMap, 255) => {
+                let color = texture.extra.colorize;
+
+                for (output_y, source_line) in y_range.zip(source_lines) {
+                    let output_line = self.buffer.line_slice(output_y);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line).flatten();
+
+                    for (pixel, &alpha) in line_pixels.into_iter().zip(source_values) {
+                        pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        )));
+                    }
+                }
+            }
+            (TexturePixelFormat::AlphaMap, 1..255) => {
+                let color = texture.extra.colorize;
+
+                for (output_y, source_line) in y_range.zip(source_lines) {
+                    let output_line = self.buffer.line_slice(output_y);
+                    let line_pixels = &mut output_line[x_range.clone()];
+                    let source_values = std::iter::repeat(source_line).flatten();
+
+                    for (pixel, &alpha) in line_pixels.into_iter().zip(source_values) {
+                        pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            ((alpha as u16 * texture.extra.alpha as u16) / 255) as _,
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        )));
+                    }
+                }
+            }
+            other => todo!("{:?}", other),
+        }
+    }
+
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_texture_line(
-                &geometry,
-                PhysicalLength::new(line),
-                &texture,
-                buffer,
-                extra_left_clip,
-                extra_right_clip,
-            );
-        });
+        match &texture.extra {
+            SceneTextureExtra {
+                rotation: RenderingRotation::NoRotation,
+                dx: Fixed(256),
+                dy: Fixed(256),
+                off_x: Fixed(0),
+                off_y: Fixed(0),
+                ..
+            } => self.process_texture_fast(geometry, texture),
+            _ => {
+                //std::dbg!(&texture.extra);
+                if self.dirty_region.count != 1 {
+                    //std::dbg!(self.dirty_region.count);
+                    //return;
+                }
+
+                self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+                    draw_functions::draw_texture_line(
+                        &geometry,
+                        PhysicalLength::new(line),
+                        &texture,
+                        buffer,
+                        extra_left_clip,
+                        extra_right_clip,
+                    );
+                })
+            }
+        }
     }
 }
 
