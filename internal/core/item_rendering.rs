@@ -85,7 +85,10 @@ impl<T: Clone> ItemCache<T> {
             }
         }
     }
+}
 
+#[cfg(feature = "std")]
+impl<T> ItemCache<T> {
     /// Returns the cached value associated with the `item_rc` if it is in the cache
     /// and still valid.
     pub fn with_entry<U>(
@@ -136,6 +139,51 @@ impl<T: Clone> ItemCache<T> {
     /// Returns true if there are no entries in the cache; false otherwise.
     pub fn is_empty(&self) -> bool {
         self.map.borrow().is_empty()
+    }
+
+    /// Returns a [`RefMut`](std::cell::RefMut) referencing the cached value associated with
+    /// `item_rc`, updating the cache entry first if necessary using `update_fn`.
+    ///
+    /// Unlike [`get_or_update_cache_entry`](Self::get_or_update_cache_entry), this method does
+    /// not require `T: Clone` and returns a mutable reference into the cache, which permits
+    /// in-place modification or temporary extraction of the cached value (e.g., via
+    /// [`std::mem::take`]).
+    pub fn get_or_update_cache_entry_ref(
+        &self,
+        item_rc: &ItemRc,
+        update_fn: impl FnOnce() -> T,
+    ) -> std::cell::RefMut<'_, T> {
+        let component = &(**item_rc.item_tree()) as *const _;
+        let index = item_rc.index();
+
+        {
+            let mut borrowed = self.map.borrow_mut();
+            match borrowed.entry(component).or_default().entry(index) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    let mut tracker = entry.get_mut().dependency_tracker.take();
+                    drop(borrowed);
+                    let maybe_new_data = tracker
+                        .get_or_insert_with(|| Box::pin(Default::default()))
+                        .as_ref()
+                        .evaluate_if_dirty(update_fn);
+                    let mut borrowed = self.map.borrow_mut();
+                    let e = borrowed.get_mut(&component).unwrap().get_mut(&index).unwrap();
+                    e.dependency_tracker = tracker;
+                    if let Some(new_data) = maybe_new_data {
+                        e.data = new_data;
+                    }
+                }
+                std::collections::hash_map::Entry::Vacant(_) => {
+                    drop(borrowed);
+                    let new_entry = crate::graphics::CachedGraphicsData::new(update_fn);
+                    self.map.borrow_mut().get_mut(&component).unwrap().insert(index, new_entry);
+                }
+            }
+        }
+
+        std::cell::RefMut::map(self.map.borrow_mut(), |map| {
+            &mut map.get_mut(&component).unwrap().get_mut(&index).unwrap().data
+        })
     }
 }
 

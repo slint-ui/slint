@@ -8,7 +8,6 @@ use core::ops::Range;
 use core::pin::Pin;
 use euclid::num::Zero;
 use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::{
     Color, SharedString,
@@ -23,8 +22,7 @@ use crate::{
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
 
-type CachedTextParagraphs = Rc<RefCell<Option<Vec<TextParagraph>>>>;
-type InnerTextLayoutCache = crate::item_rendering::ItemCache<CachedTextParagraphs>;
+type InnerTextLayoutCache = crate::item_rendering::ItemCache<Vec<TextParagraph>>;
 
 /// Cache for shaped text paragraphs (before line breaking), keyed by ItemRc.
 pub struct TextLayoutCache {
@@ -507,14 +505,16 @@ fn layout(
 }
 
 /// RAII guard: takes Vec out of the cache on creation, puts it back on drop.
-struct CachedParagraphsGuard {
+struct CachedParagraphsGuard<'a> {
     paragraphs: Option<Vec<TextParagraph>>,
-    container: Rc<RefCell<Option<Vec<TextParagraph>>>>,
+    container: Option<std::cell::RefMut<'a, Vec<TextParagraph>>>,
 }
 
-impl Drop for CachedParagraphsGuard {
+impl Drop for CachedParagraphsGuard<'_> {
     fn drop(&mut self) {
-        *self.container.borrow_mut() = self.paragraphs.take();
+        if let (Some(paragraphs), Some(container)) = (self.paragraphs.take(), &mut self.container) {
+            **container = paragraphs;
+        }
     }
 }
 
@@ -535,30 +535,25 @@ fn shape_paragraphs(
     create_text_paragraphs(&builder, font_context, text.text(), None, text.link_color())
 }
 
-fn get_or_create_text_paragraphs(
-    cache: Option<&TextLayoutCache>,
+fn get_or_create_text_paragraphs<'a>(
+    cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     scale_factor: ScaleFactor,
     font_context: &mut parley::FontContext,
-) -> CachedParagraphsGuard {
+) -> CachedParagraphsGuard<'a> {
     if let (Some(cache), Some(item_rc)) = (cache, item_rc) {
-        let container = cache.inner.get_or_update_cache_entry(item_rc, || {
+        let mut entry = cache.inner.get_or_update_cache_entry_ref(item_rc, || {
             #[cfg(feature = "testing")]
             cache.cache_miss_count.set(cache.cache_miss_count.get() + 1);
-            Rc::new(RefCell::new(Some(shape_paragraphs(
-                text,
-                Some(item_rc),
-                scale_factor,
-                font_context,
-            ))))
+            shape_paragraphs(text, Some(item_rc), scale_factor, font_context)
         });
-        let paragraphs = container.borrow_mut().take();
-        CachedParagraphsGuard { paragraphs, container }
+        let paragraphs = std::mem::take(&mut *entry);
+        CachedParagraphsGuard { paragraphs: Some(paragraphs), container: Some(entry) }
     } else {
         CachedParagraphsGuard {
             paragraphs: Some(shape_paragraphs(text, item_rc, scale_factor, font_context)),
-            container: Rc::new(RefCell::new(None)), // no-op put-back
+            container: None,
         }
     }
 }
