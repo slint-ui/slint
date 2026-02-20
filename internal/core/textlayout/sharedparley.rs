@@ -1242,9 +1242,8 @@ pub fn font_metrics(
     else {
         return crate::items::FontMetrics::default();
     };
-    let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
 
-    let metrics = sharedfontique::DesignFontMetrics::new_from_face(&face);
+    let metrics = sharedfontique::DesignFontMetrics::new(&font);
 
     crate::items::FontMetrics {
         ascent: metrics.ascent * logical_pixel_size / metrics.units_per_em,
