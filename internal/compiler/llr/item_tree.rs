@@ -27,19 +27,44 @@ pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
 
+/// Describes one child in a repeated Row template.
+/// Used by code generators to handle any number of interleaved static children and
+/// inner repeaters within a repeated Row in a GridLayout.
+#[derive(Debug, Clone)]
+pub enum RowChildTemplateInfo {
+    /// A static child. `child_index` is an index into `SubComponent::grid_layout_children`.
+    Static { child_index: usize },
+    /// An inner repeated child.
+    Repeated { repeater_index: RepeatedElementIdx },
+}
+
+/// Returns `true` if the optional template list contains at least one inner repeater.
+pub fn has_inner_repeaters(templates: &Option<Vec<RowChildTemplateInfo>>) -> bool {
+    templates
+        .as_ref()
+        .is_some_and(|t| t.iter().any(|e| matches!(e, RowChildTemplateInfo::Repeated { .. })))
+}
+
+/// Count the static children in a template list.
+pub fn static_child_count(templates: &[RowChildTemplateInfo]) -> usize {
+    templates.iter().filter(|e| matches!(e, RowChildTemplateInfo::Static { .. })).count()
+}
+
 #[derive(Debug, Clone)]
 pub struct LayoutRepeatedElement {
     pub repeater_index: RepeatedElementIdx,
-    /// Children count when the repeater contributes multiple children
-    /// (e.g. repeated rows). `None` means a single child per repeater entry.
-    pub repeated_children_count: Option<usize>,
+    /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
+    /// `None` means a single child per repeater entry (no Row with multiple children).
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct GridLayoutRepeatedElement {
     pub new_row: bool,
     pub repeater_index: RepeatedElementIdx,
-    pub repeated_children_count: Option<usize>,
+    /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
+    /// `None` means a single child per repeater entry (no Row with multiple children).
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
 }
 
 impl PropertyIdx {
@@ -390,6 +415,10 @@ pub struct SubComponent {
     /// The list of direct grid layout children for a repeated Row.
     /// Used to generate `layout_item_info` which returns layout info for a specific child.
     pub grid_layout_children: Vec<GridLayoutChildLayoutInfo>,
+    /// For repeated Rows with children: template of children in declaration order
+    /// (statics and inner repeaters). Used by code generators to produce
+    /// `grid_layout_input_data` and `layout_item_info`.
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
 
     /// Maps (item_index, property) to an expression
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,

@@ -1,0 +1,155 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test two sets of repeated Rows with nested `for`, each with different column counts and row counts.
+
+export component TestCase inherits Window {
+    default-font-size: 20px;
+    width: 800phx;
+    height: 600phx;
+
+    property <[{ label: string, values: [string]}]> first_row_set: [
+        { label: "N1", values: ["a", "b"] },
+        { label: "N2", values: ["c"] },
+        { label: "N3", values: ["d", "e", "f"] },
+    ];
+
+    property <[[string]]> second_row_set: [
+        ["p", "q", "r", "s"],
+        ["t"],
+    ];
+
+    out property <string> clicked_text;
+    out property <int> clicked_row: -1;
+    out property <int> clicked_col: -1;
+
+    GridLayout {
+        // First set: 3 rows, each with 1 static + a variable number of columns
+        for row_data in first_row_set: Row {
+            Text {
+                text: row_data.label;
+                min-height: 80phx;
+            }
+
+            for val in row_data.values: Text {
+                text: val;
+            }
+        }
+
+        // Second set: 2 rows, each with a variable number of columns
+        for row_data[row_idx] in second_row_set: Row {
+            for val[col_idx] in row_data: cell := Rectangle {
+                background: ta.pressed ? #888 : transparent;
+                min-width: 100phx;
+                min-height: 60phx;
+                Text {
+                    text: val;
+                }
+
+                ta := TouchArea {
+                    clicked => {
+                        clicked_text = val + "@" + row_idx + "," + col_idx;
+                        clicked_row = cell.row;
+                        clicked_col = cell.col;
+                    }
+                }
+            }
+
+            eor := Rectangle {
+                background: eor_ta.pressed ? #888 : transparent;
+                min-width: 150phx;
+                min-height: 60phx;
+                Text {
+                    text: "end of row";
+                }
+
+                eor_ta := TouchArea {
+                    clicked => {
+                        clicked_text = "eor@" + row_idx;
+                        clicked_row = eor.row;
+                        clicked_col = eor.col;
+                    }
+                }
+            }
+        }
+
+        // End marker
+        end := Text {
+            text: "end";
+        }
+    }
+
+    // First set: 3 rows (rows 0-2), second set: 2 rows (rows 3-4), end marker is row 5
+    out property <int> end_row: end.row;
+    out property <int> end_col: end.col;
+    out property <bool> test: end.row == 5 && end.col == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_end_row(), 5);
+assert_eq!(instance.get_end_col(), 0);
+assert!(instance.get_test());
+
+// Click on second_row_set[0][0] = "p" (should be row 3, col 0)
+// Row 3: y=355, size≈98 → center≈404. Col 0: x=0, size=140 → center=70.
+slint_testing::send_mouse_click(&instance, 70., 404.);
+assert_eq!(instance.get_clicked_text(), "p@0,0");
+assert_eq!(instance.get_clicked_row(), 3);
+assert_eq!(instance.get_clicked_col(), 0);
+
+// Click on second_row_set[0]'s "end of row" (should be row 3, col 4 - after p,q,r,s)
+// Col 4: x=610, size=190 → center=705.
+slint_testing::send_mouse_click(&instance, 705., 404.);
+assert_eq!(instance.get_clicked_text(), "eor@0");
+assert_eq!(instance.get_clicked_row(), 3);
+assert_eq!(instance.get_clicked_col(), 4);
+
+// Click on second_row_set[1][0] = "t" (should be row 4, col 0)
+// Row 4: y=453, size≈98 → center≈502.
+slint_testing::send_mouse_click(&instance, 70., 502.);
+assert_eq!(instance.get_clicked_text(), "t@1,0");
+assert_eq!(instance.get_clicked_row(), 4);
+assert_eq!(instance.get_clicked_col(), 0);
+
+// Click on second_row_set[1]'s "end of row" (should be row 4, col 1 - after t)
+// Col 1: x=140, size=190 → center=235.
+slint_testing::send_mouse_click(&instance, 235., 502.);
+assert_eq!(instance.get_clicked_text(), "eor@1");
+assert_eq!(instance.get_clicked_row(), 4);
+assert_eq!(instance.get_clicked_col(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_end_row(), 5);
+assert_eq(instance.get_end_col(), 0);
+assert(instance.get_test());
+
+// Click on second_row_set[0][0] = "p" (should be row 3, col 0)
+slint_testing::send_mouse_click(&instance, 70., 404.);
+assert_eq(instance.get_clicked_text(), "p@0,0");
+assert_eq(instance.get_clicked_row(), 3);
+assert_eq(instance.get_clicked_col(), 0);
+
+// Click on second_row_set[0]'s "end of row" (should be row 3, col 4 - after p,q,r,s)
+slint_testing::send_mouse_click(&instance, 705., 404.);
+assert_eq(instance.get_clicked_text(), "eor@0");
+assert_eq(instance.get_clicked_row(), 3);
+assert_eq(instance.get_clicked_col(), 4);
+
+// Click on second_row_set[1][0] = "t" (should be row 4, col 0)
+slint_testing::send_mouse_click(&instance, 70., 502.);
+assert_eq(instance.get_clicked_text(), "t@1,0");
+assert_eq(instance.get_clicked_row(), 4);
+assert_eq(instance.get_clicked_col(), 0);
+
+// Click on second_row_set[1]'s "end of row" (should be row 4, col 1 - after t)
+slint_testing::send_mouse_click(&instance, 235., 502.);
+assert_eq(instance.get_clicked_text(), "eor@1");
+assert_eq(instance.get_clicked_row(), 4);
+assert_eq(instance.get_clicked_col(), 1);
+```
+*/

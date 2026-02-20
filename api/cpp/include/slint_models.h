@@ -952,13 +952,13 @@ class Repeater
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
 
-    vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
+public:
+    vtable::VRef<private_api::ItemTreeVTable> item_at(std::size_t i) const
     {
         const auto &x = inner->data.at(i);
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-public:
     template<typename F>
     void set_model_binding(F &&binding) const
     {

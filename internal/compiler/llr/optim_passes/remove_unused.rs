@@ -302,6 +302,7 @@ mod visitor {
             grid_layout_children,
             accessible_prop,
             element_infos: _,
+            row_child_templates: _,
             prop_analysis,
         }: &mut SubComponent,
         state: &VisitorState,
@@ -495,6 +496,7 @@ mod visitor {
                 Expression::CallBackCall { callback, .. } => callback,
                 Expression::PropertyAssignment { property, .. } => property,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
+                Expression::GridRowCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 _ => return,
             };
             visit_member_reference(p, scope, state, visitor);
