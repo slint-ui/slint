@@ -324,6 +324,9 @@ pub trait RenderText: RenderString {
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
     fn is_markdown(self: Pin<&Self>) -> bool;
     fn link_color(self: Pin<&Self>) -> Color;
+    fn max_lines(self: Pin<&Self>) -> Option<usize> {
+        None
+    }
 }
 
 impl HasFont for (SharedString, Brush) {

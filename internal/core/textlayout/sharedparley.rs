@@ -92,6 +92,7 @@ struct Brush {
 struct LayoutOptions {
     max_width: Option<LogicalLength>,
     max_height: Option<LogicalLength>,
+    max_lines: Option<usize>,
     horizontal_align: TextHorizontalAlignment,
     vertical_align: TextVerticalAlignment,
     text_overflow: TextOverflow,
@@ -106,6 +107,7 @@ impl LayoutOptions {
         Self {
             max_width,
             max_height,
+            max_lines: None,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
@@ -415,6 +417,8 @@ fn layout(
         };
 
     let mut para_y = 0.0;
+    let mut remaining_lines = options.max_lines;
+    let mut visible_paragraph_count = 0;
     for para in paragraphs.iter_mut() {
         para.layout.break_all_lines(
             max_physical_width
@@ -432,8 +436,33 @@ fn layout(
         );
 
         para.y = PhysicalLength::new(para_y);
-        para_y += para.layout.height();
+        let mut visible_lines = 0usize;
+        let mut para_visible_height = PhysicalLength::zero();
+        for line in para.layout.lines() {
+            if let Some(remaining_lines) = remaining_lines {
+                if visible_lines >= remaining_lines {
+                    break;
+                }
+            }
+            para_visible_height = PhysicalLength::new(line.metrics().max_coord);
+            visible_lines += 1;
+        }
+
+        if visible_lines == 0 {
+            break;
+        }
+
+        visible_paragraph_count += 1;
+        para_y += para_visible_height.get();
+
+        if let Some(remaining_lines) = remaining_lines.as_mut() {
+            *remaining_lines = remaining_lines.saturating_sub(visible_lines);
+            if *remaining_lines == 0 {
+                break;
+            }
+        }
     }
+    paragraphs.truncate(visible_paragraph_count);
 
     let max_width = paragraphs
         .iter()
@@ -445,9 +474,7 @@ fn layout(
             PhysicalLength::new(p.layout.full_width())
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
-    let height = paragraphs
-        .last()
-        .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
+    let height = PhysicalLength::new(para_y);
 
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
@@ -455,7 +482,15 @@ fn layout(
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
+    Layout {
+        paragraphs,
+        y_offset,
+        elision_info,
+        max_width,
+        height,
+        max_physical_height,
+        max_lines: options.max_lines,
+    }
 }
 
 struct ElisionInfo {
@@ -479,6 +514,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
+        remaining_lines: &mut Option<usize>,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
@@ -488,6 +524,10 @@ impl TextParagraph {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
+        if matches!(remaining_lines, Some(0)) {
+            return;
+        }
+
         let para_y = layout.y_offset + self.y;
 
         let mut lines = self
@@ -508,7 +548,9 @@ impl TextParagraph {
             .peekable();
 
         while let Some(line) = lines.next() {
-            let last_line = lines.peek().is_none();
+            let reached_line_limit =
+                remaining_lines.as_ref().is_some_and(|remaining| *remaining == 1);
+            let last_line = lines.peek().is_none() || reached_line_limit;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -552,6 +594,13 @@ impl TextParagraph {
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
+            }
+
+            if let Some(remaining_lines) = remaining_lines.as_mut() {
+                *remaining_lines = remaining_lines.saturating_sub(1);
+                if *remaining_lines == 0 {
+                    break;
+                }
             }
         }
     }
@@ -687,6 +736,7 @@ struct Layout {
     max_width: PhysicalLength,
     height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
+    max_lines: Option<usize>,
     elision_info: Option<ElisionInfo>,
 }
 
@@ -866,14 +916,19 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
+        let mut remaining_lines = self.max_lines;
         for paragraph in &self.paragraphs {
             paragraph.draw(
                 self,
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
+                &mut remaining_lines,
                 draw_glyphs,
             );
+            if matches!(remaining_lines, Some(0)) {
+                break;
+            }
         }
     }
 }
@@ -946,6 +1001,7 @@ pub fn draw_text(
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
+            max_lines: text.max_lines(),
             text_overflow: text.overflow(),
         },
     );
@@ -1013,6 +1069,7 @@ pub fn link_under_cursor(
             vertical_align,
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
+            max_lines: text.max_lines(),
             text_overflow: text.overflow(),
         },
     );
@@ -1186,6 +1243,7 @@ pub fn text_size(
         LayoutOptions {
             max_width,
             max_height: None,
+            max_lines: None,
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,

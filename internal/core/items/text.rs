@@ -51,6 +51,7 @@ pub struct ComplexText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -212,6 +213,10 @@ impl RenderText for ComplexText {
     fn is_markdown(self: Pin<&Self>) -> bool {
         false
     }
+
+    fn max_lines(self: Pin<&Self>) -> Option<usize> {
+        usize::try_from(self.max_lines()).ok().filter(|max_lines| *max_lines > 0)
+    }
 }
 
 impl ComplexText {
@@ -238,6 +243,7 @@ pub struct StyledTextItem {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
 
     pub font_family: Property<SharedString>,
@@ -436,6 +442,10 @@ impl RenderText for StyledTextItem {
     fn is_markdown(self: Pin<&Self>) -> bool {
         true
     }
+
+    fn max_lines(self: Pin<&Self>) -> Option<usize> {
+        usize::try_from(self.max_lines()).ok().filter(|max_lines| *max_lines > 0)
+    }
 }
 
 impl StyledTextItem {
@@ -462,6 +472,7 @@ pub struct SimpleText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -615,6 +626,10 @@ impl RenderText for SimpleText {
     fn is_markdown(self: Pin<&Self>) -> bool {
         false
     }
+
+    fn max_lines(self: Pin<&Self>) -> Option<usize> {
+        usize::try_from(self.max_lines()).ok().filter(|max_lines| *max_lines > 0)
+    }
 }
 
 impl SimpleText {
@@ -660,12 +675,20 @@ fn text_layout_info(
             }
         }
         Orientation::Vertical => {
-            let h = match text.wrap() {
+            let mut h = match text.wrap() {
                 TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
                 TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
                 TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
+            };
+
+            if let Some(max_lines) = text.max_lines() {
+                let font_metrics =
+                    window_adapter.renderer().font_metrics(text.font_request(self_rc));
+                let max_height = (font_metrics.ascent - font_metrics.descent) * max_lines as Coord;
+                h = h.min(max_height);
             }
-            .ceil();
+
+            let h = h.ceil();
             LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
         }
     }
