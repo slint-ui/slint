@@ -506,6 +506,7 @@ impl AsRef<[StyledTextParagraph]> for StyledText {
     }
 }
 
+#[cfg(feature = "markdown")]
 #[test]
 fn markdown_parsing() {
     assert_eq!(
