@@ -9,7 +9,9 @@ export component TestCase inherits Window {
     in-out property <bool> enabled <=> pinch.enabled;
     out property <bool> active <=> pinch.active;
     out property <float> scale <=> pinch.scale;
+    out property <angle> rotation <=> pinch.rotation;
     out property <Point> center <=> pinch.center;
+    out property <bool> smart-magnified: false;
 
     pinch := PinchGestureHandler {
         started => {
@@ -23,6 +25,9 @@ export component TestCase inherits Window {
         }
         cancelled => {
             r += "cancelled;";
+        }
+        smart-magnify => {
+            root.smart-magnified = true;
         }
     }
 }
@@ -186,5 +191,136 @@ assert_eq!(instance.get_r(), "started;updated(1.5);cancelled;started;updated(2);
 slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
 assert_eq!(instance.get_active(), false);
 assert_eq!(instance.get_r(), "started;updated(1.5);cancelled;started;updated(2);ended;");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+use slint_testing::TouchPhase;
+
+// === Test 10: Rotation gesture accumulates degrees ===
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+assert_eq!(instance.get_active(), true);
+assert_eq!(instance.get_rotation(), 0.0);
+
+// Send rotation delta of 15 degrees (platform convention: positive = counterclockwise).
+// PinchGestureHandler negates to match CSS/Slint convention (positive = clockwise).
+slint_testing::send_rotation_gesture(&instance, 15.0, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_active(), true);
+assert_eq!(instance.get_rotation(), -15.0);
+assert_eq!(instance.get_r(), "started;updated(1);");
+
+// Send another rotation delta of -5 degrees (clockwise on platform → positive in our convention)
+slint_testing::send_rotation_gesture(&instance, -5.0, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_rotation(), -10.0);
+assert_eq!(instance.get_r(), "started;updated(1);updated(1);");
+
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
+assert_eq!(instance.get_active(), false);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+use slint_testing::TouchPhase;
+
+// === Test 11: Rotation resets on new gesture start ===
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_rotation_gesture(&instance, 45.0, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_rotation(), -45.0);
+
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
+assert_eq!(instance.get_active(), false);
+
+// Start new gesture — rotation should be 0
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+assert_eq!(instance.get_rotation(), 0.0);
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// === Test 12: DoubleTapGesture fires smart-magnify callback ===
+assert_eq!(instance.get_smart_magnified(), false);
+slint_testing::send_double_tap_gesture(&instance, 300.0, 300.0);
+assert_eq!(instance.get_smart_magnified(), true);
+// DoubleTapGesture should not activate the gesture
+assert_eq!(instance.get_active(), false);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// === Test 13: DoubleTapGesture ignored when disabled ===
+instance.set_enabled(false);
+slint_testing::send_double_tap_gesture(&instance, 300.0, 300.0);
+assert_eq!(instance.get_smart_magnified(), false);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+use slint_testing::TouchPhase;
+
+// === Test 14: Rotation-only gesture (no pinch) starts and ends independently ===
+slint_testing::send_rotation_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+assert_eq!(instance.get_active(), true);
+assert_eq!(instance.get_scale(), 1.0);
+assert_eq!(instance.get_rotation(), 0.0);
+
+slint_testing::send_rotation_gesture(&instance, 30.0, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_rotation(), -30.0);
+// Scale unchanged because only rotation happened
+assert_eq!(instance.get_scale(), 1.0);
+
+// Rotation-only gesture can end without PinchGesture
+slint_testing::send_rotation_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
+assert_eq!(instance.get_active(), false);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+use slint_testing::TouchPhase;
+
+// === Test 15: Combined pinch + rotation in same gesture ===
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_rotation_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+
+// Interleave pinch and rotation updates
+slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_scale(), 1.5);
+assert_eq!(instance.get_rotation(), 0.0);
+
+slint_testing::send_rotation_gesture(&instance, 20.0, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_scale(), 1.5);
+assert_eq!(instance.get_rotation(), -20.0);
+
+slint_testing::send_pinch_gesture(&instance, 0.3, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, -10.0, 300.0, 300.0, TouchPhase::Moved);
+// scale = 1.5 * (1 + 0.3) = 1.95
+assert!((instance.get_scale() - 1.95).abs() < 0.001);
+// rotation = -20 - (-10) = -10
+assert_eq!(instance.get_rotation(), -10.0);
+
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
+assert_eq!(instance.get_active(), false);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+use slint_testing::TouchPhase;
+
+// === Test 16: Cancellation resets scale and rotation ===
+slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
+slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, 45.0, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_scale(), 1.5);
+assert_eq!(instance.get_rotation(), -45.0);
+assert_eq!(instance.get_active(), true);
+
+// Disable mid-gesture triggers cancellation
+instance.set_enabled(false);
+slint_testing::send_pinch_gesture(&instance, 0.1, 300.0, 300.0, TouchPhase::Moved);
+assert_eq!(instance.get_active(), false);
+assert_eq!(instance.get_scale(), 1.0);
+assert_eq!(instance.get_rotation(), 0.0);
 ```
 */

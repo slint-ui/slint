@@ -449,6 +449,24 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     phase,
                 });
             }
+            WindowEvent::RotationGesture { delta, phase, .. } => {
+                let phase = match phase {
+                    winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
+                    winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
+                    winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
+                    winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
+                };
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::RotationGesture {
+                    position: self.cursor_pos,
+                    delta: delta as f32,
+                    phase,
+                });
+            }
+            WindowEvent::DoubleTapGesture { .. } => {
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::DoubleTapGesture {
+                    position: self.cursor_pos,
+                });
+            }
             _ => {}
         }
 

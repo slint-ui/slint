@@ -54,6 +54,13 @@ pub enum MouseEvent {
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
     /// `delta` is the incremental scale change; PinchGestureHandler accumulates it.
     PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt).
+    /// `delta` is the incremental rotation in degrees using the platform's sign convention
+    /// (positive = counterclockwise on macOS). PinchGestureHandler negates this internally
+    /// so that its `rotation` property uses positive = clockwise (CSS convention).
+    RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    /// A platform-recognized double-tap gesture ("smart magnify" on macOS trackpad).
+    DoubleTapGesture { position: LogicalPoint },
     /// The mouse exited the item or component
     Exit,
 }
@@ -67,6 +74,8 @@ impl MouseEvent {
             MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
             MouseEvent::Wheel { .. } => None,
             MouseEvent::PinchGesture { .. } => None,
+            MouseEvent::RotationGesture { .. } => None,
+            MouseEvent::DoubleTapGesture { .. } => None,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
             MouseEvent::Exit => None,
         }
@@ -80,6 +89,8 @@ impl MouseEvent {
             MouseEvent::Moved { position, .. } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::PinchGesture { position, .. } => Some(*position),
+            MouseEvent::RotationGesture { position, .. } => Some(*position),
+            MouseEvent::DoubleTapGesture { position } => Some(*position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 Some(crate::lengths::logical_point_from_api(e.position))
             }
@@ -95,6 +106,8 @@ impl MouseEvent {
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::PinchGesture { position, .. } => Some(position),
+            MouseEvent::RotationGesture { position, .. } => Some(position),
+            MouseEvent::DoubleTapGesture { position } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     crate::lengths::logical_point_from_api(e.position) + vec,
@@ -116,6 +129,8 @@ impl MouseEvent {
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::PinchGesture { position, .. } => Some(position),
+            MouseEvent::RotationGesture { position, .. } => Some(position),
+            MouseEvent::DoubleTapGesture { position } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     transform

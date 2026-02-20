@@ -210,7 +210,9 @@ impl Item for TouchArea {
                     }
                 }
             }
-            MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. }
+            | MouseEvent::RotationGesture { .. }
+            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -734,7 +736,9 @@ impl Item for SwipeGestureHandler {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::PinchGesture { .. } => InputEventFilterResult::ForwardAndIgnore,
+            MouseEvent::PinchGesture { .. }
+            | MouseEvent::RotationGesture { .. }
+            | MouseEvent::DoubleTapGesture { .. } => InputEventFilterResult::ForwardAndIgnore,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -782,7 +786,9 @@ impl Item for SwipeGestureHandler {
                 if swiping { InputEventResult::GrabMouse } else { InputEventResult::EventAccepted }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
-            MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. }
+            | MouseEvent::RotationGesture { .. }
+            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -924,6 +930,9 @@ pub struct PinchGestureHandler {
     /// gesture starts, then updated as the gesture progresses (e.g., 2.0 means
     /// doubled, 0.5 means halved).
     pub scale: Property<f32>,
+    /// Cumulative rotation in degrees relative to gesture start. Always 0.0 when
+    /// the gesture starts.
+    pub rotation: Property<f32>,
     pub center: Property<LogicalPosition>,
 
     // Callbacks
@@ -931,6 +940,7 @@ pub struct PinchGestureHandler {
     pub updated: Callback<VoidArg>,
     pub ended: Callback<VoidArg>,
     pub cancelled: Callback<VoidArg>,
+    pub smart_magnify: Callback<VoidArg>,
 
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -956,11 +966,15 @@ impl Item for PinchGestureHandler {
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         match event {
-            // Forward pinch gestures so inner handlers get first shot
-            MouseEvent::PinchGesture { .. } if self.enabled() => {
+            // Forward gesture events so inner handlers get first shot
+            MouseEvent::PinchGesture { .. }
+            | MouseEvent::RotationGesture { .. }
+            | MouseEvent::DoubleTapGesture { .. }
+                if self.enabled() =>
+            {
                 InputEventFilterResult::ForwardEvent
             }
-            // While a pinch gesture is active, intercept non-pinch events to
+            // While a gesture is active, intercept non-gesture events to
             // prevent Flickable and other items from processing them concurrently.
             _ if self.active() => InputEventFilterResult::Intercept,
             _ => InputEventFilterResult::ForwardAndIgnore,
@@ -991,6 +1005,7 @@ impl Item for PinchGestureHandler {
                         }
                         Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
                         Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
+                        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
                         Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
                         Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
                         InputEventResult::GrabMouse
@@ -1019,7 +1034,63 @@ impl Item for PinchGestureHandler {
                     }
                 }
             }
-            // Grab mouse during active pinch to maintain exclusivity.
+            MouseEvent::RotationGesture { delta, phase, position } => {
+                if !self.enabled() {
+                    return InputEventResult::EventIgnored;
+                }
+                let center = crate::lengths::logical_position_to_api(*position);
+                match phase {
+                    TouchPhase::Started => {
+                        // Rotation often arrives alongside pinch. If we're
+                        // already active (pinch started first), just accept.
+                        // If not active yet, start the gesture from rotation.
+                        if !self.active() {
+                            Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
+                            Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
+                            Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
+                            Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                            Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
+                        }
+                        InputEventResult::GrabMouse
+                    }
+                    TouchPhase::Moved => {
+                        if !self.active() {
+                            return InputEventResult::EventIgnored;
+                        }
+                        // Negate: macOS/winit report positive = counterclockwise,
+                        // but our documented convention is positive = clockwise.
+                        let new_rotation = self.rotation() - delta;
+                        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(new_rotation);
+                        Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                        Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
+                        InputEventResult::GrabMouse
+                    }
+                    TouchPhase::Ended => {
+                        // On macOS/iOS, both PinchGesture::Ended and
+                        // RotationGesture::Ended arrive for the same physical
+                        // gesture. Whichever arrives second will see active=false
+                        // and return early.
+                        if !self.active() {
+                            return InputEventResult::EventIgnored;
+                        }
+                        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+                        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
+                        InputEventResult::EventAccepted
+                    }
+                    TouchPhase::Cancelled => {
+                        self.cancel_impl();
+                        InputEventResult::EventAccepted
+                    }
+                }
+            }
+            MouseEvent::DoubleTapGesture { .. } => {
+                if !self.enabled() {
+                    return InputEventResult::EventIgnored;
+                }
+                Self::FIELD_OFFSETS.smart_magnify.apply_pin(self).call(&());
+                InputEventResult::EventAccepted
+            }
+            // Grab mouse during active gesture to maintain exclusivity.
             _ if self.active() => InputEventResult::GrabMouse,
             _ => InputEventResult::EventIgnored,
         }
@@ -1087,6 +1158,8 @@ impl PinchGestureHandler {
             return;
         }
         Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
+        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
         Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
     }
 }
