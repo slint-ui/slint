@@ -88,7 +88,7 @@ pub struct BuiltinTypes {
     pub layout_info_type: Rc<Struct>,
     pub gridlayout_input_data_type: Type,
     pub path_element_type: Type,
-    pub box_layout_cell_data_type: Type,
+    pub layout_item_info_type: Type,
 }
 
 impl BuiltinTypes {
@@ -148,7 +148,7 @@ impl BuiltinTypes {
                 fields: Default::default(),
                 name: BuiltinPrivateStruct::PathElement.into(),
             })),
-            box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
+            layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
                 name: BuiltinPrivateStruct::LayoutItemInfo.into(),
@@ -826,6 +826,6 @@ pub fn path_element_type() -> Type {
 }
 
 /// The [`Type`] for a runtime LayoutItemInfo structure
-pub fn box_layout_cell_data_type() -> Type {
-    BUILTIN.with(|types| types.box_layout_cell_data_type.clone())
+pub fn layout_item_info_type() -> Type {
+    BUILTIN.with(|types| types.layout_item_info_type.clone())
 }

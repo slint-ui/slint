@@ -622,7 +622,7 @@ fn flexbox_layout_data(
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
-    let element_ty = crate::typeregister::box_layout_cell_data_type();
+    let element_ty = crate::typeregister::layout_item_info_type();
 
     if repeater_count == 0 {
         let cells_h = llr_Expression::Array {
@@ -738,7 +738,7 @@ fn box_layout_data(
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
-    let element_ty = crate::typeregister::box_layout_cell_data_type();
+    let element_ty = crate::typeregister::layout_item_info_type();
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
@@ -797,7 +797,7 @@ fn grid_layout_cell_constraints(
     let repeater_count =
         layout.elems.iter().filter(|i| i.item.element.borrow().repeated.is_some()).count();
 
-    let element_ty = crate::typeregister::box_layout_cell_data_type();
+    let element_ty = crate::typeregister::layout_item_info_type();
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
