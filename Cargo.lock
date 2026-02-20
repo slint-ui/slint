@@ -6375,6 +6375,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "native-gestures"
+version = "1.16.0"
+dependencies = [
+ "slint",
+ "slint-build",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"

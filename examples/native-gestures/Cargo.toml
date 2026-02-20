@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "native-gestures"
+version = "1.16.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "native-gestures"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

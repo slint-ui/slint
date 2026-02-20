@@ -1,0 +1,202 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Switch } from "std-widgets.slint";
+
+component InfoItem inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <brush> value-color: #e0e0f0;
+
+    alignment: center;
+    spacing: 2px;
+
+    Text {
+        text: root.label;
+        color: #606080;
+        font-size: 11px;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        text: root.value;
+        color: root.value-color;
+        font-size: 16px;
+        font-weight: 700;
+        horizontal-alignment: center;
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Native Gestures Demo";
+    width: 800px;
+    height: 600px;
+    background: #1a1a2e;
+
+    property <float> current-scale: 1.0;
+    property <angle> current-rotation: 0deg;
+    property <float> base-scale: 1.0;
+    property <angle> base-rotation: 0deg;
+    property <bool> gesture-active: false;
+    property <string> status-text: "idle";
+    property <length> center-x;
+    property <length> center-y;
+    property <bool> has-gesture-occurred: false;
+    property <bool> gestures-enabled: true;
+
+    PinchGestureHandler {
+        enabled: root.gestures-enabled;
+
+        started => {
+            root.base-scale = root.current-scale;
+            root.base-rotation = root.current-rotation;
+            root.gesture-active = true;
+            root.status-text = "active";
+        }
+
+        updated => {
+            root.current-scale = max(0.1, root.base-scale * self.scale);
+            root.current-rotation = root.base-rotation + self.rotation;
+            root.center-x = self.center.x;
+            root.center-y = self.center.y;
+            root.has-gesture-occurred = true;
+        }
+
+        ended => {
+            root.gesture-active = false;
+            root.status-text = "ended";
+        }
+
+        cancelled => {
+            root.current-scale = root.base-scale;
+            root.current-rotation = root.base-rotation;
+            root.gesture-active = false;
+            root.status-text = "cancelled";
+        }
+
+        smart-magnify => {
+            if root.current-scale > 1.5 {
+                root.current-scale = 1.0;
+                root.current-rotation = 0deg;
+            } else {
+                root.current-scale = 2.5;
+            }
+            root.status-text = "smart magnify";
+        }
+    }
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+
+        Text {
+            text: "PinchGestureHandler Demo";
+            color: #e0e0f0;
+            font-size: 18px;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "Pinch to zoom  •  Rotate with two fingers  •  Double-tap to toggle zoom";
+            color: #606080;
+            font-size: 12px;
+            horizontal-alignment: center;
+        }
+
+        // Controls
+        HorizontalLayout {
+            alignment: center;
+            spacing: 20px;
+
+            Switch {
+                text: "Enabled";
+                checked <=> root.gestures-enabled;
+            }
+
+            Rectangle {
+                height: 28px;
+                width: reset-layout.preferred-width;
+                background: reset-ta.has-hover ? #0f3460 : #16213e;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: #404060;
+
+                reset-ta := TouchArea {
+                    clicked => {
+                        root.current-scale = 1.0;
+                        root.current-rotation = 0deg;
+                        root.status-text = "idle";
+                        root.has-gesture-occurred = false;
+                    }
+                }
+
+                reset-layout := HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+
+                    Text {
+                        text: "Reset";
+                        color: #a0a0b0;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // Gesture area
+        Rectangle {
+            background: root.gesture-active ? #1e2a4a : #16213e;
+            border-radius: 8px;
+            border-width: root.gesture-active ? 2px : 0px;
+            border-color: #e94560;
+            clip: true;
+
+            Image {
+                width: 200px * root.current-scale;
+                height: 200px * root.current-scale;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                source: @image-url("../../logo/slint-logo-square-light.png");
+                transform-rotation: current-rotation;
+            }
+        }
+
+        // Info panel
+        Rectangle {
+            height: 60px;
+            background: #16213e;
+            border-radius: 6px;
+
+            HorizontalLayout {
+                alignment: space-around;
+                padding: 8px;
+
+                InfoItem {
+                    label: "Scale";
+                    value: round(root.current-scale * 100) + "%";
+                }
+
+                InfoItem {
+                    label: "Rotation";
+                    value: round(root.current-rotation / 1deg) + "°";
+                }
+
+                InfoItem {
+                    label: "State";
+                    value: root.status-text;
+                    value-color: root.gesture-active ? #e94560 : #a0a0b0;
+                }
+
+                InfoItem {
+                    label: "Center";
+                    value: root.has-gesture-occurred
+                        ? round(root.center-x / 1px) + ", " + round(root.center-y / 1px)
+                        : "—";
+                }
+            }
+        }
+    }
+}
