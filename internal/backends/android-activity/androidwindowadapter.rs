@@ -333,28 +333,27 @@ impl AndroidWindowAdapter {
                     let offset = self.offset.get();
                     let scale = self.window.scale_factor();
                     let touch_pos = |p: &android_activity::input::Pointer<'_>| {
-                        touch_position(p.x(), p.y(), offset, scale)
+                        i_slint_core::lengths::logical_point_from_api(
+                            pointer_logical_position(p.x(), p.y(), offset, scale),
+                        )
                     };
                     match motion_event.action() {
                     MotionAction::ButtonPress => {
                         result = self.window.try_dispatch_event(WindowEvent::PointerPressed {
-                            position: position_for_event(motion_event, offset)
-                                .to_logical(scale),
+                            position: position_for_event(motion_event, offset, scale),
                             button: button_for_event(motion_event, &self.last_pressed_state),
                         });
                         InputStatus::Handled
                     }
                     MotionAction::ButtonRelease => {
                         result = self.window.try_dispatch_event(WindowEvent::PointerReleased {
-                            position: position_for_event(motion_event, offset)
-                                .to_logical(scale),
+                            position: position_for_event(motion_event, offset, scale),
                             button: button_for_event(motion_event, &self.last_pressed_state),
                         });
                         InputStatus::Handled
                     }
                     MotionAction::Down => {
-                        let position = position_for_event(motion_event, offset)
-                            .to_logical(scale);
+                        let position = position_for_event(motion_event, offset, scale);
 
                         self.show_cursor_handles.set(true);
                         let _timer = Timer::default();
@@ -387,8 +386,7 @@ impl AndroidWindowAdapter {
                         InputStatus::Handled
                     }
                     MotionAction::Move => {
-                        let position = position_for_event(motion_event, offset)
-                            .to_logical(scale);
+                        let position = position_for_event(motion_event, offset, scale);
 
                         let mut lp = self.long_press.borrow_mut();
                         let sq = |x| x * x;
@@ -434,8 +432,7 @@ impl AndroidWindowAdapter {
                         InputStatus::Handled
                     }
                     MotionAction::HoverMove => {
-                        let position = position_for_event(motion_event, offset)
-                            .to_logical(scale);
+                        let position = position_for_event(motion_event, offset, scale);
                         let window_event = WindowEvent::PointerMoved { position };
                         result = self.window.try_dispatch_event(window_event);
                         InputStatus::Handled
@@ -624,19 +621,18 @@ fn long_press_timeout() {
     };
 }
 
-fn position_for_event(motion_event: &MotionEvent, offset: PhysicalPosition) -> PhysicalPosition {
-    motion_event.pointers().next().map_or_else(Default::default, |p| PhysicalPosition {
-        x: p.x() as i32 - offset.x,
-        y: p.y() as i32 - offset.y,
-    })
-}
-
-/// Convert raw pointer coordinates to a LogicalPoint suitable for `process_touch_input`.
-fn touch_position(x: f32, y: f32, offset: PhysicalPosition, scale_factor: f32) -> i_slint_core::lengths::LogicalPoint {
+/// Convert raw pointer coordinates to a LogicalPosition, applying the
+/// display offset and scale factor.
+fn pointer_logical_position(x: f32, y: f32, offset: PhysicalPosition, scale_factor: f32) -> LogicalPosition {
     let phys_x = x - offset.x as f32;
     let phys_y = y - offset.y as f32;
-    let logical = LogicalPosition::new(phys_x / scale_factor, phys_y / scale_factor);
-    i_slint_core::lengths::logical_point_from_api(logical)
+    LogicalPosition::new(phys_x / scale_factor, phys_y / scale_factor)
+}
+
+fn position_for_event(motion_event: &MotionEvent, offset: PhysicalPosition, scale: f32) -> LogicalPosition {
+    motion_event.pointers().next().map_or_else(Default::default, |p| {
+        pointer_logical_position(p.x(), p.y(), offset, scale)
+    })
 }
 
 fn button_for_event(

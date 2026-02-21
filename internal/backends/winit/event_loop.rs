@@ -24,6 +24,15 @@ use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
+
+fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPhase {
+    match phase {
+        winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
+        winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
+        winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
+        winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
+    }
+}
 use winit::event_loop::ControlFlow;
 use winit::window::ResizeDirection;
 
@@ -380,13 +389,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                let phase = match touch.phase {
-                    winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
-                    winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
-                    winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
-                    winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
-                };
-                runtime_window.process_touch_input(touch.id, position, phase);
+                runtime_window.process_touch_input(touch.id, position, winit_touch_phase(touch.phase));
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
@@ -414,29 +417,19 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             // known cursor position as the best available approximation. On macOS
             // trackpads, CursorMoved events typically precede gesture events.
             WindowEvent::PinchGesture { delta, phase, .. } => {
-                let phase = match phase {
-                    winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
-                    winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
-                    winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
-                    winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
-                };
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::PinchGesture {
                     position: self.cursor_pos,
                     delta: delta as f32,
-                    phase,
+                    phase: winit_touch_phase(phase),
                 });
             }
             WindowEvent::RotationGesture { delta, phase, .. } => {
-                let phase = match phase {
-                    winit::event::TouchPhase::Started => corelib::input::TouchPhase::Started,
-                    winit::event::TouchPhase::Moved => corelib::input::TouchPhase::Moved,
-                    winit::event::TouchPhase::Ended => corelib::input::TouchPhase::Ended,
-                    winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
-                };
+                // macOS/winit: positive = counterclockwise. Negate to match
+                // Slint convention (positive = clockwise).
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::RotationGesture {
                     position: self.cursor_pos,
-                    delta: delta as f32,
-                    phase,
+                    delta: -(delta as f32),
+                    phase: winit_touch_phase(phase),
                 });
             }
             WindowEvent::DoubleTapGesture { .. } => {

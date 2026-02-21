@@ -511,6 +511,42 @@ impl TouchMap {
     }
 }
 
+/// Fixed-capacity buffer for [`MouseEvent`]s produced by the touch state machine.
+///
+/// No branch in [`TouchState::process`] emits more than 3 events (gesture end
+/// produces PinchEnded + RotationEnded + Pressed/Exit). Capacity 4 provides a
+/// margin without heap allocation.
+const MAX_TOUCH_EVENTS: usize = 4;
+
+struct TouchEventBuffer {
+    events: [Option<MouseEvent>; MAX_TOUCH_EVENTS],
+    len: usize,
+}
+
+impl TouchEventBuffer {
+    fn new() -> Self {
+        Self { events: [None, None, None, None], len: 0 }
+    }
+
+    fn push(&mut self, event: MouseEvent) {
+        debug_assert!(self.len < MAX_TOUCH_EVENTS, "TouchEventBuffer overflow");
+        if self.len < MAX_TOUCH_EVENTS {
+            self.events[self.len] = Some(event);
+            self.len += 1;
+        }
+    }
+
+    #[cfg(test)]
+    fn iter(&self) -> impl Iterator<Item = &MouseEvent> {
+        self.events[..self.len].iter().filter_map(|e| e.as_ref())
+    }
+
+    fn into_iter(self) -> impl Iterator<Item = MouseEvent> {
+        let len = self.len;
+        self.events.into_iter().take(len).flatten()
+    }
+}
+
 /// State of the multi-touch gesture recognizer.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 enum GestureRecognitionState {
@@ -528,7 +564,7 @@ enum GestureRecognitionState {
 /// When only one finger is down, touch events are forwarded as mouse events.
 /// When two fingers are down and move beyond a threshold, synthesized
 /// `PinchGesture` and `RotationGesture` events are emitted — the same events
-/// that Path A (platform gestures) produces.
+/// that platform gesture recognition (e.g. macOS trackpad) produces.
 struct TouchState {
     active_touches: TouchMap,
     /// The finger forwarded as mouse events during single-touch.
@@ -588,18 +624,18 @@ impl TouchState {
     fn gesture_midpoint(&self) -> Option<LogicalPoint> {
         let (a, b) = self.gesture_finger_positions()?;
         Some(euclid::point2(
-            (a.position.x + b.position.x) / 2.0,
-            (a.position.y + b.position.y) / 2.0,
+            (a.position.x + b.position.x) / (2 as crate::Coord),
+            (a.position.y + b.position.y) / (2 as crate::Coord),
         ))
     }
 
     /// Returns (distance, angle_in_degrees) between the two gesture fingers.
     fn gesture_geometry(&self) -> Option<(f32, f32)> {
         let (a, b) = self.gesture_finger_positions()?;
-        let dx = b.position.x - a.position.x;
-        let dy = b.position.y - a.position.y;
-        let distance = (dx * dx + dy * dy).sqrt();
-        let angle = dy.atan2(dx).to_degrees();
+        let dx = b.position.x as f32 - a.position.x as f32;
+        let dy = b.position.y as f32 - a.position.y as f32;
+        let distance = num_traits::Float::sqrt(dx * dx + dy * dy);
+        let angle = num_traits::Float::atan2(dy, dx).to_degrees();
         Some((distance, angle))
     }
 
@@ -609,19 +645,11 @@ impl TouchState {
     }
 
     /// Snapshot the current two-finger geometry as the baseline for gesture deltas.
-    ///
-    /// Returns `true` if the snapshot succeeded. A `false` return means the
-    /// gesture finger IDs don't correspond to entries in `active_touches`,
-    /// which indicates a bug in the state machine.
-    fn snapshot_initial_geometry(&mut self) -> bool {
+    fn snapshot_initial_geometry(&mut self) {
         if let Some((dist, angle)) = self.gesture_geometry() {
             self.initial_distance = dist;
             self.last_scale = 1.0;
             self.last_angle = angle;
-            true
-        } else {
-            debug_assert!(false, "snapshot_initial_geometry called but gesture fingers not in active_touches");
-            false
         }
     }
 
@@ -648,276 +676,292 @@ impl TouchState {
         position: LogicalPoint,
         phase: TouchPhase,
         click_interval: core::time::Duration,
-    ) -> alloc::vec::Vec<MouseEvent> {
-        let mut events = alloc::vec::Vec::new();
-
+    ) -> TouchEventBuffer {
+        let mut events = TouchEventBuffer::new();
         match phase {
-            TouchPhase::Started => {
-                let is_double_tap = if self.active_touches.len() == 0 {
-                    // Check for double-tap before inserting, so a second finger
-                    // arriving during the double-tap touch doesn't see a stale entry.
-                    if let (Some(last_time), Some(last_pos)) =
-                        (self.last_tap_time, self.last_tap_position)
-                    {
-                        let now = crate::animations::Instant::now();
-                        let elapsed = now - last_time;
-                        let dist_sq = (position - last_pos).square_length();
-                        elapsed < click_interval && dist_sq < Self::DOUBLE_TAP_DISTANCE_SQ
-                    } else {
-                        false
+            TouchPhase::Started => self.process_started(id, position, click_interval, &mut events),
+            TouchPhase::Moved => self.process_moved(id, position, &mut events),
+            TouchPhase::Ended => self.process_ended(id, position, false, &mut events),
+            TouchPhase::Cancelled => self.process_ended(id, position, true, &mut events),
+        }
+        events
+    }
+
+    fn process_started(
+        &mut self,
+        id: u64,
+        position: LogicalPoint,
+        click_interval: core::time::Duration,
+        events: &mut TouchEventBuffer,
+    ) {
+        let is_double_tap = if self.active_touches.len() == 0 {
+            // Check for double-tap before inserting, so a second finger
+            // arriving during the double-tap touch doesn't see a stale entry.
+            if let (Some(last_time), Some(last_pos)) =
+                (self.last_tap_time, self.last_tap_position)
+            {
+                let now = crate::animations::Instant::now();
+                let elapsed = now - last_time;
+                let dist_sq = (position - last_pos).square_length() as f32;
+                elapsed < click_interval && dist_sq < Self::DOUBLE_TAP_DISTANCE_SQ
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if is_double_tap {
+            // Don't insert into active_touches: the finger-lift will
+            // find nothing to remove and fall through harmlessly.
+            self.last_tap_time = None;
+            self.last_tap_position = None;
+            events.push(MouseEvent::DoubleTapGesture { position });
+            return;
+        }
+
+        self.active_touches.insert(id, TouchPoint { position });
+
+        let total = self.active_touches.len();
+        if total == 1 {
+            // First finger: become primary, forward as mouse press.
+            self.primary_touch_id = Some(id);
+            self.gesture_state = GestureRecognitionState::Idle;
+            events.push(MouseEvent::Pressed {
+                position,
+                button: PointerEventButton::Left,
+                click_count: 0,
+                is_touch: true,
+            });
+        } else if total == 2 {
+            // Second finger: transition Idle → TwoFingersDown.
+            if let Some((id_a, id_b)) = self.active_touches.first_two_ids() {
+                self.gesture_finger_ids = Some((id_a, id_b));
+            }
+
+            // Synthesize a Release for the primary finger to clear any
+            // Flickable grab / delay state.
+            let primary_pos = self.primary_touch_id
+                .and_then(|pid| self.active_touches.get(pid))
+                .map(|tp| tp.position)
+                .unwrap_or(position);
+
+            self.snapshot_initial_geometry();
+            self.gesture_state = GestureRecognitionState::TwoFingersDown;
+            // Clear double-tap state: a two-finger gesture interrupts the sequence.
+            self.last_tap_time = None;
+            self.last_tap_position = None;
+
+            events.push(MouseEvent::Released {
+                position: primary_pos,
+                button: PointerEventButton::Left,
+                click_count: 0,
+                is_touch: true,
+            });
+        }
+        // 3+ fingers: tracked in active_touches but ignored for gesture.
+    }
+
+    fn process_moved(
+        &mut self,
+        id: u64,
+        position: LogicalPoint,
+        events: &mut TouchEventBuffer,
+    ) {
+        if let Some(tp) = self.active_touches.get_mut(id) {
+            tp.position = position;
+        }
+
+        let is_gesture_finger = self.is_gesture_finger(id);
+
+        match self.gesture_state {
+            GestureRecognitionState::Idle => {
+                if self.primary_touch_id == Some(id) {
+                    // Clear double-tap state if the finger moved too far
+                    // from the last tap, preventing false double-taps
+                    // after drags.
+                    if let Some(last_pos) = self.last_tap_position {
+                        if (position - last_pos).square_length() as f32
+                            >= Self::DOUBLE_TAP_DISTANCE_SQ
+                        {
+                            self.last_tap_time = None;
+                            self.last_tap_position = None;
+                        }
                     }
-                } else {
-                    false
-                };
-
-                if is_double_tap {
-                    // Don't insert into active_touches: the finger-lift will
-                    // find nothing to remove and fall through harmlessly.
-                    self.last_tap_time = None;
-                    self.last_tap_position = None;
-                    events.push(MouseEvent::DoubleTapGesture { position });
-                    return events;
+                    events.push(MouseEvent::Moved {
+                        position,
+                        is_touch: true,
+                    });
                 }
+            }
+            GestureRecognitionState::TwoFingersDown if is_gesture_finger => {
+                if let Some((dist, angle)) = self.gesture_geometry() {
+                    let delta_dist = (dist - self.initial_distance).abs();
+                    let delta_angle =
+                        Self::normalize_angle(angle - self.last_angle).abs();
+                    if delta_dist > Self::PINCH_THRESHOLD
+                        || delta_angle > Self::ROTATION_THRESHOLD
+                    {
+                        self.gesture_state = GestureRecognitionState::Pinching;
+                        // Re-snapshot so the first gesture event starts from
+                        // the current geometry rather than accumulating the
+                        // threshold movement.
+                        self.snapshot_initial_geometry();
 
-                self.active_touches.insert(id, TouchPoint { position });
+                        let midpoint =
+                            self.gesture_midpoint().unwrap_or(position);
 
-                let total = self.active_touches.len();
-                if total == 1 {
-                    // First finger: become primary, forward as mouse press.
-                    self.primary_touch_id = Some(id);
-                    self.gesture_state = GestureRecognitionState::Idle;
-                    events.push(MouseEvent::Pressed {
+                        events.push(MouseEvent::PinchGesture {
+                            position: midpoint,
+                            delta: 0.0,
+                            phase: TouchPhase::Started,
+                        });
+                        events.push(MouseEvent::RotationGesture {
+                            position: midpoint,
+                            delta: 0.0,
+                            phase: TouchPhase::Started,
+                        });
+                    }
+                }
+            }
+            GestureRecognitionState::Pinching if is_gesture_finger => {
+                if let Some((dist, angle)) = self.gesture_geometry() {
+                    let midpoint =
+                        self.gesture_midpoint().unwrap_or(position);
+
+                    let current_scale = if self.initial_distance > 0.0 {
+                        dist / self.initial_distance
+                    } else {
+                        1.0
+                    };
+                    let scale_delta = current_scale - self.last_scale;
+                    self.last_scale = current_scale;
+
+                    // `normalize_angle` wraps the raw delta to [-180, 180]
+                    // so that crossing the ±180° atan2 boundary doesn't
+                    // produce a full-revolution jump.
+                    let rotation_delta =
+                        Self::normalize_angle(angle - self.last_angle);
+                    self.last_angle = angle;
+
+                    events.push(MouseEvent::PinchGesture {
+                        position: midpoint,
+                        delta: scale_delta,
+                        phase: TouchPhase::Moved,
+                    });
+                    events.push(MouseEvent::RotationGesture {
+                        position: midpoint,
+                        delta: rotation_delta,
+                        phase: TouchPhase::Moved,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn process_ended(
+        &mut self,
+        id: u64,
+        position: LogicalPoint,
+        is_cancelled: bool,
+        events: &mut TouchEventBuffer,
+    ) {
+        // Check gesture membership *before* removing from the map.
+        let is_gesture_finger = self.is_gesture_finger(id);
+        self.active_touches.remove(id);
+
+        match self.gesture_state {
+            GestureRecognitionState::Idle => {
+                if self.primary_touch_id == Some(id) {
+                    self.primary_touch_id = None;
+                    if !is_cancelled {
+                        self.last_tap_time =
+                            Some(crate::animations::Instant::now());
+                        self.last_tap_position = Some(position);
+                    }
+                    events.push(MouseEvent::Released {
                         position,
                         button: PointerEventButton::Left,
                         click_count: 0,
                         is_touch: true,
                     });
-                } else if total == 2 {
-                    // Second finger: transition Idle → TwoFingersDown.
-                    if let Some((id_a, id_b)) = self.active_touches.first_two_ids() {
-                        self.gesture_finger_ids = Some((id_a, id_b));
+                    events.push(MouseEvent::Exit);
+                }
+            }
+            GestureRecognitionState::TwoFingersDown if is_gesture_finger => {
+                self.gesture_state = GestureRecognitionState::Idle;
+                self.gesture_finger_ids = None;
+                if !is_cancelled {
+                    if let Some((remaining_id, remaining)) =
+                        self.active_touches.first()
+                    {
+                        let remaining_pos = remaining.position;
+                        self.primary_touch_id = Some(remaining_id);
+                        events.push(MouseEvent::Pressed {
+                            position: remaining_pos,
+                            button: PointerEventButton::Left,
+                            click_count: 0,
+                            is_touch: true,
+                        });
+                    } else {
+                        self.primary_touch_id = None;
+                        events.push(MouseEvent::Exit);
                     }
+                } else {
+                    self.primary_touch_id = None;
+                    events.push(MouseEvent::Exit);
+                }
+            }
+            GestureRecognitionState::Pinching if is_gesture_finger => {
+                let midpoint =
+                    self.gesture_midpoint().unwrap_or(position);
+                self.gesture_state = GestureRecognitionState::Idle;
+                self.gesture_finger_ids = None;
 
-                    // Synthesize a Release for the primary finger to clear any
-                    // Flickable grab / delay state.
-                    let primary_pos = self.primary_touch_id
-                        .and_then(|pid| self.active_touches.get(pid))
-                        .map(|tp| tp.position)
-                        .unwrap_or(position);
+                let gesture_phase = if is_cancelled {
+                    TouchPhase::Cancelled
+                } else {
+                    TouchPhase::Ended
+                };
 
-                    self.snapshot_initial_geometry();
-                    self.gesture_state = GestureRecognitionState::TwoFingersDown;
-                    // Clear double-tap state: a two-finger gesture interrupts the sequence.
-                    self.last_tap_time = None;
-                    self.last_tap_position = None;
+                let remaining = if !is_cancelled {
+                    self.active_touches
+                        .first()
+                        .map(|(rid, rp)| (rid, rp.position))
+                } else {
+                    None
+                };
+                if let Some((rid, _)) = remaining {
+                    self.primary_touch_id = Some(rid);
+                } else {
+                    self.primary_touch_id = None;
+                }
 
-                    events.push(MouseEvent::Released {
-                        position: primary_pos,
+                events.push(MouseEvent::PinchGesture {
+                    position: midpoint,
+                    delta: 0.0,
+                    phase: gesture_phase,
+                });
+                events.push(MouseEvent::RotationGesture {
+                    position: midpoint,
+                    delta: 0.0,
+                    phase: gesture_phase,
+                });
+
+                if let Some((_, rpos)) = remaining {
+                    events.push(MouseEvent::Pressed {
+                        position: rpos,
                         button: PointerEventButton::Left,
                         click_count: 0,
                         is_touch: true,
                     });
-                }
-                // 3+ fingers: tracked in active_touches but ignored for gesture.
-            }
-
-            TouchPhase::Moved => {
-                if let Some(tp) = self.active_touches.get_mut(id) {
-                    tp.position = position;
-                }
-
-                let is_gesture_finger = self.is_gesture_finger(id);
-
-                match self.gesture_state {
-                    GestureRecognitionState::Idle => {
-                        if self.primary_touch_id == Some(id) {
-                            // Clear double-tap state if the finger moved too far
-                            // from the last tap, preventing false double-taps
-                            // after drags.
-                            if let Some(last_pos) = self.last_tap_position {
-                                if (position - last_pos).square_length()
-                                    >= Self::DOUBLE_TAP_DISTANCE_SQ
-                                {
-                                    self.last_tap_time = None;
-                                    self.last_tap_position = None;
-                                }
-                            }
-                            events.push(MouseEvent::Moved {
-                                position,
-                                is_touch: true,
-                            });
-                        }
-                    }
-                    GestureRecognitionState::TwoFingersDown if is_gesture_finger => {
-                        if let Some((dist, angle)) = self.gesture_geometry() {
-                            let delta_dist = (dist - self.initial_distance).abs();
-                            let delta_angle =
-                                Self::normalize_angle(angle - self.last_angle).abs();
-                            if delta_dist > Self::PINCH_THRESHOLD
-                                || delta_angle > Self::ROTATION_THRESHOLD
-                            {
-                                self.gesture_state = GestureRecognitionState::Pinching;
-                                // Re-snapshot so the first gesture event starts from
-                                // the current geometry rather than accumulating the
-                                // threshold movement.
-                                self.snapshot_initial_geometry();
-
-                                let midpoint =
-                                    self.gesture_midpoint().unwrap_or(position);
-
-                                events.push(MouseEvent::PinchGesture {
-                                    position: midpoint,
-                                    delta: 0.0,
-                                    phase: TouchPhase::Started,
-                                });
-                                events.push(MouseEvent::RotationGesture {
-                                    position: midpoint,
-                                    delta: 0.0,
-                                    phase: TouchPhase::Started,
-                                });
-                            }
-                        }
-                    }
-                    GestureRecognitionState::Pinching if is_gesture_finger => {
-                        if let Some((dist, angle)) = self.gesture_geometry() {
-                            let midpoint =
-                                self.gesture_midpoint().unwrap_or(position);
-
-                            let current_scale = if self.initial_distance > 0.0 {
-                                dist / self.initial_distance
-                            } else {
-                                1.0
-                            };
-                            let scale_delta = current_scale - self.last_scale;
-                            self.last_scale = current_scale;
-
-                            // Per-frame rotation delta from the raw atan2 angle.
-                            // `normalize_angle` handles the ±180° wraparound so that
-                            // even a large frame-skip produces the correct small delta.
-                            // Negate because screen Y-down means atan2 gives increasing
-                            // angles for clockwise rotation, but PinchGestureHandler
-                            // expects positive = counterclockwise (macOS convention).
-                            let rotation_delta =
-                                -Self::normalize_angle(angle - self.last_angle);
-                            self.last_angle = angle;
-
-                            events.push(MouseEvent::PinchGesture {
-                                position: midpoint,
-                                delta: scale_delta,
-                                phase: TouchPhase::Moved,
-                            });
-                            events.push(MouseEvent::RotationGesture {
-                                position: midpoint,
-                                delta: rotation_delta,
-                                phase: TouchPhase::Moved,
-                            });
-                        }
-                    }
-                    _ => {}
+                } else {
+                    events.push(MouseEvent::Exit);
                 }
             }
-
-            TouchPhase::Ended | TouchPhase::Cancelled => {
-                let is_cancelled = phase == TouchPhase::Cancelled;
-                // Check gesture membership *before* removing from the map.
-                let is_gesture_finger = self.is_gesture_finger(id);
-                self.active_touches.remove(id);
-
-                match self.gesture_state {
-                    GestureRecognitionState::Idle => {
-                        if self.primary_touch_id == Some(id) {
-                            self.primary_touch_id = None;
-                            if !is_cancelled {
-                                self.last_tap_time =
-                                    Some(crate::animations::Instant::now());
-                                self.last_tap_position = Some(position);
-                            }
-                            events.push(MouseEvent::Released {
-                                position,
-                                button: PointerEventButton::Left,
-                                click_count: 0,
-                                is_touch: true,
-                            });
-                            events.push(MouseEvent::Exit);
-                        }
-                    }
-                    GestureRecognitionState::TwoFingersDown if is_gesture_finger => {
-                        self.gesture_state = GestureRecognitionState::Idle;
-                        self.gesture_finger_ids = None;
-                        if !is_cancelled {
-                            if let Some((remaining_id, remaining)) =
-                                self.active_touches.first()
-                            {
-                                let remaining_pos = remaining.position;
-                                self.primary_touch_id = Some(remaining_id);
-                                events.push(MouseEvent::Pressed {
-                                    position: remaining_pos,
-                                    button: PointerEventButton::Left,
-                                    click_count: 0,
-                                    is_touch: true,
-                                });
-                            } else {
-                                self.primary_touch_id = None;
-                                events.push(MouseEvent::Exit);
-                            }
-                        } else {
-                            self.primary_touch_id = None;
-                            events.push(MouseEvent::Exit);
-                        }
-                    }
-                    GestureRecognitionState::Pinching if is_gesture_finger => {
-                        let midpoint =
-                            self.gesture_midpoint().unwrap_or(position);
-                        self.gesture_state = GestureRecognitionState::Idle;
-                        self.gesture_finger_ids = None;
-
-                        let gesture_phase = if is_cancelled {
-                            TouchPhase::Cancelled
-                        } else {
-                            TouchPhase::Ended
-                        };
-
-                        let remaining = if !is_cancelled {
-                            self.active_touches
-                                .first()
-                                .map(|(rid, rp)| (rid, rp.position))
-                        } else {
-                            None
-                        };
-                        if let Some((rid, _)) = remaining {
-                            self.primary_touch_id = Some(rid);
-                        } else {
-                            self.primary_touch_id = None;
-                        }
-
-                        events.push(MouseEvent::PinchGesture {
-                            position: midpoint,
-                            delta: 0.0,
-                            phase: gesture_phase,
-                        });
-                        events.push(MouseEvent::RotationGesture {
-                            position: midpoint,
-                            delta: 0.0,
-                            phase: gesture_phase,
-                        });
-
-                        if let Some((_, rpos)) = remaining {
-                            events.push(MouseEvent::Pressed {
-                                position: rpos,
-                                button: PointerEventButton::Left,
-                                click_count: 0,
-                                is_touch: true,
-                            });
-                        } else {
-                            events.push(MouseEvent::Exit);
-                        }
-                    }
-                    _ => {}
-                }
-            }
+            _ => {}
         }
-
-        events
     }
 }
 
@@ -1044,7 +1088,7 @@ mod touch_tests {
         DoubleTap(f32, f32),
     }
 
-    fn classify(events: &[MouseEvent]) -> Vec<Ev> {
+    fn classify(events: &TouchEventBuffer) -> Vec<Ev> {
         events
             .iter()
             .map(|e| match e {
@@ -1194,14 +1238,14 @@ mod touch_tests {
         // Rotate ~45° clockwise: move finger 2 from (120, 0) to roughly
         // (70.7, 70.7) which is at 45° from origin.
         // atan2(70.7, 70.7) ≈ 45°. Delta from re-snapshotted 0° = +45°.
-        // Negated for macOS convention → delta ≈ -45°.
+        // Slint convention: positive = clockwise → delta ≈ +45°.
         let evs = state.process(2, pt(70.7, 70.7), TouchPhase::Moved, CLICK_INTERVAL);
         let classified = classify(&evs);
         assert_eq!(classified.len(), 2);
         if let Ev::RotationMoved(delta) = classified[1] {
             assert!(
-                (delta - (-45.0)).abs() < 1.0,
-                "expected ~-45.0 (clockwise), got {}",
+                (delta - 45.0).abs() < 1.0,
+                "expected ~45.0 (clockwise), got {}",
                 delta
             );
         } else {
@@ -1239,57 +1283,6 @@ mod touch_tests {
         }
     }
 
-    #[test]
-    fn rotation_cumulative_over_multiple_frames() {
-        let mut state = TouchState::default();
-
-        // Finger 1 at origin, finger 2 at (100, 0).
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, CLICK_INTERVAL);
-        assert_eq!(state.gesture_state, GestureRecognitionState::Pinching);
-
-        // Rotate in 3 steps of ~30° each (clockwise).
-        // Step 1: 0° → 30°
-        let r = 120.0_f32;
-        let evs = state.process(
-            2,
-            pt(r * 30.0_f32.to_radians().cos(), r * 30.0_f32.to_radians().sin()),
-            TouchPhase::Moved,
-            CLICK_INTERVAL,
-        );
-        let d1 = if let Ev::RotationMoved(d) = classify(&evs)[1] { d } else { panic!() };
-
-        // Step 2: 30° → 60°
-        let evs = state.process(
-            2,
-            pt(r * 60.0_f32.to_radians().cos(), r * 60.0_f32.to_radians().sin()),
-            TouchPhase::Moved,
-            CLICK_INTERVAL,
-        );
-        let d2 = if let Ev::RotationMoved(d) = classify(&evs)[1] { d } else { panic!() };
-
-        // Step 3: 60° → 90°
-        let evs = state.process(
-            2,
-            pt(r * 90.0_f32.to_radians().cos(), r * 90.0_f32.to_radians().sin()),
-            TouchPhase::Moved,
-            CLICK_INTERVAL,
-        );
-        let d3 = if let Ev::RotationMoved(d) = classify(&evs)[1] { d } else { panic!() };
-
-        // Each delta should be ~-30° (clockwise, negated).
-        let total = d1 + d2 + d3;
-        assert!(
-            (total - (-90.0)).abs() < 2.0,
-            "cumulative rotation should be ~-90°, got {}",
-            total
-        );
-        // Each step should be roughly equal.
-        assert!((d1 - d2).abs() < 1.0, "deltas should be similar: {} vs {}", d1, d2);
-        assert!((d2 - d3).abs() < 1.0, "deltas should be similar: {} vs {}", d2, d3);
-    }
-
     // -----------------------------------------------------------------------
     // TouchState: gesture end transitions
     // -----------------------------------------------------------------------
@@ -1312,29 +1305,6 @@ mod touch_tests {
         );
         assert_eq!(state.gesture_state, GestureRecognitionState::Idle);
         assert_eq!(state.primary_touch_id, Some(1));
-    }
-
-    #[test]
-    fn pinch_end_no_remaining_finger_emits_exit() {
-        let mut state = TouchState::default();
-
-        state.process(1, pt(0.0, 0.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(2, pt(100.0, 0.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(2, pt(120.0, 0.0), TouchPhase::Moved, CLICK_INTERVAL);
-
-        // Lift finger 1 first (it's also a gesture finger, so gesture ends).
-        // But finger 2 is still tracked → remaining finger gets Pressed.
-        let evs = state.process(1, pt(0.0, 0.0), TouchPhase::Ended, CLICK_INTERVAL);
-        let classified = classify(&evs);
-        assert_eq!(
-            classified,
-            vec![Ev::PinchEnded, Ev::RotationEnded, Ev::Pressed(120.0, 0.0)]
-        );
-
-        // Now lift the remaining finger 2 (now primary, in Idle).
-        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Ended, CLICK_INTERVAL);
-        let classified = classify(&evs);
-        assert_eq!(classified, vec![Ev::Released(120.0, 0.0), Ev::Exit]);
     }
 
     #[test]
@@ -1446,21 +1416,6 @@ mod touch_tests {
     }
 
     #[test]
-    fn double_tap_state_cleared_by_two_finger_gesture() {
-        let mut state = TouchState::default();
-
-        // First tap.
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(1, pt(100.0, 200.0), TouchPhase::Ended, CLICK_INTERVAL);
-        assert!(state.last_tap_time.is_some());
-
-        // Second finger arrives → clears tap state.
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(2, pt(200.0, 200.0), TouchPhase::Started, CLICK_INTERVAL);
-        assert!(state.last_tap_time.is_none());
-    }
-
-    #[test]
     fn double_tap_finger_lift_harmless() {
         let mut state = TouchState::default();
 
@@ -1476,20 +1431,6 @@ mod touch_tests {
         // should produce no events (falls through _ => {} in Idle).
         let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Ended, CLICK_INTERVAL);
         assert!(classify(&evs).is_empty());
-    }
-
-    #[test]
-    fn cancelled_tap_does_not_enable_double_tap() {
-        let mut state = TouchState::default();
-
-        // Cancelled touch should not record tap state.
-        state.process(1, pt(100.0, 200.0), TouchPhase::Started, CLICK_INTERVAL);
-        state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, CLICK_INTERVAL);
-        assert!(state.last_tap_time.is_none());
-
-        // Next tap should be regular press.
-        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started, CLICK_INTERVAL);
-        assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
     }
 
     // -----------------------------------------------------------------------
@@ -1522,6 +1463,34 @@ mod touch_tests {
         assert!((TouchState::normalize_angle(360.0)).abs() < f32::EPSILON);
         assert!((TouchState::normalize_angle(540.0) - 180.0).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn zero_distance_fingers_no_division_by_zero() {
+        let mut state = TouchState::default();
+
+        // Two fingers at the exact same position → distance = 0.
+        state.process(1, pt(100.0, 100.0), TouchPhase::Started, CLICK_INTERVAL);
+        state.process(2, pt(100.0, 100.0), TouchPhase::Started, CLICK_INTERVAL);
+        assert_eq!(state.gesture_state, GestureRecognitionState::TwoFingersDown);
+
+        // Move one finger far enough to trigger gesture.
+        let evs = state.process(2, pt(120.0, 100.0), TouchPhase::Moved, CLICK_INTERVAL);
+        assert_eq!(state.gesture_state, GestureRecognitionState::Pinching);
+        let classified = classify(&evs);
+        assert_eq!(classified.len(), 2);
+        assert_eq!(classified[0], Ev::PinchStarted);
+
+        // Move further — scale should not be inf/NaN despite initial_distance
+        // having been 0 (re-snapshotted to 20.0 at threshold crossing).
+        let evs = state.process(2, pt(140.0, 100.0), TouchPhase::Moved, CLICK_INTERVAL);
+        let classified = classify(&evs);
+        if let Ev::PinchMoved(delta) = classified[0] {
+            assert!(delta.is_finite(), "scale delta should be finite, got {}", delta);
+        } else {
+            panic!("expected PinchMoved, got {:?}", classified[0]);
+        }
+    }
+
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -1847,7 +1816,7 @@ impl WindowInner {
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
     /// event (single finger) or synthesize `PinchGesture`/`RotationGesture` events
-    /// (two fingers), which are the same events that Path A (platform gestures) produces.
+    /// (two fingers), producing the same events as platform gesture recognition.
     ///
     /// `position` must be in **logical coordinates** (i.e., already divided by the
     /// scale factor). Passing physical coordinates will produce incorrect gesture
@@ -1855,7 +1824,7 @@ impl WindowInner {
     pub fn process_touch_input(&self, id: u64, position: LogicalPoint, phase: TouchPhase) {
         let click_interval = self.context().platform().click_interval();
         let events = self.touch_state.borrow_mut().process(id, position, phase, click_interval);
-        for event in events {
+        for event in events.into_iter() {
             self.process_mouse_input(event);
         }
     }

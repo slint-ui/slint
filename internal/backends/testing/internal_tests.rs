@@ -112,11 +112,10 @@ pub fn send_pinch_gesture<
     });
 }
 
-/// Send a platform rotation gesture event to the component's window.
+/// Send a rotation gesture event to the component's window.
 ///
-/// `delta` is the incremental rotation in degrees using the platform's sign convention
-/// (positive = counterclockwise on macOS). PinchGestureHandler negates this internally
-/// so that its `rotation` property uses positive = clockwise (CSS convention).
+/// `delta` is the incremental rotation in degrees using the Slint convention:
+/// positive = clockwise. The handler accumulates deltas into its `rotation` property.
 pub fn send_rotation_gesture<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,

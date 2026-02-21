@@ -4,7 +4,6 @@
 //! This module contains the code to receive input events from libinput
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 #[cfg(feature = "libseat")]
 use std::collections::HashMap;
 #[cfg(not(feature = "libseat"))]
@@ -117,7 +116,9 @@ pub struct LibInputHandler<'a> {
     libinput: input::Libinput,
     token: Option<calloop::Token>,
     mouse_pos: Pin<Rc<Property<Option<LogicalPosition>>>>,
-    last_touch_positions: BTreeMap<u64, LogicalPosition>,
+    /// Last known position per touch slot. Fixed-capacity to avoid heap
+    /// allocation — touchscreens rarely report more than 5 simultaneous contacts.
+    last_touch_positions: [(u64, Option<LogicalPosition>); 5],
     window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
     libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
@@ -141,7 +142,7 @@ impl<'a> LibInputHandler<'a> {
             libinput,
             token: Default::default(),
             mouse_pos: mouse_pos_property.clone(),
-            last_touch_positions: BTreeMap::new(),
+            last_touch_positions: Default::default(),
             window,
             keystate: Default::default(),
             libinput_event_hook,
@@ -153,6 +154,30 @@ impl<'a> LibInputHandler<'a> {
 
         Ok(mouse_pos_property)
     }
+
+}
+
+fn set_touch_pos(
+    positions: &mut [(u64, Option<LogicalPosition>); 5],
+    slot: u64,
+    pos: LogicalPosition,
+) {
+    if let Some(entry) = positions.iter_mut().find(|(s, _)| *s == slot) {
+        entry.1 = Some(pos);
+    } else if let Some(entry) = positions.iter_mut().find(|(_, p)| p.is_none()) {
+        *entry = (slot, Some(pos));
+    }
+}
+
+fn take_touch_pos(
+    positions: &mut [(u64, Option<LogicalPosition>); 5],
+    slot: u64,
+) -> LogicalPosition {
+    positions
+        .iter_mut()
+        .find(|(s, _)| *s == slot)
+        .and_then(|entry| entry.1.take())
+        .unwrap_or_default()
 }
 
 impl<'a> calloop::EventSource for LibInputHandler<'a> {
@@ -246,7 +271,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             touch_down_event.y_transformed(screen_size.height as u32) as _,
                         );
                         let slot = touch_down_event.slot().unwrap_or(0) as u64;
-                        self.last_touch_positions.insert(slot, pos);
+                        set_touch_pos(&mut self.last_touch_positions, slot, pos);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
                             logical_point_from_api(pos),
@@ -255,8 +280,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                     }
                     input::event::TouchEvent::Up(touch_up_event) => {
                         let slot = touch_up_event.slot().unwrap_or(0) as u64;
-                        let pos = self.last_touch_positions.remove(&slot)
-                            .unwrap_or_default();
+                        let pos = take_touch_pos(&mut self.last_touch_positions, slot);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
                             logical_point_from_api(pos),
@@ -269,7 +293,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             touch_motion_event.y_transformed(screen_size.height as u32) as _,
                         );
                         let slot = touch_motion_event.slot().unwrap_or(0) as u64;
-                        self.last_touch_positions.insert(slot, pos);
+                        set_touch_pos(&mut self.last_touch_positions, slot, pos);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
                             logical_point_from_api(pos),
@@ -278,8 +302,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                     }
                     input::event::TouchEvent::Cancel(touch_cancel_event) => {
                         let slot = touch_cancel_event.slot().unwrap_or(0) as u64;
-                        let pos = self.last_touch_positions.remove(&slot)
-                            .unwrap_or_default();
+                        let pos = take_touch_pos(&mut self.last_touch_positions, slot);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
                             logical_point_from_api(pos),

@@ -202,15 +202,14 @@ slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Star
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_rotation(), 0.0);
 
-// Send rotation delta of 15 degrees (platform convention: positive = counterclockwise).
-// PinchGestureHandler negates to match CSS/Slint convention (positive = clockwise).
-slint_testing::send_rotation_gesture(&instance, 15.0, 300.0, 300.0, TouchPhase::Moved);
+// Send rotation delta of -15 degrees (counterclockwise).
+slint_testing::send_rotation_gesture(&instance, -15.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_rotation(), -15.0);
 assert_eq!(instance.get_r(), "started;updated(1);");
 
-// Send another rotation delta of -5 degrees (clockwise on platform → positive in our convention)
-slint_testing::send_rotation_gesture(&instance, -5.0, 300.0, 300.0, TouchPhase::Moved);
+// Send another rotation delta of +5 degrees (5° clockwise)
+slint_testing::send_rotation_gesture(&instance, 5.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_rotation(), -10.0);
 assert_eq!(instance.get_r(), "started;updated(1);updated(1);");
 
@@ -224,7 +223,7 @@ use slint_testing::TouchPhase;
 
 // === Test 11: Rotation resets on new gesture start ===
 slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
-slint_testing::send_rotation_gesture(&instance, 45.0, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, -45.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_rotation(), -45.0);
 
 slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
@@ -266,7 +265,7 @@ assert_eq!(instance.get_active(), true);
 assert_eq!(instance.get_scale(), 1.0);
 assert_eq!(instance.get_rotation(), 0.0);
 
-slint_testing::send_rotation_gesture(&instance, 30.0, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, -30.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_rotation(), -30.0);
 // Scale unchanged because only rotation happened
 assert_eq!(instance.get_scale(), 1.0);
@@ -289,15 +288,15 @@ slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Move
 assert_eq!(instance.get_scale(), 1.5);
 assert_eq!(instance.get_rotation(), 0.0);
 
-slint_testing::send_rotation_gesture(&instance, 20.0, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, -20.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_scale(), 1.5);
 assert_eq!(instance.get_rotation(), -20.0);
 
 slint_testing::send_pinch_gesture(&instance, 0.3, 300.0, 300.0, TouchPhase::Moved);
-slint_testing::send_rotation_gesture(&instance, -10.0, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, 10.0, 300.0, 300.0, TouchPhase::Moved);
 // scale = 1.5 * (1 + 0.3) = 1.95
 assert!((instance.get_scale() - 1.95).abs() < 0.001);
-// rotation = -20 - (-10) = -10
+// rotation = -20 + 10 = -10
 assert_eq!(instance.get_rotation(), -10.0);
 
 slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ended);
@@ -311,7 +310,7 @@ use slint_testing::TouchPhase;
 // === Test 16: Cancellation resets scale and rotation ===
 slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Started);
 slint_testing::send_pinch_gesture(&instance, 0.5, 300.0, 300.0, TouchPhase::Moved);
-slint_testing::send_rotation_gesture(&instance, 45.0, 300.0, 300.0, TouchPhase::Moved);
+slint_testing::send_rotation_gesture(&instance, -45.0, 300.0, 300.0, TouchPhase::Moved);
 assert_eq!(instance.get_scale(), 1.5);
 assert_eq!(instance.get_rotation(), -45.0);
 assert_eq!(instance.get_active(), true);

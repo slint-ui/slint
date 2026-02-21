@@ -55,9 +55,9 @@ pub enum MouseEvent {
     /// `delta` is the incremental scale change; PinchGestureHandler accumulates it.
     PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
     /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt).
-    /// `delta` is the incremental rotation in degrees using the platform's sign convention
-    /// (positive = counterclockwise on macOS). PinchGestureHandler negates this internally
-    /// so that its `rotation` property uses positive = clockwise (CSS convention).
+    /// `delta` is the incremental rotation in degrees using the Slint convention:
+    /// positive = clockwise. Backends must convert from their platform convention
+    /// before constructing this event.
     RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
     /// A platform-recognized double-tap gesture ("smart magnify" on macOS trackpad).
     DoubleTapGesture { position: LogicalPoint },
@@ -73,9 +73,9 @@ impl MouseEvent {
             MouseEvent::Released { is_touch, .. } => Some(*is_touch),
             MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
             MouseEvent::Wheel { .. } => None,
-            MouseEvent::PinchGesture { .. } => None,
-            MouseEvent::RotationGesture { .. } => None,
-            MouseEvent::DoubleTapGesture { .. } => None,
+            MouseEvent::PinchGesture { .. }
+            | MouseEvent::RotationGesture { .. }
+            | MouseEvent::DoubleTapGesture { .. } => Some(true),
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
             MouseEvent::Exit => None,
         }
