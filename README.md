@@ -87,7 +87,7 @@ export component HelloWorld inherits Window {
 
 ### Documentation
 
-For more details, check out the [Slint Language Documentation](https://slint.dev/docs/slint).
+For more details, check out the [Slint Documentation](https://docs.slint.dev).
 
 The [examples](examples) folder contains examples and demos, showing how to
 use the Slint markup language and how to interact with a Slint user interface
@@ -106,11 +106,11 @@ Refer to the README of each language directory in the `api` folder:
 
 ## Architecture
 
-An application is composed of the business logic written in Rust, C++, or
+An application is composed of the business logic written in Rust, C++, Python, or
 JavaScript and the `.slint` user interface design markup, which is compiled to
 native code.
 
-![Architecture Overview](https://slint.dev/resources/architecture.drawio.svg)
+![Architecture Overview](https://slint.dev/resources/slint_architecture_block_diagram.svg)
 
 ### Compiler
 
