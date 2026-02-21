@@ -4,11 +4,11 @@
 export component SuperSimple {
     property <[keyboard-shortcut]> unknown_keys_list: [
         @keys(a),
-//            ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+//            ^error{a not defined in the Keys namespace↵(Use uppercase A instead)}
         @keys(Alt + Control + Shift + Meta + a),
-//                                           ^error{`a` not defined in the `Keys` namespace↵(Consider using "a")}
+//                                           ^error{a not defined in the Keys namespace↵(Use uppercase A instead)}
         @keys(    Alt + Control + Shift + Meta + FooBar    ),
-//                                               >    <error{`FooBar` not defined in the `Keys` namespace↵(Consider using "FooBar")}
+//                                               >    <error{FooBar not defined in the Keys namespace↵(Consider using "FooBar")}
         @keys(Shift+Plus),
 //                  >  <error{Shortcuts involving Plus ignore Shift to support different keyboard layouts↵Remove Shift and consider using e.g. Equal (for U.S. Keyboard layout)}
         @keys(Shift+Asterisk),
