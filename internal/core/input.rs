@@ -17,6 +17,7 @@ use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
+use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
 
@@ -379,6 +380,8 @@ pub fn make_keyboard_shortcut(
 #[cfg(feature = "ffi")]
 #[allow(unsafe_code)]
 pub(crate) mod ffi {
+    use crate::api::ToSharedString as _;
+
     use super::*;
 
     #[unsafe(no_mangle)]
@@ -405,15 +408,15 @@ pub(crate) mod ffi {
         shortcut: &KeyboardShortcut,
         out: &mut SharedString,
     ) {
-        *out = crate::format!("{shortcut:?}")
+        *out = crate::format!("{shortcut:?}");
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_to_platform_string(
+    pub unsafe extern "C" fn slint_keyboard_shortcut_to_string(
         shortcut: &KeyboardShortcut,
         out: &mut SharedString,
     ) {
-        *out = shortcut.to_platform_string();
+        *out = shortcut.to_shared_string();
     }
 
     #[unsafe(no_mangle)]
@@ -451,85 +454,7 @@ impl KeyboardShortcut {
         event_text.eq(self.key.chars()) && key_event.modifiers == expected_modifiers
     }
 
-    /// Convert the keyboard shortcut to a string that looks native on the current platform.
-    ///
-    /// For example, the shortcut created with @keys(Meta + Control + A)
-    /// will be converted like this:
-    /// - **macOS**: `⌃⌘A`
-    /// - **Windows**: `Super+Ctrl+A`
-    /// - **Linux**: `Super+Ctrl+A`
-    ///
-    /// Note that this functions output is best-effort and may be adjusted/improved at any time,
-    /// do not rely on this output to be stable!
-    //
-    // References for implementation
-    // - macOS: <https://developer.apple.com/design/human-interface-guidelines/keyboards>
-    // - Windows: <https://learn.microsoft.com/en-us/windows/apps/design/input/keyboard-accelerators>
-    // - Linux: <https://developer.gnome.org/hig/guidelines/keyboard.html>
-    pub fn to_platform_string(&self) -> SharedString {
-        if self.key.is_empty() {
-            return SharedString::default();
-        }
-
-        let mut parts = alloc::vec![];
-        let separator;
-
-        #[cfg(target_os = "macos")]
-        {
-            separator = "";
-
-            // Slint remaps modifiers on macOS: control → Command, meta → Control
-            // From Apple's documentation:
-            //
-            // List modifier keys in the correct order.
-            // If you use more than one modifier key in a custom shortcut, always list them in this order:
-            //  Control, Option, Shift, Command
-            if self.modifiers.meta {
-                parts.push("⌃");
-            }
-            if !self.ignore_alt && self.modifiers.alt {
-                parts.push("⌥");
-            }
-            if !self.ignore_shift && self.modifiers.shift {
-                parts.push("⇧");
-            }
-            if self.modifiers.control {
-                parts.push("⌘");
-            }
-        }
-
-        #[cfg(not(target_os = "macos"))]
-        {
-            separator = "+";
-
-            // TODO: These should probably be translated, but better to have at least
-            // platform-local names than nothing.
-            #[cfg(target_os = "windows")]
-            let (ctrl_str, alt_str, shift_str, meta_str) = ("Ctrl", "Alt", "Shift", "Win");
-
-            #[cfg(not(target_os = "windows"))]
-            let (ctrl_str, alt_str, shift_str, meta_str) = ("Ctrl", "Alt", "Shift", "Super");
-
-            if self.modifiers.meta {
-                parts.push(meta_str);
-            }
-            if self.modifiers.control {
-                parts.push(ctrl_str);
-            }
-            if !self.ignore_alt && self.modifiers.alt {
-                parts.push(alt_str);
-            }
-            if !self.ignore_shift && self.modifiers.shift {
-                parts.push(shift_str);
-            }
-        }
-        let key_display = self.format_key_for_display();
-        parts.push(&key_display);
-
-        parts.join(separator).into()
-    }
-
-    fn format_key_for_display(&self) -> alloc::string::String {
+    fn format_key_for_display(&self) -> crate::SharedString {
         let key_str = self.key.as_str();
         let first_char = key_str.chars().next();
 
@@ -552,14 +477,87 @@ impl KeyboardShortcut {
         }
 
         if key_str.chars().count() == 1 {
-            return key_str.to_uppercase();
+            return key_str.to_uppercase().into();
         }
 
         key_str.into()
     }
 }
 
+impl Display for KeyboardShortcut {
+    /// Converts the keyboard shortcut to a string that looks native on the current platform.
+    ///
+    /// For example, the shortcut created with @keys(Meta + Control + A)
+    /// will be converted like this:
+    /// - **macOS**: `⌃⌘A`
+    /// - **Windows**: `Super+Ctrl+A`
+    /// - **Linux**: `Super+Ctrl+A`
+    ///
+    /// Note that this functions output is best-effort and may be adjusted/improved at any time,
+    /// do not rely on this output to be stable!
+    //
+    // References for implementation
+    // - macOS: <https://developer.apple.com/design/human-interface-guidelines/keyboards>
+    // - Windows: <https://learn.microsoft.com/en-us/windows/apps/design/input/keyboard-accelerators>
+    // - Linux: <https://developer.gnome.org/hig/guidelines/keyboard.html>
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.key.is_empty() {
+            return Ok(());
+        }
+
+        if cfg!(target_os = "macos") {
+            // Slint remaps modifiers on macOS: control → Command, meta → Control
+            // From Apple's documentation:
+            //
+            // List modifier keys in the correct order.
+            // If you use more than one modifier key in a custom shortcut, always list them in this order:
+            //  Control, Option, Shift, Command
+            if self.modifiers.meta {
+                f.write_str("⌃")?;
+            }
+            if !self.ignore_alt && self.modifiers.alt {
+                f.write_str("⌥")?;
+            }
+            if !self.ignore_shift && self.modifiers.shift {
+                f.write_str("⇧")?;
+            }
+            if self.modifiers.control {
+                f.write_str("⌘")?;
+            }
+        } else {
+            let separator = "+";
+
+            // TODO: These should probably be translated, but better to have at least
+            // platform-local names than nothing.
+            let (ctrl_str, alt_str, shift_str, meta_str) = if cfg!(target_os = "windows") {
+                ("Ctrl", "Alt", "Shift", "Win")
+            } else {
+                ("Ctrl", "Alt", "Shift", "Super")
+            };
+
+            if self.modifiers.meta {
+                f.write_str(meta_str)?;
+                f.write_str(separator)?;
+            }
+            if self.modifiers.control {
+                f.write_str(ctrl_str)?;
+                f.write_str(separator)?;
+            }
+            if !self.ignore_alt && self.modifiers.alt {
+                f.write_str(alt_str)?;
+                f.write_str(separator)?;
+            }
+            if !self.ignore_shift && self.modifiers.shift {
+                f.write_str(shift_str)?;
+                f.write_str(separator)?;
+            }
+        }
+        f.write_str(&self.format_key_for_display())
+    }
+}
+
 impl core::fmt::Debug for KeyboardShortcut {
+    /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
         if self.key.is_empty() {
@@ -1331,7 +1329,7 @@ mod tests {
     extern crate alloc;
 
     #[test]
-    fn test_to_platform_string() {
+    fn test_to_string() {
         let test_cases = [
             (
                 "a",
@@ -1437,7 +1435,8 @@ mod tests {
         {
             let shortcut = make_keyboard_shortcut(key.into(), modifiers, ignore_shift, ignore_alt);
 
-            let result = shortcut.to_platform_string();
+            use crate::alloc::string::ToString;
+            let result = shortcut.to_string();
 
             #[cfg(target_os = "macos")]
             assert_eq!(result.as_str(), _expected_macos, "Failed for key: {:?}", key);

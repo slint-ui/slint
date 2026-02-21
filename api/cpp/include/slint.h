@@ -337,6 +337,13 @@ translate_from_bundle_with_plural(std::span<const char8_t *const> strs,
     return result;
 }
 
+inline SharedString keyboard_shortcut_to_string(const cbindgen_private::KeyboardShortcut &shortcut)
+{
+    SharedString result;
+    cbindgen_private::slint_keyboard_shortcut_to_string(&shortcut, &result);
+    return result;
+}
+
 template<typename Component>
 inline float get_resolved_default_font_size(const Component &component)
 {
