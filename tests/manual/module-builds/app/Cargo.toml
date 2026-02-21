@@ -10,7 +10,7 @@ publish = false
 license = "MIT"
 
 [dependencies]
-slint = { path = "../../../../api/rs/slint" }
+slint = { path = "../../../../api/rs/slint", features = ["experimental-module-builds"] }
 blogica = { path = "../blogica" }
 blogicb = { path = "../blogicb" }
 rand = "0.9"

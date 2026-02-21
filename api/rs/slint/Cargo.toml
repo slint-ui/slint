@@ -272,6 +272,8 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## ```
 unstable-fontique-07 = ["i-slint-common/shared-fontique"]
 
+experimental-module-builds = ["i-slint-core/experimental-library-module"]
+
 [dependencies]
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
@@ -335,5 +337,6 @@ features = [
   "unstable-winit-030",
   "unstable-libinput-09",
   "unstable-fontique-07",
+  "experimental-module-builds",
 ]
 rustdoc-args = ["--generate-link-to-definition"]
