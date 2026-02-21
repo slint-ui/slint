@@ -10171,6 +10171,7 @@ dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-testing",
  "i-slint-compiler",
+ "i-slint-core",
  "slint",
  "slint-interpreter",
  "spin_on",
