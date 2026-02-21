@@ -101,6 +101,7 @@ component SimpleText inherits Empty {
     in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
+    in property <int> max-lines;
     //-default_size_binding:implicit_size
 
     in property <angle> rotation-angle <=> transform-rotation;
@@ -129,6 +130,7 @@ component StyledTextItem inherits Empty {
     in property <brush> color;
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
+    in property <int> max-lines;
     callback link-clicked(link: string);
     in property <color> link-color: #00f;
 
