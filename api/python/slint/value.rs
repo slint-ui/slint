@@ -341,6 +341,22 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
+                let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
+                let dict = asdict.cast::<PyDict>()?;
+                let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
+                    .iter()
+                    .map(|(name, pyval)| {
+                        let name = name.extract::<&str>()?.to_string();
+                        let slintval =
+                            Self::slint_value_from_py_value_bound(&pyval, type_collection)?;
+                        Ok((name, slintval))
+                    })
+                    .collect::<Result<Vec<(_, _)>, PyErr>>();
+                Ok::<_, PyErr>(slint_interpreter::Value::Struct(
+                    slint_interpreter::Struct::from_iter(dict_items?.into_iter()),
+                ))
+            })
+            .or_else(|_| {
                 let dict = ob.cast::<PyDict>()?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()

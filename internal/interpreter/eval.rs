@@ -450,11 +450,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::KeyboardShortcut(ks) => {
             Value::KeyboardShortcut(i_slint_core::input::make_keyboard_shortcut(
                 SharedString::from(&*ks.key),
-                i_slint_core::input::KeyboardModifiers {
-                    alt: ks.modifiers.alt,
-                    control: ks.modifiers.control,
-                    shift: ks.modifiers.shift,
-                    meta: ks.modifiers.meta,
+                {
+                    let mut m = i_slint_core::input::KeyboardModifiers::default();
+                    m.alt = ks.modifiers.alt;
+                    m.control = ks.modifiers.control;
+                    m.shift = ks.modifiers.shift;
+                    m.meta = ks.modifiers.meta;
+                    m
                 },
                 ks.ignore_shift,
                 ks.ignore_alt,

@@ -15,7 +15,15 @@ import typing
 from typing import Any
 import pathlib
 from .models import ListModel, Model
-from .slint import Image, Color, Brush, Timer, TimerMode
+from .slint import (
+    Image,
+    Color,
+    Brush,
+    Timer,
+    TimerMode,
+    KeyboardModifiers,
+    StandardListViewItem,
+)
 from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
@@ -473,7 +481,7 @@ def _callback_decorator(
 
         if inspect.iscoroutinefunction(callable):
 
-            def run_as_task(*args, **kwargs) -> None:  # type: ignore
+            def run_as_task(*args, **kwargs) -> None:
                 loop = asyncio.get_event_loop()
                 loop.create_task(callable(*args, **kwargs))
 
@@ -634,4 +642,6 @@ __all__ = [
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
+    "KeyboardModifiers",
+    "StandardListViewItem",
 ]
