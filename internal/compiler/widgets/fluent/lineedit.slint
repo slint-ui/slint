@@ -4,52 +4,16 @@
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
-export component LineEdit {
-    in property <bool> enabled <=> base.enabled;
-    in property <InputType> input-type;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
-    in property <bool> read-only <=> base.read-only;
-    in property <length> font-size <=> base.font-size;
-    in property <string> font-family <=> base.font-family;
-    in property <bool> font-italic <=> base.font-italic;
-    in property <string> placeholder-text <=> base.placeholder-text;
-    out property <bool> has-focus <=> base.has-focus;
-    in-out property <string> text <=> base.text;
+import { LineEditInterface } from "../common/std-widget-interfaces.slint";
 
-    callback accepted <=> base.accepted;
-    callback edited <=> base.edited;
-    callback key-pressed <=> base.key-pressed;
-    callback key-released <=> base.key-released;
+export component LineEdit uses { LineEditInterface from base } {
+
     accessible-role: text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
-
-    public function set-selection-offsets(start: int, end: int) {
-        base.set-selection-offsets(start, end);
-    }
-
-    public function select-all() {
-        base.select-all();
-    }
-
-    public function clear-selection() {
-        base.clear-selection();
-    }
-
-    public function cut() {
-        base.cut();
-    }
-
-    public function copy() {
-        base.copy();
-    }
-
-    public function paste() {
-        base.paste();
-    }
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
@@ -84,7 +48,6 @@ export component LineEdit {
             padding-right: 12px;
 
             base := LineEditBase {
-                input-type: root.input-type;
                 font-size: FluentFontSettings.body.font-size;
                 font-weight: FluentFontSettings.body.font-weight;
                 selection-background-color: FluentPalette.selection-background;
