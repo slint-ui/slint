@@ -24,7 +24,7 @@ members = [
   'examples/gstreamer-player',
   'examples/plotter',
   'demos/printerdemo/rust',
-  'demos/printerdemo_mcu',
+  'demos/printerdemo_mcu/rust',
   'examples/slide_puzzle',
   'examples/speedometer/rust',
   'examples/todo/rust',
