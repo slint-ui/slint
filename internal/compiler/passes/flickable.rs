@@ -124,10 +124,10 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
         .is_set_externally = true;
 
     let enclosing_component = flickable.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(insertion_point) = &mut *enclosing_component.child_insertion_point.borrow_mut()
-        && std::rc::Rc::ptr_eq(&insertion_point.parent, flickable)
-    {
-        insertion_point.parent = viewport.clone()
+    for insertion_point in enclosing_component.child_insertion_points.borrow_mut().values_mut() {
+        if std::rc::Rc::ptr_eq(&insertion_point.parent, flickable) {
+            insertion_point.parent = viewport.clone()
+        }
     }
 
     flickable.borrow_mut().children.push(viewport);

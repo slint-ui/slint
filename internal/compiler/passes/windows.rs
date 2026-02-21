@@ -65,6 +65,8 @@ pub fn ensure_window(
 
         inline_depth: 0,
         is_legacy_syntax: false,
+        slot_target: None,
+        forwarded_slots: Vec::new(),
     };
     let new_root = new_root.make_rc();
     win_elem_mut.children.push(new_root.clone());

@@ -343,8 +343,9 @@ impl Snapshotter {
                     .collect(),
             );
 
-            let child_insertion_point =
-                RefCell::new(component.child_insertion_point.borrow().clone());
+            let child_insertion_points =
+                RefCell::new(component.child_insertion_points.borrow().clone());
+            let declared_slots = component.declared_slots.clone();
 
             let popup_windows = RefCell::new(
                 component
@@ -370,7 +371,8 @@ impl Snapshotter {
             object_tree::Component {
                 node: component.node.clone(),
                 id: component.id.clone(),
-                child_insertion_point,
+                child_insertion_points,
+                declared_slots,
                 exported_global_names: RefCell::new(
                     component.exported_global_names.borrow().clone(),
                 ),

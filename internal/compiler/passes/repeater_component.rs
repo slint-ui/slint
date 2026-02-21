@@ -63,6 +63,8 @@ fn create_repeater_components(component: &Rc<Component>) {
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: elem.is_legacy_syntax,
                 inline_depth: 0,
+                slot_target: elem.slot_target.clone(),
+                forwarded_slots: elem.forwarded_slots.clone(),
                 grid_layout_cell: elem.grid_layout_cell.clone(),
             })),
             parent_element,
