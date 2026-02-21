@@ -31,6 +31,7 @@ std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", 
 libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm", "swash?/libm"]
 
 experimental = []
+testing = ["i-slint-core/testing"]
 default = ["std"]
 
 [dependencies]

@@ -56,6 +56,8 @@ svg = ["dep:resvg"]
 
 box-shadow-cache = []
 
+testing = []
+
 shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]

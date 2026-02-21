@@ -22,6 +22,47 @@ use crate::{
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
 
+type InnerTextLayoutCache = crate::item_rendering::ItemCache<Vec<TextParagraph>>;
+
+/// Cache for shaped text paragraphs (before line breaking), keyed by ItemRc.
+pub struct TextLayoutCache {
+    inner: InnerTextLayoutCache,
+    #[cfg(feature = "testing")]
+    cache_miss_count: std::cell::Cell<u64>,
+}
+
+impl Default for TextLayoutCache {
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+            #[cfg(feature = "testing")]
+            cache_miss_count: std::cell::Cell::new(0),
+        }
+    }
+}
+
+impl TextLayoutCache {
+    pub fn clear_cache_if_scale_factor_changed(&self, window: &crate::api::Window) {
+        self.inner.clear_cache_if_scale_factor_changed(window);
+    }
+    pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
+        self.inner.component_destroyed(component);
+    }
+    pub fn clear_all(&self) {
+        self.inner.clear_all();
+    }
+}
+
+#[cfg(feature = "testing")]
+impl TextLayoutCache {
+    pub fn cache_miss_count(&self) -> u64 {
+        self.cache_miss_count.get()
+    }
+    pub fn reset_cache_miss_count(&self) {
+        self.cache_miss_count.set(0);
+    }
+}
+
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
@@ -379,11 +420,18 @@ fn create_text_paragraphs(
     paragraphs
 }
 
+/// `text_wrap` is passed separately from the shaped paragraphs because
+/// `text_layout_info()` calls `text_size()` with `NoWrap` for horizontal sizing.
+/// Note: parley currently uses `WordBreak` while shaping via `analyze_text()`,
+/// so shaped paragraphs aren't identical across wrap modes. This is why `text_size()`
+/// doesn't use the `TextLayoutCache` — it would be incorrect to share cached paragraphs
+/// shaped with one wrap mode and reuse them with another.
 fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
+    text_wrap: TextWrap,
     options: LayoutOptions,
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
@@ -417,9 +465,7 @@ fn layout(
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
         para.layout.break_all_lines(
-            max_physical_width
-                .filter(|_| layout_builder.text_wrap != TextWrap::NoWrap)
-                .map(|width| width.get()),
+            max_physical_width.filter(|_| text_wrap != TextWrap::NoWrap).map(|width| width.get()),
         );
         para.layout.align(
             max_physical_width.map(|width| width.get()),
@@ -456,6 +502,60 @@ fn layout(
     };
 
     Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
+}
+
+/// RAII guard: takes Vec out of the cache on creation, puts it back on drop.
+struct CachedParagraphsGuard<'a> {
+    paragraphs: Option<Vec<TextParagraph>>,
+    container: Option<std::cell::RefMut<'a, Vec<TextParagraph>>>,
+}
+
+impl Drop for CachedParagraphsGuard<'_> {
+    fn drop(&mut self) {
+        if let (Some(paragraphs), Some(container)) = (self.paragraphs.take(), &mut self.container) {
+            **container = paragraphs;
+        }
+    }
+}
+
+fn shape_paragraphs(
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
+    scale_factor: ScaleFactor,
+    font_context: &mut parley::FontContext,
+) -> Vec<TextParagraph> {
+    let (stroke_brush, _, stroke_style) = text.stroke();
+    let has_stroke = !stroke_brush.is_transparent();
+    let builder = LayoutWithoutLineBreaksBuilder::new(
+        item_rc.map(|irc| text.font_request(irc)),
+        text.wrap(),
+        has_stroke.then_some(stroke_style),
+        scale_factor,
+    );
+    create_text_paragraphs(&builder, font_context, text.text(), None, text.link_color())
+}
+
+fn get_or_create_text_paragraphs<'a>(
+    cache: Option<&'a TextLayoutCache>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    scale_factor: ScaleFactor,
+    font_context: &mut parley::FontContext,
+) -> CachedParagraphsGuard<'a> {
+    if let (Some(cache), Some(item_rc)) = (cache, item_rc) {
+        let mut entry = cache.inner.get_or_update_cache_entry_ref(item_rc, || {
+            #[cfg(feature = "testing")]
+            cache.cache_miss_count.set(cache.cache_miss_count.get() + 1);
+            shape_paragraphs(text, Some(item_rc), scale_factor, font_context)
+        });
+        let paragraphs = std::mem::take(&mut *entry);
+        CachedParagraphsGuard { paragraphs: Some(paragraphs), container: Some(entry) }
+    } else {
+        CachedParagraphsGuard {
+            paragraphs: Some(shape_paragraphs(text, item_rc, scale_factor, font_context)),
+            container: None,
+        }
+    }
 }
 
 struct ElisionInfo {
@@ -883,6 +983,7 @@ pub fn draw_text(
     text: Pin<&dyn crate::item_rendering::RenderText>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     size: LogicalSize,
+    cache: Option<&TextLayoutCache>,
 ) {
     let max_width = size.width_length();
     let max_height = size.height_length();
@@ -916,6 +1017,7 @@ pub fn draw_text(
         None
     };
 
+    // The layout_builder is still needed for the elision glyph in layout().
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         item_rc.map(|item_rc| text.font_request(item_rc)),
         text.wrap(),
@@ -925,22 +1027,19 @@ pub fn draw_text(
 
     let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        &mut font_ctx,
-        text.text(),
-        None,
-        text.link_color(),
-    );
+    let mut guard =
+        get_or_create_text_paragraphs(cache, item_rc, text, scale_factor, &mut font_ctx);
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
+    let text_wrap = text.wrap();
 
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
-        paragraphs_without_linebreaks,
+        guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
+        text_wrap,
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -978,6 +1077,10 @@ pub fn draw_text(
     if text_overflow == TextOverflow::Clip {
         item_renderer.restore_state();
     }
+
+    // Put paragraphs back into the cache guard for reuse.
+    // break_all_lines replaces line data each time, so the state is ready for the next call.
+    guard.paragraphs = Some(layout.paragraphs);
 }
 
 #[cfg(feature = "experimental-rich-text")]
@@ -988,6 +1091,7 @@ pub fn link_under_cursor(
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     cursor: PhysicalPoint,
+    cache: Option<&TextLayoutCache>,
 ) -> Option<std::string::String> {
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(text.font_request(item_rc)),
@@ -996,18 +1100,17 @@ pub fn link_under_cursor(
         scale_factor,
     );
 
-    let layout_text = text.text();
-
-    let paragraphs_without_linebreaks =
-        create_text_paragraphs(&layout_builder, font_context, layout_text, None, text.link_color());
+    let mut guard =
+        get_or_create_text_paragraphs(cache, Some(item_rc), text, scale_factor, font_context);
 
     let (horizontal_align, vertical_align) = text.alignment();
 
     let layout = layout(
         &layout_builder,
         font_context,
-        paragraphs_without_linebreaks,
+        guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
+        text.wrap(),
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -1017,39 +1120,44 @@ pub fn link_under_cursor(
         },
     );
 
-    let Some(paragraph) = layout.paragraph_by_y(cursor.y_length()) else {
-        return None;
-    };
+    let result = layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
+        let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
 
-    let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+        paragraph
+            .links
+            .iter()
+            .find(|(range, _)| {
+                let start = parley::editing::Cursor::from_byte_index(
+                    &paragraph.layout,
+                    range.start,
+                    Default::default(),
+                );
+                let end = parley::editing::Cursor::from_byte_index(
+                    &paragraph.layout,
+                    range.end,
+                    Default::default(),
+                );
+                let mut clicked = false;
+                let link_range = parley::Selection::new(start, end);
+                link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
+                    bounding_box.y0 += paragraph_y;
+                    bounding_box.y1 += paragraph_y;
+                    clicked = bounding_box.union(parley::BoundingBox::new(
+                        cursor.x.into(),
+                        cursor.y.into(),
+                        cursor.x.into(),
+                        cursor.y.into(),
+                    )) == bounding_box;
+                });
+                clicked
+            })
+            .map(|(_, link)| link.clone())
+    });
 
-    let (_, link) = paragraph.links.iter().find(|(range, _)| {
-        let start = parley::editing::Cursor::from_byte_index(
-            &paragraph.layout,
-            range.start,
-            Default::default(),
-        );
-        let end = parley::editing::Cursor::from_byte_index(
-            &paragraph.layout,
-            range.end,
-            Default::default(),
-        );
-        let mut clicked = false;
-        let link_range = parley::Selection::new(start, end);
-        link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
-            bounding_box.y0 += paragraph_y;
-            bounding_box.y1 += paragraph_y;
-            clicked = bounding_box.union(parley::BoundingBox::new(
-                cursor.x.into(),
-                cursor.y.into(),
-                cursor.x.into(),
-                cursor.y.into(),
-            )) == bounding_box;
-        });
-        clicked
-    })?;
+    // Put paragraphs back into the cache guard for reuse.
+    guard.paragraphs = Some(layout.paragraphs);
 
-    Some(link.clone())
+    result
 }
 
 pub fn draw_text_input(
@@ -1114,6 +1222,7 @@ pub fn draw_text_input(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
+        text_input.wrap(),
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
 
@@ -1160,6 +1269,7 @@ pub fn text_size(
     item_rc: &crate::item_tree::ItemRc,
     max_width: Option<LogicalLength>,
     text_wrap: TextWrap,
+    _cache: Option<&TextLayoutCache>,
 ) -> Option<LogicalSize> {
     let scale_factor = renderer.scale_factor()?;
 
@@ -1183,6 +1293,7 @@ pub fn text_size(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
+        text_wrap,
         LayoutOptions {
             max_width,
             max_height: None,
@@ -1296,6 +1407,7 @@ pub fn text_input_byte_offset_for_position(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
+        text_input.wrap(),
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let byte_offset = layout.byte_offset_from_point(pos);
@@ -1348,6 +1460,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
+        text_input.wrap(),
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let cursor_rect = layout
