@@ -1057,9 +1057,7 @@ impl Item for PinchGestureHandler {
                         if !self.active() {
                             return InputEventResult::EventIgnored;
                         }
-                        // Negate: macOS/winit report positive = counterclockwise,
-                        // but our documented convention is positive = clockwise.
-                        let new_rotation = self.rotation() - delta;
+                        let new_rotation = self.rotation() + delta;
                         Self::FIELD_OFFSETS.rotation.apply_pin(self).set(new_rotation);
                         Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
                         Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
@@ -1158,8 +1156,11 @@ impl PinchGestureHandler {
             return;
         }
         Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
+        // Reset after the callback so handlers can read the last known values
+        // to animate back smoothly, matching the pattern where `ended` leaves
+        // scale/rotation at their final values.
         Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
         Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
-        Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
     }
 }

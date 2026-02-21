@@ -27,10 +27,93 @@ component InfoItem inherits VerticalLayout {
     }
 }
 
+component ResetButton inherits Rectangle {
+    callback clicked();
+
+    height: 28px;
+    width: layout.preferred-width;
+    background: ta.has-hover ? #0f3460 : #16213e;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #404060;
+
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    layout := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+
+        Text {
+            text: "Reset";
+            color: #a0a0b0;
+            font-size: 13px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component GestureArea inherits Rectangle {
+    in property <length> image-size;
+    in property <float> current-scale;
+    in property <angle> current-rotation;
+    in property <bool> gesture-active;
+
+    background: root.gesture-active ? #1e2a4a : #16213e;
+    border-radius: 8px;
+    border-width: root.gesture-active ? 2px : 0px;
+    border-color: #e94560;
+    clip: true;
+
+    Image {
+        width: root.image-size * root.current-scale;
+        height: root.image-size * root.current-scale;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        source: @image-url("../../logo/slint-logo-square-light.png");
+        transform-rotation: root.current-rotation;
+    }
+}
+
+component InfoPanel inherits VerticalLayout {
+    in property <float> current-scale;
+    in property <angle> current-rotation;
+    in property <string> status-text;
+    in property <bool> gesture-active;
+    in property <bool> has-gesture-occurred;
+    in property <length> center-x;
+    in property <length> center-y;
+
+    InfoItem {
+        label: "Scale";
+        value: round(root.current-scale * 100) + "%";
+    }
+
+    InfoItem {
+        label: "Rotation";
+        value: round(root.current-rotation / 1deg) + "°";
+    }
+
+    InfoItem {
+        label: "State";
+        value: root.status-text;
+        value-color: root.gesture-active ? #e94560 : #a0a0b0;
+    }
+
+    InfoItem {
+        label: "Center";
+        value: root.has-gesture-occurred
+            ? round(root.center-x / 1px) + ", " + round(root.center-y / 1px)
+            : "—";
+    }
+}
+
 export component MainWindow inherits Window {
     title: "Native Gestures Demo";
-    width: 800px;
-    height: 600px;
+    preferred-width: 800px;
+    preferred-height: 600px;
     background: #1a1a2e;
 
     property <float> current-scale: 1.0;
@@ -43,6 +126,14 @@ export component MainWindow inherits Window {
     property <length> center-y;
     property <bool> has-gesture-occurred: false;
     property <bool> gestures-enabled: true;
+    property <bool> is-landscape: root.width > root.height;
+
+    function reset() {
+        root.current-scale = 1.0;
+        root.current-rotation = 0deg;
+        root.status-text = "idle";
+        root.has-gesture-occurred = false;
+    }
 
     PinchGestureHandler {
         enabled: root.gestures-enabled;
@@ -85,11 +176,46 @@ export component MainWindow inherits Window {
         }
     }
 
+    // Safe-area inset container
     VerticalLayout {
-        padding: 20px;
-        spacing: 12px;
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        padding: root.is-landscape ? 12px : 16px;
+        spacing: 8px;
 
-        Text {
+        // Header + controls: single row in landscape, stacked in portrait
+        if root.is-landscape: HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+
+            Text {
+                text: "PinchGestureHandler Demo";
+                color: #e0e0f0;
+                font-size: 14px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: "Pinch • Rotate • Double-tap";
+                color: #606080;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+
+            Switch {
+                text: "Enabled";
+                checked <=> root.gestures-enabled;
+            }
+
+            ResetButton {
+                clicked => { root.reset(); }
+            }
+        }
+
+        if !root.is-landscape: Text {
             text: "PinchGestureHandler Demo";
             color: #e0e0f0;
             font-size: 18px;
@@ -97,15 +223,14 @@ export component MainWindow inherits Window {
             horizontal-alignment: center;
         }
 
-        Text {
+        if !root.is-landscape: Text {
             text: "Pinch to zoom  •  Rotate with two fingers  •  Double-tap to toggle zoom";
             color: #606080;
             font-size: 12px;
             horizontal-alignment: center;
         }
 
-        // Controls
-        HorizontalLayout {
+        if !root.is-landscape: HorizontalLayout {
             alignment: center;
             spacing: 20px;
 
@@ -114,58 +239,54 @@ export component MainWindow inherits Window {
                 checked <=> root.gestures-enabled;
             }
 
+            ResetButton {
+                clicked => { root.reset(); }
+            }
+        }
+
+        // Gesture area + info panel: side-by-side in landscape, stacked in portrait
+        if root.is-landscape: HorizontalLayout {
+            spacing: 8px;
+
+            GestureArea {
+                horizontal-stretch: 1;
+                image-size: 150px;
+                current-scale: root.current-scale;
+                current-rotation: root.current-rotation;
+                gesture-active: root.gesture-active;
+            }
+
             Rectangle {
-                height: 28px;
-                width: reset-layout.preferred-width;
-                background: reset-ta.has-hover ? #0f3460 : #16213e;
+                width: 100px;
+                background: #16213e;
                 border-radius: 6px;
-                border-width: 1px;
-                border-color: #404060;
 
-                reset-ta := TouchArea {
-                    clicked => {
-                        root.current-scale = 1.0;
-                        root.current-rotation = 0deg;
-                        root.status-text = "idle";
-                        root.has-gesture-occurred = false;
-                    }
-                }
+                VerticalLayout {
+                    alignment: space-around;
+                    padding: 8px;
 
-                reset-layout := HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 12px;
-
-                    Text {
-                        text: "Reset";
-                        color: #a0a0b0;
-                        font-size: 13px;
-                        vertical-alignment: center;
-                        horizontal-alignment: center;
+                    InfoPanel {
+                        current-scale: root.current-scale;
+                        current-rotation: root.current-rotation;
+                        status-text: root.status-text;
+                        gesture-active: root.gesture-active;
+                        has-gesture-occurred: root.has-gesture-occurred;
+                        center-x: root.center-x;
+                        center-y: root.center-y;
                     }
                 }
             }
         }
 
-        // Gesture area
-        Rectangle {
-            background: root.gesture-active ? #1e2a4a : #16213e;
-            border-radius: 8px;
-            border-width: root.gesture-active ? 2px : 0px;
-            border-color: #e94560;
-            clip: true;
-
-            Image {
-                width: 200px * root.current-scale;
-                height: 200px * root.current-scale;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                source: @image-url("../../logo/slint-logo-square-light.png");
-                transform-rotation: current-rotation;
-            }
+        if !root.is-landscape: GestureArea {
+            vertical-stretch: 1;
+            image-size: 200px;
+            current-scale: root.current-scale;
+            current-rotation: root.current-rotation;
+            gesture-active: root.gesture-active;
         }
 
-        // Info panel
-        Rectangle {
+        if !root.is-landscape: Rectangle {
             height: 60px;
             background: #16213e;
             border-radius: 6px;
@@ -174,27 +295,14 @@ export component MainWindow inherits Window {
                 alignment: space-around;
                 padding: 8px;
 
-                InfoItem {
-                    label: "Scale";
-                    value: round(root.current-scale * 100) + "%";
-                }
-
-                InfoItem {
-                    label: "Rotation";
-                    value: round(root.current-rotation / 1deg) + "°";
-                }
-
-                InfoItem {
-                    label: "State";
-                    value: root.status-text;
-                    value-color: root.gesture-active ? #e94560 : #a0a0b0;
-                }
-
-                InfoItem {
-                    label: "Center";
-                    value: root.has-gesture-occurred
-                        ? round(root.center-x / 1px) + ", " + round(root.center-y / 1px)
-                        : "—";
+                InfoPanel {
+                    current-scale: root.current-scale;
+                    current-rotation: root.current-rotation;
+                    status-text: root.status-text;
+                    gesture-active: root.gesture-active;
+                    has-gesture-occurred: root.has-gesture-occurred;
+                    center-x: root.center-x;
+                    center-y: root.center-y;
                 }
             }
         }
