@@ -389,7 +389,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                runtime_window.process_touch_input(touch.id, position, winit_touch_phase(touch.phase));
+                runtime_window.process_touch_input(
+                    touch.id,
+                    position,
+                    winit_touch_phase(touch.phase),
+                );
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {

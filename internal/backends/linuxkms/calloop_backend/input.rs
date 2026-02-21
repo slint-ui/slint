@@ -154,7 +154,6 @@ impl<'a> LibInputHandler<'a> {
 
         Ok(mouse_pos_property)
     }
-
 }
 
 fn set_touch_pos(
