@@ -154,6 +154,7 @@ mod tests {
 
     use super::*;
 
+    /// We don't reach the position limit. Before the velocity gets zero
     #[test]
     fn constant_deceleration_increasing_limit_not_reached() {
         let initial_velocity = 50.;
@@ -196,5 +197,31 @@ mod tests {
 
         assert!(res.0 < 2000.); // We reached velocity zero before we reached the position limit
     }
+
+    /// We reach the position limit before the velocity got zero
+    #[test]
+    fn constant_deceleration_increasing_limit_reached() {
+        let initial_velocity = 50.;
+        let deceleration = 20.;
+        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+            initial_velocity: Length::new(initial_velocity),
+            deceleration: Scale::new(deceleration),
+        };
+
+        let mut time = Instant::now();
+        let mut simulation = ConstantDeceleration::new_internal(
+            Length::new(10.),
+            Length::new(20.),
+            parameters.initial_velocity,
+            parameters,
+            time.clone(),
+        );
+
+        let mut duration = Duration::from_secs(3);
+        assert!(deceleration * duration.as_secs_f32() > initial_velocity); // We don't reach the limit where the velocity gets zero
+        time += duration;
+        let (res, finished) = simulation.step_internal(time);
+        assert_eq!(finished, true);
+        assert_eq!(res.0, 20.); // Limit reached
     }
 }
