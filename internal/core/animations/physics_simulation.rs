@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use core::{f32, time::Duration};
-
-use crate::animations::{self, Instant};
+use crate::{
+    Coord,
+    animations::{self, Instant},
+};
 use euclid::{Length, Scale};
 
 pub enum Seconds {}
@@ -16,16 +17,16 @@ enum Direction {
 }
 
 pub trait Simulation<Unit> {
-    fn step(&mut self) -> (Length<f32, Unit>, bool);
-    fn curr_value(&self) -> Length<f32, Unit>;
+    fn step(&mut self) -> (Length<Coord, Unit>, bool);
+    fn curr_value(&self) -> Length<Coord, Unit>;
 }
 
 pub trait Parameter<Unit> {
     type Output;
     fn simulation(
         self,
-        start_value: Length<f32, Unit>,
-        limit_value: Length<f32, Unit>,
+        start_value: Length<Coord, Unit>,
+        limit_value: Length<Coord, Unit>,
     ) -> Self::Output;
 }
 
@@ -39,8 +40,8 @@ impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationParameters<DestUnit> 
     type Output = ConstantDeceleration<DestUnit>;
     fn simulation(
         self,
-        start_value: Length<f32, DestUnit>,
-        limit_value: Length<f32, DestUnit>,
+        start_value: Length<Coord, DestUnit>,
+        limit_value: Length<Coord, DestUnit>,
     ) -> Self::Output {
         let initial_velocity = self.initial_velocity.clone();
         ConstantDeceleration::new(start_value, limit_value, initial_velocity, self)
@@ -51,8 +52,8 @@ impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationParameters<DestUnit> 
 pub struct ConstantDeceleration<Unit> {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
     /// but at the end of the animation the limit shall not be exceeded
-    limit_value: Length<f32, Unit>,
-    curr_val: Length<f32, Unit>,
+    limit_value: Length<Coord, Unit>,
+    curr_val: Length<Coord, Unit>,
     velocity: Length<f32, Unit>,
     data: ConstantDecelerationParameters<Unit>,
     direction: Direction,
@@ -61,8 +62,8 @@ pub struct ConstantDeceleration<Unit> {
 
 impl<Unit> ConstantDeceleration<Unit> {
     pub fn new(
-        start_value: Length<f32, Unit>,
-        limit_value: Length<f32, Unit>,
+        start_value: Length<Coord, Unit>,
+        limit_value: Length<Coord, Unit>,
         initial_velocity: Length<f32, Unit>,
         data: ConstantDecelerationParameters<Unit>,
     ) -> Self {
@@ -95,12 +96,13 @@ impl<Unit> ConstantDeceleration<Unit> {
         }
     }
 
-    fn step_internal(&mut self, new_tick: Instant) -> (Length<f32, Unit>, bool) {
+    fn step_internal(&mut self, new_tick: Instant) -> (Length<Coord, Unit>, bool) {
         // We have to prevent go go beyond the limit where velocity gets zero
         let duration = Time::new(f32::min(
             new_tick.duration_since(self.start_time).as_secs_f32(),
             f32::abs((self.velocity / self.data.deceleration).0),
         ));
+
         self.start_time = new_tick;
 
         let velocity_loss = f32::abs((duration * self.data.deceleration).0);
@@ -110,7 +112,10 @@ impl<Unit> ConstantDeceleration<Unit> {
             self.velocity.0 + velocity_loss
         };
 
-        self.curr_val += duration * Scale::new((self.velocity.0 + new_velocity) / 2.); // Trapezoidal integration
+        self.curr_val += Length::new(
+            (duration * Scale::<f32, Seconds, Unit>::new((self.velocity.0 + new_velocity) / 2.)).0
+                as Coord,
+        ); // Trapezoidal integration
         self.velocity = Length::new(new_velocity);
 
         match self.direction {
@@ -138,11 +143,11 @@ impl<Unit> ConstantDeceleration<Unit> {
 }
 
 impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
-    fn curr_value(&self) -> Length<f32, Unit> {
+    fn curr_value(&self) -> Length<Coord, Unit> {
         self.curr_val
     }
 
-    fn step(&mut self) -> (Length<f32, Unit>, bool) {
+    fn step(&mut self) -> (Length<Coord, Unit>, bool) {
         let new_tick = animations::current_tick();
         self.step_internal(new_tick)
     }
@@ -150,9 +155,9 @@ impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lengths::LogicalPx;
-
     use super::*;
+    use crate::lengths::LogicalPx;
+    use core::time::Duration;
 
     /// We don't reach the position limit. Before the velocity gets zero
     #[test]
