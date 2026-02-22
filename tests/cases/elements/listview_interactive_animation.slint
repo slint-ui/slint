@@ -64,6 +64,14 @@ send_mouse_press_and_release(&instance, 5., 0., 5., 75.); // Larger y is display
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
 assert!((instance.get_viewport_y() - old_viewport_y) > 75., "Received: {}, Desired: larger than {}", instance.get_viewport_y() - old_viewport_y, 75);
+
+// Now scrolling up again but we hit the viewport limit
+let old_viewport_y = instance.get_viewport_y();
+println!("Old viewport y: {:?}", old_viewport_y);
+send_mouse_press_and_release(&instance, 5., 0., 5., 75.);
+// let the animation run for a bit
+slint_testing::mock_elapsed_time(100);
+assert!(instance.get_viewport_y() == 0., "Received: {}, Desired: {}", instance.get_viewport_y(), 0.);
 ```
 
 */
