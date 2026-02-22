@@ -66,6 +66,22 @@ impl<Unit> ConstantDeceleration<Unit> {
         initial_velocity: Length<f32, Unit>,
         data: ConstantDecelerationParameters<Unit>,
     ) -> Self {
+        Self::new_internal(
+            start_value,
+            limit_value,
+            initial_velocity,
+            data,
+            crate::animations::current_tick(),
+        )
+    }
+
+    pub fn new_internal(
+        start_value: Length<f32, Unit>,
+        limit_value: Length<f32, Unit>,
+        initial_velocity: Length<f32, Unit>,
+        data: ConstantDecelerationParameters<Unit>,
+        start_time: Instant,
+    ) -> Self {
         let direction =
             if start_value < limit_value { Direction::Increasing } else { Direction::Decreasing };
 
@@ -75,18 +91,11 @@ impl<Unit> ConstantDeceleration<Unit> {
             velocity: initial_velocity,
             data,
             direction,
-            start_time: crate::animations::current_tick(),
+            start_time,
         }
     }
-}
 
-impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
-    fn curr_value(&self) -> Length<f32, Unit> {
-        self.curr_val
-    }
-
-    fn step(&mut self) -> (Length<f32, Unit>, bool) {
-        let new_tick = animations::current_tick();
+    fn step_internal(&mut self, new_tick: Instant) -> (Length<f32, Unit>, bool) {
         let duration = new_tick.duration_since(self.start_time);
         self.start_time = new_tick;
 
@@ -121,5 +130,53 @@ impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
             }
         }
         (self.curr_val, false)
+    }
+}
+
+impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
+    fn curr_value(&self) -> Length<f32, Unit> {
+        self.curr_val
+    }
+
+    fn step(&mut self) -> (Length<f32, Unit>, bool) {
+        let new_tick = animations::current_tick();
+        self.step_internal(new_tick)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lengths::LogicalPx;
+
+    use super::*;
+
+    #[test]
+    fn constant_deceleration_increasing() {
+        let initial_velocity = 50.;
+        let deceleration = 20.;
+        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+            initial_velocity: Length::new(initial_velocity),
+            deceleration: Scale::new(deceleration),
+        };
+
+        let mut time = Instant::now();
+        let mut simulation = ConstantDeceleration::new_internal(
+            Length::new(10.),
+            Length::new(2000.),
+            parameters.initial_velocity,
+            parameters,
+            time.clone(),
+        );
+
+        let mut duration = Duration::from_secs(1);
+        assert!(deceleration * duration.as_secs_f32() < initial_velocity);
+        time += duration;
+        let (res, finished) = simulation.step_internal(time);
+        assert_eq!(finished, false);
+        assert_eq!(
+            res.0,
+            10. + 50. * duration.as_secs_f32()
+                - 0.5 * deceleration * duration.as_secs_f32().powi(2)
+        );
     }
 }
