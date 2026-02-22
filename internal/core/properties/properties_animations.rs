@@ -374,14 +374,14 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     }
 }
 
-impl<Unit: 'static> Property<euclid::Length<f32, Unit>> {
+impl<Unit: 'static> Property<euclid::Length<crate::Coord, Unit>> {
     /// Change the value by using a physics animation
     pub fn set_physic_animation_value<
         T: physics_simulation::Simulation<Unit> + 'static,
         AD: physics_simulation::Parameter<Unit, Output = T>,
     >(
         &self,
-        value: euclid::Length<f32, Unit>,
+        value: euclid::Length<crate::Coord, Unit>,
         simulation_data: AD,
     ) {
         let d = RefCell::new(PropertyPhysicsAnimationData::new(
