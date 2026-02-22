@@ -17,6 +17,10 @@ export struct WeatherData {
     temperature: float,
 }
 
+export enum SoundEffect {
+    dial-tick,
+}
+
 export global Api {
     in property <float> indoor-temperature: 22.0;
     in property <float> outdoor-temperature: 24.0;
@@ -95,4 +99,6 @@ export global Api {
                 temperature: 23.0,
             },
     ];
+
+    callback play-sound(SoundEffect);
 }

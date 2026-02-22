@@ -21,6 +21,7 @@ name = "home_automation_lib"
 [dependencies]
 slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06"] }
 chrono = "0.4"
+kira = "0.10"
 
 [features]
 sw-renderer = []
