@@ -3,9 +3,11 @@
 
 use super::*;
 use crate::{
+    animations::{self, physics_simulation},
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
+use core::marker::PhantomData;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -19,6 +21,53 @@ enum AnimationState {
     Done {
         iteration_count: u64,
     },
+}
+
+pub(super) struct PropertyPhysicsAnimationData<S, Unit> {
+    simulation: S,
+    state: AnimationState,
+    _unit: PhantomData<Unit>,
+}
+
+impl<S, Unit> PropertyPhysicsAnimationData<S, Unit>
+where
+    S: physics_simulation::Simulation<Unit>,
+{
+    pub fn new(simulation: S) -> PropertyPhysicsAnimationData<S, Unit> {
+        PropertyPhysicsAnimationData {
+            simulation,
+            state: AnimationState::Delaying,
+            _unit: PhantomData,
+        }
+    }
+
+    /// Single iteration of the animation
+    pub fn compute_interpolated_value(&mut self) -> (euclid::Length<f32, Unit>, bool) {
+        match self.state {
+            AnimationState::Delaying => {
+                // Decide on next state:
+                self.state = AnimationState::Animating { current_iteration: 0 };
+                self.compute_interpolated_value()
+            }
+            AnimationState::Animating { current_iteration: _ } => {
+                //self.state = AnimationState::Animating { current_iteration };
+                let (val, finished) = self.simulation.step();
+                if finished {
+                    self.state = AnimationState::Done { iteration_count: 0 };
+                    self.compute_interpolated_value()
+                } else {
+                    (val, false)
+                }
+            }
+            AnimationState::Done { iteration_count: _ } => {
+                (self.simulation.curr_value().clone(), true)
+            }
+        }
+    }
+
+    fn reset(&mut self) {
+        self.state = AnimationState::Delaying;
+    }
 }
 
 pub(super) struct PropertyValueAnimationData<T> {
@@ -318,6 +367,44 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 self.debug_name.borrow().as_str(),
             )
         };
+        self.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
+    }
+}
+
+impl<Unit: 'static> Property<euclid::Length<f32, Unit>> {
+    /// Change the value by using a physics animation
+    pub fn set_physic_animation_value<
+        T: physics_simulation::Simulation<Unit> + 'static,
+        AD: physics_simulation::Parameter<Unit, Output = T>,
+    >(
+        &self,
+        value: euclid::Length<f32, Unit>,
+        simulation_data: AD,
+    ) {
+        let d = RefCell::new(PropertyPhysicsAnimationData::new(
+            simulation_data.simulation(self.get_internal(), value),
+        ));
+        // Safety: the BindingCallable will cast its argument to T
+        unsafe {
+            self.handle.set_binding(
+                move |val: &mut euclid::Length<_, Unit>| {
+                    let (value, finished) = d.borrow_mut().compute_interpolated_value();
+                    *val = value;
+                    if finished {
+                        BindingResult::RemoveBinding
+                    } else {
+                        crate::animations::CURRENT_ANIMATION_DRIVER
+                            .with(|driver| driver.set_has_active_animations());
+                        BindingResult::KeepBinding
+                    }
+                },
+                #[cfg(slint_debug_property)]
+                self.debug_name.borrow().as_str(),
+            );
+        }
         self.handle.mark_dirty(
             #[cfg(slint_debug_property)]
             self.debug_name.borrow().as_str(),
