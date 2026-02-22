@@ -26,7 +26,6 @@ use core::time::Duration;
 /// TODO: merge with platform::WindowEvent
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
     /// `position` is the position of the mouse when the event happens.
@@ -44,7 +43,8 @@ pub enum MouseEvent {
     /// `pos` is the position of the mouse when the event happens.
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
     /// `delta_y` is the amount of pixels to scroll in vertical direction.
-    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
+    /// `phase` is the current phase the wheel event is
+    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
     /// The mouse is being dragged over this item.
     /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
     /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
@@ -157,7 +157,9 @@ impl MouseEvent {
     }
 }
 
-/// Phase of a touch or gesture event.
+/// Phase of a touch, gesture event or wheel event.
+/// A touchpad is recognized as wheel event and therefore
+/// we need to find out when the touch event starts and ends
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TouchPhase {
@@ -167,7 +169,7 @@ pub enum TouchPhase {
     Moved,
     /// The gesture completed normally.
     Ended,
-    /// The gesture was cancelled (e.g., interrupted by the system).
+    /// The gesture was cancelled (e.g., interrupted by the system) or the mouse wheel was used
     Cancelled,
 }
 

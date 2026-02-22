@@ -7,7 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::input::{KeyEventType, MouseEvent};
+use crate::input::{KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -669,6 +669,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     delta_x: delta_x as _,
                     delta_y: delta_y as _,
+                    phase: TouchPhase::Cancelled,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {
