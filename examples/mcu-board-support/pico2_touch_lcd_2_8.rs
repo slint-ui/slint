@@ -24,7 +24,7 @@ use slint::platform::{PointerEventButton, WindowEvent};
 
 use crate::embassy::{EmbassyBackend, PlatformBackend};
 
-const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
+const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(240, 320);
 const SPI_ST7789VW_MAX_FREQ: u32 = 62_500_000;
 const HEAP_SIZE: usize = 400 * 1024;
 
@@ -110,8 +110,7 @@ pub fn init() {
     let di = mipidsi::interface::SpiInterface::new(display_spi, dc, mipidsi_buffer);
     let display = mipidsi::Builder::new(mipidsi::models::ST7789, di)
         .reset_pin(rst)
-        .display_size(DISPLAY_SIZE.height as _, DISPLAY_SIZE.width as _)
-        .orientation(mipidsi::options::Orientation::new().rotate(mipidsi::options::Rotation::Deg90))
+        .display_size(DISPLAY_SIZE.width as _, DISPLAY_SIZE.height as _)
         .invert_colors(mipidsi::options::ColorInversion::Inverted)
         .init(&mut Delay)
         .unwrap();
@@ -154,8 +153,10 @@ pub fn init() {
         tp_int,
     };
 
+    // Slint window is landscape (320x240) — swap physical display dimensions
+    let window_size = slint::PhysicalSize::new(DISPLAY_SIZE.height, DISPLAY_SIZE.width);
     let embassy_backend =
-        EmbassyBackend::new(pico_backend, DISPLAY_SIZE, renderer::RepaintBufferType::ReusedBuffer);
+        EmbassyBackend::new(pico_backend, window_size, renderer::RepaintBufferType::ReusedBuffer);
 
     slint::platform::set_platform(Box::new(embassy_backend)).expect("backend already initialized");
 }
@@ -189,9 +190,12 @@ impl PlatformBackend for PicoEmbassyBackend {
             .map_err(|_| ())
             .unwrap()
             .map(|point| {
+                // Touch reports physical portrait coords (x: 0..240, y: 0..320).
+                // Map to logical landscape window (320x240) for Rotate90 rendering:
+                //   logical_x = raw_y,  logical_y = 240 - raw_x
                 let position = slint::PhysicalPosition::new(
-                    (point.x * DISPLAY_SIZE.width as f32) as _,
-                    (point.y * DISPLAY_SIZE.height as f32) as _,
+                    point.y as _,
+                    (DISPLAY_SIZE.width as f32 - point.x) as _,
                 )
                 .to_logical(window.scale_factor());
                 match self.last_touch.replace(position) {
@@ -216,6 +220,7 @@ impl PlatformBackend for PicoEmbassyBackend {
     }
 
     async fn render(&mut self, renderer: &SoftwareRenderer) {
+        renderer.set_rendering_rotation(renderer::RenderingRotation::Rotate90);
         let mut provider = DmaLineBufferProvider {
             display: &mut self.display,
             buffer: &mut *self.line_buffer_a,
@@ -387,11 +392,6 @@ mod cst328 {
         }
 
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, I2C::Error> {
-            // Touch controller reports in native portrait orientation (240x320).
-            // Display is rotated 90° to landscape, so swap axes and flip.
-            const NATIVE_WIDTH: f32 = 240.0;
-            const NATIVE_HEIGHT: f32 = 320.0;
-
             self.i2c.write(TP_ADDR, &[0xD0, 0x00])?;
             let mut data = [0u8; 27];
             self.i2c.read(TP_ADDR, &mut data)?;
@@ -401,9 +401,8 @@ mod cst328 {
                 let raw_x = ((data[1] as u16) << 4) | ((data[3] as u16) >> 4);
                 let raw_y = ((data[2] as u16) << 4) | (data[3] as u16 & 0x0F);
 
-                // For 90° rotation: landscape_x = raw_y, landscape_y = (native_width - raw_x)
-                let x = raw_y as f32 / NATIVE_HEIGHT;
-                let y = (NATIVE_WIDTH - raw_x as f32) / NATIVE_WIDTH;
+                let x = raw_x as f32;
+                let y = raw_y as f32;
 
                 Ok(Some(euclid::point2(x, y)))
             } else {
