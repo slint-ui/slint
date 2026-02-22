@@ -222,7 +222,7 @@ mod tests {
             time.clone(),
         );
 
-        let mut duration = Duration::from_secs(3);
+        let duration = Duration::from_secs(3);
         assert!(deceleration * duration.as_secs_f32() > initial_velocity); // We don't reach the limit where the velocity gets zero
         time += duration;
         let (res, finished) = simulation.step_internal(time);
