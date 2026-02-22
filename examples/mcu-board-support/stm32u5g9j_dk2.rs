@@ -247,6 +247,7 @@ pub fn init() {
     let embassy_backend = EmbassyBackend::new(
         stm_backend,
         slint::PhysicalSize { width: DISPLAY_WIDTH as u32, height: DISPLAY_HEIGHT as u32 },
+        slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
     );
 
     slint::platform::set_platform(Box::new(embassy_backend)).expect("backend already initialized");

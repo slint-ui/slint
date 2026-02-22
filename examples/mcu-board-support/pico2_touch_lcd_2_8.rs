@@ -4,450 +4,337 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::rc::Rc;
 use alloc::vec;
 use core::cell::RefCell;
-use core::convert::Infallible;
-use cortex_m::interrupt::Mutex;
-use cortex_m::singleton;
+use core::sync::atomic::{Ordering, compiler_fence};
 pub use cortex_m_rt::entry;
 use embedded_alloc::LlffHeap as Heap;
+use embedded_hal_bus::spi::RefCellDevice;
 use static_cell::StaticCell;
 
-use embedded_hal::digital::OutputPin;
-use embedded_hal::spi::{ErrorType, Operation, SpiBus, SpiDevice};
-use fugit::{Hertz, RateExtU32};
-use hal::dma::{DMAExt, SingleChannel, WriteTarget};
-use hal::timer::{Alarm, Alarm0};
-use pac::interrupt;
+use embassy_rp::gpio::{Input, Level, Output, Pull};
+use embassy_rp::pac;
+use embassy_rp::pac::dma::vals::{DataSize, TreqSel};
+use embassy_rp::spi::Spi;
+use embassy_time::Delay;
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
-use renderer::Rgb565Pixel;
+use slint::platform::software_renderer::{self as renderer, Rgb565Pixel, SoftwareRenderer};
+use slint::platform::{PointerEventButton, WindowEvent};
 
-use hal::{Timer, pac, prelude::*, timer::CopyableTimer0};
-use rp235x_hal as hal;
-use slint::platform::{PointerEventButton, WindowEvent, software_renderer as renderer};
+use crate::embassy::{EmbassyBackend, PlatformBackend};
 
-#[unsafe(link_section = ".start_block")]
-#[unsafe(no_mangle)]
-#[used]
-pub static IMAGE_DEF: hal::block::ImageDef = hal::block::ImageDef::secure_exe();
-
-const XOSC_CRYSTAL_FREQ: u32 = 12_000_000;
-
+const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
+const SPI_ST7789VW_MAX_FREQ: u32 = 62_500_000;
 const HEAP_SIZE: usize = 400 * 1024;
+
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 #[global_allocator]
 static ALLOCATOR: Heap = Heap::empty();
 
-static ALARM0: Mutex<RefCell<Option<Alarm0<CopyableTimer0>>>> = Mutex::new(RefCell::new(None));
-static TIMER: Mutex<RefCell<Option<Timer<CopyableTimer0>>>> = Mutex::new(RefCell::new(None));
+/// The Pixel type of the backing store
+pub type TargetPixel = Rgb565Pixel;
 
-type TpIntPin = gpio::Pin<gpio::bank0::Gpio18, gpio::FunctionSio<gpio::SioInput>, gpio::PullUp>;
-static TP_INT_PIN: Mutex<RefCell<Option<TpIntPin>>> = Mutex::new(RefCell::new(None));
+/// Raw UART0 writer for defmt_serial.
+/// Embassy-rp 0.4.0 implements embedded_io 0.6, but defmt_serial 0.11.0 requires 0.7.
+/// Bypass the version mismatch by writing to UART0 registers directly.
+struct RawUart0;
 
-/// Wrapper around PAC UART0 for use with defmt_serial.
-struct PacUart(pac::UART0);
+// RP2350 UART0 register addresses
+const UART0_DR: *mut u32 = 0x4007_0000 as *mut u32;
+const UART0_FR: *const u32 = 0x4007_0018 as *const u32;
 
-impl defmt_serial::EraseWrite for PacUart {
+impl defmt_serial::EraseWrite for RawUart0 {
     fn write(&mut self, buf: &[u8]) {
         for &byte in buf {
-            while self.0.uartfr().read().txff().bit_is_set() {}
-            self.0.uartdr().write(|w| unsafe { w.data().bits(byte) });
+            unsafe {
+                while core::ptr::read_volatile(UART0_FR) & (1 << 5) != 0 {} // TXFF
+                core::ptr::write_volatile(UART0_DR, byte as u32);
+            }
         }
     }
 
     fn flush(&mut self) {
-        while self.0.uartfr().read().busy().bit_is_set() {}
-    }
-}
-
-// 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
-const SPI_ST7789VW_MAX_FREQ: Hertz<u32> = Hertz::<u32>::Hz(62_500_000);
-
-const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
-
-/// The Pixel type of the backing store
-pub type TargetPixel = Rgb565Pixel;
-
-type SpiPins = (
-    gpio::Pin<gpio::bank0::Gpio11, gpio::FunctionSpi, gpio::PullDown>,
-    gpio::Pin<gpio::bank0::Gpio10, gpio::FunctionSpi, gpio::PullDown>,
-);
-
-type EnabledSpi = hal::Spi<hal::spi::Enabled, pac::SPI1, SpiPins, 8>;
-type SpiRefCell = RefCell<(EnabledSpi, Hertz<u32>)>;
-type Display<DI, RST> = mipidsi::Display<DI, mipidsi::models::ST7789, RST>;
-
-use hal::gpio::{self, Interrupt as GpioInterrupt};
-
-#[derive(Clone)]
-struct SharedSpiWithFreq<CS> {
-    refcell: &'static SpiRefCell,
-    cs: CS,
-    freq: Hertz<u32>,
-    peri_freq: Hertz<u32>,
-}
-
-impl<CS> ErrorType for SharedSpiWithFreq<CS> {
-    type Error = <EnabledSpi as ErrorType>::Error;
-}
-
-impl<CS: OutputPin<Error = Infallible>> SpiDevice for SharedSpiWithFreq<CS> {
-    #[inline]
-    fn transaction(&mut self, operations: &mut [Operation<u8>]) -> Result<(), Self::Error> {
-        let mut borrowed = self.refcell.borrow_mut();
-        if borrowed.1 != self.freq {
-            borrowed.0.flush()?;
-            borrowed.0.set_baudrate(self.peri_freq, self.freq);
-            borrowed.1 = self.freq;
+        unsafe {
+            while core::ptr::read_volatile(UART0_FR) & (1 << 3) != 0 {} // BUSY
         }
-        self.cs.set_low()?;
-        for op in operations {
-            match op {
-                Operation::Read(words) => borrowed.0.read(words),
-                Operation::Write(words) => borrowed.0.write(words),
-                Operation::Transfer(read, write) => borrowed.0.transfer(read, write),
-                Operation::TransferInPlace(words) => borrowed.0.transfer_in_place(words),
-                Operation::DelayNs(_) => unimplemented!(),
-            }?;
-        }
-        borrowed.0.flush()?;
-        drop(borrowed);
-        self.cs.set_high()?;
-        Ok(())
     }
 }
 
 pub fn init() {
-    let mut pac = pac::Peripherals::take().unwrap();
-
-    // === Normal clock init (PLL_SYS = 150 MHz, peripheral clock = 150 MHz) ===
-    let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
-    let clocks = hal::clocks::init_clocks_and_plls(
-        XOSC_CRYSTAL_FREQ,
-        pac.XOSC,
-        pac.CLOCKS,
-        pac.PLL_SYS,
-        pac.PLL_USB,
-        &mut pac.RESETS,
-        &mut watchdog,
-    )
-    .ok()
-    .unwrap();
-
     unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as usize, HEAP_SIZE) }
 
-    let mut timer = hal::Timer::new_timer0(pac.TIMER0, &mut pac.RESETS, &clocks);
+    // embassy-rp defaults to 150 MHz PLL_SYS for RP235x with 12 MHz crystal
+    let config = embassy_rp::config::Config::default();
+    let p = embassy_rp::init(config);
 
-    let sio = hal::sio::Sio::new(pac.SIO);
-    let pins = hal::gpio::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
+    // --- UART0 for defmt_serial (GPIO0 = TX) ---
+    // Use embassy UartTx to configure pin mux + baud rate, then forget it.
+    // defmt_serial needs embedded_io 0.7 Write, but embassy-rp 0.4.0 implements
+    // embedded_io 0.6 — so we use a raw register wrapper instead.
+    {
+        let mut uart_config = embassy_rp::uart::Config::default();
+        uart_config.baudrate = 115200;
+        let uart = embassy_rp::uart::UartTx::new_blocking(p.UART0, p.PIN_0, uart_config);
+        core::mem::forget(uart); // keep UART0 configured, don't drop/de-init
 
-    let _tx_pin = pins.gpio0.into_function::<hal::gpio::FunctionUart>();
-    pac.RESETS.reset().modify(|_, w| w.uart0().clear_bit());
-    while pac.RESETS.reset_done().read().uart0().bit_is_clear() {}
-    let peri_freq = clocks.peripheral_clock.freq().to_Hz();
-    let baud_rate_div = (4 * peri_freq as u64 / 115200) as u32;
-    let uart0 = pac.UART0;
-    uart0.uartibrd().write(|w| unsafe { w.bits(baud_rate_div >> 6) });
-    uart0.uartfbrd().write(|w| unsafe { w.bits(baud_rate_div & 0x3F) });
-    uart0.uartlcr_h().write(|w| unsafe { w.wlen().bits(0b11).fen().set_bit() });
-    uart0.uartcr().write(|w| w.uarten().set_bit().txe().set_bit());
-    static UART_CELL: StaticCell<PacUart> = StaticCell::new();
-    defmt_serial::defmt_serial(UART_CELL.init(PacUart(uart0)));
+        static UART_CELL: StaticCell<RawUart0> = StaticCell::new();
+        defmt_serial::defmt_serial(UART_CELL.init(RawUart0));
+    }
 
-    // Pins::new resets IO_BANK0, so GPIO0 UART function is wiped — reconfigure it
+    // --- SPI1 for display (GPIO10 = SCLK, GPIO11 = MOSI) ---
+    let mut spi_config = embassy_rp::spi::Config::default();
+    spi_config.frequency = SPI_ST7789VW_MAX_FREQ;
 
-    let rst = pins.gpio15.into_push_pull_output();
-    let mut backlight = pins.gpio16.into_push_pull_output();
-    backlight.set_high().unwrap();
+    let spi = Spi::new_blocking_txonly(p.SPI1, p.PIN_10, p.PIN_11, spi_config);
 
-    let dc = pins.gpio14.into_push_pull_output();
-    let mut cs = pins.gpio13.into_push_pull_output();
+    static SPI_BUS: StaticCell<
+        RefCell<Spi<'static, embassy_rp::peripherals::SPI1, embassy_rp::spi::Blocking>>,
+    > = StaticCell::new();
+    let spi_bus = SPI_BUS.init(RefCell::new(spi));
 
-    let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
-    let spi_mosi = pins.gpio11.into_function::<gpio::FunctionSpi>();
+    // --- Display pins ---
+    let dc = Output::new(p.PIN_14, Level::Low);
+    let cs = Output::new(p.PIN_13, Level::High);
+    let rst = Output::new(p.PIN_15, Level::Low);
+    let backlight = Output::new(p.PIN_16, Level::High);
+    // Embassy-rp Output::drop() sets pin function to NULL, which would turn off
+    // the backlight when init() returns. Forget it to keep the pin configured.
+    core::mem::forget(backlight);
 
-    let spi: EnabledSpi = hal::Spi::new(pac.SPI1, (spi_mosi, spi_sclk)).init(
-        &mut pac.RESETS,
-        clocks.peripheral_clock.freq(),
-        SPI_ST7789VW_MAX_FREQ,
-        &embedded_hal::spi::MODE_0,
-    );
-
-    // SAFETY: This is not safe :-(  But we need to access the SPI and its control pins for the PIO
-    let (dc_copy, cs_copy) =
-        unsafe { (core::ptr::read(&dc as *const _), core::ptr::read(&cs as *const _)) };
-    let stolen_spi = unsafe { core::ptr::read(&spi as *const _) };
-
-    let spi = singleton!(:SpiRefCell = SpiRefCell::new((spi, 0.Hz()))).unwrap();
-    let mipidsi_buffer = singleton!(:[u8; 512] = [0; 512]).unwrap();
-
-    cs.set_high().unwrap(); // CS must be deasserted before display init/reset
-    let peri_freq = clocks.peripheral_clock.freq();
-    let display_spi =
-        SharedSpiWithFreq { refcell: spi, cs, freq: SPI_ST7789VW_MAX_FREQ, peri_freq };
+    // --- Display init via mipidsi ---
+    let display_spi = RefCellDevice::new_no_delay(spi_bus, cs).unwrap();
+    static MIPIDSI_BUF: StaticCell<[u8; 512]> = StaticCell::new();
+    let mipidsi_buffer = MIPIDSI_BUF.init([0u8; 512]);
     let di = mipidsi::interface::SpiInterface::new(display_spi, dc, mipidsi_buffer);
     let display = mipidsi::Builder::new(mipidsi::models::ST7789, di)
         .reset_pin(rst)
         .display_size(DISPLAY_SIZE.height as _, DISPLAY_SIZE.width as _)
         .orientation(mipidsi::options::Orientation::new().rotate(mipidsi::options::Rotation::Deg90))
         .invert_colors(mipidsi::options::ColorInversion::Inverted)
-        .init(&mut timer)
+        .init(&mut Delay)
         .unwrap();
 
-    // --- I2C1 for touch controller ---
-    let sda = pins.gpio6.reconfigure();
-    let scl = pins.gpio7.reconfigure();
-    let i2c =
-        hal::I2C::i2c1(pac.I2C1, sda, scl, 400.kHz(), &mut pac.RESETS, clocks.system_clock.freq());
+    // --- I2C1 for touch controller (GPIO6 = SDA, GPIO7 = SCL) ---
+    let mut i2c_config = embassy_rp::i2c::Config::default();
+    i2c_config.frequency = 400_000;
+    let i2c = embassy_rp::i2c::I2c::new_blocking(p.I2C1, p.PIN_7, p.PIN_6, i2c_config);
 
     // --- Reset touch controller (GPIO17) ---
-    let mut tp_rst = pins.gpio17.into_push_pull_output();
     {
+        let mut tp_rst = Output::new(p.PIN_17, Level::High);
         use embedded_hal::delay::DelayNs as _;
-        tp_rst.set_high().unwrap();
-        timer.delay_ms(10);
-        tp_rst.set_low().unwrap();
-        timer.delay_ms(10);
-        tp_rst.set_high().unwrap();
-        timer.delay_ms(100);
+        let mut delay = Delay;
+        delay.delay_ms(10);
+        tp_rst.set_low();
+        delay.delay_ms(10);
+        tp_rst.set_high();
+        delay.delay_ms(100);
+        // Keep GPIO17 high (touch not in reset) — don't let drop reconfigure it
+        core::mem::forget(tp_rst);
     }
 
-    let tp_int = pins.gpio18.into_pull_up_input();
-    tp_int.set_interrupt_enabled(GpioInterrupt::LevelLow, true);
-    cortex_m::interrupt::free(|cs| {
-        TP_INT_PIN.borrow(cs).replace(Some(tp_int));
-    });
+    // --- Touch interrupt pin (GPIO18, active low) ---
+    let tp_int = Input::new(p.PIN_18, Pull::Up);
 
-    let touch = cst328::CST328::new(i2c, &mut timer).unwrap();
+    // --- Touch controller init ---
+    let touch = cst328::CST328::new(i2c, &mut Delay).unwrap();
 
-    let mut alarm0 = timer.alarm_0().unwrap();
-    alarm0.enable_interrupt();
+    // --- Line buffers (double-buffered for DMA) ---
+    let line_buffer_a = vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].leak();
+    let line_buffer_b = vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].leak();
 
-    cortex_m::interrupt::free(|cs| {
-        ALARM0.borrow(cs).replace(Some(alarm0));
-        TIMER.borrow(cs).replace(Some(timer));
-    });
-
-    unsafe {
-        cortex_m::peripheral::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
-        cortex_m::peripheral::NVIC::unmask(pac::Interrupt::TIMER0_IRQ_0);
-    }
-
-    let dma = pac.DMA.split(&mut pac.RESETS);
-    let pio = PioTransfer::Idle(
-        dma.ch0,
-        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
-        stolen_spi,
-    );
-    let buffer_provider = DrawBuffer {
+    let pico_backend = PicoEmbassyBackend {
         display,
-        buffer: vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
-        pio: Some(pio),
-        stolen_pin: (dc_copy, cs_copy),
+        touch,
+        last_touch: None,
+        line_buffer_a,
+        line_buffer_b,
+        tp_int,
     };
 
-    slint::platform::set_platform(Box::new(PicoBackend {
-        window: Default::default(),
-        buffer_provider: buffer_provider.into(),
-        touch: touch.into(),
-        backlight: Some(backlight).into(),
-    }))
-    .expect("backend already initialized");
+    let embassy_backend =
+        EmbassyBackend::new(pico_backend, DISPLAY_SIZE, renderer::RepaintBufferType::ReusedBuffer);
+
+    slint::platform::set_platform(Box::new(embassy_backend)).expect("backend already initialized");
 }
 
-struct PicoBackend<DrawBuffer, Touch, Backlight> {
-    window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow>>>,
-    buffer_provider: RefCell<DrawBuffer>,
-    touch: RefCell<Touch>,
-    backlight: RefCell<Option<Backlight>>,
-}
+type DisplaySpi = RefCellDevice<
+    'static,
+    Spi<'static, embassy_rp::peripherals::SPI1, embassy_rp::spi::Blocking>,
+    Output<'static>,
+    embedded_hal_bus::spi::NoDelay,
+>;
+type DisplayInterface = mipidsi::interface::SpiInterface<'static, DisplaySpi, Output<'static>>;
+type Display = mipidsi::Display<DisplayInterface, mipidsi::models::ST7789, Output<'static>>;
 
-impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
-    RST: OutputPin<Error = Infallible>,
-    TO: WriteTarget<TransmittedWord = u8> + SpiBus + embedded_hal_nb::spi::FullDuplex,
-    CH: SingleChannel,
-    DC_: OutputPin<Error = Infallible>,
-    CS_: OutputPin<Error = Infallible>,
-    I2C: embedded_hal::i2c::I2c,
-    BL: OutputPin<Error = Infallible>,
-> slint::platform::Platform
-    for PicoBackend<
-        DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>,
-        cst328::CST328<I2C>,
-        BL,
-    >
-{
-    fn create_window_adapter(
-        &self,
-    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        let window =
-            renderer::MinimalSoftwareWindow::new(renderer::RepaintBufferType::ReusedBuffer);
-        self.window.replace(Some(window.clone()));
-        Ok(window)
-    }
-
-    fn duration_since_start(&self) -> core::time::Duration {
-        let counter = cortex_m::interrupt::free(|cs| {
-            TIMER.borrow(cs).borrow().as_ref().map(|t| t.get_counter().ticks()).unwrap_or_default()
-        });
-        core::time::Duration::from_micros(counter)
-    }
-
-    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        let mut last_touch = None;
-
-        self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE);
-
-        loop {
-            slint::platform::update_timers_and_animations();
-
-            if let Some(window) = self.window.borrow().clone() {
-                window.draw_if_needed(|renderer| {
-                    let mut buffer_provider = self.buffer_provider.borrow_mut();
-                    renderer.render_by_line(&mut *buffer_provider);
-                    buffer_provider.flush_frame();
-                    if let Some(mut backlight) = self.backlight.take() {
-                        backlight.set_high().unwrap();
-                    }
-                });
-
-                // handle touch event
-                let button = PointerEventButton::Left;
-                if let Some(event) = self
-                    .touch
-                    .borrow_mut()
-                    .read()
-                    .map_err(|_| ())
-                    .unwrap()
-                    .map(|point| {
-                        let position = slint::PhysicalPosition::new(
-                            (point.x * DISPLAY_SIZE.width as f32) as _,
-                            (point.y * DISPLAY_SIZE.height as f32) as _,
-                        )
-                        .to_logical(window.scale_factor());
-                        match last_touch.replace(position) {
-                            Some(_) => WindowEvent::PointerMoved { position },
-                            None => WindowEvent::PointerPressed { position, button },
-                        }
-                    })
-                    .or_else(|| {
-                        last_touch
-                            .take()
-                            .map(|position| WindowEvent::PointerReleased { position, button })
-                    })
-                {
-                    let is_pointer_release_event =
-                        matches!(event, WindowEvent::PointerReleased { .. });
-
-                    window.try_dispatch_event(event)?;
-
-                    // removes hover state on widgets
-                    if is_pointer_release_event {
-                        window.try_dispatch_event(WindowEvent::PointerExited)?;
-                    }
-                    // Don't go to sleep after a touch event that forces a redraw
-                    continue;
-                }
-
-                if window.has_active_animations() {
-                    continue;
-                }
-            }
-
-            let sleep_duration = match slint::platform::duration_until_next_timer_update() {
-                None => None,
-                Some(d) => {
-                    let micros = d.as_micros() as u32;
-                    if micros < 10 {
-                        // Cannot wait for less than 10µs, or `schedule()` panics
-                        continue;
-                    } else {
-                        Some(fugit::MicrosDurationU32::micros(micros))
-                    }
-                }
-            };
-
-            cortex_m::interrupt::free(|cs| {
-                if let Some(duration) = sleep_duration {
-                    ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
-                }
-                TP_INT_PIN
-                    .borrow(cs)
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
-                    .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
-            });
-            cortex_m::asm::wfe();
-        }
-    }
-
-    fn debug_log(&self, arguments: core::fmt::Arguments) {
-        use alloc::string::ToString;
-        defmt::println!("{=str}", arguments.to_string());
-    }
-}
-
-enum PioTransfer<TO: WriteTarget, CH: SingleChannel> {
-    Idle(CH, &'static mut [TargetPixel], TO),
-    Running(hal::dma::single_buffer::Transfer<CH, PartialReadBuffer, TO>),
-}
-
-impl<TO: WriteTarget<TransmittedWord = u8>, CH: SingleChannel> PioTransfer<TO, CH> {
-    fn wait(self) -> (CH, &'static mut [TargetPixel], TO) {
-        match self {
-            PioTransfer::Idle(a, b, c) => (a, b, c),
-            PioTransfer::Running(dma) => {
-                let (a, b, to) = dma.wait();
-                (a, b.0, to)
-            }
-        }
-    }
-}
-
-struct DrawBuffer<Display, PioTransfer, Stolen> {
+struct PicoEmbassyBackend {
     display: Display,
-    buffer: &'static mut [TargetPixel],
-    pio: Option<PioTransfer>,
-    stolen_pin: Stolen,
+    touch: cst328::CST328<
+        embassy_rp::i2c::I2c<'static, embassy_rp::peripherals::I2C1, embassy_rp::i2c::Blocking>,
+    >,
+    last_touch: Option<slint::LogicalPosition>,
+    line_buffer_a: &'static mut [Rgb565Pixel],
+    line_buffer_b: &'static mut [Rgb565Pixel],
+    tp_int: Input<'static>,
 }
 
-impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
-    RST: OutputPin<Error = Infallible>,
-    TO: WriteTarget<TransmittedWord = u8> + SpiBus,
-    CH: SingleChannel,
-    DC_: OutputPin<Error = Infallible>,
-    CS_: OutputPin<Error = Infallible>,
-> renderer::LineBufferProvider
-    for &mut DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
-{
-    type TargetPixel = TargetPixel;
+impl PlatformBackend for PicoEmbassyBackend {
+    async fn dispatch_events(&mut self, window: &slint::Window) {
+        let button = PointerEventButton::Left;
+        if let Some(event) = self
+            .touch
+            .read()
+            .map_err(|_| ())
+            .unwrap()
+            .map(|point| {
+                let position = slint::PhysicalPosition::new(
+                    (point.x * DISPLAY_SIZE.width as f32) as _,
+                    (point.y * DISPLAY_SIZE.height as f32) as _,
+                )
+                .to_logical(window.scale_factor());
+                match self.last_touch.replace(position) {
+                    Some(_) => WindowEvent::PointerMoved { position },
+                    None => WindowEvent::PointerPressed { position, button },
+                }
+            })
+            .or_else(|| {
+                self.last_touch
+                    .take()
+                    .map(|position| WindowEvent::PointerReleased { position, button })
+            })
+        {
+            let is_pointer_release_event = matches!(event, WindowEvent::PointerReleased { .. });
+
+            window.dispatch_event(event);
+
+            if is_pointer_release_event {
+                window.dispatch_event(WindowEvent::PointerExited);
+            }
+        }
+    }
+
+    async fn render(&mut self, renderer: &SoftwareRenderer) {
+        let mut provider = DmaLineBufferProvider {
+            display: &mut self.display,
+            buffer: &mut *self.line_buffer_a,
+            dma_buffer: &mut *self.line_buffer_b,
+            dma_busy: false,
+        };
+        renderer.render_by_line(&mut provider);
+        provider.flush_frame();
+    }
+
+    async fn wait_for_event(&mut self) {
+        self.tp_int.wait_for_low().await;
+    }
+}
+
+// --- DMA helper functions ---
+// These program DMA channel 0 directly via PAC registers, mirroring
+// embassy-rp's own dma.rs copy_inner (lines 130-168).
+
+/// Pin masks for SIO GPIO control (GPIO13=CS, GPIO14=DC)
+const CS_PIN_MASK: u32 = 1 << 13;
+const DC_PIN_MASK: u32 = 1 << 14;
+
+fn start_dma_to_spi1(src: *const u8, byte_count: usize) {
+    let ch = pac::DMA.ch(0);
+    ch.read_addr().write_value(src as u32);
+    // SPI1 DR register address (SPI1 base 0x4008_8000 + DR offset 0x08)
+    ch.write_addr().write_value(0x4008_8008);
+    ch.trans_count().write(|w| {
+        w.set_mode(0.into()); // NORMAL: transfer once then stop
+        w.set_count(byte_count as u32);
+    });
+    compiler_fence(Ordering::SeqCst);
+    ch.ctrl_trig().write(|w| {
+        w.set_treq_sel(TreqSel::SPI1_TX);
+        w.set_data_size(DataSize::SIZE_BYTE);
+        w.set_incr_read(true);
+        w.set_incr_write(false);
+        w.set_chain_to(0); // self-chain = no chaining
+        w.set_en(true);
+    });
+    compiler_fence(Ordering::SeqCst);
+}
+
+fn wait_dma() {
+    while pac::DMA.ch(0).ctrl_trig().read().busy() {}
+}
+
+fn flush_spi1() {
+    while pac::SPI1.sr().read().bsy() {}
+}
+
+fn drain_spi1_rx() {
+    while pac::SPI1.sr().read().rne() {
+        let _ = pac::SPI1.dr().read();
+    }
+}
+
+fn cs_low() {
+    pac::SIO.gpio_out(0).value_clr().write_value(CS_PIN_MASK);
+}
+
+fn cs_high() {
+    pac::SIO.gpio_out(0).value_set().write_value(CS_PIN_MASK);
+}
+
+fn dc_high() {
+    pac::SIO.gpio_out(0).value_set().write_value(DC_PIN_MASK);
+}
+
+// --- DMA double-buffered line provider ---
+
+struct DmaLineBufferProvider<'a> {
+    display: &'a mut Display,
+    buffer: &'a mut [Rgb565Pixel],
+    dma_buffer: &'a mut [Rgb565Pixel],
+    dma_busy: bool,
+}
+
+impl DmaLineBufferProvider<'_> {
+    fn flush_frame(&mut self) {
+        if self.dma_busy {
+            wait_dma();
+            flush_spi1();
+            drain_spi1_rx();
+            cs_high();
+            self.dma_busy = false;
+        }
+    }
+}
+
+impl renderer::LineBufferProvider for &mut DmaLineBufferProvider<'_> {
+    type TargetPixel = Rgb565Pixel;
 
     fn process_line(
         &mut self,
         line: usize,
         range: core::ops::Range<usize>,
-        render_fn: impl FnOnce(&mut [TargetPixel]),
+        render_fn: impl FnOnce(&mut [Rgb565Pixel]),
     ) {
+        // 1. Render pixels into CPU buffer
         render_fn(&mut self.buffer[range.clone()]);
 
-        // convert from little to big endian before sending to the DMA channel
+        // 2. Byte-swap LE→BE for ST7789
         for x in &mut self.buffer[range.clone()] {
-            *x = Rgb565Pixel(x.0.to_be())
+            *x = Rgb565Pixel(x.0.to_be());
         }
-        let (ch, mut b, mut spi) = self.pio.take().unwrap().wait();
-        // Flush SPI to ensure all DMA data bytes are clocked out before mipidsi
-        // toggles DC for the next command. Without this, residual TX FIFO bytes
-        // get clocked with DC=low and are misinterpreted as commands by the display.
-        spi.flush().unwrap();
-        core::mem::swap(&mut self.buffer, &mut b);
 
-        // We send empty data just to get the device in the right window
+        // 3. If DMA is busy from previous line, wait for it
+        if self.dma_busy {
+            wait_dma();
+            flush_spi1();
+            cs_high();
+        }
+
+        // 4. Swap buffers — CPU-rendered data moves to DMA buffer
+        core::mem::swap(&mut self.buffer, &mut self.dma_buffer);
+
+        // 5. Send window command via mipidsi (empty pixel iterator = command only)
         self.display
             .set_pixels(
                 range.start as u16,
@@ -458,44 +345,13 @@ impl<
             )
             .unwrap();
 
-        self.stolen_pin.1.set_low().unwrap();
-        self.stolen_pin.0.set_high().unwrap();
-        let mut dma = hal::dma::single_buffer::Config::new(ch, PartialReadBuffer(b, range), spi);
-        dma.pace(hal::dma::Pace::PreferSink);
-        self.pio = Some(PioTransfer::Running(dma.start()));
-    }
-}
-
-impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
-    RST: OutputPin<Error = Infallible>,
-    TO: WriteTarget<TransmittedWord = u8> + SpiBus + embedded_hal_nb::spi::FullDuplex,
-    CH: SingleChannel,
-    DC_: OutputPin<Error = Infallible>,
-    CS_: OutputPin<Error = Infallible>,
-> DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
-{
-    fn flush_frame(&mut self) {
-        let (ch, b, mut spi) = self.pio.take().unwrap().wait();
-        spi.flush().unwrap();
-        self.stolen_pin.1.set_high().unwrap();
-
-        // After the DMA operated, we need to empty the receive FIFO, otherwise
-        // subsequent SPI operations may pick wrong values.
-        // Continue to read as long as we don't get a Err(WouldBlock)
-        while !embedded_hal_nb::spi::FullDuplex::read(&mut spi).is_err() {}
-
-        self.pio = Some(PioTransfer::Idle(ch, b, spi));
-    }
-}
-
-struct PartialReadBuffer(&'static mut [Rgb565Pixel], core::ops::Range<usize>);
-unsafe impl embedded_dma::ReadBuffer for PartialReadBuffer {
-    type Word = u8;
-
-    unsafe fn read_buffer(&self) -> (*const <Self as embedded_dma::ReadBuffer>::Word, usize) {
-        let act_slice = &self.0[self.1.clone()];
-        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565Pixel>())
+        // 6. Assert CS, set DC=data, start DMA from dma_buffer
+        cs_low();
+        dc_high();
+        let byte_count = range.len() * core::mem::size_of::<Rgb565Pixel>();
+        let src = self.dma_buffer[range.start..range.end].as_ptr() as *const u8;
+        start_dma_to_spi1(src, byte_count);
+        self.dma_busy = true;
     }
 }
 
@@ -512,11 +368,11 @@ mod cst328 {
     impl<I2C: I2c> CST328<I2C> {
         pub fn new(
             mut i2c: I2C,
-            timer: &mut impl embedded_hal::delay::DelayNs,
+            delay: &mut impl embedded_hal::delay::DelayNs,
         ) -> Result<Self, I2C::Error> {
             // Enter debug info mode
             i2c.write(TP_ADDR, &[0xD1, 0x01])?;
-            timer.delay_ms(10);
+            delay.delay_ms(10);
 
             // Read chip ID (not used, but part of init sequence)
             i2c.write(TP_ADDR, &[0xD1, 0xFC])?;
@@ -525,7 +381,7 @@ mod cst328 {
 
             // Enter normal mode
             i2c.write(TP_ADDR, &[0xD1, 0x09])?;
-            timer.delay_ms(10);
+            delay.delay_ms(10);
 
             Ok(Self { i2c })
         }
@@ -554,137 +410,5 @@ mod cst328 {
                 Ok(None)
             }
         }
-    }
-}
-
-#[interrupt]
-fn IO_IRQ_BANK0() {
-    cortex_m::interrupt::free(|cs| {
-        let mut pin = TP_INT_PIN.borrow(cs).borrow_mut();
-        let pin = pin.as_mut().unwrap();
-        pin.set_interrupt_enabled(GpioInterrupt::LevelLow, false);
-        pin.clear_interrupt(GpioInterrupt::LevelLow);
-    });
-}
-
-#[interrupt]
-fn TIMER0_IRQ_0() {
-    cortex_m::interrupt::free(|cs| {
-        ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().clear_interrupt();
-    });
-}
-
-#[cfg(not(feature = "panic-probe"))]
-#[inline(never)]
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    // Safety: it's ok to steal here since we are in the panic handler, and the rest of the code will not be run anymore
-    let mut pac = unsafe { pac::Peripherals::steal() };
-
-    let sio = hal::sio::Sio::new(pac.SIO);
-    let pins = hal::gpio::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
-
-    // Re-init the display
-    let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
-    let clocks = hal::clocks::init_clocks_and_plls(
-        XOSC_CRYSTAL_FREQ,
-        pac.XOSC,
-        pac.CLOCKS,
-        pac.PLL_SYS,
-        pac.PLL_USB,
-        &mut pac.RESETS,
-        &mut watchdog,
-    )
-    .ok()
-    .unwrap();
-
-    let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
-    let spi_mosi = pins.gpio11.into_function::<gpio::FunctionSpi>();
-
-    let spi = hal::Spi::<_, _, _, 8>::new(pac.SPI1, (spi_mosi, spi_sclk));
-    let spi = spi.init(
-        &mut pac.RESETS,
-        clocks.peripheral_clock.freq(),
-        SPI_ST7789VW_MAX_FREQ,
-        &embedded_hal::spi::MODE_0,
-    );
-
-    let mut timer = Timer::new_timer0(pac.TIMER0, &mut pac.RESETS, &clocks);
-
-    let rst = pins.gpio15.into_push_pull_output();
-    let mut bl = pins.gpio16.into_push_pull_output();
-    let dc = pins.gpio14.into_push_pull_output();
-    let mut cs = pins.gpio13.into_push_pull_output();
-    bl.set_high().unwrap();
-    cs.set_high().unwrap();
-    let peri_freq = clocks.peripheral_clock.freq();
-    let spi = singleton!(:SpiRefCell = SpiRefCell::new((spi, SPI_ST7789VW_MAX_FREQ))).unwrap();
-    let display_spi =
-        SharedSpiWithFreq { refcell: spi, cs, freq: SPI_ST7789VW_MAX_FREQ, peri_freq };
-    let mut buffer = [0_u8; 512];
-    let di = mipidsi::interface::SpiInterface::new(display_spi, dc, &mut buffer);
-    let mut display = mipidsi::Builder::new(mipidsi::models::ST7789, di)
-        .reset_pin(rst)
-        .display_size(DISPLAY_SIZE.height as _, DISPLAY_SIZE.width as _)
-        .orientation(mipidsi::options::Orientation::new().rotate(mipidsi::options::Rotation::Deg90))
-        .invert_colors(mipidsi::options::ColorInversion::Inverted)
-        .init(&mut timer)
-        .unwrap();
-
-    use core::fmt::Write;
-    use embedded_graphics::{
-        mono_font::{MonoTextStyle, ascii::FONT_6X10},
-        pixelcolor::Rgb565,
-        prelude::*,
-        text::Text,
-    };
-
-    display.fill_solid(&display.bounding_box(), Rgb565::new(0x00, 0x25, 0xff)).unwrap();
-
-    struct WriteToScreen<'a, D> {
-        x: i32,
-        y: i32,
-        width: i32,
-        style: MonoTextStyle<'a, Rgb565>,
-        display: &'a mut D,
-    }
-    let mut writer = WriteToScreen {
-        x: 0,
-        y: 1,
-        width: display.bounding_box().size.width as i32 / 6 - 1,
-        style: MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE),
-        display: &mut display,
-    };
-    impl<'a, D: DrawTarget<Color = Rgb565>> Write for WriteToScreen<'a, D> {
-        fn write_str(&mut self, mut s: &str) -> Result<(), core::fmt::Error> {
-            while !s.is_empty() {
-                let (x, y) = (self.x, self.y);
-                let end_of_line = s
-                    .find(|c| {
-                        if c == '\n' || self.x > self.width {
-                            self.x = 0;
-                            self.y += 1;
-                            true
-                        } else {
-                            self.x += 1;
-                            false
-                        }
-                    })
-                    .unwrap_or(s.len());
-                let (line, rest) = s.split_at(end_of_line);
-                let sz = self.style.font.character_size;
-                Text::new(line, Point::new(x * sz.width as i32, y * sz.height as i32), self.style)
-                    .draw(self.display)
-                    .map_err(|_| core::fmt::Error)?;
-                s = rest.strip_prefix('\n').unwrap_or(rest);
-            }
-            Ok(())
-        }
-    }
-    write!(writer, "{}", info).unwrap();
-
-    loop {
-        use embedded_hal::delay::DelayNs as _;
-        timer.delay_ms(100);
     }
 }

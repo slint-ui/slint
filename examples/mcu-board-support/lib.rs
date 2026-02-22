@@ -97,7 +97,7 @@ pub use i_slint_core_macros::identity as entry;
 )))]
 pub fn init() {}
 
-#[cfg(feature = "stm32u5g9j-dk2")]
+#[cfg(any(feature = "stm32u5g9j-dk2", feature = "pico2-touch-lcd-2-8"))]
 mod embassy;
 
 pub mod prelude {
