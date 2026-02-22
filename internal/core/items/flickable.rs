@@ -662,7 +662,8 @@ impl FlickableData {
                         deceleration: euclid::Scale::new(DECELERATION),
                     };
                     let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                    let limit = if dist.x < 0. { vw } else { euclid::Length::new(0.) };
+                    let limit =
+                        if dist.x < 0. { vw } else { euclid::Length::new(Coord::default()) };
                     viewport_x.set_physic_animation_value(limit, simulation);
                 }
 
@@ -674,7 +675,8 @@ impl FlickableData {
                         deceleration: euclid::Scale::new(DECELERATION),
                     };
                     let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                    let limit = if dist.y < 0. { -vh } else { euclid::Length::new(0.) };
+                    let limit =
+                        if dist.y < 0. { -vh } else { euclid::Length::new(Coord::default()) };
                     viewport_y.set_physic_animation_value(limit, animation_y);
                 }
 
