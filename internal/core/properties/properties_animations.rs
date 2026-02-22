@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::{
-    animations::{self, physics_simulation},
+    animations::physics_simulation,
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
@@ -65,9 +65,9 @@ where
         }
     }
 
-    fn reset(&mut self) {
-        self.state = AnimationState::Delaying;
-    }
+    // fn reset(&mut self) {
+    //     self.state = AnimationState::Delaying;
+    // }
 }
 
 pub(super) struct PropertyValueAnimationData<T> {
