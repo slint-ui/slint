@@ -76,9 +76,9 @@ impl<Unit> ConstantDeceleration<Unit> {
         )
     }
 
-    pub fn new_internal(
-        start_value: Length<f32, Unit>,
-        limit_value: Length<f32, Unit>,
+    fn new_internal(
+        start_value: Length<Coord, Unit>,
+        limit_value: Length<Coord, Unit>,
         initial_velocity: Length<f32, Unit>,
         data: ConstantDecelerationParameters<Unit>,
         start_time: Instant,

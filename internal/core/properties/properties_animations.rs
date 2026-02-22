@@ -42,7 +42,7 @@ where
     }
 
     /// Single iteration of the animation
-    pub fn compute_interpolated_value(&mut self) -> (euclid::Length<f32, Unit>, bool) {
+    pub fn compute_interpolated_value(&mut self) -> (euclid::Length<crate::Coord, Unit>, bool) {
         match self.state {
             AnimationState::Delaying => {
                 // Decide on next state:
