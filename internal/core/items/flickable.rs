@@ -9,16 +9,18 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
     VoidArg,
 };
+use crate::animations::physics_simulation;
 use crate::animations::{EasingCurve, Instant};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
+    TouchPhase,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::items::PropertyAnimation;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths, RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector, PointLengths, RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -362,12 +364,12 @@ struct FlickableDataInner {
     /// but the mouse now moves over a child item, and that item captures the scroll event.
     /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
-    last_scroll_event: Option<(Instant, LogicalPoint)>,
+    last_scroll_event: Option<(Instant, LogicalPoint, LogicalVector)>,
 }
 
 impl FlickableDataInner {
     fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
-        self.last_scroll_event.is_some_and(|(last_time, last_position)| {
+        self.last_scroll_event.is_some_and(|(last_time, last_position, _)| {
             // Note: Squared length for MCU support, which use i32 coords.
             crate::animations::current_tick() - last_time < timeout
                 && LogicalLength::new((last_position - position).square_length().abs())
@@ -391,36 +393,82 @@ impl FlickableDataInner {
         flick: Pin<&Flickable>,
         delta: LogicalVector,
         position: LogicalPoint,
+        phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
-            // Release the capture immediately, this event is not meant for this Flickable.
-            self.last_scroll_event = None;
-            return InputEventResult::EventIgnored;
-        }
+        use crate::animations::physics_simulation;
 
         let old_pos = LogicalPoint::from_lengths(
             (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
             (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
         );
         let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
-
         let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+
+        match phase {
+            TouchPhase::Started => {
+                // TODO: is the delta only for qt zero?
+            }
+            TouchPhase::Cancelled | TouchPhase::Moved => {
+                // if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+                //     // Release the capture immediately, this event is not meant for this Flickable.
+                //     self.last_scroll_event = None;
+                //     return InputEventResult::EventIgnored;
+                // }
+
+                viewport_x.set(new_pos.x_length());
+                viewport_y.set(new_pos.y_length());
+                self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
+            }
+            TouchPhase::Ended => {
+                // At least for qt the delta is zero for begin and end
+                if let Some((time, _, last_delta)) = self.last_scroll_event {
+                    let millis = (crate::animations::current_tick() - time).as_millis();
+                    {
+                        let simulation = physics_simulation::ConstantDecelerationParameters {
+                            initial_velocity: euclid::Length::new(
+                                last_delta.x as f32 / (millis as f32 / 1000.),
+                            ),
+                            deceleration: euclid::Scale::new(500.),
+                        };
+                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                        let limit = if last_delta.x < 0. { vw } else { euclid::Length::new(0.) };
+                        viewport_x.set_physic_animation_value(limit, simulation);
+                    }
+                    {
+                        let animation_y = physics_simulation::ConstantDecelerationParameters {
+                            initial_velocity: euclid::Length::new(
+                                last_delta.y as f32 / (millis as f32 / 1000.),
+                            ),
+                            deceleration: euclid::Scale::new(500.),
+                        };
+                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                        let limit = if last_delta.y < 0. { -vh } else { euclid::Length::new(0.) };
+                        viewport_y.set_physic_animation_value(limit, animation_y);
+                    }
+
+                    self.last_scroll_event = None;
+                } else {
+                    // TODO: this should never happen, but for some reason two Ended signals are sended
+                    //assert!(false);
+                    return InputEventResult::EventAccepted; // Shall never happen
+                };
+            }
+        }
+
         let old_pos = (viewport_x.get(), viewport_y.get());
-        viewport_x.set(new_pos.x_length());
-        viewport_y.set(new_pos.y_length());
+
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
         if flicked {
             (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
-            self.last_scroll_event = Some((crate::animations::current_tick(), position));
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
             // out (by not updating the last_scroll_event)
             InputEventResult::EventAccepted
         } else {
-            self.last_scroll_event = None;
+            // self.last_scroll_event = None;
             InputEventResult::EventIgnored
         }
     }
@@ -468,6 +516,12 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
                     (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
                 );
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                x.set(x.get()); // Stop animation by removing the binding
+
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                y.set(y.get()); // Stop animation by removing the binding
+
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
@@ -511,18 +565,18 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Wheel { position, delta_x, delta_y } => {
+            MouseEvent::Wheel { position, delta_x, delta_y, phase } => {
                 // If we recently handled a wheel event, intercept it to prevent children from grabbing
                 // the scroll event
-                let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
-                    && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
-                {
-                    InputEventFilterResult::Intercept
-                } else {
-                    inner.last_scroll_event = None;
-                    InputEventFilterResult::ForwardEvent
-                }
+                // let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
+                // if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
+                //     && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                // {
+                InputEventFilterResult::Intercept
+                // } else {
+                //     inner.last_scroll_event = None;
+                //     InputEventFilterResult::ForwardEvent
+                // }
             }
             // Not the left button
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
@@ -621,10 +675,10 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, position } => {
+            MouseEvent::Wheel { delta_x, delta_y, position, phase } => {
                 let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
 
-                inner.process_wheel_event(flick, delta, *position, flick_rc)
+                inner.process_wheel_event(flick, delta, *position, *phase, flick_rc)
             }
             MouseEvent::PinchGesture { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
