@@ -96,18 +96,22 @@ impl<Unit> ConstantDeceleration<Unit> {
     }
 
     fn step_internal(&mut self, new_tick: Instant) -> (Length<f32, Unit>, bool) {
-        let duration = new_tick.duration_since(self.start_time);
+        // We have to prevent go go beyond the limit where velocity gets zero
+        let duration = Time::new(f32::min(
+            new_tick.duration_since(self.start_time).as_secs_f32(),
+            f32::abs((self.velocity / self.data.deceleration).0),
+        ));
         self.start_time = new_tick;
 
-        let duration = Time::new(duration.as_secs_f32());
         let velocity_loss = f32::abs((duration * self.data.deceleration).0);
-        if self.velocity.0 > 0. {
-            self.velocity -= Length::<f32, Unit>::new(velocity_loss);
+        let new_velocity = if self.velocity.0 > 0. {
+            self.velocity.0 - velocity_loss
         } else {
-            self.velocity += Length::<f32, Unit>::new(velocity_loss);
-        }
+            self.velocity.0 + velocity_loss
+        };
 
-        self.curr_val += duration * Scale::new(self.velocity.0);
+        self.curr_val += duration * Scale::new((self.velocity.0 + new_velocity) / 2.); // Trapezoidal integration
+        self.velocity = Length::new(new_velocity);
 
         match self.direction {
             Direction::Increasing => {
@@ -151,7 +155,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn constant_deceleration_increasing() {
+    fn constant_deceleration_increasing_limit_not_reached() {
         let initial_velocity = 50.;
         let deceleration = 20.;
         let parameters = ConstantDecelerationParameters::<LogicalPx> {
@@ -178,5 +182,19 @@ mod tests {
             10. + 50. * duration.as_secs_f32()
                 - 0.5 * deceleration * duration.as_secs_f32().powi(2)
         );
+
+        duration = Duration::from_hours(10);
+        assert!(Duration::from_secs((initial_velocity / deceleration) as u64) < duration);
+        time += duration;
+        let (res, finished) = simulation.step_internal(time);
+        assert_eq!(finished, true);
+        assert_eq!(
+            res.0,
+            10. + 50. * initial_velocity / deceleration
+                - 0.5 * deceleration * (initial_velocity / deceleration).powi(2)
+        );
+
+        assert!(res.0 < 2000.); // We reached velocity zero before we reached the position limit
+    }
     }
 }
