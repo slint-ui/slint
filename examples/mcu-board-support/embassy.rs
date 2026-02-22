@@ -8,6 +8,13 @@ use core::cell::{Cell, RefCell};
 pub(crate) trait PlatformBackend {
     async fn dispatch_events(&mut self, window: &slint::Window);
     async fn render(&mut self, renderer: &slint::platform::software_renderer::SoftwareRenderer);
+
+    /// Wait for an external platform event (e.g., touch interrupt).
+    /// Called when the event loop is idle and waiting for input.
+    /// Default: pends forever (only timer-based wakeups will occur).
+    async fn wait_for_event(&mut self) {
+        core::future::pending::<()>().await
+    }
 }
 
 pub struct EmbassyBackend<PlatformImpl> {
@@ -15,15 +22,21 @@ pub struct EmbassyBackend<PlatformImpl> {
     window_changed: Cell<bool>,
     display_size: slint::PhysicalSize,
     platform_backend: RefCell<PlatformImpl>,
+    repaint_buffer_type: slint::platform::software_renderer::RepaintBufferType,
 }
 
 impl<PlatformImpl> EmbassyBackend<PlatformImpl> {
-    pub fn new(platform_backend: PlatformImpl, display_size: slint::PhysicalSize) -> Self {
+    pub fn new(
+        platform_backend: PlatformImpl,
+        display_size: slint::PhysicalSize,
+        repaint_buffer_type: slint::platform::software_renderer::RepaintBufferType,
+    ) -> Self {
         Self {
             window: RefCell::default(),
             window_changed: Default::default(),
             display_size,
             platform_backend: RefCell::new(platform_backend),
+            repaint_buffer_type,
         }
     }
 }
@@ -35,7 +48,7 @@ impl<PlatformImpl: PlatformBackend + 'static> slint::platform::Platform
         &self,
     ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
-            slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
+            self.repaint_buffer_type,
         );
         window.set_size(self.display_size.to_logical(window.scale_factor()));
         self.window.replace(Some(window.clone()));
@@ -94,20 +107,27 @@ impl<PlatformImpl: PlatformBackend> EmbassyBackend<PlatformImpl> {
                     })
                     .await;
 
-                // TODO: poll this at the same time as the timer for the next animation, when we can poll
-                // the gt911 driver without errors in parallel (first time works, second poll causes errors).
                 platform_backend.dispatch_events(&window).await;
-            }
 
-            /*
-            Use this when the async gt911 API works:
-
-            if let Some(duration) = slint::platform::duration_until_next_timer_update()
-                .and_then(|core_duration| embassy_time::Duration::try_from(core_duration).ok())
-            {
-                embassy_time::Timer::after(duration).await;
+                if !window.has_active_animations() {
+                    match slint::platform::duration_until_next_timer_update()
+                        .and_then(|d| embassy_time::Duration::try_from(d).ok())
+                    {
+                        Some(duration) => {
+                            // Wake on timer expiry OR platform event (whichever first)
+                            embassy_futures::select::select(
+                                embassy_time::Timer::after(duration),
+                                platform_backend.wait_for_event(),
+                            )
+                            .await;
+                        }
+                        None => {
+                            // No Slint timers pending — sleep until platform event
+                            platform_backend.wait_for_event().await;
+                        }
+                    }
+                }
             }
-            */
         }
     }
 }
