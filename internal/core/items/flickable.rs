@@ -9,12 +9,12 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
     VoidArg,
 };
-use crate::animations::{EasingCurve, Instant};
+use crate::animations::Instant;
+use crate::animations::physics_simulation;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::PropertyAnimation;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -37,7 +37,7 @@ use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
 
-const DECELERATION: f32 = 500.;
+const DECELERATION: f32 = 2000.;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -470,6 +470,11 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
                     (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
                 );
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                x.set(x.get()); // Stop animation by removing the binding
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                y.set(y.get()); // Stop animation by removing the binding
+
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
