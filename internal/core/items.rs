@@ -1177,6 +1177,7 @@ declare_item_vtable! {
 }
 
 /// The implementation of the `PropertyAnimation` element
+/// This animation has the time as animation limit
 #[repr(C)]
 #[derive(FieldOffsets, SlintElement, Clone, Debug)]
 #[pin]
