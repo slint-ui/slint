@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::animations::{self, Instant};
-use core::f32;
+use crate::{
+    Coord,
+    animations::{self, Instant},
+};
 use euclid::{Length, Scale};
 
 pub enum Seconds {}
@@ -15,16 +17,16 @@ enum Direction {
 }
 
 pub trait Simulation<Unit> {
-    fn step(&mut self) -> (Length<f32, Unit>, bool);
-    fn curr_value(&self) -> Length<f32, Unit>;
+    fn step(&mut self) -> (Length<Coord, Unit>, bool);
+    fn curr_value(&self) -> Length<Coord, Unit>;
 }
 
 pub trait Parameter<Unit> {
     type Output;
     fn simulation(
         self,
-        start_value: Length<f32, Unit>,
-        limit_value: Length<f32, Unit>,
+        start_value: Length<Coord, Unit>,
+        limit_value: Length<Coord, Unit>,
     ) -> Self::Output;
 }
 
@@ -38,8 +40,8 @@ impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationParameters<DestUnit> 
     type Output = ConstantDeceleration<DestUnit>;
     fn simulation(
         self,
-        start_value: Length<f32, DestUnit>,
-        limit_value: Length<f32, DestUnit>,
+        start_value: Length<Coord, DestUnit>,
+        limit_value: Length<Coord, DestUnit>,
     ) -> Self::Output {
         let initial_velocity = self.initial_velocity.clone();
         ConstantDeceleration::new(start_value, limit_value, initial_velocity, self)
@@ -50,8 +52,8 @@ impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationParameters<DestUnit> 
 pub struct ConstantDeceleration<Unit> {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
     /// but at the end of the animation the limit shall not be exceeded
-    limit_value: Length<f32, Unit>,
-    curr_val: Length<f32, Unit>,
+    limit_value: Length<Coord, Unit>,
+    curr_val: Length<Coord, Unit>,
     velocity: Length<f32, Unit>,
     data: ConstantDecelerationParameters<Unit>,
     direction: Direction,
@@ -60,8 +62,8 @@ pub struct ConstantDeceleration<Unit> {
 
 impl<Unit> ConstantDeceleration<Unit> {
     pub fn new(
-        start_value: Length<f32, Unit>,
-        limit_value: Length<f32, Unit>,
+        start_value: Length<Coord, Unit>,
+        limit_value: Length<Coord, Unit>,
         initial_velocity: Length<f32, Unit>,
         data: ConstantDecelerationParameters<Unit>,
     ) -> Self {
@@ -80,11 +82,11 @@ impl<Unit> ConstantDeceleration<Unit> {
 }
 
 impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
-    fn curr_value(&self) -> Length<f32, Unit> {
+    fn curr_value(&self) -> Length<Coord, Unit> {
         self.curr_val
     }
 
-    fn step(&mut self) -> (Length<f32, Unit>, bool) {
+    fn step(&mut self) -> (Length<Coord, Unit>, bool) {
         let new_tick = animations::current_tick();
         let duration = new_tick.duration_since(self.start_time);
         self.start_time = new_tick;
@@ -97,7 +99,7 @@ impl<Unit> Simulation<Unit> for ConstantDeceleration<Unit> {
             self.velocity += Length::<f32, Unit>::new(velocity_loss);
         }
 
-        self.curr_val += duration * Scale::new(self.velocity.0);
+        self.curr_val += Length::new((duration.0 * self.velocity.0) as Coord);
 
         match self.direction {
             Direction::Increasing => {
