@@ -19,6 +19,11 @@ mod pico2_st7789;
 #[cfg(feature = "pico2-st7789")]
 pub use pico2_st7789::*;
 
+#[cfg(feature = "pico2-touch-lcd-2-8")]
+mod pico2_touch_lcd_2_8;
+#[cfg(feature = "pico2-touch-lcd-2-8")]
+pub use pico2_touch_lcd_2_8::*;
+
 #[cfg(feature = "stm32h735g")]
 mod stm32h735g;
 #[cfg(feature = "stm32h735g")]
@@ -67,6 +72,7 @@ pub use m5stack_cores3::*;
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
+    feature = "pico2-touch-lcd-2-8",
     feature = "stm32h735g",
     feature = "stm32u5g9j-dk2",
     feature = "esp32-s3-box-3",
@@ -80,6 +86,7 @@ pub use i_slint_core_macros::identity as entry;
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
+    feature = "pico2-touch-lcd-2-8",
     feature = "stm32h735g",
     feature = "stm32u5g9j-dk2",
     feature = "esp32-s3-box-3",
@@ -90,7 +97,7 @@ pub use i_slint_core_macros::identity as entry;
 )))]
 pub fn init() {}
 
-#[cfg(feature = "stm32u5g9j-dk2")]
+#[cfg(any(feature = "stm32u5g9j-dk2", feature = "pico2-touch-lcd-2-8"))]
 mod embassy;
 
 pub mod prelude {
