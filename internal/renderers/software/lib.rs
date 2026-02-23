@@ -63,6 +63,10 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
+fn normalized_max_lines(max_lines: i32) -> Option<usize> {
+    usize::try_from(max_lines).ok().filter(|max_lines| *max_lines > 0)
+}
+
 pub use i_slint_core::partial_renderer::RepaintBufferType;
 
 /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
@@ -830,6 +834,7 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
+        let max_lines = normalized_max_lines(text_item.max_lines());
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -855,7 +860,15 @@ impl RendererSealed for SoftwareRenderer {
                 )
             }
         };
-        (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+        let mut size: LogicalSize =
+            (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast();
+        if let Some(max_lines) = max_lines {
+            let font_metrics = self.font_metrics(font_request);
+            let max_lines_coord: i_slint_core::Coord = NumCast::from(max_lines).unwrap_or_default();
+            let max_height = (font_metrics.ascent - font_metrics.descent) * max_lines_coord;
+            size.height = size.height.min(max_height);
+        }
+        size
     }
 
     fn char_size(
@@ -1017,6 +1030,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1045,6 +1059,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1108,6 +1123,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -1142,6 +1158,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -2804,6 +2821,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let max_lines = normalized_max_lines(text.max_lines());
 
         match &font {
             fonts::Font::PixelFont(pf) => {
@@ -2818,6 +2836,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2835,6 +2854,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2906,6 +2926,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -2976,6 +2997,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -3243,6 +3265,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
@@ -3260,6 +3283,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);

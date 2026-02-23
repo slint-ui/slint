@@ -108,6 +108,7 @@ pub struct TextParagraphLayout<'a, Font: AbstractFont> {
     pub wrap: TextWrap,
     pub overflow: TextOverflow,
     pub single_line: bool,
+    pub max_lines: Option<usize>,
 }
 
 impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
@@ -137,17 +138,26 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
 
         let shape_buffer = ShapeBuffer::new(&self.layout, self.string);
 
+        // When eliding, always keep at least the first line: when it is taller than the box,
+        // dropping it would render nothing at all, which is more confusing than a clipped line.
+        // The software renderer already clips glyphs to the Text geometry, so the vertical
+        // overflow is trimmed; horizontal elision still places an ellipsis if it is too
+        // wide. Mirrors the parley path, which always keeps line index 0.
+        let max_lines_from_height =
+            elide.then(|| self.layout.font.max_lines(self.max_height).max(1));
+        let max_lines = match (self.max_lines, max_lines_from_height) {
+            (Some(max_lines), Some(max_lines_from_height)) => {
+                Some(max_lines.min(max_lines_from_height))
+            }
+            (max_lines, max_lines_from_height) => max_lines.or(max_lines_from_height),
+        };
+
         let new_line_break_iter = || {
             TextLineBreaker::<Font>::new(
                 self.string,
                 &shape_buffer,
                 if wrap { Some(self.max_width) } else { None },
-                // Always keep at least the first line: when it is taller than the box, dropping it
-                // would render nothing at all, which is more confusing than a clipped line. The
-                // software renderer already clips glyphs to the Text geometry, so the vertical
-                // overflow is trimmed; horizontal elision still places an ellipsis if it is too
-                // wide. Mirrors the parley path, which always keeps line index 0.
-                if elide { Some(self.layout.font.max_lines(self.max_height).max(1)) } else { None },
+                max_lines,
                 self.wrap,
             )
         };
@@ -499,6 +509,7 @@ fn test_elision() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Elide,
         single_line: true,
+        max_lines: None,
     };
     paragraph
         .layout_lines::<()>(
@@ -544,6 +555,7 @@ fn test_elision_vertical_truncation() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Elide,
         single_line: false,
+        max_lines: None,
     };
     paragraph
         .layout_lines::<()>(
@@ -587,6 +599,7 @@ fn test_exact_fit() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Elide,
         single_line: true,
+        max_lines: None,
     };
     paragraph
         .layout_lines::<()>(
@@ -629,6 +642,55 @@ fn test_no_line_separators_characters_rendered() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Clip,
         single_line: true,
+        max_lines: None,
+    };
+    paragraph
+        .layout_lines::<()>(
+            |glyphs, _, _, _, _| {
+                lines.push(
+                    glyphs.map(|positioned_glyph| positioned_glyph.glyph_id).collect::<Vec<_>>(),
+                );
+                core::ops::ControlFlow::Continue(())
+            },
+            None,
+        )
+        .unwrap();
+
+    assert_eq!(lines.len(), 2);
+    let rendered_text = lines
+        .iter()
+        .map(|glyphs_per_line| {
+            glyphs_per_line
+                .iter()
+                .flat_map(|glyph_id| {
+                    core::char::decode_utf16(core::iter::once(glyph_id.get()))
+                        .map(|r| r.unwrap())
+                        .collect::<Vec<char>>()
+                })
+                .collect::<std::string::String>()
+        })
+        .collect::<Vec<_>>();
+    debug_assert_eq!(rendered_text, std::vec!["Hello", "World"]);
+}
+
+#[test]
+fn test_max_lines_limits_visible_lines() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld\nAgain";
+
+    let mut lines = Vec::new();
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 100. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+        max_lines: Some(2),
     };
     paragraph
         .layout_lines::<()>(
@@ -674,6 +736,7 @@ fn test_cursor_position() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.cursor_pos_for_byte_offset(0), (0., 0.));
@@ -714,6 +777,7 @@ fn test_cursor_position_with_newline() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.cursor_pos_for_byte_offset(5), (5. * 10., 0.));
@@ -734,6 +798,7 @@ fn byte_offset_for_empty_line() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.byte_offset_for_position((0., 10.)), 6);
@@ -756,6 +821,7 @@ fn test_byte_offset() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.byte_offset_for_position((0., 0.)), 0);
