@@ -238,7 +238,7 @@
   },
   "dependencies": {
     "fs-extra": "11.3.3",
-    "simple-git": "3.31.1",
+    "simple-git": "3.32.2",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1"
   },
