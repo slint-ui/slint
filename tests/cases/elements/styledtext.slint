@@ -10,8 +10,6 @@ export component TestCase inherits Window {
 
     st_link := StyledText {
         y: 50px;
-        width: 100%;
-        height: 100%;
         text: @markdown("Click [this link](https://slint.dev)");
         font-size: 24px;
         link-clicked(url) => {
