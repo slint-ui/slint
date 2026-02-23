@@ -111,6 +111,8 @@ impl common::LspToPreview for ChildProcessLspToPreview {
         } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
+        } else {
+            tracing::warn!("Preview not running, dropping message: {:?}", message);
         }
     }
 
@@ -219,7 +221,11 @@ impl RemoteControlledPreviewToLsp {
                     slint::invoke_from_event_loop(move || {
                         preview::connector::lsp_to_preview(message);
                     })
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|err| {
+                        let err = err.to_string();
+                        tracing::error!("Failed to queue message onto event loop - reader thread will exit: {err}");
+                        err
+                    })?;
                 }
             }
             tracing::debug!("Preview: stdin EOF, quitting");

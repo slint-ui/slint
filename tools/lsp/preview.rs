@@ -76,7 +76,9 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
         ui
     });
 
+    tracing::debug!("Preview: starting event loop (run)");
     ui_clone.run()?;
+    tracing::debug!("Preview: event loop exited");
 
     Ok(())
 }
