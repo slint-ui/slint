@@ -141,8 +141,10 @@ pub fn init() {
     let touch = cst328::CST328::new(i2c, &mut Delay).unwrap();
 
     // --- Line buffers (double-buffered for DMA) ---
-    let line_buffer_a = vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].leak();
-    let line_buffer_b = vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].leak();
+    let line_buffer_a =
+        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].into_boxed_slice();
+    let line_buffer_b =
+        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].into_boxed_slice();
 
     let pico_backend = PicoEmbassyBackend {
         display,
@@ -176,8 +178,8 @@ struct PicoEmbassyBackend {
         embassy_rp::i2c::I2c<'static, embassy_rp::peripherals::I2C1, embassy_rp::i2c::Blocking>,
     >,
     last_touch: Option<slint::LogicalPosition>,
-    line_buffer_a: &'static mut [Rgb565Pixel],
-    line_buffer_b: &'static mut [Rgb565Pixel],
+    line_buffer_a: Box<[Rgb565Pixel]>,
+    line_buffer_b: Box<[Rgb565Pixel]>,
     tp_int: Input<'static>,
 }
 
@@ -223,8 +225,8 @@ impl PlatformBackend for PicoEmbassyBackend {
         renderer.set_rendering_rotation(renderer::RenderingRotation::Rotate90);
         let mut provider = DmaLineBufferProvider {
             display: &mut self.display,
-            buffer: &mut *self.line_buffer_a,
-            dma_buffer: &mut *self.line_buffer_b,
+            buffer: &mut self.line_buffer_a,
+            dma_buffer: &mut self.line_buffer_b,
             dma_busy: false,
         };
         renderer.render_by_line(&mut provider);
