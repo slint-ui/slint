@@ -368,6 +368,12 @@ mod cst328 {
 
     const TP_ADDR: u8 = 0x1A;
 
+    // CST328 register commands (high byte = register page, low byte = value/offset)
+    const CMD_DEBUG_INFO_MODE: [u8; 2] = [0xD1, 0x01];
+    const CMD_READ_CHIP_ID: [u8; 2] = [0xD1, 0xFC];
+    const CMD_NORMAL_MODE: [u8; 2] = [0xD1, 0x09];
+    const CMD_READ_TOUCH_DATA: [u8; 2] = [0xD0, 0x00];
+
     pub struct CST328<I2C: I2c> {
         i2c: I2C,
     }
@@ -378,23 +384,23 @@ mod cst328 {
             delay: &mut impl embedded_hal::delay::DelayNs,
         ) -> Result<Self, I2C::Error> {
             // Enter debug info mode
-            i2c.write(TP_ADDR, &[0xD1, 0x01])?;
+            i2c.write(TP_ADDR, &CMD_DEBUG_INFO_MODE)?;
             delay.delay_ms(10);
 
             // Read chip ID (not used, but part of init sequence)
-            i2c.write(TP_ADDR, &[0xD1, 0xFC])?;
+            i2c.write(TP_ADDR, &CMD_READ_CHIP_ID)?;
             let mut chip_id = [0u8; 4];
             i2c.read(TP_ADDR, &mut chip_id)?;
 
             // Enter normal mode
-            i2c.write(TP_ADDR, &[0xD1, 0x09])?;
+            i2c.write(TP_ADDR, &CMD_NORMAL_MODE)?;
             delay.delay_ms(10);
 
             Ok(Self { i2c })
         }
 
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, I2C::Error> {
-            self.i2c.write(TP_ADDR, &[0xD0, 0x00])?;
+            self.i2c.write(TP_ADDR, &CMD_READ_TOUCH_DATA)?;
             let mut data = [0u8; 27];
             self.i2c.read(TP_ADDR, &mut data)?;
 
