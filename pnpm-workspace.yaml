@@ -19,11 +19,11 @@ packages:
 catalog:
   '@astrojs/check': 0.9.6
   '@astrojs/starlight': 0.37.6
-  '@biomejs/biome': 2.4.0
+  '@biomejs/biome': 2.4.4
   '@expressive-code/plugin-line-numbers': 0.41.6
   '@playwright/test': 1.58.2
   '@types/node': 20.16.10
-  astro: 5.17.2
+  astro: 5.17.3
   astro-embed: 0.12.0
   cspell: 9.6.4
   playwright-ctrf-json-reporter: 0.0.27
