@@ -325,6 +325,8 @@ jobs:
                       target: thumbv6m-none-eabi
                     - feature: pico2-st7789
                       target: thumbv8m.main-none-eabihf
+                    - feature: pico2-touch-lcd-2-8
+                      target: thumbv8m.main-none-eabihf
                     - feature: stm32h735g
                       target: thumbv7em-none-eabihf
         steps:
