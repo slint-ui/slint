@@ -88,6 +88,18 @@ pub fn set_window_scale_factor<
     component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
 }
 
+/// Override the locale used for decimal separator detection in the given component's window.
+pub fn set_locale<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    locale: &str,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.context().set_locale(locale);
+}
+
 /// Send a platform pinch gesture event to the component's window.
 ///
 /// `delta` is the incremental scale change (e.g. 0.0 for start, 0.5 for 50% increase).

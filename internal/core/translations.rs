@@ -294,6 +294,9 @@ pub fn mark_all_translations_dirty() {
         }
     }
 
+    #[cfg(feature = "std")]
+    update_locale_decimal_separator();
+
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         ctx.0.translations_dirty.mark_dirty();
@@ -355,6 +358,41 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
+/// Returns the decimal separator character for the given locale string,
+/// or `None` if the locale cannot be parsed or has no ICU data.
+#[cfg(feature = "std")]
+pub(crate) fn decimal_separator_for_locale(locale: &str) -> Option<char> {
+    use icu_decimal::provider::{Baked, DecimalSymbolsV1};
+    use icu_provider::prelude::*;
+
+    // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'
+    let normalized = locale.replace('_', "-");
+    // Strip encoding suffix like ".UTF-8"
+    let bcp47 = normalized.split('.').next().unwrap_or(&normalized);
+    let locale: icu_locale_core::Locale = bcp47.parse().ok()?;
+    let data_locale = DataLocale::from(&locale);
+    let request = DataRequest {
+        id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+            DataMarkerAttributes::empty(),
+            &data_locale,
+        ),
+        ..Default::default()
+    };
+    DataProvider::<DecimalSymbolsV1>::load(&Baked, request)
+        .ok()
+        .and_then(|r| r.payload.get().decimal_separator().chars().next())
+}
+
+/// Query the system locale and update the stored decimal separator.
+#[cfg(feature = "std")]
+fn update_locale_decimal_separator() {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return };
+        let sep = sys_locale::get_locale().and_then(|l| decimal_separator_for_locale(&l));
+        ctx.0.locale_decimal_separator.set(sep);
+    });
+}
+
 /// This function is called by the generated code to assign the list of bundled languages.
 /// Do nothing if the list is already assigned.
 pub fn set_bundled_languages(languages: &[&'static str]) {
@@ -363,8 +401,11 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
         if ctx.0.translations_bundle_languages.borrow().is_none() {
             ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
             #[cfg(feature = "std")]
-            if let Some(idx) = index_for_locale(languages) {
-                ctx.0.translations_dirty.as_ref().set(idx);
+            {
+                if let Some(idx) = index_for_locale(languages) {
+                    ctx.0.translations_dirty.as_ref().set(idx);
+                }
+                update_locale_decimal_separator();
             }
         }
     });
@@ -410,9 +451,13 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
+            #[cfg(feature = "std")]
+            ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(language));
             Ok(())
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
+            #[cfg(feature = "std")]
+            ctx.0.locale_decimal_separator.set(None);
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {
@@ -554,5 +599,42 @@ mod ffi {
     pub extern "C" fn slint_translate_select_bundled_translation(language: Slice<u8>) -> bool {
         let language = core::str::from_utf8(&language).unwrap();
         select_bundled_translation(language).is_ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decimal_separator_for_locale;
+
+    #[test]
+    fn test_decimal_separator_for_locale() {
+        // Comma locales
+        assert_eq!(decimal_separator_for_locale("de"), Some(','));
+        assert_eq!(decimal_separator_for_locale("de-DE"), Some(','));
+        assert_eq!(decimal_separator_for_locale("de_DE"), Some(','));
+        assert_eq!(decimal_separator_for_locale("de_DE.UTF-8"), Some(','));
+        assert_eq!(decimal_separator_for_locale("fr"), Some(','));
+        assert_eq!(decimal_separator_for_locale("fr-FR"), Some(','));
+        assert_eq!(decimal_separator_for_locale("it"), Some(','));
+        assert_eq!(decimal_separator_for_locale("es"), Some(','));
+        assert_eq!(decimal_separator_for_locale("pt"), Some(','));
+        assert_eq!(decimal_separator_for_locale("nl"), Some(','));
+        assert_eq!(decimal_separator_for_locale("sv"), Some(','));
+        assert_eq!(decimal_separator_for_locale("ru"), Some(','));
+        assert_eq!(decimal_separator_for_locale("pl"), Some(','));
+        assert_eq!(decimal_separator_for_locale("cs"), Some(','));
+        assert_eq!(decimal_separator_for_locale("tr"), Some(','));
+        assert_eq!(decimal_separator_for_locale("vi"), Some(','));
+
+        // Dot locales
+        assert_eq!(decimal_separator_for_locale("en"), Some('.'));
+        assert_eq!(decimal_separator_for_locale("en-US"), Some('.'));
+        assert_eq!(decimal_separator_for_locale("en_GB"), Some('.'));
+        assert_eq!(decimal_separator_for_locale("ja"), Some('.'));
+        assert_eq!(decimal_separator_for_locale("zh"), Some('.'));
+        assert_eq!(decimal_separator_for_locale("ko"), Some('.'));
+
+        // Empty / unknown
+        assert_eq!(decimal_separator_for_locale(""), None);
     }
 }
