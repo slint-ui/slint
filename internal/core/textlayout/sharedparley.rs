@@ -535,26 +535,42 @@ fn shape_paragraphs(
     create_text_paragraphs(&builder, font_context, text.text(), None, text.link_color())
 }
 
+fn shape_text_input_paragraphs(
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    scale_factor: ScaleFactor,
+    font_context: &mut parley::FontContext,
+) -> Vec<TextParagraph> {
+    let builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(text_input.font_request(item_rc)),
+        text_input.wrap(),
+        None,
+        scale_factor,
+    );
+    create_text_paragraphs(
+        &builder,
+        font_context,
+        PlainOrStyledText::Plain(text_input.text()),
+        None,
+        Color::default(),
+    )
+}
+
 fn get_or_create_text_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
-    text: Pin<&dyn crate::item_rendering::RenderText>,
-    scale_factor: ScaleFactor,
-    font_context: &mut parley::FontContext,
+    create_paragraphs: impl FnOnce() -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     if let (Some(cache), Some(item_rc)) = (cache, item_rc) {
         let mut entry = cache.inner.get_or_update_cache_entry_ref(item_rc, || {
             #[cfg(feature = "testing")]
             cache.cache_miss_count.set(cache.cache_miss_count.get() + 1);
-            shape_paragraphs(text, Some(item_rc), scale_factor, font_context)
+            create_paragraphs()
         });
         let paragraphs = std::mem::take(&mut *entry);
         CachedParagraphsGuard { paragraphs: Some(paragraphs), container: Some(entry) }
     } else {
-        CachedParagraphsGuard {
-            paragraphs: Some(shape_paragraphs(text, item_rc, scale_factor, font_context)),
-            container: None,
-        }
+        CachedParagraphsGuard { paragraphs: Some(create_paragraphs()), container: None }
     }
 }
 
@@ -1027,8 +1043,9 @@ pub fn draw_text(
 
     let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
-    let mut guard =
-        get_or_create_text_paragraphs(cache, item_rc, text, scale_factor, &mut font_ctx);
+    let mut guard = get_or_create_text_paragraphs(cache, item_rc, || {
+        shape_paragraphs(text, item_rc, scale_factor, &mut font_ctx)
+    });
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
@@ -1100,8 +1117,9 @@ pub fn link_under_cursor(
         scale_factor,
     );
 
-    let mut guard =
-        get_or_create_text_paragraphs(cache, Some(item_rc), text, scale_factor, font_context);
+    let mut guard = get_or_create_text_paragraphs(cache, Some(item_rc), || {
+        shape_paragraphs(text, Some(item_rc), scale_factor, font_context)
+    });
 
     let (horizontal_align, vertical_align) = text.alignment();
 
@@ -1166,6 +1184,7 @@ pub fn draw_text_input(
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     password_character: Option<fn() -> char>,
+    cache: Option<&TextLayoutCache>,
 ) {
     let width = size.width_length();
     let height = size.height_length();
@@ -1196,8 +1215,6 @@ pub fn draw_text_input(
         scale_factor,
     );
 
-    let text: SharedString = visual_representation.text.into();
-
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
     // that character and parley will panic. We just filter out empty selection ranges.
@@ -1207,15 +1224,34 @@ pub fn draw_text_input(
         None
     };
 
+    // Use cache only when there is no active selection, no preedit, and no password substitution.
+    // When selection is active, paragraphs need selection foreground color baked in.
+    let can_use_cache = visual_representation.preedit_range.is_empty()
+        && selection_and_color.is_none()
+        && password_character.is_none();
+
     let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        &mut font_ctx,
-        PlainOrStyledText::Plain(text),
-        selection_and_color,
-        Color::default(),
-    );
+    let mut guard = if can_use_cache {
+        Some(get_or_create_text_paragraphs(cache, Some(item_rc), || {
+            shape_text_input_paragraphs(text_input, item_rc, scale_factor, &mut font_ctx)
+        }))
+    } else {
+        None
+    };
+
+    let paragraphs_without_linebreaks = if let Some(ref mut guard) = guard {
+        guard.paragraphs.take().unwrap_or_default()
+    } else {
+        let text: SharedString = visual_representation.text.into();
+        create_text_paragraphs(
+            &layout_builder,
+            &mut font_ctx,
+            PlainOrStyledText::Plain(text),
+            selection_and_color,
+            Color::default(),
+        )
+    };
 
     let layout = layout(
         &layout_builder,
@@ -1261,6 +1297,11 @@ pub fn draw_text_input(
     }
 
     item_renderer.restore_state();
+
+    // Put paragraphs back into the cache guard for reuse.
+    if let Some(ref mut guard) = guard {
+        guard.paragraphs = Some(layout.paragraphs);
+    }
 }
 
 pub fn text_size(
@@ -1369,6 +1410,7 @@ pub fn text_input_byte_offset_for_position(
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
+    cache: Option<&TextLayoutCache>,
 ) -> usize {
     let Some(scale_factor) = renderer.scale_factor() else {
         return 0;
@@ -1393,14 +1435,10 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let text = text_input.text();
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        &mut font_ctx,
-        PlainOrStyledText::Plain(text),
-        None,
-        Color::default(),
-    );
+    let mut guard = get_or_create_text_paragraphs(cache, Some(item_rc), || {
+        shape_text_input_paragraphs(text_input, item_rc, scale_factor, &mut font_ctx)
+    });
+    let paragraphs_without_linebreaks = guard.paragraphs.take().unwrap_or_default();
 
     let layout = layout(
         &layout_builder,
@@ -1412,6 +1450,7 @@ pub fn text_input_byte_offset_for_position(
     );
     let byte_offset = layout.byte_offset_from_point(pos);
     let visual_representation = text_input.visual_representation(None);
+    guard.paragraphs = Some(layout.paragraphs);
     visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
 }
 
@@ -1420,6 +1459,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
+    cache: Option<&TextLayoutCache>,
 ) -> LogicalRect {
     let Some(scale_factor) = renderer.scale_factor() else {
         return LogicalRect::default();
@@ -1446,14 +1486,10 @@ pub fn text_input_cursor_rect_for_byte_offset(
     };
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let text = text_input.text();
-    let paragraphs_without_linebreaks = create_text_paragraphs(
-        &layout_builder,
-        &mut font_ctx,
-        PlainOrStyledText::Plain(text),
-        None,
-        Color::default(),
-    );
+    let mut guard = get_or_create_text_paragraphs(cache, Some(item_rc), || {
+        shape_text_input_paragraphs(text_input, item_rc, scale_factor, &mut font_ctx)
+    });
+    let paragraphs_without_linebreaks = guard.paragraphs.take().unwrap_or_default();
 
     let layout = layout(
         &layout_builder,
@@ -1465,5 +1501,6 @@ pub fn text_input_cursor_rect_for_byte_offset(
     );
     let cursor_rect = layout
         .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
+    guard.paragraphs = Some(layout.paragraphs);
     cursor_rect / scale_factor
 }

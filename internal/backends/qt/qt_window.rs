@@ -703,7 +703,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
     ) {
         self.save_state();
         self.pixel_align_origin();
-        sharedparley::draw_text_input(self, text_input, self_rc, size, Some(qt_password_character));
+        sharedparley::draw_text_input(
+            self,
+            text_input,
+            self_rc,
+            size,
+            Some(qt_password_character),
+            Some(self.text_layout_cache),
+        );
         self.restore_state();
     }
 
@@ -2218,7 +2225,13 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         item_rc: &i_slint_core::item_tree::ItemRc,
         pos: LogicalPoint,
     ) -> usize {
-        sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
+        sharedparley::text_input_byte_offset_for_position(
+            self,
+            text_input,
+            item_rc,
+            pos,
+            Some(&self.text_layout_cache),
+        )
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -2227,7 +2240,13 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
     ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
+        sharedparley::text_input_cursor_rect_for_byte_offset(
+            self,
+            text_input,
+            item_rc,
+            byte_offset,
+            Some(&self.text_layout_cache),
+        )
     }
 
     fn register_font_from_memory(

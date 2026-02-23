@@ -360,7 +360,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        sharedparley::draw_text_input(self, text_input, self_rc, size, None);
+        sharedparley::draw_text_input(
+            self,
+            text_input,
+            self_rc,
+            size,
+            None,
+            Some(self.text_layout_cache),
+        );
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, _size: LogicalSize) {

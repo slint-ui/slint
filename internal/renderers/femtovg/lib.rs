@@ -351,7 +351,13 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         item_rc: &i_slint_core::item_tree::ItemRc,
         pos: LogicalPoint,
     ) -> usize {
-        sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
+        sharedparley::text_input_byte_offset_for_position(
+            self,
+            text_input,
+            item_rc,
+            pos,
+            Some(&self.text_layout_cache),
+        )
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -360,7 +366,13 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
     ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
+        sharedparley::text_input_cursor_rect_for_byte_offset(
+            self,
+            text_input,
+            item_rc,
+            byte_offset,
+            Some(&self.text_layout_cache),
+        )
     }
 
     fn register_font_from_memory(

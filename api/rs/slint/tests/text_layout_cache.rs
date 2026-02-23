@@ -304,3 +304,97 @@ fn color_change_does_not_reshape() {
     }));
     assert_eq!(miss_count, 0, "Color change should not cause reshaping");
 }
+
+#[test]
+fn text_input_cache_hit_avoids_reshaping() {
+    let window = setup();
+
+    slint::slint! {
+        export component TestComponent inherits Window {
+            TextInput {
+                text: "Hello World";
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    let mut miss_count = 0u64;
+
+    // First render: should shape at least once
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected at least one cache miss on first render");
+
+    // Second render without changes: should hit cache (cursor blink scenario)
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 0, "Expected zero cache misses on re-render without changes");
+}
+
+#[test]
+fn text_input_text_change_invalidates_cache() {
+    let window = setup();
+
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <string> input-text: "Hello";
+            TextInput {
+                text: input-text;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    // First render
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    // Change text
+    ui.set_input_text("Goodbye".into());
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected cache miss after text change");
+}
+
+#[test]
+fn text_input_font_size_change_invalidates_cache() {
+    let window = setup();
+
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <length> size: 16px;
+            TextInput {
+                text: "Hello";
+                font-size: size;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    // First render
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    // Change font-size
+    ui.set_size(24.0);
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected cache miss after font-size change");
+}
