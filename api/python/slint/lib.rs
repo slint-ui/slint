@@ -7,6 +7,7 @@ use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
 
 mod image;
 mod interpreter;
+mod language;
 use interpreter::{
     CompilationResult, Compiler, ComponentDefinition, ComponentInstance, PyDiagnostic,
     PyDiagnosticLevel, PyValueType,
@@ -189,6 +190,8 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
+
+    language::register_StandardListViewItem(m.py(), m)?;
 
     Ok(())
 }

@@ -24,6 +24,8 @@ import gettext
 import gzip
 import base64
 
+from .language import StandardListViewItem
+
 Struct = native.PyStruct
 
 
@@ -634,4 +636,5 @@ __all__ = [
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
+    "StandardListViewItem",
 ]
