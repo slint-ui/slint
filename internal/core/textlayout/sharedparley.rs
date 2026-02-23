@@ -92,6 +92,7 @@ struct Brush {
 struct LayoutOptions {
     max_width: Option<LogicalLength>,
     max_height: Option<LogicalLength>,
+    max_lines: i32,
     horizontal_align: TextHorizontalAlignment,
     vertical_align: TextVerticalAlignment,
     text_overflow: TextOverflow,
@@ -106,6 +107,7 @@ impl LayoutOptions {
         Self {
             max_width,
             max_height,
+            max_lines: 0,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
@@ -388,6 +390,7 @@ fn layout(
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
+    let max_lines = usize::try_from(options.max_lines).ok().filter(|max_lines| *max_lines > 0);
 
     // Returned None if failed to get the elipsis glyph for some rare reason.
     let get_elipsis_glyph = |font_context: &mut parley::FontContext| {
@@ -415,6 +418,8 @@ fn layout(
         };
 
     let mut para_y = 0.0;
+    let mut remaining_lines = max_lines;
+    let mut visible_paragraph_count = 0;
     for para in paragraphs.iter_mut() {
         para.layout.break_all_lines(
             max_physical_width
@@ -432,11 +437,35 @@ fn layout(
         );
 
         para.y = PhysicalLength::new(para_y);
-        para_y += para.layout.height();
-    }
+        let mut visible_lines = 0usize;
+        let mut para_visible_height = PhysicalLength::zero();
+        for line in para.layout.lines() {
+            if let Some(remaining_lines) = remaining_lines {
+                if visible_lines >= remaining_lines {
+                    break;
+                }
+            }
+            para_visible_height = PhysicalLength::new(line.metrics().max_coord);
+            visible_lines += 1;
+        }
 
+        if visible_lines == 0 {
+            break;
+        }
+
+        visible_paragraph_count += 1;
+        para_y += para_visible_height.get();
+
+        if let Some(remaining_lines) = remaining_lines.as_mut() {
+            *remaining_lines = remaining_lines.saturating_sub(visible_lines);
+            if *remaining_lines == 0 {
+                break;
+            }
+        }
+    }
     let max_width = paragraphs
         .iter()
+        .take(visible_paragraph_count)
         .map(|p| {
             // The max width is used for the elipsis computation when eliding text. We *want* to exclude whitespace
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
@@ -445,9 +474,7 @@ fn layout(
             PhysicalLength::new(p.layout.full_width())
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
-    let height = paragraphs
-        .last()
-        .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
+    let height = PhysicalLength::new(para_y);
 
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
@@ -455,7 +482,16 @@ fn layout(
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
+    Layout {
+        paragraphs,
+        y_offset,
+        elision_info,
+        max_width,
+        height,
+        max_physical_height,
+        max_lines,
+        visible_paragraph_count,
+    }
 }
 
 struct ElisionInfo {
@@ -479,6 +515,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
+        remaining_lines: &mut Option<usize>,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
@@ -488,6 +525,10 @@ impl TextParagraph {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
+        if matches!(remaining_lines, Some(0)) {
+            return;
+        }
+
         let para_y = layout.y_offset + self.y;
 
         let mut lines = self
@@ -508,7 +549,9 @@ impl TextParagraph {
             .peekable();
 
         while let Some(line) = lines.next() {
-            let last_line = lines.peek().is_none();
+            let reached_line_limit =
+                remaining_lines.as_ref().is_some_and(|remaining| *remaining == 1);
+            let last_line = lines.peek().is_none() || reached_line_limit;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -552,6 +595,13 @@ impl TextParagraph {
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
+            }
+
+            if let Some(remaining_lines) = remaining_lines.as_mut() {
+                *remaining_lines = remaining_lines.saturating_sub(1);
+                if *remaining_lines == 0 {
+                    break;
+                }
             }
         }
     }
@@ -687,12 +737,21 @@ struct Layout {
     max_width: PhysicalLength,
     height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
+    max_lines: Option<usize>,
     elision_info: Option<ElisionInfo>,
+    visible_paragraph_count: usize,
 }
 
 impl Layout {
+    fn visible_paragraphs(&self) -> &[TextParagraph] {
+        let count = self.visible_paragraph_count.min(self.paragraphs.len());
+        &self.paragraphs[..count]
+    }
+
     fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
-        self.paragraphs.iter().find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
+        self.visible_paragraphs()
+            .iter()
+            .find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
     }
 
     fn paragraph_by_y(&self, y: PhysicalLength) -> Option<&TextParagraph> {
@@ -700,10 +759,10 @@ impl Layout {
         let y = y - self.y_offset;
 
         if y < PhysicalLength::zero() {
-            return self.paragraphs.first();
+            return self.visible_paragraphs().first();
         }
 
-        let idx = self.paragraphs.binary_search_by(|paragraph| {
+        let idx = self.visible_paragraphs().binary_search_by(|paragraph| {
             if y < paragraph.y {
                 core::cmp::Ordering::Greater
             } else if y >= paragraph.y + PhysicalLength::new(paragraph.layout.height()) {
@@ -714,8 +773,8 @@ impl Layout {
         });
 
         match idx {
-            Ok(i) => self.paragraphs.get(i),
-            Err(_) => self.paragraphs.last(),
+            Ok(i) => self.visible_paragraphs().get(i),
+            Err(_) => self.visible_paragraphs().last(),
         }
     }
 
@@ -724,7 +783,7 @@ impl Layout {
         selection_range: Range<usize>,
         mut callback: impl FnMut(PhysicalRect),
     ) {
-        for paragraph in &self.paragraphs {
+        for paragraph in self.visible_paragraphs() {
             let selection_start = selection_range.start.max(paragraph.range.start);
             let selection_end = selection_range.end.min(paragraph.range.end);
 
@@ -866,14 +925,19 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        for paragraph in &self.paragraphs {
+        let mut remaining_lines = self.max_lines;
+        for paragraph in self.visible_paragraphs() {
             paragraph.draw(
                 self,
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
+                &mut remaining_lines,
                 draw_glyphs,
             );
+            if matches!(remaining_lines, Some(0)) {
+                break;
+            }
         }
     }
 }
@@ -946,6 +1010,7 @@ pub fn draw_text(
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
+            max_lines: text.max_lines(),
             text_overflow: text.overflow(),
         },
     );
@@ -1013,6 +1078,7 @@ pub fn link_under_cursor(
             vertical_align,
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
+            max_lines: text.max_lines(),
             text_overflow: text.overflow(),
         },
     );
@@ -1186,6 +1252,7 @@ pub fn text_size(
         LayoutOptions {
             max_width,
             max_height: None,
+            max_lines: text_item.max_lines(),
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
