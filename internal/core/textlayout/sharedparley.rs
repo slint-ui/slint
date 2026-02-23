@@ -192,6 +192,8 @@ struct Brush {
 struct LayoutOptions {
     max_width: Option<LogicalLength>,
     max_height: Option<LogicalLength>,
+    /// Maximum number of visible lines across all paragraphs. Values <= 0 disable the limit.
+    max_lines: i32,
     horizontal_align: TextHorizontalAlignment,
     vertical_align: TextVerticalAlignment,
     text_overflow: TextOverflow,
@@ -206,6 +208,7 @@ impl LayoutOptions {
         Self {
             max_width,
             max_height,
+            max_lines: 0,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
@@ -522,6 +525,7 @@ fn layout(
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
+    let max_lines = usize::try_from(options.max_lines).ok().filter(|max_lines| *max_lines > 0);
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
     let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
@@ -567,8 +571,13 @@ fn layout(
         para_y += para.layout.height();
     }
 
+    let line_limit_cut = max_lines.and_then(|max_lines| line_limit_cut(&paragraphs, max_lines));
+    let visible_paragraph_count =
+        line_limit_cut.map_or(paragraphs.len(), |(last_paragraph, _)| last_paragraph + 1);
+
     let max_width = paragraphs
         .iter()
+        .take(visible_paragraph_count)
         .map(|p| {
             // The max width is used for the ellipsis computation when eliding text. We *want* to exclude whitespace
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
@@ -577,9 +586,22 @@ fn layout(
             PhysicalLength::new(p.layout.full_width())
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
-    let height = paragraphs
-        .last()
-        .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
+    // With an active line limit, the height only extends to the bottom of the last kept line, so
+    // that the preferred height and vertical alignment are based on what is actually shown.
+    let height = match line_limit_cut {
+        Some((last_paragraph, last_line)) => {
+            let para = &paragraphs[last_paragraph];
+            let line = para
+                .layout
+                .lines()
+                .nth(last_line)
+                .expect("line_limit_cut returns an existing line index");
+            para.y + PhysicalLength::new(line.metrics().block_max_coord)
+        }
+        None => paragraphs
+            .last()
+            .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
+    };
 
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
@@ -587,7 +609,43 @@ fn layout(
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
+    Layout {
+        paragraphs,
+        y_offset,
+        elision_info,
+        max_width,
+        height,
+        max_physical_height,
+        line_limit_cut,
+    }
+}
+
+/// Where a `max-lines` limit cuts the text off: the (paragraph index, line index within that
+/// paragraph) of the last kept line. Returns `None` when all lines fit the limit, so an active
+/// cut always means that at least one line was dropped.
+fn line_limit_cut(paragraphs: &[TextParagraph], max_lines: usize) -> Option<(usize, usize)> {
+    let mut seen_lines = 0;
+    let mut cut = None;
+    for (paragraph_index, para) in paragraphs.iter().enumerate() {
+        let line_count = para.layout.lines().len();
+        match cut {
+            None => {
+                if seen_lines + line_count > max_lines {
+                    // The limit lands inside this paragraph, so lines below the cut exist.
+                    return Some((paragraph_index, max_lines - seen_lines - 1));
+                }
+                seen_lines += line_count;
+                if seen_lines == max_lines && line_count > 0 {
+                    // The limit is exhausted; keep scanning to see whether anything follows.
+                    cut = Some((paragraph_index, line_count - 1));
+                }
+            }
+            Some(cut) if line_count > 0 => return Some(cut),
+            Some(_) => {}
+        }
+    }
+    // All lines fit the limit.
+    None
 }
 
 /// RAII guard: takes Vec out of the cache on creation, puts it back on drop.
@@ -1063,9 +1121,47 @@ struct Layout {
     height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
     elision_info: Option<ElisionInfo>,
+    /// Where an active `max-lines` limit drops lines, in the same coordinates as [`ElisionCut`]:
+    /// the (paragraph index, line index) of the last kept line. See [`line_limit_cut`].
+    line_limit_cut: Option<(usize, usize)>,
 }
 
 impl Layout {
+    /// The paragraphs that have at least one line to show. Only differs from `paragraphs` when a
+    /// `max-lines` limit drops lines: paragraphs entirely below the cut don't take part in
+    /// hit-testing or selection.
+    fn visible_paragraphs(&self) -> &[TextParagraph] {
+        match self.line_limit_cut {
+            Some((last_paragraph, _)) => &self.paragraphs[..=last_paragraph],
+            None => &self.paragraphs,
+        }
+    }
+
+    /// The last line to draw, combining the height-based elision cut with the `max-lines` limit:
+    /// whichever cuts earlier wins. Unlike the elision cut, the line limit also applies with
+    /// `overflow: clip` -- just without the ellipsis.
+    fn visible_extent(&self) -> Option<ElisionCut> {
+        let line_limit_cut = self.line_limit_cut.map(|(last_paragraph, last_line)| ElisionCut {
+            last_paragraph,
+            last_line,
+            // The cut only exists when lines were dropped below it, so when eliding, the last
+            // kept line always signals the truncation.
+            needs_ellipsis: self.elision_info.is_some(),
+        });
+        match (self.elision_extent(), line_limit_cut) {
+            (Some(elision), Some(line_limit)) => Some(
+                if (line_limit.last_paragraph, line_limit.last_line)
+                    < (elision.last_paragraph, elision.last_line)
+                {
+                    line_limit
+                } else {
+                    elision
+                },
+            ),
+            (elision, line_limit) => elision.or(line_limit),
+        }
+    }
+
     /// Returns true if the very first line is taller than the available height, meaning the
     /// vertical line dropping used for `overflow: elide` would discard it and render nothing.
     /// In that case the caller keeps drawing the first line but applies a hard pixel clip to
@@ -1145,7 +1241,7 @@ impl Layout {
     /// gap between two paragraph ranges (between a '\r' and its '\n') thus maps to the preceding
     /// paragraph; callers have to clamp their local offset to the paragraph's range.
     fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
-        self.paragraphs.iter().take_while(|p| p.range.start <= byte_offset).last()
+        self.visible_paragraphs().iter().take_while(|p| p.range.start <= byte_offset).last()
     }
 
     fn paragraph_by_y(&self, y: PhysicalLength) -> Option<&TextParagraph> {
@@ -1153,10 +1249,10 @@ impl Layout {
         let y = y - self.y_offset;
 
         if y < PhysicalLength::zero() {
-            return self.paragraphs.first();
+            return self.visible_paragraphs().first();
         }
 
-        let idx = self.paragraphs.binary_search_by(|paragraph| {
+        let idx = self.visible_paragraphs().binary_search_by(|paragraph| {
             if y < paragraph.y {
                 core::cmp::Ordering::Greater
             } else if y >= paragraph.y + PhysicalLength::new(paragraph.layout.height()) {
@@ -1167,8 +1263,8 @@ impl Layout {
         });
 
         match idx {
-            Ok(i) => self.paragraphs.get(i),
-            Err(_) => self.paragraphs.last(),
+            Ok(i) => self.visible_paragraphs().get(i),
+            Err(_) => self.visible_paragraphs().last(),
         }
     }
 
@@ -1177,7 +1273,7 @@ impl Layout {
         selection_range: Range<usize>,
         mut callback: impl FnMut(PhysicalRect),
     ) {
-        for paragraph in &self.paragraphs {
+        for paragraph in self.visible_paragraphs() {
             let selection_start = selection_range.start.max(paragraph.range.start);
             let selection_end = selection_range.end.min(paragraph.range.end);
 
@@ -1335,9 +1431,9 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        // Compute the elision cut once: explicit `\n` breaks produce one paragraph each, but they
-        // must elide as a single block (drop lines below the box, ellipsis on the last visible one).
-        let elision_extent = self.elision_extent();
+        // Compute the cut once: explicit `\n` breaks produce one paragraph each, but they must
+        // elide as a single block (drop lines below the box, ellipsis on the last visible one).
+        let elision_extent = self.visible_extent();
         for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
             paragraph.draw(
                 self,
@@ -1418,6 +1514,7 @@ pub fn draw_text(
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
+            max_lines: text.max_lines(),
             text_overflow: text.overflow(),
         },
     );
@@ -1511,6 +1608,7 @@ pub fn link_under_cursor(
             vertical_align,
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
+            max_lines: text.max_lines(),
             text_overflow: text.overflow(),
         },
     );
@@ -1708,6 +1806,7 @@ pub fn text_size(
         LayoutOptions {
             max_width,
             max_height: None,
+            max_lines: text_item.max_lines(),
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
@@ -1894,7 +1993,7 @@ mod tests {
         paragraph_ranges(text).map(|r| &text[r]).collect()
     }
 
-    fn layout_text(text: &str) -> Layout {
+    fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
         // Don't load system fonts: that goes through fontconfig FFI, which Miri
         // can't execute. Use the bundled Inter font instead.
         let mut font_ctx = parley::FontContext {
@@ -1924,7 +2023,11 @@ mod tests {
             None,
             Color::default(),
         );
-        layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), LayoutOptions::default())
+        layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options)
+    }
+
+    fn layout_text(text: &str) -> Layout {
+        layout_text_with_options(text, LayoutOptions::default())
     }
 
     fn visual_line_count(text: &str) -> usize {
@@ -1970,5 +2073,55 @@ mod tests {
         assert_eq!(paragraphs("a\r\n\nb"), ["a", "", "b"]);
         // A lone CR stays in the paragraph; parley breaks the line there.
         assert_eq!(paragraphs("hello\rworld"), ["hello\rworld"]);
+    }
+
+    fn layout_with_max_lines(text: &str, max_lines: i32) -> Layout {
+        layout_text_with_options(text, LayoutOptions { max_lines, ..LayoutOptions::default() })
+    }
+
+    #[test]
+    fn test_max_lines_cut_across_paragraphs() {
+        // Three paragraphs with one line each; the limit lands on the paragraph boundary.
+        let layout = layout_with_max_lines("a\nb\nc", 2);
+        assert_eq!(layout.line_limit_cut, Some((1, 0)));
+        assert_eq!(layout.visible_paragraphs().len(), 2);
+
+        // Empty paragraphs still synthesize a line that counts towards the limit.
+        let layout = layout_with_max_lines("a\n\nb", 2);
+        assert_eq!(layout.line_limit_cut, Some((1, 0)));
+    }
+
+    #[test]
+    fn test_max_lines_cut_within_paragraph() {
+        // A lone CR breaks lines within a single paragraph, so the limit lands mid-paragraph.
+        let layout = layout_with_max_lines("a\rb\rc", 2);
+        assert_eq!(layout.line_limit_cut, Some((0, 1)));
+        assert_eq!(layout.visible_paragraphs().len(), 1);
+    }
+
+    #[test]
+    fn test_max_lines_no_cut_when_all_lines_fit() {
+        // The limit only cuts when lines are actually dropped, and layout results (notably the
+        // height) are unchanged when it doesn't.
+        let unlimited = layout_text("a\nb\nc");
+        for max_lines in [0, -1, 3, 4] {
+            let layout = layout_with_max_lines("a\nb\nc", max_lines);
+            assert_eq!(layout.line_limit_cut, None);
+            assert_eq!(layout.visible_paragraphs().len(), 3);
+            assert_eq!(layout.height, unlimited.height);
+        }
+    }
+
+    #[test]
+    fn test_max_lines_caps_height() {
+        let unlimited = layout_text("a\nb\nc");
+        let limited = layout_with_max_lines("a\nb\nc", 1);
+        assert!(limited.height < unlimited.height);
+        assert!(limited.height > PhysicalLength::zero());
+        // The capped height matches the bottom of the last kept line.
+        let first_line_bottom = PhysicalLength::new(
+            limited.paragraphs[0].layout.lines().next().unwrap().metrics().block_max_coord,
+        );
+        assert_eq!(limited.height, first_line_bottom);
     }
 }

@@ -551,6 +551,11 @@ component SimpleText inherits Empty {
     /// }
     /// ```
     in property <TextHorizontalAlignment> horizontal-alignment;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit, and
+    /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The text rendered.
     /// \default ""
     in property <string> text;
@@ -742,6 +747,10 @@ component StyledTextItem inherits Empty {
     in property <TextHorizontalAlignment> horizontal-alignment;
     /// The color used for rendering links in the text.
     in property <color> link-color: #00f;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
     /// \default ""
     in property <styled-text> text;
