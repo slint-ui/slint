@@ -237,6 +237,11 @@ public:
     /// Creates a new StyledText from \a other.
     StyledText(const StyledText &other) { cbindgen_private::slint_styled_text_clone(this, &other); }
 
+    StyledText(std::string_view format_string, cbindgen_private::Slice<StyledText> args)
+    {
+        cbindgen_private::slint_parse_markdown(format_string, args, this);
+    }
+
     /// Assigns \a other to this styled text and returns a reference to this styled text.
     StyledText &operator=(const StyledText &other)
     {

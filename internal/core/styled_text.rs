@@ -82,6 +82,15 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_styled_text_clone(out: *mut StyledText, ss: &StyledText) {
         unsafe { core::ptr::write(out, ss.clone()) }
     }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_parse_markdown(
+        format_string: crate::SharedString,
+        args: crate::slice::Slice<StyledText>,
+        out: &mut StyledText,
+    ) {
+        *out = parse_markdown(&format_string, &args);
+    }
 }
 
 pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
