@@ -459,7 +459,6 @@ fn generate_sdf_for_glyph(
     let face =
         fdsm_ttf_parser::ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
-    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id)?;
 
     let metrics = sharedfontique::DesignFontMetrics::new(&font.font);
     let target_pixel_size = target_pixel_size as f64;
@@ -473,6 +472,8 @@ fn generate_sdf_for_glyph(
             ..Default::default()
         });
     };
+
+    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id)?;
 
     let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2.).ceil() as u32;
     let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale + 2.).ceil() as u32;
