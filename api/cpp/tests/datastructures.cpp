@@ -302,7 +302,8 @@ TEST_CASE("SharedVector")
     REQUIRE(vec6 == vec2);
 }
 
-TEST_CASE("StyledText") {
+TEST_CASE("StyledText")
+{
     auto text = slint::private_api::StyledText("Hello *world*", {});
-    auto text2 =  slint::private_api::StyledText("Text: {}", { .ptr = &text, .len = 1 });
+    auto text2 = slint::private_api::StyledText("Text: {}", { .ptr = &text, .len = 1 });
 }
