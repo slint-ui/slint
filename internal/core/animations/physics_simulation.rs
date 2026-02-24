@@ -6,6 +6,7 @@ use crate::{
 };
 use core::{f32::consts::PI, time::Duration};
 use euclid::{Length, Scale};
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 pub enum Seconds {}
