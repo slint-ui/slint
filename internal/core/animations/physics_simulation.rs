@@ -40,6 +40,16 @@ pub struct ConstantDecelerationParameters<DestUnit> {
 }
 
 #[allow(dead_code)]
+impl<DestUnit> ConstantDecelerationParameters<DestUnit> {
+    pub fn new(
+        initial_velocity: Length<f32, DestUnit>,
+        deceleration: Scale<f32, Seconds, DestUnit>,
+    ) -> Self {
+        Self { initial_velocity, deceleration }
+    }
+}
+
+#[allow(dead_code)]
 impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationParameters<DestUnit> {
     type Output = ConstantDeceleration<DestUnit>;
     fn simulation(
@@ -364,6 +374,7 @@ mod tests {
 }
 
 /// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationSpringDamperParameters<DestUnit> {
     pub initial_velocity: Length<f32, DestUnit>,
@@ -373,6 +384,7 @@ pub struct ConstantDecelerationSpringDamperParameters<DestUnit> {
     pub damping_coefficient: f32, // Scale<f32, Seconds, DestUnit>, [1] parameter c
 }
 
+#[allow(dead_code)]
 impl<DestUnit> ConstantDecelerationSpringDamperParameters<DestUnit> {
     pub fn new(
         initial_velocity: Length<f32, DestUnit>,
@@ -396,6 +408,7 @@ impl<DestUnit> ConstantDecelerationSpringDamperParameters<DestUnit> {
     }
 }
 
+#[allow(dead_code)]
 impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationSpringDamperParameters<DestUnit> {
     type Output = ConstantDecelerationSpringDamper<DestUnit>;
     fn simulation(
@@ -408,6 +421,7 @@ impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationSpringDamperParameter
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 enum State {
     Deceleration,
@@ -415,6 +429,7 @@ enum State {
     Done,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ConstantDecelerationSpringDamper<Unit> {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -436,6 +451,7 @@ pub struct ConstantDecelerationSpringDamper<Unit> {
     constant_phi: f32,
 }
 
+#[allow(dead_code)]
 impl<Unit> ConstantDecelerationSpringDamper<Unit> {
     pub fn new(
         start_value: Length<Coord, Unit>,
@@ -627,6 +643,7 @@ impl<Unit> ConstantDecelerationSpringDamper<Unit> {
     }
 }
 
+#[allow(dead_code)]
 impl<Unit> Simulation<Unit> for ConstantDecelerationSpringDamper<Unit> {
     fn curr_value(&self) -> Length<Coord, Unit> {
         self.curr_val + self.curr_val_zeroed
