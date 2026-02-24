@@ -3832,6 +3832,38 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
             })
         }
+        Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => {
+            let cache = access_member(layout_cache_prop, ctx);
+            cache.map_or_default(|cache| {
+                let stride_val = compile_expression(stride, ctx);
+                let col_offset = if let Some(inner_ri) = inner_repeater_index {
+                    format!(
+                        "{} + {} * {}",
+                        child_offset,
+                        compile_expression(inner_ri, ctx),
+                        entries_per_item
+                    )
+                } else {
+                    child_offset.to_string()
+                };
+                format!(
+                    "slint::private_api::layout_cache_grid_repeater_access({}.get(), {}, {}, {}, {})",
+                    cache,
+                    index,
+                    compile_expression(repeater_index, ctx),
+                    stride_val,
+                    col_offset
+                )
+            })
+        }
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,

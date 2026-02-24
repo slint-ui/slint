@@ -780,18 +780,39 @@ pub enum Expression {
 
     ReturnStatement(Option<Box<Expression>>),
 
+    /// Standard cache access (see docs/development/layout-system.md)
     LayoutCacheAccess {
         /// This property holds an array of entries
         layout_cache_prop: NamedReference,
         /// The index into that array. If repeater_index is None, then the code will be `layout_cache_prop[index]`
         index: usize,
         /// When set, this is the index within a repeater, and the index is then the location of another offset.
-        /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index * entries_per_item]`
+        /// The code will be `layout_cache_prop[layout_cache_prop[index] + repeater_index * entries_per_item]`
+        /// Not used by GridLayout (see GridRepeaterCacheAccess)
         repeater_index: Option<Box<Expression>>,
-        /// The number of entries to skip per repeater iteration.
+        /// The number of entries to skip per repeater iteration:
+        /// 2 for pos+size, 4 for flex x+y+w+, 4 for grid organized data
         /// This is only used when repeater_index is set
-        /// This is `base_entries_per_item * step` where base is 2 for LayoutCache or 4 for GridLayoutInputData,
-        /// and step is the number of children in a repeated Row (1 for non-Row elements)
+        entries_per_item: usize,
+    },
+
+    /// Two-level indirection for grid layouts with repeaters (see docs/development/layout-system.md).
+    GridRepeaterCacheAccess {
+        /// This property holds an array of entries
+        layout_cache_prop: NamedReference,
+        /// The index of the jump cell
+        index: usize,
+        /// The outer repeater index.
+        repeater_index: Box<Expression>,
+        /// Total cache entries per outer row (= step * entries_per_item).
+        /// A compile-time literal for static rows; a runtime cache read for rows
+        /// that contain inner repeaters (see lower_layout.rs for construction details).
+        stride: Box<Expression>,
+        /// Offset within a row's data block (e.g. k*2 for pos, k*2+1 for size).
+        child_offset: usize,
+        /// For nested repeaters: the inner repeater index.
+        inner_repeater_index: Option<Box<Expression>>,
+        /// For nested repeaters: stride per inner repeater iteration (2 for coordinate cache, 4 for organized data).
         entries_per_item: usize,
     },
 
@@ -944,6 +965,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
+            Expression::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
             Expression::ComputeBoxLayoutInfo(..) => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
@@ -1048,6 +1070,16 @@ impl Expression {
             }
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 repeater_index.as_deref().map(visitor);
+            }
+            Expression::GridRepeaterCacheAccess {
+                repeater_index,
+                stride,
+                inner_repeater_index,
+                ..
+            } => {
+                visitor(repeater_index);
+                visitor(stride);
+                inner_repeater_index.as_deref().map(visitor);
             }
             Expression::OrganizeGridLayout(..) => {}
             Expression::ComputeBoxLayoutInfo(..) => {}
@@ -1159,6 +1191,16 @@ impl Expression {
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 repeater_index.as_deref_mut().map(visitor);
             }
+            Expression::GridRepeaterCacheAccess {
+                repeater_index,
+                stride,
+                inner_repeater_index,
+                ..
+            } => {
+                visitor(repeater_index);
+                visitor(stride);
+                inner_repeater_index.as_deref_mut().map(visitor);
+            }
             Expression::OrganizeGridLayout(..) => {}
             Expression::ComputeBoxLayoutInfo(..) => {}
             Expression::ComputeGridLayoutInfo { .. } => {}
@@ -1259,6 +1301,7 @@ impl Expression {
             }
             // TODO:  detect constant property within layouts
             Expression::LayoutCacheAccess { .. } => false,
+            Expression::GridRepeaterCacheAccess { .. } => false,
             Expression::OrganizeGridLayout { .. } => false,
             Expression::ComputeBoxLayoutInfo(..) => false,
             Expression::ComputeGridLayoutInfo { .. } => false,
@@ -1951,6 +1994,29 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 )
             } else {
                 write!(f, "{:?}[{}]", layout_cache_prop, index)
+            }
+        }
+        Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index: _,
+            stride: _,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => {
+            if inner_repeater_index.is_some() {
+                write!(
+                    f,
+                    "{0:?}[{0:?}[{1}] + $repeater_index * $stride + {2} + $inner_repeater_index * {3}]",
+                    layout_cache_prop, index, child_offset, entries_per_item
+                )
+            } else {
+                write!(
+                    f,
+                    "{0:?}[{0:?}[{1}] + $repeater_index * $stride + {2}]",
+                    layout_cache_prop, index, child_offset
+                )
             }
         }
         Expression::OrganizeGridLayout(..) => write!(f, "organize_grid_layout(..)"),

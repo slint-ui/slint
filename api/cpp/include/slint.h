@@ -216,13 +216,25 @@ flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> ce
                                                        direction, constraint_size);
 }
 
-/// Access the layout cache of an item within a repeater
+/// Access the layout cache of an item within a repeater (standard cache)
 template<typename T>
 inline T layout_cache_access(const SharedVector<T> &cache, int offset, int repeater_index,
                              int entries_per_item)
 {
     size_t idx = size_t(cache[offset]) + repeater_index * entries_per_item;
     return idx < cache.size() ? cache[idx] : 0;
+}
+
+/// Access the layout cache of an item within a grid repeater (two-level indirection cache)
+/// Formula: cache[cache[jump_index] + repeater_index * stride + child_offset]
+template<typename T>
+inline T layout_cache_grid_repeater_access(const SharedVector<T> &cache, size_t jump_index,
+                                           size_t repeater_index, size_t stride,
+                                           size_t child_offset)
+{
+    size_t base = jump_index < cache.size() ? size_t(cache[jump_index]) : 0;
+    size_t data_idx = base + repeater_index * stride + child_offset;
+    return data_idx < cache.size() ? cache[data_idx] : 0;
 }
 
 template<typename VT, typename ItemType>

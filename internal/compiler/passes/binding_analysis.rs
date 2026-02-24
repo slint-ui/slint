@@ -523,6 +523,9 @@ fn recurse_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }
+        Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => {
+            vis(&layout_cache_prop.clone().into(), P)
+        }
         Expression::SolveBoxLayout(l, o) | Expression::ComputeBoxLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveBoxLayout(..))

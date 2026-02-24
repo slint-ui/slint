@@ -2871,6 +2871,29 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             })
         }
+        Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => access_member(layout_cache_prop, ctx).map_or_default(|cache| {
+            let offset = compile_expression(repeater_index, ctx);
+            let stride_val = compile_expression(stride, ctx);
+            let inner_offset = inner_repeater_index.as_ref().map(|inner_ri| {
+                let inner_offset = compile_expression(inner_ri, ctx);
+                quote!(+ #inner_offset as usize * #entries_per_item)
+            });
+
+            quote!({
+                let cache = #cache.get();
+                let base = cache[#index] as usize;
+                let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
+                *cache.get(data_idx).unwrap_or(&(0 as _))
+            })
+        }),
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,

@@ -268,6 +268,25 @@ pub fn lower_expression(
             repeater_index: repeater_index.as_ref().map(|e| lower_expression(e, ctx).into()),
             entries_per_item: *entries_per_item,
         },
+        tree_Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => llr_Expression::GridRepeaterCacheAccess {
+            layout_cache_prop: ctx.map_property_reference(layout_cache_prop),
+            index: *index,
+            repeater_index: lower_expression(repeater_index, ctx).into(),
+            stride: lower_expression(stride, ctx).into(),
+            child_offset: *child_offset,
+            inner_repeater_index: inner_repeater_index
+                .as_ref()
+                .map(|e| lower_expression(e, ctx).into()),
+            entries_per_item: *entries_per_item,
+        },
         tree_Expression::OrganizeGridLayout(l) => organize_grid_layout(l, ctx),
         tree_Expression::ComputeBoxLayoutInfo(l, o) => compute_box_layout_info(l, *o, ctx),
         tree_Expression::ComputeGridLayoutInfo {

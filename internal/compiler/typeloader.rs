@@ -861,6 +861,25 @@ impl Snapshotter {
                     .map(|e| Box::new(self.snapshot_expression(e))),
                 entries_per_item: *entries_per_item,
             },
+            Expression::GridRepeaterCacheAccess {
+                layout_cache_prop,
+                index,
+                repeater_index,
+                stride,
+                child_offset,
+                inner_repeater_index,
+                entries_per_item,
+            } => Expression::GridRepeaterCacheAccess {
+                layout_cache_prop: layout_cache_prop.snapshot(self),
+                index: *index,
+                repeater_index: Box::new(self.snapshot_expression(repeater_index)),
+                stride: Box::new(self.snapshot_expression(stride)),
+                child_offset: *child_offset,
+                inner_repeater_index: inner_repeater_index
+                    .as_ref()
+                    .map(|e| Box::new(self.snapshot_expression(e))),
+                entries_per_item: *entries_per_item,
+            },
             Expression::MinMax { ty, op, lhs, rhs } => Expression::MinMax {
                 ty: ty.clone(),
                 lhs: Box::new(self.snapshot_expression(lhs)),

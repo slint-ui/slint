@@ -481,6 +481,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             )
             .unwrap();
             if let Value::LayoutCache(cache) = cache {
+                // Coordinate cache
                 if let Some(ri) = repeater_index {
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
@@ -494,6 +495,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     Value::Number(cache[*index].into())
                 }
             } else if let Value::ArrayOfU16(cache) = cache {
+                // Organized Data cache
                 if let Some(ri) = repeater_index {
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
@@ -505,6 +507,63 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     )
                 } else {
                     Value::Number(cache[*index].into())
+                }
+            } else {
+                panic!("invalid layout cache")
+            }
+        }
+        Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => {
+            let cache = load_property_helper(
+                &ComponentInstance::InstanceRef(local_context.component_instance),
+                &layout_cache_prop.element(),
+                layout_cache_prop.name(),
+            )
+            .unwrap();
+            if let Value::LayoutCache(cache) = cache {
+                // Coordinate cache
+                let row_idx: usize =
+                    eval_expression(repeater_index, local_context).try_into().unwrap();
+                let stride_val: usize = eval_expression(stride, local_context).try_into().unwrap();
+                if let Some(inner_ri) = inner_repeater_index {
+                    let inner_offset: usize =
+                        eval_expression(inner_ri, local_context).try_into().unwrap();
+                    let base = cache[*index] as usize;
+                    let data_idx = base
+                        + row_idx * stride_val
+                        + *child_offset
+                        + inner_offset * *entries_per_item;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0.).into())
+                } else {
+                    let base = cache[*index] as usize;
+                    let data_idx = base + row_idx * stride_val + *child_offset;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0.).into())
+                }
+            } else if let Value::ArrayOfU16(cache) = cache {
+                // Organized Data cache
+                let row_idx: usize =
+                    eval_expression(repeater_index, local_context).try_into().unwrap();
+                let stride_val: usize = eval_expression(stride, local_context).try_into().unwrap();
+                if let Some(inner_ri) = inner_repeater_index {
+                    let inner_offset: usize =
+                        eval_expression(inner_ri, local_context).try_into().unwrap();
+                    let base = cache[*index] as usize;
+                    let data_idx = base
+                        + row_idx * stride_val
+                        + *child_offset
+                        + inner_offset * *entries_per_item;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0).into())
+                } else {
+                    let base = cache[*index] as usize;
+                    let data_idx = base + row_idx * stride_val + *child_offset;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0).into())
                 }
             } else {
                 panic!("invalid layout cache")

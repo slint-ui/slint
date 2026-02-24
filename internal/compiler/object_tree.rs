@@ -3003,6 +3003,7 @@ pub fn visit_named_references_in_expression(
             ..
         } => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
+        Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
         Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
         Expression::ComputeFlexBoxLayoutInfo(l, _) => l.visit_named_references(vis),

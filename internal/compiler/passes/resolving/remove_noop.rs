@@ -103,6 +103,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         // the current function stops at this point.
         Expression::ReturnStatement(_) => false,
         Expression::LayoutCacheAccess { .. } => false,
+        Expression::GridRepeaterCacheAccess { .. } => false,
         Expression::ComputeBoxLayoutInfo(_, _) => false,
         Expression::ComputeGridLayoutInfo { .. } => false,
         Expression::OrganizeGridLayout(_) => false,

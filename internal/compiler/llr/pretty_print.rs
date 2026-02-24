@@ -421,6 +421,24 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     entries_per_item
                 )
             }
+            Expression::GridRepeaterCacheAccess {
+                layout_cache_prop,
+                index,
+                repeater_index,
+                stride,
+                child_offset,
+                ..
+            } => {
+                write!(
+                    f,
+                    "{0}[{0}[{1}] + {2} * {3} + {4}]",
+                    DisplayPropertyRef(layout_cache_prop, ctx),
+                    index,
+                    e(repeater_index),
+                    e(stride),
+                    child_offset
+                )
+            }
             Expression::WithLayoutItemInfo { .. } => write!(f, "WithLayoutItemInfo(TODO)",),
             Expression::WithFlexBoxLayoutItemInfo { .. } => {
                 write!(f, "WithFlexBoxLayoutItemInfo(TODO)",)

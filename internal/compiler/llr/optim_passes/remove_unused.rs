@@ -495,6 +495,7 @@ mod visitor {
                 Expression::CallBackCall { callback, .. } => callback,
                 Expression::PropertyAssignment { property, .. } => property,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
+                Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 _ => return,
             };
             visit_member_reference(p, scope, state, visitor);

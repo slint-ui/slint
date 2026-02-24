@@ -500,6 +500,12 @@ impl GridLayoutOrganizedData {
     ) -> (u16, u16) {
         // For every cell, we have 4 entries, each at their own index
         // But we also need to take into account indirections for repeated items
+
+        // Two-level indirection for repeated items:
+        //   jump_pos = (ri_start_cell - cell_nr_adj) * 4
+        //   data_base = self[jump_pos]        (base of this repeater's data)
+        //   stride    = step * 4              (computed from repeater_steps)
+        //   data_idx = data_base + row_in_rep * stride + col_in_rep * 4
         let mut final_idx = 0;
         let mut cell_nr_adj = 0i32; // needs to be signed in case we start with an empty repeater
         let cell_number = cell_number as i32;
@@ -517,13 +523,17 @@ impl GridLayoutOrganizedData {
                 && cell_number < ri_start_cell + cells_in_repeater
             {
                 let cell_in_rep = cell_number - ri_start_cell;
+                let row_in_rep = cell_in_rep / step;
+                let col_in_rep = cell_in_rep % step;
                 let jump_pos = (ri_start_cell - cell_nr_adj) as usize * 4;
-                final_idx = self[jump_pos] as usize + (cell_in_rep * 4) as usize;
+                let data_base = self[jump_pos] as usize;
+                let stride = step as usize * 4;
+                final_idx = data_base + row_in_rep as usize * stride + col_in_rep as usize * 4;
                 break;
             }
-            // -1 is correct for an empty repeater (e.g. if false), which takes one position, for 0 real cells
-            // With step > 1, we have 'step' jump entries but cells_in_repeater actual cells
-            cell_nr_adj += cells_in_repeater - step;
+            // Each repeater occupies 1 jump cell in the static area but cells_in_repeater cells logically
+            // Note: -1 is correct for an empty repeater (e.g. if false), which occupies 1 jump cell, for 0 real cells
+            cell_nr_adj += cells_in_repeater - 1;
         }
         if final_idx == 0 {
             final_idx = ((cell_number - cell_nr_adj) * 4) as usize;
@@ -551,17 +561,23 @@ impl GridLayoutOrganizedData {
     }
 }
 
+/// Two-level indirection organized data generator for grid layouts with repeaters.
+/// Uses 2-level indirection: cache[cache[jump_pos] + ri * stride + col * 4]
+/// Each jump cell stores [data_base, 0, 0, 0] where stride is computed as step * 4.
+///
+/// Layout: [static_cells (4 u16 each)] [jump_cells (4 u16 each, 1 per repeater)]
+///         [row_data (rep_count * step * 4 u16)] ... (repeated for each repeater)
 struct OrganizedDataGenerator<'a> {
     // Input
     repeater_indices: &'a [u32],
     repeater_steps: &'a [u32],
     // An always increasing counter, the index of the cell being added
     counter: usize,
-    // The index/4 in result in which we should add the next repeated item
-    repeat_offset: usize,
-    // The index/4 in repeater_indices
+    // The u16 position in result for the next repeater's data section
+    repeat_u16_offset: usize,
+    // The index/2 in repeater_indices (i.e. which repeater we're looking at next)
     next_rep: usize,
-    // The index/4 in result in which we should add the next non-repeated item
+    // The cell index in result for the next non-repeated item (each cell = 4 u16)
     current_offset: usize,
     // Output
     result: &'a mut GridLayoutOrganizedData,
@@ -571,25 +587,18 @@ impl<'a> OrganizedDataGenerator<'a> {
     fn new(
         repeater_indices: &'a [u32],
         repeater_steps: &'a [u32],
+        static_cells: usize,
+        num_repeaters: usize,
+        total_repeated_cells_count: usize,
         result: &'a mut GridLayoutOrganizedData,
     ) -> Self {
-        // Calculate total repeated cells (count * step for each repeater)
-        let total_repeated_cells: usize = repeater_indices
-            .chunks(2)
-            .enumerate()
-            .map(|(i, chunk)| {
-                let count = chunk.get(1).copied().unwrap_or(0) as usize;
-                let step = repeater_steps.get(i).copied().unwrap_or(1) as usize;
-                count * step
-            })
-            .sum();
-        assert!(result.len() >= total_repeated_cells * 4);
-        let repeat_offset = result.len() / 4 - total_repeated_cells;
+        result.resize((static_cells + num_repeaters + total_repeated_cells_count) * 4, 0 as _);
+        let repeat_u16_offset = (static_cells + num_repeaters) * 4;
         Self {
             repeater_indices,
             repeater_steps,
             counter: 0,
-            repeat_offset,
+            repeat_u16_offset,
             next_rep: 0,
             current_offset: 0,
             result,
@@ -597,45 +606,51 @@ impl<'a> OrganizedDataGenerator<'a> {
     }
     fn add(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
         let res = self.result.make_mut_slice();
-        let o = loop {
+        loop {
             if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
                 let nr = *nr as usize;
                 let step = self.repeater_steps.get(self.next_rep).copied().unwrap_or(1) as usize;
+                let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
+
                 if nr == self.counter {
-                    // Write jump entries for each element in the step
-                    for s in 0..step {
-                        for o in 0..4 {
-                            res[(self.current_offset + s) * 4 + o] =
-                                ((self.repeat_offset + s) * 4 + o) as _;
-                        }
-                    }
-                    self.current_offset += step;
+                    // First cell of this repeater
+                    let data_u16_start = self.repeat_u16_offset;
+
+                    // Write jump cell: [data_base, 0, 0, 0]
+                    res[self.current_offset * 4] = data_u16_start as _;
+                    self.current_offset += 1;
                 }
                 if self.counter >= nr {
-                    let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
                     let cells_in_repeater = rep_count * step;
                     if self.counter - nr == cells_in_repeater {
-                        // Advance repeat_offset past this repeater's data before moving to next
-                        self.repeat_offset += cells_in_repeater;
+                        // Past the end of this repeater — advance past data
+                        self.repeat_u16_offset += cells_in_repeater * 4;
                         self.next_rep += 1;
                         continue;
                     }
-                    // Calculate offset using row-major ordering: step entries per row
+                    // Write data at the position determined by row/col within repeater
                     let cell_in_rep = self.counter - nr;
                     let row_in_rep = cell_in_rep / step;
                     let col_in_rep = cell_in_rep % step;
-                    let offset = self.repeat_offset + col_in_rep + row_in_rep * step;
-                    break offset;
+                    let data_u16_start = self.repeat_u16_offset;
+                    let u16_pos = data_u16_start + row_in_rep * step * 4 + col_in_rep * 4;
+                    res[u16_pos] = col;
+                    res[u16_pos + 1] = colspan;
+                    res[u16_pos + 2] = row;
+                    res[u16_pos + 3] = rowspan;
+                    self.counter += 1;
+                    return;
                 }
             }
+            // Non-repeated cell
+            res[self.current_offset * 4] = col;
+            res[self.current_offset * 4 + 1] = colspan;
+            res[self.current_offset * 4 + 2] = row;
+            res[self.current_offset * 4 + 3] = rowspan;
             self.current_offset += 1;
-            break self.current_offset - 1;
-        };
-        res[o * 4] = col;
-        res[o * 4 + 1] = colspan;
-        res[o * 4 + 2] = row;
-        res[o * 4 + 3] = rowspan;
-        self.counter += 1;
+            self.counter += 1;
+            return;
+        }
     }
 }
 
@@ -740,6 +755,19 @@ pub fn organize_dialog_button_layout(
     organized_data
 }
 
+// GridLayout-specific
+fn total_repeated_cells<'a>(repeater_indices: &'a [u32], repeater_steps: &'a [u32]) -> usize {
+    repeater_indices
+        .chunks(2)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let count = chunk.get(1).copied().unwrap_or(0) as usize;
+            let step = repeater_steps.get(i).copied().unwrap_or(1) as usize;
+            count * step
+        })
+        .sum()
+}
+
 type Errors = Vec<String>;
 
 pub fn organize_grid_layout(
@@ -762,15 +790,18 @@ fn organize_grid_layout_impl(
     repeater_steps: Slice<u32>,
 ) -> (GridLayoutOrganizedData, Errors) {
     let mut organized_data = GridLayoutOrganizedData::default();
-    // Calculate extra space needed for jump entries when step > 1
-    // Each repeater with step > 1 needs (step - 1) extra entries for the additional jump slots
-    let extra_jump_entries: usize =
-        repeater_steps.iter().map(|&s| (s as usize).saturating_sub(1)).sum();
-    organized_data
-        .resize(input_data.len() * 4 + repeater_indices.len() * 2 + extra_jump_entries * 4, 0 as _);
+    // Cache size: static_cells * 4 + num_repeaters * 4 (jump cells)
+    //              + per repeater: rep_count * step * 4 (data)
+    let num_repeaters = repeater_indices.len() / 2;
+    let total_repeated_cells =
+        total_repeated_cells(repeater_indices.as_slice(), repeater_steps.as_slice());
+    let static_cells = input_data.len() - total_repeated_cells;
     let mut generator = OrganizedDataGenerator::new(
         repeater_indices.as_slice(),
         repeater_steps.as_slice(),
+        static_cells,
+        num_repeaters,
+        total_repeated_cells,
         &mut organized_data,
     );
     let mut errors = Vec::new();
@@ -818,6 +849,7 @@ fn organize_grid_layout_impl(
     (organized_data, errors)
 }
 
+/// Layout cache generator for box layouts.
 /// The layout cache generator inserts the pos and size into the result array (which becomes the layout cache property),
 /// including the indirections for repeated items (so that the x,y,width,height properties for repeated items
 /// can point to indices known at compile time, those that contain the indirections)
@@ -827,7 +859,6 @@ fn organize_grid_layout_impl(
 struct LayoutCacheGenerator<'a> {
     // Input
     repeater_indices: &'a [u32],
-    repeater_steps: &'a [u32],
     // An always increasing counter, the index of the cell being added
     counter: usize,
     // The index/2 in result in which we should add the next repeated item
@@ -841,63 +872,35 @@ struct LayoutCacheGenerator<'a> {
 }
 
 impl<'a> LayoutCacheGenerator<'a> {
-    fn new(
-        repeater_indices: &'a [u32],
-        repeater_steps: &'a [u32],
-        result: &'a mut SharedVector<Coord>,
-    ) -> Self {
-        // Calculate total repeated cells (count * step for each repeater)
+    fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
         let total_repeated_cells: usize = repeater_indices
             .chunks(2)
-            .enumerate()
-            .map(|(i, chunk)| {
-                let count = chunk.get(1).copied().unwrap_or(0) as usize;
-                let step = repeater_steps.get(i).copied().unwrap_or(1) as usize;
-                count * step
-            })
+            .map(|chunk| chunk.get(1).copied().unwrap_or(0) as usize)
             .sum();
         assert!(result.len() >= total_repeated_cells * 2);
         let repeat_offset = result.len() / 2 - total_repeated_cells;
-        Self {
-            repeater_indices,
-            repeater_steps,
-            counter: 0,
-            repeat_offset,
-            next_rep: 0,
-            current_offset: 0,
-            result,
-        }
+        Self { repeater_indices, counter: 0, repeat_offset, next_rep: 0, current_offset: 0, result }
     }
     fn add(&mut self, pos: Coord, size: Coord) {
         let res = self.result.make_mut_slice();
         let o = loop {
             if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
                 let nr = *nr as usize;
-                let step = self.repeater_steps.get(self.next_rep).copied().unwrap_or(1) as usize;
                 if nr == self.counter {
-                    // Write jump entries for each element in the step
-                    for s in 0..step {
-                        for o in 0..2 {
-                            res[(self.current_offset + s) * 2 + o] =
-                                ((self.repeat_offset + s) * 2 + o) as _;
-                        }
+                    // Write jump entry
+                    for o in 0..2 {
+                        res[self.current_offset * 2 + o] = (self.repeat_offset * 2 + o) as _;
                     }
-                    self.current_offset += step;
+                    self.current_offset += 1;
                 }
                 if self.counter >= nr {
                     let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
-                    let cells_in_repeater = rep_count * step;
-                    if self.counter - nr == cells_in_repeater {
-                        // Advance repeat_offset past this repeater's data before moving to next
-                        self.repeat_offset += cells_in_repeater;
+                    if self.counter - nr == rep_count {
+                        self.repeat_offset += rep_count;
                         self.next_rep += 1;
                         continue;
                     }
-                    // Calculate offset using row-major ordering: step entries per row
-                    let cell_in_rep = self.counter - nr;
-                    let row_in_rep = cell_in_rep / step;
-                    let col_in_rep = cell_in_rep % step;
-                    let offset = self.repeat_offset + col_in_rep + row_in_rep * step;
+                    let offset = self.repeat_offset + (self.counter - nr);
                     break offset;
                 }
             }
@@ -907,6 +910,92 @@ impl<'a> LayoutCacheGenerator<'a> {
         res[o * 2] = pos;
         res[o * 2 + 1] = size;
         self.counter += 1;
+    }
+}
+
+/// Two-level indirection layout cache generator for grid layouts with repeaters.
+/// Uses 2-level indirection: cache[cache[jump] + ri * stride + child_offset]
+/// Each jump cell stores [data_base, stride] where stride = step * 2.
+struct GridLayoutCacheGenerator<'a> {
+    // Input
+    repeater_indices: &'a [u32],
+    repeater_steps: &'a [u32],
+    // An always increasing counter, the index of the cell being added
+    counter: usize,
+    // The f32 position in result for the next repeater's dynamic data section
+    repeat_f32_offset: usize,
+    // The index/2 in repeater_indices
+    next_rep: usize,
+    // The cell index (index/2) in result for the next non-repeated item
+    current_offset: usize,
+    // Output
+    result: &'a mut SharedVector<Coord>,
+}
+
+impl<'a> GridLayoutCacheGenerator<'a> {
+    fn new(
+        repeater_indices: &'a [u32],
+        repeater_steps: &'a [u32],
+        static_cells: usize,
+        num_repeaters: usize,
+        total_repeated_cells_count: usize,
+        result: &'a mut SharedVector<Coord>,
+    ) -> Self {
+        result.resize((static_cells + num_repeaters + total_repeated_cells_count) * 2, 0 as _);
+        let repeat_f32_offset = (static_cells + num_repeaters) * 2;
+        Self {
+            repeater_indices,
+            repeater_steps,
+            counter: 0,
+            repeat_f32_offset,
+            next_rep: 0,
+            current_offset: 0,
+            result,
+        }
+    }
+    fn add(&mut self, pos: Coord, size: Coord) {
+        let res = self.result.make_mut_slice();
+        loop {
+            if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
+                let nr = *nr as usize;
+                let step = self.repeater_steps.get(self.next_rep).copied().unwrap_or(1) as usize;
+                let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
+
+                if nr == self.counter {
+                    // First cell of this repeater
+                    let data_f32_start = self.repeat_f32_offset;
+
+                    // Write jump cell: [data_base, 0]
+                    res[self.current_offset * 2] = data_f32_start as _;
+                    self.current_offset += 1;
+                }
+                if self.counter >= nr {
+                    let cells_in_repeater = rep_count * step;
+                    if self.counter - nr == cells_in_repeater {
+                        // Past the end of this repeater — advance past data
+                        self.repeat_f32_offset += cells_in_repeater * 2;
+                        self.next_rep += 1;
+                        continue;
+                    }
+                    // Write data at the position determined by row/col within repeater
+                    let cell_in_rep = self.counter - nr;
+                    let row_in_rep = cell_in_rep / step;
+                    let col_in_rep = cell_in_rep % step;
+                    let data_f32_start = self.repeat_f32_offset;
+                    let f32_pos = data_f32_start + row_in_rep * step * 2 + col_in_rep * 2;
+                    res[f32_pos] = pos;
+                    res[f32_pos + 1] = size;
+                    self.counter += 1;
+                    return;
+                }
+            }
+            // Non-repeated cell
+            res[self.current_offset * 2] = pos;
+            res[self.current_offset * 2 + 1] = size;
+            self.current_offset += 1;
+            self.counter += 1;
+            return;
+        }
     }
 }
 
@@ -941,12 +1030,18 @@ pub fn solve_grid_layout(
     );
 
     let mut result = SharedVector::<Coord>::default();
-    // Calculate extra space for jump entries when step > 1
-    // Each repeater with step > 1 needs (step - 1) extra entries for additional jump slots
-    let extra_jump_entries: usize =
-        repeater_steps.iter().map(|&s| (s as usize).saturating_sub(1)).sum();
-    result.resize(2 * constraints.len() + repeater_indices.len() + extra_jump_entries * 2, 0 as _);
-    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &repeater_steps, &mut result);
+    let num_repeaters = repeater_indices.len() / 2;
+    let total_repeated_cells =
+        total_repeated_cells(repeater_indices.as_slice(), repeater_steps.as_slice());
+    let static_cells = constraints.len() - total_repeated_cells;
+    let mut generator = GridLayoutCacheGenerator::new(
+        repeater_indices.as_slice(),
+        repeater_steps.as_slice(),
+        static_cells,
+        num_repeaters,
+        total_repeated_cells,
+        &mut result,
+    );
 
     for idx in 0..constraints.len() {
         let (col_or_row, span) = data.organized_data.col_or_row_and_span(
@@ -1118,7 +1213,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         }
     }
 
-    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &[], &mut result);
+    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     for layout in layout_data.iter() {
         generator.add(layout.pos, layout.size);
     }
@@ -1816,8 +1911,7 @@ mod tests {
         // 2 fixed cells
         let mut result = GridLayoutOrganizedData::default();
         let num_cells = 2;
-        result.resize(num_cells * 4, 0 as _);
-        let mut generator = OrganizedDataGenerator::new(&[], &[], &mut result);
+        let mut generator = OrganizedDataGenerator::new(&[], &[], num_cells, 0, 0, &mut result);
         generator.add(0, 1, 0, 1);
         generator.add(1, 2, 0, 3);
         assert_eq!(result.as_slice(), &[0, 1, 0, 1, 1, 2, 0, 3]);
@@ -1844,8 +1938,8 @@ mod tests {
         let mut result = GridLayoutOrganizedData::default();
         let num_cells = 4;
         let repeater_indices = &[1u32, 3u32];
-        result.resize(num_cells * 4 + 2 * repeater_indices.len(), 0 as _);
-        let mut generator = OrganizedDataGenerator::new(repeater_indices, &[], &mut result);
+        let mut generator =
+            OrganizedDataGenerator::new(repeater_indices, &[], 1, 1, 3, &mut result);
         generator.add(0, 1, 0, 2); // fixed
         generator.add(1, 2, 1, 3); // repeated
         generator.add(1, 1, 2, 4);
@@ -1853,9 +1947,11 @@ mod tests {
         assert_eq!(
             result.as_slice(),
             &[
-                0, 1, 0, 2, // fixed
-                8, 9, 10, 11, // jump to repeater data
-                1, 2, 1, 3, 1, 1, 2, 4, 2, 2, 3, 5 // repeater data
+                0, 1, 0, 2, // fixed cell
+                8, 0, 0, 0, // jump cell: data_base=8, stride=4 (step=1, epi=4)
+                1, 2, 1, 3, // repeated cell 1
+                1, 1, 2, 4, // repeated cell 2
+                2, 2, 3, 5, // repeated cell 3
             ]
         );
         let repeater_indices = Slice::from_slice(repeater_indices);
@@ -1982,17 +2078,19 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                28, 29, 30, 31, // jump to first (empty) repeater (not used)
-                0, 1, 0, 1, // first row, first column
-                28, 29, 30, 31, // jump to first repeater data
-                5, 1, 0, 1, // fixed
-                44, 45, 46, 47, // jump to second repeater data
-                52, 53, 54, 55, // slot for jumping to 3rd repeater (out of bounds, not used)
-                8, 1, 0, 1, // final fixed element
-                1, 1, 0, 1, // first repeater data
-                2, 1, 0, 1, 3, 1, 0, 1, 4, 1, 0, 1, // end of first repeater
-                6, 1, 0, 1, // second repeater data
-                7, 1, 0, 1 // end of second repeater
+                28, 0, 0, 0, // rep0 jump: data at 28, stride=4 (empty)
+                0, 1, 0, 1, // fixed cell (col=0)
+                28, 0, 0, 0, // rep1 jump: data at 28, stride=4 (4 rows)
+                5, 1, 0, 1, // fixed cell (col=5)
+                44, 0, 0, 0, // rep2 jump: data at 44, stride=4 (2 rows)
+                52, 0, 0, 0, // rep3 jump: data at 52, stride=4 (empty)
+                8, 1, 0, 1, // fixed cell (col=8)
+                1, 1, 0, 1, // rep1 row 0
+                2, 1, 0, 1, // rep1 row 1
+                3, 1, 0, 1, // rep1 row 2
+                4, 1, 0, 1, // rep1 row 3
+                6, 1, 0, 1, // rep2 row 0
+                7, 1, 0, 1, // rep2 row 1
             ]
         );
         assert_eq!(errors.len(), 0);
@@ -2058,14 +2156,10 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                8, 9, 10, 11, // jump to repeater data for column 0 (offset 2)
-                12, 13, 14, 15, // jump to repeater data for column 1 (offset 3)
-                0, 1, 0, 1, // row 0, col 0 (offset 2)
-                1, 1, 0, 1, // row 0, col 1 (offset 3)
-                0, 1, 1, 1, // row 1, col 0 (offset 4)
-                1, 1, 1, 1, // row 1, col 1 (offset 5)
-                0, 1, 2, 1, // row 2, col 0 (offset 6)
-                1, 1, 2, 1, // row 2, col 1 (offset 7)
+                4, 0, 0, 0, // jump cell: data at u16 idx 4, stride=8 (=step*4=2*4)
+                0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
+                0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
+                0, 1, 2, 1, 1, 1, 2, 1, // row 2: col 0, col 1
             ]
         );
         assert_eq!(errors.len(), 0);
@@ -2099,13 +2193,14 @@ mod tests {
             3
         );
 
-        // Now test LayoutCacheGenerator
+        // Now test GridLayoutCacheGenerator
         let mut layout_cache_v = SharedVector::<Coord>::default();
-        // 2 jump entries (one per column) + 6 data entries (3 rows × 2 columns)
-        layout_cache_v.resize((num_columns * 2 + num_columns * num_rows * 2) as usize, 0 as _);
-        let mut generator = LayoutCacheGenerator::new(
+        let mut generator = GridLayoutCacheGenerator::new(
             repeater_indices.as_slice(),
             repeater_steps.as_slice(),
+            0, // static_cells
+            1, // num_repeaters
+            6, // total_repeated_cells (3 rows * 2 columns)
             &mut layout_cache_v,
         );
         // Row 0
@@ -2120,29 +2215,32 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                4., 5., 6., 7., // jump to repeater data
+                2., 0., // jump cell: data at pos 2
                 0., 50., 0., 50., // row 0
                 50., 50., 50., 50., // row 1
                 100., 50., 100., 50., // row 2
             ]
         );
 
-        let layout_cache_v_access = |index: usize, repeater_index: usize, step: usize| -> Coord {
-            let entries_per_item = 2usize;
-            let offset = repeater_index;
-            // same as the code generated for LayoutCacheAccess in rust.rs
-            *layout_cache_v
-                .get((layout_cache_v[index] as usize) + offset as usize * entries_per_item * step)
-                .unwrap()
+        // GridRepeaterCacheAccess: cache[cache[jump_index] + ri * stride + child_offset]
+        let layout_cache_v_access = |jump_index: usize,
+                                     repeater_index: usize,
+                                     stride: usize,
+                                     child_offset: usize|
+         -> Coord {
+            let base = layout_cache_v[jump_index] as usize;
+            let data_idx = base + repeater_index * stride + child_offset;
+            layout_cache_v[data_idx]
         };
-        // Y values for A
-        assert_eq!(layout_cache_v_access(0, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(0, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(0, 2, 2), 100.);
-        // Y values for B
-        assert_eq!(layout_cache_v_access(1 * 2, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(1 * 2, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(1 * 2, 2, 2), 100.);
+        // stride=4 (step=2, entries_per_item=2)
+        // Y pos for child 0 (child_offset=0)
+        assert_eq!(layout_cache_v_access(0, 0, 4, 0), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 0), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 0), 100.);
+        // Y pos for child 1 (child_offset=2)
+        assert_eq!(layout_cache_v_access(0, 0, 4, 2), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 2), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 2), 100.);
     }
 
     #[test]
@@ -2179,25 +2277,15 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                20, 21, 22, 23, // repeater 0: jump to repeater data for column 0 (offset 5)
-                24, 25, 26, 27, // repeater 0: jump to repeater data for column 1 (offset 6)
-                44, 45, 46, 47, // repeater 1: jump to repeater data for column 0 (offset 11)
-                48, 49, 50, 51, // repeater 1: jump to repeater data for column 1 (offset 12)
-                52, 53, 54, 55, // repeater 1: jump to repeater data for column 2 (offset 13)
-                // Repeater 0
-                0, 1, 0, 1, // row 0, col 0 (offset 5)
-                1, 1, 0, 1, // row 0, col 1 (offset 6)
-                0, 1, 1, 1, // row 1, col 0 (offset 7)
-                1, 1, 1, 1, // row 1, col 1 (offset 8)
-                0, 1, 2, 1, // row 2, col 0 (offset 9)
-                1, 1, 2, 1, // row 2, col 1 (offset 10)
-                // Repeater 1
-                0, 1, 3, 1, // row 3, col 0 (offset 11)
-                1, 1, 3, 1, // row 3, col 1 (offset 12)
-                2, 1, 3, 1, // row 3, col 2 (offset 13)
-                0, 1, 4, 1, // row 4, col 0 (offset 14)
-                1, 1, 4, 1, // row 4, col 1 (offset 15)
-                2, 1, 4, 1, // row 4, col 2 (offset 16)
+                8, 0, 0, 0, // repeater 0 jump: data at 8, stride=8 (=step*4=2*4)
+                32, 0, 0, 0, // repeater 1 jump: data at 32, stride=12 (=step*4=3*4)
+                // Repeater 0 data
+                0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
+                0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
+                0, 1, 2, 1, 1, 1, 2, 1, // row 2: col 0, col 1
+                // Repeater 1 data
+                0, 1, 3, 1, 1, 1, 3, 1, 2, 1, 3, 1, // row 0: col 0, col 1, col 2
+                0, 1, 4, 1, 1, 1, 4, 1, 2, 1, 4, 1, // row 1: col 0, col 1, col 2
             ]
         );
         assert_eq!(errors.len(), 0);
@@ -2244,13 +2332,14 @@ mod tests {
             num_rows as u16 // max row (4) + rowspan (1) = 5
         );
 
-        // Now test LayoutCacheGenerator
+        // Now test GridLayoutCacheGenerator
         let mut layout_cache_v = SharedVector::<Coord>::default();
-        // 5 jump entries, just like above + 12 data entries (3*2+2*3) - where each entry has 2 values (pos, size)
-        layout_cache_v.resize((5 * 2 + (3 * 2 + 2 * 3) * 2) as usize, 0 as _);
-        let mut generator = LayoutCacheGenerator::new(
+        let mut generator = GridLayoutCacheGenerator::new(
             repeater_indices.as_slice(),
             repeater_steps.as_slice(),
+            0,  // static_cells
+            2,  // num_repeaters
+            12, // total_repeated_cells (3*2 + 2*3)
             &mut layout_cache_v,
         );
         // Row 0
@@ -2273,32 +2362,40 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                10., 11., 12., 13., // repeater 0: jump to repeater data
-                22., 23., 24., 25., 26., 27., // repeater 1: jump to repeater data
-                0., 50., 0., 50., // row 0
-                50., 50., 50., 50., // row 1
-                100., 50., 100., 50., // row 2
-                150., 50., 150., 50., 150., 50., // row 3
-                200., 50., 200., 50., 200., 50., // row 4
+                4., 0., // repeater 0 jump: data at pos 4
+                16., 0., // repeater 1 jump: data at pos 16
+                0., 50., 0., 50., // repeater 0 row 0 data
+                50., 50., 50., 50., // repeater 0 row 1 data
+                100., 50., 100., 50., // repeater 0 row 2 data
+                150., 50., 150., 50., 150., 50., // repeater 1 row 3 data
+                200., 50., 200., 50., 200., 50., // repeater 1 row 4 data
             ]
         );
 
-        let layout_cache_v_access = |index: usize, repeater_index: usize, step: usize| -> Coord {
-            let entries_per_item = 2usize;
-            let offset = repeater_index;
-            // same as the code generated for LayoutCacheAccess in rust.rs
-            *layout_cache_v
-                .get((layout_cache_v[index] as usize) + offset as usize * entries_per_item * step)
-                .unwrap()
+        // GridRepeaterCacheAccess: cache[cache[jump_index] + ri * stride + child_offset]
+        let layout_cache_v_access = |jump_index: usize,
+                                     repeater_index: usize,
+                                     stride: usize,
+                                     child_offset: usize|
+         -> Coord {
+            let base = layout_cache_v[jump_index] as usize;
+            let data_idx = base + repeater_index * stride + child_offset;
+            layout_cache_v[data_idx]
         };
-        // Y values for A
-        assert_eq!(layout_cache_v_access(0, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(0, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(0, 2, 2), 100.);
-        // Y values for B
-        assert_eq!(layout_cache_v_access(1 * 2, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(1 * 2, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(1 * 2, 2, 2), 100.);
+        // Repeater 0: Y pos for child 0 (child_offset=0), stride=4
+        assert_eq!(layout_cache_v_access(0, 0, 4, 0), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 0), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 0), 100.);
+        // Repeater 0: Y pos for child 1 (child_offset=2), stride=4
+        assert_eq!(layout_cache_v_access(0, 0, 4, 2), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 2), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 2), 100.);
+        // Repeater 1: Y pos for child 0 (child_offset=0), jump at index 2, stride=6
+        assert_eq!(layout_cache_v_access(2, 0, 6, 0), 150.);
+        assert_eq!(layout_cache_v_access(2, 1, 6, 0), 200.);
+        // Repeater 1: Y pos for child 2 (child_offset=4), jump at index 2, stride=6
+        assert_eq!(layout_cache_v_access(2, 0, 6, 4), 150.);
+        assert_eq!(layout_cache_v_access(2, 1, 6, 4), 200.);
     }
 
     #[test]
@@ -2306,7 +2403,7 @@ mod tests {
         // 2 fixed cells
         let mut result = SharedVector::<Coord>::default();
         result.resize(2 * 2, 0 as _);
-        let mut generator = LayoutCacheGenerator::new(&[], &[], &mut result);
+        let mut generator = LayoutCacheGenerator::new(&[], &mut result);
         generator.add(0., 50.); // fixed
         generator.add(80., 50.); // fixed
         assert_eq!(result.as_slice(), &[0., 50., 80., 50.]);
@@ -2318,7 +2415,7 @@ mod tests {
         let mut result = SharedVector::<Coord>::default();
         let repeater_indices = &[1, 3];
         result.resize(4 * 2 + repeater_indices.len(), 0 as _);
-        let mut generator = LayoutCacheGenerator::new(repeater_indices, &[], &mut result);
+        let mut generator = LayoutCacheGenerator::new(repeater_indices, &mut result);
         generator.add(0., 50.); // fixed
         generator.add(80., 50.); // repeated
         generator.add(160., 50.);
@@ -2339,7 +2436,7 @@ mod tests {
         let mut result = SharedVector::<Coord>::default();
         let repeater_indices = &[1, 0, 1, 4, 6, 2, 8, 0];
         result.resize(8 * 2 + repeater_indices.len(), 0 as _);
-        let mut generator = LayoutCacheGenerator::new(repeater_indices, &[], &mut result);
+        let mut generator = LayoutCacheGenerator::new(repeater_indices, &mut result);
         generator.add(0., 50.); // fixed
         generator.add(80., 10.); // repeated
         generator.add(160., 10.);

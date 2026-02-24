@@ -186,11 +186,23 @@ pub enum Expression {
 
     EnumerationValue(crate::langtype::EnumerationValue),
 
+    /// Standard cache access (box layouts and static grid cells).
     /// See LayoutCacheAccess in expression_tree.rs
     LayoutCacheAccess {
         layout_cache_prop: MemberReference,
         index: usize,
         repeater_index: Option<Box<Expression>>,
+        entries_per_item: usize,
+    },
+    /// Two-level indirection cache access for grid layouts with repeaters.
+    /// See GridRepeaterCacheAccess in expression_tree.rs
+    GridRepeaterCacheAccess {
+        layout_cache_prop: MemberReference,
+        index: usize,
+        repeater_index: Box<Expression>,
+        stride: Box<Expression>,
+        child_offset: usize,
+        inner_repeater_index: Option<Box<Expression>>,
         entries_per_item: usize,
     },
     /// Will call the sub_expression, with the cells variable set to the
@@ -367,6 +379,7 @@ impl Expression {
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::KeyboardShortcutLiteral(_) => Type::KeyboardShortcutType,
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
+            Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexBoxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
@@ -454,6 +467,18 @@ macro_rules! visit_impl {
                     $visitor(repeater_index);
                 }
             }
+            Expression::GridRepeaterCacheAccess {
+                repeater_index,
+                stride,
+                inner_repeater_index,
+                ..
+            } => {
+                $visitor(repeater_index);
+                $visitor(stride);
+                if let Some(inner_repeater_index) = inner_repeater_index {
+                    $visitor(inner_repeater_index);
+                }
+            }
             Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
@@ -526,6 +551,7 @@ impl Expression {
                 // FIXME  (should be fine anyway because we mark these as not optimizable)
                 Expression::ModelDataAssignment { .. } => return,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
+                Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 _ => return,
             };
             visitor(p, ctx)
@@ -899,7 +925,8 @@ impl ContextMap {
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
             | Expression::PropertyAssignment { property: p, .. }
-            | Expression::LayoutCacheAccess { layout_cache_prop: p, .. } => {
+            | Expression::LayoutCacheAccess { layout_cache_prop: p, .. }
+            | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
                 *p = self.map_property_reference(p);
             }
             _ => (),
