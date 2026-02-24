@@ -67,10 +67,10 @@ impl Item for Flickable {
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {
                 let Some(flick_rc) = self_weak.upgrade() else {
-                    return OutOfBounds::None;
+                    return (false, false);
                 };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else {
-                    return OutOfBounds::None;
+                    return (false, false);
                 };
                 let flick = flick.as_pin_ref();
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
