@@ -60,15 +60,6 @@ pub struct Flickable {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-#[derive(Default, PartialEq)]
-enum OutOfBounds {
-    #[default]
-    None,
-    X,
-    Y,
-    Both,
-}
-
 impl Item for Flickable {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         self.data.in_bound_change_handler.init_delayed(
@@ -92,36 +83,22 @@ impl Item for Flickable {
                 let y_out_of_bounds =
                     vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero);
 
-                if x_out_of_bounds && y_out_of_bounds {
-                    OutOfBounds::Both
-                } else if x_out_of_bounds {
-                    OutOfBounds::X
-                } else if y_out_of_bounds {
-                    OutOfBounds::Y
-                } else {
-                    OutOfBounds::None
-                }
+                (x_out_of_bounds, y_out_of_bounds)
             },
             // Change event handler that puts the Flickable in bounds if it's not already
-            |self_weak, out_of_bound| {
+            |self_weak, (x_out_of_bounds, y_out_of_bounds)| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
                 let flick = flick.as_pin_ref();
                 let vpx = flick.viewport_x();
                 let vpy = flick.viewport_y();
                 let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
-                match *out_of_bound {
-                    OutOfBounds::Both => {
-                        (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
-                        (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
-                    }
-                    OutOfBounds::X => {
-                        (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
-                    }
-                    OutOfBounds::Y => {
-                        (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
-                    }
-                    OutOfBounds::None => (),
+
+                if *x_out_of_bounds {
+                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                }
+                if *y_out_of_bounds {
+                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
                 }
             },
         );
@@ -685,7 +662,7 @@ impl FlickableData {
             let millis = (crate::animations::current_tick() - pressed_time).as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
-                && millis > 1
+                && millis > 0
             {
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
