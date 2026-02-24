@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Testing if the animation is applied to the flickable after mouse release. In this scenario only the y animation is triggered
-// Because we move with the mouse only straight up
+// Testing if the animation is applied to the flickable after mouse release. In this scenario the x and y animations are triggered
+// This is the difference to listview_interactive_animation.slint
 
 import { ListView } from "std-widgets.slint";
 export component TestCase inherits Window {
@@ -34,6 +34,7 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
     pressed_y: f32,
     released_x: f32,
     released_y: f32,
+    time: u64, // Time between press and release
 ) {
     use slint::*;
 
@@ -45,34 +46,23 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
     window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
     window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
     window.dispatch_event(platform::WindowEvent::PointerMoved { position: released_position });
-    slint_testing::mock_elapsed_time(50);
+    slint_testing::mock_elapsed_time(time);
     window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
 }
 
 let instance = TestCase::new().unwrap();
 
 // Scroll down
-send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Scrolling up. Larger y is display bottom (Diff: 130 - 5 = 125)
+let time = 5; // Time between press and release is really short
+let x_release = 30.; // Set this to 5. to see even without the fix it is pass
+send_mouse_press_and_release(&instance, 5., 130., x_release, 5., time); // Scrolling up. Larger y is display bottom (Diff: 130 - 5 = 125).
 // let the animation run for a bit
-slint_testing::mock_elapsed_time(100);
+slint_testing::mock_elapsed_time(10);
 // Due to the animation the value must be more than the diff of scrolling
 assert!(instance.get_viewport_y() < -125., "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), -125);
-
-// Now scrolling up again
-let old_viewport_y = instance.get_viewport_y();
-println!("Old viewport y: {:?}", old_viewport_y);
-send_mouse_press_and_release(&instance, 5., 0., 5., 75.); // Larger y is display bottom (Diff: 75 - 0)
-// let the animation run for a bit
+let viewport_y = instance.get_viewport_y();
 slint_testing::mock_elapsed_time(100);
-assert!((instance.get_viewport_y() - old_viewport_y) > 75., "Received: {}, Desired: larger than {}", instance.get_viewport_y() - old_viewport_y, 75);
-
-// Now scrolling up again but we hit the viewport limit
-let old_viewport_y = instance.get_viewport_y();
-println!("Old viewport y: {:?}", old_viewport_y);
-send_mouse_press_and_release(&instance, 5., 0., 5., 75.);
-// let the animation run for a bit
-slint_testing::mock_elapsed_time(100);
-assert!(instance.get_viewport_y() == 0., "Received: {}, Desired: {}", instance.get_viewport_y(), 0.);
+assert!(instance.get_viewport_y() < viewport_y, "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), viewport_y);
 ```
 
 */

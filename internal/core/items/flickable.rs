@@ -60,39 +60,68 @@ pub struct Flickable {
     pub cached_rendering_data: CachedRenderingData,
 }
 
+#[derive(Default, PartialEq)]
+enum OutOfBounds {
+    #[default]
+    None,
+    X,
+    Y,
+    Both,
+}
+
 impl Item for Flickable {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         self.data.in_bound_change_handler.init_delayed(
             self_rc.downgrade(),
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {
-                let Some(flick_rc) = self_weak.upgrade() else { return false };
-                let Some(flick) = flick_rc.downcast::<Flickable>() else { return false };
+                let Some(flick_rc) = self_weak.upgrade() else {
+                    return OutOfBounds::None;
+                };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else {
+                    return OutOfBounds::None;
+                };
                 let flick = flick.as_pin_ref();
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
 
                 let zero = LogicalLength::zero();
                 let vpx = flick.viewport_x();
-                if vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero) {
-                    return true;
+                let vpy = flick.viewport_y(); // Read before returning!
+                let x_out_of_bounds =
+                    vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero);
+                let y_out_of_bounds =
+                    vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero);
+
+                if x_out_of_bounds && y_out_of_bounds {
+                    OutOfBounds::Both
+                } else if x_out_of_bounds {
+                    OutOfBounds::X
+                } else if y_out_of_bounds {
+                    OutOfBounds::Y
+                } else {
+                    OutOfBounds::None
                 }
-                let vpy = flick.viewport_y();
-                if vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero) {
-                    return true;
-                }
-                false
             },
             // Change event handler that puts the Flickable in bounds if it's not already
             |self_weak, out_of_bound| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
                 let flick = flick.as_pin_ref();
-                if *out_of_bound {
-                    let vpx = flick.viewport_x();
-                    let vpy = flick.viewport_y();
-                    let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+                let vpx = flick.viewport_x();
+                let vpy = flick.viewport_y();
+                let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
+                match *out_of_bound {
+                    OutOfBounds::Both => {
+                        (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                        (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+                    }
+                    OutOfBounds::X => {
+                        (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                    }
+                    OutOfBounds::Y => {
+                        (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+                    }
+                    OutOfBounds::None => (),
                 }
             },
         );
