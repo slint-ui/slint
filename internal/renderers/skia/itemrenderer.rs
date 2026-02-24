@@ -1012,7 +1012,8 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         else {
             return;
         };
-        let font = skia_safe::Font::from_typeface(type_face, font_size.get());
+        let mut font = skia_safe::Font::from_typeface(type_face, font_size.get());
+        font.set_subpixel(true);
 
         let (glyph_ids, glyph_positions): (Vec<_>, Vec<_>) = glyphs_it
             .into_iter()
