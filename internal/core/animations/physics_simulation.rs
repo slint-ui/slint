@@ -1,12 +1,12 @@
-use core::{f32::consts::PI, time::Duration};
-
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 use crate::{
     Coord,
     animations::{self, Instant},
 };
+use core::{f32::consts::PI, time::Duration};
 use euclid::{Length, Scale};
+use num_traits::Float;
 
 pub enum Seconds {}
 type Time = Length<f32, Seconds>;
@@ -399,8 +399,8 @@ impl<DestUnit> Parameter<DestUnit> for ConstantDecelerationSpringDamperParameter
     type Output = ConstantDecelerationSpringDamper<DestUnit>;
     fn simulation(
         self,
-        start_value: Length<f32, DestUnit>,
-        limit_value: Length<f32, DestUnit>,
+        start_value: Length<Coord, DestUnit>,
+        limit_value: Length<Coord, DestUnit>,
     ) -> Self::Output {
         let initial_velocity = self.initial_velocity.clone();
         ConstantDecelerationSpringDamper::new(start_value, limit_value, initial_velocity, self)
@@ -419,8 +419,8 @@ pub struct ConstantDecelerationSpringDamper<Unit> {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
     /// but at the end of the animation the limit shall not be exceeded
     limit_value: Length<Coord, Unit>,
-    curr_val_zeroed: Length<f32, Unit>,
-    curr_val: Length<f32, Unit>,
+    curr_val_zeroed: Length<Coord, Unit>,
+    curr_val: Length<Coord, Unit>,
     velocity: Length<f32, Unit>,
     data: ConstantDecelerationSpringDamperParameters<Unit>,
     direction: Direction,
@@ -494,7 +494,7 @@ impl<Unit> ConstantDecelerationSpringDamper<Unit> {
         Self {
             limit_value,
             curr_val: start_value,
-            curr_val_zeroed: Length::new(0.),
+            curr_val_zeroed: Length::new(0. as Coord),
             velocity: initial_velocity,
             data,
             direction,
@@ -555,7 +555,7 @@ impl<Unit> ConstantDecelerationSpringDamper<Unit> {
                 // solving p_limit = p_old + v_old * dt - 0.5 * a * dt^2
                 let root = f32::sqrt(
                     self.velocity.0.powi(2)
-                        - self.data.deceleration.0 * (self.limit_value - self.curr_val).0,
+                        - self.data.deceleration.0 * (self.limit_value - self.curr_val).0 as f32,
                 );
                 // The smaller is the relevant. The larger is when the initial velocity got zero and due to the constant acceleration we turn
                 let dt = f32::min(
@@ -564,7 +564,7 @@ impl<Unit> ConstantDecelerationSpringDamper<Unit> {
                 );
 
                 self.velocity = self.velocity - Time::new(dt) * self.data.deceleration; // Velocity at limit value point. Solved `new_val` equation for new_velocity
-                self.curr_val_zeroed = Length::new(0.);
+                self.curr_val_zeroed = Length::new(0. as Coord);
                 self.curr_val = self.limit_value;
 
                 const X0: f32 = 0.; // Relative point
@@ -602,7 +602,7 @@ impl<Unit> ConstantDecelerationSpringDamper<Unit> {
         let new_val = self.constant_a
             * f32::exp(-self.damping_ratio * self.w_n * t)
             * f32::sin(self.w_d * t + self.constant_phi);
-        self.curr_val_zeroed = Length::new(new_val); // relative value
+        self.curr_val_zeroed = Length::new(new_val as Coord); // relative value
 
         let max_time = 2. * PI / self.w_d;
         let current_val = self.curr_value();
@@ -619,7 +619,7 @@ impl<Unit> ConstantDecelerationSpringDamper<Unit> {
         if finished {
             self.velocity = Length::new(0.);
             self.curr_val = self.limit_value;
-            self.curr_val_zeroed = Length::new(0.);
+            self.curr_val_zeroed = Length::new(0. as Coord);
             self.state = State::Done;
         }
         (current_val, finished)
