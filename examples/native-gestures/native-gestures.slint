@@ -43,7 +43,9 @@ component ResetButton inherits Rectangle {
     border-color: #404060;
 
     ta := TouchArea {
-        clicked => { root.clicked(); }
+        clicked => {
+            root.clicked();
+        }
     }
 
     layout := HorizontalLayout {
@@ -69,7 +71,6 @@ global gestureData {
     in property <angle> base-rotation: 0deg;
     in property <angle> current-rotation: 0deg;
     in property <bool> gesture-active: false;
-
 }
 
 component GestureArea inherits Rectangle {
@@ -104,7 +105,6 @@ component GestureArea inherits Rectangle {
                 }
             }
         }
-
     }
 
     Timer {
@@ -115,7 +115,6 @@ component GestureArea inherits Rectangle {
             self.stop();
         }
     }
-
 }
 
 component InfoPanel inherits VerticalLayout {
@@ -145,13 +144,9 @@ component InfoPanel inherits VerticalLayout {
 
     InfoItem {
         label: "Center";
-        value: root.has-gesture-occurred
-            ? round(root.center-x / 1px) + ", " + round(root.center-y / 1px)
-            : "—";
+        value: root.has-gesture-occurred ? round(root.center-x / 1px) + ", " + round(root.center-y / 1px) : "—";
     }
 }
-
-
 
 export component MainWindow inherits Window {
     title: "Native Gestures Demo";
@@ -197,7 +192,6 @@ export component MainWindow inherits Window {
             let inv-scale = 1 / max(0.1, gestureData.current-scale);
             gestureData.content-position.x += inv-scale * (cos(gestureData.current-rotation) * deltaX + sin(gestureData.current-rotation) * deltaY);
             gestureData.content-position.y += inv-scale * (-sin(gestureData.current-rotation) * deltaX + cos(gestureData.current-rotation) * deltaY);
-
         }
 
         updated => {
@@ -266,7 +260,9 @@ export component MainWindow inherits Window {
             }
 
             ResetButton {
-                clicked => { root.reset(); }
+                clicked => {
+                    root.reset();
+                }
             }
         }
 
@@ -295,7 +291,9 @@ export component MainWindow inherits Window {
             }
 
             ResetButton {
-                clicked => { root.reset(); }
+                clicked => {
+                    root.reset();
+                }
             }
         }
 
