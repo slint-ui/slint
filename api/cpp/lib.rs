@@ -13,6 +13,7 @@ use alloc::string::ToString;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
 use i_slint_core::items::OperatingSystemType;
+use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
@@ -239,6 +240,15 @@ pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
     i_slint_core::detect_operating_system()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_parse_markdown(
+    format_string: &SharedString,
+    args: Slice<StyledText>,
+    out: &mut StyledText,
+) {
+    *out = i_slint_core::styled_text::parse_markdown(format_string, &args);
 }
 
 #[unsafe(no_mangle)]

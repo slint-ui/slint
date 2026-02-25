@@ -306,11 +306,11 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
-inline StyledText parse_markdown(cbindgen_private::Slice<uint8_t> format_string,
+inline StyledText parse_markdown(const SharedString& format_string,
                                  cbindgen_private::Slice<StyledText> args)
 {
     StyledText result;
-    cbindgen_private::slint_parse_markdown(format_string, args, &result);
+    cbindgen_private::slint_parse_markdown(&format_string, args, &result);
     return result;
 }
 

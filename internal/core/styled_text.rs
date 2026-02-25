@@ -82,21 +82,14 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_styled_text_clone(out: *mut StyledText, ss: &StyledText) {
         unsafe { core::ptr::write(out, ss.clone()) }
     }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_parse_markdown(
-        format_string: crate::slice::Slice<u8>,
-        args: crate::slice::Slice<StyledText>,
-        out: &mut StyledText,
-    ) {
-        *out = parse_markdown(core::str::from_utf8(&format_string[..]).unwrap(), &args);
-    }
 }
 
 pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
     _format_string: &str,
     _args: &[S],
 ) -> StyledText {
+    std::dbg!(_format_string.len());
+
     #[cfg(feature = "std")]
     {
         StyledText::parse_interpolated(_format_string, _args).unwrap()
