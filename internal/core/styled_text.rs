@@ -88,8 +88,6 @@ pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph
     _format_string: &str,
     _args: &[S],
 ) -> StyledText {
-    std::dbg!(_format_string.len());
-
     #[cfg(feature = "std")]
     {
         StyledText::parse_interpolated(_format_string, _args).unwrap()
