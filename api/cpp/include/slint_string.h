@@ -225,6 +225,27 @@ private:
 
 namespace private_api {
 
+template<typename T>
+inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
+{
+    return cbindgen_private::Slice<T> {
+        // Rust uses a NonNull, so even empty slices shouldn't use nullptr
+        .ptr = ptr ? const_cast<T *>(ptr) : reinterpret_cast<T *>(sizeof(T)),
+        .len = len,
+    };
+}
+
+template<typename T, size_t Extent>
+inline cbindgen_private::Slice<std::remove_const_t<T>> make_slice(std::span<T, Extent> span)
+{
+    return make_slice(span.data(), span.size());
+}
+
+inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
+{
+    return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
+}
+
 /// Styled text that has been parsed and seperated into paragraphs
 struct StyledText
 {
@@ -239,7 +260,7 @@ public:
 
     StyledText(std::string_view format_string, cbindgen_private::Slice<StyledText> args)
     {
-        cbindgen_private::slint_parse_markdown(format_string, args, this);
+        cbindgen_private::slint_parse_markdown(string_to_slice(format_string), args, this);
     }
 
     /// Assigns \a other to this styled text and returns a reference to this styled text.
@@ -267,25 +288,5 @@ private:
     void *inner alignas(8);
 };
 
-template<typename T>
-inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
-{
-    return cbindgen_private::Slice<T> {
-        // Rust uses a NonNull, so even empty slices shouldn't use nullptr
-        .ptr = ptr ? const_cast<T *>(ptr) : reinterpret_cast<T *>(sizeof(T)),
-        .len = len,
-    };
-}
-
-template<typename T, size_t Extent>
-inline cbindgen_private::Slice<std::remove_const_t<T>> make_slice(std::span<T, Extent> span)
-{
-    return make_slice(span.data(), span.size());
-}
-
-inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
-{
-    return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
-}
 }
 }

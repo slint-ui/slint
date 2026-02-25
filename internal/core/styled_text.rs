@@ -85,11 +85,11 @@ pub mod ffi {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_parse_markdown(
-        format_string: crate::SharedString,
+        format_string: crate::slice::Slice<u8>,
         args: crate::slice::Slice<StyledText>,
         out: &mut StyledText,
     ) {
-        *out = parse_markdown(&format_string, &args);
+        *out = parse_markdown(core::str::from_utf8(&format_string[..]).unwrap(), &args);
     }
 }
 
