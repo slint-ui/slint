@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component CheckBox inherits NativeCheckBox {
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
+
+export component CheckBox implements CheckBoxInterface inherits NativeCheckBox {
     accessible-enabled: root.enabled;
     accessible-checkable: true;
     accessible-checked <=> root.checked;

@@ -3,14 +3,12 @@
 
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 
-// Selection control that can be toggled between checked und unchecked by click.
-export component CheckBox {
-    in property <string> text <=> i-text.text;
-    in property <bool> enabled: true;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+// Selection control that can be toggled between checked und unchecked by click.
+export component CheckBox implements CheckBoxInterface {
+    text <=> i-text.text;
+    has-focus: i-focus-scope.has-focus;
 
     min-height: max(18px, i-layout.min-height);
     vertical-stretch: 0;

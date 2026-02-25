@@ -4,13 +4,11 @@
 import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component CheckBox {
-    in property <string> text;
-    in property <bool> enabled <=> touch-area.enabled;
-    out property <bool> has-focus: focus-scope.has-focus;
-    in-out property <bool> checked;
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+export component CheckBox implements CheckBoxInterface {
+    enabled <=> touch-area.enabled;
+    has-focus: focus-scope.has-focus;
 
     private property <color> text-color: FluentPalette.foreground;
 
