@@ -185,8 +185,8 @@ export component MainWindow inherits Window {
         }
 
         cancelled => {
-            root.current-scale = root.base-scale;
-            root.current-rotation = root.base-rotation;
+            root.base-scale = root.current-scale;
+            root.base-rotation = root.current-rotation;
             root.gesture-active = false;
             root.status-text = "cancelled";
         }
