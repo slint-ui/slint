@@ -245,14 +245,14 @@ This enables grids to handle both single-item repeaters (step=1) and multi-child
 **Example**: 1 repeater with 3 row instances, each having 2 children (step=2):
 
 ```
-slint!(
+slint! {
     GridLayout {
         for _ in 3: Row {
             Rectangle {}
             Rectangle {}
         }
     }
-);
+};
 
 repeater_indices = [0, 3]   // starts at cell 0, 3 instances
 repeater_steps   = [2]      // 2 children per instance
