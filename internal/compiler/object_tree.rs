@@ -1775,6 +1775,7 @@ impl Element {
             }
         }
 
+        apply_interface_default_property_values(&mut r.borrow_mut(), &implemented_interface);
         validate_function_implementations_for_interface(&r.borrow(), &implemented_interface, diag);
 
         r
@@ -2253,6 +2254,27 @@ fn apply_implements_specifier(
         }
 
         e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+    }
+}
+
+/// Apply default property values defined in the interface to the element.
+fn apply_interface_default_property_values(
+    e: &mut Element,
+    implemented_interface: &Option<ImplementedInterface>,
+) {
+    let Some(ImplementedInterface { interface, .. }) = implemented_interface else {
+        return;
+    };
+
+    for (property_name, _) in
+        interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
+            // Only apply default bindings for properties
+            !matches!(prop_decl.property_type, Type::Function { .. } | Type::Callback { .. })
+        })
+    {
+        if let Some(binding) = interface.borrow().bindings.get(property_name) {
+            e.bindings.entry(property_name.clone()).or_insert_with(|| binding.clone());
+        }
     }
 }
 
