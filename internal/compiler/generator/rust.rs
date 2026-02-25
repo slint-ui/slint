@@ -264,7 +264,7 @@ pub fn generate(
         #[allow(unused_imports)]
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #(#global_exports,)*};
         #[allow(unused_imports)]
-        pub use slint::{ComponentHandle as _, Global as _, GlobalComponentHandle as _, ModelExt as _};
+        pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })
 }
 
@@ -383,18 +383,21 @@ fn generate_public_component(
             }
         }
 
-        impl slint::ComponentHandle for #public_component_id {
+        impl slint::StrongHandle for #public_component_id {
             type WeakInner = sp::VWeak<sp::ItemTreeVTable, #inner_component_id>;
+
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self> {
+                sp::Some(Self(inner.upgrade()?))
+            }
+        }
+
+        impl slint::ComponentHandle for #public_component_id {
             fn as_weak(&self) -> slint::Weak<Self> {
                 slint::Weak::new(sp::VRc::downgrade(&self.0))
             }
 
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone())
-            }
-
-            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self> {
-                sp::Some(Self(inner.upgrade()?))
             }
 
             fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
@@ -1589,35 +1592,16 @@ fn generate_global(
         let aliases = global.aliases.iter().map(|name| ident(name));
         let getters = generate_global_getters(global, root);
 
-        let (as_weak_fn, global_component_handle) = if !global.is_builtin {
-            (
-                quote!(
-                    #[allow(unused)]
-                    pub fn as_weak(&self) -> slint::GlobalWeak<#inner_component_id> {
-                        let inner = ::core::pin::Pin::into_inner(self.0.clone());
-                        slint::GlobalWeak::new(sp::Rc::downgrade(&inner))
-                    }
-                ),
-                quote!(
-                    impl slint::GlobalComponentHandle for #inner_component_id {
-                        type Global<'a> = #public_component_id<'a>;
-                        type WeakInner = sp::Weak<#inner_component_id>;
-                        type PinnedInner = ::core::pin::Pin<sp::Rc<#inner_component_id>>;
+        let strong_handle_impl = quote!(
+            impl slint::StrongHandle for #public_component_id<'static> {
+                type WeakInner = sp::Weak<#inner_component_id>;
 
-                        fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self::PinnedInner> {
-                            let inner = ::core::pin::Pin::new(inner.upgrade()?);
-                            Some(inner)
-                        }
-
-                        fn to_self(inner: Self::PinnedInner) -> Self::Global<'static> {
-                            #public_component_id(inner.clone(), ::core::marker::PhantomData::default())
-                        }
-                    }
-                )
-            )
-        } else {
-            (quote!(), quote!())
-        };
+                fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> ::core::option::Option<Self> {
+                    let inner = ::core::pin::Pin::new(inner.upgrade()?);
+                    ::core::option::Option::Some(Self(inner, ::core::marker::PhantomData::default()))
+                }
+            }
+        );
 
         quote!(
             #[allow(unused)]
@@ -1625,13 +1609,11 @@ fn generate_global(
 
             impl<'a> #public_component_id<'a> {
                 #property_and_callback_accessors
-
-                #as_weak_fn
             }
             #(pub type #aliases<'a> = #public_component_id<'a>;)*
             #getters
 
-            #global_component_handle
+            #strong_handle_impl
         )
     });
 
@@ -1679,8 +1661,15 @@ fn generate_global_getters(
         let root_component_id = ident(&c.name);
         quote! {
             impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
+                type StaticSelf = #public_component_id<'static>;
+
                 fn get(component: &'a #root_component_id) -> Self {
                     Self(component.0.globals.get().unwrap().#global_id.clone(), ::core::marker::PhantomData::default())
+                }
+
+                fn as_weak(&self) -> slint::Weak<Self::StaticSelf> {
+                    let inner = ::core::pin::Pin::into_inner(self.0.clone());
+                    slint::Weak::new(sp::Rc::downgrade(&inner))
                 }
             }
         }

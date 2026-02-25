@@ -805,8 +805,35 @@ impl Window {
 /// **Note:** Only globals that are exported or re-exported from the main .slint file will
 /// be exposed in the API
 pub trait Global<'a, Component> {
-    /// Returns a reference that's tied to the life time of the provided component.
+    /// The `Self` type, with a `'static` lifetime.
+    type StaticSelf: 'static + StrongHandle;
+
+    /// Returns a reference to the global.
     fn get(component: &'a Component) -> Self;
+
+    /// Convert this Global reference into a weak reference.
+    ///
+    /// As a side-effect, this will also extend the lifetime of this global to `'static`.
+    fn as_weak(&self) -> Weak<Self::StaticSelf>;
+}
+
+/// This trait is automatically implemented on all strongly referenced Slint components.
+/// All of these types can be used in a [`Weak`] reference.
+///
+/// This includes all types that implement the [`ComponentHandle`] trait, as well as all types
+/// implementing the [`Global`] trait.
+///
+/// Note: Slint implements this trait automatically, it should not be implemented manually.
+pub trait StrongHandle {
+    /// The internal Inner type for `Weak<Self>::inner`.
+    #[doc(hidden)]
+    type WeakInner: Clone + Default;
+
+    /// Internal function used when upgrading a weak reference to a strong one.
+    #[doc(hidden)]
+    fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self>
+    where
+        Self: Sized;
 }
 
 /// This trait describes the common public API of a strongly referenced Slint component.
@@ -814,11 +841,10 @@ pub trait Global<'a, Component> {
 /// as other convenience functions.
 ///
 /// This trait is implemented by the [generated component](index.html#generated-components)
-pub trait ComponentHandle {
-    /// The internal Inner type for `Weak<Self>::inner`.
-    #[doc(hidden)]
-    type WeakInner: Clone + Default;
+pub trait ComponentHandle: StrongHandle {
     /// Returns a new weak pointer.
+    // Note: It would be great if we could move this function into the StrongHandle trait. But
+    // that would be a backwards-incompatible change.
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized;
@@ -826,12 +852,6 @@ pub trait ComponentHandle {
     /// Returns a clone of this handle that's a strong reference.
     #[must_use]
     fn clone_strong(&self) -> Self;
-
-    /// Internal function used when upgrading a weak reference to a strong one.
-    #[doc(hidden)]
-    fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self>
-    where
-        Self: Sized;
 
     /// Convenience function for [`crate::Window::show()`](struct.Window.html#method.show).
     /// This shows the window on the screen and maintains an extra strong reference while
@@ -877,13 +897,13 @@ mod weak_handle {
     /// but the upgrade function will only return a valid component from the same thread
     /// as the one it has been created from.
     /// This is useful to use with [`invoke_from_event_loop()`] or [`Self::upgrade_in_event_loop()`].
-    pub struct Weak<T: ComponentHandle> {
+    pub struct Weak<T: StrongHandle> {
         inner: T::WeakInner,
         #[cfg(feature = "std")]
         thread: std::thread::ThreadId,
     }
 
-    impl<T: ComponentHandle> Default for Weak<T> {
+    impl<T: StrongHandle> Default for Weak<T> {
         fn default() -> Self {
             Self {
                 inner: T::WeakInner::default(),
@@ -893,7 +913,7 @@ mod weak_handle {
         }
     }
 
-    impl<T: ComponentHandle> Clone for Weak<T> {
+    impl<T: StrongHandle> Clone for Weak<T> {
         fn clone(&self) -> Self {
             Self {
                 inner: self.inner.clone(),
@@ -903,7 +923,7 @@ mod weak_handle {
         }
     }
 
-    impl<T: ComponentHandle> Weak<T> {
+    impl<T: StrongHandle> Weak<T> {
         #[doc(hidden)]
         pub fn new(inner: T::WeakInner) -> Self {
             Self {
@@ -918,10 +938,7 @@ mod weak_handle {
         ///
         /// This also returns None if the current thread is not the thread that created
         /// the component
-        pub fn upgrade(&self) -> Option<T>
-        where
-            T: ComponentHandle,
-        {
+        pub fn upgrade(&self) -> Option<T> {
             #[cfg(feature = "std")]
             if std::thread::current().id() != self.thread {
                 return None;
@@ -997,10 +1014,10 @@ mod weak_handle {
     // and the VWeak only use atomic pointer so it is safe to clone and drop in another thread
     #[allow(unsafe_code)]
     #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-    unsafe impl<T: ComponentHandle> Send for Weak<T> {}
+    unsafe impl<T: StrongHandle> Send for Weak<T> {}
     #[allow(unsafe_code)]
     #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-    unsafe impl<T: ComponentHandle> Sync for Weak<T> {}
+    unsafe impl<T: StrongHandle> Sync for Weak<T> {}
 }
 
 pub use weak_handle::*;
@@ -1009,159 +1026,6 @@ pub use weak_handle::*;
 /// clones and conversion into a weak pointer for a Global slint component.
 ///
 /// This trait is implemented by the [generated component](index.html#generated-components)
-pub trait GlobalComponentHandle {
-    /// The type for the public global component interface.
-    #[doc(hidden)]
-    type Global<'a>;
-    /// The internal Inner type for `Weak<Self>::inner`.
-    #[doc(hidden)]
-    type WeakInner: Clone + Default;
-    /// The internal Inner type for the 'Pin<sp::Rc<InnerSelf>'.
-    #[doc(hidden)]
-    type PinnedInner: Clone;
-
-    /// Internal function used when upgrading a weak reference to a strong one.
-    #[doc(hidden)]
-    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self::PinnedInner>
-    where
-        Self: Sized;
-
-    /// Internal function used when upgrading a weak reference to a strong one.
-    fn to_self(inner: Self::PinnedInner) -> Self::Global<'static>
-    where
-        Self: Sized;
-}
-
-pub use global_weak_handle::*;
-
-mod global_weak_handle {
-    use super::*;
-
-    /// Struct that's used to hold weak references of a [Slint global component](index.html#generated-components)
-    ///
-    /// In order to create a GlobalWeak, you should call .as_weak() on the global component instance.
-    pub struct GlobalWeak<T: GlobalComponentHandle> {
-        inner: T::WeakInner,
-        #[cfg(feature = "std")]
-        thread: std::thread::ThreadId,
-    }
-
-    impl<T: GlobalComponentHandle> Default for GlobalWeak<T> {
-        fn default() -> Self {
-            Self {
-                inner: T::WeakInner::default(),
-                #[cfg(feature = "std")]
-                thread: std::thread::current().id(),
-            }
-        }
-    }
-
-    impl<T: GlobalComponentHandle> Clone for GlobalWeak<T> {
-        fn clone(&self) -> Self {
-            Self {
-                inner: self.inner.clone(),
-                #[cfg(feature = "std")]
-                thread: self.thread,
-            }
-        }
-    }
-
-    impl<T: GlobalComponentHandle> GlobalWeak<T> {
-        #[doc(hidden)]
-        pub fn new(inner: T::WeakInner) -> Self {
-            Self {
-                inner,
-                #[cfg(feature = "std")]
-                thread: std::thread::current().id(),
-            }
-        }
-
-        /// Returns a new GlobalStrong struct, where it's possible to get the global component
-        /// struct interface. If some other instance still holds a strong reference.
-        /// Otherwise, returns None.
-        ///
-        /// This also returns None if the current thread is not the thread that created
-        /// the component
-        pub fn upgrade(&self) -> Option<T::Global<'static>> {
-            #[cfg(feature = "std")]
-            if std::thread::current().id() != self.thread {
-                return None;
-            }
-            let inner = T::upgrade_from_weak_inner(&self.inner)?;
-            Some(T::to_self(inner))
-        }
-
-        /// Convenience function where a given functor is called with the global component
-        ///
-        /// If the current thread is not the thread that created the component the functor
-        /// will not be called and this function will do nothing.
-        pub fn upgrade_in(&self, func: impl FnOnce(T::Global<'_>)) {
-            #[cfg(feature = "std")]
-            if std::thread::current().id() != self.thread {
-                return;
-            }
-
-            if let Some(inner) = T::upgrade_from_weak_inner(&self.inner) {
-                func(T::to_self(inner));
-            }
-        }
-
-        /// Convenience function that combines [`invoke_from_event_loop()`] with [`Self::upgrade()`]
-        ///
-        /// The given functor will be added to an internal queue and will wake the event loop.
-        /// On the next iteration of the event loop, the functor will be executed with a `T` as an argument.
-        ///
-        /// If the component was dropped because there are no more strong reference to the component,
-        /// the functor will not be called.
-        /// # Example
-        /// ```rust
-        /// # i_slint_backend_testing::init_no_event_loop();
-        /// slint::slint! {
-        ///     export global MyAppData { in property<int> foo; }
-        ///     export component MyApp inherits Window { /* ... */ }
-        /// }
-        /// let ui = MyApp::new().unwrap();
-        /// let my_app_data = ui.global::<MyAppData>();
-        /// let my_app_data_weak = my_app_data.as_weak();
-        ///
-        /// let thread = std::thread::spawn(move || {
-        ///     // ... Do some computation in the thread
-        ///     let foo = 42;
-        ///     # assert!(my_app_data_weak.upgrade().is_none()); // note that upgrade fails in a thread
-        ///     # return; // don't upgrade_in_event_loop in our examples
-        ///     // now forward the data to the main thread using upgrade_in_event_loop
-        ///     my_app_data_weak.upgrade_in_event_loop(move |my_app_data| my_app_data.set_foo(foo));
-        /// });
-        /// # thread.join().unwrap(); return; // don't run the event loop in examples
-        /// ui.run().unwrap();
-        /// ```
-        #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-        pub fn upgrade_in_event_loop(
-            &self,
-            func: impl FnOnce(T::Global<'_>) + Send + 'static,
-        ) -> Result<(), EventLoopError>
-        where
-            T: 'static,
-        {
-            let weak_handle = self.clone();
-            super::invoke_from_event_loop(move || {
-                if let Some(h) = weak_handle.upgrade() {
-                    func(h);
-                }
-            })
-        }
-    }
-
-    // Safety: we make sure in upgrade that the thread is the proper one,
-    // and the Weak only use atomic pointer so it is safe to clone and drop in another thread
-    #[allow(unsafe_code)]
-    #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-    unsafe impl<T: GlobalComponentHandle> Send for GlobalWeak<T> {}
-    #[allow(unsafe_code)]
-    #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-    unsafe impl<T: GlobalComponentHandle> Sync for GlobalWeak<T> {}
-}
-
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functors will be invoked.
 ///

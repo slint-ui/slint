@@ -5,7 +5,7 @@ use slint::{Model, SharedString};
 
 slint::include_modules!();
 
-pub fn init(blogicb_api: &BLogicBAPI) {
+pub fn init(blogicb_api: BLogicBAPI) {
     blogicb_api.set_crank1(SharedString::from("1"));
     blogicb_api.set_crank2(SharedString::from("2"));
     blogicb_api.set_crank3(SharedString::from("3"));
