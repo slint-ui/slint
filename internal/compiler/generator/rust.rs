@@ -3667,7 +3667,7 @@ fn generate_common_repeater_code(
         let ri_idx = *repeated_indices_size;
         repeater_code = quote!(
             #ri[#ri_idx] = #items_vec_ident.len() as u32;
-            #ri[#ri_idx + 1] = internal_vec.len() as u32;
+            #ri[#ri_idx + 1] = _self.#repeater_id.len() as u32;
         );
         *repeated_indices_size += 2;
         if let Some(rs) = repeater_steps_var_name {
@@ -3680,7 +3680,6 @@ fn generate_common_repeater_code(
         #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
             || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
         );
-        let internal_vec = _self.#repeater_id.instances_vec();
         #repeater_code
     )
 }
@@ -3740,13 +3739,17 @@ fn generate_with_grid_input_data(
                 );
 
                 let new_row = repeater.new_row;
+                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
                 let loop_code = quote!({
+                    let len = _self.#repeater_id.len();
                     let start_offset = items_vec.len();
-                    items_vec.extend(core::iter::repeat_with(Default::default).take(internal_vec.len() * #repeated_item_count));
-                    for (i, sub_comp) in internal_vec.iter().enumerate() {
-                        let offset = start_offset + i * #repeated_item_count;
-                        sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + #repeated_item_count]);
-                        new_row = false;
+                    items_vec.extend(core::iter::repeat_with(Default::default).take(len * #repeated_item_count));
+                    for i in 0..len {
+                        if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                            let offset = start_offset + i * #repeated_item_count;
+                            sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + #repeated_item_count]);
+                            new_row = false;
+                        }
                     }
                 });
                 push_code.push(quote!(
@@ -3814,19 +3817,24 @@ fn generate_with_layout_item_info(
                     "items_vec",
                     ctx,
                 );
+                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
                 let loop_code = match repeater.repeated_children_count {
                     None => {
                         quote!(
-                            for sub_comp in &internal_vec {
-                                items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                            for i in 0.._self.#repeater_id.len() {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                    items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                }
                             }
                         )
                     }
                     Some(count) if count > 0 => {
                         quote!(
-                            for sub_comp in &internal_vec {
-                                for child_idx in 0..#count {
-                                    items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
+                            for i in 0.._self.#repeater_id.len() {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                    for child_idx in 0..#count {
+                                        items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
+                                    }
                                 }
                             }
                         )
@@ -3900,13 +3908,16 @@ fn generate_with_flexbox_layout_item_info(
                     "items_vec_h", // Use items_vec_h for length tracking (same as items_vec_v)
                     ctx,
                 );
-                let loop_code = quote!(for sub_comp in &internal_vec {
-                    items_vec_h.push(
-                        sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Horizontal, None),
-                    );
-                    items_vec_v.push(
-                        sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Vertical, None),
-                    );
+                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
+                    if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                        items_vec_h.push(
+                            sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Horizontal, None),
+                        );
+                        items_vec_v.push(
+                            sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Vertical, None),
+                        );
+                    }
                 });
                 push_code.push(quote!(
                     #common_push_code
