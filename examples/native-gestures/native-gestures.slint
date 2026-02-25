@@ -60,13 +60,20 @@ component ResetButton inherits Rectangle {
     }
 }
 
+global gestureData {
+    in property <Point> content-offset: { x: 0px, y: 0px };
+    in property <Point> transform-position: { x: 0px, y: 0px };
+    in property <Point> content-position: { x: 0px, y: 0px };
+    in property <float> base-scale: 1.0;
+    in property <float> current-scale: 1.0;
+    in property <angle> base-rotation: 0deg;
+    in property <angle> current-rotation: 0deg;
+    in property <bool> gesture-active: false;
+
+}
+
 component GestureArea inherits Rectangle {
-    in property <length> image-size;
-    in property <float> current-scale;
-    in property <angle> current-rotation;
     in property <bool> gesture-active;
-    in property <Point> transform-position;
-    in property <Point> content-position;
 
     background: root.gesture-active ? #1e2a4a : #16213e;
     border-radius: 8px;
@@ -76,16 +83,16 @@ component GestureArea inherits Rectangle {
 
     visible-area := Rectangle {
         transform-holder := Rectangle {
-            x: 0;
-            y: 0;
+            x: gestureData.transform-position.x;
+            y: gestureData.transform-position.y;
             width: 0;
             height: 0;
-            transform-rotation: root.current-rotation;
-            transform-scale: root.current-scale;
+            transform-rotation: gestureData.current-rotation;
+            transform-scale: gestureData.current-scale;
 
             content-holder := Rectangle {
-                x: 0;
-                y: 0;
+                x: gestureData.content-position.x;
+                y: gestureData.content-position.y;
                 width: visible-area.width;
                 height: visible-area.height;
                 img := Image {
@@ -99,6 +106,16 @@ component GestureArea inherits Rectangle {
         }
 
     }
+
+    Timer {
+        running: true;
+        interval: 1ms;
+        triggered => {
+            gestureData.content-offset = visible-area.absolute-position;
+            self.stop();
+        }
+    }
+
 }
 
 component InfoPanel inherits VerticalLayout {
@@ -142,10 +159,6 @@ export component MainWindow inherits Window {
     preferred-height: 600px;
     background: #1a1a2e;
 
-    property <float> current-scale: 1.0;
-    property <angle> current-rotation: 0deg;
-    property <float> base-scale: 1.0;
-    property <angle> base-rotation: 0deg;
     property <bool> gesture-active: false;
     property <string> status-text: "idle";
     property <length> center-x;
@@ -155,8 +168,12 @@ export component MainWindow inherits Window {
     property <Orientation> orientation: root.width > root.height ? landscape : portrait;
 
     function reset() {
-        root.current-scale = 1.0;
-        root.current-rotation = 0deg;
+        gestureData.current-scale = 1.0;
+        gestureData.current-rotation = 0deg;
+        gestureData.base-scale = 1.0;
+        gestureData.base-rotation = 0deg;
+        gestureData.transform-position = { x: 0px, y: 0px };
+        gestureData.content-position = { x: 0px, y: 0px };
         root.status-text = "idle";
         root.has-gesture-occurred = false;
     }
@@ -165,15 +182,27 @@ export component MainWindow inherits Window {
         enabled: root.gestures-enabled;
 
         started => {
-            root.base-scale = root.current-scale;
-            root.base-rotation = root.current-rotation;
+            gestureData.base-scale = gestureData.current-scale;
+            gestureData.base-rotation = gestureData.current-rotation;
             root.gesture-active = true;
             root.status-text = "active";
+
+            let previousX = gestureData.transform-position.x;
+            let previousY = gestureData.transform-position.y;
+            gestureData.transform-position.x = self.center.x - gestureData.content-offset.x;
+            gestureData.transform-position.y = self.center.y - gestureData.content-offset.y;
+
+            let deltaX = previousX - gestureData.transform-position.x;
+            let deltaY = previousY - gestureData.transform-position.y;
+            let inv-scale = 1 / max(0.1, gestureData.current-scale);
+            gestureData.content-position.x += inv-scale * (cos(gestureData.current-rotation) * deltaX + sin(gestureData.current-rotation) * deltaY);
+            gestureData.content-position.y += inv-scale * (-sin(gestureData.current-rotation) * deltaX + cos(gestureData.current-rotation) * deltaY);
+
         }
 
         updated => {
-            root.current-scale = max(0.1, root.base-scale * self.scale);
-            root.current-rotation = root.base-rotation + self.rotation;
+            gestureData.current-scale = max(0.1, gestureData.base-scale * self.scale);
+            gestureData.current-rotation = gestureData.base-rotation + self.rotation;
             root.center-x = self.center.x;
             root.center-y = self.center.y;
             root.has-gesture-occurred = true;
@@ -185,18 +214,18 @@ export component MainWindow inherits Window {
         }
 
         cancelled => {
-            root.base-scale = root.current-scale;
-            root.base-rotation = root.current-rotation;
+            gestureData.base-scale = gestureData.current-scale;
+            gestureData.base-rotation = gestureData.current-rotation;
             root.gesture-active = false;
             root.status-text = "cancelled";
         }
 
         smart-magnify => {
-            if root.current-scale > 1.5 {
-                root.current-scale = 1.0;
-                root.current-rotation = 0deg;
+            if gestureData.current-scale > 1.5 {
+                gestureData.current-scale = 1.0;
+                gestureData.current-rotation = 0deg;
             } else {
-                root.current-scale = 2.5;
+                gestureData.current-scale = 2.5;
             }
             root.status-text = "smart magnify";
         }
@@ -276,9 +305,6 @@ export component MainWindow inherits Window {
 
             GestureArea {
                 horizontal-stretch: 1;
-                image-size: 150px;
-                current-scale: root.current-scale;
-                current-rotation: root.current-rotation;
                 gesture-active: root.gesture-active;
             }
 
@@ -292,8 +318,8 @@ export component MainWindow inherits Window {
                     padding: 8px;
 
                     InfoPanel {
-                        current-scale: root.current-scale;
-                        current-rotation: root.current-rotation;
+                        current-scale: gestureData.current-scale;
+                        current-rotation: gestureData.current-rotation;
                         status-text: root.status-text;
                         gesture-active: root.gesture-active;
                         has-gesture-occurred: root.has-gesture-occurred;
@@ -306,9 +332,6 @@ export component MainWindow inherits Window {
 
         if root.orientation == Orientation.portrait: GestureArea {
             vertical-stretch: 1;
-            image-size: 200px;
-            current-scale: root.current-scale;
-            current-rotation: root.current-rotation;
             gesture-active: root.gesture-active;
         }
 
@@ -322,8 +345,8 @@ export component MainWindow inherits Window {
                 padding: 8px;
 
                 InfoPanel {
-                    current-scale: root.current-scale;
-                    current-rotation: root.current-rotation;
+                    current-scale: gestureData.current-scale;
+                    current-rotation: gestureData.current-rotation;
                     status-text: root.status-text;
                     gesture-active: root.gesture-active;
                     has-gesture-occurred: root.has-gesture-occurred;
