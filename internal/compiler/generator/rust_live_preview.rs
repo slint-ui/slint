@@ -195,20 +195,23 @@ fn generate_public_component(
             #(#property_and_callback_accessors)*
         }
 
-        impl slint::ComponentHandle for #public_component_id {
+        impl slint::StrongHandle for #public_component_id {
             type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
+
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self> {
+                let rc = inner.upgrade()?;
+                let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(rc.borrow().instance())).window_adapter();
+                sp::Some(Self(rc, window_adapter))
+            }
+        }
+
+        impl slint::ComponentHandle for #public_component_id {
             fn as_weak(&self) -> slint::Weak<Self> {
                 slint::Weak::new(sp::Rc::downgrade(&self.0))
             }
 
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone(), self.1.clone())
-            }
-
-            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self> {
-                let rc = inner.upgrade()?;
-                let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(rc.borrow().instance())).window_adapter();
-                sp::Some(Self(rc, window_adapter))
             }
 
             fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
@@ -330,22 +333,48 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
         let root_component_id = ident(&c.name);
         quote! {
             impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
+                type StaticSelf = #public_component_id<'static>;
+
                 fn get(component: &'a #root_component_id) -> Self {
-                    Self(&component.0)
+                    Self(
+                        sp::Rc::clone(&component.0),
+                        ::core::marker::PhantomData::default(),
+                    )
+                }
+
+                fn as_weak(&self) -> slint::Weak<Self::StaticSelf> {
+                    slint::Weak::new(sp::Rc::downgrade(&self.0))
                 }
             }
         }
     });
 
+    let strong_handle_impl = quote!(
+        impl slint::StrongHandle for #public_component_id<'static> {
+            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
+
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> ::core::option::Option<Self> {
+                let rc = inner.upgrade()?;
+                ::core::option::Option::Some(Self(rc, ::core::marker::PhantomData::default()))
+            }
+        }
+    );
+
     quote!(
         #[allow(unused)]
-        pub struct #public_component_id<'a>(&'a ::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>);
+        pub struct #public_component_id<'a>(
+            sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>,
+            ::core::marker::PhantomData<&'a sp::live_preview::LiveReloadingComponent>,
+
+        );
 
         impl<'a> #public_component_id<'a> {
             #(#property_and_callback_accessors)*
         }
         #(pub type #aliases<'a> = #public_component_id<'a>;)*
         #(#getters)*
+
+        #strong_handle_impl
     )
 }
 

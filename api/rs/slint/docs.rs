@@ -18,6 +18,7 @@ pub mod generated_code {
 
     use crate::ComponentHandle;
     use crate::Global;
+    use crate::StrongHandle;
     use crate::Weak;
     use crate::Window;
 
@@ -91,10 +92,17 @@ pub mod generated_code {
         }
     }
 
-    impl ComponentHandle for SampleComponent {
+    impl StrongHandle for SampleComponent {
         #[doc(hidden)]
         type WeakInner = ();
 
+        #[doc(hidden)]
+        fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self> {
+            unimplemented!();
+        }
+    }
+
+    impl ComponentHandle for SampleComponent {
         /// Returns a new weak pointer.
         fn as_weak(&self) -> Weak<Self> {
             unimplemented!()
@@ -102,11 +110,6 @@ pub mod generated_code {
 
         /// Returns a clone of this handle that's a strong reference.
         fn clone_strong(&self) -> Self {
-            unimplemented!();
-        }
-
-        #[doc(hidden)]
-        fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self> {
             unimplemented!();
         }
 
