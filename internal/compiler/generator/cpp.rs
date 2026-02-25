@@ -4321,6 +4321,10 @@ fn compile_builtin_function_call(
                 alpha = a.next().unwrap(),
             )
         }
+        BuiltinFunction::FragmentShader => {
+            let string = a.next().unwrap();
+            format!("slint::Brush(slint::private_api::FragmentShader({}))", string)
+        }
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }

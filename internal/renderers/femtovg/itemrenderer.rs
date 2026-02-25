@@ -1523,6 +1523,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
                 femtovg::Paint::conic_gradient_stops(path_width / 2., path_height / 2., stops)
             }
+            Brush::FragmentShader(shader) => {
+                todo!()
+            }
             _ => return None,
         })
     }

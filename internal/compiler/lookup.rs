@@ -774,6 +774,7 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("pow", b(BuiltinFunction::Pow)))
             .or_else(|| f("exp", b(BuiltinFunction::Exp)))
             .or_else(|| f("sign", BuiltinMacroFunction::Sign.into()))
+            .or_else(|| f("fragment-shader", b(BuiltinFunction::FragmentShader)))
     }
 }
 
