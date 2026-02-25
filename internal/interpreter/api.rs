@@ -1669,9 +1669,15 @@ impl ComponentInstance {
     }
 }
 
-impl ComponentHandle for ComponentInstance {
+impl StrongHandle for ComponentInstance {
     type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::ErasedItemTreeBox>;
 
+    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
+        Some(Self { inner: inner.upgrade()? })
+    }
+}
+
+impl ComponentHandle for ComponentInstance {
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized,
@@ -1681,10 +1687,6 @@ impl ComponentHandle for ComponentInstance {
 
     fn clone_strong(&self) -> Self {
         Self { inner: self.inner.clone() }
-    }
-
-    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
-        Some(Self { inner: inner.upgrade()? })
     }
 
     fn show(&self) -> Result<(), PlatformError> {
