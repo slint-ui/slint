@@ -264,7 +264,7 @@ public:
     }
 
 private:
-    void *inner;
+    void *inner alignas(8);
 };
 
 template<typename T>
