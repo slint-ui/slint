@@ -1605,6 +1605,11 @@ fn call_builtin_function(
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::string_to_styled_text(string.to_string()))
         }
+        BuiltinFunction::FragmentShader => {
+            let string: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::Brush(corelib::graphics::Brush::FragmentShader(string))
+        }
     }
 }
 

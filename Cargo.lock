@@ -3308,8 +3308,7 @@ dependencies = [
 [[package]]
 name = "femtovg"
 version = "0.20.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35695993a8264f5dfa8facc135c003965cea40d83705b49e0f8c3a3b632a2171"
+source = "git+https://github.com/expenses/femtovg?branch=custom-shaders#f5877fba3372c1ba2d8ad332c5b8cbb00a735996"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
@@ -3321,7 +3320,6 @@ dependencies = [
  "rgb",
  "slotmap",
  "swash",
- "ttf-parser 0.25.1",
  "wasm-bindgen",
  "web-sys",
  "wgpu 28.0.0",
