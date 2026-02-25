@@ -65,6 +65,8 @@ component GestureArea inherits Rectangle {
     in property <float> current-scale;
     in property <angle> current-rotation;
     in property <bool> gesture-active;
+    in property <Point> transform-position;
+    in property <Point> content-position;
 
     background: root.gesture-active ? #1e2a4a : #16213e;
     border-radius: 8px;
@@ -72,13 +74,30 @@ component GestureArea inherits Rectangle {
     border-color: #e94560;
     clip: true;
 
-    Image {
-        width: root.image-size * root.current-scale;
-        height: root.image-size * root.current-scale;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        source: @image-url("../../logo/slint-logo-square-dark.png");
-        transform-rotation: root.current-rotation;
+    visible-area := Rectangle {
+        transform-holder := Rectangle {
+            x: 0;
+            y: 0;
+            width: 0;
+            height: 0;
+            transform-rotation: root.current-rotation;
+            transform-scale: root.current-scale;
+
+            content-holder := Rectangle {
+                x: 0;
+                y: 0;
+                width: visible-area.width;
+                height: visible-area.height;
+                img := Image {
+                    width: 200px;
+                    height: 200px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    source: @image-url("../../logo/slint-logo-square-dark.png");
+                }
+            }
+        }
+
     }
 }
 
