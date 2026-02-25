@@ -304,8 +304,10 @@ TEST_CASE("SharedVector")
 
 TEST_CASE("StyledText")
 {
-    auto empty_arguments = std::array<slint::private_api::StyledText, 0>{};
-    auto text = slint::private_api::parse_markdown("Hello *world*", slint::private_api::make_slice(std::span(empty_arguments)));
-    auto text_argument = std::array<slint::private_api::StyledText, 1>{text};
-    auto text2 = slint::private_api::parse_markdown("Text: {}", slint::private_api::make_slice(std::span(text_argument)));
+    auto empty_arguments = std::array<slint::private_api::StyledText, 0> {};
+    auto text = slint::private_api::parse_markdown(
+            "Hello *world*", slint::private_api::make_slice(std::span(empty_arguments)));
+    auto text_argument = std::array<slint::private_api::StyledText, 1> { text };
+    auto text2 = slint::private_api::parse_markdown(
+            "Text: {}", slint::private_api::make_slice(std::span(text_argument)));
 }
