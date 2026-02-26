@@ -6,12 +6,14 @@
 use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
+pub use i_slint_core::input::MouseEvent;
 pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
+pub use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
 pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
-use i_slint_core::window::WindowInner;
+pub use i_slint_core::window::WindowInner;
 
 /// Simulate a mouse click at `(x, y)` and release after a while at the same position
 pub fn send_mouse_click<
