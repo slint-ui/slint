@@ -1952,7 +1952,6 @@ fn generate_repeated_component(
         if has_inner_repeaters {
             let templates = root_sc.row_child_templates.as_ref().unwrap();
             let static_count = llr::static_child_count(templates);
-            let auto_val = i_slint_common::ROW_COL_AUTO;
 
             // Generate fill code: one snippet per template entry.
             // new_row is re-evaluated per slot (write_idx == 0 && new_row) so that only the
@@ -1986,10 +1985,7 @@ fn generate_repeated_component(
                                 if write_idx < result.len() {
                                     result[write_idx] = sp::GridLayoutInputData {
                                         new_row: write_idx == 0 && new_row,
-                                        col: #auto_val,
-                                        row: #auto_val,
-                                        colspan: 1.0f32,
-                                        rowspan: 1.0f32,
+                                        ..Default::default()
                                     };
                                 }
                                 write_idx += 1;
