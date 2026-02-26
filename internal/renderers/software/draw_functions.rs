@@ -959,6 +959,70 @@ impl From<Rgb565Pixel> for Rgb8Pixel {
     }
 }
 
+// cSpell: ignore RRRRRGGG GGGBBBBB bswap
+
+/// A 16bit RGB565 pixel stored in big-endian byte order.
+///
+/// The in-memory byte layout is `[RRRRRGGG, GGGBBBBB]` regardless of
+/// host endianness — the format expected by most SPI display
+/// controllers (ILI9341, ILI9342C, ST7789, etc.) without any
+/// post-render byte swapping.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Rgb565BigEndianPixel(pub u16);
+
+impl Rgb565BigEndianPixel {
+    /// Return the red component as a u8.
+    ///
+    /// The bits are shifted so that the result is between 0 and 255
+    pub fn red(self) -> u8 {
+        Rgb565Pixel(u16::from_be(self.0)).red()
+    }
+    /// Return the green component as a u8.
+    ///
+    /// The bits are shifted so that the result is between 0 and 255
+    pub fn green(self) -> u8 {
+        Rgb565Pixel(u16::from_be(self.0)).green()
+    }
+    /// Return the blue component as a u8.
+    ///
+    /// The bits are shifted so that the result is between 0 and 255
+    pub fn blue(self) -> u8 {
+        Rgb565Pixel(u16::from_be(self.0)).blue()
+    }
+}
+
+impl TargetPixel for Rgb565BigEndianPixel {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        // Reuse the canonical native-endian Rgb565Pixel::blend by decoding
+        // from BE byte order, blending, and re-encoding. On targets with a
+        // byte-swap instruction (ARM REV16, RISC-V Zbb rev8, x86 bswap) each
+        // `to_be`/`from_be` is one cycle on a little-endian host and a no-op
+        // on a big-endian host. Benchmarking this against a direct-BE
+        // bit-reassembly variant on Cortex-M33 showed the swap-around-native
+        // form generates tighter code.
+        let mut native = Rgb565Pixel(u16::from_be(self.0));
+        native.blend(color);
+        self.0 = native.0.to_be();
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self(Rgb565Pixel::from_rgb(r, g, b).0.to_be())
+    }
+}
+
+impl From<Rgb8Pixel> for Rgb565BigEndianPixel {
+    fn from(p: Rgb8Pixel) -> Self {
+        Self(Rgb565Pixel::from(p).0.to_be())
+    }
+}
+
+impl From<Rgb565BigEndianPixel> for Rgb8Pixel {
+    fn from(p: Rgb565BigEndianPixel) -> Self {
+        Rgb565Pixel(u16::from_be(p.0)).into()
+    }
+}
+
 #[test]
 fn rgb565() {
     let pix565 = Rgb565Pixel::from_rgb(0xff, 0x25, 0);
@@ -968,4 +1032,44 @@ fn rgb565() {
     let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
     let pix888: Rgb8Pixel = pix565.into();
     assert_eq!(pix565, pix888.into());
+}
+
+#[test]
+fn rgb565_be() {
+    // BE should be byte-swapped LE for any color
+    for &(r, g, b) in &[(0xff, 0x25, 0u8), (0x56, 0x42, 0xe3), (0, 0xff, 0), (0, 0, 0xff)] {
+        let le = Rgb565Pixel::from_rgb(r, g, b);
+        let be = Rgb565BigEndianPixel::from_rgb(r, g, b);
+        assert_eq!(le.0.swap_bytes(), be.0, "mismatch for ({r}, {g}, {b})");
+    }
+
+    // Round-trip through Rgb8Pixel
+    let pix_be = Rgb565BigEndianPixel::from_rgb(0xff, 0x25, 0);
+    let pix888: Rgb8Pixel = pix_be.into();
+    assert_eq!(pix_be, pix888.into());
+
+    let pix_be = Rgb565BigEndianPixel::from_rgb(0x56, 0x42, 0xe3);
+    let pix888: Rgb8Pixel = pix_be.into();
+    assert_eq!(pix_be, pix888.into());
+}
+
+#[test]
+fn rgb565_be_blend() {
+    // Blending a BE pixel should produce the same visual result as LE
+    let color = PremultipliedRgbaColor { red: 127, green: 0, blue: 0, alpha: 127 };
+
+    let mut le = Rgb565Pixel::from_rgb(0, 0, 255);
+    le.blend(color);
+    let mut be = Rgb565BigEndianPixel::from_rgb(0, 0, 255);
+    be.blend(color);
+    assert_eq!(le.0.swap_bytes(), be.0);
+
+    // Blend with green over a white background
+    let color = PremultipliedRgbaColor { red: 0, green: 200, blue: 0, alpha: 200 };
+
+    let mut le = Rgb565Pixel::from_rgb(255, 255, 255);
+    le.blend(color);
+    let mut be = Rgb565BigEndianPixel::from_rgb(255, 255, 255);
+    be.blend(color);
+    assert_eq!(le.0.swap_bytes(), be.0);
 }
