@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::{
-    net::{Ipv6Addr, SocketAddr, SocketAddrV6},
+    net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
     sync::Arc,
 };
 
@@ -242,18 +242,35 @@ impl Connection {
         receiver.await.map_err(std::io::Error::other)?
     }
 
-    pub fn local_addr(&self) -> SocketAddr {
-        self.local_addr
+    pub fn local_ips(&self) -> Vec<IpAddr> {
+        let unspecififed = match self.local_addr {
+            SocketAddr::V4(socket_addr_v4) => socket_addr_v4.ip().is_unspecified(),
+            SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
+        };
+        if unspecififed {
+            getifs::local_addrs().unwrap_or_default().into_iter().map(|net| net.addr()).collect()
+        } else {
+            vec![self.local_addr.ip()]
+        }
+    }
+    pub fn local_port(&self) -> u16 {
+        self.local_addr.port()
     }
 
     pub fn service(&self) -> anyhow::Result<ServiceInfo> {
-        let local_addr = self.local_addr();
+        let local_ips = self.local_ips();
+        let local_port = self.local_port();
+        tracing::info!(
+            "Announcing service on {:?} for host {:?}",
+            local_ips,
+            hostname::get()?.to_str()
+        );
         ServiceInfo::new(
             lsp_protocol::SERVICE_TYPE,
             "viewer",
-            hostname::get()?.to_str().unwrap(),
-            local_addr.ip(),
-            local_addr.port(),
+            &format!("{}.local.", hostname::get()?.to_str().unwrap()),
+            local_ips.as_slice(),
+            local_port,
             None,
         )
         .map_err(Into::into)
