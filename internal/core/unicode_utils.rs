@@ -1,37 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Byte offset and UTF-16 conversion utilities for text handling.
+//! UTF-16 ↔ UTF-8 byte offset conversion utilities for text handling.
 //!
 //! Slint uses UTF-8 byte offsets internally for text positions. Platform IME
 //! protocols (Android InputConnection, iOS UITextInput) use UTF-16 code unit
-//! offsets. This module provides conversions between the two encodings, plus
-//! helpers for working with byte offsets safely.
-
-/// Validates that a byte offset is on a UTF-8 character boundary.
-///
-/// Returns `true` if the offset is within bounds and on a character boundary.
-pub fn is_valid_byte_offset(text: &str, offset: usize) -> bool {
-    offset <= text.len() && text.is_char_boundary(offset)
-}
-
-/// Finds the nearest valid byte offset at or before the given offset.
-///
-/// If the offset is already valid, returns it unchanged.
-/// If the offset is beyond the string length, returns the string length.
-/// If the offset is in the middle of a UTF-8 character, returns the start of that character.
-pub fn floor_byte_offset(text: &str, offset: usize) -> usize {
-    if offset >= text.len() {
-        return text.len();
-    }
-    let mut pos = offset;
-    while pos > 0 && !text.is_char_boundary(pos) {
-        pos -= 1;
-    }
-    pos
-}
+//! offsets. This module provides conversions between the two encodings.
 
 /// Finds the nearest valid byte offset at or after the given offset.
+///
+/// Equivalent to [`str::ceil_char_boundary`]. Remove when MSRV >= 1.91.
 ///
 /// If the offset is already valid, returns it unchanged.
 /// If the offset is beyond the string length, returns the string length.
@@ -47,24 +25,6 @@ pub fn ceil_byte_offset(text: &str, offset: usize) -> usize {
     pos
 }
 
-/// Converts a byte offset to a character (Unicode scalar value) count.
-///
-/// # Panics
-/// Panics if `byte_offset` is not on a valid UTF-8 character boundary.
-pub fn byte_offset_to_char_count(text: &str, byte_offset: usize) -> usize {
-    text[..byte_offset].chars().count()
-}
-
-/// Converts a character count to a byte offset.
-///
-/// Returns the byte offset after `char_count` characters, or the string length
-/// if `char_count` exceeds the number of characters in the string.
-pub fn char_count_to_byte_offset(text: &str, char_count: usize) -> usize {
-    text.char_indices().nth(char_count).map(|(idx, _)| idx).unwrap_or(text.len())
-}
-
-// ===== UTF-16 Offset Conversions =====
-//
 // Android (Java) and iOS (NSString) use UTF-16 code unit offsets, while Rust
 // strings are UTF-8. These functions convert between the two encodings.
 //
@@ -76,7 +36,8 @@ pub fn char_count_to_byte_offset(text: &str, char_count: usize) -> usize {
 /// Converts a UTF-16 code unit offset to a UTF-8 byte offset.
 ///
 /// Returns `None` if the offset is beyond the string or falls inside a
-/// surrogate pair.
+/// surrogate pair. See [`utf16_offset_to_byte_offset_clamped`] for a
+/// variant that clamps instead of returning `None`.
 ///
 /// # Examples
 /// ```
@@ -118,6 +79,9 @@ pub fn utf16_offset_to_byte_offset(text: &str, utf16_offset: usize) -> Option<us
 
 /// Converts a UTF-8 byte offset to a UTF-16 code unit offset.
 ///
+/// This function panics on invalid input because callers are expected to
+/// hold valid byte offsets (e.g. from `TextInput::cursor_position`).
+///
 /// # Panics
 /// Panics if `byte_offset` is not on a valid UTF-8 character boundary or is
 /// beyond the string length.
@@ -134,7 +98,7 @@ pub fn utf16_offset_to_byte_offset(text: &str, utf16_offset: usize) -> Option<us
 /// ```
 pub fn byte_offset_to_utf16_offset(text: &str, byte_offset: usize) -> usize {
     assert!(
-        is_valid_byte_offset(text, byte_offset),
+        byte_offset <= text.len() && text.is_char_boundary(byte_offset),
         "byte_offset {} is not a valid UTF-8 boundary in string of length {}",
         byte_offset,
         text.len()
@@ -178,74 +142,6 @@ pub fn utf16_offset_to_byte_offset_clamped(text: &str, utf16_offset: usize) -> u
 mod tests {
     use super::*;
 
-    // ===== Byte Offset Utility Tests =====
-
-    #[test]
-    fn test_is_valid_byte_offset() {
-        let text = "héllo"; // é is 2 bytes
-        assert!(is_valid_byte_offset(text, 0));
-        assert!(is_valid_byte_offset(text, 1));
-        assert!(!is_valid_byte_offset(text, 2)); // middle of é
-        assert!(is_valid_byte_offset(text, 3));
-        assert!(is_valid_byte_offset(text, 6)); // end of string
-        assert!(!is_valid_byte_offset(text, 7)); // beyond string
-    }
-
-    #[test]
-    fn test_is_valid_byte_offset_empty_string() {
-        assert!(is_valid_byte_offset("", 0));
-        assert!(!is_valid_byte_offset("", 1));
-    }
-
-    #[test]
-    fn test_is_valid_byte_offset_multibyte() {
-        let text = "日本語"; // each kanji is 3 bytes
-        assert!(is_valid_byte_offset(text, 0));
-        assert!(!is_valid_byte_offset(text, 1));
-        assert!(!is_valid_byte_offset(text, 2));
-        assert!(is_valid_byte_offset(text, 3));
-        assert!(is_valid_byte_offset(text, 6));
-        assert!(is_valid_byte_offset(text, 9));
-    }
-
-    #[test]
-    fn test_is_valid_byte_offset_emoji() {
-        let text = "a😀b"; // 'a'=1, '😀'=4, 'b'=1
-        assert!(is_valid_byte_offset(text, 0));
-        assert!(is_valid_byte_offset(text, 1));
-        assert!(!is_valid_byte_offset(text, 2));
-        assert!(!is_valid_byte_offset(text, 3));
-        assert!(!is_valid_byte_offset(text, 4));
-        assert!(is_valid_byte_offset(text, 5));
-        assert!(is_valid_byte_offset(text, 6));
-    }
-
-    #[test]
-    fn test_floor_byte_offset() {
-        let text = "héllo";
-        assert_eq!(floor_byte_offset(text, 0), 0);
-        assert_eq!(floor_byte_offset(text, 1), 1);
-        assert_eq!(floor_byte_offset(text, 2), 1); // middle of é → start of é
-        assert_eq!(floor_byte_offset(text, 3), 3);
-        assert_eq!(floor_byte_offset(text, 10), 6); // beyond → end
-    }
-
-    #[test]
-    fn test_floor_byte_offset_multibyte() {
-        let text = "日本語";
-        assert_eq!(floor_byte_offset(text, 1), 0);
-        assert_eq!(floor_byte_offset(text, 2), 0);
-        assert_eq!(floor_byte_offset(text, 3), 3);
-        assert_eq!(floor_byte_offset(text, 4), 3);
-        assert_eq!(floor_byte_offset(text, 5), 3);
-    }
-
-    #[test]
-    fn test_floor_byte_offset_empty() {
-        assert_eq!(floor_byte_offset("", 0), 0);
-        assert_eq!(floor_byte_offset("", 5), 0);
-    }
-
     #[test]
     fn test_ceil_byte_offset() {
         let text = "héllo";
@@ -269,97 +165,6 @@ mod tests {
     fn test_ceil_byte_offset_empty() {
         assert_eq!(ceil_byte_offset("", 0), 0);
         assert_eq!(ceil_byte_offset("", 5), 0);
-    }
-
-    #[test]
-    fn test_floor_ceil_at_exact_boundary() {
-        let text = "abc";
-        for i in 0..=text.len() {
-            assert_eq!(floor_byte_offset(text, i), i);
-            assert_eq!(ceil_byte_offset(text, i), i);
-        }
-    }
-
-    #[test]
-    fn test_byte_offset_to_char_count() {
-        let text = "héllo";
-        assert_eq!(byte_offset_to_char_count(text, 0), 0);
-        assert_eq!(byte_offset_to_char_count(text, 1), 1);
-        assert_eq!(byte_offset_to_char_count(text, 3), 2);
-        assert_eq!(byte_offset_to_char_count(text, 6), 5);
-    }
-
-    #[test]
-    fn test_byte_offset_to_char_count_emoji() {
-        let text = "a😀b";
-        assert_eq!(byte_offset_to_char_count(text, 0), 0);
-        assert_eq!(byte_offset_to_char_count(text, 1), 1);
-        assert_eq!(byte_offset_to_char_count(text, 5), 2);
-        assert_eq!(byte_offset_to_char_count(text, 6), 3);
-    }
-
-    #[test]
-    fn test_char_count_to_byte_offset() {
-        let text = "héllo";
-        assert_eq!(char_count_to_byte_offset(text, 0), 0);
-        assert_eq!(char_count_to_byte_offset(text, 1), 1);
-        assert_eq!(char_count_to_byte_offset(text, 2), 3);
-        assert_eq!(char_count_to_byte_offset(text, 5), 6);
-        assert_eq!(char_count_to_byte_offset(text, 10), 6); // beyond → end
-    }
-
-    #[test]
-    fn test_char_count_to_byte_offset_emoji() {
-        let text = "a😀b";
-        assert_eq!(char_count_to_byte_offset(text, 0), 0);
-        assert_eq!(char_count_to_byte_offset(text, 1), 1);
-        assert_eq!(char_count_to_byte_offset(text, 2), 5);
-        assert_eq!(char_count_to_byte_offset(text, 3), 6);
-    }
-
-    #[test]
-    fn test_roundtrip_byte_char_conversion() {
-        let text = "héllo 日本語 😀";
-        for (idx, _) in text.char_indices() {
-            let char_count = byte_offset_to_char_count(text, idx);
-            let back = char_count_to_byte_offset(text, char_count);
-            assert_eq!(back, idx, "Roundtrip failed for byte offset {}", idx);
-        }
-        let char_count = byte_offset_to_char_count(text, text.len());
-        assert_eq!(char_count_to_byte_offset(text, char_count), text.len());
-    }
-
-    #[test]
-    fn test_byte_offset_conversions_empty() {
-        assert_eq!(byte_offset_to_char_count("", 0), 0);
-        assert_eq!(char_count_to_byte_offset("", 0), 0);
-        assert_eq!(char_count_to_byte_offset("", 5), 0);
-    }
-
-    #[test]
-    fn test_surrogate_pairs() {
-        let text = "𝄞"; // Musical G clef, 4 bytes in UTF-8
-        assert_eq!(text.len(), 4);
-        assert!(is_valid_byte_offset(text, 0));
-        assert!(!is_valid_byte_offset(text, 1));
-        assert!(!is_valid_byte_offset(text, 2));
-        assert!(!is_valid_byte_offset(text, 3));
-        assert!(is_valid_byte_offset(text, 4));
-        assert_eq!(floor_byte_offset(text, 2), 0);
-        assert_eq!(ceil_byte_offset(text, 2), 4);
-    }
-
-    #[test]
-    fn test_combining_characters() {
-        let text = "e\u{0301}"; // 'e' + combining acute accent
-        assert_eq!(text.chars().count(), 2);
-        assert_eq!(text.len(), 3);
-        assert!(is_valid_byte_offset(text, 0));
-        assert!(is_valid_byte_offset(text, 1));
-        assert!(!is_valid_byte_offset(text, 2));
-        assert!(is_valid_byte_offset(text, 3));
-        assert_eq!(byte_offset_to_char_count(text, 1), 1);
-        assert_eq!(byte_offset_to_char_count(text, 3), 2);
     }
 
     // ===== UTF-16 Conversion Tests =====

@@ -1354,7 +1354,6 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     if unsafe_byte_offset <= 0 {
         return 0;
     }
-    // Use std::ceil_char_boundary once MSRV >= 1.91.
     crate::unicode_utils::ceil_byte_offset(text, unsafe_byte_offset as usize)
 }
 

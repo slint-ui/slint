@@ -4,6 +4,7 @@
 use super::*;
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
+use i_slint_core::unicode_utils::{byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::items::{ColorScheme, InputType};
@@ -361,7 +362,7 @@ impl JavaHelper {
                 }
             }
 
-            let to_utf16 = |x| convert_utf8_index_to_utf16(&text, x);
+            let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize);
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
@@ -484,10 +485,10 @@ fn callback_update_text<'local>(
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
 
-    let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
-    let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
-    let preedit_start = convert_utf16_index_to_utf8(&text, preedit_start as usize);
-    let preedit_end = convert_utf16_index_to_utf8(&text, preedit_end as usize);
+    let cursor_position = utf16_offset_to_byte_offset_clamped(&text, cursor_position as usize);
+    let anchor_position = utf16_offset_to_byte_offset_clamped(&text, anchor_position as usize);
+    let preedit_start = utf16_offset_to_byte_offset_clamped(&text, preedit_start as usize);
+    let preedit_end = utf16_offset_to_byte_offset_clamped(&text, preedit_end as usize);
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
@@ -537,13 +538,8 @@ fn callback_update_text<'local>(
     Ok(())
 }
 
-fn convert_utf16_index_to_utf8(in_str: &str, utf16_index: usize) -> usize {
-    i_slint_core::unicode_utils::utf16_offset_to_byte_offset_clamped(in_str, utf16_index)
-}
 
-fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
-    i_slint_core::unicode_utils::byte_offset_to_utf16_offset(in_str, utf8_index)
-}
+
 
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
