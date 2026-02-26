@@ -264,7 +264,7 @@ fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>
 }
 
 /// Init dialog if `instance` is a Dialog
-/// - Initializing the callbacks for `ok`, `yes`, `close`, `cancel` or `no` to quit the event loop
+/// Initializes the callbacks for `ok`, `yes`, `close`, `cancel` or `no` to quit the event loop
 /// When one of those callbacks gets triggered the preview gets closed as well
 fn init_dialog(instance: &ComponentInstance) {
     for cb in instance.definition().callbacks() {
@@ -294,18 +294,17 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
     std::thread::spawn(move || {
         while let Ok(event) = rx.recv() {
             use notify::EventKind::*;
-            if let Ok(event) = event {
-                if (matches!(event.kind, Modify(_) | Remove(_) | Create(_)))
-                    && PENDING_EVENTS.load(Ordering::SeqCst) == 0
-                {
-                    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-                    let args = args.clone();
-                    let w2 = w2.clone();
-                    i_slint_core::api::invoke_from_event_loop(move || {
-                        slint_interpreter::spawn_local(reload(args, w2)).unwrap();
-                    })
-                    .unwrap();
-                }
+            if let Ok(event) = event
+                && (matches!(event.kind, Modify(_) | Remove(_) | Create(_)))
+                && PENDING_EVENTS.load(Ordering::SeqCst) == 0
+            {
+                PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
+                let args = args.clone();
+                let w2 = w2.clone();
+                i_slint_core::api::invoke_from_event_loop(move || {
+                    slint_interpreter::spawn_local(reload(args, w2)).unwrap();
+                })
+                .unwrap();
             }
         }
     });
@@ -376,7 +375,7 @@ fn load_data(
 }
 
 fn install_callbacks(instance: &ComponentInstance, callbacks: &[String]) {
-    assert!(callbacks.len() % 2 == 0);
+    assert!(callbacks.len().is_multiple_of(2));
     for chunk in callbacks.chunks(2) {
         if let [callback, cmd] = chunk {
             let cmd = cmd.clone();

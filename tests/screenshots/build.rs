@@ -159,10 +159,7 @@ fn generate_source(
 
     if diag.has_errors() {
         diag.print_warnings_and_exit_on_error();
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("build error in {:?}", testcase.absolute_path),
-        ));
+        return Err(std::io::Error::other(format!("build error in {:?}", testcase.absolute_path)));
     } else {
         diag.print();
     }

@@ -174,10 +174,10 @@ fn api_key() -> String {
     }
 
     #[cfg(not(feature = "mcu-board-support"))]
-    if let Some(lat) = std::env::var_os(WEATHER_API_KEY) {
-        if let Some(lat) = lat.to_str() {
-            return lat.to_string();
-        }
+    if let Some(lat) = std::env::var_os(WEATHER_API_KEY)
+        && let Some(lat) = lat.to_str()
+    {
+        return lat.to_string();
     }
 
     String::default()
@@ -189,10 +189,10 @@ fn lat() -> f32 {
     }
 
     #[cfg(not(feature = "mcu-board-support"))]
-    if let Some(lat) = std::env::var_os(WEATHER_LAT_KEY) {
-        if let Some(lat) = lat.to_str() {
-            return lat.parse().unwrap_or_default();
-        }
+    if let Some(lat) = std::env::var_os(WEATHER_LAT_KEY)
+        && let Some(lat) = lat.to_str()
+    {
+        return lat.parse().unwrap_or_default();
     }
 
     LAT_BERLIN
@@ -204,10 +204,10 @@ fn long() -> f32 {
     }
 
     #[cfg(not(feature = "mcu-board-support"))]
-    if let Some(lat) = std::env::var_os(WEATHER_LONG_KEY) {
-        if let Some(lat) = lat.to_str() {
-            return lat.parse().unwrap_or_default();
-        }
+    if let Some(lat) = std::env::var_os(WEATHER_LONG_KEY)
+        && let Some(lat) = lat.to_str()
+    {
+        return lat.parse().unwrap_or_default();
     }
 
     LONG_BERLIN
