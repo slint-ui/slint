@@ -264,8 +264,10 @@ impl PathDataIterator {
 #[derive(Clone, Debug, PartialEq)]
 /// PathData represents a path described by either high-level elements or low-level
 /// events and coordinates.
+#[derive(Default)]
 pub enum PathData {
     /// None is the variant when the path is empty.
+    #[default]
     None,
     /// The Elements variant is used to make a Path from shared arrays of elements.
     Elements(crate::SharedVector<PathElement>),
@@ -275,12 +277,6 @@ pub enum PathData {
     /// The Commands variant describes the path as a series of SVG encoded path commands.
     #[cfg(feature = "std")]
     Commands(crate::SharedString),
-}
-
-impl Default for PathData {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl PathData {
