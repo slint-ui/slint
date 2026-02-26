@@ -441,6 +441,7 @@ impl FlickableDataInner {
             TouchPhase::Started => {
                 // TODO: is the delta only for qt zero?
                 self.scrolling_ongoing = true;
+                self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
             }
             TouchPhase::Moved => {
                 if !self.scrolling_ongoing {
@@ -616,7 +617,7 @@ impl FlickableData {
                     }
                     TouchPhase::Started => InputEventFilterResult::Intercept,
                     TouchPhase::Moved | TouchPhase::Ended => {
-                        if self.inner.borrow().scrolling_ongoing {
+                        if inner.scrolling_ongoing {
                             InputEventFilterResult::Intercept
                         } else {
                             InputEventFilterResult::ForwardEvent
