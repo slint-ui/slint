@@ -2690,6 +2690,16 @@ fn generate_grid_layout_input_decl(
                 }
             }
         }
+        // Padding loop: fill remaining slots with sentinel values. C++ zero-initializes
+        // result (col=0, row=0), so we need to specify auto explicitly.
+        write!(
+            fill_code,
+            "while (write_idx < result.size()) {{\n\
+                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                 ++write_idx;\n\
+             }}\n"
+        )
+        .unwrap();
         vec!["[[maybe_unused]] auto self = this;".into(), fill_code]
     } else {
         vec!["[[maybe_unused]] auto self = this;".into(), statement]

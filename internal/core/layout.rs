@@ -464,7 +464,7 @@ pub struct GridLayoutData {
 /// The input data for a cell of a GridLayout, before row/col determination and before H/V split
 /// Used as input to organize_grid_layout()
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct GridLayoutInputData {
     /// whether this cell is the first one in a Row element
     pub new_row: bool,
@@ -477,6 +477,18 @@ pub struct GridLayoutInputData {
     /// Only the u16 range is valid, values outside of that will be clamped with a warning at runtime
     pub colspan: f32,
     pub rowspan: f32,
+}
+
+impl Default for GridLayoutInputData {
+    fn default() -> Self {
+        Self {
+            new_row: false,
+            col: i_slint_common::ROW_COL_AUTO,
+            row: i_slint_common::ROW_COL_AUTO,
+            colspan: 1.0,
+            rowspan: 1.0,
+        }
+    }
 }
 
 /// The organized layout data for a GridLayout, after row/col determination:
