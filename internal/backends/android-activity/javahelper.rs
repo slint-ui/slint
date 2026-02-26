@@ -538,19 +538,11 @@ fn callback_update_text<'local>(
 }
 
 fn convert_utf16_index_to_utf8(in_str: &str, utf16_index: usize) -> usize {
-    let mut utf16_counter = 0;
-
-    for (utf8_index, c) in in_str.char_indices() {
-        if utf16_counter >= utf16_index {
-            return utf8_index;
-        }
-        utf16_counter += c.len_utf16();
-    }
-    in_str.len()
+    i_slint_core::unicode_utils::utf16_offset_to_byte_offset_clamped(in_str, utf16_index)
 }
 
 fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
-    in_str[..utf8_index].encode_utf16().count()
+    i_slint_core::unicode_utils::byte_offset_to_utf16_offset(in_str, utf8_index)
 }
 
 fn callback_set_night_mode<'local>(

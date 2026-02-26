@@ -1354,20 +1354,8 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     if unsafe_byte_offset <= 0 {
         return 0;
     }
-    let byte_offset_candidate = unsafe_byte_offset as usize;
-
-    if byte_offset_candidate >= text.len() {
-        return text.len();
-    }
-
-    if text.is_char_boundary(byte_offset_candidate) {
-        return byte_offset_candidate;
-    }
-
-    // Use std::floor_char_boundary once stabilized.
-    text.char_indices()
-        .find_map(|(offset, _)| if offset >= byte_offset_candidate { Some(offset) } else { None })
-        .unwrap_or(text.len())
+    // Use std::ceil_char_boundary once MSRV >= 1.91.
+    crate::unicode_utils::ceil_byte_offset(text, unsafe_byte_offset as usize)
 }
 
 /// This struct holds the fields needed for rendering a TextInput item after applying any

@@ -61,6 +61,7 @@ pub mod tests;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
+pub mod unicode_utils;
 pub mod window;
 
 #[doc(inline)]
