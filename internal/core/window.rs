@@ -746,12 +746,11 @@ impl TouchState {
                     // Clear double-tap state if the finger moved too far
                     // from the last tap, preventing false double-taps
                     // after drags.
-                    if let Some((_, last_pos)) = self.last_tap {
-                        if (position - last_pos).square_length() as f32
+                    if let Some((_, last_pos)) = self.last_tap
+                        && (position - last_pos).square_length() as f32
                             >= Self::DOUBLE_TAP_DISTANCE_SQ
-                        {
-                            self.last_tap = None;
-                        }
+                    {
+                        self.last_tap = None;
                     }
                     events.push(MouseEvent::Moved { position, is_touch: true });
                 }

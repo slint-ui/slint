@@ -1324,11 +1324,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         for i in 0..count {
             let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
             let c = self.0.inner.borrow().instances.get(i as usize).and_then(|c| c.1.clone());
-            if let Some(c) = c {
-                if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
-                {
-                    return crate::item_tree::VisitChildrenResult::abort(i, 0);
-                }
+            if let Some(c) = c
+                && c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
+            {
+                return crate::item_tree::VisitChildrenResult::abort(i, 0);
             }
         }
         crate::item_tree::VisitChildrenResult::CONTINUE
@@ -1413,10 +1412,10 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     ) -> crate::item_tree::VisitChildrenResult {
         // We can't keep self.inner borrowed because the event might modify the model
         let instance = self.instance.borrow().clone();
-        if let Some(c) = instance {
-            if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
-                return crate::item_tree::VisitChildrenResult::abort(0, 0);
-            }
+        if let Some(c) = instance
+            && c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
+        {
+            return crate::item_tree::VisitChildrenResult::abort(0, 0);
         }
 
         crate::item_tree::VisitChildrenResult::CONTINUE

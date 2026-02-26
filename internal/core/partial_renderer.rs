@@ -572,12 +572,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             return;
         }
 
-        if !rect.is_empty() {
-            if let Some(rect) =
+        if !rect.is_empty()
+            && let Some(rect) =
                 transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
-            {
-                self.dirty_region.add_rect(rect);
-            }
+        {
+            self.dirty_region.add_rect(rect);
         }
     }
 

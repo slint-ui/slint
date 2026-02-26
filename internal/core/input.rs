@@ -936,10 +936,10 @@ pub(crate) fn handle_mouse_grab(
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
-        if window_adapter.renderer().supports_transformations() {
-            if let Some(inverse_transform) = item.inverse_children_transform() {
-                event.transform(inverse_transform);
-            }
+        if window_adapter.renderer().supports_transformations()
+            && let Some(inverse_transform) = item.inverse_children_transform()
+        {
+            event.transform(inverse_transform);
         }
 
         let interested = matches!(
@@ -1015,10 +1015,10 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
-            if window_adapter.renderer().supports_transformations() {
-                if let Some(inverse_transform) = item.inverse_children_transform() {
-                    *p = inverse_transform.transform_point(p.cast()).cast();
-                }
+            if window_adapter.renderer().supports_transformations()
+                && let Some(inverse_transform) = item.inverse_children_transform()
+            {
+                *p = inverse_transform.transform_point(p.cast()).cast();
             }
         }
         if !contains || clipped {
@@ -1074,16 +1074,16 @@ pub fn process_mouse_input(
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
-    if let MouseEvent::Wheel { position, .. } = mouse_event {
-        if r.has_aborted() {
-            // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
-            return process_mouse_input(
-                root,
-                &MouseEvent::Moved { position: *position, is_touch: false },
-                window_adapter,
-                result,
-            );
-        }
+    if let MouseEvent::Wheel { position, .. } = mouse_event
+        && r.has_aborted()
+    {
+        // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
+        return process_mouse_input(
+            root,
+            &MouseEvent::Moved { position: *position, is_touch: false },
+            window_adapter,
+            result,
+        );
     }
 
     result

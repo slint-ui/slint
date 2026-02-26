@@ -564,10 +564,8 @@ impl ItemRc {
                 break;
             }
             let geometry = parent.geometry();
-            if supports_transformations {
-                if let Some(transform) = parent.children_transform() {
-                    result = transform.transform_point(result.cast()).cast();
-                }
+            if supports_transformations && let Some(transform) = parent.children_transform() {
+                result = transform.transform_point(result.cast()).cast();
             }
             result += geometry.origin.to_vector();
             current = parent;

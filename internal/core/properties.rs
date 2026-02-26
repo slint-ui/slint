@@ -678,28 +678,27 @@ impl PropertyHandle {
     // handle is not locked. (Upholding the requirements of UnsafeCell)
     unsafe fn update<T>(&self, value: *mut T) {
         let remove = self.access(|binding| {
-            if let Some(binding) = binding {
-                if binding.dirty.get() {
-                    unsafe fn evaluate_as_current_binding(
-                        value: *mut (),
-                        binding: Pin<&BindingHolder>,
-                    ) -> BindingResult {
-                        CURRENT_BINDING.set(Some(binding), || unsafe {
-                            (binding.vtable.evaluate)(
-                                binding.get_ref() as *const BindingHolder,
-                                value as *mut (),
-                            )
-                        })
-                    }
+            if let Some(binding) = binding
+                && binding.dirty.get()
+            {
+                unsafe fn evaluate_as_current_binding(
+                    value: *mut (),
+                    binding: Pin<&BindingHolder>,
+                ) -> BindingResult {
+                    CURRENT_BINDING.set(Some(binding), || unsafe {
+                        (binding.vtable.evaluate)(
+                            binding.get_ref() as *const BindingHolder,
+                            value as *mut (),
+                        )
+                    })
+                }
 
-                    // clear all the nodes so that we can start from scratch
-                    binding.dep_nodes.set(Default::default());
-                    let r =
-                        unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
-                    binding.dirty.set(false);
-                    if r == BindingResult::RemoveBinding {
-                        return true;
-                    }
+                // clear all the nodes so that we can start from scratch
+                binding.dep_nodes.set(Default::default());
+                let r = unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
+                binding.dirty.set(false);
+                if r == BindingResult::RemoveBinding {
+                    return true;
                 }
             }
             false

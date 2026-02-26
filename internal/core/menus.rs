@@ -83,11 +83,11 @@ impl MenuFromItemTree {
     fn update_shadow_tree(&self) {
         self.tracker.as_ref().evaluate_if_dirty(|| {
             self.item_cache.replace(Default::default());
-            if let Some(condition) = &self.condition {
-                if !condition.as_ref().get() {
-                    self.root.replace(SharedVector::default());
-                    return;
-                }
+            if let Some(condition) = &self.condition
+                && !condition.as_ref().get()
+            {
+                self.root.replace(SharedVector::default());
+                return;
             }
             self.root.replace(
                 self.update_shadow_tree_recursive(&ItemRc::new(self.item_tree.clone(), 0)),
@@ -168,14 +168,13 @@ impl Menu for MenuFromItemTree {
     fn activate(&self, entry: &MenuEntry) {
         if let Some(menu_item) =
             self.item_cache.borrow().get(entry.id.as_str()).and_then(|e| e.item.upgrade())
+            && let Some(menu_item) = menu_item.downcast::<MenuItem>()
         {
-            if let Some(menu_item) = menu_item.downcast::<MenuItem>() {
-                if menu_item.as_pin_ref().checkable() {
-                    menu_item.checked.set(!menu_item.as_pin_ref().checked());
-                }
-
-                menu_item.activated.call(&());
+            if menu_item.as_pin_ref().checkable() {
+                menu_item.checked.set(!menu_item.as_pin_ref().checked());
             }
+
+            menu_item.activated.call(&());
         }
     }
 }

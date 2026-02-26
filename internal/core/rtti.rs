@@ -204,10 +204,9 @@ where
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
         if let Some(self_) =
             (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>()
+            && let Some(p) = Property::check_common_property(self_.apply_pin(item))
         {
-            if let Some(p) = Property::check_common_property(self_.apply_pin(item)) {
-                return p;
-            }
+            return p;
         }
 
         let p1 = self.apply_pin(item);
