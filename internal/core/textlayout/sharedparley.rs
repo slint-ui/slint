@@ -31,6 +31,7 @@ pub struct TextLayoutCache {
     cache_miss_count: std::cell::Cell<u64>,
 }
 
+#[allow(clippy::derivable_impls)] // clippy doesn't see the feature = "testing" code
 impl Default for TextLayoutCache {
     fn default() -> Self {
         Self {
@@ -208,7 +209,7 @@ impl LayoutWithoutLineBreaksBuilder {
             };
 
             builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
-                &font_stack,
+                font_stack,
             )));
 
             if let Some(weight) = font_request.weight {
@@ -307,7 +308,7 @@ impl LayoutWithoutLineBreaksBuilder {
                             parley::StyleProperty::Brush(Brush {
                                 override_fill_color: None,
                                 stroke: self.stroke,
-                                link_color: link_color.clone(),
+                                link_color,
                             }),
                             span.range,
                         );
@@ -355,13 +356,8 @@ fn create_text_paragraphs(
                 }
             });
 
-            let layout = layout_builder.build(
-                font_context,
-                text,
-                selection,
-                formatting.into_iter(),
-                Some(link_color),
-            );
+            let layout =
+                layout_builder.build(font_context, text, selection, formatting, Some(link_color));
 
             TextParagraph { range, y: PhysicalLength::default(), layout, links }
         };
@@ -375,7 +371,7 @@ fn create_text_paragraphs(
                 let mut char_it = text.char_indices().peekable();
                 let mut eot = false;
                 move || {
-                    while let Some((idx, ch)) = char_it.next() {
+                    for (idx, ch) in char_it.by_ref() {
                         if ch == '\n' {
                             let next_range = start..idx;
                             start = idx + ch.len_utf8();
@@ -939,7 +935,7 @@ impl Layout {
                     .map(|g| g.x)
                     .unwrap_or(0.0);
 
-                let mut elipsis_glyph = info.elipsis_glyph.clone();
+                let mut elipsis_glyph = info.elipsis_glyph;
                 elipsis_glyph.x = elipsis_x;
 
                 let font_size = PhysicalLength::new(glyph_run.run().font_size());

@@ -99,10 +99,10 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
     type Item = TextLine<Font::Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(max_lines) = self.max_lines {
-            if self.num_emitted_lines >= max_lines {
-                return None;
-            }
+        if let Some(max_lines) = self.max_lines
+            && self.num_emitted_lines >= max_lines
+        {
+            return None;
         }
 
         if core::mem::take(&mut self.mandatory_line_break_on_next_iteration) {
@@ -135,39 +135,38 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                 continue;
             }
 
-            if let Some(available_width) = self.available_width {
-                if self.current_line.width_including_trailing_whitespace() + fragment.width
+            if let Some(available_width) = self.available_width
+                && self.current_line.width_including_trailing_whitespace() + fragment.width
                     > available_width
-                {
-                    if self.current_line.is_empty() {
-                        if !self.fragments.break_anywhere {
-                            // Try again but break anywhere this time. self.fragments is cloned at the beginning
-                            // of the loop.
-                            self.fragments.break_anywhere = true;
-                            continue;
-                        } else {
-                            // Even if we allow to break anywhere, there is still no room for the next fragment.
-                            // Just use it anywhere otherwise we would return many empty lines
-                            self.fragments = fragments;
-                            self.current_line.add_fragment(&fragment);
-                            break Some(core::mem::take(&mut self.current_line));
-                        }
-                    }
-
-                    let next_line = core::mem::take(&mut self.current_line);
-                    self.mandatory_line_break_on_next_iteration = fragment.trailing_mandatory_break;
-
-                    if self.text_wrap != TextWrap::CharWrap
-                        && !fragments.break_anywhere
-                        && fragment.width < available_width
-                    {
-                        self.current_line.add_fragment(&fragment);
+            {
+                if self.current_line.is_empty() {
+                    if !self.fragments.break_anywhere {
+                        // Try again but break anywhere this time. self.fragments is cloned at the beginning
+                        // of the loop.
+                        self.fragments.break_anywhere = true;
+                        continue;
+                    } else {
+                        // Even if we allow to break anywhere, there is still no room for the next fragment.
+                        // Just use it anywhere otherwise we would return many empty lines
                         self.fragments = fragments;
+                        self.current_line.add_fragment(&fragment);
+                        break Some(core::mem::take(&mut self.current_line));
                     }
+                }
 
-                    break Some(next_line);
-                };
-            }
+                let next_line = core::mem::take(&mut self.current_line);
+                self.mandatory_line_break_on_next_iteration = fragment.trailing_mandatory_break;
+
+                if self.text_wrap != TextWrap::CharWrap
+                    && !fragments.break_anywhere
+                    && fragment.width < available_width
+                {
+                    self.current_line.add_fragment(&fragment);
+                    self.fragments = fragments;
+                }
+
+                break Some(next_line);
+            };
 
             self.fragments = fragments;
             self.current_line.add_fragment(&fragment);
