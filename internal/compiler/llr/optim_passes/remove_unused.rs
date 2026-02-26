@@ -302,6 +302,7 @@ mod visitor {
             grid_layout_children,
             accessible_prop,
             element_infos: _,
+            row_child_templates: _,
             prop_analysis,
         }: &mut SubComponent,
         state: &VisitorState,
