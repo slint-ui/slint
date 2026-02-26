@@ -1939,13 +1939,84 @@ fn generate_repeated_component(
     let inner_component_id = self::inner_component_id(root_sc);
 
     let grid_layout_input_data_fn = root_sc.grid_layout_input_for_repeated.as_ref().map(|_| {
-        quote! {
-            fn grid_layout_input_data(
-                self: ::core::pin::Pin<&Self>,
-                new_row: bool,
-                result: &mut [sp::GridLayoutInputData],
-            ) {
-                self.as_ref().grid_layout_input_for_repeated(new_row, result)
+        let has_inner_repeaters = llr::has_inner_repeaters(&root_sc.row_child_templates);
+        if has_inner_repeaters {
+            let templates = root_sc.row_child_templates.as_ref().unwrap();
+            let static_count = llr::static_child_count(templates);
+            let auto_val = i_slint_common::ROW_COL_AUTO;
+
+            // Generate fill code: one snippet per template entry.
+            // new_row is re-evaluated per slot (write_idx == 0 && new_row) so that only the
+            // first produced slot is marked as starting a new row.
+            let fill_code: Vec<TokenStream> = templates
+                .iter()
+                .map(|entry| match entry {
+                    llr::RowChildTemplateInfo::Static { .. } => quote! {
+                        if write_idx < result.len() {
+                            let mut data = statics[static_idx].clone();
+                            data.new_row = write_idx == 0 && new_row;
+                            result[write_idx] = data;
+                        }
+                        write_idx += 1;
+                        static_idx += 1;
+                    },
+                    llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                        let inner_rep_id =
+                            format_ident!("repeater{}", usize::from(*repeater_index));
+                        let inner_rep_sc_idx =
+                            root_sc.repeated[*repeater_index].sub_tree.root;
+                        let inner_inner_component_id = self::inner_component_id(
+                            &unit.sub_components[inner_rep_sc_idx],
+                        );
+                        quote! {
+                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id.apply_pin(_self.as_ref()).ensure_updated(
+                                || #inner_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
+                            );
+                            let inner_len = _self.as_ref().#inner_rep_id.len();
+                            for _i in 0..inner_len {
+                                if write_idx < result.len() {
+                                    result[write_idx] = sp::GridLayoutInputData {
+                                        new_row: write_idx == 0 && new_row,
+                                        col: #auto_val,
+                                        row: #auto_val,
+                                        colspan: 1.0f32,
+                                        rowspan: 1.0f32,
+                                    };
+                                }
+                                write_idx += 1;
+                            }
+                        }
+                    }
+                })
+                .collect();
+
+            quote! {
+                fn grid_layout_input_data(
+                    self: ::core::pin::Pin<&Self>,
+                    new_row: bool,
+                    result: &mut [sp::GridLayoutInputData],
+                ) {
+                    let _self = self;
+                    let mut statics: [sp::GridLayoutInputData; #static_count] =
+                        ::core::array::from_fn(|_| Default::default());
+                    _self.as_ref().grid_layout_input_for_repeated(new_row, &mut statics);
+                    let mut static_idx: usize = 0;
+                    let mut write_idx: usize = 0;
+                    #(#fill_code)*
+                    // Fill any remaining slots with auto-placed placeholders
+                    // (Default leads to col=ROW_COL_AUTO, row=ROW_COL_AUTO, colspan=1, rowspan=1).
+                    result[write_idx..].fill(Default::default());
+                }
+            }
+        } else {
+            quote! {
+                fn grid_layout_input_data(
+                    self: ::core::pin::Pin<&Self>,
+                    new_row: bool,
+                    result: &mut [sp::GridLayoutInputData],
+                ) {
+                    self.as_ref().grid_layout_input_for_repeated(new_row, result)
+                }
             }
         }
     });
@@ -1971,46 +2042,94 @@ fn generate_repeated_component(
                 // Create a context with proper global_access for compiling layout info expressions
                 let layout_ctx = EvaluationContext {
                     compilation_unit: unit,
-                    current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
-                    generator_state: RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                    current_scope: EvaluationScope::SubComponent(
+                        repeated.sub_tree.root,
+                        Some(parent_ctx),
+                    ),
+                    generator_state: RustGeneratorContext {
+                        global_access: quote!(_self.globals.get().unwrap()),
+                    },
                     argument_types: &[],
                 };
-                // Generate match arms for each grid layout child
-                let child_match_arms = root_sc.grid_layout_children.iter().enumerate().map(|(idx, child)| {
-                    // Get layout info of child number idx.
-                    let layout_info_h_code = compile_expression(&child.layout_info_h.borrow(), &layout_ctx);
-                    let layout_info_v_code = compile_expression(&child.layout_info_v.borrow(), &layout_ctx);
-                    quote! {
-                        #idx => {
-                            sp::LayoutItemInfo {
-                                constraint: match o {
-                                    sp::Orientation::Horizontal => #layout_info_h_code,
-                                    sp::Orientation::Vertical => #layout_info_v_code,
+
+                let body = if let Some(templates) = &root_sc.row_child_templates {
+                    // Generate a sequential scan through all templates in declaration order.
+                    // For each Static: check if count == index and return the precomputed info.
+                    // For each Repeated: check if index falls within [count, count+len), and return the inner instance's info.
+                    let n = templates.len();
+                    let scan_steps: Vec<TokenStream> = templates
+                        .iter()
+                        .enumerate()
+                        .map(|(i, entry)| {
+                            let is_last = i + 1 == n;
+                            match entry {
+                            llr::RowChildTemplateInfo::Static { child_index } => {
+                                let child = &root_sc.grid_layout_children[*child_index];
+                                let layout_info_h_code =
+                                    compile_expression(&child.layout_info_h.borrow(), &layout_ctx);
+                                let layout_info_v_code =
+                                    compile_expression(&child.layout_info_v.borrow(), &layout_ctx);
+                                let advance = (!is_last).then(|| quote! { count += 1; });
+                                quote! {
+                                    if count == index {
+                                        return sp::LayoutItemInfo {
+                                            constraint: match o {
+                                                sp::Orientation::Horizontal => #layout_info_h_code,
+                                                sp::Orientation::Vertical => #layout_info_v_code,
+                                            },
+                                        };
+                                    }
+                                    #advance
                                 }
                             }
+                            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                                let inner_rep_id =
+                                    format_ident!("repeater{}", usize::from(*repeater_index));
+                                let advance = (!is_last).then(|| quote! { count += inner_len; });
+                                quote! {
+                                    {
+                                        let inner_len = _self.#inner_rep_id.len();
+                                        if index >= count && index - count < inner_len {
+                                            if let Some(inner) = _self.#inner_rep_id.instance_at(index - count) {
+                                                return sp::LayoutItemInfo {
+                                                    constraint: inner.as_pin_ref().layout_info(o),
+                                                };
+                                            }
+                                        }
+                                        #advance
+                                    }
+                                }
+                            }
+                        }})
+                        .collect();
+
+                    quote! {
+                        #[allow(unused)]
+                        if let Some(index) = child_index {
+                            let _self = self.as_ref();
+                            let mut count = 0usize;
+                            #(#scan_steps)*
+                            sp::LayoutItemInfo { constraint: sp::LayoutInfo::default() }
+                        } else {
+                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
                         }
                     }
-                });
+                } else {
+                    quote! {
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                    }
+                };
 
-                let num_children = root_sc.grid_layout_children.len();
                 quote! {
                     fn layout_item_info(
                         self: ::core::pin::Pin<&Self>,
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::LayoutItemInfo {
-                        if let Some(index) = child_index {
-                            let _self = self.as_ref();
-                            match index {
-                                #(#child_match_arms)*
-                                _ => panic!("child_index {index} out of bounds (max {})", #num_children),
-                            }
-                        } else {
-                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
-                        }
+                        #body
                     }
                 }
-            } else {
+            } else { // not a repeated row
                 quote! {
                     fn layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -2934,8 +3053,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
         } => generate_with_grid_input_data(
             cells_variable,
-            &repeater_indices_var_name,
-            &repeater_steps_var_name,
+            repeater_indices_var_name,
+            repeater_steps_var_name,
             elements.as_ref(),
             sub_expression,
             ctx,
@@ -3671,11 +3790,10 @@ fn generate_common_repeater_code(
     // ... and this "repeater steps" array (number of items in repeated rows)
     repeater_steps_var_name: &Option<Ident>,
     repeater_count_code: &mut TokenStream,
-    repeated_item_count: usize, // >1 for repeated Rows
     // The name of the items vector to use for measuring length (e.g., "items_vec" or "items_vec_h")
     items_vec_name: &str,
     ctx: &EvaluationContext,
-) -> TokenStream {
+) -> (TokenStream, Option<usize>) {
     let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
     let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
     let rep_inner_component_id = self::inner_component_id(
@@ -3686,6 +3804,7 @@ fn generate_common_repeater_code(
 
     let items_vec_ident = ident(items_vec_name);
     let mut repeater_code = quote!();
+    let mut rs_idx_for_init = None;
     if let Some(ri) = repeated_indices_var_name {
         let ri_idx = *repeated_indices_size;
         repeater_code = quote!(
@@ -3693,18 +3812,18 @@ fn generate_common_repeater_code(
             #ri[#ri_idx + 1] = _self.#repeater_id.len() as u32;
         );
         *repeated_indices_size += 2;
-        if let Some(rs) = repeater_steps_var_name {
-            let rs_idx = ri_idx / 2;
-            repeater_code.extend(quote!(#rs[#rs_idx] = #repeated_item_count as u32;));
+        if repeater_steps_var_name.is_some() {
+            rs_idx_for_init = Some(ri_idx / 2);
         }
     }
 
-    quote!(
+    let code = quote!(
         #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
             || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
         );
         #repeater_code
-    )
+    );
+    (code, rs_idx_for_init)
 }
 
 fn generate_common_repeater_indices_init_code(
@@ -3724,6 +3843,109 @@ fn generate_common_repeater_indices_init_code(
         )
     } else {
         quote!()
+    }
+}
+
+/// For each inner repeater in `templates`, generates code to `ensure_updated` it
+/// and add its length to `total`.  `row_sc` / `row_inner_component_id` describe the
+/// repeating Row sub-component; `unit` is the full compilation unit.
+fn build_inner_ensure_and_len(
+    templates: &[llr::RowChildTemplateInfo],
+    row_sc: &llr::SubComponent,
+    row_inner_component_id: &proc_macro2::Ident,
+    unit: &llr::CompilationUnit,
+) -> Vec<TokenStream> {
+    templates
+        .iter()
+        .filter_map(|e| match e {
+            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                let inner_rep_sc_idx = row_sc.repeated[*repeater_index].sub_tree.root;
+                let inner_inner_component_id =
+                    inner_component_id(&unit.sub_components[inner_rep_sc_idx]);
+                let inner_rep_id = format_ident!("repeater{}", usize::from(*repeater_index));
+                Some(quote! {
+                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id.apply_pin(pin).ensure_updated(
+                        || #inner_inner_component_id::new(pin.self_weak.get().unwrap().clone()).unwrap().into()
+                    );
+                    total += pin.#inner_rep_id.len();
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn generate_repeater_push_code(
+    repeater_index: llr::RepeatedElementIdx,
+    row_child_templates: &Option<Vec<llr::RowChildTemplateInfo>>,
+    repeated_indices_var_name: &Option<proc_macro2::Ident>,
+    repeated_indices_size: &mut usize,
+    repeater_steps_var_name: &Option<proc_macro2::Ident>,
+    repeated_count_code: &mut TokenStream,
+    ctx: &EvaluationContext,
+    dynamic_loop_code: impl FnOnce(
+        proc_macro2::Ident,
+        usize,
+        Vec<TokenStream>,
+        Option<TokenStream>,
+    ) -> TokenStream,
+    static_loop_code: impl FnOnce(proc_macro2::Ident, usize, bool) -> TokenStream,
+) -> TokenStream {
+    let row_templates = row_child_templates.as_deref();
+    if llr::has_inner_repeaters(row_child_templates) {
+        let templates = row_templates.unwrap();
+        let static_count = llr::static_child_count(templates);
+        let parent_sc = ctx.current_sub_component().unwrap();
+        let row_sc_idx = parent_sc.repeated[repeater_index].sub_tree.root;
+        let row_sc = &ctx.compilation_unit.sub_components[row_sc_idx];
+        let row_inner_component_id = self::inner_component_id(row_sc);
+        let inner_ensure_and_len = build_inner_ensure_and_len(
+            templates,
+            row_sc,
+            &row_inner_component_id,
+            ctx.compilation_unit,
+        );
+
+        let (common_push_code, rs_idx) = self::generate_common_repeater_code(
+            repeater_index,
+            repeated_indices_var_name,
+            repeated_indices_size,
+            repeater_steps_var_name,
+            repeated_count_code,
+            "items_vec",
+            ctx,
+        );
+        let rs_init = rs_idx.and_then(|idx| {
+            repeater_steps_var_name.as_ref().map(|rs| quote!(#rs[#idx] = total_item_count as u32;))
+        });
+
+        let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
+        let loop_code = dynamic_loop_code(repeater_id, static_count, inner_ensure_and_len, rs_init);
+        quote!(
+            #common_push_code
+            #loop_code
+        )
+    } else {
+        let step = row_templates.map_or(1, |t| t.len());
+        let (common_push_code, rs_idx) = self::generate_common_repeater_code(
+            repeater_index,
+            repeated_indices_var_name,
+            repeated_indices_size,
+            repeater_steps_var_name,
+            repeated_count_code,
+            "items_vec",
+            ctx,
+        );
+        let rs_init = rs_idx.and_then(|idx| {
+            repeater_steps_var_name.as_ref().map(|rs| quote!(#rs[#idx] = #step as u32;))
+        });
+        let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
+        let loop_code = static_loop_code(repeater_id, step, row_templates.is_none());
+        quote!(
+            #common_push_code
+            #rs_init
+            #loop_code
+        )
     }
 }
 
@@ -3749,36 +3971,60 @@ fn generate_with_grid_input_data(
                 push_code.push(quote!(items_vec.push(#value);))
             }
             Either::Right(repeater) => {
-                let repeated_item_count = repeater.repeated_children_count.unwrap_or(1);
-                let common_push_code = self::generate_common_repeater_code(
+                let repeater_push_code = generate_repeater_push_code(
                     repeater.repeater_index,
+                    &repeater.row_child_templates,
                     &repeated_indices_var_name,
                     &mut repeated_indices_size,
                     &repeater_steps_var_name,
                     &mut repeated_count_code,
-                    repeated_item_count,
-                    "items_vec",
                     ctx,
+                    |repeater_id, static_count, inner_ensure_and_len, rs_init| {
+                        quote!({
+                            let len = _self.#repeater_id.len();
+                            let max_total = (0..len).filter_map(|i| {
+                                _self.#repeater_id.instance_at(i).map(|rc| {
+                                    let pin = rc.as_pin_ref();
+                                    let mut total = #static_count;
+                                    #(#inner_ensure_and_len)*
+                                    total
+                                })
+                            }).max().unwrap_or(#static_count);
+                            let total_item_count = max_total;
+                            #rs_init
+                            let start_offset = items_vec.len();
+                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * total_item_count));
+                            for i in 0..len {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                    let offset = start_offset + i * total_item_count;
+                                    sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + total_item_count]);
+                                }
+                            }
+                        })
+                    },
+                    |repeater_id, step, is_column_repeater| {
+                        // Only reset new_row for column-repeaters. For repeated rows, each sub-comp
+                        // is its own row so new_row stays true.
+                        let reset_new_row_code =
+                            if is_column_repeater { quote!(new_row = false;) } else { quote!() };
+                        quote!({
+                            let len = _self.#repeater_id.len();
+                            let start_offset = items_vec.len();
+                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * #step));
+                            for i in 0..len {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                    let offset = start_offset + i * #step;
+                                    sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + #step]);
+                                    #reset_new_row_code
+                                }
+                            }
+                        })
+                    },
                 );
-
                 let new_row = repeater.new_row;
-                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
-                let loop_code = quote!({
-                    let len = _self.#repeater_id.len();
-                    let start_offset = items_vec.len();
-                    items_vec.extend(core::iter::repeat_with(Default::default).take(len * #repeated_item_count));
-                    for i in 0..len {
-                        if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
-                            let offset = start_offset + i * #repeated_item_count;
-                            sub_comp.as_pin_ref().grid_layout_input_data(new_row, &mut items_vec[offset..offset + #repeated_item_count]);
-                            new_row = false;
-                        }
-                    }
-                });
                 push_code.push(quote!(
-                    #common_push_code
                     let mut new_row = #new_row;
-                    #loop_code
+                    #repeater_push_code
                 ));
             }
         }
@@ -3829,45 +4075,64 @@ fn generate_with_layout_item_info(
                 push_code.push(quote!(items_vec.push(#value);))
             }
             Either::Right(repeater) => {
-                let repeated_item_count = repeater.repeated_children_count.unwrap_or(1);
-                let common_push_code = self::generate_common_repeater_code(
+                let repeater_push_code = generate_repeater_push_code(
                     repeater.repeater_index,
+                    &repeater.row_child_templates,
                     &repeated_indices_var_name,
                     &mut repeated_indices_size,
                     &repeater_steps_var_name,
                     &mut repeated_count_code,
-                    repeated_item_count,
-                    "items_vec",
                     ctx,
-                );
-                let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
-                let loop_code = match repeater.repeated_children_count {
-                    None => {
+                    |repeater_id, static_count, inner_ensure_and_len, rs_init| {
                         quote!(
-                            for i in 0.._self.#repeater_id.len() {
-                                if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
-                                    items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
-                                }
-                            }
-                        )
-                    }
-                    Some(count) if count > 0 => {
-                        quote!(
-                            for i in 0.._self.#repeater_id.len() {
-                                if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
-                                    for child_idx in 0..#count {
-                                        items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
+                            {
+                                let len = _self.#repeater_id.len();
+                                let max_total = (0..len).filter_map(|i| {
+                                    _self.#repeater_id.instance_at(i).map(|rc| {
+                                        let pin = rc.as_pin_ref();
+                                        let mut total = #static_count;
+                                        #(#inner_ensure_and_len)*
+                                        total
+                                    })
+                                }).max().unwrap_or(#static_count);
+                                let total_item_count = max_total;
+                                #rs_init
+                                for i in 0..len {
+                                    if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                        for child_idx in 0..total_item_count {
+                                            items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
+                                        }
                                     }
                                 }
                             }
                         )
-                    }
-                    _ => quote!(),
-                };
-                push_code.push(quote!(
-                    #common_push_code
-                    #loop_code
-                ));
+                    },
+                    |repeater_id, step, is_column_repeater| {
+                        if step == 0 {
+                            quote!()
+                        } else if step == 1 && is_column_repeater {
+                            // Column-repeater: each sub-component IS a cell; None returns its own layout_info
+                            quote!(
+                                for i in 0.._self.#repeater_id.len() {
+                                    if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                       items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                    }
+                                }
+                            )
+                        } else {
+                            quote!(
+                                for i in 0.._self.#repeater_id.len() {
+                                    if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                        for child_idx in 0..#step {
+                                            items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    },
+                );
+                push_code.push(repeater_push_code);
             }
         }
     }
@@ -3921,13 +4186,12 @@ fn generate_with_flexbox_layout_item_info(
                 ))
             }
             Either::Right(repeater) => {
-                let common_push_code = self::generate_common_repeater_code(
+                let (common_push_code, _rs_idx) = self::generate_common_repeater_code(
                     repeater.repeater_index,
                     &repeated_indices_var_name,
                     &mut repeated_indices_size,
                     &None, // No repeater_steps for flexbox
                     &mut repeated_count_code,
-                    1,             // repeated_item_count
                     "items_vec_h", // Use items_vec_h for length tracking (same as items_vec_v)
                     ctx,
                 );
