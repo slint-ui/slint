@@ -11,7 +11,7 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::{DocumentCache, LspToPreview, LspToPreviewMessage, Result, VersionedUrl};
+use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
@@ -169,10 +169,12 @@ pub fn create(
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    let to_preview =
+        Rc::new(preview::connector::SwitchableLspToPreview::with_one(common::DummyLspToPreview {}));
     #[cfg(feature = "preview-engine")]
-    let to_preview: Rc<dyn LspToPreview> =
-        Rc::new(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+    let to_preview = Rc::new(preview::connector::SwitchableLspToPreview::with_one(
+        preview::connector::WasmLspToPreview::new(server_notifier.clone()),
+    ));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
@@ -296,6 +298,7 @@ impl SlintServer {
                         lsp_types::OneOf::Left(object),
                     );
             }
+            M::RequestFile { file } => todo!(),
         }
         Ok(())
     }

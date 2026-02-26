@@ -320,17 +320,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
 
     #[cfg(not(feature = "preview-engine"))]
     let to_preview = {
-        Rc::new(
-            preview::connector::SwitchableLspToPreview::new(
-                std::iter::once((
-                    common::PreviewTarget::Dummy,
-                    Box::new(common::DummyLspToPreview {}) as Box<dyn common::LspToPreview>,
-                ))
-                .collect(),
-                common::PreviewTarget::Dummy,
-            )
-            .unwrap(),
-        )
+        Rc::new(preview::connector::SwitchableLspToPreview::with_one(common::DummyLspToPreview {}))
     };
     #[cfg(feature = "preview-engine")]
     let to_preview = {
@@ -341,6 +331,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         );
         let embedded_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+        #[cfg(feature = "preview-remote")]
         let remote_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::RemoteLspToPreview::new(preview_to_lsp_sender, sn));
         Rc::new(
@@ -348,6 +339,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                 HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
                     (common::PreviewTarget::EmbeddedWasm, embedded_preview),
+                    #[cfg(feature = "preview-remote")]
                     (common::PreviewTarget::Remote, remote_preview),
                 ]),
                 common::PreviewTarget::ChildProcess,
@@ -559,27 +551,6 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 },
             }
         }
-
-        #[cfg(feature = "preview-remote")]
-        language::CONNECT_REMOTE_PREVIEW_COMMAND => match language::connect_remote_preview_command(
-            req.params.as_array().map_or(&[], |x| x.as_slice()),
-            ctx,
-        )
-        .await
-        {
-            Ok(()) => Ok(()),
-            Err(e) => match e.code {
-                LspErrorCode::RequestFailed => {
-                    ctx.server_notifier.send_notification::<lsp_types::notification::ShowMessage>(
-                        lsp_types::ShowMessageParams {
-                            typ: lsp_types::MessageType::ERROR,
-                            message: e.message,
-                        },
-                    )
-                }
-                _ => Err(e.message.into()),
-            },
-        },
 
         // Messages from the WASM preview come in as notifications sent by the "editor":
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]

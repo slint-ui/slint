@@ -37,5 +37,8 @@ mdns-sd = { version = "0.17.0", default-features = false, features = ["async"] }
 [target.'cfg(target_vendor = "apple")'.dependencies]
 zeroconf-tokio = { version = "0.3.0" }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getifs = "0.4.0"
+
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

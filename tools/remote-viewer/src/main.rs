@@ -83,8 +83,10 @@ async fn main() -> anyhow::Result<()> {
         }
     })?;
 
-    // TODO: showing "[::]" is not useful here. We need to get all IP addresses of the system
-    window.set_address(connection.local_addr().to_string().into());
+    let local_port = connection.local_port();
+    let local_ip_str: Vec<String> =
+        connection.local_ips().into_iter().map(|ip| format!("{ip}:{local_port}")).collect();
+    window.set_address(local_ip_str.join("\n").into());
 
     window.show()?;
 

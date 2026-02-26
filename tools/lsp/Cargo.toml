@@ -60,7 +60,7 @@ renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Enable support for previewing .slint files
-preview = ["preview-builtin", "preview-external", "preview-remote", "preview-engine"]
+preview = ["preview-builtin", "preview-external", "preview-engine", "preview-remote"]
 preview-remote = ["tokio-tungstenite-wasm", "futures-util", "postcard", "mdns-sd"]
 ## [deprecated] Used to enable the "Show Preview" lenses and action on components.
 preview-lense = []

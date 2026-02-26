@@ -13,9 +13,11 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
-#[cfg(feature = "preview-remote")]
+// TODO: This can be implemented for wasm32, but it requires some changes
+// to the API, so we can do that when the rest works.
+#[cfg(all(feature = "preview-remote", not(target_arch = "wasm32")))]
 pub mod remote;
-#[cfg(feature = "preview-remote")]
+#[cfg(all(feature = "preview-remote", not(target_arch = "wasm32")))]
 pub use remote::*;
 
 use crate::{common, preview};
@@ -67,6 +69,14 @@ impl SwitchableLspToPreview {
         } else {
             Err("No such target".into())
         }
+    }
+
+    pub fn with_one(lsp_to_preview: impl common::LspToPreview) -> Self {
+        let target = lsp_to_preview.preview_target();
+        let lsp_to_previews =
+            std::iter::once((target, Box::new(lsp_to_preview) as Box<dyn common::LspToPreview>))
+                .collect();
+        Self { lsp_to_previews, current_target: RefCell::new(target) }
     }
 
     pub fn send(&self, message: &common::LspToPreviewMessage) {
