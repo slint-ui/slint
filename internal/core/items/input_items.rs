@@ -376,6 +376,7 @@ impl Item for Shortcut {
 /// An optimized ShortcutList that is only initialized when it is
 /// first accessed.
 #[repr(C)]
+#[derive(Default)] // results in a null pointer, which we will initialize on first access
 pub struct MaybeShortcutList(Cell<*const ShortcutList>);
 
 impl MaybeShortcutList {
@@ -395,13 +396,6 @@ impl Drop for MaybeShortcutList {
             // SAFETY: Must be a pointer returned by `Box::leak`, which is guaranteed by `ensure_init`.
             drop(unsafe { Box::from_raw(ptr as *mut ShortcutList) });
         }
-    }
-}
-
-impl Default for MaybeShortcutList {
-    fn default() -> Self {
-        // results in a null pointer, which we will initialize on first access
-        Self(Default::default())
     }
 }
 
@@ -560,7 +554,7 @@ impl Item for FocusScope {
             KeyEventType::KeyReleased => {
                 let shortcut = self.visit_shortcuts(self_rc, |shortcut| {
                     let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
-                    if keys.matches(&event) { Some(VRcMapped::clone(shortcut)) } else { None }
+                    if keys.matches(event) { Some(VRcMapped::clone(shortcut)) } else { None }
                 });
 
                 if let Some(shortcut) = shortcut {

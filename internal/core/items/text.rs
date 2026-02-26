@@ -74,7 +74,7 @@ impl Item for ComplexText {
     ) -> LayoutInfo {
         text_layout_info(
             self,
-            &self_rc,
+            self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -263,7 +263,7 @@ impl Item for StyledTextItem {
     ) -> LayoutInfo {
         text_layout_info(
             self,
-            &self_rc,
+            self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -890,7 +890,7 @@ impl Item for TextInput {
                     self.set_cursor_position(
                         clicked_offset,
                         true,
-                        if (pressed - 1) % 3 == 0 {
+                        if (pressed - 1).is_multiple_of(3) {
                             TextChangeNotify::TriggerCallbacks
                         } else {
                             TextChangeNotify::SkipCallbacks

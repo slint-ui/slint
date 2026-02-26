@@ -10,16 +10,17 @@
 //!    Shaping boundaries are always also grapheme boundaries.
 //! 2. Then we shape the text at shaping boundaries, to determine the metrics of glyphs and glyph clusters
 //! 3. Loop over all glyph clusters as well as the line break opportunities produced by the unicode line break algorithm:
-//!     Sum up the width of all glyph clusters until the next line break opportunity (encapsulated in FragmentIterator), record separately the width of
-//!     trailing space within the fragment.
-//!     If the width of the current line (including trailing whitespace) and the new fragment of glyph clusters (without trailing whitespace) is less or
-//!         equal to the available width:
-//!         Add fragment of glyph clusters to the current line
-//!     Else:
-//!         Emit current line as new line
-//!     If encountering a mandatory line break opportunity:
-//!         Emit current line as new line
-//!
+//!    Sum up the width of all glyph clusters until the next line break opportunity (encapsulated in FragmentIterator), record separately the width of
+//!    trailing space within the fragment.
+//!    ```text
+//!    If the width of the current line (including trailing whitespace) and the new fragment of glyph clusters (without trailing whitespace) is less or
+//!    equal to the available width:
+//!        Add fragment of glyph clusters to the current line
+//!    Else:
+//!        Emit current line as new line
+//!    If encountering a mandatory line break opportunity:
+//!        Emit current line as new line
+//!    ```
 
 use alloc::vec::Vec;
 

@@ -41,6 +41,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
         let new_tick = crate::animations::current_tick();
         let mut time_progress = new_tick.duration_since(self.start_time).as_millis() as u64;
         let reversed = |iteration: u64| -> bool {
+            #[allow(clippy::manual_is_multiple_of)] // keep symmetry
             match self.details.direction {
                 AnimationDirection::Normal => false,
                 AnimationDirection::Reverse => true,

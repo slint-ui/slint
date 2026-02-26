@@ -437,7 +437,7 @@ impl KeyboardShortcut {
         }
 
         // TODO: Should this check the event_type and only match on KeyReleased?
-        let mut expected_modifiers = self.modifiers.clone();
+        let mut expected_modifiers = self.modifiers;
         if self.ignore_shift {
             expected_modifiers.shift = key_event.modifiers.shift;
         }

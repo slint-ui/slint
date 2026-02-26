@@ -2620,8 +2620,7 @@ impl WindowInner {
 
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
-        &self
-            .ctx
+        self.ctx
             .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
     }
 
