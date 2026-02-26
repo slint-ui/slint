@@ -1,4 +1,6 @@
-use std::{sync::Arc, thread::JoinHandle};
+use std::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::thread::JoinHandle;
 
 use futures_util::{
     SinkExt as _,
@@ -95,11 +97,30 @@ impl RemoteLspToPreview {
         }))
     }
 
-    pub async fn connect(&self, host: String, port: u16) -> crate::common::Result<()> {
-        tracing::info!("Attempting to connect to remote preview server at {host}:{port}");
-        // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
-        let stream = tokio_tungstenite_wasm::connect(format!("ws://{host}:{port}")).await?;
-        tracing::info!("Connected to remote preview server at {host}:{port}");
+    pub async fn connect(
+        &self,
+        addresses: impl IntoIterator<Item = &str>,
+        port: u16,
+    ) -> crate::common::Result<()> {
+        let mut addresses = addresses.into_iter();
+        let stream = loop {
+            let Some(address) = addresses.next() else {
+                return Err("Unable to connect to remote viewer".into());
+            };
+            tracing::info!("Attempting to connect to remote preview server at {address}:{port}");
+            // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
+            match tokio_tungstenite_wasm::connect(format!("ws://{address}:{port}")).await {
+                Ok(stream) => {
+                    tracing::info!("Connected to remote preview server at {address}:{port}");
+                    break stream;
+                }
+                Err(err) => {
+                    tracing::debug!(
+                        "Failed connecting to remote viewer, trying next address: {err}"
+                    );
+                }
+            }
+        };
 
         let (socket_sender, socket_receiver) = stream.split();
 

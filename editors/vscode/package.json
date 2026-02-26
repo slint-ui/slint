@@ -90,8 +90,8 @@
         "icon": "$(preview)"
       },
       {
-        "command": "slint.showRemotePreview",
-        "title": "Show Remote Preview",
+        "command": "slint.connectRemotePreview",
+        "title": "Connect to Remote Preview",
         "category": "Slint",
         "icon": "$(preview)"
       },
@@ -120,7 +120,7 @@
           "when": "editorLangId == slint"
         },
         {
-          "command": "slint.showRemotePreview",
+          "command": "slint.connectRemotePreview",
           "when": "editorLangId == slint"
         },
         {
@@ -138,7 +138,7 @@
           "group": "navigation"
         },
         {
-          "command": "slint.showRemotePreview",
+          "command": "slint.connectRemotePreview",
           "when": "resourceLangId == slint",
           "group": "navigation"
         }

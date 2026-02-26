@@ -55,6 +55,8 @@ fn command_list() -> Vec<String> {
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
+        #[cfg(feature = "preview-remote")]
+        CONNECT_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -385,6 +387,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             populate_command(&params.arguments, &ctx).await?;
             return Ok(None::<serde_json::Value>);
         }
+        #[cfg(feature = "preview-remote")]
+        if params.command.as_str() == CONNECT_REMOTE_PREVIEW_COMMAND {
+            connect_remote_preview_command(&params.arguments, &ctx).await?;
+        }
         Ok(None::<serde_json::Value>)
     });
     rh.register::<DocumentColor, _>(|params, ctx| async move {
@@ -608,21 +614,27 @@ pub async fn connect_remote_preview_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<(), LspError> {
-    let _ = ctx.to_preview.set_preview_target(common::PreviewTarget::Remote);
+    let Some(addresses) = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
+        addresses.iter().filter_map(serde_json::Value::as_str).collect::<Vec<_>>()
+    }) else {
+        return Err(LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "Need array of string as the first parameter".to_owned(),
+        });
+    };
+    let Some(port) = params.get(1).and_then(serde_json::Value::as_u64) else {
+        return Err(LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "Need number as the second parameter".to_owned(),
+        });
+    };
 
-    let host = params.first().and_then(serde_json::Value::as_str).ok_or_else(|| LspError {
-        code: LspErrorCode::InvalidParameter,
-        message: "Host parameter is missing or not a string".into(),
-    })?;
-    let port = params.get(1).and_then(serde_json::Value::as_u64).ok_or_else(|| LspError {
-        code: LspErrorCode::InvalidParameter,
-        message: "Port parameter is missing or not a number".into(),
-    })?;
+    let _ = ctx.to_preview.set_preview_target(common::PreviewTarget::Remote);
 
     ctx.to_preview
         .with_preview_target_async::<crate::preview::connector::remote::RemoteLspToPreview, Result<(), LspError>>(
             async |remote| {
-                remote.connect(host.to_owned(), port as u16).await.map_err(|err| {
+                remote.connect(addresses, port as u16).await.map_err(|err| {
                     LspError {
                         code: LspErrorCode::RequestFailed,
                         message: format!("Failed to connect to remote preview: {err}"),
@@ -633,7 +645,7 @@ pub async fn connect_remote_preview_command(
         )
         .await.unwrap()?;
 
-    show_preview_command(&params[2..], ctx)
+    Ok(())
 }
 
 fn populate_command_range(

@@ -55,6 +55,21 @@ export class ClientHandle {
 
 const client = new ClientHandle();
 
+export type RemoteViewerInfo = {
+    id: string;
+
+    label: string;
+    detail: string;
+
+    value: {
+        addresses: string[];
+        port: number;
+    };
+
+    timer?: NodeJS.Timeout;
+};
+export const remote_viewers = new Map<string, RemoteViewerInfo>();
+
 // LSP related:
 
 // Set up our middleware. It is used to redirect/forward to the WASM preview
@@ -149,9 +164,25 @@ export function activate(
 
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
-        cl?.onNotification("slint/updateRemoteViewers", async (params) => {
-            // TODO
+        cl?.onNotification("slint/remote_viewer_discovered", async (params) => {
+            vscode.window.showInformationMessage(`Received update for remote viewers: ${JSON.stringify(params)}`);
             cl.outputChannel.appendLine(`Received update for remote viewers: ${JSON.stringify(params)}`);
+            const old_entry = remote_viewers.get(params.host);
+            if (old_entry) {
+                clearTimeout(old_entry.timer);
+            }
+            const remote_viewer_entry = {
+                id: params.host,
+
+                label: params.host,
+                detail: params.addresses.join(', '),
+
+                value: params,
+                timer: setTimeout(() => {
+                    remote_viewers.delete(params.host);
+                }, 60000),
+            };
+            remote_viewers.set(params.host, remote_viewer_entry);
         });
     });
 
@@ -239,6 +270,9 @@ export function activate(
 export function deactivate(): Thenable<void> | undefined {
     if (!client.client) {
         return undefined;
+    }
+    for (const viewer of remote_viewers.values()) {
+        clearTimeout(viewer.timer);
     }
     return client.stop();
 }

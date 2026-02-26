@@ -410,6 +410,8 @@ function startTelemetryTimer(
     }
 }
 
+const remotePreviewConnectionStringMatcher = /^(?:\[(?<ipv6>[0-9A-Fa-f:.]+)\]|(?<host>[^:\s\[\]]+)):(?<port>\d{1,5})$/;
+
 function setupRemotePreview(context: vscode.ExtensionContext) {
     const remoteViewerStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Right, 100
@@ -422,18 +424,69 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.selectRemotePreview", () => {
-            vscode.window.showInformationMessage("TODO!");
-        }),
-        // vscode.commands.registerCommand("slint.showRemotePreview", async () => {
-        //     const ae = vscode.window.activeTextEditor;
-        //     vscode.window.showInformationMessage("ae = " + ae);
-        //     if (!ae) {
-        //         return;
-        //     }
+            const picker = vscode.window.createQuickPick<vscode.QuickPickItem & Partial<common.RemoteViewerInfo>>();
+            picker.title = "Select a remote preview";
+            picker.placeholder = "Manual entry (e.g. 127.0.1:1234)";
+            picker.ignoreFocusOut = true;
 
-        //     await lsp_commands.showRemotePreview(ae.document.uri.toString(), "");
-        //     vscode.window.showInformationMessage("Please connect with your external device. " + ae.document.uri.toString());
-        // }),
+            const updateItems = () => {
+                const typed = picker.value.trim();
+                const items: (vscode.QuickPickItem & Partial<common.RemoteViewerInfo>)[] = [];
+
+                remotePreviewConnectionStringMatcher.lastIndex = 0;
+                const match = remotePreviewConnectionStringMatcher.exec(typed);
+
+                if (match) {
+                    items.push({
+                        id: 'ENTER',
+                        label: `Use typed value: ${typed}`,
+                        detail: "",
+                        alwaysShow: true,
+                        value: {
+                            addresses: [match.groups?.ipv6 ?? match.groups?.host ?? ""],
+                            port: parseInt(match.groups?.port ?? "1234"),
+                        },
+                    });
+                    items.push({ id: "sep", label: "", kind: vscode.QuickPickItemKind.Separator });
+                }
+
+                items.push(...common.remote_viewers.values());
+
+                picker.items = items;
+            };
+
+            const connect = async (item: common.RemoteViewerInfo) => {
+                lsp_commands.connectRemotePreview(item.value.addresses, item.value.port).then(() => {
+                    vscode.window.showInformationMessage("Connected to " + JSON.stringify(item.value));
+                });
+                vscode.window.showInformationMessage("Connecting...");
+
+                picker.hide();
+            };
+
+            picker.onDidAccept(() => {
+                const picked = picker.activeItems[0] ?? picker.selectedItems[0];
+                if (picked) {
+                    connect(picked as common.RemoteViewerInfo);
+                }
+            });
+
+            picker.onDidChangeSelection((items) => {
+                const picked = items[0];
+                if (picked) {
+                    connect(picked as common.RemoteViewerInfo);
+                }
+            });
+
+            picker.onDidHide(() => {
+                picker.dispose();
+            });
+
+            updateItems();
+            picker.onDidChangeValue(updateItems);
+
+            picker.show();
+        }),
         remoteViewerStatusBarItem,
     );
 }

@@ -87,7 +87,7 @@ impl lsp_types::notification::Notification for LspToPreviewMessage {
     const METHOD: &'static str = "slint/lsp_to_preview";
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {
     #[allow(dead_code)]
