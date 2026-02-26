@@ -275,16 +275,16 @@ impl BackendSelector {
             feature = "i-slint-backend-winit",
             feature = "i-slint-backend-linuxkms"
         ))]
-        if self.backend.is_none() || self.renderer.is_none() {
-            if let Ok(backend_config) = std::env::var("SLINT_BACKEND") {
-                let backend_config = backend_config.to_lowercase();
-                let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
-                if !backend.is_empty() {
-                    self.backend.get_or_insert_with(|| backend.to_owned());
-                }
-                if !renderer.is_empty() {
-                    self.renderer.get_or_insert_with(|| renderer.to_owned());
-                }
+        if (self.backend.is_none() || self.renderer.is_none())
+            && let Ok(backend_config) = std::env::var("SLINT_BACKEND")
+        {
+            let backend_config = backend_config.to_lowercase();
+            let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
+            if !backend.is_empty() {
+                self.backend.get_or_insert_with(|| backend.to_owned());
+            }
+            if !renderer.is_empty() {
+                self.renderer.get_or_insert_with(|| renderer.to_owned());
             }
         }
 

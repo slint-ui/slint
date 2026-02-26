@@ -432,7 +432,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // Slint convention (positive = clockwise).
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::RotationGesture {
                     position: self.cursor_pos,
-                    delta: -(delta as f32),
+                    delta: -delta,
                     phase: winit_touch_phase(phase),
                 });
             }
@@ -537,10 +537,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             }
         }
 
-        if event_loop.control_flow() == ControlFlow::Wait {
-            if let Some(next_timer) = corelib::platform::duration_until_next_timer_update() {
-                event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
-            }
+        if event_loop.control_flow() == ControlFlow::Wait
+            && let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
+        {
+            event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
         }
 
         if self.pumping_events_instantly {

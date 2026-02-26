@@ -117,25 +117,27 @@ impl WinitSkiaRenderer {
                         #[cfg(target_vendor = "apple")]
                         return Ok(Self::new_metal_suspended);
                         #[cfg(not(target_vendor = "apple"))]
-                        return Err(format!("Metal rendering requested but this is only supported on Apple platforms").into());
+                        return Err("Metal rendering requested but this is only supported on Apple platforms".to_string().into());
                     }
                     RequestedGraphicsAPI::Vulkan => {
                         #[cfg(feature = "renderer-skia-vulkan")]
                         return Ok(Self::new_vulkan_suspended);
                         #[cfg(not(feature = "renderer-skia-vulkan"))]
-                        return Err(format!(
+                        return Err(
                             "Vulkan rendering requested but renderer-skia-vulkan is not enabled"
-                        )
-                        .into());
+                                .to_string()
+                                .into(),
+                        );
                     }
                     RequestedGraphicsAPI::Direct3D => {
                         #[cfg(target_family = "windows")]
                         return Ok(Self::new_direct3d_suspended);
                         #[cfg(not(target_family = "windows"))]
-                        return Err(format!(
+                        return Err(
                             "Direct3D rendering requested but this is only supported on Windows"
-                        )
-                        .into());
+                                .to_string()
+                                .into(),
+                        );
                     }
                     #[cfg(feature = "unstable-wgpu-27")]
                     RequestedGraphicsAPI::WGPU27(..) => {

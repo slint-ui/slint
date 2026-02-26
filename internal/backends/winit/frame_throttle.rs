@@ -61,10 +61,8 @@ impl FrameThrottle for TimerBasedFrameThrottle {
                 if !keep_running {
                     timer.stop();
                 }
-            } else {
-                if keep_running {
-                    timer.restart();
-                }
+            } else if keep_running {
+                timer.restart();
             }
         });
     }

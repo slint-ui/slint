@@ -131,6 +131,12 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
 
+impl Default for Backend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Backend {
     pub fn new() -> Self {
         #[cfg(not(no_qt))]

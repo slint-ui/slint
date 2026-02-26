@@ -158,7 +158,7 @@ fn try_create_window_with_fallback_renderer(
     .find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
-            renderer_factory(&shared_backend_data).ok()?,
+            renderer_factory(shared_backend_data).ok()?,
             attrs.clone(),
             #[cfg(any(enable_accesskit, muda))]
             _proxy.clone(),
@@ -401,7 +401,7 @@ impl BackendBuilder {
                 renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(maybe_graphics_api)?
             }
             #[cfg(all(enable_skia_renderer, supports_opengl))]
-            (Some("skia-opengl"), maybe_graphics_api @ _) => {
+            (Some("skia-opengl"), maybe_graphics_api) => {
                 // If a graphics API was requested, double check that it's GL.
                 if let Some(api) = maybe_graphics_api {
                     i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
@@ -993,7 +993,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
                 .map(|wa| wa.self_weak.clone())
                 .ok_or_else(|| {
                     PlatformError::OtherError(
-                        format!("Slint window is not backed by a Winit window adapter").into(),
+                        "Slint window is not backed by a Winit window adapter".to_string().into(),
                     )
                 })?;
             WinitWindowAdapter::async_winit_window(adapter_weak).await
