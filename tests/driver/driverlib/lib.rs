@@ -59,39 +59,35 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
         let absolute_path = entry.into_path();
         let relative_path =
             std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
-        if let Some(filter) = &filter {
-            if !relative_path.to_str().unwrap().contains(filter) {
-                continue;
-            }
+        if let Some(filter) = &filter
+            && !relative_path.to_str().unwrap().contains(filter)
+        {
+            continue;
         }
-        if let Some(ext) = absolute_path.extension() {
-            if ext == "60" || ext == "slint" {
-                let styles_to_test: Vec<&'static str> = if relative_path.starts_with("widgets") {
-                    let style_ignores =
-                        extract_ignores(&std::fs::read_to_string(&absolute_path).unwrap())
-                            .filter_map(|ignore| {
-                                ignore.strip_prefix("style-").map(ToString::to_string)
-                            })
-                            .collect::<Vec<_>>();
+        if let Some(ext) = absolute_path.extension()
+            && (ext == "60" || ext == "slint")
+        {
+            let styles_to_test: Vec<&'static str> = if relative_path.starts_with("widgets") {
+                let style_ignores =
+                    extract_ignores(&std::fs::read_to_string(&absolute_path).unwrap())
+                        .filter_map(|ignore| ignore.strip_prefix("style-").map(ToString::to_string))
+                        .collect::<Vec<_>>();
 
-                    all_styles
-                        .iter()
-                        .filter(|available_style| {
-                            !style_ignores
-                                .iter()
-                                .any(|ignored_style| *available_style == ignored_style)
-                        })
-                        .cloned()
-                        .collect::<Vec<_>>()
-                } else {
-                    vec![""]
-                };
-                results.extend(styles_to_test.into_iter().map(|style| TestCase {
-                    absolute_path: absolute_path.clone(),
-                    relative_path: relative_path.clone(),
-                    requested_style: if style.is_empty() { None } else { Some(style) },
-                }));
-            }
+                all_styles
+                    .iter()
+                    .filter(|available_style| {
+                        !style_ignores.iter().any(|ignored_style| *available_style == ignored_style)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                vec![""]
+            };
+            results.extend(styles_to_test.into_iter().map(|style| TestCase {
+                absolute_path: absolute_path.clone(),
+                relative_path: relative_path.clone(),
+                requested_style: if style.is_empty() { None } else { Some(style) },
+            }));
         }
     }
     Ok(results)
