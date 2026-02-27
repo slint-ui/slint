@@ -1989,6 +1989,23 @@ fn generate_repeated_component(
                     }
                 })
                 .collect();
+            let static_setup = if static_count > 0 {
+                quote! {
+                    let mut statics: [sp::GridLayoutInputData; #static_count] =
+                        ::core::array::from_fn(|_| Default::default());
+                    _self.as_ref().grid_layout_input_for_repeated(new_row, &mut statics);
+                    let mut static_idx: usize = 0;
+                }
+            } else {
+                quote! {}
+            };
+            let static_finalize = if static_count > 0 {
+                quote! {
+                    let _ = static_idx; // avoid unused_assignments warning
+                }
+            } else {
+                quote! {}
+            };
 
             quote! {
                 fn grid_layout_input_data(
@@ -1997,12 +2014,10 @@ fn generate_repeated_component(
                     result: &mut [sp::GridLayoutInputData],
                 ) {
                     let _self = self;
-                    let mut statics: [sp::GridLayoutInputData; #static_count] =
-                        ::core::array::from_fn(|_| Default::default());
-                    _self.as_ref().grid_layout_input_for_repeated(new_row, &mut statics);
-                    let mut static_idx: usize = 0;
+                    #static_setup
                     let mut write_idx: usize = 0;
                     #(#fill_code)*
+                    #static_finalize
                     // Fill any remaining slots with auto-placed placeholders
                     // (Default leads to col=ROW_COL_AUTO, row=ROW_COL_AUTO, colspan=1, rowspan=1).
                     result[write_idx..].fill(Default::default());
