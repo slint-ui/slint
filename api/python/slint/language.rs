@@ -65,7 +65,7 @@ class {}(typing.NamedTuple):
 
     // Get or create the "language" submodule
     let language_mod = match m.getattr("language") {
-        Ok(existing) => existing.downcast_into::<PyModule>()?,
+        Ok(existing) => existing.cast_into::<PyModule>()?,
         Err(_) => {
             let sub = PyModule::new(py, "language")?;
             m.add("language", &sub)?;
@@ -73,7 +73,7 @@ class {}(typing.NamedTuple):
             let sys = py.import("sys")?;
             let modules = sys.getattr("modules")?;
             modules.set_item("slint.language", &sub)?;
-            sub.into_any().downcast_into::<PyModule>()?
+            sub.into_any().cast_into::<PyModule>()?
         }
     };
 
