@@ -3,6 +3,8 @@
 
 //! This pass fills the root component used_types.sub_components
 
+#![allow(clippy::mutable_key_type)] // Component identity keys intentionally wrap interior mutability
+
 use by_address::ByAddress;
 
 use crate::langtype::ElementType;

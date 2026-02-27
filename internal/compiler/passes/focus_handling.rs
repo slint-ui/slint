@@ -4,6 +4,8 @@
 //! This pass follows the forward-focus property on the root element to determine the initial focus item
 //! as well as handle the forward for `focus()` calls in code.
 
+#![allow(clippy::mutable_key_type)] // Element/NamedReference keys rely on Rc<RefCell<...>> identity semantics
+
 use std::cell::RefCell;
 use std::rc::Rc;
 

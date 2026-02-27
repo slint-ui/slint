@@ -45,6 +45,7 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
+#[allow(clippy::enum_variant_names)]
 enum SingleElementMatch {
     MatchById { id: String, root_base: Option<String> },
     MatchByTypeName(String),

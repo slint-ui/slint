@@ -238,6 +238,7 @@ struct RemoveReturnContext {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum ExpressionResult {
     /// The expression maps directly to a LLR expression
     Just(Expression),

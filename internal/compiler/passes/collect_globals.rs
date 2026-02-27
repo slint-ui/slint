@@ -3,6 +3,8 @@
 
 //! This pass fills the root component used_types.globals
 
+#![allow(clippy::mutable_key_type)] // NamedReference/Component keys intentionally use interior mutability
+
 use by_address::ByAddress;
 use smol_str::format_smolstr;
 

@@ -18,6 +18,7 @@ use crate::{fileaccess, langtype, layout, parser};
 use core::future::Future;
 use itertools::Itertools;
 
+#[allow(clippy::large_enum_variant)]
 enum LoadedDocument {
     Document(Document),
     /// A dependency of this file has changed, so we need to re-analyze it.
@@ -1227,6 +1228,7 @@ impl TypeLoader {
         }
     }
 
+    #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
@@ -1448,6 +1450,7 @@ impl TypeLoader {
     /// Load a file, and its dependency, running the full set of passes.
     ///
     /// the path must be the canonical path
+    #[allow(clippy::await_holding_refcell_ref)] // requires mutable typeloader+diag through async pass pipeline
     pub async fn load_root_file(
         &mut self,
         path: &Path,

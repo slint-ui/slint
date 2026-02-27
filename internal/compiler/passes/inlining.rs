@@ -3,6 +3,8 @@
 
 //! Inline each object_tree::Component within the main Component
 
+#![allow(clippy::mutable_key_type)] // pass uses identity-based keys backed by interior mutability
+
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
