@@ -1,0 +1,35 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface ValidInterface {
+    in-out property <int> value;
+    callback speak();
+    public function reset();
+}
+
+export component Impl {
+    in-out property <int> value: 0;
+    callback speak();
+    public function reset() {
+        self.value = 0;
+    }
+
+    @children
+}
+
+export component DerivedImplementsInterfaceImplicitly implements ValidInterface inherits Impl { }
+
+export component IncorrectImpl {
+    in-out property <float> value;
+    callback speak(string);
+    public function reset(to: float) {
+        self.value = to;
+    }
+
+    @children
+}
+
+export component DerivedImplementsInterfaceIncorrectly implements ValidInterface inherits IncorrectImpl { }
+//                                                                >             <error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'IncorrectImpl'}
+//                                                                >             <^error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'IncorrectImpl'}
+//                                                                >             <^^error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}

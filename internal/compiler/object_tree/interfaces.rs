@@ -200,6 +200,13 @@ pub(super) fn apply_implements_specifier(
         })
     {
         let lookup_result = e.lookup_property(unresolved_prop_name);
+
+        if lookup_result.property_type != Type::Invalid
+            && property_matches_interface(&lookup_result, prop_decl).is_ok()
+        {
+            continue;
+        }
+
         if let Err(message) = validate_property_declaration_for_interface(
             InterfaceUseMode::Implements,
             &lookup_result,
@@ -532,37 +539,6 @@ fn element_implements_interface(
     uses_statement: &UsesStatement,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    let property_matches_interface = |property: &PropertyLookupResult,
-                                      interface_declaration: &PropertyDeclaration|
-     -> Result<(), String> {
-        if property.property_type == Type::Invalid {
-            return Err("not found".into());
-        }
-
-        let mut errors = Vec::new();
-
-        if property.property_type != interface_declaration.property_type {
-            errors.push(format!("type: '{}'", interface_declaration.property_type));
-        }
-
-        if property.property_visibility != interface_declaration.visibility {
-            errors.push(format!("visibility: '{}'", interface_declaration.visibility));
-        }
-
-        if property.declared_pure.unwrap_or(false) != interface_declaration.pure.unwrap_or(false) {
-            errors.push(format!(
-                "purity declaration: '{}'",
-                interface_declaration.pure.unwrap_or(false)
-            ));
-        }
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(format!("expected {}", errors.into_iter().join(", ")))
-        }
-    };
-
     let mut valid = true;
     let mut check = |property_name: &SmolStr, property_declaration: &PropertyDeclaration| {
         let lookup_result = element.borrow().lookup_property(property_name);
@@ -583,6 +559,37 @@ fn element_implements_interface(
     }
 
     valid
+}
+
+/// Check that the given property matches the declaration from the interface. Emits a diagnostic if it doesn't match.
+fn property_matches_interface(
+    property: &PropertyLookupResult,
+    interface_declaration: &PropertyDeclaration,
+) -> Result<(), String> {
+    if property.property_type == Type::Invalid {
+        return Err("not found".into());
+    }
+
+    let mut errors = Vec::new();
+
+    if property.property_type != interface_declaration.property_type {
+        errors.push(format!("type: '{}'", interface_declaration.property_type));
+    }
+
+    if property.property_visibility != interface_declaration.visibility {
+        errors.push(format!("visibility: '{}'", interface_declaration.visibility));
+    }
+
+    if property.declared_pure.unwrap_or(false) != interface_declaration.pure.unwrap_or(false) {
+        errors
+            .push(format!("purity declaration: '{}'", interface_declaration.pure.unwrap_or(false)));
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("expected {}", errors.into_iter().join(", ")))
+    }
 }
 
 /// Apply the function from the interface to the element, creating a forwarding bindings to the function on the child
